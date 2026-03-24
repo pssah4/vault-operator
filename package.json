@@ -61,7 +61,7 @@
     "lodash.debounce": "^4.0.8",
     "openai": "^4.0.0",
     "p-wait-for": "^5.0.0",
-    "pdfjs-dist": "^4.4.168",
+    "pdfjs-dist": "^5.5.207",
     "pptx-automizer": "^0.8.1",
     "pptxgenjs": "^4.0.1",
     "serialize-error": "^11.0.0",
