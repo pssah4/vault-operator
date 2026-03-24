@@ -64,7 +64,7 @@
     "pdfjs-dist": "^4.4.168",
     "pptx-automizer": "^0.8.1",
     "pptxgenjs": "^4.0.1",
-    "serialize-error": "^11.0.0",
+    "serialize-error": "^13.0.1",
     "uuid": "^9.0.1",
     "vectra": "^0.12.3"
   },
