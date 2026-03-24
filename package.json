@@ -59,7 +59,7 @@
     "isomorphic-git": "^1.37.1",
     "jszip": "^3.10.1",
     "lodash.debounce": "^4.0.8",
-    "openai": "^4.0.0",
+    "openai": "^6.32.0",
     "p-wait-for": "^5.0.0",
     "pdfjs-dist": "^4.4.168",
     "pptx-automizer": "^0.8.1",
