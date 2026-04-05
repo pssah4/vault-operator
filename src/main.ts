@@ -725,6 +725,13 @@ export default class ObsidianAgentPlugin extends Plugin {
         }
 
         this.settings.activeModels = this.settings.activeModels ?? [];
+        // Migrate: Gemini models from provider 'custom' to dedicated 'gemini' provider (ADR-064)
+        for (const m of this.settings.activeModels) {
+            if (m.provider === 'custom' && /^gemini-/i.test(m.name) && m.baseUrl?.includes('generativelanguage.googleapis.com')) {
+                m.provider = 'gemini';
+                m.baseUrl = undefined;
+            }
+        }
         this.settings.webTools = this.settings.webTools ?? DEFAULT_SETTINGS.webTools;
 
         // Decrypt API keys if they were stored encrypted (ADR-019)

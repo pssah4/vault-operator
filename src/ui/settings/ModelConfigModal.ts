@@ -179,7 +179,7 @@ export class ModelConfigModal extends Modal {
         // ── Provider ─────────────────────────────────────────────────────
         const provRow = row(t('modal.modelConfig.provider'));
         const provSel = provRow.createEl('select', { cls: 'mcm-select' });
-        (this.forEmbedding ? EMBEDDING_PROVIDERS : ['anthropic', 'openai', 'github-copilot', 'kilo-gateway', 'ollama', 'lmstudio', 'openrouter', 'azure', 'custom'] as ProviderType[]).forEach((p) => {
+        (this.forEmbedding ? EMBEDDING_PROVIDERS : ['anthropic', 'openai', 'gemini', 'github-copilot', 'kilo-gateway', 'ollama', 'lmstudio', 'openrouter', 'azure', 'custom'] as ProviderType[]).forEach((p) => {
             const opt = provSel.createEl('option', { value: p, text: PROVIDER_LABELS[p] });
             if (p === this.formProvider) opt.selected = true;
         });
@@ -512,7 +512,7 @@ export class ModelConfigModal extends Modal {
         this.apiKeyRow.classList.toggle('agent-u-hidden', p === 'ollama' || p === 'lmstudio' || isCopilot || isKilo);
         if (this.copilotAuthRow) this.copilotAuthRow.classList.toggle('agent-u-hidden', !isCopilot);
         if (this.kiloAuthRow) this.kiloAuthRow.classList.toggle('agent-u-hidden', !isKilo);
-        this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'openrouter' || isCopilot || isKilo);
+        this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'gemini' || p === 'openrouter' || isCopilot || isKilo);
         if (this.apiVersionRow) this.apiVersionRow.classList.toggle('agent-u-hidden', p !== 'azure');
         if (this.ollamaBrowserRow) this.ollamaBrowserRow.classList.toggle('agent-u-hidden', p !== 'ollama');
         if (this.customBrowserRow) this.customBrowserRow.classList.toggle('agent-u-hidden', p !== 'custom' && p !== 'lmstudio');
@@ -531,7 +531,7 @@ export class ModelConfigModal extends Modal {
         // Fetch is available for embedding providers with live APIs (not azure — no list endpoint)
         const hasFetchFetch = this.forEmbedding
             ? (p === 'openai' || p === 'openrouter' || p === 'ollama' || p === 'lmstudio' || p === 'custom' || isCopilot)
-            : (p === 'anthropic' || p === 'openai' || p === 'openrouter' || p === 'lmstudio' || isCopilot || isKilo);
+            : (p === 'anthropic' || p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'lmstudio' || isCopilot || isKilo);
         if (this.suggestRow) {
             this.suggestRow.classList.toggle('agent-u-hidden', !hasStaticSuggestions && !hasFetchFetch);
             if (this.suggestSelEl) {
@@ -563,6 +563,7 @@ export class ModelConfigModal extends Modal {
             const hints: Record<string, string> = {
                 anthropic: t('modal.modelConfig.keyHint.anthropic'),
                 openai: t('modal.modelConfig.keyHint.openai'),
+                gemini: t('modal.modelConfig.keyHint.gemini'),
                 openrouter: t('modal.modelConfig.keyHint.openrouter'),
                 azure: t('modal.modelConfig.keyHint.azure'),
                 custom: t('modal.modelConfig.keyHint.local'),
@@ -688,6 +689,14 @@ export class ModelConfigModal extends Modal {
             steps.createEl('li', { text: t('guide.openai.step3') });
             steps.createEl('li', { text: t('guide.openai.step4') });
             guide.createDiv({ cls: 'mcm-guide-tip', text: t('guide.openai.tip') });
+
+        } else if (provider === 'gemini') {
+            guide.createEl('strong', { text: t('guide.gemini.heading') });
+            const steps = guide.createEl('ol', { cls: 'mcm-guide-steps' });
+            steps.createEl('li', { text: t('guide.gemini.step1') });
+            steps.createEl('li', { text: t('guide.gemini.step2') });
+            steps.createEl('li', { text: t('guide.gemini.step3') });
+            guide.createDiv({ cls: 'mcm-guide-tip', text: t('guide.gemini.tip') });
 
         } else if (provider === 'ollama') {
             guide.createEl('strong', { text: t('guide.ollama.heading') });

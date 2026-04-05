@@ -10,6 +10,7 @@ import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
+import type { IncomingMessage } from 'http';
 import { getModelContextWindow } from '../../types/model-registry';
 
 // ---------------------------------------------------------------------------
@@ -56,8 +57,81 @@ interface ToolCallAccumulator {
 // Provider
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Node.js fetch wrapper — bypasses CORS in Electron renderer (ADR-064)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a fetch-compatible function using Node.js https module.
+ * Used for providers where Electron's CORS enforcement blocks globalThis.fetch
+ * (e.g. Google's generativelanguage.googleapis.com).
+ */
+function createNodeFetch(): typeof globalThis.fetch {
+    return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const parsed = new URL(url);
+
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node.js https only available via dynamic require in Electron renderer
+        const https = require('https') as typeof import('https');
+
+        return new Promise<Response>((resolve, reject) => {
+            const headers: Record<string, string> = {};
+            if (init?.headers) {
+                if (init.headers instanceof Headers) {
+                    init.headers.forEach((v, k) => { headers[k] = v; });
+                } else if (Array.isArray(init.headers)) {
+                    for (const [k, v] of init.headers) headers[k] = v;
+                } else {
+                    Object.assign(headers, init.headers);
+                }
+            }
+
+            const req = https.request({
+                hostname: parsed.hostname,
+                port: parsed.port || 443,
+                path: parsed.pathname + parsed.search,
+                method: init?.method ?? 'GET',
+                headers,
+            }, (res: IncomingMessage) => {
+                // Convert Node.js IncomingMessage to a Web ReadableStream
+                const body = new ReadableStream<Uint8Array>({
+                    start(controller) {
+                        res.on('data', (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+                        res.on('end', () => controller.close());
+                        res.on('error', (err) => controller.error(err));
+                    },
+                    cancel() { res.destroy(); },
+                });
+
+                const responseHeaders = new Headers();
+                for (const [key, value] of Object.entries(res.headers)) {
+                    if (value) responseHeaders.set(key, Array.isArray(value) ? value.join(', ') : value);
+                }
+
+                resolve(new Response(body, {
+                    status: res.statusCode ?? 500,
+                    statusText: res.statusMessage ?? '',
+                    headers: responseHeaders,
+                }));
+            });
+
+            req.on('error', reject);
+
+            if (init?.signal) {
+                init.signal.addEventListener('abort', () => { req.destroy(); reject(new DOMException('Aborted', 'AbortError')); });
+            }
+
+            if (init?.body) {
+                req.write(typeof init.body === 'string' ? init.body : init.body);
+            }
+            req.end();
+        });
+    };
+}
+
 const DEFAULT_BASE_URLS: Record<string, string> = {
     openai: 'https://api.openai.com/v1',
+    gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
     ollama: 'http://localhost:11434/v1',
     lmstudio: 'http://localhost:1234/v1',
     openrouter: 'https://openrouter.ai/api/v1',
@@ -90,6 +164,10 @@ export class OpenAiProvider implements ApiHandler {
             baseURL,
             dangerouslyAllowBrowser: true,
             defaultHeaders,
+            // Gemini: use Node.js https to bypass CORS restrictions in Electron renderer.
+            // Obsidian's Electron renderer enforces CORS on globalThis.fetch, but Node.js
+            // https module (available via nodeIntegration) is not subject to CORS.
+            ...(config.type === 'gemini' ? { fetch: createNodeFetch() } : {}),
         });
     }
 

@@ -33,6 +33,7 @@ export function buildApiHandler(config: LLMProvider) {
         case 'kilo-gateway':
             return new KiloGatewayProvider(config);
         case 'openai':
+        case 'gemini':
         case 'ollama':
         case 'lmstudio':
         case 'openrouter':

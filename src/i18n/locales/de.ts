@@ -743,6 +743,7 @@ export const de: Translations = {
     // =========================================================================
     'provider.anthropic': 'Anthropic',
     'provider.openai': 'OpenAI',
+    'provider.gemini': 'Google Gemini',
     'provider.ollama': 'Ollama',
     'provider.lmstudio': 'LM Studio',
     'provider.openrouter': 'OpenRouter',
@@ -1156,6 +1157,7 @@ export const de: Translations = {
     // Provider API key hints
     'modal.modelConfig.keyHint.anthropic': 'Beginnt mit sk-ant-...',
     'modal.modelConfig.keyHint.openai': 'Beginnt mit sk-...',
+    'modal.modelConfig.keyHint.gemini': 'Von aistudio.google.com',
     'modal.modelConfig.keyHint.openrouter': 'Beginnt mit sk-or-...',
     'modal.modelConfig.keyHint.azure': 'Azure OpenAI API Key',
     'modal.modelConfig.keyHint.local': 'Für lokale Dienste leer lassen',
@@ -1292,6 +1294,11 @@ export const de: Translations = {
     'guide.openai.step3': 'Auf "Create new secret key" klicken und den Schlüssel sofort kopieren (er wird nicht erneut angezeigt).',
     'guide.openai.step4': 'Den Schlüssel (beginnt mit sk-...) oben in das Feld API Key einfügen.',
     'guide.openai.tip': 'Empfohlenes Modell: gpt-4o. Budget-Alternative: gpt-4o-mini.',
+    'guide.gemini.heading': 'So erhältst du den Google Gemini API Key:',
+    'guide.gemini.step1': 'Auf aistudio.google.com anmelden mit deinem Google-Konto.',
+    'guide.gemini.step2': 'Auf "Get API key" klicken und einen Schlüssel fuer dein Projekt erstellen.',
+    'guide.gemini.step3': 'Den Schlüssel kopieren und oben in das Feld API Key einfuegen.',
+    'guide.gemini.tip': 'Empfohlenes Modell: gemini-2.5-flash (schnell, kostenloses Kontingent). Fuer komplexe Aufgaben: gemini-2.5-pro.',
     'guide.ollama.heading': 'So verwendest du Ollama (läuft lokal, kostenlos):',
     'guide.ollama.step1': 'Ollama von ollama.ai installieren.',
     'guide.ollama.step2': 'Ein Terminal öffnen und ein Modell herunterladen, z.\u00A0B.: ollama pull llama3.2',

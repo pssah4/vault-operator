@@ -12,12 +12,13 @@ function getProviderLabels(): Record<string, string> {
     return {
         anthropic: t('provider.anthropic'),
         openai: t('provider.openai'),
+        gemini: t('provider.gemini'),
         ollama: t('provider.ollama'),
-        lmstudio: 'LM Studio',  // Brand name -- not translatable
+        lmstudio: t('provider.lmstudio'),
         openrouter: t('provider.openrouter'),
         azure: t('provider.azure'),
         custom: t('provider.custom'),
-        'github-copilot': 'GitHub Copilot',  // Brand name -- not translatable
+        'github-copilot': t('provider.github-copilot'),
         'kilo-gateway':   t('provider.kilo-gateway'),
     };
 }
@@ -30,6 +31,7 @@ const PROVIDER_COLORS: Record<string, string> = {
     openrouter: '#7c3aed',
     azure: '#0078d4',
     custom: '#78909c',
+    gemini: '#4285f4',
     'github-copilot': '#6e40c9',
     'kilo-gateway':   '#ff6200',
 };
@@ -58,6 +60,12 @@ const MODEL_SUGGESTIONS: Record<string, { group: string; id: string; label: stri
         { group: 'Reasoning',  id: 'o4-mini',         label: 'o4-mini' },
         { group: 'Reasoning',  id: 'o1',              label: 'o1' },
         { group: 'Codex',      id: 'codex-mini-latest', label: 'Codex Mini' },
+    ],
+    gemini: [
+        { group: 'Gemini 2.5', id: 'gemini-2.5-pro',        label: 'Gemini 2.5 Pro' },
+        { group: 'Gemini 2.5', id: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash' },
+        { group: 'Gemini 2.5', id: 'gemini-2.5-flash-lite',  label: 'Gemini 2.5 Flash-Lite' },
+        { group: 'Gemini 2.0', id: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash' },
     ],
     openrouter: [
         { group: 'Anthropic',  id: 'anthropic/claude-opus-4-6',           label: 'Claude Opus 4.6' },

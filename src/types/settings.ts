@@ -7,7 +7,7 @@
 // Adapted from Obsidian Copilot's CustomModel pattern
 // ---------------------------------------------------------------------------
 
-export type ProviderType = 'anthropic' | 'openai' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway';
+export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway';
 
 export interface CustomModel {
     /** Model identifier used in API calls (e.g. "claude-sonnet-4-5-20250929") */
@@ -45,6 +45,8 @@ export function getDefaultBaseUrlForProvider(provider: ProviderType): string | u
             return 'http://localhost:11434';
         case 'lmstudio':
             return 'http://localhost:1234';
+        case 'gemini':
+            return 'https://generativelanguage.googleapis.com/v1beta/openai';
         default:
             return undefined;
     }
@@ -163,21 +165,19 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         enabled: false,
         isBuiltIn: true,
     },
-    // Google Gemini (Free Tier — OpenAI-compatible endpoint)
+    // Google Gemini (OpenAI-compatible endpoint)
     {
         name: 'gemini-2.5-flash',
-        provider: 'custom',
-        displayName: 'Gemini 2.5 Flash (Free)',
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        provider: 'gemini',
+        displayName: 'Gemini 2.5 Flash',
         enabled: false,
         isBuiltIn: true,
         maxTokens: 8192,
     },
     {
-        name: 'gemini-2.5-flash-lite',
-        provider: 'custom',
-        displayName: 'Gemini 2.5 Flash-Lite (Free)',
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        name: 'gemini-2.5-pro',
+        provider: 'gemini',
+        displayName: 'Gemini 2.5 Pro',
         enabled: false,
         isBuiltIn: true,
         maxTokens: 8192,

@@ -133,7 +133,7 @@ export class OnboardingFlow {
         const providers: { label: string; provider: ProviderType; model: string }[] = [
             { label: t('onboarding.provider.anthropic'), provider: 'anthropic', model: 'claude-sonnet-4-5-20250929' },
             { label: t('onboarding.provider.openai'), provider: 'openai', model: 'gpt-4o' },
-            { label: t('onboarding.provider.google'), provider: 'custom', model: 'gemini-2.5-flash' },
+            { label: t('onboarding.provider.google'), provider: 'gemini', model: 'gemini-2.5-flash' },
             { label: t('onboarding.provider.openrouter'), provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet' },
         ];
 
@@ -249,7 +249,7 @@ export class OnboardingFlow {
             }
         } else {
             callbacks.addAssistantMessage(t('onboarding.test.failed'));
-            this.keyState = provider.model === 'gemini-2.5-flash' && provider.provider === 'custom'
+            this.keyState = provider.provider === 'gemini'
                 ? 'awaiting_key_free'
                 : 'awaiting_key_own';
         }
@@ -270,10 +270,7 @@ export class OnboardingFlow {
             displayName: builtIn?.displayName ?? modelName,
             apiKey,
             baseUrl: builtIn?.baseUrl
-                ?? getDefaultBaseUrlForProvider(provider)
-                ?? (provider === 'custom'
-                    ? 'https://generativelanguage.googleapis.com/v1beta/openai'
-                    : undefined),
+                ?? getDefaultBaseUrlForProvider(provider),
             enabled: true,
             isBuiltIn: builtIn?.isBuiltIn ?? false,
         };
