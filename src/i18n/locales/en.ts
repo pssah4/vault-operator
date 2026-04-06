@@ -745,13 +745,17 @@ export const en: Translations = {
     // =========================================================================
     'provider.anthropic': 'Anthropic',
     'provider.openai': 'OpenAI',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- brand name
     'provider.gemini': 'Google Gemini',
     'provider.ollama': 'Ollama',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- brand name
     'provider.lmstudio': 'LM Studio',
     'provider.openrouter': 'OpenRouter',
     'provider.azure': 'Azure OpenAI',
     'provider.custom': 'Custom',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- brand name
     'provider.github-copilot': 'GitHub Copilot',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- brand name
     'provider.kilo-gateway': 'Kilo Gateway',
 
     // =========================================================================
@@ -1296,9 +1300,9 @@ export const en: Translations = {
     'guide.openai.step3': 'Click "create new secret key" and copy it immediately (you can\'t see it again).',
     'guide.openai.step4': 'Paste the key (starts with sk-...) into the API key field above.',
     'guide.openai.tip': 'Recommended model: gpt-4o. Budget alternative: gpt-4o-mini.',
-    'guide.gemini.heading': 'How to get your Google Gemini API key:',
-    'guide.gemini.step1': 'Go to aistudio.google.com and sign in with your Google account.',
-    'guide.gemini.step2': 'Click "Get API key" and create a key for your project.',
+    'guide.gemini.heading': 'How to get your API key:',
+    'guide.gemini.step1': 'Go to aistudio.google.com and sign in with your account.',
+    'guide.gemini.step2': 'Click "get API key" and create a key for your project.',
     'guide.gemini.step3': 'Copy the key and paste it into the API key field above.',
     'guide.gemini.tip': 'Recommended model: gemini-2.5-flash (fast, free tier available). For complex tasks: gemini-2.5-pro.',
     'guide.ollama.heading': 'How to use a local model server (runs locally, no cost):',
