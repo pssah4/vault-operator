@@ -727,7 +727,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.settings.activeModels = this.settings.activeModels ?? [];
         // Migrate: Gemini models from provider 'custom' to dedicated 'gemini' provider (ADR-064)
         for (const m of this.settings.activeModels) {
-            if (m.provider === 'custom' && /^gemini-/i.test(m.name) && m.baseUrl?.includes('generativelanguage.googleapis.com')) {
+            if (m.provider === 'custom' && /^gemini-/i.test(m.name) && isGeminiApiUrl(m.baseUrl)) {
                 m.provider = 'gemini';
                 m.baseUrl = undefined;
             }
@@ -1489,5 +1489,17 @@ export default class ObsidianAgentPlugin extends Plugin {
             console.error('Tool execution test failed:', error);
             new Notice('Tool execution test failed! Check console.');
         }
+    }
+}
+
+/** Parse URL and check hostname instead of substring match (CodeQL: js/incomplete-url-substring-sanitization) */
+function isGeminiApiUrl(url: string | undefined): boolean {
+    if (!url) return false;
+    try {
+        const hostname = new URL(url).hostname;
+        return hostname === 'generativelanguage.googleapis.com'
+            || hostname.endsWith('.generativelanguage.googleapis.com');
+    } catch {
+        return false;
     }
 }
