@@ -202,7 +202,10 @@ export class AgentSidebarView extends ItemView {
             attr: { 'aria-label': t('ui.sidebar.chatHistory') },
         });
         setIcon(historyBtn.createSpan('toolbar-icon'), 'history');
-        historyBtn.addEventListener('click', () => this.historyPanel?.toggle());
+        historyBtn.addEventListener('click', () => {
+            this.ensureHistoryPanel();
+            this.historyPanel?.toggle();
+        });
 
         // New Chat button — clears conversation history
         const newChatBtn = headerRight.createEl('button', {
@@ -231,6 +234,26 @@ export class AgentSidebarView extends ItemView {
             );
             this.historyPanel.mount(chatWrapper);
         }
+    }
+
+    /**
+     * Lazy-initialize the history panel. Needed because onOpen() may run before
+     * doLoad() finishes (Obsidian restores the sidebar layout synchronously),
+     * so conversationStore can be null when buildChatContainer() first runs.
+     */
+    private ensureHistoryPanel(): void {
+        if (this.historyPanel) return;
+        const store = this.plugin.conversationStore;
+        const chatWrapper = this.chatContainer?.parentElement;
+        if (!store || !chatWrapper) return;
+        this.historyPanel = new HistoryPanel(
+            store,
+            (id) => { void this.loadConversation(id); },
+            (id) => { void this.deleteConversation(id); },
+            (convId, title) => { void this.stampChatLinkToActiveFile(convId, title); },
+            this.activeConversationId,
+        );
+        this.historyPanel.mount(chatWrapper);
     }
 
     private suggestionBanner: SuggestionBanner | null = null;

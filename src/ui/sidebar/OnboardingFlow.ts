@@ -99,7 +99,7 @@ export class OnboardingFlow {
         this.keyState = 'awaiting_key_free';
         this.selectedProvider = {
             label: 'Google (Gemini)',
-            provider: 'custom' as ProviderType,
+            provider: 'gemini' as ProviderType,
             model: 'gemini-2.5-flash',
         };
 
@@ -193,7 +193,7 @@ export class OnboardingFlow {
             this.disableButtons(btnRow);
             this.selectedProvider = {
                 label: 'Google (Gemini)',
-                provider: 'custom' as ProviderType,
+                provider: 'gemini' as ProviderType,
                 model: 'gemini-2.5-flash',
             };
             this.keyState = 'awaiting_key_free';

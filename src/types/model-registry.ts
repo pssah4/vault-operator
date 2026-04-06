@@ -128,41 +128,54 @@ export const GEMINI_MODELS: Record<string, ModelInfo> = {
         supportsStreaming: true,
         displayName: 'Gemini 2.5 Flash',
     },
+    'gemini-2.5-pro': {
+        contextWindow: 1_048_576, // 1M tokens
+        maxTokens: 8_192,
+        supportsTools: true,
+        supportsStreaming: true,
+        displayName: 'Gemini 2.5 Pro',
+    },
     'gemini-2.0-flash-exp': {
         contextWindow: 1_048_576,
         maxTokens: 8_192,
         supportsTools: true,
         supportsStreaming: true,
+        displayName: 'Gemini 2.0 Flash (Exp)',
     },
     'gemini-1.5-pro': {
         contextWindow: 2_097_152,
         maxTokens: 8_192,
         supportsTools: true,
         supportsStreaming: true,
+        displayName: 'Gemini 1.5 Pro',
     },
     'gemini-1.5-pro-002': {
         contextWindow: 2_097_152,
         maxTokens: 8_192,
         supportsTools: true,
         supportsStreaming: true,
+        displayName: 'Gemini 1.5 Pro 002',
     },
     'gemini-1.5-flash': {
         contextWindow: 1_048_576,
         maxTokens: 8_192,
         supportsTools: true,
         supportsStreaming: true,
+        displayName: 'Gemini 1.5 Flash',
     },
     'gemini-1.5-flash-002': {
         contextWindow: 1_048_576,
         maxTokens: 8_192,
         supportsTools: true,
         supportsStreaming: true,
+        displayName: 'Gemini 1.5 Flash 002',
     },
     'gemini-1.5-flash-8b': {
         contextWindow: 1_048_576,
         maxTokens: 8_192,
         supportsTools: true,
         supportsStreaming: true,
+        displayName: 'Gemini 1.5 Flash 8B',
     },
 };
 

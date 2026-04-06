@@ -397,16 +397,26 @@ async function fetchProviderModels(
     }
 
     // Gemini — OpenAI-compatible endpoint at Google
+    // Uses requestUrl directly (not the req helper) to guarantee res.json is the parsed object,
+    // not a Promise — Obsidian's RequestUrlResponsePromise.json is Promise<any>.
     if (provider === 'gemini') {
         if (!apiKey) throw new Error('API key required for Google Gemini');
-        const res = await req('https://generativelanguage.googleapis.com/v1beta/openai/models',
-            { 'Authorization': `Bearer ${apiKey}` });
+        const res = await requestUrl({
+            url: 'https://generativelanguage.googleapis.com/v1beta/openai/models',
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            throw: false,
+        });
         if (res.status === 401 || res.status === 403) throw new Error('Invalid API key');
         if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
         const data = res.json;
         return ((data.data ?? []) as ApiModelEntry[])
-            .filter((m) => /^gemini-/i.test(m.id ?? ''))
-            .map((m) => ({ id: m.id as string, label: m.id as string }))
+            .filter((m) => /gemini-/i.test(m.id ?? ''))
+            .map((m) => {
+                // Google returns IDs with "models/" prefix — strip it for OpenAI-compatible usage
+                const id = (m.id as string).replace(/^models\//, '');
+                return { id, label: (m.display_name as string) ?? id };
+            })
             .sort((a, b) => b.id.localeCompare(a.id));
     }
 
