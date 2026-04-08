@@ -2360,6 +2360,12 @@ export class AgentSidebarView extends ItemView {
         const msgEl = this.chatContainer.createDiv(`message ${role}-message`);
         const contentEl = msgEl.createDiv('message-content');
         void MarkdownRenderer.render(this.app, markdown, contentEl, '', this);
+        // Restore action buttons for history messages
+        if (role === 'assistant') {
+            this.addResponseActions(msgEl, markdown);
+        } else {
+            this.addUserMessageActions(msgEl, markdown);
+        }
         this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
     }
 
