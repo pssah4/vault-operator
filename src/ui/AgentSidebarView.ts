@@ -372,49 +372,53 @@ export class AgentSidebarView extends ItemView {
         this.updateModelButton();
         this.modelButton.addEventListener('click', (e) => this.showModelMenu(e));
 
-        // Tool picker button (ghost style) — hidden for Ask mode
-        this.toolPickerButton = toolbarLeft.createEl('button', {
-            cls: 'toolbar-button toolbar-ghost tool-picker-button',
-            attr: { 'aria-label': t('ui.sidebar.selectTools') },
+        // "+" button — context menu for adding files/notes (FEATURE-1907)
+        const plusBtn = toolbarLeft.createEl('button', {
+            cls: 'toolbar-button toolbar-ghost plus-button',
+            attr: { 'aria-label': t('ui.sidebar.addContext') },
         });
-        setIcon(this.toolPickerButton.createSpan('toolbar-icon'), 'pocket-knife');
-        this.toolPickerButton.addEventListener('click', (e) => this.toolPicker.show(e, this.toolPickerButton!, this.containerEl));
-        this.updateToolPickerButton();
-
-        // Web search toggle (globe icon) — quick toggle for webTools.enabled
-        this.webToggleButton = toolbarLeft.createEl('button', {
-            cls: 'toolbar-button toolbar-ghost web-toggle-button',
-            attr: { 'aria-label': t('ui.sidebar.toggleWebSearch') },
-        });
-        setIcon(this.webToggleButton.createSpan('toolbar-icon'), 'globe');
-        this.webToggleButton.addEventListener('click', () => { void this.toggleWebSearch(); });
-        this.updateWebToggleButton();
-
-        // Attach file button (ghost style)
-        const attachBtn = toolbarLeft.createEl('button', {
-            cls: 'toolbar-button toolbar-ghost attach-button',
-            attr: { 'aria-label': t('ui.sidebar.attachFile') },
-        });
-        setIcon(attachBtn.createSpan('toolbar-icon'), 'paperclip');
-        attachBtn.addEventListener('click', () => this.attachments.openFilePicker());
-
-        // Vault file button — inserts @ and triggers autocomplete
-        const vaultBtn = toolbarLeft.createEl('button', {
-            cls: 'toolbar-button toolbar-ghost vault-attach-button',
-            attr: { 'aria-label': t('ui.sidebar.addVaultFile') },
-        });
-        setIcon(vaultBtn.createSpan('toolbar-icon'), 'at-sign');
-        vaultBtn.addEventListener('click', () => {
-            this.vaultFilePicker.show(vaultBtn, this.containerEl);
+        setIcon(plusBtn.createSpan('toolbar-icon'), 'plus');
+        plusBtn.addEventListener('click', (e) => {
+            const menu = new Menu();
+            menu.addItem(item => item
+                .setTitle(t('ui.sidebar.attachFile'))
+                .setIcon('paperclip')
+                .onClick(() => this.attachments.openFilePicker()));
+            menu.addItem(item => item
+                .setTitle(t('ui.sidebar.addVaultFile'))
+                .setIcon('at-sign')
+                .onClick(() => this.vaultFilePicker.show(plusBtn, this.containerEl)));
+            menu.showAtMouseEvent(e as MouseEvent);
         });
 
-        // Ellipsis options menu button
+        // "..." button — tools, skills, web search (FEATURE-1907)
         const ellipsisBtn = toolbarLeft.createEl('button', {
             cls: 'toolbar-button toolbar-ghost ellipsis-button',
             attr: { 'aria-label': t('ui.sidebar.moreOptions') },
         });
         setIcon(ellipsisBtn.createSpan('toolbar-icon'), 'ellipsis');
-        ellipsisBtn.addEventListener('click', (e) => this.showOptionsMenu(e));
+        ellipsisBtn.addEventListener('click', (e) => {
+            const menu = new Menu();
+            // Tools & Skills — opens existing ToolPicker
+            menu.addItem(item => item
+                .setTitle(t('ui.sidebar.selectTools'))
+                .setIcon('pocket-knife')
+                .onClick(() => this.toolPicker.show(e, ellipsisBtn, this.containerEl)));
+            // Web search toggle
+            const webEnabled = this.plugin.settings.webTools?.enabled ?? false;
+            menu.addItem(item => item
+                .setTitle(webEnabled ? t('ui.sidebar.webSearchOn') : t('ui.sidebar.webSearchOff'))
+                .setIcon('globe')
+                .onClick(() => { void this.toggleWebSearch(); }));
+            menu.addSeparator();
+            // Original options menu items
+            this.addOptionsMenuItems(menu);
+            menu.showAtMouseEvent(e as MouseEvent);
+        });
+
+        // Keep references for backward compat (hidden, managed via "..." menu now)
+        this.toolPickerButton = ellipsisBtn;
+        this.webToggleButton = ellipsisBtn;
 
         // Feature 3: Stop button (hidden by default, shown when task is running)
         this.stopButton = toolbarRight.createEl('button', {
@@ -2513,8 +2517,8 @@ export class AgentSidebarView extends ItemView {
 
     // ── Ellipsis options menu ─────────────────────────────────────────────────
 
-    private showOptionsMenu(e: MouseEvent): void {
-        const menu = new Menu();
+    /** Add options menu items to an existing menu (used by both ellipsis and standalone). */
+    private addOptionsMenuItems(menu: Menu): void {
         const settings = this.plugin.settings;
 
         // Refresh Index (current file)
@@ -2586,6 +2590,12 @@ export class AgentSidebarView extends ItemView {
             });
         });
 
+    }
+
+    /** Show the options menu (standalone, for backward compat). */
+    private showOptionsMenu(e: MouseEvent): void {
+        const menu = new Menu();
+        this.addOptionsMenuItems(menu);
         menu.showAtMouseEvent(e);
     }
 
@@ -2939,6 +2949,53 @@ export class AgentSidebarView extends ItemView {
                 }
             })();
         });
+
+        // Synthese → Zettel (FEATURE-1904): Create note with frontmatter from synthesis
+        if (this.plugin.settings.enableSynthesisButton !== false) {
+            makeBtn('notebook-pen', t('ui.sidebar.synthesisZettel'), () => {
+                void (async () => {
+                    // Generate a title from the first line or first sentence
+                    const firstLine = responseText.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim() ?? 'Synthese';
+                    const title = firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine;
+                    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '-');
+
+                    // Build frontmatter
+                    const catProp = this.plugin.settings.categoryProperty ?? 'Kategorie';
+                    const sumProp = this.plugin.settings.summaryProperty ?? 'Zusammenfassung';
+                    const summary = firstLine.length > 25 ? firstLine.slice(0, 25).trim() + '...' : firstLine;
+
+                    const frontmatter = [
+                        '---',
+                        `${sumProp}: "${summary}"`,
+                        'Themen:',
+                        'Konzepte:',
+                        'Quellen:',
+                        'Meeting-Notizen:',
+                        'Notizen:',
+                        'Projekte:',
+                        'Personen:',
+                        `${catProp}:`,
+                        '  - Zettel',
+                        'tags:',
+                        'Permanent: false',
+                        `uid: ${crypto.randomUUID()}`,
+                        '---',
+                    ].join('\n');
+
+                    const content = `${frontmatter}\n---\n\n${responseText}`;
+
+                    try {
+                        const fileName = `Notes/${safeTitle}.md`;
+                        const file = await this.app.vault.create(fileName, content);
+                        const leaf = this.app.workspace.getLeaf(true);
+                        await leaf.openFile(file);
+                        new Notice(t('notice.zettelCreated'));
+                    } catch (e) {
+                        new Notice(t('notice.createNoteFailed', { error: (e as Error).message }));
+                    }
+                })();
+            });
+        }
 
         // Copy to clipboard
         makeBtn('copy', t('ui.sidebar.copyResponse'), () => {

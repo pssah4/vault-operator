@@ -1,5 +1,10 @@
 /* Obsidian Agent - Styles (Kilo Code Pattern) */
 
+/* Sidebar min-width: prevent buttons from being cut off (FEATURE-1907) */
+.workspace-leaf-content[data-type="obsilo-agent-sidebar"] {
+    min-width: 320px;
+}
+
 /* ── Sandbox iframe (Self-Development Phase 3) ──────────────────────── */
 .agent-sandbox-iframe {
     display: none;

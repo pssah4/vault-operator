@@ -61,9 +61,21 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
                         callbacks.log('Graph re-extracted');
                     }
                     if (this.plugin.ontologyStore) {
+                        const catProp = this.plugin.settings.categoryProperty ?? 'Kategorie';
+                        const categoryMap = new Map<string, string>();
+                        for (const file of vault.getMarkdownFiles()) {
+                            const cache = this.plugin.app.metadataCache.getFileCache(file);
+                            if (cache?.frontmatter?.[catProp]) {
+                                const cat = Array.isArray(cache.frontmatter[catProp])
+                                    ? (cache.frontmatter[catProp][0] ?? '').toString().trim()
+                                    : cache.frontmatter[catProp].toString().trim();
+                                if (cat) categoryMap.set(file.path, cat);
+                            }
+                        }
                         this.plugin.ontologyStore.bootstrapFromEdges(
                             this.plugin.settings.mocPropertyNames ?? [],
-                            this.plugin.settings.categoryProperty ?? 'Kategorie',
+                            catProp,
+                            categoryMap,
                         );
                         callbacks.log('Ontology rebuilt');
                     }

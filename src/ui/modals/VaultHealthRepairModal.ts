@@ -258,9 +258,21 @@ export class VaultHealthRepairModal extends Modal {
                 this.plugin.graphExtractor.extractAll(this.app.vault);
             }
             if (this.plugin.ontologyStore) {
+                const catProp = this.plugin.settings.categoryProperty ?? 'Kategorie';
+                const categoryMap = new Map<string, string>();
+                for (const file of this.app.vault.getMarkdownFiles()) {
+                    const cache = this.app.metadataCache.getFileCache(file);
+                    if (cache?.frontmatter?.[catProp]) {
+                        const cat = Array.isArray(cache.frontmatter[catProp])
+                            ? (cache.frontmatter[catProp][0] ?? '').toString().trim()
+                            : cache.frontmatter[catProp].toString().trim();
+                        if (cat) categoryMap.set(file.path, cat);
+                    }
+                }
                 this.plugin.ontologyStore.bootstrapFromEdges(
                     this.plugin.settings.mocPropertyNames ?? [],
-                    this.plugin.settings.categoryProperty ?? 'Kategorie',
+                    catProp,
+                    categoryMap,
                 );
             }
 

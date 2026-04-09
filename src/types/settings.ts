@@ -554,6 +554,10 @@ export interface ObsidianAgentSettings {
     /** Naming convention for source files (e.g. "Autor-Jahr_Titel"). */
     sourceNamingConvention: string;
 
+    // Synthese → Zettel (FEATURE-1904)
+    /** Show "Synthese → Zettel" button on agent messages to save responses as Zettel notes. */
+    enableSynthesisButton: boolean;
+
     // Vault Health Check (FEATURE-1901)
     /** Enable automatic vault health check on startup (orphaned notes, missing links, inconsistencies). */
     enableVaultHealthCheck: boolean;
@@ -845,6 +849,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     categoryProperty: 'Kategorie',
     summaryProperty: 'Zusammenfassung',
     sourceNamingConvention: 'Autor-Jahr_Titel',
+    enableSynthesisButton: true,
     enableVaultHealthCheck: true,
     enableReranking: true,
     rerankCandidates: 20,
