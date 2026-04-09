@@ -15,6 +15,7 @@ import { handleReadNotes } from './readNotes';
 import { handleWriteVault } from './writeVault';
 import { handleSyncSession } from './syncSession';
 import { handleUpdateMemory } from './updateMemory';
+import { handleExecuteVaultOp } from './executeVaultOp';
 import { buildPrompts } from '../prompts/systemContext';
 
 type McpHandler = (plugin: ObsidianAgentPlugin, args: Record<string, unknown>) => Promise<McpToolResult>;
@@ -24,6 +25,7 @@ const handlers = new Map<string, McpHandler>([
     ['search_vault', handleSearchVault],
     ['read_notes', handleReadNotes],
     ['write_vault', handleWriteVault],
+    ['execute_vault_op', handleExecuteVaultOp],
     ['sync_session', handleSyncSession],
     ['update_memory', handleUpdateMemory],
 ]);

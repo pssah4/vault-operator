@@ -32,8 +32,8 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
                 properties: {
                     action: {
                         type: 'string',
-                        enum: ['check', 'fix_backlinks', 'refresh'],
-                        description: 'Action to perform. "check" (default): run health checks. "fix_backlinks": automatically fix all missing backlinks in one batch (no LLM cost, pure code). "refresh": re-extract graph + ontology before checking.',
+                        enum: ['check', 'fix_backlinks', 'cleanup', 'refresh'],
+                        description: 'Action to perform. "check" (default): run health checks. "fix_backlinks": fix missing backlinks (Bases for Thema/Konzept, frontmatter for others). "cleanup": remove invalid/broken backlinks from frontmatter + clear Notizen for Thema/Konzept (Bases handle those). "refresh": re-extract graph + ontology before checking.',
                     },
                 },
             },
@@ -76,15 +76,33 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
 
             } else if (action === 'fix_backlinks') {
                 // Batch-fix all missing backlinks in pure code (0 LLM tokens)
+                // Uses Base-strategy: Thema/Konzept get embedded Base, others get frontmatter (max 10)
                 const result = await healthService.fixMissingBacklinks(
-                    this.plugin.settings.categoryProperty ? 'Notizen' : 'Notizen',
+                    'Notizen',
+                    this.plugin.settings.categoryProperty ?? 'Kategorie',
                 );
                 callbacks.pushToolResult(
-                    `Missing backlinks fixed: ${result.entitiesFixed} entities updated, ${result.linksAdded} backlinks added.\n` +
-                    `All changes have checkpoints and are reversible via Undo.\n` +
-                    `Run vault_health_check with action "refresh" to see updated findings.`,
+                    `Missing backlinks fixed: ${result.entitiesFixed} entities updated, ` +
+                    `${result.linksAdded} frontmatter backlinks, ${result.basesCreated} embedded Bases created.\n` +
+                    `Strategy: Thema/Konzept notes get dynamic Base views, others get frontmatter links (max 10).\n` +
+                    `All changes are reversible via Undo. Run vault_health_check with action "refresh" to verify.`,
                 );
                 callbacks.log(`fix_backlinks: ${result.entitiesFixed} entities, ${result.linksAdded} links`);
+
+            } else if (action === 'cleanup') {
+                // Remove invalid backlinks from frontmatter (non-.md, broken, duplicates)
+                // Also clears Notizen for Thema/Konzept notes (Bases handle those)
+                const result = await healthService.cleanupInvalidBacklinks(
+                    'Notizen',
+                    this.plugin.settings.categoryProperty ?? 'Kategorie',
+                );
+                callbacks.pushToolResult(
+                    `Cleanup complete: ${result.notesProcessed} notes processed, ${result.linksRemoved} invalid links removed.\n` +
+                    `Thema/Konzept notes: Notizen property cleared (Bases handle backlinks).\n` +
+                    `Other notes: non-.md links and duplicates removed.\n` +
+                    `All changes are reversible via Undo.`,
+                );
+                callbacks.log(`cleanup: ${result.notesProcessed} notes, ${result.linksRemoved} removed`);
             }
         } catch (error) {
             callbacks.pushToolResult(this.formatError(error));

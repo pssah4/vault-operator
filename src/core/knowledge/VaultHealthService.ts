@@ -411,13 +411,29 @@ export class VaultHealthService {
      *
      * @returns Number of entities updated and total backlinks added
      */
-    async fixMissingBacklinks(backlinksProperty = 'Notizen'): Promise<{ entitiesFixed: number; linksAdded: number }> {
+    /**
+     * Fix missing backlinks using a two-tier strategy:
+     *
+     * - **Thema/Konzept notes**: Create an embedded Base (.base file) that dynamically
+     *   shows all notes linking to this entity. No frontmatter changes needed.
+     * - **Other categories (Person, Projekt, etc.)**: Add backlinks to frontmatter,
+     *   but only up to MAX_FRONTMATTER_BACKLINKS. If exceeded, create a Base instead.
+     *
+     * This avoids overloading hub notes with hundreds of frontmatter entries.
+     */
+    async fixMissingBacklinks(
+        backlinksProperty = 'Notizen',
+        categoryProperty = 'Kategorie',
+    ): Promise<{ entitiesFixed: number; linksAdded: number; basesCreated: number }> {
         const db = this.getDB();
         let entitiesFixed = 0;
         let linksAdded = 0;
+        let basesCreated = 0;
+
+        const MAX_FRONTMATTER_BACKLINKS = 10;
+        const BASE_CATEGORIES = new Set(['Thema', 'Konzept', 'Topic', 'Concept']);
 
         // Find all one-directional frontmatter edges: A->B exists but B->A does not
-        // Only consider .md files (skip attachments, PDFs, images)
         const result = db.exec(
             `SELECT e1.target_path, e1.source_path, e1.property_name
              FROM edges e1
@@ -434,57 +450,73 @@ export class VaultHealthService {
         );
 
         if (result.length === 0 || result[0].values.length === 0) {
-            return { entitiesFixed: 0, linksAdded: 0 };
+            return { entitiesFixed: 0, linksAdded: 0, basesCreated: 0 };
         }
 
         // Group by target entity
-        const missingByTarget = new Map<string, string[]>();
+        const missingByTarget = new Map<string, { sources: string[]; properties: Set<string> }>();
         for (const row of result[0].values) {
             const target = row[0] as string;
             const source = row[1] as string;
-            const existing = missingByTarget.get(target) ?? [];
-            existing.push(source);
+            const prop = row[2] as string;
+            const existing = missingByTarget.get(target) ?? { sources: [], properties: new Set() };
+            existing.sources.push(source);
+            existing.properties.add(prop);
             missingByTarget.set(target, existing);
         }
 
-        // Process each entity
-        for (const [targetPath, sourcePaths] of missingByTarget) {
+        for (const [targetPath, { sources, properties }] of missingByTarget) {
             if (this.cancelled) break;
 
             const file = this.app.vault.getAbstractFileByPath(targetPath);
             if (!(file instanceof TFile)) continue;
 
             try {
-                await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-                    // Get existing backlinks array
-                    const existing = fm[backlinksProperty];
-                    const currentLinks: string[] = Array.isArray(existing)
-                        ? existing.map(String)
-                        : (typeof existing === 'string' && existing.trim()) ? [existing] : [];
+                // Determine category of the target note
+                const cache = this.app.metadataCache.getFileCache(file);
+                const category = this.getNoteCategory(cache, categoryProperty);
+                const useBase = BASE_CATEGORIES.has(category) || sources.length > MAX_FRONTMATTER_BACKLINKS;
 
-                    // Normalize existing links for comparison
-                    const normalized = new Set(currentLinks.map(l =>
-                        l.replace(/^\[\[/, '').replace(/\]\]$/, '').trim(),
-                    ));
-
-                    // Add missing backlinks
-                    let added = 0;
-                    for (const sourcePath of sourcePaths) {
-                        const sourceNormalized = sourcePath.replace(/\.md$/, '');
-                        if (!normalized.has(sourcePath) && !normalized.has(sourceNormalized)) {
-                            currentLinks.push(`[[${sourceNormalized}]]`);
-                            added++;
+                if (useBase) {
+                    // Create/update an embedded Base for this entity
+                    const created = await this.ensureBacklinksBase(file, properties);
+                    if (created) basesCreated++;
+                    // Clear the frontmatter Notizen property -- the Base handles it now
+                    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                        const existing = fm[backlinksProperty];
+                        if (Array.isArray(existing) && existing.length > 0) {
+                            fm[backlinksProperty] = null;
                         }
-                    }
+                    });
+                } else {
+                    // Add to frontmatter property (small number of backlinks)
+                    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                        const existing = fm[backlinksProperty];
+                        const currentLinks: string[] = Array.isArray(existing)
+                            ? existing.map(String)
+                            : (typeof existing === 'string' && existing.trim()) ? [existing] : [];
 
-                    if (added > 0) {
-                        fm[backlinksProperty] = currentLinks;
-                        linksAdded += added;
-                    }
-                });
+                        const normalized = new Set(currentLinks.map(l =>
+                            l.replace(/^\[\[/, '').replace(/\]\]$/, '').trim(),
+                        ));
+
+                        let added = 0;
+                        for (const sourcePath of sources) {
+                            const sourceNormalized = sourcePath.replace(/\.md$/, '');
+                            if (!normalized.has(sourcePath) && !normalized.has(sourceNormalized)) {
+                                currentLinks.push(`[[${sourceNormalized}]]`);
+                                added++;
+                            }
+                        }
+
+                        if (added > 0) {
+                            fm[backlinksProperty] = currentLinks;
+                            linksAdded += added;
+                        }
+                    });
+                }
                 entitiesFixed++;
 
-                // Yield every 10 entities to prevent UI freeze
                 if (entitiesFixed % 10 === 0) {
                     await new Promise<void>(r => setTimeout(r, 0));
                 }
@@ -493,8 +525,185 @@ export class VaultHealthService {
             }
         }
 
-        console.debug(`[VaultHealth] fixMissingBacklinks: ${entitiesFixed} entities, ${linksAdded} links added`);
-        return { entitiesFixed, linksAdded };
+        console.debug(`[VaultHealth] fixMissingBacklinks: ${entitiesFixed} entities, ${linksAdded} frontmatter links, ${basesCreated} bases created`);
+        return { entitiesFixed, linksAdded, basesCreated };
+    }
+
+    /**
+     * Clean up invalid backlinks from frontmatter Notizen properties.
+     * Removes links that:
+     * - Point to non-.md files (PDFs, images, external URLs)
+     * - Point to notes that don't exist in the vault
+     * - Are duplicates
+     *
+     * Also clears Notizen property for Thema/Konzept notes (Bases handle those).
+     */
+    async cleanupInvalidBacklinks(
+        backlinksProperty = 'Notizen',
+        categoryProperty = 'Kategorie',
+    ): Promise<{ notesProcessed: number; linksRemoved: number }> {
+        const BASE_CATEGORIES = new Set(['Thema', 'Konzept', 'Topic', 'Concept']);
+        let notesProcessed = 0;
+        let linksRemoved = 0;
+
+        const allFiles = this.app.vault.getMarkdownFiles();
+
+        for (const file of allFiles) {
+            if (this.cancelled) break;
+
+            const cache = this.app.metadataCache.getFileCache(file);
+            if (!cache?.frontmatter) continue;
+
+            const existing = cache.frontmatter[backlinksProperty];
+            if (!existing || (Array.isArray(existing) && existing.length === 0)) continue;
+
+            const category = this.getNoteCategory(cache, categoryProperty);
+
+            // For Thema/Konzept: clear the whole property (Base handles it)
+            if (BASE_CATEGORIES.has(category)) {
+                const items = Array.isArray(existing) ? existing : [existing];
+                if (items.length > 0 && items.some((i: unknown) => typeof i === 'string' && i.toString().trim())) {
+                    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                        const old = fm[backlinksProperty];
+                        if (Array.isArray(old) && old.length > 0) {
+                            linksRemoved += old.length;
+                            fm[backlinksProperty] = null;
+                        }
+                    });
+                    notesProcessed++;
+                }
+                continue;
+            }
+
+            // For other categories: remove invalid links, keep valid ones
+            const items: string[] = Array.isArray(existing)
+                ? existing.map(String)
+                : [String(existing)];
+
+            if (items.length === 0) continue;
+
+            const validLinks: string[] = [];
+            const seen = new Set<string>();
+            let removedFromThis = 0;
+
+            for (const link of items) {
+                const cleaned = link.replace(/^\[\[/, '').replace(/\]\]$/, '').trim();
+                if (!cleaned) { removedFromThis++; continue; }
+
+                // Skip duplicates
+                if (seen.has(cleaned)) { removedFromThis++; continue; }
+                seen.add(cleaned);
+
+                // Check if the target exists as .md or .canvas in the vault
+                const isValidExt = (p: string) => p.endsWith('.md') || p.endsWith('.canvas');
+                const targetPath = cleaned.endsWith('.md') ? cleaned : `${cleaned}.md`;
+                const resolvedPath = this.app.metadataCache.getFirstLinkpathDest(cleaned, file.path);
+
+                if (resolvedPath && isValidExt(resolvedPath.path)) {
+                    validLinks.push(link); // Keep valid .md/.canvas links
+                } else if (!resolvedPath) {
+                    // Try direct path lookup
+                    const directFile = this.app.vault.getAbstractFileByPath(targetPath)
+                        ?? this.app.vault.getAbstractFileByPath(`Notes/${targetPath}`)
+                        ?? this.app.vault.getAbstractFileByPath(cleaned.endsWith('.canvas') ? cleaned : `${cleaned}.canvas`);
+                    if (directFile instanceof TFile && isValidExt(directFile.path)) {
+                        validLinks.push(link);
+                    } else {
+                        removedFromThis++;
+                    }
+                } else {
+                    removedFromThis++; // Non-.md/.canvas target
+                }
+            }
+
+            if (removedFromThis > 0) {
+                await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                    fm[backlinksProperty] = validLinks.length > 0 ? validLinks : null;
+                });
+                linksRemoved += removedFromThis;
+                notesProcessed++;
+            }
+
+            if (notesProcessed % 20 === 0) {
+                await new Promise<void>(r => setTimeout(r, 0));
+            }
+        }
+
+        console.debug(`[VaultHealth] cleanupInvalidBacklinks: ${notesProcessed} notes, ${linksRemoved} links removed`);
+        return { notesProcessed, linksRemoved };
+    }
+
+    /** Get the Kategorie value from a note's frontmatter cache. */
+    private getNoteCategory(cache: ReturnType<typeof this.app.metadataCache.getFileCache>, categoryProperty: string): string {
+        if (!cache?.frontmatter) return '';
+        const cat = cache.frontmatter[categoryProperty];
+        if (Array.isArray(cat)) return (cat[0] ?? '').toString().trim();
+        return (cat ?? '').toString().trim();
+    }
+
+    /**
+     * Create a .base file for a hub note that dynamically shows all notes
+     * linking to it via MOC properties. Embeds the base in the note body
+     * if not already embedded.
+     */
+    private async ensureBacklinksBase(file: TFile, linkProperties: Set<string>): Promise<boolean> {
+        const noteName = file.basename;
+        const noteDir = file.parent?.path ?? '';
+        const basePath = noteDir ? `${noteDir}/${noteName}-Backlinks.base` : `${noteName}-Backlinks.base`;
+
+        // Skip if base already exists
+        if (this.app.vault.getAbstractFileByPath(basePath)) {
+            // But ensure it's embedded in the note
+            await this.ensureBaseEmbed(file, basePath);
+            return false;
+        }
+
+        // Build filter: match any MOC property that contains this note name
+        const filterProps = [...linkProperties];
+        const primaryProp = filterProps[0] ?? 'Themen';
+
+        const yaml = [
+            'views:',
+            '  - type: table',
+            `    name: Verlinkte Notizen`,
+            '    filters:',
+            '      and:',
+            `        - ${primaryProp}.containsAny("${noteName}")`,
+            '    order:',
+            '      - file.name',
+            `      - ${primaryProp}`,
+            '      - Kategorie',
+            '    rowHeight: medium',
+            '',
+        ].join('\n');
+
+        // Create the base file
+        const dir = basePath.includes('/') ? basePath.split('/').slice(0, -1).join('/') : null;
+        if (dir) {
+            await this.app.vault.createFolder(dir).catch(() => { /* exists */ });
+        }
+        await this.app.vault.create(basePath, yaml);
+
+        // Embed the base in the note body
+        await this.ensureBaseEmbed(file, basePath);
+
+        console.debug(`[VaultHealth] Created backlinks base: ${basePath}`);
+        return true;
+    }
+
+    /** Ensure a base file is embedded in the note body via ![[...base]]. */
+    private async ensureBaseEmbed(file: TFile, basePath: string): Promise<void> {
+        const content = await this.app.vault.read(file);
+        const embedLink = `![[${basePath.replace(/\.base$/, '').split('/').pop()}-Backlinks.base]]`;
+        const baseFileName = basePath.split('/').pop() ?? basePath;
+        const embedLinkSimple = `![[${baseFileName}]]`;
+
+        // Check if already embedded (any format)
+        if (content.includes(embedLinkSimple) || content.includes(embedLink)) return;
+
+        // Append embed at the end of the note
+        const separator = content.endsWith('\n') ? '\n' : '\n\n';
+        await this.app.vault.modify(file, content + separator + `## Verlinkte Notizen\n\n${embedLinkSimple}\n`);
     }
 
     // -----------------------------------------------------------------------

@@ -126,5 +126,9 @@ Wenn die Note eine **Quelle** ist (PDF, Webclip, Buch-Zusammenfassung):
 4. **Keywords/Tags**: 5-10 Stueck, deutsch + englisch, Bindestrich-Schreibweise (max 2 Woerter verbunden)
 5. **Themen**: Restriktiv -- wenige starke Hub-Themen, nicht fuer jede Nuance ein neues Thema
 6. **Stub-Notes**: Inhaltlich angereichert mit Erklaerung und Aspekten, NICHT leer
-7. **Sprache**: Properties und Inhalte in der Sprache des bestehenden Vault
-8. **Bestaetigung**: Alle Aenderungen MUESSEN vom User bestaetigt werden bevor sie geschrieben werden
+7. **Thema vs. Konzept**: Wenn du eine neue Entitaet erstellen musst, unterscheide:
+   - **Thema** = Wissensgebiet, Fachbereich. Man kann darin navigieren und entdecken. Beispiele: Philosophie, Agentic AI, Organisationsentwicklung
+   - **Konzept** = Idee, Prinzip, Modell. Man kann es in 2-3 Saetzen erklaeren. Beispiele: Kategorischer Imperativ, MCP Protocol, Zettelkasten-Methode
+   - Im Zweifel: Frage den User ob Thema oder Konzept
+8. **Sprache**: Properties und Inhalte in der Sprache des bestehenden Vault
+9. **Bestaetigung**: Alle Aenderungen MUESSEN vom User bestaetigt werden bevor sie geschrieben werden

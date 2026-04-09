@@ -69,11 +69,13 @@ export class GraphExtractor {
         const edges: Edge[] = [];
 
         // 1. Body Wikilinks: cache.links contains all [[wikilinks]] in the note body
+        // Only .md and .canvas files are valid graph edges (skip PDFs, images, Outlook/Teams links)
         if (cache.links) {
             for (const lc of cache.links) {
                 const resolved = this.app.metadataCache.getFirstLinkpathDest(lc.link, file.path);
                 if (!resolved) continue; // broken link — skip
                 if (resolved.path === file.path) continue; // self-link — skip
+                if (!resolved.path.endsWith('.md') && !resolved.path.endsWith('.canvas')) continue; // non-note — skip
                 edges.push({
                     targetPath: resolved.path,
                     linkType: 'body',
@@ -90,6 +92,7 @@ export class GraphExtractor {
                 const links = this.parseWikilinksFromFrontmatter(value, file.path);
                 for (const targetPath of links) {
                     if (targetPath === file.path) continue; // self-link — skip
+                    if (!targetPath.endsWith('.md') && !targetPath.endsWith('.canvas')) continue; // non-note — skip
                     edges.push({
                         targetPath,
                         linkType: 'frontmatter',
