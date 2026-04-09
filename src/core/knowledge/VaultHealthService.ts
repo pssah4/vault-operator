@@ -9,6 +9,8 @@
  * FEATURE-1901: Vault Health Check
  */
 
+import { TFile } from 'obsidian';
+import type { App } from 'obsidian';
 import type { KnowledgeDB, SqlJsDatabase } from './KnowledgeDB';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +36,7 @@ export interface HealthFinding {
 // ---------------------------------------------------------------------------
 
 export class VaultHealthService {
+    private app: App;
     private knowledgeDB: KnowledgeDB;
     private findings: HealthFinding[] = [];
     private running = false;
@@ -41,7 +44,8 @@ export class VaultHealthService {
     /** Callback to notify UI of updated findings (e.g. badge refresh). */
     onFindingsUpdated: ((findings: HealthFinding[]) => void) | null = null;
 
-    constructor(knowledgeDB: KnowledgeDB) {
+    constructor(app: App, knowledgeDB: KnowledgeDB) {
+        this.app = app;
         this.knowledgeDB = knowledgeDB;
     }
 
@@ -126,7 +130,10 @@ export class VaultHealthService {
         this.cancelled = true;
     }
 
-    /** Format findings as compact markdown for the agent (stays under externalization threshold). */
+    /**
+     * Format findings as ultra-compact summary for the agent.
+     * MUST stay under 2000 chars to avoid context externalization (ADR-063).
+     */
     formatFindings(findings?: HealthFinding[]): string {
         const f = findings ?? this.findings;
         if (f.length === 0) return 'Vault health check: No issues found.';
@@ -138,83 +145,33 @@ export class VaultHealthService {
             grouped.set(finding.check, existing);
         }
 
-        const lines: string[] = [
-            `Vault Health Check: ${f.length} finding(s)`,
-            '',
-        ];
-
-        // Compact summary per check type -- max 5 examples each
-        const MAX_EXAMPLES = 5;
+        const lines: string[] = [`Vault Health: ${f.length} finding(s)`];
 
         for (const [check, checkFindings] of grouped) {
             const totalPaths = checkFindings.reduce((sum, cf) => sum + cf.paths.length, 0);
             const severity = checkFindings[0].severity;
 
             switch (check) {
-                case 'orphans': {
-                    lines.push(`### Orphaned Notes [${severity}] -- ${totalPaths} note(s)`);
-                    lines.push('Notes not linked from any other note. Fix: add backlinks from EXISTING entities.');
-                    // Show first few with their context
-                    for (const cf of checkFindings.slice(0, 1)) {
-                        const examples = cf.paths.slice(0, MAX_EXAMPLES);
-                        for (const p of examples) lines.push(`- ${p}`);
-                        if (cf.paths.length > MAX_EXAMPLES) lines.push(`- ... +${cf.paths.length - MAX_EXAMPLES} more`);
-                    }
+                case 'orphans':
+                    lines.push(`- Orphans [${severity}]: ${totalPaths} notes without incoming links`);
                     break;
-                }
-                case 'missing_backlinks': {
-                    const count = checkFindings.length;
-                    lines.push(`### Missing Backlinks [${severity}] -- ${count} entity/entities`);
-                    lines.push('Notes link TO these entities via MOC properties, but the entity does not link back.');
-                    for (const cf of checkFindings.slice(0, MAX_EXAMPLES)) {
-                        const target = cf.paths[0];
-                        const sourceCount = cf.paths.length - 1;
-                        lines.push(`- [[${target}]] -- ${sourceCount} incoming link(s) without backlink`);
-                    }
-                    if (count > MAX_EXAMPLES) lines.push(`- ... +${count - MAX_EXAMPLES} more`);
+                case 'missing_backlinks':
+                    lines.push(`- Missing Backlinks [${severity}]: ${checkFindings.length} entities not linking back`);
                     break;
-                }
-                case 'broken_links': {
-                    const count = checkFindings.length;
-                    lines.push(`### Broken Links [${severity}] -- ${count} target(s)`);
-                    lines.push('Wikilinks pointing to notes that do not exist.');
-                    for (const cf of checkFindings.slice(0, MAX_EXAMPLES)) {
-                        const target = cf.paths[0];
-                        const sourceCount = cf.paths.length - 1;
-                        lines.push(`- [[${target}]] -- referenced from ${sourceCount} note(s)`);
-                    }
-                    if (count > MAX_EXAMPLES) lines.push(`- ... +${count - MAX_EXAMPLES} more`);
+                case 'broken_links':
+                    lines.push(`- Broken Links [${severity}]: ${checkFindings.length} targets don't exist`);
                     break;
-                }
-                case 'weak_clusters': {
-                    const count = checkFindings.length;
-                    lines.push(`### Weak Clusters [${severity}] -- ${count} pair(s)`);
-                    lines.push('Semantically similar notes without explicit links.');
-                    for (const cf of checkFindings.slice(0, MAX_EXAMPLES)) {
-                        lines.push(`- ${cf.description}`);
-                    }
-                    if (count > MAX_EXAMPLES) lines.push(`- ... +${count - MAX_EXAMPLES} more`);
+                case 'weak_clusters':
+                    lines.push(`- Weak Clusters [${severity}]: ${checkFindings.length} similar-but-unlinked pairs`);
                     break;
-                }
-                case 'inconsistent_tags': {
-                    const count = checkFindings.length;
-                    lines.push(`### Inconsistent Tags [${severity}] -- ${count} pair(s)`);
-                    for (const cf of checkFindings.slice(0, MAX_EXAMPLES)) {
-                        lines.push(`- ${cf.description}`);
-                    }
-                    if (count > MAX_EXAMPLES) lines.push(`- ... +${count - MAX_EXAMPLES} more`);
+                case 'inconsistent_tags':
+                    lines.push(`- Inconsistent Tags [${severity}]: ${checkFindings.length} spelling variants`);
                     break;
-                }
             }
-            lines.push('');
         }
 
-        lines.push(`## Fix Rules
-- ALWAYS use EXISTING entities. Use semantic_search to find matching topics/concepts before creating new ones.
-- Add backlinks via update_frontmatter to EXISTING cluster hubs. Do NOT create new entities for things that already exist.
-- In batch mode: apply mechanical fixes (backlinks, tags) autonomously. Ask only for real decisions (broken links, isolated orphans).
-- In interactive mode: present fixes for confirmation before writing.
-- All changes are reversible via checkpoint rollback (Undo-Bar).`);
+        lines.push('');
+        lines.push('Use EXISTING entities. In batch: fix autonomously. In interactive: ask first. All reversible via Undo.');
 
         return lines.join('\n');
     }
@@ -350,11 +307,13 @@ export class VaultHealthService {
     }
 
     private checkBrokenLinks(db: SqlJsDatabase): void {
+        // Only consider .md targets as broken links (skip attachments, PDFs, images, external refs)
         const result = db.exec(
             `SELECT DISTINCT source_path, target_path FROM edges
-             WHERE target_path NOT IN (
-                 SELECT DISTINCT path FROM vectors WHERE chunk_index = 0
-             )
+             WHERE target_path LIKE '%.md'
+               AND target_path NOT IN (
+                   SELECT DISTINCT path FROM vectors WHERE chunk_index = 0
+               )
              LIMIT 50`,
         );
         if (result.length === 0 || result[0].values.length === 0) return;
@@ -367,6 +326,8 @@ export class VaultHealthService {
         // Group by target (the broken link destination)
         const byTarget = new Map<string, string[]>();
         for (const p of pairs) {
+            // Skip targets that look like external references or non-vault paths
+            if (p.target.includes('://') || p.target.startsWith('http')) continue;
             const existing = byTarget.get(p.target) ?? [];
             existing.push(p.source);
             byTarget.set(p.target, existing);
@@ -434,6 +395,106 @@ export class VaultHealthService {
                 description: `Tags "#${tag1}" and "#${tag2}" differ only in capitalization -- consider unifying`,
             });
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Batch fix operations (run in code, no LLM calls)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Fix missing backlinks in batch. For each entity that is referenced via MOC
+     * properties but doesn't link back, adds the source notes to the entity's
+     * "Notizen" (or equivalent) frontmatter property.
+     *
+     * Runs entirely in code -- 0 LLM tokens. Uses Obsidian's processFrontMatter
+     * which is atomic and preserves existing frontmatter.
+     *
+     * @returns Number of entities updated and total backlinks added
+     */
+    async fixMissingBacklinks(backlinksProperty = 'Notizen'): Promise<{ entitiesFixed: number; linksAdded: number }> {
+        const db = this.getDB();
+        let entitiesFixed = 0;
+        let linksAdded = 0;
+
+        // Find all one-directional frontmatter edges: A->B exists but B->A does not
+        // Only consider .md files (skip attachments, PDFs, images)
+        const result = db.exec(
+            `SELECT e1.target_path, e1.source_path, e1.property_name
+             FROM edges e1
+             WHERE e1.link_type = 'frontmatter'
+               AND e1.target_path LIKE '%.md'
+               AND e1.source_path LIKE '%.md'
+               AND NOT EXISTS (
+                   SELECT 1 FROM edges e2
+                   WHERE e2.source_path = e1.target_path
+                     AND e2.target_path = e1.source_path
+                     AND e2.link_type = 'frontmatter'
+               )
+             ORDER BY e1.target_path`,
+        );
+
+        if (result.length === 0 || result[0].values.length === 0) {
+            return { entitiesFixed: 0, linksAdded: 0 };
+        }
+
+        // Group by target entity
+        const missingByTarget = new Map<string, string[]>();
+        for (const row of result[0].values) {
+            const target = row[0] as string;
+            const source = row[1] as string;
+            const existing = missingByTarget.get(target) ?? [];
+            existing.push(source);
+            missingByTarget.set(target, existing);
+        }
+
+        // Process each entity
+        for (const [targetPath, sourcePaths] of missingByTarget) {
+            if (this.cancelled) break;
+
+            const file = this.app.vault.getAbstractFileByPath(targetPath);
+            if (!(file instanceof TFile)) continue;
+
+            try {
+                await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                    // Get existing backlinks array
+                    const existing = fm[backlinksProperty];
+                    const currentLinks: string[] = Array.isArray(existing)
+                        ? existing.map(String)
+                        : (typeof existing === 'string' && existing.trim()) ? [existing] : [];
+
+                    // Normalize existing links for comparison
+                    const normalized = new Set(currentLinks.map(l =>
+                        l.replace(/^\[\[/, '').replace(/\]\]$/, '').trim(),
+                    ));
+
+                    // Add missing backlinks
+                    let added = 0;
+                    for (const sourcePath of sourcePaths) {
+                        const sourceNormalized = sourcePath.replace(/\.md$/, '');
+                        if (!normalized.has(sourcePath) && !normalized.has(sourceNormalized)) {
+                            currentLinks.push(`[[${sourceNormalized}]]`);
+                            added++;
+                        }
+                    }
+
+                    if (added > 0) {
+                        fm[backlinksProperty] = currentLinks;
+                        linksAdded += added;
+                    }
+                });
+                entitiesFixed++;
+
+                // Yield every 10 entities to prevent UI freeze
+                if (entitiesFixed % 10 === 0) {
+                    await new Promise<void>(r => setTimeout(r, 0));
+                }
+            } catch (e) {
+                console.warn(`[VaultHealth] Failed to fix backlinks for ${targetPath}:`, e);
+            }
+        }
+
+        console.debug(`[VaultHealth] fixMissingBacklinks: ${entitiesFixed} entities, ${linksAdded} links added`);
+        return { entitiesFixed, linksAdded };
     }
 
     // -----------------------------------------------------------------------

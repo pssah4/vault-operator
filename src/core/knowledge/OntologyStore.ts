@@ -191,7 +191,7 @@ export class OntologyStore {
      *
      * Runs without LLM -- pure DB queries. 0 token cost.
      */
-    bootstrapFromEdges(mocPropertyNames: string[]): { clusters: number; entries: number } {
+    bootstrapFromEdges(mocPropertyNames: string[], categoryProperty = 'Kategorie'): { clusters: number; entries: number } {
         if (mocPropertyNames.length === 0) return { clusters: 0, entries: 0 };
 
         const db = this.getDB();
@@ -216,6 +216,57 @@ export class OntologyStore {
             return { clusters: 0, entries: 0 };
         }
 
+        // Determine which notes are structural entities (Thema, Konzept, Person, Projekt)
+        // vs. content notes (Quelle, Notiz, Zettel). Only structural entities become hubs.
+        // Content notes that are heavily referenced are still just "members", not hubs.
+        const hubCategories = new Set(['Thema', 'Konzept', 'Person', 'Projekt',
+            'Topic', 'Concept', 'Person', 'Project']); // DE + EN
+        const targetPaths = new Set<string>();
+        for (const row of result[0].values) {
+            targetPaths.add(row[1] as string);
+        }
+
+        // Check which targets have a hub-eligible category via their frontmatter edges
+        // We use the tags table as proxy: if a note has tag matching a hub category
+        // OR we check edges for a "Kategorie" property pointing to a hub category
+        const hubEligible = new Set<string>();
+        if (targetPaths.size > 0) {
+            const targetList = [...targetPaths];
+            const targetPlaceholders = targetList.map(() => '?').join(',');
+
+            // Check category via edges (some vaults store Kategorie as frontmatter array)
+            const catResult = db.exec(
+                `SELECT DISTINCT source_path, target_path FROM edges
+                 WHERE link_type = 'frontmatter'
+                   AND property_name = ?
+                   AND source_path IN (${targetPlaceholders})`,
+                [categoryProperty, ...targetList],
+            );
+
+            if (catResult.length > 0) {
+                for (const row of catResult[0].values) {
+                    const notePath = row[0] as string;
+                    const category = (row[1] as string).replace(/\.md$/, '').split('/').pop() ?? '';
+                    if (hubCategories.has(category)) {
+                        hubEligible.add(notePath);
+                    }
+                }
+            }
+
+            // Fallback: if no category edges found, check if path contains hub-like folder names
+            if (hubEligible.size === 0) {
+                for (const p of targetPaths) {
+                    const folder = p.split('/')[0]?.toLowerCase() ?? '';
+                    if (folder.includes('thema') || folder.includes('themen') ||
+                        folder.includes('konzept') || folder.includes('concept') ||
+                        folder.includes('topic') || folder.includes('person') ||
+                        folder.includes('projekt') || folder.includes('project')) {
+                        hubEligible.add(p);
+                    }
+                }
+            }
+        }
+
         const now = new Date().toISOString();
         const stmt = db.prepare(
             'INSERT OR IGNORE INTO ontology (entity_path, cluster, role, confidence, source, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -228,15 +279,18 @@ export class OntologyStore {
             const sourcePath = row[0] as string;
             const targetPath = row[1] as string;
 
-            // The target (e.g. "Topics/AI.md") is the cluster identifier and a hub
+            // Only .md files can be cluster members
+            if (!sourcePath.endsWith('.md') || !targetPath.endsWith('.md')) continue;
+
             const cluster = targetPath;
             clusters.add(cluster);
 
-            // Target note is the hub of this cluster
-            stmt.run([targetPath, cluster, 'hub', 1.0, 'moc', now]);
+            // Target note role: hub only if it has a hub-eligible category, otherwise member
+            const role = hubEligible.has(targetPath) ? 'hub' : 'member';
+            stmt.run([targetPath, cluster, role, 1.0, 'moc', now]);
             entries++;
 
-            // Source note is a member of this cluster
+            // Source note is always a member of this cluster
             stmt.run([sourcePath, cluster, 'member', 1.0, 'moc', now]);
             entries++;
         }
@@ -244,7 +298,8 @@ export class OntologyStore {
         stmt.free();
         this.knowledgeDB.markDirty();
 
-        console.debug(`[OntologyStore] Bootstrap complete: ${clusters.size} clusters, ${entries} entries`);
+        const hubCount = hubEligible.size;
+        console.debug(`[OntologyStore] Bootstrap complete: ${clusters.size} clusters (${hubCount} hubs), ${entries} entries`);
         return { clusters: clusters.size, entries };
     }
 

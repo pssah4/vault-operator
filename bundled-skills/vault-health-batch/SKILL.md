@@ -32,35 +32,18 @@ Alle Aenderungen sind per Undo-Bar reversibel (Checkpoints werden automatisch er
 
 ## Phase 2: BATCH-FIX
 
-Arbeite die Typen in dieser Reihenfolge ab. Pro Typ: Batch von 10 Fixes, dann eine Statuszeile.
+Arbeite die Typen in dieser Reihenfolge ab.
 
-### 2a: Missing Backlinks (AUTONOM)
+### 2a: Missing Backlinks + Orphans mit Kontext (EIN TOOL-CALL)
 
-Das sind Entitaeten die von anderen Notes via MOC-Properties referenziert werden aber nicht zurueckverlinken.
-
-Vorgehen:
-1. Die Finding-Daten zeigen: `[[Target]] -- N incoming link(s) without backlink`
-2. Lies die Target-Note mit `read_file`
-3. Pruefe welche MOC-Property passend ist (Notizen, Konzepte, Themen etc.)
-4. Setze den Backlink via `update_frontmatter` auf der Target-Note
-5. KEIN Fragen -- das ist ein mechanischer Fix
-
-Statusmeldung nach jedem Batch: `[10/25] Missing Backlinks gefixt.`
-
-### 2b: Orphaned Notes MIT Kontext (AUTONOM)
-
-Das sind Notes die ausgehende MOC-Links haben (sie verlinken AUF Themen/Konzepte) aber von nichts zurueckverlinkt werden.
+Das sind mechanische Fixes: Entitaeten die referenziert werden aber nicht zurueckverlinken.
 
 Vorgehen:
-1. Die Finding-Daten zeigen: `Note X (links to: Themen: [[Thema Y]])`
-2. Das bedeutet: Note X gehoert zu Thema Y, aber Thema Y listet Note X nicht
-3. Lies die Thema-Y-Note mit `read_file`
-4. Ergaenze den Backlink via `update_frontmatter` auf Thema Y (z.B. `Notizen: [[Note X]]`)
-5. KEIN Fragen -- der Kontext ist klar
+1. Rufe `vault_health_check` mit `action: "fix_backlinks"` auf
+2. Das Tool fixt ALLE fehlenden Backlinks in einem Batch (rein in Code, 0 LLM-Kosten)
+3. Zeige dem User das Ergebnis: "X Entities aktualisiert, Y Backlinks hinzugefuegt"
 
-WICHTIG: Nutze IMMER die BESTEHENDE Entitaet. Erstelle KEINE neuen Themen oder Konzepte.
-
-Statusmeldung nach jedem Batch: `[30/197] Orphan-Backlinks eingetragen.`
+KEIN read_file, KEIN update_frontmatter, KEIN Sub-Agent. EIN Tool-Call erledigt alles.
 
 ### 2c: Inconsistent Tags (AUTONOM)
 
@@ -119,9 +102,13 @@ Vorgehen:
 3. Schlage dem User vor: "Soll ich [[A]] und [[B]] verlinken?"
 4. Warte auf Bestaetigung
 
-## Phase 3: ABSCHLUSS
+## Phase 3: REFRESH + ABSCHLUSS
 
-Gib eine kompakte Zusammenfassung:
+Nach allen Fixes: Rufe `vault_health_check` mit `refresh: true` auf.
+Das re-extrahiert den Graph und rebuildet die Ontologie, damit die Findings
+den aktuellen Vault-Zustand zeigen (nicht den veralteten Stand von vor den Fixes).
+
+Dann gib eine kompakte Zusammenfassung:
 ```
 Vault Health Batch abgeschlossen:
 - X Missing Backlinks gefixt
@@ -129,6 +116,7 @@ Vault Health Batch abgeschlossen:
 - Z Tags vereinheitlicht
 - N Broken Links: [Status]
 - M isolierte Orphans: [Status]
+- Verbleibende Findings nach Refresh: N
 
 Alle Aenderungen sind per Undo-Bar (oben im Chat) reversibel.
 ```

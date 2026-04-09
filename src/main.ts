@@ -431,6 +431,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.app.workspace.onLayoutReady(() => {
                     const result = this.ontologyStore?.bootstrapFromEdges(
                         this.settings.mocPropertyNames ?? [],
+                        this.settings.categoryProperty ?? 'Kategorie',
                     );
                     if (result) {
                         console.debug(`[Ontology] Bootstrap: ${result.clusters} clusters, ${result.entries} entries`);
@@ -440,7 +441,7 @@ export default class ObsidianAgentPlugin extends Plugin {
 
             // Vault Health Check (FEATURE-1901): background lint on startup
             if ((this.settings.enableVaultHealthCheck ?? true) && this.knowledgeDB) {
-                this.vaultHealthService = new VaultHealthService(this.knowledgeDB);
+                this.vaultHealthService = new VaultHealthService(this.app, this.knowledgeDB);
                 this.app.workspace.onLayoutReady(() => {
                     void this.vaultHealthService?.runChecks().then(() => {
                         // Update badge in sidebar view after health check completes
