@@ -1226,6 +1226,17 @@ export class SemanticIndexService {
 
             const { parseDocument } = await import('../document-parsers/parseDocument');
             const result = await parseDocument(buffer.buffer, extension);
+
+            // OCR fallback for scanned PDFs (FEATURE-1905):
+            // If pdfjs-dist found no text, try text-extractor plugin (Tesseract OCR)
+            if (extension === 'pdf' && (!result.text || result.text.includes('No extractable text found'))) {
+                const ocrText = await this.extractImageText(filePath);
+                if (ocrText && ocrText.length > 10) {
+                    console.debug(`[SemanticIndex] PDF OCR fallback for ${filePath}: ${ocrText.length} chars`);
+                    return ocrText;
+                }
+            }
+
             return result.text;
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : String(e);
