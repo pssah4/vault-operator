@@ -876,8 +876,7 @@ export const en: Translations = {
     'ui.sidebar.currentFile': 'Current',
     'ui.sidebar.insertAtCursor': 'Insert at cursor',
     'ui.sidebar.createNote': 'Create note from response',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- Zettel is a proper noun (Zettelkasten method)
-    'ui.sidebar.synthesisZettel': 'Save as Zettel (with frontmatter)',
+    'ui.sidebar.synthesisZettel': 'Create synthesis note',
     'ui.sidebar.copyResponse': 'Copy response',
     'ui.sidebar.regenerate': 'Regenerate response',
     'ui.sidebar.deleteResponse': 'Delete response',
@@ -1011,7 +1010,7 @@ export const en: Translations = {
     'notice.noOpenNote': 'No open note found \u2014 open a note in the editor first.',
     'notice.copiedToClipboard': 'Copied to clipboard',
     'notice.createNoteFailed': 'Could not create note: {{error}}',
-    'notice.zettelCreated': 'Zettel created -- edit frontmatter to add topics and concepts',
+    'notice.zettelCreated': 'Synthesis note created',
     'notice.noActiveFile': 'No active file',
     'notice.semanticDisabled': 'Semantic index is disabled',
     'notice.indexRefreshed': 'Index refreshed for current file',

@@ -186,10 +186,10 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     write_file: {
         group: 'edit', label: 'Write File', icon: 'file-plus',
         signature: 'write_file(path, content)',
-        description: 'Create a new file or completely replace an existing file\'s content. Use for new files or full rewrites.',
-        example: 'write_file("Projects/summary.md", "# Summary\\n\\nKey findings...")',
-        whenToUse: 'For new files or complete rewrites. For targeted edits, prefer edit_file.',
-        commonMistakes: 'Overwriting an existing file without reading it first — always read_file before replacing.',
+        description: 'Create a new file or completely replace an existing file\'s content. Use for new files or full rewrites. For PDF/document ingest, use ingest_document instead (it appends the original text automatically).',
+        example: 'write_file("Inbox/summary.md", "# Summary\\n\\nKey findings...")',
+        whenToUse: 'For new files or complete rewrites. For targeted edits, prefer edit_file. For PDF/document ingest, use ingest_document.',
+        commonMistakes: 'Using write_file for PDF/document ingest — use ingest_document instead (it appends the full original text automatically, bypassing token limits). Overwriting an existing file without reading it first.',
     },
     edit_file: {
         group: 'edit', label: 'Edit File', icon: 'file-pen',
@@ -316,6 +316,15 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         example: 'create_docx("Documents/report.docx", [{"heading":"Introduction","body":"Main text..."}])',
         whenToUse: 'For creating Word documents. Never use write_file or evaluate_expression for .docx.',
         commonMistakes: 'Using write_file or evaluate_expression for .docx -- always use create_docx instead.',
+        qualityGate: true,
+    },
+    ingest_document: {
+        group: 'edit', label: 'Ingest document', icon: 'file-input',
+        signature: 'ingest_document(output_path, header_content, source_path?, attachment_index?)',
+        description: 'Create a Markdown source note from a PDF/Office document. You write the frontmatter + overview, the tool appends the full original text automatically.',
+        example: 'ingest_document("Notes/Webb-2026_Report.md", "---\\nKategorie: Quelle\\n---\\n## Ueberblick\\n...", "Attachements/report.pdf")',
+        whenToUse: 'For converting PDFs and Office documents into Markdown source notes. Bypasses output token limits by appending the full document text programmatically.',
+        commonMistakes: 'Using write_file for PDF ingest (hits token limit for long documents). Not providing source_path or attachment_index.',
         qualityGate: true,
     },
     create_xlsx: {

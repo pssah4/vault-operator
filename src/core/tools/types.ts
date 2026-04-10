@@ -42,6 +42,8 @@ export type ToolName =
     | 'create_pptx'
     | 'create_docx'
     | 'create_xlsx'
+    // Vault: document ingest
+    | 'ingest_document'
     // Web
     | 'web_fetch'
     | 'web_search'

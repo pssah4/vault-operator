@@ -346,9 +346,22 @@ export class AgentSidebarView extends ItemView {
         inputWrapper.addEventListener('drop', (e: DragEvent) => {
             e.preventDefault();
             inputWrapper.removeClass('drag-over');
+
+            // OS file drop (external drag from Finder/Explorer)
             const files = e.dataTransfer?.files;
-            if (files) {
+            if (files && files.length > 0) {
                 for (const file of Array.from(files)) void this.attachments.processFile(file);
+                return;
+            }
+
+            // Obsidian internal drag (from file explorer / search results)
+            // Obsidian passes the vault-relative path as plain text
+            const textData = e.dataTransfer?.getData('text/plain');
+            if (textData) {
+                const vaultFile = this.app.vault.getAbstractFileByPath(textData);
+                if (vaultFile instanceof TFile) {
+                    void this.attachments.addVaultFile(vaultFile);
+                }
             }
         });
 
@@ -1284,6 +1297,27 @@ export class AgentSidebarView extends ItemView {
             // Update existing tracker with current model's context window
             this.contextTracker.updateContextWindow(contextWindow, maxTokens);
         }
+
+        // Pass parsed document texts to IngestDocumentTool so it can write them
+        // programmatically (bypassing LLM output token limits for long PDFs)
+        try {
+            const ingestTool = this.plugin.toolRegistry.getTool('ingest_document');
+            if (ingestTool && 'setAttachmentTexts' in ingestTool) {
+                const docTexts: string[] = [];
+                for (const att of attachments) {
+                    if (att.block.type !== 'text') continue;
+                    const text = (att.block as { text: string }).text;
+                    if (!text.startsWith('<attached_document')) continue;
+                    // Extract content between tags using indexOf (no regex on large text)
+                    const startTag = text.indexOf('>\n');
+                    const endTag = text.lastIndexOf('\n</attached_document>');
+                    if (startTag > 0 && endTag > startTag) {
+                        docTexts.push(text.slice(startTag + 2, endTag));
+                    }
+                }
+                (ingestTool as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
+            }
+        } catch { /* non-critical -- ingest_document will fall back to source_path */ }
 
         const task = new AgentTask(
             resolvedApiHandler,
@@ -2322,7 +2356,10 @@ export class AgentSidebarView extends ItemView {
                 if (msg.role === 'user') {
                     this.addUserMessage(msg.text);
                 } else {
-                    this.renderMarkdownMessage(msg.text, 'assistant');
+                    const msgEl = this.renderMarkdownMessage(msg.text, 'assistant');
+                    if (msgEl) {
+                        this.addResponseActions(msgEl, msg.text);
+                    }
                 }
             }
         }
@@ -2407,12 +2444,13 @@ export class AgentSidebarView extends ItemView {
     /**
      * Feature 2: Render markdown into a new assistant message (for static messages)
      */
-    private renderMarkdownMessage(markdown: string, role: 'assistant' | 'user'): void {
-        if (!this.chatContainer) return;
+    private renderMarkdownMessage(markdown: string, role: 'assistant' | 'user'): HTMLElement | null {
+        if (!this.chatContainer) return null;
         const msgEl = this.chatContainer.createDiv(`message ${role}-message`);
         const contentEl = msgEl.createDiv('message-content');
         void MarkdownRenderer.render(this.app, markdown, contentEl, '', this);
         this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        return msgEl;
     }
 
     private addUserMessage(text: string, attachments: AttachmentItem[] = [], activeFile?: TFile | null): void {
@@ -2950,50 +2988,17 @@ export class AgentSidebarView extends ItemView {
             })();
         });
 
-        // Synthese → Zettel (FEATURE-1904): Create note with frontmatter from synthesis
+        // Synthesis note: Agent summarizes the chat and creates a connected note
         if (this.plugin.settings.enableSynthesisButton !== false) {
             makeBtn('notebook-pen', t('ui.sidebar.synthesisZettel'), () => {
-                void (async () => {
-                    // Generate a title from the first line or first sentence
-                    const firstLine = responseText.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim() ?? 'Synthese';
-                    const title = firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine;
-                    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '-');
-
-                    // Build frontmatter
-                    const catProp = this.plugin.settings.categoryProperty ?? 'Kategorie';
-                    const sumProp = this.plugin.settings.summaryProperty ?? 'Zusammenfassung';
-                    const summary = firstLine.length > 25 ? firstLine.slice(0, 25).trim() + '...' : firstLine;
-
-                    const frontmatter = [
-                        '---',
-                        `${sumProp}: "${summary}"`,
-                        'Themen:',
-                        'Konzepte:',
-                        'Quellen:',
-                        'Meeting-Notizen:',
-                        'Notizen:',
-                        'Projekte:',
-                        'Personen:',
-                        `${catProp}:`,
-                        '  - Zettel',
-                        'tags:',
-                        'Permanent: false',
-                        `uid: ${crypto.randomUUID()}`,
-                        '---',
-                    ].join('\n');
-
-                    const content = `${frontmatter}\n---\n\n${responseText}`;
-
-                    try {
-                        const fileName = `Notes/${safeTitle}.md`;
-                        const file = await this.app.vault.create(fileName, content);
-                        const leaf = this.app.workspace.getLeaf(true);
-                        await leaf.openFile(file);
-                        new Notice(t('notice.zettelCreated'));
-                    } catch (e) {
-                        new Notice(t('notice.createNoteFailed', { error: (e as Error).message }));
-                    }
-                })();
+                this.sendProgrammaticMessage(
+                    'Erstelle eine Synthese-Note aus diesem Chat. ' +
+                    'Fasse die wichtigsten Erkenntnisse, Entscheidungen und Ergebnisse zusammen. ' +
+                    'Erstelle die Note mit vollstaendigem Frontmatter (Zusammenfassung, Themen, Konzepte, Tags, Kategorie: Zettel) ' +
+                    'und vernetze sie mit bestehenden Notes im Vault. ' +
+                    'Speichere die Note in Inbox/. Oeffne die Note nach dem Erstellen.',
+                    true, // hidden: user bubble not shown
+                );
             });
         }
 

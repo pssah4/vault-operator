@@ -4,6 +4,11 @@
  * Runs in fake-worker mode (no Web Worker) for Obsidian/Electron compatibility.
  * Returns empty text for encrypted, image-only, or unreadable PDFs.
  *
+ * IMPORTANT: Importing pdfjs-dist/build/pdf.worker.mjs sets globalThis.pdfjsWorker
+ * as an irreversible side effect. Obsidian ships its own PDF.js (v5.x) and detects
+ * this stale v4.x worker, causing "API version does not match Worker version".
+ * We save/restore globalThis.pdfjsWorker around every usage to prevent this.
+ *
  * Refactored from SemanticIndexService.extractPdfText().
  */
 
@@ -29,46 +34,60 @@ export async function parsePdf(data: ArrayBuffer): Promise<ParseResult> {
         };
     };
 
+    // Save global state that pdfjs-dist pollutes on import.
+    // Obsidian's own PDF viewer (v5.x) breaks if it finds our v4.x worker here.
+    const savedPdfjsWorker = (globalThis as Record<string, unknown>).pdfjsWorker;
+    const savedWorkerSrc = pdfjsLib.GlobalWorkerOptions?.workerSrc;
+
     // Disable the web worker — pdfjs falls back to in-process (fake-worker) mode.
-    // In Electron renderer, isNodeJS is false so pdfjs tries to spawn a real Worker.
-    // Setting workerSrc to empty string AND importing the worker module directly
-    // triggers the fake-worker fallback (mainThreadWorkerMessageHandler).
     if (pdfjsLib.GlobalWorkerOptions) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = '';
     }
     // Force fake-worker: import worker module so pdfjs detects it on main thread.
     await import('pdfjs-dist/build/pdf.worker.mjs');
 
-    const loadingTask = pdfjsLib.getDocument({
-        data: new Uint8Array(data),
-        useWorkerFetch: false,
-    });
-    const pdf = await loadingTask.promise;
+    try {
+        const loadingTask = pdfjsLib.getDocument({
+            data: new Uint8Array(data),
+            useWorkerFetch: false,
+        });
+        const pdf = await loadingTask.promise;
 
-    const parts: string[] = [];
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const content = await page.getTextContent();
-        const pageText = content.items
-            .map((item: { str?: string }) => (item.str ?? ''))
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        if (pageText) {
-            parts.push(`## Page ${pageNum}\n\n${pageText}`);
+        const parts: string[] = [];
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const content = await page.getTextContent();
+            const pageText = content.items
+                .map((item: { str?: string }) => (item.str ?? ''))
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (pageText) {
+                parts.push(`## Page ${pageNum}\n\n${pageText}`);
+            }
+        }
+
+        const text = parts.length > 0
+            ? parts.join('\n\n')
+            : '(No extractable text found — this PDF may be image-based/scanned.)';
+
+        return {
+            text,
+            images: [],
+            metadata: {
+                format: 'pdf',
+                pageCount: pdf.numPages,
+            },
+        };
+    } finally {
+        // Restore Obsidian's global state so its PDF viewer keeps working.
+        if (savedPdfjsWorker === undefined) {
+            delete (globalThis as Record<string, unknown>).pdfjsWorker;
+        } else {
+            (globalThis as Record<string, unknown>).pdfjsWorker = savedPdfjsWorker;
+        }
+        if (pdfjsLib.GlobalWorkerOptions && savedWorkerSrc !== undefined) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = savedWorkerSrc;
         }
     }
-
-    const text = parts.length > 0
-        ? parts.join('\n\n')
-        : '(No extractable text found — this PDF may be image-based/scanned.)';
-
-    return {
-        text,
-        images: [],
-        metadata: {
-            format: 'pdf',
-            pageCount: pdf.numPages,
-        },
-    };
 }

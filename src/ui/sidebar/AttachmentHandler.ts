@@ -117,13 +117,17 @@ export class AttachmentHandler {
                 }
 
                 const vaultPathAttr = resolvedVaultPath ? ` vault_path="${resolvedVaultPath}"` : '';
+                // Include OS file path for external files (e.g. OneDrive PDFs)
+                // so the agent can reference the original location in frontmatter
+                const osPath = (file as unknown as { path?: string }).path;
+                const sourcePathAttr = !resolvedVaultPath && osPath ? ` source_path="${osPath}"` : '';
                 const item: AttachmentItem = {
                     name: displayName,
                     extension: ext,
                     vaultPath: resolvedVaultPath,
                     block: {
                         type: 'text',
-                        text: `<attached_document name="${displayName}" format="${ext}"${vaultPathAttr}${result.metadata.pageCount ? ` pages="${result.metadata.pageCount}"` : ''}>\n${result.text}\n</attached_document>`,
+                        text: `<attached_document name="${displayName}" format="${ext}"${vaultPathAttr}${sourcePathAttr}${result.metadata.pageCount ? ` pages="${result.metadata.pageCount}"` : ''}>\n${result.text}\n</attached_document>`,
                     },
                 };
 

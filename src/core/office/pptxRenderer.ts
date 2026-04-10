@@ -231,6 +231,10 @@ async function renderPdfToImages(pdfData: Buffer): Promise<RenderedSlide[]> {
         };
     };
 
+    // Save global state — see PdfParser.ts for full explanation.
+    const savedPdfjsWorker = (globalThis as Record<string, unknown>).pdfjsWorker;
+    const savedWorkerSrc = pdfjsLib.GlobalWorkerOptions?.workerSrc;
+
     // Disable web worker — fake-worker fallback
     if (pdfjsLib.GlobalWorkerOptions) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = '';
@@ -243,39 +247,51 @@ async function renderPdfToImages(pdfData: Buffer): Promise<RenderedSlide[]> {
     });
     const pdf = await loadingTask.promise;
 
-    const slides: RenderedSlide[] = [];
+    try {
+        const slides: RenderedSlide[] = [];
 
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: RENDER_SCALE });
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: RENDER_SCALE });
 
-        // Create canvas for rendering
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
+            // Create canvas for rendering
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                page.cleanup();
+                continue;
+            }
+
+            // Render page to canvas
+            await page.render({
+                canvasContext: ctx,
+                viewport,
+            }).promise;
+
+            // Export canvas as PNG base64
+            const dataUrl = canvas.toDataURL('image/png');
+            const base64 = dataUrl.split(',')[1] ?? '';
+
+            if (base64) {
+                slides.push({ slideNumber: pageNum, base64 });
+            }
+
             page.cleanup();
-            continue;
         }
 
-        // Render page to canvas
-        await page.render({
-            canvasContext: ctx,
-            viewport,
-        }).promise;
-
-        // Export canvas as PNG base64
-        const dataUrl = canvas.toDataURL('image/png');
-        const base64 = dataUrl.split(',')[1] ?? '';
-
-        if (base64) {
-            slides.push({ slideNumber: pageNum, base64 });
+        pdf.destroy();
+        return slides;
+    } finally {
+        // Restore Obsidian's global state so its PDF viewer keeps working.
+        if (savedPdfjsWorker === undefined) {
+            delete (globalThis as Record<string, unknown>).pdfjsWorker;
+        } else {
+            (globalThis as Record<string, unknown>).pdfjsWorker = savedPdfjsWorker;
         }
-
-        page.cleanup();
+        if (pdfjsLib.GlobalWorkerOptions && savedWorkerSrc !== undefined) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = savedWorkerSrc;
+        }
     }
-
-    pdf.destroy();
-    return slides;
 }
