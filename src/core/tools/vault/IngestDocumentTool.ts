@@ -127,6 +127,9 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
             if (!documentText || documentText.trim().length < 50) {
                 throw new Error('Document text is empty or too short. The document may not contain extractable text.');
             }
+            if (documentText.startsWith('[ERROR:')) {
+                throw new Error(documentText);
+            }
 
             // Clean up the document text
             const cleanedText = this.cleanDocumentText(documentText);

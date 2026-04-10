@@ -1303,13 +1303,11 @@ export class AgentSidebarView extends ItemView {
         try {
             const docTexts = this.attachments.getFullDocTexts();
             if (docTexts.length > 0) {
-                const ingestTool = this.plugin.toolRegistry.getTool('ingest_document');
-                if (ingestTool && 'setAttachmentTexts' in ingestTool) {
-                    (ingestTool as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
-                }
-                const readDocTool = this.plugin.toolRegistry.getTool('read_document');
-                if (readDocTool && 'setAttachmentTexts' in readDocTool) {
-                    (readDocTool as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
+                for (const toolName of ['ingest_document', 'read_document'] as const) {
+                    const tool = this.plugin.toolRegistry.getTool(toolName);
+                    if (tool && typeof (tool as unknown as Record<string, unknown>).setAttachmentTexts === 'function') {
+                        (tool as unknown as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
+                    }
                 }
             }
         } catch { /* non-critical -- tools will fall back to source_path */ }

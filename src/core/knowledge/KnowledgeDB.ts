@@ -7,6 +7,12 @@
  *   - local:         {vault}/.obsidian-agent/knowledge.db  (vault.adapter)
  *   - obsidian-sync: {vault}/{pluginDir}/knowledge.db      (vault.adapter)
  *
+ * Durability (FIX-12): sql.js has no WAL/journal -- persistence is full-blob
+ * export/import. To prevent corruption from crashes or iCloud sync conflicts:
+ *   - Atomic write: write .tmp → rotate current → .bak → rename .tmp → current
+ *   - Integrity check on open: test query detects corrupt B-tree
+ *   - Auto-recovery: try .bak first, then fresh DB as last resort
+ *
  * ADR-050: SQLite Knowledge DB
  * FEATURE-1500: SQLite Knowledge DB
  */
@@ -178,15 +184,29 @@ export class KnowledgeDB {
 
         this.SQL = await initSqlJs({ wasmBinary: wasmBinary.buffer });
 
-        // Try to load existing DB
+        // Clean up stale .tmp files from interrupted writes
+        await this.cleanupTmp();
+
+        // Try to load existing DB with integrity check + auto-recovery
         const data = await this.readDB();
         if (data) {
-            this.db = new this.SQL.Database(data);
-            this.migrateSchema();
-        } else {
-            this.db = new this.SQL.Database();
-            this.initSchema();
+            if (this.tryLoadWithIntegrityCheck(data)) return;
+
+            // Primary DB corrupt -- try backup recovery
+            console.warn('[KnowledgeDB] Primary DB corrupt, attempting backup recovery...');
+            const backupData = await this.readBackup();
+            if (backupData && this.tryLoadWithIntegrityCheck(backupData)) {
+                console.warn('[KnowledgeDB] Recovered from backup');
+                this.markDirty(); // save recovered state as new primary
+                return;
+            }
+
+            // Both corrupt -- fresh DB
+            console.warn('[KnowledgeDB] Backup recovery failed, creating fresh database');
         }
+
+        this.db = new this.SQL.Database();
+        this.initSchema();
     }
 
     /** Get the raw sql.js Database instance for direct queries. */
@@ -240,9 +260,13 @@ export class KnowledgeDB {
         try {
             if (this.storageLocation === 'global') {
                 await fs.promises.unlink(this.absolutePath).catch(() => { /* non-fatal */ });
+                await fs.promises.unlink(this.absolutePath + '.bak').catch(() => { /* non-fatal */ });
             } else {
-                const exists = await this.vault.adapter.exists(this.vaultRelativePath);
-                if (exists) await this.vault.adapter.remove(this.vaultRelativePath);
+                for (const suffix of ['', '.bak']) {
+                    const p = this.vaultRelativePath + suffix;
+                    const exists = await this.vault.adapter.exists(p);
+                    if (exists) await this.vault.adapter.remove(p);
+                }
             }
         } catch { /* non-fatal */ }
     }
@@ -314,41 +338,145 @@ export class KnowledgeDB {
     }
 
     // -----------------------------------------------------------------------
-    // Private: Persistence (Fallback chain)
+    // Private: Integrity Check + Recovery
     // -----------------------------------------------------------------------
 
+    /**
+     * Try to load a DB from raw data, run integrity check + schema migration.
+     * Returns true if the DB is healthy and assigned to this.db.
+     * Returns false if the data is corrupt (this.db remains null).
+     */
+    private tryLoadWithIntegrityCheck(data: Uint8Array): boolean {
+        if (!this.SQL) return false;
+        let candidate: SqlJsDatabase | null = null;
+        try {
+            candidate = new this.SQL.Database(data);
+            // Integrity check: test queries that touch the B-tree
+            candidate.exec('SELECT count(*) FROM schema_meta');
+            candidate.exec('SELECT count(*) FROM vectors');
+            // DB is healthy -- assign and migrate
+            this.db = candidate;
+            this.migrateSchema();
+            return true;
+        } catch {
+            // Corrupt -- clean up
+            try { candidate?.close(); } catch { /* ignore */ }
+            this.db = null;
+            return false;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Private: Persistence (Atomic write with backup)
+    // -----------------------------------------------------------------------
+
+    /** Allowed suffixes for DB file variants. */
+    private static readonly ALLOWED_SUFFIXES = new Set(['', '.bak', '.tmp']);
+
     private async readDB(): Promise<Uint8Array | null> {
+        return this.readFile('');
+    }
+
+    private async readBackup(): Promise<Uint8Array | null> {
+        return this.readFile('.bak');
+    }
+
+    /** Read the DB file (or .bak variant) from the appropriate storage. */
+    private async readFile(suffix: '' | '.bak' | '.tmp'): Promise<Uint8Array | null> {
+        if (!KnowledgeDB.ALLOWED_SUFFIXES.has(suffix)) return null;
         try {
             if (this.storageLocation === 'global') {
-                const exists = await fs.promises.access(this.absolutePath).then(() => true).catch(() => false);
+                const filePath = this.absolutePath + suffix;
+                const exists = await fs.promises.access(filePath).then(() => true).catch(() => false);
                 if (!exists) return null;
-                const buf = await fs.promises.readFile(this.absolutePath);
+                const buf = await fs.promises.readFile(filePath);
                 return new Uint8Array(buf);
             } else {
-                const exists = await this.vault.adapter.exists(this.vaultRelativePath);
+                const filePath = this.vaultRelativePath + suffix;
+                const exists = await this.vault.adapter.exists(filePath);
                 if (!exists) return null;
-                const buf = await this.vault.adapter.readBinary(this.vaultRelativePath);
+                const buf = await this.vault.adapter.readBinary(filePath);
                 return new Uint8Array(buf);
             }
         } catch (e) {
-            console.warn('[KnowledgeDB] Failed to read DB:', e);
+            console.warn(`[KnowledgeDB] Failed to read DB${suffix}:`, e);
             return null;
         }
     }
 
+    /**
+     * Write DB to disk with atomic write pattern (FIX-12).
+     *
+     * For global (fs.promises): write .tmp → rotate current → .bak → rename .tmp → current
+     * For local/sync (vault.adapter): backup current → .bak, then write new data
+     * (vault.adapter has no rename, so we use backup-before-write instead)
+     */
     private async writeDB(data: Uint8Array): Promise<void> {
         if (this.storageLocation === 'global') {
-            await fs.promises.mkdir(path.dirname(this.absolutePath), { recursive: true });
-            await fs.promises.writeFile(this.absolutePath, data);
+            await this.writeDBGlobalAtomic(data);
         } else {
-            // Ensure parent directory exists
-            const dir = this.vaultRelativePath.substring(0, this.vaultRelativePath.lastIndexOf('/'));
-            if (dir) {
-                const dirExists = await this.vault.adapter.exists(dir);
-                if (!dirExists) await this.vault.adapter.mkdir(dir);
-            }
-            await this.vault.adapter.writeBinary(this.vaultRelativePath, data.buffer);
+            await this.writeDBVaultWithBackup(data);
         }
+    }
+
+    /** Atomic write via fs.promises: tmp → rename chain. */
+    private async writeDBGlobalAtomic(data: Uint8Array): Promise<void> {
+        const dir = path.dirname(this.absolutePath);
+        await fs.promises.mkdir(dir, { recursive: true });
+
+        const tmpPath = this.absolutePath + '.tmp';
+        const bakPath = this.absolutePath + '.bak';
+
+        // 1. Write to temp file
+        await fs.promises.writeFile(tmpPath, data);
+
+        // 2. Rotate current → backup (skip if first write)
+        try {
+            await fs.promises.rename(this.absolutePath, bakPath);
+        } catch { /* first write -- no existing file to backup */ }
+
+        // 3. Atomic rename: tmp → current
+        await fs.promises.rename(tmpPath, this.absolutePath);
+    }
+
+    /** Backup-before-write via vault.adapter (no rename available). */
+    private async writeDBVaultWithBackup(data: Uint8Array): Promise<void> {
+        // Ensure parent directory exists
+        const dir = this.vaultRelativePath.substring(0, this.vaultRelativePath.lastIndexOf('/'));
+        if (dir) {
+            const dirExists = await this.vault.adapter.exists(dir);
+            if (!dirExists) await this.vault.adapter.mkdir(dir);
+        }
+
+        const bakPath = this.vaultRelativePath + '.bak';
+
+        // 1. Backup the current (pre-write) version to .bak before overwriting.
+        //    Extra I/O is unavoidable: the export blob is the NEW version, not the current one.
+        try {
+            const exists = await this.vault.adapter.exists(this.vaultRelativePath);
+            if (exists) {
+                const currentData = await this.vault.adapter.readBinary(this.vaultRelativePath);
+                await this.vault.adapter.writeBinary(bakPath, currentData);
+            }
+        } catch {
+            console.warn('[KnowledgeDB] Backup creation failed (non-fatal)');
+        }
+
+        // 2. Write new data
+        await this.vault.adapter.writeBinary(this.vaultRelativePath, data.buffer);
+    }
+
+    /** Remove stale .tmp files left behind by interrupted writes. */
+    private async cleanupTmp(): Promise<void> {
+        try {
+            if (this.storageLocation === 'global') {
+                await fs.promises.unlink(this.absolutePath + '.tmp').catch(() => { /* no stale tmp */ });
+            } else {
+                const tmpPath = this.vaultRelativePath + '.tmp';
+                const exists = await this.vault.adapter.exists(tmpPath);
+                if (exists) await this.vault.adapter.remove(tmpPath);
+            }
+        } catch { /* non-fatal */ }
     }
 
     private scheduleSave(): void {

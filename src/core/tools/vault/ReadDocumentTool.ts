@@ -192,7 +192,10 @@ export class ReadDocumentTool extends BaseTool<'read_document'> {
         const pages: { num: number; startIdx: number }[] = [];
         let match: RegExpExecArray | null;
         while ((match = pagePattern.exec(text)) !== null) {
-            pages.push({ num: parseInt(match[1], 10), startIdx: match.index });
+            const num = parseInt(match[1], 10);
+            if (num > 0 && num <= 100_000) { // sanity bound
+                pages.push({ num, startIdx: match.index });
+            }
         }
 
         if (pages.length === 0) {

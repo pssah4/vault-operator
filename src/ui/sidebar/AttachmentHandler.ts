@@ -25,7 +25,7 @@ const CHIP_ICON_MAP: Record<string, string> = {
 
 /** Escape a string for safe use in XML attribute values. */
 function escapeXmlAttr(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /** Maximum total size of all stored full document texts (memory guard). */
@@ -278,8 +278,11 @@ export class AttachmentHandler {
     private pushFullDocText(text: string): void {
         const currentSize = this.fullDocTexts.reduce((sum, t) => sum + t.length, 0);
         if (currentSize + text.length > MAX_TOTAL_DOC_TEXT_SIZE) {
-            console.warn(`[AttachmentHandler] Skipping fullDocText storage: cumulative size would exceed ${MAX_TOTAL_DOC_TEXT_SIZE / 1024 / 1024} MB`);
-            this.fullDocTexts.push(''); // placeholder to keep index alignment
+            const msg = `Total attachment text exceeds ${MAX_TOTAL_DOC_TEXT_SIZE / 1024 / 1024} MB limit. ` +
+                'This document will not be available for ingest_document or read_document.';
+            console.warn(`[AttachmentHandler] ${msg}`);
+            // Push error marker so tools get a clear error instead of silently empty text
+            this.fullDocTexts.push(`[ERROR: ${msg}]`);
             return;
         }
         this.fullDocTexts.push(text);
