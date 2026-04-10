@@ -44,7 +44,21 @@ export function validateToolInput(
         }
     }
 
-    // 2. Check types of provided fields
+    // 2. Coerce numeric strings to numbers (LLMs sometimes pass "0" instead of 0)
+    for (const [field, value] of Object.entries(input)) {
+        const propSchema = schema.properties?.[field] as PropertySchema | undefined;
+        if (!propSchema?.type || value === undefined || value === null) continue;
+        if (
+            (propSchema.type === 'number' || propSchema.type === 'integer') &&
+            typeof value === 'string' &&
+            value.trim() !== '' &&
+            !isNaN(Number(value))
+        ) {
+            input[field] = Number(value);
+        }
+    }
+
+    // 3. Check types of provided fields
     for (const [field, value] of Object.entries(input)) {
         const propSchema = schema.properties?.[field] as PropertySchema | undefined;
         if (!propSchema?.type || value === undefined || value === null) continue;

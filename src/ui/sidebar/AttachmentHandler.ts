@@ -6,7 +6,9 @@ import { parseDocument } from '../../core/document-parsers/parseDocument';
 import {
     BINARY_DOCUMENT_EXTENSIONS,
     MAX_FILE_SIZE,
+    MAX_DOCUMENT_FILE_SIZE,
     LARGE_DOCUMENT_CHAR_THRESHOLD,
+    CONTEXT_DOCUMENT_CHAR_LIMIT,
 } from '../../core/document-parsers/types';
 
 /** Extensions handled by the document parser (binary formats via OS file picker). */
@@ -43,6 +45,8 @@ export interface AttachmentItem {
  */
 export class AttachmentHandler {
     readonly pending: AttachmentItem[] = [];
+    /** Full (un-truncated) document texts, parallel to pending[]. Used by IngestDocumentTool and ReadDocumentTool. */
+    private fullDocTexts: string[] = [];
 
     constructor(
         private vault: Vault,
@@ -64,7 +68,12 @@ export class AttachmentHandler {
     }
 
     async processFile(file: File): Promise<void> {
-        if (file.size > MAX_FILE_SIZE) {
+        // Documents (PDF, Office) get text-extracted — allow larger files.
+        // Images get base64-encoded into context — keep stricter limit.
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+        const isDocument = DOCUMENT_EXTENSIONS.some(d => file.name.toLowerCase().endsWith(d));
+        const sizeLimit = isDocument ? MAX_DOCUMENT_FILE_SIZE : MAX_FILE_SIZE;
+        if (file.size > sizeLimit) {
             new Notice(t('ui.attachment.tooLarge', { name: file.name }));
             return;
         }
@@ -78,7 +87,6 @@ export class AttachmentHandler {
         const TEXT_EXTENSIONS = ['.txt', '.md', '.json', '.py', '.ts', '.js', '.jsx', '.tsx', '.css', '.html', '.xml', '.yaml', '.yml', '.sh'];
 
         const mediaType = IMAGE_TYPES[file.type];
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
 
         // Resolve OS file path to vault-relative path if possible.
         // Electron File objects have a non-standard .path property with the full OS path.
@@ -121,13 +129,15 @@ export class AttachmentHandler {
                 // so the agent can reference the original location in frontmatter
                 const osPath = (file as unknown as { path?: string }).path;
                 const sourcePathAttr = !resolvedVaultPath && osPath ? ` source_path="${osPath}"` : '';
+                const contextText = this.truncateForContext(result.text, result.metadata.pageCount);
+                this.fullDocTexts.push(result.text);
                 const item: AttachmentItem = {
                     name: displayName,
                     extension: ext,
                     vaultPath: resolvedVaultPath,
                     block: {
                         type: 'text',
-                        text: `<attached_document name="${displayName}" format="${ext}"${vaultPathAttr}${sourcePathAttr}${result.metadata.pageCount ? ` pages="${result.metadata.pageCount}"` : ''}>\n${result.text}\n</attached_document>`,
+                        text: `<attached_document name="${displayName}" format="${ext}"${vaultPathAttr}${sourcePathAttr}${result.metadata.pageCount ? ` pages="${result.metadata.pageCount}"` : ''}>\n${contextText}\n</attached_document>`,
                     },
                 };
 
@@ -169,13 +179,15 @@ export class AttachmentHandler {
                     new Notice(t('ui.attachment.largeDocument', { name: file.path }));
                 }
 
+                const contextText = this.truncateForContext(result.text, result.metadata.pageCount);
+                this.fullDocTexts.push(result.text);
                 const item: AttachmentItem = {
                     name: file.path,
                     extension: ext,
                     vaultPath: file.path,
                     block: {
                         type: 'text',
-                        text: `<attached_document name="${file.path}" format="${ext}" vault_path="${file.path}"${result.metadata.pageCount ? ` pages="${result.metadata.pageCount}"` : ''}>\n${result.text}\n</attached_document>`,
+                        text: `<attached_document name="${file.path}" format="${ext}" vault_path="${file.path}"${result.metadata.pageCount ? ` pages="${result.metadata.pageCount}"` : ''}>\n${contextText}\n</attached_document>`,
                     },
                 };
 
@@ -243,7 +255,52 @@ export class AttachmentHandler {
             if (att.objectUrl) URL.revokeObjectURL(att.objectUrl);
         }
         this.pending.length = 0;
+        this.fullDocTexts.length = 0;
         this.chipBar.empty();
+    }
+
+    /** Returns the full (un-truncated) document texts for IngestDocumentTool and ReadDocumentTool. */
+    getFullDocTexts(): string[] {
+        return this.fullDocTexts;
+    }
+
+    /**
+     * Truncate document text for the LLM context window.
+     * Cuts at the last `## Page N` boundary before the limit (PDF), or at the last
+     * paragraph break for other formats. Appends a truncation notice.
+     */
+    private truncateForContext(text: string, pageCount?: number): string {
+        if (text.length <= CONTEXT_DOCUMENT_CHAR_LIMIT) return text;
+
+        const limitSlice = text.slice(0, CONTEXT_DOCUMENT_CHAR_LIMIT);
+
+        // Try to cut at a ## Page N boundary for clean truncation
+        const pageHeaderRegex = /\n## Page \d+\n/g;
+        let lastPageBoundary = -1;
+        let lastPageMatch: RegExpExecArray | null;
+        while ((lastPageMatch = pageHeaderRegex.exec(limitSlice)) !== null) {
+            lastPageBoundary = lastPageMatch.index;
+        }
+
+        let truncated: string;
+        let pagesShown: string;
+        if (lastPageBoundary > 0) {
+            truncated = text.slice(0, lastPageBoundary);
+            // Count how many pages are in the truncated text
+            const shownCount = (truncated.match(/^## Page \d+$/gm) ?? []).length;
+            pagesShown = `~${shownCount} of ${pageCount ?? '?'}`;
+        } else {
+            // Fallback: cut at last paragraph break
+            const lastPara = limitSlice.lastIndexOf('\n\n');
+            truncated = lastPara > 0 ? text.slice(0, lastPara) : limitSlice;
+            pagesShown = pageCount ? `partial (${pageCount} total)` : 'partial';
+        }
+
+        return truncated +
+            `\n\n[Document truncated for context window. Showing first ${pagesShown} pages. ` +
+            'The full text is pre-parsed and available to tools. ' +
+            'Use ingest_document (with attachment_index) to create a note with the COMPLETE original text appended automatically — this works regardless of file size. ' +
+            'Use read_document with start_page/end_page to read specific page ranges.]';
     }
 
     /**

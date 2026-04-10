@@ -42,8 +42,14 @@ export const BINARY_DOCUMENT_EXTENSIONS = new Set([
 /** Maximum decompressed size for ZIP-based formats (ZIP-bomb protection). */
 export const MAX_DECOMPRESSED_SIZE = 500 * 1024 * 1024; // 500 MB
 
-/** Maximum input file size. */
+/** Maximum input file size for binary uploads (images). */
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+
+/** Maximum input file size for document text extraction (PDFs, Office docs). Higher because only text is extracted, not the full binary. */
+export const MAX_DOCUMENT_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
 
 /** Text length threshold for large-document warning. */
 export const LARGE_DOCUMENT_CHAR_THRESHOLD = 100_000;
+
+/** Max chars for document text embedded in LLM context. Full text stays available for chunked reading via read_document. */
+export const CONTEXT_DOCUMENT_CHAR_LIMIT = 80_000;

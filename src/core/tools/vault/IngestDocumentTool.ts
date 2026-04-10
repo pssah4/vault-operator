@@ -14,7 +14,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import { parseDocument } from '../../document-parsers/parseDocument';
-import { BINARY_DOCUMENT_EXTENSIONS, MAX_FILE_SIZE } from '../../document-parsers/types';
+import { BINARY_DOCUMENT_EXTENSIONS } from '../../document-parsers/types';
 
 interface IngestDocumentInput {
     /** Path for the new Markdown note (e.g. "Notes/Webb-2026_Title.md") */
@@ -50,8 +50,11 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
                 'Create a Markdown source note from a PDF or Office document. ' +
                 'You provide the frontmatter + overview (header_content), and the tool automatically appends ' +
                 'the full original document text as Markdown. This bypasses output token limits for long documents. ' +
+                'IMPORTANT: This tool works even for very large files (100+ MB) because it uses the already-parsed ' +
+                'attachment text, not the raw file. Always use this tool for document ingestion — never fall back to write_file. ' +
                 'Use either source_path (for vault files) or attachment_index (for chat attachments, 0-based). ' +
-                'The document text is extracted programmatically and cleaned up (page breaks, headers/footers removed).',
+                'For chat attachments, prefer attachment_index. If source_path fails due to file size, ' +
+                'the tool automatically falls back to the pre-parsed attachment text.',
             input_schema: {
                 type: 'object',
                 properties: {
@@ -96,8 +99,24 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
             let documentText: string;
 
             if (source_path) {
-                // Parse from vault file
-                documentText = await this.parseVaultDocument(source_path);
+                try {
+                    // Parse from vault file
+                    documentText = await this.parseVaultDocument(source_path);
+                } catch (parseErr) {
+                    // Fallback: if vault parsing fails (e.g. file too large) but attachment text is available, use that
+                    if (this.attachmentTexts.length > 0) {
+                        const fallbackIndex = attachment_index !== undefined && attachment_index >= 0
+                            ? attachment_index : 0;
+                        if (fallbackIndex < this.attachmentTexts.length) {
+                            documentText = this.attachmentTexts[fallbackIndex];
+                            callbacks.log(`Vault parse failed (${parseErr instanceof Error ? parseErr.message : String(parseErr)}), using attachment text as fallback.`);
+                        } else {
+                            throw parseErr;
+                        }
+                    } else {
+                        throw parseErr;
+                    }
+                }
             } else if (attachment_index !== undefined && attachment_index >= 0) {
                 // Get from chat attachment
                 if (attachment_index >= this.attachmentTexts.length) {
@@ -167,9 +186,8 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
         }
 
         const ext = file.extension.toLowerCase();
-        if (file.stat.size > MAX_FILE_SIZE) {
-            throw new Error(`Document too large: ${(file.stat.size / 1024 / 1024).toFixed(1)} MB`);
-        }
+        // No MAX_FILE_SIZE check here — ingest_document writes to disk, not to LLM context.
+        // Large files (e.g. 60+ MB PDFs) are the primary use case for this tool.
 
         let data: ArrayBuffer;
         if (BINARY_DOCUMENT_EXTENSIONS.has(ext)) {

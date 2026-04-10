@@ -1298,26 +1298,21 @@ export class AgentSidebarView extends ItemView {
             this.contextTracker.updateContextWindow(contextWindow, maxTokens);
         }
 
-        // Pass parsed document texts to IngestDocumentTool so it can write them
-        // programmatically (bypassing LLM output token limits for long PDFs)
+        // Pass full (un-truncated) document texts to IngestDocumentTool and ReadDocumentTool
+        // so they can access complete content even when the context version is truncated.
         try {
-            const ingestTool = this.plugin.toolRegistry.getTool('ingest_document');
-            if (ingestTool && 'setAttachmentTexts' in ingestTool) {
-                const docTexts: string[] = [];
-                for (const att of attachments) {
-                    if (att.block.type !== 'text') continue;
-                    const text = (att.block as { text: string }).text;
-                    if (!text.startsWith('<attached_document')) continue;
-                    // Extract content between tags using indexOf (no regex on large text)
-                    const startTag = text.indexOf('>\n');
-                    const endTag = text.lastIndexOf('\n</attached_document>');
-                    if (startTag > 0 && endTag > startTag) {
-                        docTexts.push(text.slice(startTag + 2, endTag));
-                    }
+            const docTexts = this.attachments.getFullDocTexts();
+            if (docTexts.length > 0) {
+                const ingestTool = this.plugin.toolRegistry.getTool('ingest_document');
+                if (ingestTool && 'setAttachmentTexts' in ingestTool) {
+                    (ingestTool as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
                 }
-                (ingestTool as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
+                const readDocTool = this.plugin.toolRegistry.getTool('read_document');
+                if (readDocTool && 'setAttachmentTexts' in readDocTool) {
+                    (readDocTool as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
+                }
             }
-        } catch { /* non-critical -- ingest_document will fall back to source_path */ }
+        } catch { /* non-critical -- tools will fall back to source_path */ }
 
         const task = new AgentTask(
             resolvedApiHandler,
