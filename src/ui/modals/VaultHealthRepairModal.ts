@@ -1,3 +1,4 @@
+/* eslint-disable obsidianmd/ui/sentence-case -- German UI strings use capitalized nouns (correct German grammar, not Title Case) */
 /**
  * VaultHealthRepairModal -- Info + Repair + Undo for Vault Health findings.
  *
@@ -12,7 +13,6 @@ import { Modal } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { HealthFinding } from '../../core/knowledge/VaultHealthService';
 import type { CheckpointInfo } from '../../core/checkpoints/GitCheckpointService';
-import { t } from '../../i18n';
 
 export class VaultHealthRepairModal extends Modal {
     private plugin: ObsidianAgentPlugin;

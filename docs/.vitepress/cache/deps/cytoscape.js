@@ -9108,8 +9108,11 @@ var updateBoundsFromMiter = function updateBoundsFromMiter2(bounds2, ele, opacit
     return;
   }
   var cy = ele.cy();
-  var shape = ele.pstyle("shape").value;
-  var rshape = cy.renderer().nodeShapes[shape];
+  var r = cy.renderer();
+  var rshape = r.nodeShapes[r.getNodeShape(ele)];
+  if (!rshape) {
+    return;
+  }
   var _ele$position = ele.position(), x2 = _ele$position.x, y2 = _ele$position.y;
   var w = ele.width();
   var h = ele.height();
@@ -11879,7 +11882,7 @@ elesfn$1.restore = function() {
           error("Can not create edge `" + id2 + "` with unspecified " + field);
           badSourceOrTarget = true;
         } else if (!cy.hasElementWithId(val)) {
-          error("Can not create edge `" + id2 + "` with nonexistant " + field + " `" + val + "`");
+          error("Can not create edge `" + id2 + "` with nonexistent " + field + " `" + val + "`");
           badSourceOrTarget = true;
         }
       }
@@ -27125,13 +27128,17 @@ function modelToRenderedPosition2(r, pan2, zoom2, x2, y2) {
   ry = Math.round(r.canvasHeight - ry);
   return [rx, ry];
 }
-function isSimpleShape(node) {
-  if (node.pstyle("background-fill").value !== "solid") return false;
-  if (node.pstyle("background-image").strValue !== "none") return false;
-  if (node.pstyle("border-width").value === 0) return true;
-  if (node.pstyle("border-opacity").value === 0) return true;
-  if (node.pstyle("border-style").value !== "solid") return false;
-  return true;
+function isSimpleShape(node, renderTarget) {
+  if (renderTarget.picking) {
+    return true;
+  } else {
+    if (node.pstyle("background-fill").value !== "solid") return false;
+    if (node.pstyle("background-image").strValue !== "none") return false;
+    if (node.pstyle("border-width").value === 0) return true;
+    if (node.pstyle("border-opacity").value === 0) return true;
+    if (node.pstyle("border-style").value !== "solid") return false;
+    return true;
+  }
 }
 function arrayEqual(a1, a2) {
   if (a1.length !== a2.length) {
@@ -28506,7 +28513,7 @@ var ElementDrawingWebGL = function() {
       }
       var props = opts.shapeProps;
       var vertType = this._getVertTypeForShape(node, props.shape);
-      if (vertType === void 0 || opts.isSimple && !opts.isSimple(node)) {
+      if (vertType === void 0 || opts.isSimple && !opts.isSimple(node, this.renderTarget)) {
         this.drawTexture(node, eleIndex, type);
         return;
       }
@@ -28527,8 +28534,8 @@ var ElementDrawingWebGL = function() {
       }
       var indexView = this.indexBuffer.getView(instance);
       indexToVec4(eleIndex, indexView);
+      var opacity = this.renderTarget.picking ? 1 : node.pstyle(props.opacity).value;
       var color = node.pstyle(props.color).value;
-      var opacity = node.pstyle(props.opacity).value;
       var colorView = this.colorBuffer.getView(instance);
       toWebGLColor(color, opacity, colorView);
       var lineWidthView = this.lineWidthBuffer.getView(instance);
@@ -30232,7 +30239,7 @@ sheetfn.appendToStyle = function(style3) {
   }
   return style3;
 };
-var version = "3.33.1";
+var version = "3.33.2";
 var cytoscape = function cytoscape2(options2) {
   if (options2 === void 0) {
     options2 = {};

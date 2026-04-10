@@ -1,6 +1,6 @@
 ---
 title: About
-description: Sebastian Hanke -- creator of Obsilo Agent, an agentic AI operating layer for Obsidian.
+description: Sebastian Hanke, creator of Obsilo Agent, an agentic AI operating layer for Obsidian.
 ---
 
 <div style="display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap; margin-bottom: 2rem;">

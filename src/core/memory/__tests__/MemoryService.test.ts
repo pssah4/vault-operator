@@ -13,14 +13,14 @@ describe('MemoryService', () => {
             const { MemoryService } = await getModule();
             // Create with a minimal mock FileAdapter
             const fs = {
-                exists: async () => false,
-                read: async () => '',
-                write: async () => {},
-                mkdir: async () => {},
-                list: async () => ({ files: [], folders: [] }),
-                remove: async () => {},
-                append: async () => {},
-                stat: async () => null,
+                exists: () => Promise.resolve(false),
+                read: () => Promise.resolve(''),
+                write: () => Promise.resolve(),
+                mkdir: () => Promise.resolve(),
+                list: () => Promise.resolve({ files: [] as string[], folders: [] as string[] }),
+                remove: () => Promise.resolve(),
+                append: () => Promise.resolve(),
+                stat: () => Promise.resolve(null),
             };
             const service = new MemoryService(fs);
             return service.buildMemoryContext(files);

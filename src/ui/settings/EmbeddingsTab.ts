@@ -554,7 +554,7 @@ export class EmbeddingsTab {
             .setDesc(t('settings.embeddings.sourceNamingDesc'))
             .addText((text) => {
                 text.setValue(this.plugin.settings.sourceNamingConvention ?? 'Autor-Jahr_Titel');
-                text.setPlaceholder('Autor-Jahr_Titel');
+                text.setPlaceholder('Autor-Jahr_Titel'); // eslint-disable-line obsidianmd/ui/sentence-case -- naming convention example, not UI text
                 text.inputEl.addEventListener('blur', () => { void (async () => {
                     this.plugin.settings.sourceNamingConvention = text.getValue().trim() || 'Autor-Jahr_Titel';
                     await this.plugin.saveSettings();

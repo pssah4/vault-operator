@@ -16,17 +16,17 @@ function makeItem(id: string, type: 'session' | 'long-term' = 'session'): Pendin
 function createMockFs(): FileAdapter {
     const store: Record<string, string> = {};
     return {
-        exists: async (p: string) => p in store,
-        read: async (p: string) => {
-            if (!(p in store)) throw new Error('Not found');
-            return store[p];
+        exists: (p: string) => Promise.resolve(p in store),
+        read: (p: string) => {
+            if (!(p in store)) return Promise.reject(new Error('Not found'));
+            return Promise.resolve(store[p]);
         },
-        write: async (p: string, data: string) => { store[p] = data; },
-        mkdir: async () => {},
-        list: async () => ({ files: [], folders: [] }),
-        remove: async (p: string) => { delete store[p]; },
-        append: async () => {},
-        stat: async () => null,
+        write: (p: string, data: string) => { store[p] = data; return Promise.resolve(); },
+        mkdir: () => Promise.resolve(),
+        list: () => Promise.resolve({ files: [] as string[], folders: [] as string[] }),
+        remove: (p: string) => { delete store[p]; return Promise.resolve(); },
+        append: () => Promise.resolve(),
+        stat: () => Promise.resolve(null),
     };
 }
 
@@ -105,8 +105,9 @@ describe('ExtractionQueue', () => {
 
         it('should process all items in order', async () => {
             const processed: string[] = [];
-            queue.setProcessor(async (item) => {
+            queue.setProcessor((item) => {
                 processed.push(item.conversationId);
+                return Promise.resolve();
             });
 
             // Enqueue items (processQueue is triggered but we track order)
@@ -119,11 +120,12 @@ describe('ExtractionQueue', () => {
 
         it('should stop processing on error and keep failed item', async () => {
             let callCount = 0;
-            queue.setProcessor(async (item) => {
+            queue.setProcessor((item) => {
                 callCount++;
                 if (item.conversationId === 'fail') {
-                    throw new Error('Processing failed');
+                    return Promise.reject(new Error('Processing failed'));
                 }
+                return Promise.resolve();
             });
 
             queue['items'].push(makeItem('ok'), makeItem('fail'), makeItem('never'));

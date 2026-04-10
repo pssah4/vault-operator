@@ -388,7 +388,7 @@ export class AgentSidebarView extends ItemView {
                 .setTitle(t('ui.sidebar.addVaultFile'))
                 .setIcon('at-sign')
                 .onClick(() => this.vaultFilePicker.show(plusBtn, this.containerEl)));
-            menu.showAtMouseEvent(e as MouseEvent);
+            menu.showAtMouseEvent(e);
         });
 
         // "..." button — tools, skills, web search (FEATURE-1907)
@@ -413,7 +413,7 @@ export class AgentSidebarView extends ItemView {
             menu.addSeparator();
             // Original options menu items
             this.addOptionsMenuItems(menu);
-            menu.showAtMouseEvent(e as MouseEvent);
+            menu.showAtMouseEvent(e);
         });
 
         // Keep references for backward compat (hidden, managed via "..." menu now)
