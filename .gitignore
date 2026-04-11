@@ -58,6 +58,9 @@ build/
 .env.*.local
 .mcp.json
 
+# VitePress cache (docs site)
+docs/.vitepress/cache/
+
 # Testing
 coverage/
 .nyc_output/

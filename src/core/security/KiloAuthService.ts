@@ -37,6 +37,7 @@ function orgDefaultsUrl(orgId: string): string {
 
 /** Polling-Intervall für Device Auth in ms. */
 const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 200; // ~10 min safety net (AUDIT-008 L-1)
 
 // ---------------------------------------------------------------------------
 // Types
@@ -168,7 +169,7 @@ export class KiloAuthService {
      * Blockiert bis Erfolg, Fehler oder AbortSignal.
      */
     async pollForSession(deviceCode: string, signal?: AbortSignal): Promise<void> {
-        while (true) {
+        for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
             if (signal?.aborted) {
                 throw new Error('Authorization cancelled');
             }
@@ -216,6 +217,7 @@ export class KiloAuthService {
 
             throw new Error(`Kilo auth poll failed (HTTP ${res.status})`);
         }
+        throw new Error('Authorization timed out. Please try again.');
     }
 
     // ---------------------------------------------------------------------------

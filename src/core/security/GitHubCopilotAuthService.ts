@@ -201,8 +201,9 @@ export class GitHubCopilotAuthService {
         const body = `client_id=${encodeURIComponent(clientId)}&device_code=${encodeURIComponent(deviceCode)}&grant_type=${encodeURIComponent(grantType)}`;
 
         const pollIntervalMs = Math.max(interval, 5) * 1000;
+        const maxAttempts = 120; // ~10 min safety net (AUDIT-008 L-1)
 
-        while (true) {
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
             if (signal?.aborted) {
                 throw new Error('Authorization cancelled');
             }
@@ -248,6 +249,7 @@ export class GitHubCopilotAuthService {
                 throw new Error(`OAuth error: ${String(error)} — ${errDesc}`);
             }
         }
+        throw new Error('Authorization timed out. Please try again.');
     }
 
     // ---------------------------------------------------------------------------

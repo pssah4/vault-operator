@@ -31,6 +31,7 @@
   "author": "Sebastian Hanke",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.60.1",
     "@types/diff": "^7.0.2",
     "@types/node": "^20.11.0",
     "@types/uuid": "^9.0.7",
@@ -48,9 +49,10 @@
     "tslib": "2.6.2",
     "typescript": "5.3.3",
     "typescript-eslint": "^8.56.1",
+    "vite": "^6.4.2",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

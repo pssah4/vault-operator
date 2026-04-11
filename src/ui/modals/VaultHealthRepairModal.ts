@@ -1,4 +1,3 @@
-/* eslint-disable obsidianmd/ui/sentence-case -- German UI strings use capitalized nouns (correct German grammar, not Title Case) */
 /**
  * VaultHealthRepairModal -- Info + Repair + Undo for Vault Health findings.
  *
@@ -13,6 +12,7 @@ import { Modal } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { HealthFinding } from '../../core/knowledge/VaultHealthService';
 import type { CheckpointInfo } from '../../core/checkpoints/GitCheckpointService';
+import { t } from '../../i18n';
 
 export class VaultHealthRepairModal extends Modal {
     private plugin: ObsidianAgentPlugin;
@@ -41,7 +41,7 @@ export class VaultHealthRepairModal extends Modal {
         contentEl.empty();
         contentEl.addClass('vault-health-modal');
 
-        contentEl.createEl('h3', { text: 'Vault Health Check' });
+        contentEl.createEl('h3', { text: t('modal.vaultHealth.title') });
 
         // Group findings by check type
         const grouped = new Map<string, HealthFinding[]>();
@@ -52,12 +52,12 @@ export class VaultHealthRepairModal extends Modal {
         }
 
         const labels: Record<string, string> = {
-            orphans: 'Verwaiste Notes (keine eingehenden Links)',
-            missing_backlinks: 'Fehlende Backlinks',
-            broken_links: 'Kaputte Links',
-            weak_clusters: 'Semantisch verwandte, unverlinkte Paare',
-            inconsistent_tags: 'Inkonsistente Tags',
-            category_mismatch: 'Falsche Kategorie-Zuordnung',
+            orphans: t('modal.vaultHealth.checkOrphans'),
+            missing_backlinks: t('modal.vaultHealth.checkMissingBacklinks'),
+            broken_links: t('modal.vaultHealth.checkBrokenLinks'),
+            weak_clusters: t('modal.vaultHealth.checkWeakClusters'),
+            inconsistent_tags: t('modal.vaultHealth.checkInconsistentTags'),
+            category_mismatch: t('modal.vaultHealth.checkCategoryMismatch'),
         };
 
         const list = contentEl.createEl('ul', { cls: 'vault-health-findings-list' });
@@ -76,7 +76,7 @@ export class VaultHealthRepairModal extends Modal {
         if (repairableCount > 0) {
             contentEl.createEl('p', {
                 cls: 'vault-health-repairable',
-                text: `${repairableCount} Finding(s) automatisch reparierbar (Backlinks, Kategorien, verwaiste Edges).`,
+                text: t('modal.vaultHealth.repairableCount').replace('{{count}}', String(repairableCount)),
             });
         }
 
@@ -85,17 +85,17 @@ export class VaultHealthRepairModal extends Modal {
 
         if (repairableCount > 0) {
             const repairBtn = btnRow.createEl('button', {
-                text: 'Reparieren',
+                text: t('modal.vaultHealth.repairBtn'),
                 cls: 'mod-cta',
             });
             repairBtn.addEventListener('click', () => {
                 repairBtn.disabled = true;
-                repairBtn.setText('Repariere...');
+                repairBtn.setText(t('modal.vaultHealth.repairing'));
                 void this.runRepair();
             });
         }
 
-        const closeBtn = btnRow.createEl('button', { text: 'Schliessen' });
+        const closeBtn = btnRow.createEl('button', { text: t('modal.vaultHealth.closeBtn') });
         closeBtn.addEventListener('click', () => this.close());
     }
 
@@ -110,11 +110,11 @@ export class VaultHealthRepairModal extends Modal {
 
         // Show progress
         contentEl.empty();
-        contentEl.createEl('h3', { text: 'Reparatur laeuft...' });
+        contentEl.createEl('h3', { text: t('modal.vaultHealth.repairRunning') });
         const progress = contentEl.createEl('p', { cls: 'vault-health-progress' });
 
         // Collect affected paths for checkpoint
-        progress.setText('Erstelle Sicherungspunkt...');
+        progress.setText(t('modal.vaultHealth.creatingCheckpoint'));
         const taskId = `health-repair-${Date.now()}`;
         const affectedPaths = this.collectAffectedPaths();
 
@@ -133,26 +133,26 @@ export class VaultHealthRepairModal extends Modal {
         }
 
         // Run fixes
-        progress.setText('Bereinige verwaiste Edges...');
+        progress.setText(t('modal.vaultHealth.progressOrphanedEdges'));
         const edges = healthService.cleanupOrphanedEdges();
 
-        progress.setText('Setze fehlende Backlinks...');
+        progress.setText(t('modal.vaultHealth.progressBacklinks'));
         const backlinks = await healthService.fixMissingBacklinks(
             'Notizen',
             this.plugin.settings.categoryProperty ?? 'Kategorie',
         );
 
-        progress.setText('Korrigiere Kategorie-Zuordnungen...');
+        progress.setText(t('modal.vaultHealth.progressCategories'));
         const categories = await healthService.fixCategoryMismatches();
 
-        progress.setText('Bereinige ungueltige Links...');
+        progress.setText(t('modal.vaultHealth.progressInvalidLinks'));
         const cleanup = await healthService.cleanupInvalidBacklinks(
             'Notizen',
             this.plugin.settings.categoryProperty ?? 'Kategorie',
         );
 
         // Re-run checks to get updated findings
-        progress.setText('Pruefe Ergebnis...');
+        progress.setText(t('modal.vaultHealth.progressVerify'));
         const newFindings = await healthService.runChecks();
 
         // Show result
@@ -174,37 +174,42 @@ export class VaultHealthRepairModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
 
-        contentEl.createEl('h3', { text: 'Reparatur abgeschlossen' });
+        contentEl.createEl('h3', { text: t('modal.vaultHealth.repairDone') });
 
         const results = contentEl.createEl('ul', { cls: 'vault-health-results' });
 
         if (edges.edgesRemoved > 0) {
-            results.createEl('li', { text: `${edges.edgesRemoved} verwaiste Edges entfernt` });
+            results.createEl('li', { text: t('modal.vaultHealth.resultEdges').replace('{{count}}', String(edges.edgesRemoved)) });
         }
         if (backlinks.linksAdded > 0 || backlinks.basesCreated > 0) {
             results.createEl('li', {
-                text: `${backlinks.entitiesFixed} Entities: ${backlinks.linksAdded} Backlinks, ${backlinks.basesCreated} Bases erstellt`,
+                text: t('modal.vaultHealth.resultBacklinks')
+                    .replace('{{entities}}', String(backlinks.entitiesFixed))
+                    .replace('{{links}}', String(backlinks.linksAdded))
+                    .replace('{{bases}}', String(backlinks.basesCreated)),
             });
         }
         if (categories.notesFixed > 0) {
-            results.createEl('li', { text: `${categories.notesFixed} Notes: Kategorie-Zuordnung korrigiert` });
+            results.createEl('li', { text: t('modal.vaultHealth.resultCategories').replace('{{count}}', String(categories.notesFixed)) });
         }
         if (cleanup.linksRemoved > 0) {
-            results.createEl('li', { text: `${cleanup.linksRemoved} ungueltige Links entfernt` });
+            results.createEl('li', { text: t('modal.vaultHealth.resultInvalidLinks').replace('{{count}}', String(cleanup.linksRemoved)) });
         }
 
         const totalFixes = edges.edgesRemoved + backlinks.linksAdded + backlinks.basesCreated +
             categories.valuesMovied + cleanup.linksRemoved;
 
         if (totalFixes === 0) {
-            contentEl.createEl('p', { text: 'Keine Reparaturen noetig -- alles sauber.' });
+            contentEl.createEl('p', { text: t('modal.vaultHealth.noRepairsNeeded') });
         }
 
         // Updated findings count
         const highCount = newFindings.filter(f => f.severity === 'high').length;
         contentEl.createEl('p', {
             cls: 'vault-health-remaining',
-            text: `Verbleibend: ${newFindings.length} Finding(s) (${highCount} kritisch).`,
+            text: t('modal.vaultHealth.remaining')
+                .replace('{{count}}', String(newFindings.length))
+                .replace('{{critical}}', String(highCount)),
         });
 
         // Buttons
@@ -212,7 +217,7 @@ export class VaultHealthRepairModal extends Modal {
 
         if (checkpoint && totalFixes > 0) {
             const undoBtn = btnRow.createEl('button', {
-                text: 'Rueckgaengig machen',
+                text: t('modal.vaultHealth.undoBtn'),
                 cls: 'mod-warning',
             });
             undoBtn.addEventListener('click', () => {
@@ -220,7 +225,7 @@ export class VaultHealthRepairModal extends Modal {
             });
         }
 
-        const doneBtn = btnRow.createEl('button', { text: 'Fertig', cls: 'mod-cta' });
+        const doneBtn = btnRow.createEl('button', { text: t('modal.vaultHealth.doneBtn'), cls: 'mod-cta' });
         doneBtn.addEventListener('click', () => {
             // Update badge
             this.updateBadge(newFindings);
@@ -235,21 +240,23 @@ export class VaultHealthRepairModal extends Modal {
     private async runUndo(checkpoint: CheckpointInfo): Promise<void> {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.createEl('h3', { text: 'Stelle Sicherungspunkt wieder her...' });
+        contentEl.createEl('h3', { text: t('modal.vaultHealth.restoring') });
 
         try {
             const result = await this.plugin.checkpointService.restore(checkpoint);
 
             contentEl.empty();
-            contentEl.createEl('h3', { text: 'Wiederhergestellt' });
+            contentEl.createEl('h3', { text: t('modal.vaultHealth.restored') });
             contentEl.createEl('p', {
-                text: `${result.restored.length} Datei(en) wiederhergestellt.`,
+                text: t('modal.vaultHealth.restoredCount').replace('{{count}}', String(result.restored.length)),
             });
 
             if (result.errors.length > 0) {
                 contentEl.createEl('p', {
                     cls: 'vault-health-error',
-                    text: `${result.errors.length} Fehler: ${result.errors.join(', ')}`,
+                    text: t('modal.vaultHealth.errors')
+                        .replace('{{count}}', String(result.errors.length))
+                        .replace('{{errors}}', result.errors.join(', ')),
                 });
             }
 
@@ -280,16 +287,16 @@ export class VaultHealthRepairModal extends Modal {
             const findings = await this.plugin.vaultHealthService?.runChecks() ?? [];
             this.updateBadge(findings);
 
-            const doneBtn = contentEl.createEl('button', { text: 'Fertig', cls: 'mod-cta' });
+            const doneBtn = contentEl.createEl('button', { text: t('modal.vaultHealth.doneBtn'), cls: 'mod-cta' });
             doneBtn.addEventListener('click', () => this.close());
         } catch (e) {
             contentEl.empty();
-            contentEl.createEl('h3', { text: 'Wiederherstellung fehlgeschlagen' });
+            contentEl.createEl('h3', { text: t('modal.vaultHealth.restoreFailed') });
             contentEl.createEl('p', {
                 cls: 'vault-health-error',
                 text: e instanceof Error ? e.message : String(e),
             });
-            const closeBtn = contentEl.createEl('button', { text: 'Schliessen' });
+            const closeBtn = contentEl.createEl('button', { text: t('modal.vaultHealth.closeBtn') });
             closeBtn.addEventListener('click', () => this.close());
         }
     }

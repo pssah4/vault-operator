@@ -14,6 +14,7 @@ import type { CustomModel, ProviderType } from '../../types/settings';
 import { BUILT_IN_MODELS, getModelKey, getDefaultBaseUrlForProvider } from '../../types/settings';
 import { buildApiHandlerForModel } from '../../api/index';
 import { t } from '../../i18n';
+import { PROVIDER_LABELS } from '../settings/constants';
 
 type OnboardingKeyState = 'awaiting_choice' | 'awaiting_key_free' | 'awaiting_provider' | 'awaiting_key_own' | 'testing' | null;
 
@@ -131,10 +132,10 @@ export class OnboardingFlow {
         this.keyState = 'awaiting_provider';
 
         const providers: { label: string; provider: ProviderType; model: string }[] = [
-            { label: t('onboarding.provider.anthropic'), provider: 'anthropic', model: 'claude-sonnet-4-5-20250929' },
-            { label: t('onboarding.provider.openai'), provider: 'openai', model: 'gpt-4o' },
-            { label: t('onboarding.provider.google'), provider: 'gemini', model: 'gemini-2.5-flash' },
-            { label: t('onboarding.provider.openrouter'), provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet' },
+            { label: PROVIDER_LABELS['anthropic'] ?? 'Anthropic', provider: 'anthropic', model: 'claude-sonnet-4-5-20250929' },
+            { label: PROVIDER_LABELS['openai'] ?? 'OpenAI', provider: 'openai', model: 'gpt-4o' },
+            { label: PROVIDER_LABELS['gemini'] ?? 'Google Gemini', provider: 'gemini', model: 'gemini-2.5-flash' },
+            { label: PROVIDER_LABELS['openrouter'] ?? 'OpenRouter', provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet' },
         ];
 
         const wrapper = chatContainer.createDiv('message assistant-message');

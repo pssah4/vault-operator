@@ -224,7 +224,9 @@ export class OpenAiProvider implements ApiHandler {
             messages: openAiMessages as OpenAI.ChatCompletionMessageParam[],
             tools: openAiTools as OpenAI.ChatCompletionTool[] | undefined,
             temperature: temperature !== undefined ? Math.min(temperature, 2.0) : undefined,
-            max_tokens: this.config.type !== 'azure'
+            // OpenAI and Azure require max_completion_tokens (max_tokens deprecated / rejected by newer models)
+            // Other providers (ollama, lmstudio, custom) still need max_tokens
+            max_tokens: (this.config.type !== 'azure' && this.config.type !== 'openai')
                 ? (openRouterThinking
                     ? Math.max(this.config.maxTokens ?? 16384, budgetTokens)
                     : (this.config.maxTokens ?? 8192))
@@ -245,9 +247,12 @@ export class OpenAiProvider implements ApiHandler {
                 : {}),
         };
 
-        // Azure uses max_completion_tokens instead of max_tokens
-        if (this.config.type === 'azure') {
-            (requestBody as unknown as Record<string, unknown>).max_completion_tokens = this.config.maxTokens ?? 8192;
+        // OpenAI and Azure use max_completion_tokens (newer models reject max_tokens with 400)
+        if (this.config.type === 'openai' || this.config.type === 'azure') {
+            const maxCompletionTokens = openRouterThinking
+                ? Math.max(this.config.maxTokens ?? 16384, budgetTokens)
+                : (this.config.maxTokens ?? 8192);
+            (requestBody as unknown as Record<string, unknown>).max_completion_tokens = maxCompletionTokens;
         }
 
         if (openAiTools && openAiTools.length > 0) {
@@ -422,11 +427,15 @@ export class OpenAiProvider implements ApiHandler {
      * Used by skill matching LLM-fallback when regex finds no match.
      */
     async classifyText(prompt: string, abortSignal?: AbortSignal): Promise<string> {
-        const response = await this.client.chat.completions.create({
+        const classifyBody: OpenAI.ChatCompletionCreateParamsNonStreaming = {
             model: this.config.model,
-            max_tokens: 50,
+            max_tokens: (this.config.type !== 'openai' && this.config.type !== 'azure') ? 50 : undefined,
             messages: [{ role: 'user', content: prompt }],
-        }, {
+        };
+        if (this.config.type === 'openai' || this.config.type === 'azure') {
+            (classifyBody as unknown as Record<string, unknown>).max_completion_tokens = 50;
+        }
+        const response = await this.client.chat.completions.create(classifyBody, {
             signal: abortSignal ?? undefined,
         });
 

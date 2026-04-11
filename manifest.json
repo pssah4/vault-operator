@@ -1,7 +1,7 @@
 {
   "id": "obsilo-agent",
   "name": "Obsilo Agent",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "minAppVersion": "1.4.0",
   "description": "A native AI operating layer for your vault. Discovers and uses installed plugins, spawns autonomous sub-agents, maintains persistent memory, and adapts to your workflows, skills and tools with full safety controls.",
   "author": "Sebastian Hanke",

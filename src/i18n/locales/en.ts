@@ -101,8 +101,7 @@ export const en: Translations = {
     'settings.embeddings.hyde': '`HyDE` (hypothetical document embeddings)',
     'settings.embeddings.hydeDesc': 'Before searching, ask the model to write a short hypothetical note that would answer the query, then embed that instead of the raw query \u2014 improves recall for vague or abstract questions. Costs one extra model call per semantic_search.',
     'settings.embeddings.autoIndexOnChange': 'Auto-index on file changes (beta)',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- Re-index starts with proper noun prefix, OpenAI is brand name
-    'settings.embeddings.autoIndexOnChangeDesc': 'Re-index a note automatically when saved, created, renamed, or deleted. Safe with API embedding models (e.g. OpenAI text-embedding-3-small).',
+    'settings.embeddings.autoIndexOnChangeDesc': 'Re-index a note automatically when saved, created, renamed, or deleted. Safe with API embedding models such as text-embedding-3-small.',
     'settings.embeddings.autoIndexStrategy': 'Auto-index strategy',
     'settings.embeddings.autoIndexStrategyDesc': 'When to automatically rebuild the index. "on startup" is best for active vaults. "never" lets you trigger it manually from the ellipsis menu in the chat.',
     'settings.embeddings.excludedFolders': 'Excluded folders',
@@ -128,8 +127,7 @@ export const en: Translations = {
     'settings.embeddings.usingModel': 'Using {{name}} ({{provider}}) for embeddings.',
     'settings.embeddings.indexDesc': 'Builds a local vector index of all notes for semantic_search. {{embModelDesc}}',
     'settings.embeddings.quickSetupTitle': 'Quick setup:',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- OpenAI is brand name
-    'settings.embeddings.quickSetupStep1': '1. Click "+ add embedding model" above and choose a provider (e.g. OpenAI).',
+    'settings.embeddings.quickSetupStep1': '1. Click "+ add embedding model" above and choose a provider.',
     'settings.embeddings.quickSetupStep2': '2. Select a model like text-embedding-3-small (fast, cheap, excellent quality).',
     'settings.embeddings.quickSetupStep3': '3. Enter your API key, then enable the semantic index below.',
     'settings.embeddings.quickSetupFreeTitle': 'Free alternatives:',
@@ -171,14 +169,11 @@ export const en: Translations = {
     'settings.embeddings.mocPropertiesDesc': 'Properties to extract as graph edges (comma-separated). Example: topics, concepts, people.',
     'settings.embeddings.mocPropertiesPlaceholder': 'Topics, concepts, people',
     'settings.embeddings.categoryProperty': 'Category property name',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- Kategorie/Category are example property values
-    'settings.embeddings.categoryPropertyDesc': 'Frontmatter property that defines the note type (e.g. Kategorie, Category).',
+    'settings.embeddings.categoryPropertyDesc': 'Frontmatter property that defines the note type (such as kategorie, category).',
     'settings.embeddings.summaryProperty': 'Summary property name',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- Zusammenfassung/Summary are example property values
-    'settings.embeddings.summaryPropertyDesc': 'Frontmatter property for the short summary (e.g. Zusammenfassung, Summary).',
+    'settings.embeddings.summaryPropertyDesc': 'Frontmatter property for the short summary (such as zusammenfassung, summary).',
     'settings.embeddings.sourceNaming': 'Source naming convention',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- Author-Year_Title is a naming pattern example
-    'settings.embeddings.sourceNamingDesc': 'Naming convention for source files (e.g. Author-Year_Title).',
+    'settings.embeddings.sourceNamingDesc': 'Naming convention for source files (such as author-year_title).',
     'settings.embeddings.graphStats': 'Graph: {{edges}} edges, {{tags}} unique tags extracted',
     'settings.embeddings.graphNotInit': 'Graph: not initialized (enable semantic index first)',
     // Implicit connections (FEATURE-1503)
@@ -1248,6 +1243,42 @@ export const en: Translations = {
     'modal.diffReview.failed': 'Failed',
 
     // =========================================================================
+    // Modal — Vault Health Repair
+    // =========================================================================
+    'modal.vaultHealth.title': 'Vault health check',
+    'modal.vaultHealth.checkOrphans': 'Orphaned notes (no incoming links)',
+    'modal.vaultHealth.checkMissingBacklinks': 'Missing backlinks',
+    'modal.vaultHealth.checkBrokenLinks': 'Broken links',
+    'modal.vaultHealth.checkWeakClusters': 'Semantically related, unlinked pairs',
+    'modal.vaultHealth.checkInconsistentTags': 'Inconsistent tags',
+    'modal.vaultHealth.checkCategoryMismatch': 'Incorrect category assignments',
+    'modal.vaultHealth.repairableCount': '{{count}} finding(s) auto-repairable (backlinks, categories, orphaned edges).',
+    'modal.vaultHealth.repairBtn': 'Repair',
+    'modal.vaultHealth.repairing': 'Repairing...',
+    'modal.vaultHealth.closeBtn': 'Close',
+    'modal.vaultHealth.repairRunning': 'Repair in progress...',
+    'modal.vaultHealth.creatingCheckpoint': 'Creating checkpoint...',
+    'modal.vaultHealth.progressOrphanedEdges': 'Cleaning up orphaned edges...',
+    'modal.vaultHealth.progressBacklinks': 'Inserting missing backlinks...',
+    'modal.vaultHealth.progressCategories': 'Correcting category assignments...',
+    'modal.vaultHealth.progressInvalidLinks': 'Cleaning up invalid links...',
+    'modal.vaultHealth.progressVerify': 'Verifying result...',
+    'modal.vaultHealth.repairDone': 'Repair complete',
+    'modal.vaultHealth.resultEdges': '{{count}} orphaned edges removed',
+    'modal.vaultHealth.resultBacklinks': '{{entities}} entities: {{links}} backlinks, {{bases}} bases created',
+    'modal.vaultHealth.resultCategories': '{{count}} notes: category assignment corrected',
+    'modal.vaultHealth.resultInvalidLinks': '{{count}} invalid links removed',
+    'modal.vaultHealth.noRepairsNeeded': 'No repairs needed -- all clean.',
+    'modal.vaultHealth.remaining': 'Remaining: {{count}} finding(s) ({{critical}} critical).',
+    'modal.vaultHealth.undoBtn': 'Undo',
+    'modal.vaultHealth.doneBtn': 'Done',
+    'modal.vaultHealth.restoring': 'Restoring checkpoint...',
+    'modal.vaultHealth.restored': 'Restored',
+    'modal.vaultHealth.restoredCount': '{{count}} file(s) restored.',
+    'modal.vaultHealth.errors': '{{count}} error(s): {{errors}}',
+    'modal.vaultHealth.restoreFailed': 'Restore failed',
+
+    // =========================================================================
     // Main Plugin
     // =========================================================================
     'plugin.ribbonTooltip': 'Obsilo agent',
@@ -1272,9 +1303,7 @@ export const en: Translations = {
     'onboarding.free.pasteKey': 'Paste your key here in the chat.',
     'onboarding.provider.selectPrompt': 'Which provider would you like to use?',
     'onboarding.provider.anthropic': 'Anthropic',
-    'onboarding.provider.openai': 'OpenAI', // eslint-disable-line obsidianmd/ui/sentence-case-locale-module -- brand name
     'onboarding.provider.google': 'Google',
-    'onboarding.provider.openrouter': 'OpenRouter', // eslint-disable-line obsidianmd/ui/sentence-case-locale-module -- brand name
     'onboarding.provider.pasteKey': '{{label}} -- Paste your API key here in the chat.',
     'onboarding.noModel.heading': 'No model configured. To get started, you need an API key.',
     'onboarding.noModel.freeOffer': 'A powerful model is available for free -- no credit card:',
@@ -1299,7 +1328,7 @@ export const en: Translations = {
     'guide.anthropic.step3': 'Click "create key", give it a name, and copy it.',
     'guide.anthropic.step4': 'Paste the key (starts with sk-ant-...) into the API key field above.',
     'guide.anthropic.tip': 'Recommended model: claude-sonnet-4-6-20250514 (good balance of speed and quality).',
-    'guide.openai.heading': 'How to get your OpenAI API key:', // eslint-disable-line obsidianmd/ui/sentence-case-locale-module -- OpenAI is brand name
+    'guide.openai.heading': 'How to get your API key:',
     'guide.openai.step1': 'Go to platform.openai.com and sign in.',
     'guide.openai.step2': 'Click your name (top right) \u2192 "API keys".',
     'guide.openai.step3': 'Click "create new secret key" and copy it immediately (you can\'t see it again).',
@@ -1316,7 +1345,7 @@ export const en: Translations = {
     'guide.ollama.step3': 'The server starts automatically; the base URL is `http://localhost:11434` by default.',
     'guide.ollama.step4': 'Enter the model name exactly as pulled (for example llama3.2) into the model ID field above.',
     'guide.ollama.tip': 'Not all models support tool use. Recommended: qwen2.5:7b, llama3.2, mistral.',
-    'guide.openrouter.heading': 'How to use OpenRouter (access 100+ models with one key):', // eslint-disable-line obsidianmd/ui/sentence-case-locale-module -- OpenRouter is brand name
+    'guide.openrouter.heading': 'How to use this provider (access 100+ models with one key):',
     'guide.openrouter.step1': 'Go to openrouter.ai and create a free account.',
     'guide.openrouter.step2': 'Click your avatar (top right) \u2192 keys \u2192 create key.',
     'guide.openrouter.step3': 'Copy the key (starts with sk-or-...) and paste it into the API key field above.',
