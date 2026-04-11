@@ -31,7 +31,6 @@
   "author": "Sebastian Hanke",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.60.1",
     "@types/diff": "^7.0.2",
     "@types/node": "^20.11.0",
     "@types/uuid": "^9.0.7",
