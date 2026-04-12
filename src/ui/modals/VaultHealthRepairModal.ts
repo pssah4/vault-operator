@@ -152,8 +152,33 @@ export class VaultHealthRepairModal extends Modal {
             this.plugin.settings.categoryProperty ?? 'Kategorie',
         );
 
-        // Re-run checks to get updated findings
+        // Re-extract graph data for affected files BEFORE re-checking.
+        // Repairs modify frontmatter and create .base files -- the GraphExtractor
+        // must see these changes or the re-check finds stale findings. (FIX-13)
         progress.setText(t('modal.vaultHealth.progressVerify'));
+        if (this.plugin.graphExtractor) {
+            this.plugin.graphExtractor.extractAll(this.app.vault);
+            // Re-bootstrap ontology so backlink checks see the new edges
+            if (this.plugin.ontologyStore) {
+                const catProp = this.plugin.settings.categoryProperty ?? 'Kategorie';
+                const categoryMap = new Map<string, string>();
+                for (const file of this.app.vault.getMarkdownFiles()) {
+                    const cache = this.app.metadataCache.getFileCache(file);
+                    if (cache?.frontmatter?.[catProp]) {
+                        const cat = Array.isArray(cache.frontmatter[catProp])
+                            ? (cache.frontmatter[catProp][0] ?? '').toString().trim()
+                            : cache.frontmatter[catProp].toString().trim();
+                        if (cat) categoryMap.set(file.path, cat);
+                    }
+                }
+                this.plugin.ontologyStore.bootstrapFromEdges(
+                    this.plugin.settings.mocPropertyNames ?? [],
+                    catProp,
+                    categoryMap,
+                );
+            }
+        }
+
         const newFindings = await healthService.runChecks();
 
         // Show result
