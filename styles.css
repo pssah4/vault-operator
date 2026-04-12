@@ -2204,6 +2204,33 @@
     line-height: 1.5;
 }
 
+.followup-item-row {
+    display: flex;
+    gap: 4px;
+    align-items: stretch;
+    margin-bottom: 4px;
+}
+.followup-append-btn {
+    flex-shrink: 0;
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.followup-append-btn:hover {
+    border-color: var(--interactive-accent);
+    color: var(--interactive-accent);
+    background: var(--background-modifier-hover);
+}
 .followup-item {
     display: block;
     width: 100%;

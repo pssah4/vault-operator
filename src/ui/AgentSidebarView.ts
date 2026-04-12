@@ -1805,7 +1805,21 @@ export class AgentSidebarView extends ItemView {
                                 const name = link.contains('|') ? link.split('|').pop()! : link;
                                 return name.contains('/') ? name.split('/').pop()! : name;
                             });
-                            const item = followupList.createEl('button', { cls: 'followup-item', text: displayText });
+                            const itemRow = followupList.createDiv('followup-item-row');
+                            // "+" button: append text to textarea without sending
+                            const appendBtn = itemRow.createEl('button', { cls: 'followup-append-btn', text: '+' });
+                            appendBtn.setAttribute('aria-label', 'Add to input');
+                            appendBtn.addEventListener('click', (ev) => {
+                                ev.stopPropagation();
+                                if (this.textarea) {
+                                    const sep = this.textarea.value.trim() ? '\n' : '';
+                                    this.textarea.value = this.textarea.value + sep + displayText;
+                                    this.textarea.focus();
+                                    this.textarea.dispatchEvent(new Event('input'));
+                                }
+                            });
+                            // Main button: send immediately (existing behavior)
+                            const item = itemRow.createEl('button', { cls: 'followup-item', text: displayText });
                             item.addEventListener('click', () => {
                                 if (this.textarea) {
                                     this.textarea.value = displayText;
