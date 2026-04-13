@@ -37,7 +37,7 @@ The `McpBridge` (`src/mcp/McpBridge.ts`) runs an HTTP server on localhost (defau
 |------|-------|-------------|
 | Read | `get_context`, `search_vault`, `read_notes` | Retrieve information without modifying anything |
 | Session | `sync_session`, `update_memory` | Manage conversation history and persistent memory |
-| Write | `write_vault`, `execute_vault_op` | Create, edit, delete files; run vault operations |
+| Write | `write_vault`, `execute_vault_op` | Create, edit, delete files; run any of ~33 vault operations (the list is generated from the tool registry at runtime) |
 
 The `get_context` tool is mandatory. External agents should call it first in every conversation. It returns the user profile, memory, behavioral patterns, vault statistics, available skills, and rules, the same context that Obsilo's internal agent gets from its system prompt.
 

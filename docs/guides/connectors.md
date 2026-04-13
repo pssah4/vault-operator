@@ -54,7 +54,9 @@ Claude Desktop cannot access your Obsidian notes on its own. With Obsilo's MCP s
 |------|-------|-------------|
 | Read | `read_notes`, `search_vault`, `get_context` | Search and read vault content |
 | Session | `sync_session`, `update_memory` | Synchronize conversation context and memory |
-| Write | `write_vault` | Create and modify notes in your vault |
+| Write | `write_vault`, `execute_vault_op` | Create and modify notes; run vault operations |
+
+`execute_vault_op` is the gateway to all vault operations. It lists about 33 available tools at runtime, including `vault_health_check`, `semantic_search`, `create_pptx`, and others. The list is generated from the plugin's tool registry, so new tools appear automatically without configuration changes.
 
 ### Setup
 

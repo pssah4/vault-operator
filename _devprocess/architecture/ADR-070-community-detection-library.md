@@ -1,6 +1,6 @@
 # ADR-070: Community Detection Library Selection
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-11
 **Deciders:** Sebastian Hanke
 

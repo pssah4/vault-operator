@@ -21,7 +21,7 @@ When you ask "what do I know about X?", it does not grep through filenames. It s
 
 Your vault grows organically. Notes pile up in different folders. Over time, related ideas drift apart without anyone linking them.
 
-Obsilo runs implicit connection analysis in the background. It finds note pairs that are semantically similar but have no wikilink between them. It also checks for orphaned notes, broken links, inconsistent tags, and missing backlinks.
+Obsilo runs implicit connection analysis in the background. It finds note pairs that are semantically similar but have no wikilink between them. The vault health check goes further: it flags orphaned notes, broken links, inconsistent tags, missing backlinks, and "god nodes" (notes with so many connections that they become bottlenecks rather than useful hubs). It also compares your folder and tag structure against the topic clusters it detects in the knowledge graph.
 
 > **Example prompt:** "Run a health check on my vault and tell me what needs fixing."
 

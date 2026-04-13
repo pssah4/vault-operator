@@ -92,6 +92,20 @@ When enabled, Obsilo enriches each chunk with surrounding context before creatin
 
 For example, a chunk containing just a table of numbers becomes much more findable when the system adds context like "quarterly revenue figures from the 2025 financial review."
 
+## Confidence scoring
+
+Not all links are equal. A wikilink you typed by hand is a stronger signal than a similarity score computed in the background. The graph tracks this difference.
+
+Wikilinks get the highest confidence. MOC property links (`related`, `parent`, and similar frontmatter fields) get medium confidence. Implicit connections from semantic similarity get the lowest. When search results include graph-expanded notes, these scores affect ranking, so a note reached through a direct wikilink outranks one reached through a weak implicit connection.
+
+## Knowledge freshness
+
+Search results include a freshness signal based on file modification time. Notes you edited recently get a small relevance boost. A note you updated yesterday about "project status" will rank above one you haven't touched in six months on the same topic. Older notes still appear, they just don't get the boost.
+
+## Community detection
+
+The knowledge graph often contains natural clusters: groups of notes that link to each other frequently but have few connections to the rest of the vault. Obsilo runs the Louvain algorithm at startup to find these clusters. The results feed into vault health checks, where they help spot notes whose category tag doesn't match the cluster they actually belong to.
+
 ## Configuration
 
 | Setting | Where | Recommendation |

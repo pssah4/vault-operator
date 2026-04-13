@@ -1,5 +1,7 @@
 # Feature: God-Node Analysis
 
+**Status:** Implementiert (v2.4.3, 2026-04-12)
+
 > **Feature ID**: FEATURE-2003
 > **Epic**: EPIC-020 - Graph Intelligence
 > **Priority**: P1-High
@@ -127,3 +129,11 @@ Identifies hub notes that have accumulated an excessive number of connections (i
 ## Out of Scope
 - Automatic splitting of hub notes (user must do this manually or with agent assistance)
 - Visual highlighting in Obsidian graph view
+
+---
+
+## Key Files
+
+| Datei | Zweck |
+|-------|-------|
+| `src/core/knowledge/VaultHealthService.ts` | checkGodNodes -- Degree-Berechnung und Flagging |

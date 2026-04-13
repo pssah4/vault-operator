@@ -1,5 +1,7 @@
 # Feature: Community Detection (Louvain)
 
+**Status:** Implementiert (v2.4.3, 2026-04-12)
+
 > **Feature ID**: FEATURE-2002
 > **Epic**: EPIC-020 - Graph Intelligence
 > **Priority**: P0-Critical
@@ -148,3 +150,12 @@ Applies the Louvain community detection algorithm to the knowledge graph to disc
 - Custom visualization of clusters (Obsidian graph view only)
 - Automatic cluster naming without LLM (requires LLM call for meaningful names)
 - Real-time re-clustering on every file save
+
+---
+
+## Key Files
+
+| Datei | Zweck |
+|-------|-------|
+| `src/core/knowledge/CommunityDetectionService.ts` | Louvain Community Detection ueber graphology |
+| `src/core/knowledge/OntologyStore.ts` | Cluster-Speicherung und -Abfrage |

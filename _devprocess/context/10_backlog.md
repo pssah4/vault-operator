@@ -1,7 +1,8 @@
 # Obsilo Agent -- Vollstaendiges Backlog
 
-Stand: 2026-04-09
-Branch: `dev` / `feature/gemini-provider`
+Stand: 2026-04-13
+Branch: `dev` / `feature/gemini-provider` / `feature/graph-intelligence`
+Status: EPIC-020 Graph Intelligence implementiert (v2.4.3)
 
 ---
 
@@ -51,7 +52,7 @@ Branch: `dev` / `feature/gemini-provider`
 
 - MCP Client (SSE, streamable-HTTP), `use_mcp_tool`, `manage_mcp_server`
 - Web Tools (`web_fetch`, `web_search` via Brave/Tavily)
-- i18n (6 Sprachen: DE, EN, ES, JA, ZH-CN, HI)
+- i18n (locale switching UI entfernt, nur noch EN als Runtime-Sprache; de.ts geloescht)
 - Onboarding Wizard (Conversational Onboarding via OnboardingService)
 - Notifications (Task-Completion Toast)
 - VaultDNA Plugin Discovery
@@ -78,7 +79,7 @@ Branch: `dev` / `feature/gemini-provider`
 - File Picker Erweiterung (VaultFilePicker fuer Office-Formate)
 - Task Extraction (TaskExtractor, TaskNoteCreator, TaskSelectionModal)
 - Office Document Creation (create_docx, create_pptx, create_xlsx)
-- PPTX Template Pipeline (plan_presentation, render_presentation -- ADR-046/047/048/049)
+- PPTX Template Pipeline (plan_presentation -- ADR-046/047/048/049; render_presentation entfernt)
 
 ### EPIC-012: GitHub Copilot LLM Provider
 
@@ -131,6 +132,17 @@ Branch: `dev` / `feature/gemini-provider`
 - Ontologie (FEATURE-1902, teilweise: OntologyStore.ts in SQLite, Cluster/Entity-Beziehungen)
 - OCR Integration (FEATURE-1905: OCR-Fallback fuer gescannte PDFs via text-extractor Plugin)
 - Memory-Verbesserungen (ADR-058/059/060: Semantic Recipe Promotion, Memory Decay Prevention, Session Summary Reliability)
+
+### EPIC-020: Graph Intelligence (v2.4.3, 2026-04-12)
+
+- Confidence Scoring (FEATURE-2001: confidence REAL in edges-Tabelle, GraphNeighbor.confidence)
+- Community Detection (FEATURE-2002: CommunityDetectionService, graphology Louvain, OntologyStore-Integration)
+- God-Node Analysis (FEATURE-2003: VaultHealthService.checkGodNodes, Degree-Metriken)
+- Retrieval Quality (FEATURE-2004: Confidence-weighted Graph-Expansion in SemanticSearchTool)
+- Batch Ingest (FEATURE-2005: knowledge-batch-ingest Skill)
+- Knowledge Freshness (FEATURE-2006: Freshness-Klassifikation in SemanticIndexService)
+
+ADRs: ADR-069 (Confidence Storage), ADR-070 (Community Detection Library), ADR-071 (Retrieval Integration)
 
 ---
 
@@ -197,7 +209,7 @@ Branch: `dev` / `feature/gemini-provider`
 | Task Extraction & Management | FEATURE-0801-task-extraction.md | `src/core/tasks/` |
 | PPTX Template-Engine | FEATURE-1100-template-engine.md | `src/core/office/pptx/TemplateEngine.ts` |
 | plan_presentation Tool | -- (ADR-048) | `src/core/tools/vault/PlanPresentationTool.ts` |
-| render_presentation Tool | FEATURE-1115 | `src/core/tools/vault/RenderPresentationTool.ts` |
+| ~~render_presentation Tool~~ | ~~FEATURE-1115~~ | ~~`src/core/tools/vault/RenderPresentationTool.ts`~~ -- Entfernt (LibreOffice-Abhaengigkeit nicht tragbar fuer Community Plugin) |
 | Basis-Praesentationsregeln | FEATURE-1105-universal-design-principles.md | Presentation-Design Skill (ADR-047) |
 | Copilot Auth & Token Management | FEATURE-1201-copilot-auth-token-management.md | `src/core/security/GitHubCopilotAuthService.ts` |
 | Copilot Chat Completions | FEATURE-1202-copilot-chat-completions.md | `src/api/providers/github-copilot.ts` |

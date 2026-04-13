@@ -1,5 +1,7 @@
 # Feature: Retrieval Quality Improvements
 
+**Status:** Implementiert (v2.4.3, 2026-04-12)
+
 > **Feature ID**: FEATURE-2004
 > **Epic**: EPIC-020 - Graph Intelligence
 > **Priority**: P0-Critical
@@ -146,3 +148,11 @@ Enhances the agent's ability to find relevant notes by incorporating confidence 
 ## Out of Scope
 - User-facing display of confidence/cluster data in search results (agent explains verbally if asked)
 - Cluster-based filtering (excluding results outside a cluster)
+
+---
+
+## Key Files
+
+| Datei | Zweck |
+|-------|-------|
+| `src/core/tools/vault/SemanticSearchTool.ts` | Confidence-weighted sorting in Graph-Expansion |

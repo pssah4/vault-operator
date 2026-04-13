@@ -196,4 +196,3 @@ Checkpoint and snapshot settings for the undo system.
 | Debug | Internal diagnostics: ring buffer viewer, system prompt preview |
 | Backup | Export and import your complete Obsilo configuration |
 | Language | Set the agent's response language (follows Obsidian's language by default) |
-| Visual Intelligence | Enable LibreOffice-based rendering for presentation quality checks |

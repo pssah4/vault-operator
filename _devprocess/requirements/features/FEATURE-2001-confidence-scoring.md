@@ -1,5 +1,7 @@
 # Feature: Confidence Scoring
 
+**Status:** Implementiert (v2.4.3, 2026-04-12)
+
 > **Feature ID**: FEATURE-2001
 > **Epic**: EPIC-020 - Graph Intelligence
 > **Priority**: P0-Critical
@@ -127,3 +129,11 @@ The fix: add a `confidence REAL DEFAULT 1.0` column to the `edges` table. Explic
 ## Out of Scope
 - Visual representation of confidence in Obsidian graph view (not possible via plugin API)
 - User-adjustable confidence thresholds (deferred to FEATURE-2004)
+
+---
+
+## Key Files
+
+| Datei | Zweck |
+|-------|-------|
+| `src/core/knowledge/GraphStore.ts` | confidence column + scoring |

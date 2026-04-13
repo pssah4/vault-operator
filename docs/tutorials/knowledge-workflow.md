@@ -95,9 +95,19 @@ After this session, Obsilo has learned something about you. Check what it rememb
 
 The agent pulls from its 3-tier memory: the current session summary, any long-term facts it extracted, and your user profile. Over time, it uses these memories to give better answers and skip questions it already knows the answer to.
 
+## Step 8: Batch ingest a folder
+
+If you have a folder of imported files, exported bookmarks, or meeting notes from a shared drive, you can integrate them all at once:
+
+> "Integrate all notes in my imports/ folder."
+
+The agent works through the folder file by file: indexing each for semantic search, extracting links and tags, updating the knowledge graph, and applying your vault conventions (frontmatter, naming, backlinks). It groups thematically similar files and proposes changes per group before writing anything.
+
+Much faster than opening each note individually.
+
 ## What you learned
 
-You now have semantic search running, which means Obsilo can find notes by meaning rather than just keywords. You know how to explore connections, discover missing links, and keep your vault healthy.
+You now have semantic search running, which means Obsilo can find notes by meaning rather than just keywords. You know how to explore connections, discover missing links, keep your vault healthy, and bulk-import new content.
 
 **Next steps:**
 

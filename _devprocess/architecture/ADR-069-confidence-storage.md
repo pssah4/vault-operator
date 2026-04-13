@@ -1,6 +1,6 @@
 # ADR-069: Confidence Storage Model
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-11
 **Deciders:** Sebastian Hanke
 

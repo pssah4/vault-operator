@@ -1,6 +1,6 @@
 # ADR-071: Retrieval Integration Pattern
 
-**Status:** Proposed (modified by code review 2026-04-12)
+**Status:** Accepted
 **Date:** 2026-04-11
 **Deciders:** Sebastian Hanke
 

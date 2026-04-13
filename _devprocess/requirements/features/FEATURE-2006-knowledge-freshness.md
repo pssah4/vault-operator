@@ -1,5 +1,7 @@
 # Feature: Knowledge Freshness
 
+**Status:** Implementiert (v2.4.3, 2026-04-12)
+
 > **Feature ID**: FEATURE-2006
 > **Epic**: EPIC-020 - Graph Intelligence
 > **Priority**: P1-High
@@ -381,3 +383,11 @@ Informationen dort beeinflussen dein gesamtes KI-Ethik-Cluster.
 - Scheduled automatic scans (user must trigger explicitly -- could be added later)
 - Cross-vault freshness analysis
 - Claim extraction during enrichment (Option A) -- deferred to Phase 2 after validating Stage 4 with on-demand extraction
+
+---
+
+## Key Files
+
+| Datei | Zweck |
+|-------|-------|
+| `src/core/semantic/SemanticIndexService.ts` | Freshness classification (Stage 0 Enrichment-Piggyback) |

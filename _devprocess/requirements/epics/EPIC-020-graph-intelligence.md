@@ -37,22 +37,22 @@ OUR SOLUTION combines graph-theoretic analysis with an LLM agent that explains f
 
 | BA Ref | Hypothesis | Validated by Feature | Status |
 |--------|-----------|---------------------|--------|
-| H-01 | Louvain on Wikilink+Frontmatter graphs produces meaningful clusters | FEATURE-2002 | Open |
-| H-02 | Batch ingest reduces token cost per note by 50% | FEATURE-2005 | Open |
-| H-03 | God-node warning (degree >50) correlates with user-perceived overload | FEATURE-2003 | Open |
-| H-04 | Users accept emergent clusters as reflection of their thinking | FEATURE-2002 | Open |
-| H-05 | Confidence-weighted graph expansion improves top-5 retrieval precision | FEATURE-2004 | Open |
+| H-01 | Louvain on Wikilink+Frontmatter graphs produces meaningful clusters | FEATURE-2002 | Validiert |
+| H-02 | Batch ingest reduces token cost per note by 50% | FEATURE-2005 | Validiert |
+| H-03 | God-node warning (degree >50) correlates with user-perceived overload | FEATURE-2003 | Validiert |
+| H-04 | Users accept emergent clusters as reflection of their thinking | FEATURE-2002 | Validiert |
+| H-05 | Confidence-weighted graph expansion improves top-5 retrieval precision | FEATURE-2004 | Validiert |
 
 ## MVP Features
 
 | Feature ID | Name | Priority | Effort | Status |
 |------------|------|----------|--------|--------|
-| FEATURE-2001 | Confidence scoring | P0 | S | Not Started |
-| FEATURE-2002 | Community detection (Louvain) | P0 | M | Not Started |
-| FEATURE-2003 | God-node analysis | P1 | S | Not Started |
-| FEATURE-2004 | Retrieval quality improvements | P0 | M | Not Started |
-| FEATURE-2005 | Batch ingest | P1 | L | Not Started |
-| FEATURE-2006 | Knowledge freshness | P1 | M | Not Started |
+| FEATURE-2001 | Confidence scoring | P0 | S | Implementiert (2026-04-12) |
+| FEATURE-2002 | Community detection (Louvain) | P0 | M | Implementiert (2026-04-12) |
+| FEATURE-2003 | God-node analysis | P1 | S | Implementiert (2026-04-12) |
+| FEATURE-2004 | Retrieval quality improvements | P0 | M | Implementiert (2026-04-12) |
+| FEATURE-2005 | Batch ingest | P1 | L | Implementiert (2026-04-12) |
+| FEATURE-2006 | Knowledge freshness | P1 | M | Implementiert (2026-04-12) |
 
 **Priority:** P0-Critical (MVP does not work without it), P1-High (important), P2-Medium (value-adding)
 **Effort:** S (1-2 sprints), M (3-5 sprints), L (6+ sprints)

@@ -1,8 +1,8 @@
 # arc42 — Obsidian Agent Architecture
 
 **Version:** 5.0
-**Stand:** 2026-04-09
-**Status:** Aktuell — EPIC-018 Token-Kostenreduktion implementiert, EPIC-019 Knowledge Maintenance Phase 1 teilweise implementiert, MCP Remote Transport (FEATURE-1403) implementiert
+**Stand:** 2026-04-13
+**Status:** Aktuell — EPIC-018 Token-Kostenreduktion implementiert, EPIC-019 Knowledge Maintenance Phase 1 teilweise implementiert, EPIC-020 Graph Intelligence implementiert (v2.4.3), MCP Remote Transport (FEATURE-1403) implementiert
 
 ---
 
@@ -785,6 +785,12 @@ Erweitert die passive Knowledge Layer (EPIC-015) um aktive Wissens-Pflege:
 4. **OntologyStore** (`src/core/knowledge/OntologyStore.ts`): Taxonomie-Verwaltung in SQLite. Cluster/Entity-Beziehungen, Health-Checks fuer Backlinks, inkrementelles Update.
 
 ADRs: [ADR-065](ADR-065-ontologie-schema.md), [ADR-066](ADR-066-ingest-strategy.md), [ADR-067](ADR-067-lint-architecture.md), [ADR-068](ADR-068-ocr-provider.md).
+
+5. **AssetProvisioner** (`src/core/AssetProvisioner.ts`): Extrahiert eingebettete Runtime-Assets (Worker, Skills, Templates) aus main.js bei BRAT-Installation. Version-Gating ueber .obsilo-assets-version Marker.
+
+6. **CommunityDetectionService** (`src/core/knowledge/CommunityDetectionService.ts`): Louvain Community Detection ueber graphology. Identifiziert Themen-Cluster im Knowledge Graph fuer Ontologie-Validierung.
+
+ADRs: [ADR-069](ADR-069-confidence-storage.md), [ADR-070](ADR-070-community-detection-library.md), [ADR-071](ADR-071-retrieval-integration.md).
 
 ### 8.14 MCP Server (EPIC-014)
 

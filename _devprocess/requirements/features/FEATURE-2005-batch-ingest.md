@@ -1,5 +1,7 @@
 # Feature: Batch Ingest
 
+**Status:** Implementiert (v2.4.3, 2026-04-12)
+
 > **Feature ID**: FEATURE-2005
 > **Epic**: EPIC-020 - Graph Intelligence
 > **Priority**: P1-High
@@ -166,3 +168,11 @@ Enables users to integrate an entire folder of notes and documents in a single c
 - Fully autonomous batch ingest without user review
 - Scheduled/automatic inbox processing (e.g. "process inbox every morning")
 - Cross-vault batch operations
+
+---
+
+## Key Files
+
+| Datei | Zweck |
+|-------|-------|
+| `bundled-skills/knowledge-batch-ingest/SKILL.md` | Batch-Ingest Skill-Definition |

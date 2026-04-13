@@ -34,6 +34,10 @@ Notes are split into chunks before embedding. Each chunk gets its own row in the
 
 Stage 2: graph expansion. The initial vector results are seed nodes. The system follows Wikilinks and frontmatter properties outward via breadth-first search. If your "Q3 retrospective" note links to "Action items" and "Team feedback", those get pulled in too. The `GraphStore` (`src/core/knowledge/GraphStore.ts`) handles the BFS traversal over the `edges` table, tracking hop distance so closer neighbors rank higher.
 
+Each edge carries a confidence score. Wikilinks get the highest confidence because you placed them intentionally. MOC property links (frontmatter fields like `related` or `parent`) get medium confidence. Implicit connections (discovered by semantic similarity) get the lowest. These scores affect how much weight an expanded neighbor gets in the final ranking.
+
+The graph also tracks modification time. A note you edited yesterday gets a small relevance boost over one you haven't touched in months. This keeps current knowledge visible without burying older notes.
+
 The graph distinguishes body links (Wikilinks in note content) from frontmatter links (properties like `related`, `parent`, or custom MOC fields). Both contribute to expansion, but they're stored with different `link_type` values so the system can weight them differently.
 
 Stage 3: implicit connections. Some notes are similar but have no explicit link between them. The `ImplicitConnectionService` (`src/core/knowledge/ImplicitConnectionService.ts`) pre-computes these pairs in a background job by comparing vectors across the vault and storing high-similarity pairs. During retrieval, if any candidate has an implicit connection to another note, that note joins the pool.
