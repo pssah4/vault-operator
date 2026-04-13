@@ -137,18 +137,6 @@ export const BUILT_IN_RECIPES: Recipe[] = [
         maxOutputSize: 1_000,
         producesFile: false,
     },
-    {
-        id: 'install-libreoffice',
-        name: 'Install LibreOffice',
-        description: 'Install LibreOffice via Homebrew for visual template rendering and presentation quality checks (macOS only)',
-        binary: 'brew',
-        argsTemplate: ['install', '--cask', 'libreoffice'],
-        parameters: [],
-        cwd: 'vault-root',
-        timeout: 300_000,  // 5 min -- download can take a while
-        maxOutputSize: 50_000,
-        producesFile: false,
-    },
 ];
 
 /**

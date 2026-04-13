@@ -12,6 +12,9 @@ export class VaultTab {
             text: t('settings.vault.desc'),
         });
 
+        // ── Checkpoints ─────────────────────────────────────────────────────
+        containerEl.createEl('h3', { text: 'Checkpoints' });
+
         new Setting(containerEl)
             .setName(t('settings.vault.enableCheckpoints'))
             .setDesc(t('settings.vault.enableCheckpointsDesc'))

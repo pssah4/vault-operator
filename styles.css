@@ -150,7 +150,7 @@
     cursor: pointer;
     color: var(--text-muted);
     border-radius: 4px;
-    opacity: 0;
+    opacity: 0.5;
     transition: opacity 0.15s ease;
 }
 .vault-health-finding-row:hover .vault-health-icon-btn {

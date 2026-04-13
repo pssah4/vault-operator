@@ -272,19 +272,31 @@ export class VaultHealthRepairModal extends Modal {
     private buildFindingPrompt(finding: HealthFinding): string {
         const label = CHECK_LABELS[finding.check] ?? finding.check;
         const paths = finding.paths.map(p => `[[${this.formatPath(p)}]]`).join(', ');
-        return (
-            `Vault health finding (${label}):\n` +
-            `${finding.description}\n\n` +
-            `Affected notes: ${paths}\n\n` +
-            `Analyze this finding and suggest a concrete fix. ` +
-            `After I confirm, implement it using vault operations.`
-        );
-    }
 
-    private buildDiscussText(check: HealthCheckType, findings: HealthFinding[]): string {
-        const label = CHECK_LABELS[check] ?? check;
-        const paths = findings.flatMap(f => f.paths).slice(0, 10);
-        return `I need help with vault health findings (${label}):\n\n${findings.map(f => `- ${f.description.split('\n')[0]}`).join('\n')}\n\nAffected notes: ${paths.map(p => `[[${this.formatPath(p)}]]`).join(', ')}`;
+        // If finding has multiple paths (e.g. orphans with many notes), guide interactive walkthrough
+        if (finding.paths.length > 3) {
+            return (
+                `Vault health: ${label}\n` +
+                `${finding.description}\n\n` +
+                `Affected: ${paths}\n\n` +
+                `Walk me through these one by one. For each item:\n` +
+                `1. Explain what it is and where it lives (vault note, database entry, or system artifact)\n` +
+                `2. Show me the item and suggest what to do with it\n` +
+                `3. Give me concrete options as followup suggestions (e.g. "delete", "link to X", "keep as is", "skip")\n` +
+                `4. Wait for my choice before moving to the next item\n\n` +
+                `Also offer "apply same action to all remaining" as a batch option.\n` +
+                `No emojis. Be specific about file locations and what each item actually is.`
+            );
+        }
+
+        return (
+            `Vault health: ${label}\n` +
+            `${finding.description}\n\n` +
+            `Affected: ${paths}\n\n` +
+            `Explain what this is (vault note, database entry, or system artifact), ` +
+            `where it lives, and suggest a concrete fix with options as followup suggestions. ` +
+            `After I pick one, implement it. No emojis.`
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -577,9 +589,8 @@ export class VaultHealthRepairModal extends Modal {
         const leaves = this.app.workspace.getLeavesOfType('obsilo-agent-sidebar');
         if (leaves.length > 0) {
             const view = leaves[0].view as unknown as { updateHealthBadge(count: number, severity: string | null): void };
-            const repairableFindings = findings.filter(f => REPAIRABLE_CHECKS.has(f.check));
-            const highCount = repairableFindings.filter(f => f.severity === 'high').length;
-            const count = repairableFindings.length;
+            const highCount = findings.filter(f => f.severity === 'high').length;
+            const count = findings.length;
             view.updateHealthBadge(count, highCount > 0 ? 'high' : (count > 0 ? 'medium' : null));
         }
     }

@@ -478,14 +478,12 @@ export default class ObsidianAgentPlugin extends Plugin {
                         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
                         if (leaves.length > 0 && this.vaultHealthService) {
                             const view = leaves[0].view as AgentSidebarView;
-                            // Badge shows repairable findings only (FIX-15: aligned with modal logic)
-                            const repairableTypes = new Set(['missing_backlinks', 'category_mismatch', 'inconsistent_tags']);
-                            const repairableFindings = this.vaultHealthService.getFindings()
-                                .filter(f => repairableTypes.has(f.check));
-                            const highCount = repairableFindings.filter(f => f.severity === 'high').length;
+                            // Badge shows all findings (discuss is available for every type)
+                            const findings = this.vaultHealthService.getFindings();
+                            const highCount = findings.filter(f => f.severity === 'high').length;
                             view.updateHealthBadge(
-                                repairableFindings.length,
-                                highCount > 0 ? 'high' : (repairableFindings.length > 0 ? 'medium' : null),
+                                findings.length,
+                                highCount > 0 ? 'high' : (findings.length > 0 ? 'medium' : null),
                             );
                         }
                     });
