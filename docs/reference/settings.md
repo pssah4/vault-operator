@@ -36,10 +36,34 @@ Configure the semantic index for meaning-based vault search.
 | Reranking | Re-rank semantic search results for better relevance | Off | Enable if search results feel imprecise |
 | Implicit connections | Discover hidden relationships between notes | Off | Enable for knowledge discovery use cases |
 | Graph enrichment | Add semantic similarity data to the Obsidian graph | Off | Enable if you use the graph view heavily |
+| Confidence-weighted ranking | Factor edge confidence into graph expansion | On | Leave on, it improves retrieval quality |
+| Knowledge freshness | Boost recently edited notes in search results | On | Leave on unless you prefer strict relevance over recency |
+| Community detection | Run Louvain clustering on the knowledge graph at startup | On | Needed for category-mismatch health checks |
 
 :::info Index size
 The semantic index stores embeddings locally. For a vault with 1,000 notes, expect roughly 10-20 MB of storage.
 :::
+
+### Knowledge properties
+
+Vault conventions used by the [knowledge ingest](/guides/knowledge-ingest) workflow and [vault health check](/guides/vault-health). Set these once to match your vault's existing schema.
+
+| Setting | What it does | Default | Recommendation |
+|---------|-------------|---------|----------------|
+| Category property | Frontmatter key that holds the note's type or category | `Kategorie` | Match whatever you already use (`Category`, `type`, etc.) |
+| Summary property | Frontmatter key for the short note summary | `Zusammenfassung` | Match your existing convention (`Summary`, `abstract`) |
+| Source naming convention | Filename pattern for source notes created by ingest | `Autor-Jahr_Titel` | Keep short and sortable. Ingest uses this for PDFs |
+| MOC properties | Extra frontmatter keys that participate in Maps of Content | Empty | Add `related`, `parent`, or whatever you link through |
+
+### Vault health check
+
+Diagnostic and repair pipeline for structural vault problems. See [Vault Health Check](/guides/vault-health) for the full workflow.
+
+| Setting | What it does | Default | Recommendation |
+|---------|-------------|---------|----------------|
+| Enable vault health check | Run structural checks automatically on vault open | On | Keep on. Scans are fast and use no LLM tokens |
+| Show health badge | Colored dot in the sidebar when findings exist | On | Keep on. It's the primary entry point to the repair modal |
+| God-node threshold | Connection count above which a note is flagged as overloaded | 50 | Raise it for very large vaults, lower it if you want stricter hygiene |
 
 ## Web search
 

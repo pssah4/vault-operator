@@ -77,15 +77,17 @@ Ask the agent to run a structural check:
 
 > "Run a health check on my vault."
 
-The agent calls `vault_health_check` and reports findings grouped by category:
+The agent calls `vault_health_check` and reports findings grouped by type:
 
 - **Orphaned notes:** Notes with no incoming links
-- **Missing backlinks:** One-directional MOC links
-- **Broken links:** Wikilinks pointing to notes that do not exist
-- **Weak clusters:** Semantically similar notes that are not linked
+- **Missing backlinks:** One-directional links where the target doesn't link back
+- **Broken links:** Wikilinks pointing to notes that no longer exist
+- **Weak clusters:** Semantically similar notes that aren't linked yet
 - **Inconsistent tags:** Spelling variants like `#meeting` vs `#meetings`
+- **Category mismatches:** Notes whose category property disagrees with the cluster they belong to
+- **God nodes:** Hub notes with too many connections to still act as useful indexes
 
-You can fix issues directly from the results modal, and every fix creates a checkpoint you can undo.
+Open the repair modal from the sidebar badge to work through them. Findings have three actions. Repair applies a mechanical fix. Discuss opens a fresh agent chat that walks through the specific finding with you. Dismiss hides a finding that's actually fine by design. Every repair creates a checkpoint you can undo.
 
 ## Step 7: See what was remembered
 
@@ -95,15 +97,19 @@ After this session, Obsilo has learned something about you. Check what it rememb
 
 The agent pulls from its 3-tier memory: the current session summary, any long-term facts it extracted, and your user profile. Over time, it uses these memories to give better answers and skip questions it already knows the answer to.
 
-## Step 8: Batch ingest a folder
+## Step 8: Integrate a note or a whole folder
 
-If you have a folder of imported files, exported bookmarks, or meeting notes from a shared drive, you can integrate them all at once:
+Ingest is the other side of discovery. Instead of searching for something, you add new material to the vault in a way that keeps the graph intact. For a single note, ask:
+
+> "Integrate this note into my vault."
+
+For a folder of imports, bookmarks, or meeting notes, ask:
 
 > "Integrate all notes in my imports/ folder."
 
-The agent works through the folder file by file: indexing each for semantic search, extracting links and tags, updating the knowledge graph, and applying your vault conventions (frontmatter, naming, backlinks). It groups thematically similar files and proposes changes per group before writing anything.
+The agent reads each note, searches for topics it already knows, and proposes the full set of changes (frontmatter, backlinks, MOC entries, any new stub notes) before writing anything. You confirm and it applies. Batch runs group thematically similar files and show proposals per group rather than per file.
 
-Much faster than opening each note individually.
+See [Knowledge ingest](/guides/knowledge-ingest) for the full workflow.
 
 ## What you learned
 
@@ -112,5 +118,6 @@ You now have semantic search running, which means Obsilo can find notes by meani
 **Next steps:**
 
 - [Knowledge discovery](/guides/knowledge-discovery): All search and graph features in detail
+- [Knowledge ingest](/guides/knowledge-ingest): The structured workflow for adding new notes, PDFs, and folders
 - [Vault health check](/guides/vault-health): Regular maintenance for your vault
 - [Memory and personalization](/guides/memory-personalization): How the agent builds your profile

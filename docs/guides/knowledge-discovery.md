@@ -106,6 +106,14 @@ Search results include a freshness signal based on file modification time. Notes
 
 The knowledge graph often contains natural clusters: groups of notes that link to each other frequently but have few connections to the rest of the vault. Obsilo runs the Louvain algorithm at startup to find these clusters. The results feed into vault health checks, where they help spot notes whose category tag doesn't match the cluster they actually belong to.
 
+## God-node detection
+
+The flip side of a healthy hub is a note that has collected too many backlinks to still be useful. A topic note with eighty connections isn't an index anymore, it's a dumping ground. Obsilo flags these "god nodes" as part of the vault health check so you can think about splitting them into more focused notes. The threshold is configurable in [Settings > Embeddings > Vault health check](/reference/settings#vault-health-check).
+
+## Scanned PDFs and OCR
+
+PDFs that contain only scanned images (no extractable text layer) are common in academic workflows, and on its own the PDF parser can't read them. If you have the Obsidian Text Extractor plugin installed and have already let it OCR your attachments, Obsilo falls back to that plugin's OCR cache when indexing scanned PDFs. Anything you've processed with Text Extractor becomes searchable here too, with no additional API calls.
+
 ## Configuration
 
 | Setting | Where | Recommendation |

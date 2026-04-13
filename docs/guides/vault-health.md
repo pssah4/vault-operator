@@ -1,63 +1,66 @@
 ---
 title: Vault Health Check
-description: Find and fix structural problems in your vault like orphaned notes, broken links, and inconsistent tags.
+description: Diagnose and repair structural problems in your vault, from orphans and broken links to category mismatches and overloaded hub notes.
 ---
 
 # Vault health check
 
-Large vaults accumulate structural problems over time. Notes get orphaned, links break, tags diverge in spelling, and MOC pages lose backlinks. The vault health check finds these issues so you can fix them.
+Any vault you keep for more than a few months accumulates rough edges. You rename a note and the wikilinks pointing at the old name quietly break. A Map of Content links outward but never gets linked back. One person writes `#meeting` everywhere while another part of the vault has drifted to `#meetings`. A topic note that started as a clean hub is now carrying eighty backlinks and has turned into a dumping ground.
 
-## Running a health check
+The vault health check is the feature that finds these problems and helps you fix them. It runs entirely in code against the knowledge database, so it doesn't spend any LLM tokens. Running it is effectively free.
 
-Ask the agent directly:
+## The health badge
 
-> "Check my vault for structural issues."
+Open the Obsilo sidebar and look for a small colored dot next to the vault health icon. That dot is the health badge.
 
-Or be specific about what you want to check:
+No dot means everything looks fine. Orange means there are medium-severity findings waiting. Red means at least one is high-severity. Click the icon to open the repair modal, or trigger a scan from the sidebar ellipsis menu. You can also just ask the agent:
 
-> "Find all orphaned notes that have no incoming links."
+> "Run a health check on my vault."
 
-The agent calls `vault_health_check`, which runs SQL queries against your knowledge database. No LLM tokens are used for the scan itself.
+## What the check looks for
 
-## What it checks
+Each check is a SQL query against the knowledge graph. Together they cover the ways a vault typically drifts out of shape.
 
-| Check | What it finds |
-|-------|--------------|
-| **Orphaned notes** | Notes with zero incoming wikilinks. Nobody links to them. |
-| **Missing backlinks** | MOC or hub notes that link outward but are not linked back. |
-| **Broken links** | Wikilinks pointing to notes that do not exist in your vault. |
-| **Weak clusters** | Semantically similar note pairs with no link between them. |
-| **Inconsistent tags** | Spelling variants of the same tag, like `#meeting` and `#meetings`. |
-| **Category mismatches** | Notes whose folder or properties conflict with ontology categories. |
+| Check | What it finds | Why it matters |
+|-------|---------------|----------------|
+| Orphaned notes | Notes with zero incoming wikilinks | Nothing points at them, so they're invisible to backlink navigation and rank poorly in retrieval |
+| Missing backlinks | A note links out but the target doesn't link back | One-directional links make the graph less useful as a navigation layer |
+| Broken links | Wikilinks pointing to notes that no longer exist | Usually the result of a rename or delete that Obsidian couldn't rewrite cleanly |
+| Weak clusters | Notes that are semantically very close but unlinked | These are connections you likely meant to make but didn't, and now the agent can surface them for you |
+| Inconsistent tags | Spelling variants of the same tag, like `#meeting` and `#meetings` | Fragmented tags fragment search and MOC coverage |
+| Category mismatches | A note's category property disagrees with the topic cluster it actually belongs to | Either the note is miscategorized or your ontology needs updating |
+| God nodes | Hub notes with far more connections than they can usefully organize | A hub with eighty backlinks isn't a hub anymore, it's a bottleneck |
 
-## Fixing issues
+Weak clusters and category mismatches need the [semantic index](/guides/knowledge-discovery) to be built. Without the index the check still runs, it just returns fewer findings.
 
-When the agent reports findings, you have two options:
+## The repair modal
 
-**Option 1: Let the agent fix them.** Ask:
+Click the health badge and the repair modal opens. Findings are grouped by check type, each with a severity marker and a short description of what's wrong and where.
 
-> "Fix the missing backlinks you found."
+Each finding has an action bar with three options.
 
-The agent adds wikilinks, renames tags, or moves notes as needed. Each change requires your approval and creates a checkpoint.
+**Repair** is the right choice for mechanical fixes: adding a missing backlink, pruning an orphaned edge, correcting a category. The service applies the change and creates a checkpoint first, so you always have an undo. Nothing gets lost.
 
-**Option 2: Use the repair modal.** The Vault Health Repair Modal shows all findings grouped by category. You select which ones to fix. Every fix is backed by a checkpoint, so you can undo individual changes.
+**Discuss** is for findings that need judgment. A god-node needs a decision about how to split it. A weak cluster might or might not be a real connection that belongs in the graph. Click discuss and Obsilo opens a new agent chat pre-loaded with the context of that specific finding. The agent walks you through what it is and where it lives, then suggests a concrete fix that you can accept, tweak, or reject.
 
-## Requirements
+**Dismiss** is for findings that aren't actually problems. A broken link might point at a note you deliberately deleted. A note might be meant to stay orphaned because it's a private draft you don't want indexed anywhere. Click the eye-off button and the finding is filtered out of future scans. It's not deleted, just hidden.
 
-The vault health check needs a built semantic index. If you haven't set one up yet, see [Your First Knowledge Workflow](/tutorials/knowledge-workflow).
+### Dismissed findings
 
-Without an index, the check still finds broken links and orphaned notes, but cannot detect weak clusters or implicit connections.
+The modal footer shows a count of everything you've dismissed. Click it to open a searchable list. From there you can restore a single finding, or restore all of them if you've changed your mind. Restored findings reappear right away without a reload.
 
 ## When to run it
 
-There is no fixed schedule. Good times to run a check:
+There's no schedule. The scan is cheap enough that you could run it after every session, but in practice most users only run it when something prompts them: after importing a batch of notes, after reorganizing folders, when search results start feeling patchy, or as occasional housekeeping every few weeks.
 
-- After adding a batch of new notes (importing, migrating)
-- After reorganizing your folder structure
-- Once a month as general maintenance
-- When search results feel incomplete
+Once you've done a few of these, a session settles into a rhythm. Open the modal, deal with the red-dot items first. Batch-repair the obvious mechanical stuff. Use discuss on the few findings that actually need you to think. Dismiss the ones that were fine all along. Come back another day if there's still orange left over.
 
-## Next steps
+## Configuration
 
-- [Knowledge discovery](/guides/knowledge-discovery): Semantic search and the knowledge graph
-- [Safety and control](/guides/safety-control): How checkpoints protect your changes
+The health check reads a few of your vault conventions from [Settings > Embeddings > Knowledge Properties](/reference/settings#knowledge-properties) so it can validate category and summary properties correctly. Set those once and the check uses them for every scan. The god-node threshold is also configurable if fifty connections feels too strict or too loose for your vault size.
+
+## Related
+
+- [Knowledge ingest](/guides/knowledge-ingest) is the other half of the same story: prevent findings by adding notes cleanly in the first place.
+- [Knowledge discovery](/guides/knowledge-discovery) explains the graph and semantic index that the checks run against.
+- [Safety and control](/guides/safety-control) covers the checkpoint system that backs every repair.

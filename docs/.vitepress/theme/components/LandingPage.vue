@@ -173,9 +173,9 @@ onMounted(() => {
 
 <template>
   <section class="landing-hero">
-    <a href="/releases/v2.4" class="landing-badge">
+    <a href="https://github.com/pssah4/obsilo/releases" class="landing-badge" target="_blank" rel="noopener">
       <span class="landing-badge-version">v2.4</span>
-      <span>Graph intelligence, Claude remote Obsilo use optimization</span>
+      <span>Graph intelligence, knowledge maintenance, vault health checks</span>
     </a>
 
     <h1 class="landing-title">Your Obsidian vault,<br>with a real AI Agent.</h1>

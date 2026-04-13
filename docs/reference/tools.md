@@ -48,7 +48,9 @@ Tools that understand your vault's structure, metadata, and connections.
 | `open_note` | Open a note in the Obsidian editor. | After creating or editing a note so you can see the result. |
 | `semantic_search` | Find notes by meaning using AI-powered similarity search. | For natural-language questions about vault content ("What do I know about X?"). |
 | `query_base` | Query an Obsidian Bases database file and return matching records. | To retrieve structured data from a .base file. |
-| `vault_health_check` | Run structural checks: orphaned notes, missing backlinks, broken links, weak clusters, inconsistent tags. | To audit and maintain vault quality. See [Vault Health](/guides/vault-health). |
+| `vault_health_check` | Run structural checks on the knowledge graph: orphans, broken links, missing backlinks, weak clusters, inconsistent tags, category mismatches, god-nodes. Returns findings with severity. | To audit vault quality or diagnose a specific issue area. Runs against the knowledge database, no LLM tokens used. See [Vault Health](/guides/vault-health). |
+| `ingest_document` | Parse a PDF, DOCX, or other document into text and index it. Falls back to the Text Extractor plugin cache for scanned PDFs. | Before searching the content of an imported or attached document. |
+| `read_document` | Read a PDF or Office document page-by-page, with `start_page` and `end_page` for large files. | When a document is too large to read in one go. |
 
 :::info Semantic search setup
 `semantic_search` requires an embedding model and a built index. Configure both in **Settings > Embeddings**. See [Knowledge Discovery](/guides/knowledge-discovery) for setup instructions.

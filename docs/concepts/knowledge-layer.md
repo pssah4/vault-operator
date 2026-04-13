@@ -38,6 +38,8 @@ Each edge carries a confidence score. Wikilinks get the highest confidence becau
 
 The graph also tracks modification time. A note you edited yesterday gets a small relevance boost over one you haven't touched in months. This keeps current knowledge visible without burying older notes.
 
+On top of the edge graph sits a second structure: topic clusters. At startup, `CommunityDetectionService` runs the Louvain algorithm (via the `graphology` library) over the wikilink and frontmatter graph and groups notes into emergent communities. A community is a set of notes that link to each other densely but connect sparsely to the rest of the vault. The clusters aren't predefined, they fall out of the graph's structure. Retrieval uses cluster membership as an additional ranking signal, and the vault health check uses it to spot notes whose declared category disagrees with the cluster they actually belong to.
+
 The graph distinguishes body links (Wikilinks in note content) from frontmatter links (properties like `related`, `parent`, or custom MOC fields). Both contribute to expansion, but they're stored with different `link_type` values so the system can weight them differently.
 
 Stage 3: implicit connections. Some notes are similar but have no explicit link between them. The `ImplicitConnectionService` (`src/core/knowledge/ImplicitConnectionService.ts`) pre-computes these pairs in a background job by comparing vectors across the vault and storing high-similarity pairs. During retrieval, if any candidate has an implicit connection to another note, that note joins the pool.
@@ -72,6 +74,14 @@ The database supports three storage locations with a fallback chain:
 - Obsidian Sync: `{vault}/{pluginDir}/knowledge.db`
 
 The schema is versioned (currently v5). When a schema change ships, `KnowledgeDB` runs migration logic on open. If the migration fails, the database is recreated from scratch. Re-indexing is fast enough that losing the cache is acceptable.
+
+## The ontology store
+
+Next to the vectors and the edge graph sits a small third store: the ontology. `OntologyStore` (`src/core/knowledge/OntologyStore.ts`) tracks the conceptual schema that emerges from your vault. Which category labels exist, which entity clusters repeat, which type hierarchies the notes fall into. It's populated automatically during indexing, not curated by hand.
+
+Two features rely on it. The knowledge ingest workflow uses the ontology to prefer existing entities over creating new ones: when you integrate a note that mentions "Deep Work," the agent checks whether a matching topic already exists before proposing a new stub. The vault health check uses the ontology to validate each note's category property against the cluster it belongs to, which is how category mismatches get flagged.
+
+The store itself is small. It holds schema facts, not content. The real knowledge still lives in your notes, and the ontology is really just a cache of patterns the indexer noticed.
 
 ## Background enrichment
 

@@ -45,8 +45,9 @@ const guidesSidebar = [
     ],
   },
   {
-    text: 'Maintenance',
+    text: 'Knowledge Maintenance',
     items: [
+      { text: 'Knowledge Ingest', link: '/guides/knowledge-ingest' },
       { text: 'Vault Health Check', link: '/guides/vault-health' },
     ],
   },
