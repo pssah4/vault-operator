@@ -55,6 +55,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1030.0",
+    "@aws-sdk/credential-providers": "^3.1030.0",
     "@huggingface/transformers": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "delay": "^5.0.0",

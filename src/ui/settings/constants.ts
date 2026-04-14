@@ -19,6 +19,7 @@ const BRAND_LABELS: Record<string, string> = {
     azure:            'Azure OpenAI',
     'github-copilot': 'GitHub Copilot',
     'kilo-gateway':   'Kilo Gateway',
+    bedrock:          'Amazon Bedrock',
 };
 
 function getProviderLabels(): Record<string, string> {
@@ -36,6 +37,7 @@ const PROVIDER_COLORS: Record<string, string> = {
     gemini: '#4285f4',
     'github-copilot': '#6e40c9',
     'kilo-gateway':   '#ff6200',
+    bedrock:          '#ff9900',
 };
 
 // Model suggestions shown in the Quick Pick dropdown per provider
@@ -99,6 +101,27 @@ const MODEL_SUGGESTIONS: Record<string, { group: string; id: string; label: stri
     // kilo/auto als einziger Fallback-Eintrag (ADR-042).
     'kilo-gateway': [
         { group: 'Kilo',       id: 'kilo/auto',                label: 'Auto (recommended)' },
+    ],
+    // Bedrock: prefer cross-region inference profile IDs. The `eu.` prefix routes
+    // across EU regions (Frankfurt, Ireland, Paris), `us.` across US regions.
+    // Direct model IDs (no prefix) only work in the specific region that hosts them.
+    bedrock: [
+        { group: 'Claude 4 (EU)',  id: 'eu.anthropic.claude-opus-4-6-v1',              label: 'Claude Opus 4.6 (EU)' },
+        { group: 'Claude 4 (EU)',  id: 'eu.anthropic.claude-sonnet-4-5-20250929-v1:0', label: 'Claude Sonnet 4.5 (EU)' },
+        { group: 'Claude 4 (EU)',  id: 'eu.anthropic.claude-opus-4-5-20250930-v1:0',   label: 'Claude Opus 4.5 (EU)' },
+        { group: 'Claude 4 (EU)',  id: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0',  label: 'Claude Haiku 4.5 (EU)' },
+        { group: 'Claude 3.x (EU)',id: 'eu.anthropic.claude-3-7-sonnet-20250219-v1:0', label: 'Claude 3.7 Sonnet (EU)' },
+        { group: 'Claude 3.x (EU)',id: 'eu.anthropic.claude-3-5-sonnet-20241022-v2:0', label: 'Claude 3.5 Sonnet v2 (EU)' },
+        { group: 'Claude 4 (US)',  id: 'us.anthropic.claude-opus-4-6-v1',              label: 'Claude Opus 4.6 (US)' },
+        { group: 'Claude 4 (US)',  id: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0', label: 'Claude Sonnet 4.5 (US)' },
+        { group: 'Claude 4 (US)',  id: 'us.anthropic.claude-opus-4-5-20250930-v1:0',   label: 'Claude Opus 4.5 (US)' },
+        { group: 'Claude 4 (US)',  id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',  label: 'Claude Haiku 4.5 (US)' },
+        { group: 'Claude 3.x (US)',id: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0', label: 'Claude 3.7 Sonnet (US)' },
+        { group: 'Claude 3.x (US)',id: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0', label: 'Claude 3.5 Sonnet v2 (US)' },
+        { group: 'Amazon Nova',    id: 'eu.amazon.nova-pro-v1:0',                     label: 'Nova Pro (EU)' },
+        { group: 'Amazon Nova',    id: 'eu.amazon.nova-lite-v1:0',                    label: 'Nova Lite (EU)' },
+        { group: 'Amazon Nova',    id: 'us.amazon.nova-pro-v1:0',                     label: 'Nova Pro (US)' },
+        { group: 'Amazon Nova',    id: 'us.amazon.nova-lite-v1:0',                    label: 'Nova Lite (US)' },
     ],
 };
 

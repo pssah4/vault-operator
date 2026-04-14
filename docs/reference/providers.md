@@ -94,6 +94,47 @@ Setup:
 Azure OpenAI fits organizations with compliance requirements. Data stays inside your Azure tenant.
 :::
 
+### Amazon Bedrock
+
+| | |
+|---|---|
+| What you need | AWS account with Bedrock enabled, IAM user with invoke permissions, access key ID + secret access key |
+| Recommended models | Claude Sonnet 4.5, Claude Opus 4.5, Amazon Nova (via cross-region inference profiles) |
+| Embedding | Not supported in phase 1. Use OpenAI or Ollama for embeddings |
+| Regions | eu-central-1, eu-west-1, eu-west-2, eu-west-3, eu-north-1, us-east-1, us-east-2, us-west-2, plus Asia Pacific |
+
+Setup:
+1. In the AWS console, open Bedrock in your preferred region. For the EU, Frankfurt (`eu-central-1`) is the most common choice
+2. Go to **Model access** and request access to the model families you want to use. Approval is usually instant for the major foundation models
+3. Create an IAM user (or role) with a policy that allows these actions:
+    ```json
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": "*"
+    }
+    ```
+4. For EU cross-region inference profiles (recommended), the resource ARN pattern covers all EU regions. For a more restricted policy, scope it to the specific inference profile ARNs you use
+5. Generate an **access key ID** and **secret access key** for the user and copy both
+6. In Obsilo, select **Amazon Bedrock** as provider, pick your region, and paste the credentials. Use the quick pick dropdown to select a model
+
+:::tip Cross-region inference profiles
+Model IDs prefixed with `eu.` or `us.` are cross-region inference profiles. They route requests across the regions in that geography for higher availability. In Europe, `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` is the recommended default — it works from any EU region and keeps data inside the EU.
+
+Direct regional model IDs (without a prefix) only work in the specific region that hosts the model. Frankfurt supports a smaller direct model list than the EU inference profiles do.
+:::
+
+:::info Temporary credentials
+For AWS SSO or STS-issued credentials, fill the **session token** field as well. Long-lived IAM user credentials don't need it.
+:::
+
+:::warning Billing
+Bedrock bills per-token directly through your AWS account. There is no free tier for most foundation models. Check the AWS Bedrock pricing page before heavy use.
+:::
+
 ## Gateway providers
 
 ### GitHub Copilot
@@ -193,6 +234,7 @@ This works with any server that implements the OpenAI chat completions API: vLLM
 | Google Gemini | API key | Free tier + pay | Cloud | No | Free starting point |
 | OpenRouter | API key | Pay-per-use | Cloud | No | Model variety |
 | Azure OpenAI | API key + endpoint | Enterprise | Enterprise tenant | Yes | Compliance |
+| Amazon Bedrock | IAM access key | Pay-per-use via AWS | Cloud (your AWS account) | No | EU data residency via eu-central-1 |
 | GitHub Copilot | OAuth | Subscription | Cloud | No | Existing subscribers |
 | Kilo Gateway | Device auth / token | Organization | Cloud | No | Team deployments |
 | Ollama | None | Free | Fully local | Yes | Privacy, offline |

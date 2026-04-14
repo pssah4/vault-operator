@@ -10,6 +10,7 @@ import { AnthropicProvider } from './providers/anthropic';
 import { OpenAiProvider } from './providers/openai';
 import { GitHubCopilotProvider } from './providers/github-copilot';
 import { KiloGatewayProvider } from './providers/kilo-gateway';
+import { BedrockProvider } from './providers/bedrock';
 
 export type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ContentBlock, ModelInfo } from './types';
 
@@ -32,6 +33,8 @@ export function buildApiHandler(config: LLMProvider) {
             return new GitHubCopilotProvider(config);
         case 'kilo-gateway':
             return new KiloGatewayProvider(config);
+        case 'bedrock':
+            return new BedrockProvider(config);
         case 'openai':
         case 'gemini':
         case 'ollama':

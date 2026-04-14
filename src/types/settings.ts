@@ -7,7 +7,7 @@
 // Adapted from Obsidian Copilot's CustomModel pattern
 // ---------------------------------------------------------------------------
 
-export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway';
+export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway' | 'bedrock';
 
 export interface CustomModel {
     /** Model identifier used in API calls (e.g. "claude-sonnet-4-5-20250929") */
@@ -34,6 +34,19 @@ export interface CustomModel {
     thinkingEnabled?: boolean;
     /** Thinking budget in tokens (used when thinkingEnabled is true, default 10000) */
     thinkingBudgetTokens?: number;
+    /** AWS region (Bedrock only), e.g. "eu-central-1", "us-east-1" */
+    awsRegion?: string;
+    /** Auth mode for Bedrock: 'api-key' uses a single bearer token (new AWS Bedrock API Keys),
+     * 'access-key' uses the classic IAM access key + secret key pair with SigV4 signing */
+    awsAuthMode?: 'api-key' | 'access-key';
+    /** AWS Bedrock API key (bearer token). Used when awsAuthMode === 'api-key'. */
+    awsApiKey?: string;
+    /** AWS IAM access key ID. Used when awsAuthMode === 'access-key'. */
+    awsAccessKey?: string;
+    /** AWS IAM secret access key. Used when awsAuthMode === 'access-key'. */
+    awsSecretKey?: string;
+    /** Optional AWS session token for temporary credentials from SSO/STS (access-key mode only) */
+    awsSessionToken?: string;
 }
 
 /** Provider-level default base URLs used for setup UX and built-in models. */
@@ -221,6 +234,18 @@ export interface LLMProvider {
     thinkingEnabled?: boolean;
     /** Thinking budget in tokens */
     thinkingBudgetTokens?: number;
+    /** AWS region (Bedrock only) */
+    awsRegion?: string;
+    /** Bedrock auth mode */
+    awsAuthMode?: 'api-key' | 'access-key';
+    /** Bedrock API key (bearer token) */
+    awsApiKey?: string;
+    /** AWS access key ID (Bedrock only) */
+    awsAccessKey?: string;
+    /** AWS secret access key (Bedrock only) */
+    awsSecretKey?: string;
+    /** AWS session token (Bedrock only, optional) */
+    awsSessionToken?: string;
 }
 
 /** Convert a CustomModel to LLMProvider for the API handler layer */
@@ -236,6 +261,12 @@ export function modelToLLMProvider(model: CustomModel): LLMProvider {
         promptCachingEnabled: model.promptCachingEnabled,
         thinkingEnabled: model.thinkingEnabled,
         thinkingBudgetTokens: model.thinkingBudgetTokens,
+        awsRegion: model.awsRegion,
+        awsAuthMode: model.awsAuthMode,
+        awsApiKey: model.awsApiKey,
+        awsAccessKey: model.awsAccessKey,
+        awsSecretKey: model.awsSecretKey,
+        awsSessionToken: model.awsSessionToken,
     };
 }
 
