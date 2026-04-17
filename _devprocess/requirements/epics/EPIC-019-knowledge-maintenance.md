@@ -48,13 +48,13 @@ Was fehlt ist der Schritt vom passiven Index zum aktiven Wissens-Pfleger:
 
 | Feature ID | Name | Typ | Priority | Effort | Status |
 |------------|------|-----|----------|--------|--------|
-| FEATURE-1900 | Knowledge Ingest Skill | Skill | P0 | M | Geplant |
+| FEATURE-1900 | Knowledge Ingest Skill | Skill | P0 | M | Implementiert (`bundled-skills/knowledge-ingest/SKILL.md`, 269 Zeilen) |
 | FEATURE-1901 | Vault Health Check (Lint) | Feature (Toggle) | P0 | M | Implementiert (VaultHealthCheckTool, VaultHealthService, VaultHealthRepairModal) |
 | FEATURE-1902 | Knowledge Ontologie | Infrastruktur | P0 | M | Teilweise (OntologyStore.ts implementiert, ADR-065) |
 | FEATURE-1903 | Template-Onboarding | Einmalig | P1 | S | Geplant |
-| FEATURE-1904 | Synthese → Zettel | UI-Button (Toggle) | P1 | S | Geplant |
+| FEATURE-1904 | Synthese → Zettel | UI-Button (Toggle) | P1 | S | Implementiert (AgentSidebarView synthesisZettel-Button, Setting `enableSynthesisButton`) |
 | FEATURE-1905 | OCR-Integration | Sub-Feature (Toggle) | P1 | M | Implementiert (text-extractor Fallback, ADR-068) |
-| FEATURE-1906 | Attachment-Batch-Umbenennung | Skill | P1 | S | Geplant |
+| FEATURE-1906 | Attachment-Batch-Umbenennung | Skill | P1 | S | Implementiert (`bundled-skills/knowledge-rename/SKILL.md`) |
 | FEATURE-1907 | Chat UI Polish | UI-Fix | P2 | S | Geplant |
 
 **Priority:** P0-Critical, P1-High, P2-Medium
