@@ -23,6 +23,7 @@ import type { McpClient } from './mcp/McpClient';
 import { BUILT_IN_MODES } from './modes/builtinModes';
 import { QUALITY_GATES } from './tools/qualityGates';
 import { sanitizeAndLog } from './utils/sanitizeHistoryForApi';
+import { filterShadowedBuiltins } from './tools/shadowedByPlugin';
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -393,6 +394,16 @@ export class AgentTask {
             cachedTools = this.modeService
                 ? this.modeService.getToolDefinitions(activeMode)
                 : this.toolRegistry.getToolDefinitions();
+
+            // BUG-018 Wave 2: hard tool-filter for plugin-shadowed built-ins.
+            // If e.g. the Excalidraw community plugin is active, create_excalidraw
+            // disappears from the schema entirely — the LLM cannot accidentally
+            // pick it over the richer plugin route.
+            const enabledPluginIds = (this.toolRegistry.plugin.app as unknown as {
+                plugins?: { enabledPlugins?: Set<string> };
+            }).plugins?.enabledPlugins ?? new Set<string>();
+            cachedTools = filterShadowedBuiltins(cachedTools, enabledPluginIds);
+
             cachedPromptMode = activeMode.slug;
             cacheInvalidated = false;
         };

@@ -465,7 +465,7 @@ Quelle: BA-013, IMPL-007. 4 Community-Issues + 3 Dependabot-Alerts + zwei wahren
 | Arbeitsstrom | Status |
 |---|---|
 | BUG-016 defensive error handling (Memory + Context-Prefix) | Implemented (tests: 16/16) |
-| Hard Tool-Filter (BUG-018 Wave 2) | Geplant |
+| Hard Tool-Filter (BUG-018 Wave 2) | Implemented (tests: 5/5, `filterShadowedBuiltins` in AgentTask `rebuildPromptCache`) |
 | Excalidraw-Arrows-Extension | Geplant |
 
 ---
