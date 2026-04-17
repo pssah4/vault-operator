@@ -15,10 +15,13 @@ import type { PluginSkillMeta } from './types';
 export class SkillRegistry {
     private scanner: VaultDNAScanner;
     private skillToggles: Record<string, boolean>;
+    /** FEATURE-0507: vault-relative dir (default ".obsidian-agent/plugin-skills") for the prompt hint. */
+    private skillsDir: string;
 
-    constructor(scanner: VaultDNAScanner, skillToggles: Record<string, boolean>) {
+    constructor(scanner: VaultDNAScanner, skillToggles: Record<string, boolean>, skillsDir = '.obsidian-agent/plugin-skills') {
         this.scanner = scanner;
         this.skillToggles = skillToggles;
+        this.skillsDir = skillsDir;
     }
 
     /**
@@ -60,7 +63,7 @@ export class SkillRegistry {
             'NEVER substitute a built-in tool (like create_base, write_file) for a plugin the user requested.',
             '',
             'Before using a plugin, ALWAYS read its skill file first:',
-            '  read_file(".obsidian-agent/plugin-skills/{plugin-id}.skill.md")',
+            `  read_file("${this.skillsDir}/{plugin-id}.skill.md")`,
             'This tells you what the plugin does, its commands, its configuration, and how to use it.',
             '',
         ];

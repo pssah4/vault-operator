@@ -8,6 +8,7 @@ import { ToolExecutionPipeline } from './core/tool-execution/ToolExecutionPipeli
 import { IgnoreService } from './core/governance/IgnoreService';
 import { OperationLogger } from './core/governance/OperationLogger';
 import { GlobalFileService } from './core/storage/GlobalFileService';
+import { getPluginSkillsDir } from './core/utils/agentFolder';
 import { GlobalSettingsService } from './core/storage/GlobalSettingsService';
 import { GlobalMigrationService } from './core/storage/GlobalMigrationService';
 // SyncBridge removed (FEATURE-1508: storage consolidated to vault-parent)
@@ -273,10 +274,11 @@ export default class ObsidianAgentPlugin extends Plugin {
         // but defer the actual scan to onLayoutReady so all community
         // plugins have registered their commands in app.commands.
         if (this.settings.vaultDNA.enabled) {
-            this.vaultDNAScanner = new VaultDNAScanner(this.app, this.app.vault);
+            this.vaultDNAScanner = new VaultDNAScanner(this.app, this.app.vault, this);
             this.skillRegistry = new SkillRegistry(
                 this.vaultDNAScanner,
                 this.settings.vaultDNA.skillToggles,
+                getPluginSkillsDir(this),
             );
             this.capabilityGapResolver = new CapabilityGapResolver(
                 this.vaultDNAScanner,
@@ -364,10 +366,17 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Semantic index (Phase C2) — SQLite-backed via KnowledgeDB (ADR-050)
         if (this.settings.enableSemanticIndex) {
+            // FEATURE-0507: pass the configurable agent folder so knowledge.db
+            // lands under {agentFolderPath}/knowledge.db instead of the
+            // hardcoded ".obsidian-agent/knowledge.db".
+            const { getAgentFolderPath } = await import('./core/utils/agentFolder');
             this.knowledgeDB = new KnowledgeDB(
                 this.app.vault,
                 pluginDir,
                 'local', // FEATURE-1508: knowledge.db is vault-local (syncs with vault)
+                'knowledge.db',
+                undefined, // globalRoot — not used in local mode
+                getAgentFolderPath(this),
             );
             await this.knowledgeDB.open().catch((e) =>
                 console.warn('[Plugin] KnowledgeDB open failed (non-fatal):', e)
@@ -728,12 +737,13 @@ export default class ObsidianAgentPlugin extends Plugin {
         }
 
         // ADR-063: Clean up orphaned externalization temp files from crashed sessions.
-        // BUG-014 / FEATURE-1803: tmp files now live inside the vault under
-        // .obsidian-agent/tmp so the orphan-sweeper has to use the vault adapter.
+        // BUG-014 / FEATURE-1803: tmp files now live inside the vault.
+        // FEATURE-0507: orphan sweeper honors the configurable agentFolderPath.
         const { ResultExternalizer } = await import('./core/tool-execution/ResultExternalizer');
         const { VaultDataFileAdapter } = await import('./core/storage/VaultDataFileAdapter');
+        const { getTmpRoot } = await import('./core/utils/agentFolder');
         const vaultFs = new VaultDataFileAdapter(this.app.vault.adapter);
-        void ResultExternalizer.cleanupOrphaned(vaultFs);
+        void ResultExternalizer.cleanupOrphaned(vaultFs, getTmpRoot(this));
 
         console.debug('Obsilo Agent plugin loaded successfully');
     }

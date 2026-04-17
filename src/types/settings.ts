@@ -709,6 +709,14 @@ export interface ObsidianAgentSettings {
 
     // Advanced
     debugMode: boolean;
+    /**
+     * Vault-relative folder for agent-managed artefacts (plugin skills,
+     * vault-dna.json, externalised tmp results, future user skills).
+     * Default: ".obsidian-agent". Hidden folder, ignored by Obsidian's index.
+     * Existing files are NOT auto-migrated when this changes — see ADR-072.
+     * FEATURE-0507 / Issue #26.
+     */
+    agentFolderPath?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -953,4 +961,5 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     kiloAccountLabel: '',
     kiloLastValidatedAt: 0,
     debugMode: false,
+    agentFolderPath: '.obsidian-agent',
 };

@@ -11,6 +11,7 @@ import { TFile, TFolder } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { getAgentFolderPath } from '../../utils/agentFolder';
 
 interface WriteFileInput {
     path: string;
@@ -61,9 +62,11 @@ export class WriteFileTool extends BaseTool<'write_file'> {
                 throw new Error('Content parameter is required');
             }
 
-            // Config-dir paths are not in the vault index — use adapter directly
+            // Config-dir paths are not in the vault index — use adapter directly.
+            // FEATURE-0507: also covers the configurable agent folder.
             const cfgDir = this.app.vault.configDir;
-            if (path.startsWith(`${cfgDir}/`) || path.startsWith('.obsidian-agent/')) {
+            const agentDir = getAgentFolderPath(this.plugin);
+            if (path.startsWith(`${cfgDir}/`) || path === agentDir || path.startsWith(`${agentDir}/`)) {
                 await this.writeViaAdapter(path, content, callbacks);
                 return;
             }

@@ -641,6 +641,8 @@ export const en: Translations = {
     'settings.debug.introDesc': 'Enables detailed logs in the browser console. Useful for troubleshooting or when reporting a bug.',
     'settings.debug.debugMode': 'Debug mode',
     'settings.debug.debugModeDesc': 'Write detailed logs to the browser developer console. Only useful for troubleshooting. Open the console with cmd+Option+I (mac) or ctrl+Shift+I (Windows).',
+    'settings.debug.agentFolder': 'Agent folder',
+    'settings.debug.agentFolderDesc': 'Vault-relative folder for plugin skills, vault-DNA snapshot, and externalised tmp results. Default: .obsidian-agent. Existing files are NOT auto-migrated when you change this — move them manually if needed.',
 
     // =========================================================================
     // Settings — Backup Tab

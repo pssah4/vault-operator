@@ -3,6 +3,7 @@ import type ObsidianAgentPlugin from '../../main';
 import { DEFAULT_SETTINGS } from '../../types/settings';
 import type { ObsidianAgentSettings } from '../../types/settings';
 import type { GlobalFileService } from '../../core/storage/GlobalFileService';
+import { getAgentFolderPath, getPluginSkillsDir, getVaultDnaPath } from '../../core/utils/agentFolder';
 import { t } from '../../i18n';
 
 // ── Backup category definitions ──────────────────────────────────────────────
@@ -29,8 +30,11 @@ const CATEGORY_IDS = [
     'plugin-skills', 'vault-dna', 'semantic-index',
 ] as const;
 
-/** Build categories with translated labels (called at render time so t() picks up the active locale) */
-function getCategories(): BackupCategory[] {
+/** Build categories with translated labels and the configured agent folder
+ *  (FEATURE-0507). Called at render time so t() picks up the active locale and
+ *  agentFolderPath changes take effect without a reload. */
+function getCategories(plugin: ObsidianAgentPlugin): BackupCategory[] {
+    const pluginSkillsDir = getPluginSkillsDir(plugin);
     return [
         {
             id: 'settings',
@@ -116,7 +120,7 @@ function getCategories(): BackupCategory[] {
             id: 'plugin-skills',
             label: t('settings.backup.catPluginSkills'),
             root: 'vault',
-            dir: '.obsidian-agent/plugin-skills',
+            dir: pluginSkillsDir,
             recursive: false,
             description: t('settings.backup.catPluginSkillsDesc'),
         },
@@ -199,7 +203,7 @@ export class BackupTab {
         section.createEl('h4', { text: t('settings.backup.headingExport') });
 
         const list = section.createDiv('agent-backup-category-list');
-        for (const cat of getCategories()) {
+        for (const cat of getCategories(this.plugin)) {
             const row = list.createDiv('agent-backup-category-row');
             const label = row.createEl('label', { cls: 'agent-backup-label' });
 
@@ -233,7 +237,7 @@ export class BackupTab {
                 return this.formatSize(size);
             }
             if (cat.id === 'vault-dna') {
-                const path = '.obsidian-agent/vault-dna.json';
+                const path = getVaultDnaPath(this.plugin);
                 const exists = await this.app.vault.adapter.exists(path);
                 if (!exists) return '0 files';
                 const content = await this.app.vault.adapter.read(path);
@@ -266,7 +270,7 @@ export class BackupTab {
             let totalFiles = 0;
             let selectedCount = 0;
 
-            for (const cat of getCategories()) {
+            for (const cat of getCategories(this.plugin)) {
                 if (!_exportToggles[cat.id]) continue;
                 selectedCount++;
 
@@ -277,7 +281,7 @@ export class BackupTab {
                         content: JSON.stringify(this.stripSensitiveFields(this.plugin.settings), null, 2),
                     };
                 } else if (cat.id === 'vault-dna') {
-                    const path = '.obsidian-agent/vault-dna.json';
+                    const path = getVaultDnaPath(this.plugin);
                     const exists = await this.app.vault.adapter.exists(path);
                     if (exists) {
                         files['vault-dna.json'] = {
@@ -401,7 +405,7 @@ export class BackupTab {
             text: t('settings.backup.backupFrom', { date: dateStr, version: data.version }),
         });
 
-        const categories = getCategories();
+        const categories = getCategories(this.plugin);
         const list = container.createDiv('agent-backup-category-list');
         for (const [catId, catData] of Object.entries(data.categories)) {
             const catDef = categories.find((c) => c.id === catId);
@@ -476,14 +480,14 @@ export class BackupTab {
                 } else if (catId === 'vault-dna') {
                     const vdnFile = catData.files['vault-dna.json'];
                     if (vdnFile) {
-                        const dir = '.obsidian-agent';
+                        const dir = getAgentFolderPath(this.plugin);
                         const exists = await this.app.vault.adapter.exists(dir);
                         if (!exists) await this.app.vault.adapter.mkdir(dir);
-                        await this.app.vault.adapter.write(`${dir}/vault-dna.json`, vdnFile.content);
+                        await this.app.vault.adapter.write(getVaultDnaPath(this.plugin), vdnFile.content);
                         totalFiles++;
                     }
                 } else {
-                    const catDef = getCategories().find((c) => c.id === catId);
+                    const catDef = getCategories(this.plugin).find((c) => c.id === catId);
                     if (!catDef || !catDef.dir) continue;
 
                     const flat: Record<string, string> = {};
