@@ -1,9 +1,12 @@
 # IMPL-007: Community Feedback & Compliance Wave 1 -- Implementierungsplan
 
 > Erstellt: 2026-04-17
-> Branch-Vorschlag: `feature/community-wave-1` (alle Phasen darunter, dann via merge-to-dev.sh)
-> Release-Ziel: v2.5.0
-> Geschaetzter Aufwand: 1.5-2 Tage Implementation, plus Bot-Re-Scan-Wartezeiten
+> Status: **Released as v2.5.0** am 2026-04-17 (public: https://github.com/pssah4/obsilo/releases/tag/2.5.0)
+> Branch: `feature/community-wave-1` -> `dev` -> `main` (via merge-to-dev.sh + dev->main merge)
+> Release-Tag: 2.5.0
+> Beta-Iterationen: beta.1 bis beta.6 auf obsilo-dev, alle gruen
+> Ergebnis: 4 Issues + 3 Dependabot + BUG-017 + BUG-018 + neues Feature create_drawio
+> Geschaetzter Aufwand: 1.5-2 Tage Implementation (tatsaechlich ~1 Tag inkl. Beta-Roundtrips)
 >
 > **Hinweis zur Struktur:** Dieser IMPL-Plan buendelt sechs unterschiedlich-gerichtete Arbeitsstroeme zu einer Release-Wave, OHNE ein neues Epic zu erfinden. Die fachlichen Features sind in die bestehenden Epics einsortiert (siehe Mapping unten). Querschnittliche Compliance- und Security-Maintenance hat keinen Feature-Spec; sie ist nur in diesem IMPL-Plan, in den ADRs (ADR-073, ADR-074) und in `memory/review-bot-compliance.md` dokumentiert.
 

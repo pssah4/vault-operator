@@ -2,7 +2,7 @@
 
 > **Epic ID**: EPIC-005
 > **Phase**: E
-> **Status**: Vollständig implementiert (User-Customization-Pfad in Arbeit: FEATURE-0507)
+> **Status**: Vollständig implementiert
 
 ## Beschreibung
 

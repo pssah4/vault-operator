@@ -193,8 +193,8 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 | FEATURE-1506 | Implicit Connection UI | P2 | `FEATURE-1506-implicit-connection-ui.md` | Implementiert |
 | FEATURE-1508 | Storage Consolidation | P0 | `FEATURE-1508-storage-consolidation.md` | Implementiert |
 
-### Community-Wave 1 (2026-04-17, geplant fuer v2.5.0)
-> Quelle: BA-013, IMPL-007. Loest 4 Community-Issues, 9+ Bot-Findings, 3 Dependabot-Alerts. Kein neues Epic, neue Features sind in die fachlich passenden bestehenden Epics einsortiert.
+### Community-Wave 1 (2026-04-17, released als v2.5.0)
+> Quelle: BA-013, IMPL-007. Loest 4 Community-Issues, 9+ Bot-Findings, 3 Dependabot-Alerts plus zwei wahrend Beta-Testing entdeckte Regression-Bugs (BUG-017, BUG-018). Kein neues Epic, neue Features sind in die fachlich passenden bestehenden Epics einsortiert.
 
 | Feature Ref | Feature Name | Epic | Priority | Spec | Status |
 |---|---|---|---|---|---|
@@ -202,6 +202,14 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 | FEATURE-0507 | Konfigurierbarer Agent-Folder | EPIC-005 | P2 | `FEATURE-0507-configurable-agent-folder.md` | Implementiert (v2.5.0) |
 | FEATURE-1206 | Copilot Modern Model Compatibility (max_completion_tokens) | EPIC-012 | P1 | `FEATURE-1206-copilot-modern-model-compatibility.md` | Implementiert (v2.5.0) |
 | FEATURE-1803 | Cross-Platform TMP-Pfade fuer Context Externalization | EPIC-018 | P1 | `FEATURE-1803-cross-platform-tmp-paths.md` | Implementiert (v2.5.0) |
+
+**Waehrend Beta-Testing nachgezogen (BUG-017, BUG-018):**
+
+| Arbeitsstrom | Beschreibung | Status |
+|---|---|---|
+| BUG-017 | Pre-send history-sanitize (orphan tool_use/tool_result) | Implementiert (v2.5.0) |
+| BUG-018 | Plugin-Routing: Excalidraw-Detection, OTHER ENABLED PLUGINS, write_file-Format-Guard | Implementiert (v2.5.0) |
+| create_drawio | Neues Built-in Tool fuer Drawio / Diagrams.net Flussdiagramme (.drawio und .drawio.svg) | Implementiert (v2.5.0) |
 
 **Querschnitts-Maintenance (kein Feature, nur ADR + IMPL):** Review-Bot Hardening (ADR-073), Dependency Vulnerability Patches (ADR-074).
 

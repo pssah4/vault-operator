@@ -71,6 +71,7 @@ Tools that create, modify, or delete files in your vault. Each one triggers an a
 | `move_file` | Move or rename a file or folder. Obsidian auto-updates wikilinks. | To reorganize vault structure. |
 | `generate_canvas` | Create an Obsidian Canvas (.canvas) visualizing notes and their connections. | To visualize note relationships as a spatial map. |
 | `create_excalidraw` | Create an Excalidraw drawing with labeled boxes and connections. | To create diagrams and visual overviews. |
+| `create_drawio` | Create a Draw.io / diagrams.net flowchart (`.drawio` or `.drawio.svg`) with nodes, shapes (rounded / rectangle / ellipse / rhombus) and arrows. The SVG variant renders in Obsidian and opens editable in the drawio-obsidian or obsidian-diagrams-net plugin. | For programmatically created flowcharts that the user then extends in the plugin. |
 | `create_base` | Create an Obsidian Bases (.base) database view from vault notes. | To build structured database views filtered by frontmatter. |
 | `update_base` | Add or replace a view in an existing Bases file. | To modify database views without recreating the file. |
 | `plan_presentation` | Plan a presentation from source material and a template using an internal AI call. | Always before `create_pptx` when using corporate templates. |

@@ -217,6 +217,6 @@ Checkpoint and snapshot settings for the undo system.
 | Tab | What it does |
 |-----|-------------|
 | Log | Browse the daily audit trail of all tool calls with timestamps and parameters |
-| Debug | Internal diagnostics: ring buffer viewer, system prompt preview |
+| Debug | Internal diagnostics: debug mode toggle, **Agent folder** text field (vault-relative folder for plugin skills, the vault-dna snapshot, and externalised tmp results; default `.obsidian-agent`; existing files are not auto-migrated when you change this) |
 | Backup | Export and import your complete Obsilo configuration |
 | Language | Set the agent's response language (follows Obsidian's language by default) |

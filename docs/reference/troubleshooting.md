@@ -103,10 +103,13 @@ Symptom: The agent doesn't remember things from previous conversations.
 | Error | Meaning | Fix |
 |-------|---------|-----|
 | `400: context_length_exceeded` | The conversation is too long for the model's context window. | Enable context condensing. Start a new chat for fresh context. |
+| `400: tool_use ids were found without tool_result` | Anthropic / Claude-via-Copilot rejected the request because the conversation history had an orphan tool call. Usually caused by an aborted stream or a resumed crashed conversation. | v2.5.0 sanitises the history automatically on every API call, so this should no longer surface. If it does, start a new conversation. |
+| `400: Unsupported parameter: 'max_tokens' is not supported` | Old Copilot code path sending the wrong token-limit parameter. | v2.5.0 sends `max_completion_tokens` for every Copilot model. Update Obsilo. |
 | `401: Unauthorized` | Invalid or expired API key. | Re-enter the key in Settings > Models. |
 | `429: Rate limit exceeded` | Too many API calls in a short time. | Set a rate limit in Settings > Loop, or wait and retry. |
 | `ECONNREFUSED` | Local server (Ollama, LM Studio) isn't running. | Start the local server, then retry. |
 | `Checkpoint failed` | Could not create a file snapshot before editing. | Check disk space. Increase snapshot timeout in Settings > Vault. |
+| Drawio / Diagrams plugin says "Not a diagram file" when opening a file the agent wrote | Hand-authored `.drawio.svg` without a valid mxfile wrapper. | Delete the broken file. Ask the agent again. v2.5.0 blocks direct `write_file` for `.drawio.svg` and routes to the built-in `create_drawio` tool, which writes a plugin-compatible format. |
 
 :::tip Debug tab
 The **Debug** tab in settings shows the agent's internal ring buffer (last 100 log entries), the generated system prompt, and connection status for each provider. Start here when something behaves unexpectedly.
