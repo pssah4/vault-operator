@@ -456,9 +456,17 @@ Quelle: BA-013, IMPL-007. 4 Community-Issues + 3 Dependabot-Alerts + zwei wahren
 
 ### Offen fuer Wave 2
 
-- **BUG-016** (P2) -- Memory-Extractor und SemanticIndex Context-Prefix umgehen den konfigurierten Provider und rufen Anthropic SDK direkt auf. Noisy 400-Errors fuer User ohne Anthropic-Key, aber keine Funktionsverlust.
+- ~~**BUG-016**~~ -- Resolved in Wave-2 Arbeit (session-disable auf permanent provider errors statt retry-spam). Befund war: kein Anthropic-Hardcoding, sondern User hatte Anthropic-Modell konfiguriert ohne Credits. Fix ist defensive error handling.
 - **Excalidraw-Arrows-Extension** -- `CreateExcalidrawTool` kann aktuell nur rectangles + text. Pfeile brauchen Bezier-Bindings (~300 LOC).
 - **Hard Tool-Filter** -- built-in Tools komplett aus dem Schema entfernen, wenn ein Plugin-Aequivalent aktiv ist. Robuster als die Description-Redirect-Heuristik in FEATURE-0507/BUG-018.
+
+## Community-Wave 2 (in Arbeit, branch: `feature/community-wave-2`)
+
+| Arbeitsstrom | Status |
+|---|---|
+| BUG-016 defensive error handling (Memory + Context-Prefix) | Implemented (tests: 16/16) |
+| Hard Tool-Filter (BUG-018 Wave 2) | Geplant |
+| Excalidraw-Arrows-Extension | Geplant |
 
 ---
 

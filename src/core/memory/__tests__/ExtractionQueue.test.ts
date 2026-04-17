@@ -155,4 +155,73 @@ describe('ExtractionQueue', () => {
             expect(maxConcurrent).toBe(1); // Only one should run at a time
         });
     });
+
+    describe('BUG-016: session-disable on permanent provider errors', () => {
+        function makeError(opts: { status?: number; message?: string }): Error & { status?: number } {
+            const err = new Error(opts.message ?? 'boom') as Error & { status?: number };
+            if (opts.status !== undefined) err.status = opts.status;
+            return err;
+        }
+
+        it('stops retrying after a 401 and marks the session disabled', async () => {
+            let calls = 0;
+            queue.setProcessor(() => {
+                calls++;
+                return Promise.reject(makeError({ status: 401, message: 'Unauthorized' }));
+            });
+            queue['items'].push(makeItem('a'), makeItem('b'), makeItem('c'));
+
+            await queue.processQueue();
+
+            // One failure should mark the session dead and stop the loop.
+            expect(calls).toBe(1);
+            expect(queue.size()).toBe(3); // Nothing removed
+            expect(queue.isSessionDisabled()).toBe(true);
+            expect(queue.getSessionDisabledReason()).toContain('Unauthorized');
+        });
+
+        it('recognises "credit balance is too low" as permanent (Anthropic pattern)', async () => {
+            let calls = 0;
+            queue.setProcessor(() => {
+                calls++;
+                return Promise.reject(makeError({
+                    status: 400,
+                    message: 'Your credit balance is too low to access the Anthropic API.',
+                }));
+            });
+            queue['items'].push(makeItem('a'), makeItem('b'));
+
+            await queue.processQueue();
+
+            expect(calls).toBe(1);
+            expect(queue.isSessionDisabled()).toBe(true);
+        });
+
+        it('does not mark the session disabled on transient errors', async () => {
+            queue.setProcessor(() => Promise.reject(new Error('network timeout')));
+            queue['items'].push(makeItem('a'));
+
+            await queue.processQueue();
+
+            expect(queue.isSessionDisabled()).toBe(false);
+            expect(queue.size()).toBe(1); // Still queued for next startup
+        });
+
+        it('refuses to re-enter processQueue once disabled', async () => {
+            let calls = 0;
+            queue.setProcessor(() => {
+                calls++;
+                return Promise.reject(makeError({ status: 403, message: 'Forbidden' }));
+            });
+            queue['items'].push(makeItem('a'));
+
+            await queue.processQueue();
+            expect(calls).toBe(1);
+
+            // Second invocation must short-circuit.
+            queue['items'].push(makeItem('b'));
+            await queue.processQueue();
+            expect(calls).toBe(1);
+        });
+    });
 });

@@ -1,9 +1,11 @@
-# BUG-016: Memory-Extractor und Context-Prefix-Generator nutzen Anthropic SDK direkt statt konfigurierten Provider
+# BUG-016: Memory-Extractor und Context-Prefix-Generator retry-spammen bei permanenten Provider-Errors
 
-**Prioritaet:** P2 (Mittelfristig, nicht in Wave 1)
-**Datei:** Wahrscheinlich `src/core/memory/ExtractionQueue.ts` (oder MemoryService) und `src/core/semantic/SemanticIndexService.ts`
+**Prioritaet:** P2 (war Kandidat fuer Wave 1, verschoben; Wave 2 resolved)
+**Datei:** `src/core/memory/ExtractionQueue.ts`, `src/core/semantic/SemanticIndexService.ts`
 **Feature-Bezug:** EPIC-003 (Memory & Context), EPIC-015 (Knowledge Layer)
 **Entdeckt:** 2026-04-17 in Wave-1 Smoke-Tests (Plugin-Reload-Logs auf einem Vault mit Copilot als Default-Provider)
+**Status:** Resolved in Wave 2 (branch `feature/community-wave-2`)
+**Korrektur zur ersten Analyse:** Es gibt kein Anthropic-Hardcoding im Code. Die Memory-Extraktion und Contextual-Retrieval nutzen jeweils ein konfigurierbares Modell (`memoryModelKey`, `contextualModelKey`) via `buildApiHandlerForModel`. Der beobachtete Fehler kam daher, dass der User ein Anthropic-Modell konfiguriert hatte OHNE Credits -- das Plugin hat jedes pending Queue-Item einzeln retried und jedes Mal den 400-Fehler geloggt.
 
 ---
 
@@ -39,22 +41,30 @@ der einzige Provider war.
 - Vertrauen: Hoch (jeder neue User mit einem Nicht-Anthropic-Provider sieht
   die Fehler beim ersten Start).
 
-## Fix-Richtung
+## Fix (Wave 2)
 
-1. Identifizieren wo Anthropic SDK direkt instanziiert wird (Memory-Pipeline + SemanticIndex).
-2. Ersetzen durch Aufruf via `plugin.apiHandler` (oder einen leichtgewichtigen Helper
-   `getCompletionProvider(plugin)`).
-3. Wenn der Provider nicht antwortet (z.B. embedding-only Provider), graceful
-   Skip statt Stack-Trace.
+Defensive error handling statt Architektur-Refactor:
 
-## Wave-Zuordnung
+1. **`src/core/memory/ExtractionQueue.ts`**: Helper `isPermanentProviderError(e)`
+   erkennt HTTP 401/402/403 sowie bekannte 400-Muster (`credit balance is too low`,
+   `insufficient quota`, `authentication failed`, `invalid api key`). Beim ersten
+   permanent-error wird die Queue fuer die Session disabled (`sessionDisabledReason`),
+   eine einzige Warnung geloggt, die Queue bleibt intakt fuer den naechsten
+   Plugin-Reload.
+2. **`src/core/semantic/SemanticIndexService.ts`**: Gleiche Logik inline im
+   `generateContextPrefix`-catch-Block, setzt `contextualApiDisabledReason`.
+   Folge-Aufrufe short-circuiten auf null.
 
-NICHT Wave 1 (Community-Feedback). Kommt in Wave 2 oder spaeter, wenn jemand
-die Memory-Pipeline ohnehin anfasst. Bis dahin: das Verhalten ist nervig aber
-nicht funktional kritisch.
+Ergebnis: Ein einziger Warn-Log pro Session statt mehrerer 400er bei jedem
+Plugin-Reload. User bekommt klare Handlungsanweisung
+("Fix the configured memory model in Settings, reload Obsidian").
 
 ## Verifikation
 
-- Memory-Extraction laeuft mit Copilot, OpenAI, OpenRouter und Gemini erfolgreich.
-- Context-Prefix-Generator laeuft mit jeder Provider-Wahl.
-- Console beim Plugin-Load: 0 Anthropic-bezogene Errors fuer User ohne Anthropic-Key.
+- 4 neue Unit-Tests in `ExtractionQueue.test.ts`:
+  - 401 stoppt die Queue nach dem ersten Versuch
+  - "credit balance is too low" (Anthropic-Muster, status 400) wird als permanent erkannt
+  - Transient errors (timeout, network) setzen disable NICHT
+  - Re-Entry-Guard: zweiter `processQueue` nach disable ruft den Processor nicht auf
+- Full suite: 333/333 pass
+- Live-Verifikation pending: Plugin reload, Console sollte maximal 1 Warn-Line zeigen

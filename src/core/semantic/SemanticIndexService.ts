@@ -83,6 +83,8 @@ export class SemanticIndexService {
     private chunkSize: number;
     private enableContextualRetrieval: boolean;
     private contextualApiHandler: ApiHandler | null = null;
+    /** BUG-016: once the configured context model fails permanently (auth / credit / quota), stop trying for the rest of the session. */
+    private contextualApiDisabledReason: string | null = null;
 
     // Auto-update queue: process one file at a time so concurrent vault events
     // don't spawn dozens of simultaneous embedding calls (which freezes Obsidian).
@@ -997,6 +999,7 @@ export class SemanticIndexService {
      */
     private async generateContextPrefix(prompt: string): Promise<string | null> {
         if (!this.contextualApiHandler) return null;
+        if (this.contextualApiDisabledReason) return null;
 
         const TIMEOUT_MS = 15_000;
         try {
@@ -1023,7 +1026,21 @@ export class SemanticIndexService {
             const trimmed = await Promise.race([resultPromise, abortPromise, timeoutPromise]);
             return trimmed.length > 10 ? trimmed : null;
         } catch (e) {
-            console.warn('[SemanticIndex] Context prefix generation failed:', e);
+            // BUG-016: auth / credit / quota failures on the configured context model would
+            // otherwise re-fire on every chunk of every rebuild. One warning, then disable.
+            const msg = String((e as { message?: string })?.message ?? e ?? '');
+            const statusCode = (e as { status?: number })?.status;
+            const isPermanent = statusCode === 401 || statusCode === 402 || statusCode === 403
+                || /credit balance is too low|insufficient.?quota|quota.?exceeded|invalid.?api.?key|api.?key.?not.?found|authentication.?failed/i.test(msg);
+            if (isPermanent && !this.contextualApiDisabledReason) {
+                this.contextualApiDisabledReason = msg || 'permanent provider error';
+                console.warn(
+                    `[SemanticIndex] Contextual retrieval paused for this session (context model returned a permanent error: ${this.contextualApiDisabledReason}). ` +
+                        `Fix the configured context model in Settings > Embeddings, then reload Obsidian to resume.`,
+                );
+            } else {
+                console.warn('[SemanticIndex] Context prefix generation failed:', e);
+            }
             return null;
         }
     }
