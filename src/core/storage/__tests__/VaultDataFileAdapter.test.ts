@@ -31,30 +31,36 @@ function createMockDataAdapter(): MockDataAdapter {
     const dirs = new Set<string>();
     const mkdirCalls: string[] = [];
 
+    // Synchronous bodies wrapped in Promise.resolve — keeps the API shape
+    // identical to the real DataAdapter without triggering require-await
+    // (mock methods don't actually await anything).
     return {
         files,
         dirs,
         mkdirCalls,
-        exists: async (p: string) => files.has(p) || dirs.has(p),
-        read: async (p: string) => {
+        exists: (p: string) => Promise.resolve(files.has(p) || dirs.has(p)),
+        read: (p: string) => {
             const c = files.get(p);
-            if (c === undefined) throw new Error(`File not found: ${p}`);
-            return c;
+            if (c === undefined) return Promise.reject(new Error(`File not found: ${p}`));
+            return Promise.resolve(c);
         },
-        write: async (p: string, data: string) => { files.set(p, data); },
-        append: async (p: string, data: string) => { files.set(p, (files.get(p) ?? '') + data); },
-        mkdir: async (p: string) => {
+        write: (p: string, data: string) => { files.set(p, data); return Promise.resolve(); },
+        append: (p: string, data: string) => { files.set(p, (files.get(p) ?? '') + data); return Promise.resolve(); },
+        mkdir: (p: string) => {
             mkdirCalls.push(p);
             dirs.add(p);
+            return Promise.resolve();
         },
-        remove: async (p: string) => { files.delete(p); dirs.delete(p); },
-        list: async (p: string) => ({
+        remove: (p: string) => { files.delete(p); dirs.delete(p); return Promise.resolve(); },
+        list: (p: string) => Promise.resolve({
             files: [...files.keys()].filter((f) => f.startsWith(p + '/')),
             folders: [...dirs].filter((d) => d.startsWith(p + '/') && d !== p),
         }),
-        stat: async (p: string) => files.has(p)
-            ? { type: 'file', ctime: 0, mtime: Date.now(), size: (files.get(p) ?? '').length }
-            : null,
+        stat: (p: string) => Promise.resolve(
+            files.has(p)
+                ? { type: 'file' as const, ctime: 0, mtime: Date.now(), size: (files.get(p) ?? '').length }
+                : null,
+        ),
     };
 }
 

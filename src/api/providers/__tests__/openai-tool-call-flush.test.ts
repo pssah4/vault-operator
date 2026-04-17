@@ -33,11 +33,13 @@ interface ChunkLike {
 }
 
 function makeStream(chunks: ChunkLike[]): AsyncIterable<ChunkLike> {
-    return {
-        async *[Symbol.asyncIterator]() {
-            for (const chunk of chunks) yield chunk;
-        },
-    };
+    // Plain async generator over a sync source. The generator function uses
+    // `async *` so it satisfies AsyncIterable, but it never `await`s — so we
+    // disable require-await here to avoid a meaningless wait or a fake await.
+    // eslint-disable-next-line @typescript-eslint/require-await -- mock stream wraps a sync source; await would be a no-op
+    return (async function* () {
+        for (const chunk of chunks) yield chunk;
+    })();
 }
 
 function makeProvider(): OpenAiProvider {
@@ -53,7 +55,7 @@ function makeProvider(): OpenAiProvider {
     (provider as unknown as { client: { chat: { completions: { create: unknown } } } }).client = {
         chat: {
             completions: {
-                create: async () => makeStream([]),
+                create: () => Promise.resolve(makeStream([])),
             },
         },
     };
@@ -68,7 +70,7 @@ async function collect(stream: AsyncIterable<ApiStreamChunk>): Promise<ApiStream
 
 function setStream(provider: OpenAiProvider, chunks: ChunkLike[]): void {
     (provider as unknown as { client: { chat: { completions: { create: unknown } } } }).client.chat.completions.create =
-        async () => makeStream(chunks);
+        () => Promise.resolve(makeStream(chunks));
 }
 
 describe('OpenAiProvider tool_call streaming flush (BUG-013 / FEATURE-0409)', () => {
