@@ -33,10 +33,10 @@ function isUIOnlyCommand(commandName: string): boolean {
 export class VaultDNAScanner {
     private readonly app: App;
     private readonly vault: Vault;
-    /** FEATURE-0507: vault-relative dir, default ".obsidian-agent/plugin-skills". */
-    private readonly skillsDir: string;
-    /** FEATURE-0507: vault-relative path, default ".obsidian-agent/vault-dna.json". */
-    private readonly dnaPath: string;
+    /** FEATURE-0507: vault-relative dir, default ".obsidian-agent/plugin-skills". Mutable (FEATURE-0508). */
+    private skillsDir: string;
+    /** FEATURE-0507: vault-relative path, default ".obsidian-agent/vault-dna.json". Mutable (FEATURE-0508). */
+    private dnaPath: string;
     private vaultDNA: VaultDNA | null = null;
     private pollIntervalId: ReturnType<typeof setInterval> | null = null;
     private lastKnownEnabledSet = new Set<string>();
@@ -53,6 +53,17 @@ export class VaultDNAScanner {
         this.vault = vault;
         this.skillsDir = holder ? getPluginSkillsDir(holder) : '.obsidian-agent/plugin-skills';
         this.dnaPath = holder ? getVaultDnaPath(holder) : '.obsidian-agent/vault-dna.json';
+    }
+
+    /**
+     * FEATURE-0508: re-target the scanner to a new agent folder. Updates
+     * `skillsDir` and `dnaPath`; the next scan writes to the new location.
+     * Callers usually follow up with `initialize()` to actually re-scan.
+     */
+    setAgentFolder(newAgentFolder: string): void {
+        const root = newAgentFolder.replace(/\/+$/, '');
+        this.skillsDir = `${root}/plugin-skills`;
+        this.dnaPath = `${root}/vault-dna.json`;
     }
 
     async initialize(): Promise<void> {

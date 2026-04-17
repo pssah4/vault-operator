@@ -2,7 +2,7 @@
 
 Stand: 2026-04-17
 Branch: `dev` / `main`
-Status: **v2.5.1 released** (Community-Wave 2 patch + feature additions)
+Status: **v2.5.2 released** (FEATURE-0508 agent-folder change handling: live retarget + migration)
 
 ---
 
@@ -469,6 +469,7 @@ Quelle: BA-013, IMPL-007. 4 Community-Issues + 3 Dependabot-Alerts + zwei wahren
 | Excalidraw-Arrows-Extension | Released v2.5.1 (tests: 5/5 format, arrows + endpoint bindings, drop-unknown-refs) |
 | FEATURE-1600 Deferred Tool Loading | Released v2.5.1 (tests: 14/14, 24 deferred tools hidden by default, `find_tool` activates on demand) |
 | Agent-Folder Native Picker (Issue #26 UI) | Released v2.5.1 (Finder/Explorer via electron dialog, vault-relative + absolute support with partial cross-vault semantics) |
+| FEATURE-0508 Agent-Folder Change Handling | Released v2.5.2 (P0 notice on save, P1 live retarget of SkillRegistry + VaultDNAScanner without reload, P2 migrate-data button with preview + defensive copy). Tests: 9/9. |
 
 ---
 

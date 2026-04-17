@@ -711,6 +711,9 @@ export const en: Translations = {
     'settings.vault.agentFolder': 'Folder',
     'settings.vault.agentFolderFieldDesc': 'Default is a hidden folder inside your vault. Use the picker to open your native folder dialog, or type a path. Folders outside the vault are partially supported in this release — plugin skills, tmp results, and the local knowledge database continue to live inside the vault.',
     'settings.vault.agentFolderPick': 'Pick folder…',
+    'settings.vault.agentFolderMigrate': 'Migrate data',
+    'settings.vault.agentFolderMigrateDesc': 'Copy plugin skills, vault-dna snapshot, and the knowledge / memory databases from an older agent folder into the current one. Originals stay in place — delete them manually after you confirmed the new location works. Reload Obsidian after migration so the databases open at the new path.',
+    'settings.vault.agentFolderMigrateButton': 'Migrate data from old folder…',
 
     // =========================================================================
     // Settings — Visual Intelligence Tab

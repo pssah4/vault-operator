@@ -25,6 +25,17 @@ export class SkillRegistry {
     }
 
     /**
+     * FEATURE-0508: re-target the registry to a new agent folder without a
+     * plugin reload. Changes only the string used in prompt hints
+     * (`read_file("{dir}/...")`); the underlying scanner is notified
+     * separately so `.skill.md` files move to the new location on the next
+     * scan.
+     */
+    setSkillsDir(newDir: string): void {
+        this.skillsDir = newDir;
+    }
+
+    /**
      * Get all active plugin skills (enabled + not toggled off by user).
      */
     getActivePluginSkills(): PluginSkillMeta[] {
