@@ -36,6 +36,7 @@ UNSERE LOESUNG erfordert nur einen einmaligen GitHub-Login statt separater API K
 | FEATURE-1203 | Settings UI Integration | P0 | M | Not Started |
 | FEATURE-1204 | Copilot Embedding Support | P1 | S | Not Started |
 | FEATURE-1205 | Dynamic Model Listing | P1 | S | Not Started |
+| FEATURE-1206 | Modern Model Compatibility (max_completion_tokens) | P1 | XS | Implementiert v2.5.0 (BUG-015, Issue #28) |
 
 **Priority Legend:**
 - P0-Critical: Ohne geht MVP nicht

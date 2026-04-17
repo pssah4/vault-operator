@@ -768,20 +768,17 @@ export class ModelConfigModal extends Modal {
             guide.createDiv({ cls: 'mcm-guide-tip', text: t('guide.copilot.disclaimer') });
 
         } else if (provider === 'bedrock') {
-            guide.createEl('strong', { text: 'Amazon Bedrock setup' });
+            const bedrockHeading = guide.createEl('strong');
+            bedrockHeading.appendText('Amazon Bedrock setup');
             const steps = guide.createEl('ol', { cls: 'mcm-guide-steps' });
-            steps.createEl('li', {
-                text: 'In the AWS console, open Bedrock in your preferred region and request access to the model families you need on the model access page. Approval is usually instant for the common foundation models.',
-            });
-            steps.createEl('li', {
-                text: 'Pick an authentication method. The Bedrock API key is a single bearer token copied once from the Bedrock console. The IAM access key + secret is the classic flow if you already have one set up.',
-            });
-            steps.createEl('li', {
-                text: 'Pick the region that hosts your access. For the EU, the Frankfurt region is the common choice.',
-            });
-            steps.createEl('li', {
-                text: 'Pick a model from the quick pick dropdown. The EU cross-region inference profiles work from any EU region, and the US profiles cover US regions.',
-            });
+            const bedrockStep1 = steps.createEl('li');
+            bedrockStep1.appendText('In the AWS console, open Bedrock in your preferred region and request access to the model families you need on the model access page. Approval is usually instant for the common foundation models.');
+            const bedrockStep2 = steps.createEl('li');
+            bedrockStep2.appendText('Pick an authentication method. The Bedrock API key is a single bearer token copied once from the Bedrock console. The IAM access key + secret is the classic flow if you already have one set up.');
+            const bedrockStep3 = steps.createEl('li');
+            bedrockStep3.appendText('Pick the region that hosts your access. For the EU, the Frankfurt region is the common choice.');
+            const bedrockStep4 = steps.createEl('li');
+            bedrockStep4.appendText('Pick a model from the quick pick dropdown. The EU cross-region inference profiles work from any EU region, and the US profiles cover US regions.');
             guide.createDiv({
                 cls: 'mcm-guide-tip',
                 text: 'Tip: Frankfurt combined with an EU inference profile gives the lowest latency from Europe while keeping data inside the EU.',
@@ -1205,7 +1202,7 @@ export class ModelConfigModal extends Modal {
         );
         const authSel = authRow.createEl('select', { cls: 'mcm-select' });
         authSel.createEl('option', { value: 'api-key',    text: 'Bedrock API key (bearer token, recommended)' });
-        authSel.createEl('option', { value: 'access-key', text: 'IAM access key + secret key' });
+        authSel.createEl('option', { value: 'access-key', text: 'Access key + secret key' });
         authSel.value = this.formAwsAuthMode;
         authSel.addEventListener('change', () => {
             this.formAwsAuthMode = authSel.value as 'api-key' | 'access-key';
@@ -1245,7 +1242,7 @@ export class ModelConfigModal extends Modal {
         );
         const apiKeyInput = this.bedrockApiKeyRow.createEl('input', {
             cls: 'mcm-input',
-            attr: { type: 'password', placeholder: 'Paste your Bedrock API key' },
+            attr: { type: 'password', placeholder: 'Paste your API key' },
         });
         apiKeyInput.value = this.formAwsApiKey;
         apiKeyInput.addEventListener('input', () => (this.formAwsApiKey = apiKeyInput.value.trim()));
@@ -1278,7 +1275,7 @@ export class ModelConfigModal extends Modal {
         );
         const stInput = this.bedrockSessionTokenRow.createEl('input', {
             cls: 'mcm-input',
-            attr: { type: 'password', placeholder: 'Leave empty for long-lived IAM credentials' },
+            attr: { type: 'password', placeholder: 'Leave empty for long-lived credentials' },
         });
         stInput.value = this.formAwsSessionToken;
         stInput.addEventListener('input', () => (this.formAwsSessionToken = stInput.value.trim()));

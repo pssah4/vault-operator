@@ -314,27 +314,55 @@ export class OpenAiProvider implements ApiHandler {
 
             // When the turn ends with tool_calls, yield complete tool_use chunks
             if (choice.finish_reason === 'tool_calls') {
-                for (const [, acc] of toolCallAccumulators) {
-                    let input: Record<string, unknown> = {};
-                    try {
-                        input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
-                    } catch (e) {
-                        yield {
-                            type: 'text',
-                            text: `[Tool input parse error for "${acc.name}": ${(e as Error).message}]`,
-                        } satisfies ApiStreamChunk;
-                        continue;
-                    }
-                    yield {
-                        type: 'tool_use',
-                        id: acc.id,
-                        name: acc.name,
-                        input,
-                    } satisfies ApiStreamChunk;
-                }
-                toolCallAccumulators.clear();
+                yield* this.flushToolCallAccumulators(toolCallAccumulators);
             }
         }
+
+        // BUG-013 / FEATURE-0409: Some OpenAI-compatible providers (OpenRouter
+        // gpt-oss-120b, Groq, certain local backends) stream tool_calls deltas
+        // but emit finish_reason="stop" or "length" instead of "tool_calls".
+        // Without this post-loop flush the accumulated tool calls are silently
+        // dropped and the agent treats the response as text only.
+        // If finish_reason==="tool_calls" already flushed the map, this is a no-op.
+        if (toolCallAccumulators.size > 0) {
+            yield* this.flushToolCallAccumulators(toolCallAccumulators);
+        }
+    }
+
+    /**
+     * Yield tool_use chunks for every accumulated tool call, then clear the map.
+     * Extracted so the streaming loop can flush both mid-stream (on
+     * finish_reason==="tool_calls") and post-stream (BUG-013 fallback).
+     */
+    private *flushToolCallAccumulators(
+        accumulators: Map<number, ToolCallAccumulator>,
+    ): Generator<ApiStreamChunk> {
+        for (const [, acc] of accumulators) {
+            // Skip incomplete accumulators (no id or no name -- defensive).
+            if (!acc.id || !acc.name) {
+                console.warn(
+                    `[OpenAi] Skipping incomplete tool_call accumulator: id="${acc.id}", name="${acc.name}"`,
+                );
+                continue;
+            }
+            let input: Record<string, unknown> = {};
+            try {
+                input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
+            } catch (e) {
+                yield {
+                    type: 'text',
+                    text: `[Tool input parse error for "${acc.name}": ${(e as Error).message}]`,
+                } satisfies ApiStreamChunk;
+                continue;
+            }
+            yield {
+                type: 'tool_use',
+                id: acc.id,
+                name: acc.name,
+                input,
+            } satisfies ApiStreamChunk;
+        }
+        accumulators.clear();
     }
 
     // ---------------------------------------------------------------------------

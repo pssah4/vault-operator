@@ -10,6 +10,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { getPluginSkillsPath } from '../../utils/agentFolder';
 
 export class EnablePluginTool extends BaseTool<'enable_plugin'> {
     readonly name = 'enable_plugin' as const;
@@ -112,7 +113,7 @@ export class EnablePluginTool extends BaseTool<'enable_plugin'> {
                 callbacks.pushToolResult(
                     this.formatSuccess(
                         `Plugin "${pluginName}" has been enabled successfully. ` +
-                        `NEXT STEP: Read the skill file with read_file(".obsidian-agent/plugin-skills/${pluginId}.skill.md") to learn the available commands, then use execute_command to run them.`,
+                        `NEXT STEP: Read the skill file with read_file("${getPluginSkillsPath(this.plugin, pluginId)}") to learn the available commands, then use execute_command to run them.`,
                     ),
                 );
             } else {

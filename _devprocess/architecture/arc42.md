@@ -879,6 +879,12 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-066](ADR-066-ingest-strategy.md) | Ingest-Strategie: Schema-Erkennung und Entitaets-Zuordnung (EPIC-019) |
 | [ADR-067](ADR-067-lint-architecture.md) | Lint-Architektur: Tool, UI und Trigger (EPIC-019) |
 | [ADR-068](ADR-068-ocr-provider.md) | OCR-Provider-Auswahl (FEATURE-1905) |
+| [ADR-069](ADR-069-confidence-storage.md) | Confidence-Storage und -Propagation (EPIC-019) |
+| [ADR-070](ADR-070-community-detection-library.md) | Community-Detection-Library (EPIC-019) |
+| [ADR-071](ADR-071-retrieval-integration.md) | Retrieval-Integration mit Confidence/Cluster-Boost (EPIC-019) |
+| [ADR-072](ADR-072-configurable-agent-storage-root.md) | Konfigurierbarer Agent-Storage-Root (EPIC-005, FEATURE-0507) |
+| [ADR-073](ADR-073-mcp-tool-argument-typesafety.md) | MCP-Tool-Argument Type-Safety (Querschnitt: Review-Bot-Compliance) |
+| [ADR-074](ADR-074-dependency-override-strategy.md) | Dependency-Override-Strategie fuer transitive Vulnerabilities (Querschnitt: Security-Maintenance) |
 
 ---
 

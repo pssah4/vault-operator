@@ -158,15 +158,15 @@ describe('ResultExternalizer', () => {
     });
 
     describe('cleanupOrphaned', () => {
-        it('should remove old tmp directories', async () => {
-            const { ResultExternalizer } = await import('../ResultExternalizer');
+        it('should remove old tmp directories under the default vault tmp root', async () => {
+            const { ResultExternalizer, DEFAULT_TMP_ROOT } = await import('../ResultExternalizer');
 
-            // Create a fake old temp directory
-            fs.dirs.add('tmp');
-            fs.dirs.add('tmp/old-task-1');
-            fs.files.set('tmp/old-task-1/search-1.md', 'old content');
+            const orphanDir = `${DEFAULT_TMP_ROOT}/old-task-1`;
+            const orphanFile = `${orphanDir}/search-1.md`;
+            fs.dirs.add(DEFAULT_TMP_ROOT);
+            fs.dirs.add(orphanDir);
+            fs.files.set(orphanFile, 'old content');
 
-            // Override stat to return old mtime
             const origStat = fs.stat;
             fs.stat = async (path: string) => {
                 if (path.includes('old-task')) return { mtime: Date.now() - 2 * 60 * 60 * 1000, size: 100 };
@@ -175,7 +175,7 @@ describe('ResultExternalizer', () => {
 
             await ResultExternalizer.cleanupOrphaned(fs);
 
-            expect(fs.files.has('tmp/old-task-1/search-1.md')).toBe(false);
+            expect(fs.files.has(orphanFile)).toBe(false);
         });
     });
 });

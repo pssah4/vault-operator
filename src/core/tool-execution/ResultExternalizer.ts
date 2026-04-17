@@ -83,6 +83,11 @@ function formatDefaultRef(content: string, path: string, toolName: string): stri
 // ResultExternalizer
 // ---------------------------------------------------------------------------
 
+/** Default root for externalised tmp results. Lives inside the vault as a
+ *  hidden folder so Obsidian's index ignores it and read_file() can resolve
+ *  the same relative path the agent receives in tool-result references. */
+export const DEFAULT_TMP_ROOT = '.obsidian-agent/tmp';
+
 export class ResultExternalizer {
     private fs: FileAdapter;
     private taskId: string;
@@ -92,10 +97,19 @@ export class ResultExternalizer {
     private _disabled = false;
     private _dirCreated = false;
 
-    constructor(fs: FileAdapter, taskId: string) {
+    /**
+     * @param fs FileAdapter that the agent's read_file tool can also see. Pass
+     *           a VaultDataFileAdapter (vault.adapter wrapper) so the file
+     *           lands inside the vault. Passing GlobalFileService writes
+     *           outside the vault and breaks the read-back path (BUG-014).
+     * @param taskId Stable per-task identifier used in the tmp directory name.
+     * @param tmpRoot Optional override for the tmp root (default
+     *                `.obsidian-agent/tmp`, vault-relative).
+     */
+    constructor(fs: FileAdapter, taskId: string, tmpRoot: string = DEFAULT_TMP_ROOT) {
         this.fs = fs;
         this.taskId = taskId;
-        this.tmpDir = `tmp/${taskId}`;
+        this.tmpDir = `${tmpRoot}/${taskId}`;
     }
 
     /** Disable externalization (used by Fast Path — ADR-061). */
@@ -172,12 +186,14 @@ export class ResultExternalizer {
 
     /**
      * Static: clean up orphaned tmp directories (crash recovery on plugin start).
+     * @param fs Same FileAdapter type used by the runtime instance.
+     * @param tmpRoot Same root the runtime uses (default `.obsidian-agent/tmp`).
      */
-    static async cleanupOrphaned(fs: FileAdapter): Promise<void> {
+    static async cleanupOrphaned(fs: FileAdapter, tmpRoot: string = DEFAULT_TMP_ROOT): Promise<void> {
         try {
-            const exists = await fs.exists('tmp');
+            const exists = await fs.exists(tmpRoot);
             if (!exists) return;
-            const listing = await fs.list('tmp');
+            const listing = await fs.list(tmpRoot);
             const ONE_HOUR = 60 * 60 * 1000;
             for (const dir of listing.folders ?? []) {
                 try {

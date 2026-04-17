@@ -24,6 +24,8 @@ import type {
 import type { IgnoreService } from '../governance/IgnoreService';
 import type { OperationLogger } from '../governance/OperationLogger';
 import { ResultExternalizer } from './ResultExternalizer';
+import { VaultDataFileAdapter } from '../storage/VaultDataFileAdapter';
+import { getTmpRoot } from '../utils/agentFolder';
 import { findAllowedMethod } from '../tools/agent/pluginApiAllowlist';
 
 /**
@@ -160,10 +162,13 @@ export class ToolExecutionPipeline {
         this.mode = mode;
         this.apiHandler = apiHandler;
 
-        // ADR-063: Initialize result externalizer for large tool results
-        if (plugin.globalFs) {
-            this.resultExternalizer = new ResultExternalizer(plugin.globalFs, taskId);
-        }
+        // ADR-063: Initialize result externalizer for large tool results.
+        // BUG-014 / FEATURE-1803: Use the vault adapter (not globalFs) so that
+        // externalised files land inside the vault and read_file() can resolve
+        // the same relative path the agent receives in references.
+        // FEATURE-0507: tmp root honors the configurable agentFolderPath setting.
+        const vaultFs = new VaultDataFileAdapter(plugin.app.vault.adapter);
+        this.resultExternalizer = new ResultExternalizer(vaultFs, taskId, getTmpRoot(plugin));
     }
 
     /** ADR-063: Get the externalizer (for Fast Path to disable during batch). */

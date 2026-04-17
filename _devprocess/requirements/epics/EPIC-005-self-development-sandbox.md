@@ -2,7 +2,7 @@
 
 > **Epic ID**: EPIC-005
 > **Phase**: E
-> **Status**: Vollständig implementiert
+> **Status**: Vollständig implementiert (User-Customization-Pfad in Arbeit: FEATURE-0507)
 
 ## Beschreibung
 
@@ -18,3 +18,4 @@ Self-Development Tools (evaluate_expression, manage_skill, manage_source), Sandb
 | FEATURE-0504 | Settings Tools | P1 | Implementiert |
 | FEATURE-0505 | Plugin API | P1 | Implementiert |
 | FEATURE-0506 | Tool Metadata Registry | P1 | Implementiert |
+| FEATURE-0507 | Konfigurierbarer Agent-Folder | P2 | Implementiert v2.5.0 (Issue #26, ADR-072) |

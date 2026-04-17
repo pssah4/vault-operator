@@ -3,6 +3,7 @@ import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
+import { getPluginSkillsDir } from '../../core/utils/agentFolder';
 import { t } from '../../i18n';
 
 
@@ -25,7 +26,10 @@ interface UnifiedSkill {
 
 
 export class SkillsTab {
-    private readonly skillsDir = '.obsidian-agent/plugin-skills';
+    /** FEATURE-0507: resolved on demand so the configurable agent folder takes effect immediately. */
+    private get skillsDir(): string {
+        return getPluginSkillsDir(this.plugin);
+    }
 
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
 

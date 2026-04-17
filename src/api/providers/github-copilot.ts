@@ -162,12 +162,17 @@ export class GitHubCopilotProvider implements ApiHandler {
             ? Math.max(this.config.maxTokens ?? 8192, budgetTokens)
             : (this.config.maxTokens ?? 8192);
 
+        // BUG-015 / FEATURE-1206: GitHub Copilot routes through models that
+        // require max_completion_tokens instead of max_tokens (gpt-5,
+        // gpt-5-codex, o3, o4-mini). The Copilot Gateway accepts
+        // max_completion_tokens uniformly across the catalog, so we send only
+        // the new parameter for all models.
         const requestBody: Record<string, unknown> = {
             model: this.config.model,
             messages: openAiMessages,
             tools: openAiTools,
             temperature: temperature !== undefined ? Math.min(temperature, 2.0) : undefined,
-            max_tokens: effectiveMaxTokens,
+            max_completion_tokens: effectiveMaxTokens,
             stream: true,
             stream_options: { include_usage: true },
             // Extended thinking: passed as top-level body param for Claude-via-Copilot
@@ -240,27 +245,53 @@ export class GitHubCopilotProvider implements ApiHandler {
 
             // When the turn ends with tool_calls, yield complete tool_use chunks
             if (choice.finish_reason === 'tool_calls') {
-                for (const [, acc] of toolCallAccumulators) {
-                    let input: Record<string, unknown> = {};
-                    try {
-                        input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
-                    } catch (e) {
-                        yield {
-                            type: 'text',
-                            text: `[Tool input parse error for "${acc.name}": ${(e as Error).message}]`,
-                        } satisfies ApiStreamChunk;
-                        continue;
-                    }
-                    yield {
-                        type: 'tool_use',
-                        id: acc.id,
-                        name: acc.name,
-                        input,
-                    } satisfies ApiStreamChunk;
-                }
-                toolCallAccumulators.clear();
+                yield* this.flushToolCallAccumulators(toolCallAccumulators);
             }
         }
+
+        // BUG-013 / FEATURE-0409: Some Copilot-routed models emit
+        // finish_reason="stop" or "length" while still streaming tool_calls
+        // deltas. Without this post-loop flush the accumulated tool calls are
+        // silently dropped. If the in-loop branch already cleared the map, this
+        // is a no-op.
+        if (toolCallAccumulators.size > 0) {
+            yield* this.flushToolCallAccumulators(toolCallAccumulators);
+        }
+    }
+
+    /**
+     * Yield tool_use chunks for every accumulated tool call, then clear the map.
+     * Mirrors the helper in OpenAiProvider so both providers share the same
+     * flush semantics (BUG-013 fallback).
+     */
+    private *flushToolCallAccumulators(
+        accumulators: Map<number, ToolCallAccumulator>,
+    ): Generator<ApiStreamChunk> {
+        for (const [, acc] of accumulators) {
+            if (!acc.id || !acc.name) {
+                console.warn(
+                    `[Copilot] Skipping incomplete tool_call accumulator: id="${acc.id}", name="${acc.name}"`,
+                );
+                continue;
+            }
+            let input: Record<string, unknown> = {};
+            try {
+                input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
+            } catch (e) {
+                yield {
+                    type: 'text',
+                    text: `[Tool input parse error for "${acc.name}": ${(e as Error).message}]`,
+                } satisfies ApiStreamChunk;
+                continue;
+            }
+            yield {
+                type: 'tool_use',
+                id: acc.id,
+                name: acc.name,
+                input,
+            } satisfies ApiStreamChunk;
+        }
+        accumulators.clear();
     }
 
     /**
@@ -268,9 +299,10 @@ export class GitHubCopilotProvider implements ApiHandler {
      * Used by skill matching LLM-fallback.
      */
     async classifyText(prompt: string, abortSignal?: AbortSignal): Promise<string> {
+        // BUG-015 / FEATURE-1206: see createMessage() for the rationale.
         const response = await this.client.chat.completions.create({
             model: this.config.model,
-            max_tokens: 50,
+            max_completion_tokens: 50,
             messages: [{ role: 'user', content: prompt }],
         }, {
             signal: abortSignal ?? undefined,

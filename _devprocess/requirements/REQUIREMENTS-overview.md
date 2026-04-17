@@ -193,6 +193,18 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 | FEATURE-1506 | Implicit Connection UI | P2 | `FEATURE-1506-implicit-connection-ui.md` | Implementiert |
 | FEATURE-1508 | Storage Consolidation | P0 | `FEATURE-1508-storage-consolidation.md` | Implementiert |
 
+### Community-Wave 1 (2026-04-17, geplant fuer v2.5.0)
+> Quelle: BA-013, IMPL-007. Loest 4 Community-Issues, 9+ Bot-Findings, 3 Dependabot-Alerts. Kein neues Epic, neue Features sind in die fachlich passenden bestehenden Epics einsortiert.
+
+| Feature Ref | Feature Name | Epic | Priority | Spec | Status |
+|---|---|---|---|---|---|
+| FEATURE-0409 | OpenAI-kompatible Streaming Tool-Call Robustheit | EPIC-004 | P1 | `FEATURE-0409-openai-streaming-toolcall-robustness.md` | Implementiert (v2.5.0) |
+| FEATURE-0507 | Konfigurierbarer Agent-Folder | EPIC-005 | P2 | `FEATURE-0507-configurable-agent-folder.md` | Implementiert (v2.5.0) |
+| FEATURE-1206 | Copilot Modern Model Compatibility (max_completion_tokens) | EPIC-012 | P1 | `FEATURE-1206-copilot-modern-model-compatibility.md` | Implementiert (v2.5.0) |
+| FEATURE-1803 | Cross-Platform TMP-Pfade fuer Context Externalization | EPIC-018 | P1 | `FEATURE-1803-cross-platform-tmp-paths.md` | Implementiert (v2.5.0) |
+
+**Querschnitts-Maintenance (kein Feature, nur ADR + IMPL):** Review-Bot Hardening (ADR-073), Dependency Vulnerability Patches (ADR-074).
+
 ## ASR Summary
 - ASR-01: isomorphic-git Checkpoints (ADR-002) — Implemented
 - ASR-02: Central Tool Execution Pipeline (ADR-001) — Implemented
@@ -218,3 +230,6 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 13. Retrieval Pipeline: Two-Pass Background Enrichment — ADR-051
 14. Local Reranker: @huggingface/transformers Cross-Encoder — ADR-052
 15. MCP Server: stdio Bridge mit 3-Tier Tool Mapping — ADR-053/ADR-054
+16. Konfigurierbarer Agent-Storage-Root — ADR-072
+17. MCP-Tool-Argument Type-Safety (Helper coerceStringArg) — ADR-073
+18. Dependency-Override-Strategie fuer transitive Vulnerabilities — ADR-074

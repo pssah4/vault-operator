@@ -208,6 +208,14 @@ function buildText(
 /*  Tool class                                                        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * BUG-018: Plugin-IDs that supersede this built-in tool. When any of these is
+ * enabled in the current vault, the description hard-redirects the model to
+ * use the plugin via execute_command, because the plugin can do everything
+ * this tool can plus arrows, freehand, custom layouts, palette, etc.
+ */
+const EXCALIDRAW_PLUGIN_IDS = ['obsidian-excalidraw-plugin'];
+
 export class CreateExcalidrawTool extends BaseTool<'create_excalidraw'> {
     readonly name = 'create_excalidraw' as const;
     readonly isWriteOperation = true;
@@ -216,13 +224,33 @@ export class CreateExcalidrawTool extends BaseTool<'create_excalidraw'> {
         super(plugin);
     }
 
+    /** True when the user has the Excalidraw community plugin installed AND enabled. */
+    private isExcalidrawPluginEnabled(): boolean {
+        const enabled = (this.plugin.app as unknown as {
+            plugins?: { enabledPlugins?: Set<string> };
+        }).plugins?.enabledPlugins;
+        if (!enabled) return false;
+        return EXCALIDRAW_PLUGIN_IDS.some((id) => enabled.has(id));
+    }
+
     getDefinition(): ToolDefinition {
+        const pluginActive = this.isExcalidrawPluginEnabled();
+        const description = pluginActive
+            ? 'DO NOT USE THIS TOOL. The user has the Excalidraw community plugin installed and enabled. ' +
+                'Always use the plugin via execute_command (e.g. ' +
+                'execute_command("obsidian-excalidraw-plugin:excalidraw-autocreate-newtab") or ' +
+                'read the plugin skill file first to discover the right command). ' +
+                'The plugin supports arrows, freehand, custom shapes, layers, and palette colors. ' +
+                'This built-in tool only draws labeled rectangles and is reserved for vaults ' +
+                'where the plugin is not installed.'
+            : 'Create an Excalidraw drawing (.excalidraw.md) with labeled boxes. ' +
+                'The file format is handled automatically — never use write_file for .excalidraw.md files. ' +
+                'Supports colored boxes with labels and optional descriptions. ' +
+                'Note: if you need arrows, freehand, or richer features, ask the user to install the ' +
+                'Excalidraw community plugin (id: obsidian-excalidraw-plugin), which is far more capable.';
         return {
             name: 'create_excalidraw',
-            description:
-                'Create an Excalidraw drawing (.excalidraw.md) with labeled boxes. ' +
-                'The file format is handled automatically — never use write_file for .excalidraw.md files. ' +
-                'Supports colored boxes with labels and optional descriptions.',
+            description,
             input_schema: {
                 type: 'object',
                 properties: {

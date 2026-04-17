@@ -15,10 +15,13 @@ import type { PluginSkillMeta } from './types';
 export class SkillRegistry {
     private scanner: VaultDNAScanner;
     private skillToggles: Record<string, boolean>;
+    /** FEATURE-0507: vault-relative dir (default ".obsidian-agent/plugin-skills") for the prompt hint. */
+    private skillsDir: string;
 
-    constructor(scanner: VaultDNAScanner, skillToggles: Record<string, boolean>) {
+    constructor(scanner: VaultDNAScanner, skillToggles: Record<string, boolean>, skillsDir = '.obsidian-agent/plugin-skills') {
         this.scanner = scanner;
         this.skillToggles = skillToggles;
+        this.skillsDir = skillsDir;
     }
 
     /**
@@ -38,6 +41,30 @@ export class SkillRegistry {
     }
 
     /**
+     * BUG-018 follow-up: get every enabled plugin that exists in the vault but
+     * was classified as NONE by VaultDNA (no agentifiable commands at scan
+     * time). The agent still needs to know these exist — many plugins register
+     * their commands lazily, so a "NONE" today might have commands at runtime.
+     * Listed in the system prompt under "OTHER ENABLED PLUGINS" so the model
+     * doesn't claim a plugin doesn't exist when it does.
+     */
+    private getOtherEnabledPlugins(): { id: string; name: string; description: string }[] {
+        const dna = this.scanner.getVaultDNA();
+        if (!dna) return [];
+        const known = new Set([
+            ...this.getActivePluginSkills().map((s) => s.id),
+            ...this.getDisabledPluginSkills().map((s) => s.id),
+        ]);
+        return dna.plugins
+            .filter((p) => p.status === 'enabled' && !known.has(p.id))
+            .map((p) => ({
+                id: p.id,
+                name: p.name,
+                description: p.description ?? '',
+            }));
+    }
+
+    /**
      * Build a compact PLUGIN SKILLS section for the system prompt.
      *
      * Lists active plugins with their commands so the agent knows
@@ -46,8 +73,9 @@ export class SkillRegistry {
     getPluginSkillsPromptSection(): string {
         const active = this.getActivePluginSkills();
         const disabled = this.getDisabledPluginSkills();
+        const others = this.getOtherEnabledPlugins();
 
-        if (active.length === 0 && disabled.length === 0) return '';
+        if (active.length === 0 && disabled.length === 0 && others.length === 0) return '';
 
         const lines: string[] = [
             'PLUGIN SKILLS',
@@ -60,7 +88,7 @@ export class SkillRegistry {
             'NEVER substitute a built-in tool (like create_base, write_file) for a plugin the user requested.',
             '',
             'Before using a plugin, ALWAYS read its skill file first:',
-            '  read_file(".obsidian-agent/plugin-skills/{plugin-id}.skill.md")',
+            `  read_file("${this.skillsDir}/{plugin-id}.skill.md")`,
             'This tells you what the plugin does, its commands, its configuration, and how to use it.',
             '',
         ];
@@ -96,9 +124,31 @@ export class SkillRegistry {
         lines.push('  RIGHT: User says "DB Folder Tabelle" -> read .skill.md then execute_command("dbfolder:create-new-database-folder")');
         lines.push('- WRONG: User says "Dataview query" -> you use query_base');
         lines.push('  RIGHT: User says "Dataview query" -> use call_plugin_api("dataview", "query", ...)');
+        lines.push('- WRONG: User says "Excalidraw" or "Skizze" -> you use create_excalidraw built-in');
+        lines.push('  RIGHT: Excalidraw plugin installed -> execute_command("obsidian-excalidraw-plugin:excalidraw-autocreate-newtab") (or read plugin .skill.md for the exact command). The built-in only draws boxes.');
+        lines.push('- WRONG: User says "Draw.io diagram" -> you use write_file with a .drawio.svg file (the plugin will reject it as "Not a diagram file")');
+        lines.push('  RIGHT: Use the built-in create_drawio tool. It emits a valid .drawio file with mxfile wrapper that the drawio-obsidian / obsidian-diagrams-net plugin opens and lets the user extend.');
         lines.push('- WRONG: User mentions a disabled plugin -> you ask the user to enable it manually');
         lines.push('  RIGHT: User mentions a disabled plugin -> enable_plugin(plugin_id) yourself, then use the plugin');
         lines.push('');
+
+        // BUG-018 follow-up: list every other ENABLED plugin even when VaultDNA
+        // could not derive agentifiable commands at scan time. Many plugins
+        // register commands lazily, and a flat-out "this plugin doesn't exist"
+        // hallucination is the worst possible answer.
+        if (others.length > 0) {
+            lines.push('OTHER ENABLED PLUGINS (no agentifiable commands found at scan time, but installed and enabled):');
+            for (const p of others) {
+                const desc = p.description ? ` -- ${p.description}` : '';
+                lines.push(`- ${p.name} (${p.id})${desc}`);
+            }
+            lines.push('');
+            lines.push('IMPORTANT: NEVER tell the user "this plugin does not exist" or "I cannot create that format" when one of these plugins is listed above. Instead:');
+            lines.push('1. Try execute_command("<plugin-id>:<some-command>") with a sensible command name. Many plugin commands like "<id>:new-diagram" or "<id>:create-new" follow this pattern.');
+            lines.push('2. Or list the command palette via the Obsidian UI naming and try the most plausible command id.');
+            lines.push('3. If the call returns "command not found", ask the user for the exact command name OR call enable_plugin to force a fresh skill scan.');
+            lines.push('');
+        }
 
         // Disabled plugins — agent can enable them via enable_plugin tool
         if (disabled.length > 0) {

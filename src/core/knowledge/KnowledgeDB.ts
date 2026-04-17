@@ -162,6 +162,12 @@ export class KnowledgeDB {
         dbName = 'knowledge.db',
         /** Override the global root directory (default: {vault-parent}/.obsidian-agent/). */
         globalRoot?: string,
+        /**
+         * FEATURE-0507: vault-relative directory for the local storage mode.
+         * Defaults to ".obsidian-agent" to preserve the legacy on-disk layout.
+         * Pass `getAgentFolderPath(plugin)` to honor the user setting.
+         */
+        vaultRelativeDir = '.obsidian-agent',
     ) {
         this.vault = vault;
         this.storageLocation = storageLocation;
@@ -173,7 +179,7 @@ export class KnowledgeDB {
             this.absolutePath = path.join(root, dbName);
             this.vaultRelativePath = ''; // not used for global
         } else if (storageLocation === 'local') {
-            this.vaultRelativePath = `.obsidian-agent/${dbName}`;
+            this.vaultRelativePath = `${vaultRelativeDir}/${dbName}`;
             this.absolutePath = path.join(basePath, this.vaultRelativePath);
         } else {
             this.vaultRelativePath = `${pluginDir}/${dbName}`;

@@ -39,6 +39,7 @@ import { SemanticSearchTool } from './vault/SemanticSearchTool';
 import { GenerateCanvasTool } from './vault/GenerateCanvasTool';
 // Import tools — vault: excalidraw
 import { CreateExcalidrawTool } from './vault/CreateExcalidrawTool';
+import { CreateDrawioTool } from './vault/CreateDrawioTool';
 // Import tools — vault: office document creation
 import { CreatePptxTool } from './vault/CreatePptxTool';
 import { CreateDocxTool } from './vault/CreateDocxTool';
@@ -157,6 +158,8 @@ export class ToolRegistry {
         this.register(new GenerateCanvasTool(this.plugin));
         // Vault: excalidraw
         this.register(new CreateExcalidrawTool(this.plugin));
+        // Vault: drawio / diagrams.net (BUG-018)
+        this.register(new CreateDrawioTool(this.plugin));
         // Vault: office document creation
         this.register(new CreatePptxTool(this.plugin));
         this.register(new CreateDocxTool(this.plugin));

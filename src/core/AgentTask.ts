@@ -22,6 +22,7 @@ import type { ModeConfig } from '../types/settings';
 import type { McpClient } from './mcp/McpClient';
 import { BUILT_IN_MODES } from './modes/builtinModes';
 import { QUALITY_GATES } from './tools/qualityGates';
+import { sanitizeAndLog } from './utils/sanitizeHistoryForApi';
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -512,7 +513,11 @@ export class AgentTask {
                 const toolErrorIds = new Set<string>();
 
                 // Stream the LLM response (pass abort signal for cancellation)
-                for await (const chunk of this.api.createMessage(systemPrompt, history, tools, abortSignal)) {
+                // BUG-017: drop orphan tool_use / tool_result blocks before send.
+                // Anthropic returns 400 if any tool_use has no matching tool_result
+                // and Claude-via-Copilot inherits the same constraint.
+                const safeHistory = sanitizeAndLog(history, 'main-loop');
+                for await (const chunk of this.api.createMessage(systemPrompt, safeHistory, tools, abortSignal)) {
                     if (chunk.type === 'thinking') {
                         this.taskCallbacks.onThinking?.(chunk.text);
                     } else if (chunk.type === 'text') {
@@ -846,7 +851,9 @@ export class AgentTask {
                         content: '[System] Iteration limit reached. Deliver your final answer NOW. Do NOT call any tools.',
                     });
                     try {
-                        for await (const chunk of this.api.createMessage(cachedSystemPrompt, history, [], abortSignal)) {
+                        // BUG-017: same orphan-cleanup as the main loop.
+                        const safeHistoryHardLimit = sanitizeAndLog(history, 'hard-limit-recovery');
+                        for await (const chunk of this.api.createMessage(cachedSystemPrompt, safeHistoryHardLimit, [], abortSignal)) {
                             if (chunk.type === 'text') {
                                 hasStreamedText = true;
                                 this.taskCallbacks.onText(chunk.text);
@@ -1192,9 +1199,12 @@ export class AgentTask {
 
         let summary = '';
         try {
+            // BUG-017: condensing has its own pairing-fix higher up, but apply
+            // the generic sanitize as well so any new edge case is caught.
+            const safeCondensingMessages = sanitizeAndLog(condensingMessages, 'condensing');
             for await (const chunk of this.api.createMessage(
                 systemPrompt,
-                condensingMessages,
+                safeCondensingMessages,
                 [],
                 abortSignal,
             )) {

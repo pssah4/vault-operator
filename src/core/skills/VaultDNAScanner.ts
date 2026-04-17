@@ -12,6 +12,11 @@
 import { type App, type Vault, requestUrl } from 'obsidian';
 import type { VaultDNA, VaultDNAEntry, PluginClassification, PluginSkillMeta, PluginSource } from './types';
 import { CORE_PLUGIN_DEFS, CORE_PLUGIN_IDS } from './CorePluginLibrary';
+import { getPluginSkillsDir, getVaultDnaPath } from '../utils/agentFolder';
+import type { ObsidianAgentSettings } from '../../types/settings';
+
+/** FEATURE-0507: subset of the plugin used to resolve the configurable agent folder. */
+type AgentFolderHolder = { settings: Pick<ObsidianAgentSettings, 'agentFolderPath'> };
 
 /** Patterns that indicate a command is UI-only (not agentifiable) */
 const UI_ONLY_PATTERNS = [
@@ -28,17 +33,26 @@ function isUIOnlyCommand(commandName: string): boolean {
 export class VaultDNAScanner {
     private readonly app: App;
     private readonly vault: Vault;
-    private readonly skillsDir = '.obsidian-agent/plugin-skills';
-    private readonly dnaPath = '.obsidian-agent/vault-dna.json';
+    /** FEATURE-0507: vault-relative dir, default ".obsidian-agent/plugin-skills". */
+    private readonly skillsDir: string;
+    /** FEATURE-0507: vault-relative path, default ".obsidian-agent/vault-dna.json". */
+    private readonly dnaPath: string;
     private vaultDNA: VaultDNA | null = null;
     private pollIntervalId: ReturnType<typeof setInterval> | null = null;
     private lastKnownEnabledSet = new Set<string>();
     /** Runtime skill metadata — built after scan */
     private pluginSkills: PluginSkillMeta[] = [];
 
-    constructor(app: App, vault: Vault) {
+    /**
+     * @param holder Optional plugin/settings holder. Pass `undefined` only in
+     *               tests; production calls should provide it so the
+     *               configurable agent folder takes effect.
+     */
+    constructor(app: App, vault: Vault, holder?: AgentFolderHolder) {
         this.app = app;
         this.vault = vault;
+        this.skillsDir = holder ? getPluginSkillsDir(holder) : '.obsidian-agent/plugin-skills';
+        this.dnaPath = holder ? getVaultDnaPath(holder) : '.obsidian-agent/vault-dna.json';
     }
 
     async initialize(): Promise<void> {
@@ -666,7 +680,7 @@ export class VaultDNAScanner {
         lines.push('## Documentation');
         lines.push('');
         lines.push(`For detailed plugin documentation (commands, options, dependencies):`);
-        lines.push(`read_file(".obsidian-agent/plugin-skills/${skill.id}.readme.md")`);
+        lines.push(`read_file("${this.skillsDir}/${skill.id}.readme.md")`);
 
         // Usage section
         lines.push('');
@@ -749,7 +763,7 @@ export class VaultDNAScanner {
         parts.push('## Documentation');
         parts.push('');
         parts.push(`For detailed documentation:`);
-        parts.push(`read_file(".obsidian-agent/plugin-skills/${skillId}.readme.md")`);
+        parts.push(`read_file("${this.skillsDir}/${skillId}.readme.md")`);
 
         parts.push('');
         parts.push('IMPORTANT: After reading this file, ALWAYS take action or respond. Never end silently.');
