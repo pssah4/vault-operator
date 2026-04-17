@@ -35,7 +35,12 @@ export type ExtractionProcessor = (item: PendingExtraction) => Promise<void>;
  * never drained because each session re-triggered the same upstream failure.
  */
 function isPermanentProviderError(e: unknown): boolean {
-    const msg = String((e as { message?: string })?.message ?? e ?? '');
+    const rawMessage = (e as { message?: unknown })?.message;
+    const msg = typeof rawMessage === 'string'
+        ? rawMessage
+        : typeof e === 'string'
+            ? e
+            : '';
     const statusCode = (e as { status?: number })?.status;
     if (statusCode === 401 || statusCode === 402 || statusCode === 403) return true;
     // Provider-specific credit / quota messages that surface as 400 in some SDKs.

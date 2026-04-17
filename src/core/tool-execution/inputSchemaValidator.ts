@@ -44,20 +44,40 @@ export function validateToolInput(
         }
     }
 
-    // 2. Coerce numeric strings to numbers (LLMs sometimes pass "0" instead of 0)
-    // Only accept simple decimal notation (no scientific notation like "1e100").
+    // 2. Coerce stringified inputs back to their declared JSON type. Some LLMs
+    // (notably GPT/Copilot variants) serialize complex parameters as JSON
+    // strings even when the schema declares `type: "array"` or `"object"`, and
+    // numeric params as strings like "0". Do the conversion in-place so tools
+    // see the declared type instead of hard-failing on a format quirk.
     for (const [field, value] of Object.entries(input)) {
         const propSchema = schema.properties?.[field] as PropertySchema | undefined;
         if (!propSchema?.type || value === undefined || value === null) continue;
+        if (typeof value !== 'string') continue;
+
         if (
             (propSchema.type === 'number' || propSchema.type === 'integer') &&
-            typeof value === 'string' &&
             /^-?\d+(\.\d+)?$/.test(value.trim())
         ) {
             const num = Number(value);
             if (Number.isFinite(num)) {
                 input[field] = num;
             }
+            continue;
+        }
+
+        if (propSchema.type === 'array' || propSchema.type === 'object') {
+            const trimmed = value.trim();
+            const looksLikeJson =
+                (propSchema.type === 'array' && trimmed.startsWith('[')) ||
+                (propSchema.type === 'object' && trimmed.startsWith('{'));
+            if (!looksLikeJson) continue;
+            try {
+                const parsed = JSON.parse(trimmed);
+                const parsedType = Array.isArray(parsed) ? 'array' : typeof parsed;
+                if (parsedType === propSchema.type) {
+                    input[field] = parsed;
+                }
+            } catch { /* leave the string in place -- type check below will flag it */ }
         }
     }
 

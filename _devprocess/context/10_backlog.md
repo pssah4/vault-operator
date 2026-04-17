@@ -2,7 +2,7 @@
 
 Stand: 2026-04-17
 Branch: `dev` / `main`
-Status: **v2.5.2 released** (FEATURE-0508 agent-folder change handling: live retarget + migration)
+Status: **v2.5.3 released** (Wave 3: Review-Bot Scan 5 Fixes -- native Dialoge durch Obsidian Modals ersetzt, Template-Stringification Type-Guard, plus JSON-Input-Coercion fuer GPT/Copilot Stringification-Quirks) + **EPIC-022 in Planung** (Skill-Package Ecosystem, Anthropic-kompatibel -- BA/Epic/Features/ADR-075 geschrieben, Coding nicht gestartet)
 
 ---
 
@@ -327,6 +327,24 @@ Obsilo-Adaption: SubTask-Typen (research, implementation, verification) mit Stat
 | Model Compatibility Check | FEATURE-0605-model-compatibility-check.md | P2-Medium |
 | Obsilo Gateway | FEATURE-0901-obsilo-gateway.md | Nach Stabilisierung (Monetarisierung) |
 
+**EPIC-022: Skill-Package Ecosystem (Anthropic-kompatibel)**
+
+Quelle: BA-021 + User-Anforderung nach Anthropic-kompatiblem Skill-Format + Coordinator-Pattern.
+BA: `_devprocess/analysis/BA-021-skill-package-ecosystem.md`
+Epic: `_devprocess/requirements/epics/EPIC-022-skill-package-ecosystem.md`
+ADR: `_devprocess/architecture/ADR-075-skill-package-architecture.md` (Proposed)
+Handoff: `architect-handoff-022.md` + `plan-context-022.md`
+
+| Feature | Spec | Prioritaet | Aufwand | Status |
+|---------|------|------------|---------|--------|
+| Skill-Folder-Struktur (SKILL.md + Subfolders) | FEATURE-2201-skill-folder-structure.md | P0-Critical | M | Geplant |
+| .skill Zip-Import | FEATURE-2202-skill-zip-import.md | P0-Critical | S | Geplant |
+| Scripts-im-Skill (Sandbox) | FEATURE-2203-skill-scripts.md | P1-High | M | Geplant |
+| Coordinator-Skill (Multi-Rolle) | FEATURE-2204-coordinator-skill.md | P1-High | M | Geplant |
+
+Release-Plan: 2201+2202 zusammen als v2.6.0 (Anthropic-kompatibles Minimum). 2203+2204 additiv als v2.6.1 / v2.6.2.
+Backward-Compat: Alle 9 bundled-skills + bestehende User-Skills laden unveraendert.
+
 ---
 
 ## Offene Punkte
@@ -473,14 +491,29 @@ Quelle: BA-013, IMPL-007. 4 Community-Issues + 3 Dependabot-Alerts + zwei wahren
 
 ---
 
+## Community-Wave 3 (released als v2.5.3)
+
+Trigger: Obsidian Community Plugin Review Bot Scan 5 (2026-04-17) gegen Commit 34193be.
+Scope: 3 Required-Findings fixen, dazu bestehende WIP-Bugfixes buendeln.
+
+| Arbeitsstrom | Status |
+|---|---|
+| Native Dialoge entfernt (prompt/confirm) | Released v2.5.3. Neuer `src/ui/modals/PromptModal.ts` Helper mit Promise-Interface, VaultTab verwendet `promptModal`/`confirmModal` im Migrations-Flow. Bot-Regel "Unexpected prompt/confirm". |
+| Template-Stringification Type-Guard | Released v2.5.3. `ExtractionQueue.isPermanentProviderError` nutzt explizite `typeof`-Pruefung statt `??`-Fallback, verhindert `[object Object]` im Log. Bot-Regel `restrict-template-expressions`. |
+| JSON-Input-Coercion (GPT/Copilot Stringification) | Released v2.5.3 (WIP-Bundle). `inputSchemaValidator` akzeptiert stringified arrays/objects zusaetzlich zu Zahlen. `CreateExcalidrawTool` hat `coerceArrayInput` fuer boxes/arrows. |
+| Skill-Update: Kategorie F (Native Dialoge) | Ergaenzt in `~/.claude/skills/review-bot/SKILL.md` fuer naechste Scans. |
+
+---
+
 ## Naechste Prioritaeten
 
 ### Kurzfristig (aktiv)
 
-1. **EPIC-019 Knowledge Maintenance** -- Phase 2 groesstenteils erledigt. Offen bleiben FEATURE-1903 (Template-Onboarding einmalig) und FEATURE-1907 (Chat UI Polish). FEATURE-1900 + 1904 + 1906 waren bereits implementiert, nur Backlog-Stand war veraltet.
-2. **MCP Remote Auth (FEATURE-1404)** -- Eigener Feature-Branch, nicht Wave 2. Heute: Bearer-Token-Auth (McpBridge + Cloudflare-Relay-Worker). Spec fordert OAuth 2.1 + PKCE (Authorization-Endpoint, PKCE-Challenges, Refresh-Tokens, Client-Registration, Settings-UI) -- ~500-1000 LOC plus Security-Review. Zu gross fuer inkrementelle Wave-Arbeit.
-3. ~~**Gemini Provider (ADR-064)**~~ -- Already implemented in the main codebase: `ProviderType 'gemini'`, built-in models, UI labels/colors, model fetching, ModelConfigModal wiring, model-registry entries. Nothing left to do. Flagged in Wave 2 review 2026-04-17.
-4. **Wave-2 Triage** -- BUG-016, Excalidraw-Arrows, Hard Tool-Filter (siehe oben)
+1. **EPIC-022 Skill-Package Ecosystem** -- BA/Epic/Features/ADR-075 geschrieben (2026-04-17). Coding wartet auf User-Freigabe. FEATURE-2201 (Folder-Struktur) ist Fundament; Release-Minimum ist 2201+2202 als v2.6.0.
+2. **EPIC-019 Knowledge Maintenance** -- Phase 2 groesstenteils erledigt. Offen bleiben FEATURE-1903 (Template-Onboarding einmalig) und FEATURE-1907 (Chat UI Polish). FEATURE-1900 + 1904 + 1906 waren bereits implementiert, nur Backlog-Stand war veraltet.
+3. **MCP Remote Auth (FEATURE-1404)** -- Eigener Feature-Branch, nicht Wave 2. Heute: Bearer-Token-Auth (McpBridge + Cloudflare-Relay-Worker). Spec fordert OAuth 2.1 + PKCE (Authorization-Endpoint, PKCE-Challenges, Refresh-Tokens, Client-Registration, Settings-UI) -- ~500-1000 LOC plus Security-Review. Zu gross fuer inkrementelle Wave-Arbeit.
+4. ~~**Gemini Provider (ADR-064)**~~ -- Already implemented in the main codebase: `ProviderType 'gemini'`, built-in models, UI labels/colors, model fetching, ModelConfigModal wiring, model-registry entries. Nothing left to do. Flagged in Wave 2 review 2026-04-17.
+5. **Wave-2 Triage** -- BUG-016, Excalidraw-Arrows, Hard Tool-Filter (siehe oben)
 
 ### Kurzfristig (danach)
 

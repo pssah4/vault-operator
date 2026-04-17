@@ -3,6 +3,7 @@ import type ObsidianAgentPlugin from '../../main';
 import { DEFAULT_AGENT_FOLDER } from '../../core/utils/agentFolder';
 import { AgentFolderService, readStoredAgentFolder } from '../../core/utils/agentFolderService';
 import { pickAgentFolder } from './AgentFolderPickerModal';
+import { promptModal, confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
 
 
@@ -165,12 +166,15 @@ export class VaultTab {
      */
     private async handleMigrateClick(service: AgentFolderService): Promise<void> {
         const currentPath = readStoredAgentFolder(this.plugin);
-        const oldPathInput = window.prompt(
-            `Migrate data FROM which folder?\n\n`
+        const oldPathInput = await promptModal(this.app, {
+            title: 'Migrate agent folder data',
+            message:
+                `Migrate data FROM which folder?\n\n`
                 + `Current agent folder is "${currentPath}".\n`
                 + `Enter the OLD path whose data should be copied here.`,
-            DEFAULT_AGENT_FOLDER,
-        );
+            defaultValue: DEFAULT_AGENT_FOLDER,
+            submitLabel: 'Next',
+        });
         if (!oldPathInput) return;
         const oldPath = oldPathInput.trim();
         if (!oldPath || oldPath === currentPath) {
@@ -196,14 +200,17 @@ export class VaultTab {
         const mb = (preview.totalBytes / (1024 * 1024)).toFixed(1);
         const summary = `${parts.join(', ')} (~${mb} MB)`;
 
-        const confirm = window.confirm(
-            `Migrate ${summary}\n\n`
+        const confirmed = await confirmModal(this.app, {
+            title: 'Confirm migration',
+            message:
+                `Migrate ${summary}\n\n`
                 + `FROM: ${oldPath}\n`
                 + `TO:   ${currentPath}\n\n`
                 + `The originals stay in place. Delete them manually after verifying the new location works.\n\n`
                 + `Reload Obsidian after migration so the knowledge and memory databases re-open at the new path.`,
-        );
-        if (!confirm) return;
+            confirmLabel: 'Migrate',
+        });
+        if (!confirmed) return;
 
         const result = await service.migrate(oldPath, currentPath);
         const summaryParts: string[] = [];

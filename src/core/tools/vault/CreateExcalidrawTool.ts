@@ -143,6 +143,26 @@ const DESC_FONT_SIZE = 14;
 const TITLE_MARGIN_BOTTOM = 40;
 
 /* ------------------------------------------------------------------ */
+/*  Input coercion                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Some LLMs (notably GPT/Copilot variants) stringify complex array inputs
+ * even when the schema declares `type: "array"`. Accept both shapes so the
+ * tool call does not hard-fail on a harmless format quirk.
+ */
+function coerceArrayInput(value: unknown): unknown[] {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) return parsed;
+        } catch { /* not JSON -- fall through */ }
+    }
+    return [];
+}
+
+/* ------------------------------------------------------------------ */
 /*  Element builders                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -369,8 +389,8 @@ export class CreateExcalidrawTool extends BaseTool<'create_excalidraw'> {
     async execute(input: Record<string, unknown>, context: ToolExecutionContext): Promise<void> {
         const { callbacks } = context;
         const outputPath = ((input.output_path as string) ?? '').trim();
-        const rawElements = Array.isArray(input.elements) ? input.elements : [];
-        const rawArrows = Array.isArray(input.arrows) ? input.arrows as Array<{ from?: string; to?: string }> : [];
+        const rawElements = coerceArrayInput(input.elements);
+        const rawArrows = coerceArrayInput(input.arrows) as Array<{ from?: string; to?: string }>;
         const title = ((input.title as string) ?? '').trim();
         const layout: 'grid' | 'row' = input.layout === 'row' ? 'row' : 'grid';
 
@@ -415,7 +435,7 @@ export class CreateExcalidrawTool extends BaseTool<'create_excalidraw'> {
             const rectsByIndex: typeof rectsByUserId extends Map<string, infer V> ? V[] : never = [];
 
             for (let i = 0; i < elements.length; i++) {
-                const elem = elements[i];
+                const elem = (elements[i] ?? {}) as { id?: string; label?: string; color?: string; description?: string };
                 const label: string = elem.label ?? `Box ${i + 1}`;
                 const color = resolveColor(elem.color);
                 const desc: string = (elem.description ?? '').trim();
@@ -518,18 +538,18 @@ export class CreateExcalidrawTool extends BaseTool<'create_excalidraw'> {
                 'tags: [excalidraw]',
                 '',
                 '---',
-                '==⚠  Switch to MOBILE VIEW to edit this on mobile ⚠==',
+                '==⚠  Switch to EXCALIDRAW VIEW in the MORE OPTIONS menu of this document. ⚠==',
                 '',
                 '# Excalidraw Data',
                 '',
                 '## Text Elements',
                 textElements,
                 '',
+                '%%',
                 '## Drawing',
                 '```json',
                 json,
                 '```',
-                '',
                 '%%',
             ].join('\n');
 
