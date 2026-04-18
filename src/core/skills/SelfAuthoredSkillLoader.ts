@@ -829,12 +829,29 @@ export class SelfAuthoredSkillLoader {
     }
 
     private parseSkillMd(content: string, filePath: string): SelfAuthoredSkill | null {
-        // Split frontmatter and body at --- delimiters
-        const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-        if (!fmMatch) return null;
+        // Accept two metadata shapes:
+        //   1) YAML frontmatter at the top (Obsilo + Anthropic standard).
+        //   2) HTML-comment metadata block anywhere in the file (real-world
+        //      Anthropic skills sometimes ship this form -- EPIC-022 beta
+        //      feedback 2026-04-19).
+        let frontmatter: string | null = null;
+        let body: string | null = null;
 
-        const frontmatter = fmMatch[1];
-        const body = fmMatch[2].trim();
+        const yaml = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+        if (yaml) {
+            frontmatter = yaml[1];
+            body = yaml[2].trim();
+        } else {
+            const html = content.match(/<!--\s*(?:Metadata|metadata|SKILL|skill)\s*\n([\s\S]*?)\n-->/);
+            if (html) {
+                frontmatter = html[1];
+                // Body = full content WITHOUT the metadata block so the skill
+                // markdown the user wrote still reaches the prompt.
+                body = content.replace(html[0], '').trim();
+            }
+        }
+
+        if (frontmatter === null || body === null) return null;
 
         // Parse frontmatter key-value pairs
         const fm = this.parseFrontmatter(frontmatter);

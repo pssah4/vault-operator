@@ -4,7 +4,8 @@ import { ContentEditorModal } from './ContentEditorModal';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
 import { getPluginSkillsDir, getSelfAuthoredSkillsDir } from '../../core/utils/agentFolder';
-import { importSkill, detectSourceFromFile } from '../../core/skills/SkillImportRouter';
+import { importSkill, detectSourceFromFile, SkillPackageImportError, SkillFolderImportError } from '../../core/skills/SkillImportRouter';
+import { confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
 
 interface ElectronDialog {
@@ -106,6 +107,23 @@ export class SkillsTab {
         importSkillBtn.addEventListener('click', () => {
             void this.runUniversalImport(refreshList);
         });
+
+        // FEATURE-2207: Reload skills. Needed when SKILL.md was edited outside
+        // Obsidian (iCloud sync lag, external editor) so the file-watcher
+        // didn't pick up the change.
+        const reloadSkillsBtn = createRow.createEl('button', {
+            text: 'Reload skills',
+            cls: 'agent-rules-import-btn',
+            attr: { 'aria-label': 'Rescan skill folders on disk' },
+        });
+        reloadSkillsBtn.addEventListener('click', () => { void (async () => {
+            const loader = this.plugin.selfAuthoredSkillLoader;
+            if (!loader) { new Notice('Skill loader not ready.'); return; }
+            await loader.refresh();
+            await refreshList();
+            const count = loader.getAllSkills().length;
+            new Notice(`Rescanned skills (${count} active).`);
+        })(); });
 
         // -- Skill list --
         const listEl = containerEl.createDiv({ cls: 'agent-rules-list' });
@@ -632,9 +650,30 @@ export class SkillsTab {
 
         const chosen = pick.filePaths[0];
         try {
-            const result = await this.runImportForPath(chosen, targetSkillsDir, adapter);
+            const result = await this.runImportForPath(chosen, targetSkillsDir, adapter, false);
             await this.finishImport(result, refreshList);
         } catch (e) {
+            if (this.isDuplicate(e)) {
+                const replace = await confirmModal(this.app, {
+                    title: 'Skill already exists',
+                    message:
+                        `A skill with the same slug is already installed.\n\n`
+                        + `Replace it with the new version? This overwrites all files in that skill folder.`,
+                    confirmLabel: 'Replace',
+                    destructive: true,
+                });
+                if (!replace) {
+                    new Notice('Skill import cancelled.');
+                    return;
+                }
+                try {
+                    const result = await this.runImportForPath(chosen, targetSkillsDir, adapter, true);
+                    await this.finishImport(result, refreshList);
+                } catch (inner) {
+                    new Notice(`Skill import failed: ${this.errorMessage(inner)}`, 8000);
+                }
+                return;
+            }
             new Notice(`Skill import failed: ${this.errorMessage(e)}`, 8000);
         }
     }
@@ -643,6 +682,7 @@ export class SkillsTab {
         absolutePath: string,
         targetSkillsDir: string,
         adapter: import('obsidian').DataAdapter,
+        overwrite: boolean,
     ): Promise<Awaited<ReturnType<typeof importSkill>>> {
         // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node fs only reachable via dynamic require
         const fs: typeof import('fs/promises') = require('fs/promises');
@@ -653,6 +693,7 @@ export class SkillsTab {
                 adapter,
                 targetSkillsDir,
                 source: { kind: 'directory', absolutePath },
+                overwrite,
             });
         }
 
@@ -667,7 +708,13 @@ export class SkillsTab {
             adapter,
             targetSkillsDir,
             source: detectSourceFromFile(fileLike),
+            overwrite,
         });
+    }
+
+    private isDuplicate(e: unknown): boolean {
+        return e instanceof SkillPackageImportError && e.code === 'DESTINATION_EXISTS'
+            || e instanceof SkillFolderImportError && e.code === 'DESTINATION_EXISTS';
     }
 
     private runHtmlFileImport(
@@ -681,14 +728,32 @@ export class SkillsTab {
         fileInput.addEventListener('change', () => { void (async () => {
             const file = fileInput.files?.[0];
             if (!file) return;
+            const doImport = async (overwrite: boolean) => importSkill({
+                adapter,
+                targetSkillsDir,
+                source: detectSourceFromFile(file),
+                overwrite,
+            });
             try {
-                const result = await importSkill({
-                    adapter,
-                    targetSkillsDir,
-                    source: detectSourceFromFile(file),
-                });
+                const result = await doImport(false);
                 await this.finishImport(result, refreshList);
             } catch (e) {
+                if (this.isDuplicate(e)) {
+                    const replace = await confirmModal(this.app, {
+                        title: 'Skill already exists',
+                        message: 'A skill with the same slug is already installed. Replace it with the new version?',
+                        confirmLabel: 'Replace',
+                        destructive: true,
+                    });
+                    if (!replace) { new Notice('Skill import cancelled.'); return; }
+                    try {
+                        const result = await doImport(true);
+                        await this.finishImport(result, refreshList);
+                    } catch (inner) {
+                        new Notice(`Skill import failed: ${this.errorMessage(inner)}`, 8000);
+                    }
+                    return;
+                }
                 new Notice(`Skill import failed: ${this.errorMessage(e)}`, 8000);
             }
         })(); });

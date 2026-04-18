@@ -43,11 +43,18 @@ export interface SkillPackageImportResult {
 
 const DEFAULT_MAX_UNCOMPRESSED = 100 * 1024 * 1024;
 
+/**
+ * Whitelist is permissive on depth for the three sidecar directories because
+ * real-world skills nest them (e.g. `assets/templates/master.potx`,
+ * `assets/icons/...`). Zip-bomb protection still enforces the size cap and
+ * path-traversal is rejected in Phase 0, so depth itself is not a risk.
+ * `*.skill.md` only at the root to keep coordinator sub-roles discoverable.
+ */
 const WHITELIST_PATTERNS: RegExp[] = [
     /^SKILL\.md$/,
-    /^scripts\/[^/]+$/,
-    /^references\/[^/]+$/,
-    /^assets\/[^/]+$/,
+    /^scripts\/.+$/,
+    /^references\/.+$/,
+    /^assets\/.+$/,
     /^[^/]+\.skill\.md$/,
 ];
 

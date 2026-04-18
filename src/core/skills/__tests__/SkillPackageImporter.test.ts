@@ -154,6 +154,30 @@ describe('importSkillPackage', () => {
         await expect(importSkillPackage(input)).rejects.toMatchObject({ code: 'ZIP_BOMB' });
     });
 
+    it('accepts nested paths under scripts/ references/ assets/', async () => {
+        // Real-world Anthropic-style skills ship `assets/templates/*.potx` etc.
+        // The flat-only whitelist used to silently drop these entries.
+        const buffer = await buildZip({
+            'nested/SKILL.md': '---\nname: nested\ndescription: x\n---',
+            'nested/scripts/tool/helper.ts': 'x',
+            'nested/references/section/guide.md': '# guide',
+            'nested/assets/templates/master.potx': 'binary-blob',
+            'nested/assets/icons/set-a/icon.svg': '<svg/>',
+        });
+        const input = makeInput(buffer);
+
+        const result = await importSkillPackage(input);
+
+        expect(result.skippedEntries).toHaveLength(0);
+        expect(result.writtenFiles.sort()).toEqual([
+            'SKILL.md',
+            'assets/icons/set-a/icon.svg',
+            'assets/templates/master.potx',
+            'references/section/guide.md',
+            'scripts/tool/helper.ts',
+        ]);
+    });
+
     it('rejects absolute path entries even inside the top folder', async () => {
         const buffer = await buildZip({
             'evil/SKILL.md': '---\nname: evil\ndescription: x\n---',

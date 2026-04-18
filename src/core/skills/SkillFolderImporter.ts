@@ -53,11 +53,12 @@ export class SkillFolderImportError extends Error {
 
 const DEFAULT_MAX_UNCOMPRESSED = 100 * 1024 * 1024;
 
+/** Permissive on depth -- see matching rationale in SkillPackageImporter. */
 const WHITELIST_PATTERNS: RegExp[] = [
     /^SKILL\.md$/,
-    /^scripts\/[^/]+$/,
-    /^references\/[^/]+$/,
-    /^assets\/[^/]+$/,
+    /^scripts\/.+$/,
+    /^references\/.+$/,
+    /^assets\/.+$/,
     /^[^/]+\.skill\.md$/,
 ];
 
