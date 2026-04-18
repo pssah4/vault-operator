@@ -4,7 +4,7 @@
 > **Epic**: EPIC-022 (Skill-Package Ecosystem)
 > **Priority**: P0
 > **Effort Estimate**: S
-> **Status**: Geplant
+> **Status**: Implemented (core) 2026-04-18
 
 ## Feature Description
 
@@ -95,3 +95,46 @@ fragt: "Replace or keep both?"
 1. Build + Tests
 2. Unit-Tests: Whitelist-Filter, Path-Traversal-Reject, Size-Limit.
 3. Live-Test: Zip aus Anthropic-Repo (z.B. `pdf.skill`) importieren und laden.
+
+## How It Works (post-implementation)
+
+**Key files:**
+
+- [src/core/skills/SkillPackageImporter.ts](../../../src/core/skills/SkillPackageImporter.ts):
+  JSZip-basiertes Entpacken mit Whitelist
+  (`SKILL.md`, `scripts/*`, `references/*`, `assets/*`, `*.skill.md`),
+  Path-Traversal-Reject auf Raw-Entries, 100 MB Zip-Bomb-Limit,
+  Duplikat-Erkennung mit Opt-in `overwrite`. Unterstuetzt zwei Layouts:
+  Top-Dir-basiert (`pdf/SKILL.md`) und Root-basiert (`SKILL.md` am Root)
+  mit Fallback-Slug aus dem Dateinamen.
+- [src/core/skills/SkillFolderImporter.ts](../../../src/core/skills/SkillFolderImporter.ts):
+  Rekursives Lesen via Node `fs/promises`, gleiche Whitelist + Size-Limit,
+  Symlinks werden ignoriert. Ziel: Obsidian-Vault-Adapter.
+- [src/core/skills/SkillImportRouter.ts](../../../src/core/skills/SkillImportRouter.ts):
+  `importSkill()` dispatched auf Markdown / Zip / Folder,
+  `detectSourceFromFile()` erkennt anhand Dateiendung (.md -> markdown,
+  .zip/.skill -> zip, alles andere -> markdown fallback).
+- [src/ui/settings/SkillsTab.ts](../../../src/ui/settings/SkillsTab.ts):
+  bestehender Markdown-Import-Button ersetzt durch universellen
+  Import-Button. Nutzt Electron `showOpenDialog` mit
+  `properties: ['openFile', 'openDirectory']` fuer den native Picker,
+  faellt auf HTML file input zurueck wenn kein Electron-Dialog verfuegbar.
+  Loader `refresh()` wird nach jedem Import getriggert.
+
+**Tests:**
+
+- [SkillPackageImporter.test.ts](../../../src/core/skills/__tests__/SkillPackageImporter.test.ts):
+  9 Tests (whitelist, path-traversal, zip-bomb, NO_SKILL_MD, DESTINATION_EXISTS,
+  overwrite, root-based layout, absolute path reject, unknown file skip).
+- [SkillImportRouter.test.ts](../../../src/core/skills/__tests__/SkillImportRouter.test.ts):
+  9 Tests (detect-by-extension inkl. case-insensitive, markdown-file import,
+  frontmatter-name wins over filename, fallback to filename,
+  DESTINATION_EXISTS, zip-dispatch).
+
+**Open follow-ups:**
+
+- Duplikat-Modal (Replace / Rename / Cancel) ist noch nicht implementiert.
+  Aktuell: Duplikat -> Notice + Abbruch. Modal folgt sobald BRAT-Feedback
+  zeigt, dass der Flow wirklich gebraucht wird.
+- Integration-Tests mit einem echten Anthropic-Skill-Zip (pdf.skill)
+  kommen als manueller Live-Test beim v2.6.0-beta.1 Release-Gate.

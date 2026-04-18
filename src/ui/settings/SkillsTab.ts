@@ -3,8 +3,31 @@ import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
-import { getPluginSkillsDir } from '../../core/utils/agentFolder';
+import { getPluginSkillsDir, getSelfAuthoredSkillsDir } from '../../core/utils/agentFolder';
+import { importSkill, detectSourceFromFile } from '../../core/skills/SkillImportRouter';
 import { t } from '../../i18n';
+
+interface ElectronDialog {
+    showOpenDialog(options: {
+        title?: string;
+        defaultPath?: string;
+        properties?: string[];
+        filters?: { name: string; extensions: string[] }[];
+    }): Promise<{ canceled: boolean; filePaths: string[] }>;
+}
+
+function resolveElectronDialog(): ElectronDialog | null {
+    let electronModule: { remote?: { dialog?: ElectronDialog }; dialog?: ElectronDialog } | null = null;
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron only reachable via dynamic require in the renderer
+        electronModule = require('electron');
+    } catch { return null; }
+    const direct = electronModule?.dialog;
+    if (direct?.showOpenDialog) return direct;
+    const legacy = electronModule?.remote?.dialog;
+    if (legacy?.showOpenDialog) return legacy;
+    return null;
+}
 
 
 /**
@@ -74,29 +97,14 @@ export class SkillsTab {
         });
         const createBtn = createRow.createEl('button', { text: t('settings.skills.create'), cls: 'mod-cta' });
 
-        // Import button
-        const importSkillBtn = createRow.createEl('button', { text: t('settings.skills.import'), cls: 'agent-rules-import-btn' });
+        // FEATURE-2202: universal import button. Accepts single .md, .skill/.zip
+        // or a folder via native picker. Format detection in SkillImportRouter.
+        const importSkillBtn = createRow.createEl('button', {
+            text: t('settings.skills.import'),
+            cls: 'agent-rules-import-btn',
+        });
         importSkillBtn.addEventListener('click', () => {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = '.md,.txt';
-            fileInput.addEventListener('change', () => { void (async () => {
-                const file = fileInput.files?.[0];
-                if (!file || !skillsManager) return;
-                const content = await file.text();
-                let skillName = file.name.replace(/\.[^.]+$/, '');
-                const fmMatch = content.match(/^---[\s\S]*?^name:\s*(.+)$/m);
-                if (fmMatch) skillName = fmMatch[1].trim();
-                const safeName = skillName.replace(/[^a-zA-Z0-9_ -]/g, '').trim();
-                const dir = `${skillsManager.skillsDir}/${safeName}`;
-                try {
-                    await skillsManager.createSkill(dir, content);
-                    await refreshList();
-                } catch {
-                    new Notice(t('settings.skills.importFailed'));
-                }
-            })(); });
-            fileInput.click();
+            void this.runUniversalImport(refreshList);
         });
 
         // -- Skill list --
@@ -585,5 +593,128 @@ export class SkillsTab {
         } catch {
             return false;
         }
+    }
+
+    /**
+     * FEATURE-2202: universal skill import. Opens the native picker if
+     * available (lets the user pick either a file or a directory), falls
+     * back to an HTML file input otherwise. The router detects the type and
+     * dispatches to the right sub-importer.
+     */
+    private async runUniversalImport(refreshList: () => Promise<void>): Promise<void> {
+        const targetSkillsDir = getSelfAuthoredSkillsDir(this.plugin);
+        const adapter = this.app.vault.adapter;
+        const dialog = resolveElectronDialog();
+
+        if (dialog) {
+            await this.runElectronImport(dialog, targetSkillsDir, adapter, refreshList);
+            return;
+        }
+
+        this.runHtmlFileImport(targetSkillsDir, adapter, refreshList);
+    }
+
+    private async runElectronImport(
+        dialog: ElectronDialog,
+        targetSkillsDir: string,
+        adapter: import('obsidian').DataAdapter,
+        refreshList: () => Promise<void>,
+    ): Promise<void> {
+        const pick = await dialog.showOpenDialog({
+            title: 'Import skill',
+            properties: ['openFile', 'openDirectory'],
+            filters: [
+                { name: 'Skill files', extensions: ['md', 'zip', 'skill'] },
+                { name: 'All files', extensions: ['*'] },
+            ],
+        });
+        if (pick.canceled || pick.filePaths.length === 0) return;
+
+        const chosen = pick.filePaths[0];
+        try {
+            const result = await this.runImportForPath(chosen, targetSkillsDir, adapter);
+            await this.finishImport(result, refreshList);
+        } catch (e) {
+            new Notice(`Skill import failed: ${this.errorMessage(e)}`, 8000);
+        }
+    }
+
+    private async runImportForPath(
+        absolutePath: string,
+        targetSkillsDir: string,
+        adapter: import('obsidian').DataAdapter,
+    ): Promise<Awaited<ReturnType<typeof importSkill>>> {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node fs only reachable via dynamic require
+        const fs: typeof import('fs/promises') = require('fs/promises');
+        const stat = await fs.stat(absolutePath);
+
+        if (stat.isDirectory()) {
+            return await importSkill({
+                adapter,
+                targetSkillsDir,
+                source: { kind: 'directory', absolutePath },
+            });
+        }
+
+        // File on disk -- load it as a Web File so the router can reuse the
+        // existing .md/.zip handlers.
+        const buffer = await fs.readFile(absolutePath);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node path only reachable via dynamic require
+        const nodePath: typeof import('path') = require('path');
+        const filename = nodePath.basename(absolutePath);
+        const fileLike = new File([new Uint8Array(buffer)], filename);
+        return await importSkill({
+            adapter,
+            targetSkillsDir,
+            source: detectSourceFromFile(fileLike),
+        });
+    }
+
+    private runHtmlFileImport(
+        targetSkillsDir: string,
+        adapter: import('obsidian').DataAdapter,
+        refreshList: () => Promise<void>,
+    ): void {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.md,.txt,.zip,.skill';
+        fileInput.addEventListener('change', () => { void (async () => {
+            const file = fileInput.files?.[0];
+            if (!file) return;
+            try {
+                const result = await importSkill({
+                    adapter,
+                    targetSkillsDir,
+                    source: detectSourceFromFile(file),
+                });
+                await this.finishImport(result, refreshList);
+            } catch (e) {
+                new Notice(`Skill import failed: ${this.errorMessage(e)}`, 8000);
+            }
+        })(); });
+        fileInput.click();
+    }
+
+    private async finishImport(
+        result: Awaited<ReturnType<typeof importSkill>>,
+        refreshList: () => Promise<void>,
+    ): Promise<void> {
+        const loader = this.plugin.selfAuthoredSkillLoader;
+        if (loader) await loader.refresh();
+        await refreshList();
+        const written = result.writtenFiles.length;
+        const kindLabel = result.kind === 'zip'
+            ? 'skill package'
+            : result.kind === 'folder'
+                ? 'skill folder'
+                : 'single-file skill';
+        new Notice(`Imported ${kindLabel} "${result.slug}" (${written} file${written === 1 ? '' : 's'}).`);
+    }
+
+    private errorMessage(e: unknown): string {
+        const raw = (e as { message?: unknown })?.message;
+        if (typeof raw === 'string') return raw;
+        if (typeof e === 'string') return e;
+        return 'unknown error';
     }
 }

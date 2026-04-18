@@ -338,7 +338,7 @@ Handoff: `architect-handoff-022.md` + `plan-context-022.md`
 | Feature | Spec | Prioritaet | Aufwand | Status |
 |---------|------|------------|---------|--------|
 | Skill-Folder-Struktur (SKILL.md + Subfolders) | FEATURE-2201-skill-folder-structure.md | P0-Critical | M | Implemented (core) 2026-04-18 (feature-branch, unreleased) |
-| Universal Skill-Import (.md / Folder / .skill) | FEATURE-2202-skill-zip-import.md | P0-Critical | S | Geplant |
+| Universal Skill-Import (.md / Folder / .skill) | FEATURE-2202-skill-zip-import.md | P0-Critical | S | Implemented (core) 2026-04-18 (feature-branch, unreleased) |
 | Scripts-im-Skill (Sandbox) | FEATURE-2203-skill-scripts.md | P1-High | M | Geplant |
 | Coordinator-Skill (Multi-Rolle) | FEATURE-2204-coordinator-skill.md | P1-High | M | Geplant |
 
