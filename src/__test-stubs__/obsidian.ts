@@ -9,6 +9,11 @@ export class Plugin {}
 export class TFile {}
 export class TFolder {}
 
+/** Ambient `requestUrl` stub so modules that import it at the top level load. */
+export function requestUrl(_opts: unknown): Promise<unknown> {
+    throw new Error('requestUrl stub called -- wire a mock in the test.');
+}
+
 /**
  * Mirrors Obsidian's normalizePath: collapses backslashes to forward slashes,
  * removes duplicate slashes, and trims leading/trailing slashes. The real

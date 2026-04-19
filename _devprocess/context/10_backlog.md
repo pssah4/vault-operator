@@ -508,6 +508,23 @@ Scope: 3 Required-Findings fixen, dazu bestehende WIP-Bugfixes buendeln.
 
 ---
 
+## Community-Wave 4 (feature-branch, unreleased)
+
+Trigger: [pssah4/obsilo#31](https://github.com/pssah4/obsilo/issues/31) von [@nicholas-leonard](https://github.com/nicholas-leonard) mit vier Bugfix-Commits in seinem Fork.
+Scope: Vier diskrete Bugs, jeder einem bestehenden Epic zugeordnet; keine neue Feature-Struktur.
+Analyse: [BA-022](../analysis/BA-022-community-feedback-wave-4.md).
+
+| Arbeitsstrom | Epic | Status |
+|---|---|---|
+| [BUG-019](../analysis/BUG-019-drag-drop-from-vault-explorer.md) Drag & Drop aus Obsidian-File-Explorer | EPIC-004 | Resolved 2026-04-19. Neuer `dragManagerBridge.ts` Helper liest `app.dragManager.draggable`; `stopPropagation()` auf `dragover` und `drop`. 6 Tests. |
+| [BUG-020](../analysis/BUG-020-read-file-externalized-tmp.md) `read_file` findet `tmp/task-*` ohne Agent-Folder-Prefix | EPIC-018 / ADR-063 | Resolved 2026-04-19. `ReadFileTool` retried strikt gegen `looksLikeExternalisedTmpPath` auf `<agent-folder>/tmp/task-*`. 5 Tests. |
+| [BUG-021](../analysis/BUG-021-missing-tools-in-builtin-modes.md) `vault_health_check` + `ingest_document` fehlten in Tool-Gruppen | EPIC-019 | Resolved 2026-04-19. `TOOL_GROUP_MAP` ergaenzt, plus Coverage-Test der jedes user-facing Tool gegen die Gruppen prueft -- verhindert zukuenftigen Drift. 4 Tests. |
+| [BUG-022](../analysis/BUG-022-sandbox-integrity-hashes-and-root-listing.md) Sandbox: esbuild SHA-256 Hashes veraltet + `vaultList('/')` warf | EPIC-005 | Resolved 2026-04-19. Hashes live gegen jsdelivr verifiziert und aktualisiert; `vaultList` normalisiert `/` -> `''` und nutzt `vault.getRoot()`. 5 Tests. |
+
+Nicht im Scope dieser Welle: TTL fuer externalized tmp files, hash-drift CI-Guard (separate ADR), kontributions-Guidelines-Dokument.
+
+---
+
 ## Naechste Prioritaeten
 
 ### Kurzfristig (aktiv)

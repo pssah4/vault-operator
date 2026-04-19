@@ -12,6 +12,7 @@ import type { AttachmentItem } from './sidebar/AttachmentHandler';
 import { AutocompleteHandler } from './sidebar/AutocompleteHandler';
 import { VaultFilePicker } from './sidebar/VaultFilePicker';
 import { CommandPicker, type CommandPickerItem } from './sidebar/CommandPicker';
+import { resolveObsidianDraggedFiles } from './sidebar/dragManagerBridge';
 import { HistoryPanel } from './sidebar/HistoryPanel';
 import type { UiMessage } from '../core/history/ConversationStore';
 import { MemoryRetriever } from '../core/memory/MemoryRetriever';
@@ -335,25 +336,41 @@ export class AgentSidebarView extends ItemView {
             }
         });
 
-        // Drag-and-drop handler on the input wrapper
+        // Drag-and-drop handler on the input wrapper. BUG-019: stopPropagation
+        // is required on both events so the workspace doesn't steal the drop
+        // and open the file in a new tab. The drop payload is resolved in
+        // priority order: external OS files, Obsidian's internal drag manager,
+        // finally a plain-text path fallback for older Obsidian builds.
         inputWrapper.addEventListener('dragover', (e: DragEvent) => {
             e.preventDefault();
+            e.stopPropagation();
             inputWrapper.addClass('drag-over');
         });
         inputWrapper.addEventListener('dragleave', () => inputWrapper.removeClass('drag-over'));
         inputWrapper.addEventListener('drop', (e: DragEvent) => {
             e.preventDefault();
+            e.stopPropagation();
             inputWrapper.removeClass('drag-over');
 
-            // OS file drop (external drag from Finder/Explorer)
+            // OS file drop (external drag from Finder/Explorer/GNOME-Files)
             const files = e.dataTransfer?.files;
             if (files && files.length > 0) {
                 for (const file of Array.from(files)) void this.attachments.processFile(file);
                 return;
             }
 
-            // Obsidian internal drag (from file explorer / search results)
-            // Obsidian passes the vault-relative path as plain text
+            // BUG-019: Obsidian's internal drag populates app.dragManager.draggable
+            // instead of dataTransfer.files. This is undocumented but stable across
+            // Obsidian 1.4+ and widely used by community plugins. Guarded by a
+            // null-check so a future API change silently falls through to the
+            // text/plain path.
+            const draggedFiles = resolveObsidianDraggedFiles(this.app);
+            if (draggedFiles.length > 0) {
+                for (const file of draggedFiles) void this.attachments.addVaultFile(file);
+                return;
+            }
+
+            // Last-resort fallback: plain-text vault-relative path.
             const textData = e.dataTransfer?.getData('text/plain');
             if (textData) {
                 const vaultFile = this.app.vault.getAbstractFileByPath(textData);

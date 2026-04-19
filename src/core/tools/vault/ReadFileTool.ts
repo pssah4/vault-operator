@@ -11,9 +11,28 @@ import { TFile } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { getInternalAgentFolderPath } from '../../utils/agentFolder';
 
 /** Maximum characters to return. ~5000 tokens at 4 chars/token. */
 const MAX_CONTENT_CHARS = 20_000;
+
+/**
+ * BUG-020: Agents sometimes call `read_file("tmp/task-<id>/result.md")`
+ * without the `<agent-folder>/` prefix that the externaliser actually
+ * writes. When that happens the vault adapter misses and the tool reports
+ * "not found". Detect the shortened form and retry against the full path.
+ * Strict prefix check prevents unrelated `tmp.md` files from being
+ * redirected, and `..` is rejected to stay on the safe side.
+ *
+ * Exported for unit tests; keep it pure so it doesn't need the plugin.
+ */
+export function looksLikeExternalisedTmpPath(path: string): boolean {
+    if (!path.startsWith('tmp/task-')) return false;
+    const segments = path.split('/');
+    if (segments.some((s) => s === '..' || s.includes('\0'))) return false;
+    // Must have at least tmp/task-<id>/<filename>
+    return segments.length >= 3;
+}
 
 interface ReadFileInput {
     path: string;
@@ -71,19 +90,35 @@ export class ReadFileTool extends BaseTool<'read_file'> {
                 basename = file.basename;
                 extension = file.extension;
             } else {
-                // Fallback: file might be in a hidden/dot folder (e.g. .obsidian-agent/)
+                // Fallback 1: file might be in a hidden/dot folder (e.g. .obsidian-agent/)
                 // that Obsidian doesn't index. Use the adapter for direct filesystem access.
-                const exists = await this.app.vault.adapter.exists(path);
+                let resolvedPath = path;
+                let exists = await this.app.vault.adapter.exists(resolvedPath);
+
+                // Fallback 2 (BUG-020): LLMs occasionally call
+                // read_file("tmp/task-<id>/result.md") without the
+                // agent-folder prefix that the externaliser actually wrote
+                // (`<agent-folder>/tmp/task-<id>/result.md`). Retry against
+                // the prefixed path when the short form matches the
+                // externalisation pattern.
+                if (!exists && looksLikeExternalisedTmpPath(path)) {
+                    const prefixed = `${getInternalAgentFolderPath(this.plugin)}/${path}`;
+                    if (await this.app.vault.adapter.exists(prefixed)) {
+                        resolvedPath = prefixed;
+                        exists = true;
+                    }
+                }
+
                 if (!exists) {
                     callbacks.pushToolResult(
                         this.formatError(new Error(`File not found: ${path}`)),
                     );
                     return;
                 }
-                content = await this.app.vault.adapter.read(path);
-                filePath = path;
-                const parts = path.split('/');
-                const filename = parts[parts.length - 1] ?? path;
+                content = await this.app.vault.adapter.read(resolvedPath);
+                filePath = resolvedPath;
+                const parts = resolvedPath.split('/');
+                const filename = parts[parts.length - 1] ?? resolvedPath;
                 const dotIdx = filename.lastIndexOf('.');
                 basename = dotIdx > 0 ? filename.substring(0, dotIdx) : filename;
                 extension = dotIdx > 0 ? filename.substring(dotIdx + 1) : '';

@@ -59,9 +59,17 @@ export class SandboxBridge {
 
     vaultList(path: string): string[] {
         this.checkCircuitBreaker();
-        this.validateVaultPath(path);
-        this.logBridgeOp('vault-list', path);
-        const folder = this.plugin.app.vault.getAbstractFileByPath(path);
+        // BUG-022: vaultList('/') used to throw because
+        // getAbstractFileByPath('/') returns null -- Obsidian addresses the
+        // vault root with an empty string and offers vault.getRoot() for the
+        // special case. Normalise '/' to '' before validation so sandbox
+        // scripts can enumerate the root naturally.
+        const normalised = path === '/' ? '' : path;
+        this.validateVaultPath(normalised);
+        this.logBridgeOp('vault-list', normalised);
+        const folder = normalised === ''
+            ? this.plugin.app.vault.getRoot()
+            : this.plugin.app.vault.getAbstractFileByPath(normalised);
         if (!(folder instanceof TFolder)) throw new Error(`Not a folder: ${path}`);
         const result = folder.children.map(c => c.path);
         this.recordSuccess();
