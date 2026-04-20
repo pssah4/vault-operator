@@ -24,7 +24,6 @@ import type { CodeModuleInfo, DynamicToolDefinition } from '../tools/dynamic/typ
 import type { ToolName } from '../tools/types';
 import type {
     SkillInventory,
-    SkillScriptFile,
     SkillScriptLanguage,
     SkillSubRole,
 } from './types';
