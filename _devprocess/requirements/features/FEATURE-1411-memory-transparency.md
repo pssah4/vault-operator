@@ -4,7 +4,7 @@
 > **Epic**: EPIC-014 - MCP Connector
 > **Priority**: P1-High
 > **Effort Estimate**: S
-> **Status**: Implementiert
+> **Status**: Implementiert -- **Subsumed by Memory v2 (FEATURE-0319 + FEATURE-0320)** seit 2026-04-26. Source-Tracking-Konzept (`human` vs. `mcp`) wird in Memory v2 als `source_interface`-Spalte differenzierter (z.B. `obsilo`, `claude-desktop`, `claude-code`, `chatgpt-dev-mcp`). MCP-Bridge-Conversation-Capture wird durch Setting `mcp.conversationCapture` (FEATURE-0319) gesteuert: `off` / `obsilo` (Solo-Modus, heutiges Verhalten) / `ucm` (Cross-Source via UCM-Service). Visual-Indicator und Living-Document-Marker sind in FEATURE-0319 DoD; History-Sidebar-Tabs (Local + UCM) in FEATURE-0320.
 
 ## Feature Description
 

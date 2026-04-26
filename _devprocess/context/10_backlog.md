@@ -544,11 +544,80 @@ Nicht im Scope dieser Welle: TTL fuer externalized tmp files, hash-drift CI-Guar
 
 ---
 
+## Initiative: Memory v2 + UCM Foundation (in Vorbereitung, 2026-04-26)
+
+Branch `feature/memory-redesign`. Capability-Set unter EPIC-003 (context-memory-scaling). Ziel: Obsilo-Memory-Subsystem rewriten, Engine als `@obsilo/memory-engine` extrahieren, UCM (Unified Chat Memory, separates Repo) baut darauf auf.
+
+**Source-Artefakte:**
+
+- BA: [BA-UNIFIED-CHAT-MEMORY-V2](../analysis/BA-UNIFIED-CHAT-MEMORY-V2.md) (UCM-Konsumenten-Kontext, Status: Draft)
+- Source-Spec: [OBSILO-MEMORY-V2-FULL-REWRITE](../requirements/OBSILO-MEMORY-V2-FULL-REWRITE.md) (Source-Reference, vor Codebase-Validierung)
+- Master-Plan: [PLAN-001-memory-v2-master](../implementation/plans/PLAN-001-memory-v2-master.md) (validierter Pfad alpha)
+- ADRs: [ADR-076 Episode-Fact-Boundary](../architecture/ADR-076-episode-fact-boundary.md), [ADR-077 Storage-Schema](../architecture/ADR-077-memory-v2-storage-schema.md), [ADR-078 URI-Versioning](../architecture/ADR-078-uri-versioning-schema.md), [ADR-079 Knowledge-DB-Haertung](../architecture/ADR-079-knowledge-db-hardening.md)
+
+**Zu superseden / supplementieren:** ADR-013 (Memory Architecture), ADR-018 (Episodic Task Memory), ADR-058 (Recipe-Promotion), ADR-059 (Memory Decay Prevention), ADR-060 (Session Summary Reliability)
+
+**Phasen-Backlog (8 Phasen, 11.5 Wochen brutto):**
+
+| Phase | Status | Feature-ID (vorgesehen) | Hauptdeliverable | Vorbedingung |
+|-------|--------|------------------------|------------------|--------------|
+| 0 Spikes + ADRs | Planned | (kein Feature, ADR-Arbeit) | 3 Spikes (ATTACH+CTE-Performance, FTS5-WASM-Bundle-Size, Single-Call-Token-Profil), ADR-076-079 finalisiert, ADR-062-Implementation-Spec | Branch existiert |
+| 0.5 Knowledge-DB-Haertung | Planned | FEATURE-0314 | BUG-012-Fix (Multi-File-Atomic-Commit), Vault-Rename-Cascade, embedding_model-Spalte, URI-Konvention-Migration, implicit_edges +edge_type | Phase 0 ADRs gruen |
+| 1 Engine-Foundation | Planned | FEATURE-0315 | facts/fact_edges/communication_styles/known_topics/memory_audit additiv, FactStore + EdgeStore + StyleStore mit DI, ADR-062-KV-Cache-Layout im Code, EmbeddingService | Phase 0.5 gruen |
+| 2 Migration + Vault-RRF-Quick-Win | Planned | FEATURE-0316 | Migration soul.md -> styles, knowledge.md skip, andere 5 -> Facts. Hybrid `semantic_search` mit RRF zuerst als Vault-Tool. Export-Tool facts -> markdown | Phase 1 gruen |
+| 3 Dynamic Context Composition | Planned | FEATURE-0317 | ContextComposer mit per-Conversation-Topic-Lock, lokale Topic-Inference (Centroids), `recall_memory` mit multiHop, UnifiedGraphService (ATTACH-Konfig + Templates) | Phase 2 + RRF battle-tested |
+| 4 Single-Call Update + Combined Note-Index | Planned | FEATURE-0318 | Single-Call-Extraction (Session+Facts+Topics+Importance+Edges+Entities+Vault-Mentions), Lazy Conflict-Resolution, Aging mit use_count-Boost, Audit-Pruning, Eval-Test-Set, Combined Note-Index-Pass fuer Vault | Phase 3 stabil |
+| 5 Living Document UX | Planned | FEATURE-0319 | thread://-URI-Type, Save-to-Memory-Star + Hotkey + `mark_conversation_for_memory`-Tool, Re-Extraction-Throttle, Auto-Suggestion-Service | Phase 4 produktiv stabil |
+| 6 History Search | Planned | FEATURE-0320 | history_chunks-Tabelle (URI-konform), HistoryIndexer (incremental + abortable backfill), `search_history`-Tool, UI-Sidebar-Search | Phase 5 gruen |
+| 7 Engine-Extract | Planned | FEATURE-0321 | Package `@obsilo/memory-engine`, Public-API frozen, Adapter-Interface fuer Knowledge-DB, Konfig-Abstraktion, API-Doc + Migration-Guide | Phase 6 gruen + 2 Wo produktiver Use |
+| Querschnitt | Planned | FEATURE-0322 | Privacy & Forget-Right: Soft-Delete + Cascade auf 4 Granularitaets-Ebenen, Hard-Delete-Job, Backup-Sweep, Agent-Tools `delete_fact`/`delete_facts_by_entity`/`delete_conversation`/`delete_facts_by_vault_ref` | FEATURE-0315, 0319 |
+| Querschnitt | Planned | FEATURE-0323 | Memory-UX, Onboarding & Settings-Migration: Smart-Defaults v2.6 -> v2 mit Wizard-Fallback, OnboardingService-Erweiterung + Inline-Coach-Marks, strukturierte Fehler-Codes fuer Agent-als-Fehler-UI | FEATURE-0319, FEATURE-0405 |
+| Differenzierung | Planned | FEATURE-0324 | Inference-Pass fuer Derives: Pattern-basierte Memory-Evolution analog Supermemory, Background-Job, Confidence-Bands | FEATURE-0315, 0317, 0318 |
+| Differenzierung | Planned | FEATURE-0325 | Vault-Note-zu-Fact-Extraction: Documents-Pipeline analog Supermemory, dirty-tracking + cascade, einzigartige bidirektionale Obsidian-Bridge | FEATURE-0314, 0315, 0317, 0318, 0322 |
+
+**Bekannte Risiken (zusaetzlich zu Source-Doc R1-R9):**
+
+- R10 ATTACH+CTE-Performance kippt -> JS-BFS-Fallback
+- R11 Custom-sql.js-WASM-Bundle sprengt Limit -> Trigram-Index-Fallback
+- R12 Single-Call-Extraction-JSON instabil -> Tool-Calling mit Schema, Eval-Test-Set
+- R13 Vault-Rename-Cascade Edge-Cases -> Phase 0.5 fault-injection-Test-Suite
+- R14 Topic-Centroid-Drift bei Modell-Wechsel -> embedding_model-Filter im Centroid-Compute
+- R15 Audit-Log-Volumen explodiert -> Inline-Counter statt Audit-Row fuer Use-Events
+
+**Bug-Resolutions:**
+
+- BUG-012 (KnowledgeDB Corruption, P1): wird in Phase 0.5 via FEATURE-0314 endgueltig adressiert
+- Vault-Rename-Cascade-Bug (latent, vermutlich heute defekt): in Phase 0.5 gefixt
+- Embedding-Model-Drift (latent): in Phase 0.5 mit embedding_model-Spalte adressiert
+
+**Naechster Schritt:** `/requirements-engineering` -> 8 Phasen werden 8 FEATURE-0314 bis FEATURE-0321 mit Akzeptanzkriterien. Plus FEATURE-0322 (Privacy & Forget-Right) und FEATURE-0323 (Memory-UX, Onboarding & Settings-Migration) als Querschnitts-Features aus A/B-Beschluessen 2026-04-26.
+
+**Future-Considerations nach C-Triage 2026-04-26:**
+
+In MVP eingearbeitet:
+
+- **C2 Daily-Snapshot-Backups** -> in FEATURE-0314 (DoD)
+- **C4 Telemetrie / Observability** -> in FEATURE-0317 + FEATURE-0318 (Logs nach `_devprocess/logs/memory-v2/`)
+- **C5 Token-Cost-Cap pro Tag mit Auto-Disable** -> in FEATURE-0318 (DoD)
+- **C6 Embeddings-Tab-Infotext-Hint** -> in FEATURE-0323 (Side-Edit)
+- **C8 BA Section 5.1.1 Selling-Point-Profil** -> in BA-UNIFIED-CHAT-MEMORY-V2
+
+Bleibt Future-Considerations:
+
+- **C1 At-rest-Encryption** fuer DBs (Vault-resident DBs wandern unverschluesselt durch iCloud) -- Trigger: wenn UCM Cloud-Service-Variante kommt
+- **C3 Performance-Spike bei Skalierung** (100k Facts, 1M History-Chunks) -- Trigger: wenn Sebastians DB ueber 50k Facts oder 200MB waechst
+- **C7 Mobile-Support-Klarheit** (iOS/iPadOS, BA-023) -- Trigger: BA-023 wird Re-Triage'd. Architektur-Constraints sind in PLAN-001 verankert.
+
+**UCM-Vorbedingung:** UCM-Bau startet erst nach Phase 7 (Engine-Extract), realistisch Q3/Q4 2026 (siehe BA-UNIFIED-CHAT-MEMORY-V2 Sektion 7.5).
+
+---
+
 ## Naechste Prioritaeten
 
 ### Kurzfristig (aktiv)
 
-1. **EPIC-022 Skill-Package Ecosystem** -- BA/Epic/Features/ADR-075 geschrieben (2026-04-17). Coding wartet auf User-Freigabe. FEATURE-2201 (Folder-Struktur) ist Fundament; Release-Minimum ist 2201+2202 als v2.6.0.
+1. **Memory v2 Initiative** -- siehe Block oben, Phase 0 (Spikes + ADRs) startet mit `/requirements-engineering`
+2. **EPIC-022 Skill-Package Ecosystem** -- BA/Epic/Features/ADR-075 geschrieben (2026-04-17). Coding wartet auf User-Freigabe. FEATURE-2201 (Folder-Struktur) ist Fundament; Release-Minimum ist 2201+2202 als v2.6.0.
 2. **EPIC-019 Knowledge Maintenance** -- Phase 2 groesstenteils erledigt. Offen bleiben FEATURE-1903 (Template-Onboarding einmalig) und FEATURE-1907 (Chat UI Polish). FEATURE-1900 + 1904 + 1906 waren bereits implementiert, nur Backlog-Stand war veraltet.
 3. **MCP Remote Auth (FEATURE-1404)** -- Eigener Feature-Branch, nicht Wave 2. Heute: Bearer-Token-Auth (McpBridge + Cloudflare-Relay-Worker). Spec fordert OAuth 2.1 + PKCE (Authorization-Endpoint, PKCE-Challenges, Refresh-Tokens, Client-Registration, Settings-UI) -- ~500-1000 LOC plus Security-Review. Zu gross fuer inkrementelle Wave-Arbeit.
 4. ~~**Gemini Provider (ADR-064)**~~ -- Already implemented in the main codebase: `ProviderType 'gemini'`, built-in models, UI labels/colors, model fetching, ModelConfigModal wiring, model-registry entries. Nothing left to do. Flagged in Wave 2 review 2026-04-17.
@@ -557,7 +626,7 @@ Nicht im Scope dieser Welle: TTL fuer externalized tmp files, hash-drift CI-Guar
 ### Kurzfristig (danach)
 
 1. ~~**Deferred Tool Loading (FEATURE-1600)**~~ -- Implemented in Wave 2. 24 specialised tools hidden from the default prompt, activated on demand via the new `find_tool` meta-tool. Live token impact TBD after sustained use.
-2. **Memory Side-Query (FEATURE-1601)** -- macht Memory skalierbar, relevante Memories per Side-Query
+2. ~~**Memory Side-Query (FEATURE-1601)**~~ -- subsumed by Memory v2 (siehe Initiative oben, Phase 3 ContextComposer + recall_memory mit multiHop). Standalone-Implementierung obsolet.
 3. **Default PPTX Templates (FEATURE-1101)** -- professionelle Vorlagen als Plugin-Assets
 4. **Token Budget Management (FEATURE-0603)** -- limitiert Kontext-Ueberladung
 5. **On-Demand Image Extraction (FEATURE-0604)** -- komplettiert Document Parsing

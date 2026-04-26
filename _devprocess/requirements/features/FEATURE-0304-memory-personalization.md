@@ -1,9 +1,10 @@
 # FEATURE: Memory, Chat History & Personalization
 
-**Status:** Complete (All Phases)
-**Epic:** Cross-Session Awareness
+**Status:** Complete (All Phases) -- **Subsumed by Memory v2 Initiative since 2026-04-26**
+**Successor Features:** FEATURE-0315 (Engine-Foundation), FEATURE-0316 (Migration), FEATURE-0317 (Dynamic Composition), FEATURE-0318 (Single-Call Pipeline). Bestehende Implementierung wird phasenweise ersetzt gemaess [PLAN-001](../../implementation/plans/PLAN-001-memory-v2-master.md).
+**Epic:** EPIC-003 Context, Memory & Scaling (re-aligned 2026-04-26)
 **Sources:** CrewAI Memory, OpenClaw Memory, Claude Code Session Memory, ChatGPT Memory, Mem0
-**ADR:** [ADR-007 — Event Separation](../../devprocess/architecture/ADR-007-event-separation.md)
+**ADR:** [ADR-007 -- Event Separation](../../devprocess/architecture/ADR-007-event-separation.md), erweitert durch ADR-076/077/078/079
 
 ## Summary
 

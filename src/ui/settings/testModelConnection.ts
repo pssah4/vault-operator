@@ -5,6 +5,21 @@ import { modelToLLMProvider } from '../../types/settings';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
 import { KiloAuthService } from '../../core/security/KiloAuthService';
 import { KiloMetadataService } from '../../core/providers/KiloMetadataService';
+import { extractRegionFromBedrockUrl } from '../../api/providers/bedrock';
+
+/**
+ * Bedrock-specific credentials for the Fetch Models button. Mirrors the form
+ * fields from ModelConfigModal so the UI can hand them over as-is.
+ */
+export interface BedrockFetchCredentials {
+    region?: string;
+    authMode?: 'api-key' | 'access-key';
+    apiKey?: string;
+    accessKey?: string;
+    secretKey?: string;
+    sessionToken?: string;
+    endpoint?: string;
+}
 
 
 // ---------------------------------------------------------------------------
@@ -341,7 +356,11 @@ async function fetchProviderModels(
     apiKey: string,
     baseUrl?: string,
     apiVersion?: string,
+    bedrockCreds?: BedrockFetchCredentials,
 ): Promise<{ id: string; label: string }[]> {
+    if (provider === 'bedrock') {
+        return fetchBedrockModels(bedrockCreds ?? {}, baseUrl);
+    }
     // Helper: Obsidian's requestUrl throws on 4xx/5xx — use throw:false to always get response
     const req = async (url: string, headers: Record<string, string> = {}) => {
         const timeout = new Promise<never>((_, reject) =>
@@ -500,6 +519,99 @@ async function fetchProviderModels(
     return ((data.data ?? []) as ApiModelEntry[])
         .map((m) => ({ id: m.id as string, label: m.id as string }))
         .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/**
+ * Fetch the list of text-capable foundation models and inference profiles
+ * available to the caller on Amazon Bedrock. Uses the Bedrock control-plane
+ * client (separate from the runtime client) because ListFoundationModels /
+ * ListInferenceProfiles live on the `bedrock.{region}.amazonaws.com` endpoint,
+ * not the `bedrock-runtime.*` one.
+ *
+ * Inference profiles are surfaced alongside the raw foundation IDs because
+ * newer Anthropic models (Opus 4.7 etc.) in EU regions are only callable via
+ * the cross-region profile ID (e.g. `eu.anthropic.claude-opus-4-7-...`).
+ */
+async function fetchBedrockModels(
+    creds: BedrockFetchCredentials,
+    baseUrl?: string,
+): Promise<{ id: string; label: string }[]> {
+    const region = creds.region?.trim() || extractRegionFromBedrockUrl(baseUrl) || '';
+    if (!region) {
+        throw new Error('AWS region required — pick a region or set an endpoint URL containing one.');
+    }
+    const authMode = creds.authMode ?? 'api-key';
+
+    // Dynamic import keeps the control-plane SDK out of the hot path — it's
+    // only needed when the user actually clicks Fetch Models.
+    const { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand } =
+        await import('@aws-sdk/client-bedrock');
+    type BedrockClientConfig = ConstructorParameters<typeof BedrockClient>[0];
+
+    const clientConfig: BedrockClientConfig = { region };
+    // Custom endpoint for VPC/private access — swap `bedrock-runtime` for
+    // `bedrock` since the control-plane lives on a different hostname.
+    const customEndpoint = (creds.endpoint?.trim() || baseUrl?.trim() || '')
+        .replace(/bedrock-runtime\./i, 'bedrock.');
+    if (customEndpoint) clientConfig.endpoint = customEndpoint;
+
+    if (authMode === 'api-key') {
+        const apiKey = creds.apiKey?.trim();
+        if (!apiKey) throw new Error('Bedrock API key required when auth mode is "API key".');
+        clientConfig.token = { token: apiKey };
+        clientConfig.authSchemePreference = ['httpBearerAuth'];
+    } else {
+        const accessKeyId = creds.accessKey?.trim();
+        const secretAccessKey = creds.secretKey?.trim();
+        if (!accessKeyId || !secretAccessKey) {
+            throw new Error('Access key ID and secret access key required when auth mode is "Access key".');
+        }
+        clientConfig.credentials = {
+            accessKeyId,
+            secretAccessKey,
+            ...(creds.sessionToken?.trim() ? { sessionToken: creds.sessionToken.trim() } : {}),
+        };
+    }
+
+    const client = new BedrockClient(clientConfig);
+
+    // Run both list calls in parallel — they hit different endpoints and
+    // neither depends on the other.
+    const [fmRes, ipRes] = await Promise.all([
+        client.send(new ListFoundationModelsCommand({ byOutputModality: 'TEXT' })),
+        client.send(new ListInferenceProfilesCommand({})).catch(() => ({ inferenceProfileSummaries: [] })),
+    ]);
+
+    const out: { id: string; label: string }[] = [];
+    const seen = new Set<string>();
+
+    for (const m of fmRes.modelSummaries ?? []) {
+        const id = m.modelId?.trim();
+        if (!id || seen.has(id)) continue;
+        // Text-output only is already filtered via byOutputModality; skip models
+        // that are provisioned-throughput-only — they're not usable without
+        // extra capacity setup. Cross-region ones still surface below via the
+        // inference-profile list.
+        const inferTypes = m.inferenceTypesSupported ?? [];
+        if (inferTypes.length > 0 && !inferTypes.includes('ON_DEMAND')) {
+            continue;
+        }
+        const vendor = m.providerName ?? '';
+        const name = m.modelName ?? id;
+        const label = vendor ? `${vendor} ${name}` : name;
+        seen.add(id);
+        out.push({ id, label });
+    }
+
+    for (const p of ipRes.inferenceProfileSummaries ?? []) {
+        const id = p.inferenceProfileId?.trim();
+        if (!id || seen.has(id) || p.status !== 'ACTIVE') continue;
+        const name = p.inferenceProfileName ?? id;
+        seen.add(id);
+        out.push({ id, label: `${name} [Cross-Region Profile]` });
+    }
+
+    return out.sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /** Fetch model names installed in a local Ollama instance */

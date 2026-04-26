@@ -251,9 +251,18 @@ export class ModelConfigModal extends Modal {
             fetchBtn.disabled = true;
             setIcon(fetchBtn, 'loader');
             try {
+                const bedrockCreds = this.formProvider === 'bedrock' ? {
+                    region: this.formAwsRegion,
+                    authMode: this.formAwsAuthMode,
+                    apiKey: this.formAwsApiKey,
+                    accessKey: this.formAwsAccessKey,
+                    secretKey: this.formAwsSecretKey,
+                    sessionToken: this.formAwsSessionToken,
+                    endpoint: this.formAwsEndpoint,
+                } : undefined;
                 const models = this.forEmbedding
                     ? await fetchEmbeddingModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, this.formApiVersion || undefined)
-                    : await fetchProviderModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined);
+                    : await fetchProviderModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, undefined, bedrockCreds);
                 this.suggestSelEl.options.length = 0;
                 this.suggestSelEl.createEl('option', { value: '', text: t('modal.modelConfig.modelsFetched', { count: models.length }), attr: { disabled: '', selected: '' } });
                 // For OpenRouter and Copilot chat models, group by vendor
@@ -554,7 +563,7 @@ export class ModelConfigModal extends Modal {
         // Fetch is available for embedding providers with live APIs (not azure — no list endpoint)
         const hasFetchFetch = this.forEmbedding
             ? (p === 'openai' || p === 'openrouter' || p === 'ollama' || p === 'lmstudio' || p === 'custom' || isCopilot)
-            : (p === 'anthropic' || p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'lmstudio' || isCopilot || isKilo);
+            : (p === 'anthropic' || p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'lmstudio' || p === 'bedrock' || isCopilot || isKilo);
         if (this.suggestRow) {
             this.suggestRow.classList.toggle('agent-u-hidden', !hasStaticSuggestions && !hasFetchFetch);
             if (this.suggestSelEl) {
