@@ -14,6 +14,11 @@ import type ObsidianAgentPlugin from '../../main';
 import { getModelKey } from '../../types/settings';
 import { OnboardingService } from '../../core/memory/OnboardingService';
 import { t } from '../../i18n';
+import { confirmModal } from '../modals/PromptModal';
+import { FactStore } from '../../core/memory/FactStore';
+import { CommunicationStyleStore } from '../../core/memory/CommunicationStyleStore';
+import { MemoryAtomizer } from '../../core/memory/MemoryAtomizer';
+import { MemoryMigrationJob, type MigrationReport } from '../../core/memory/MemoryMigrationJob';
 
 export class MemoryTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -222,5 +227,76 @@ export class MemoryTab {
                 }
             }
         }
+
+        // ─── Memory v2 Migration (FEATURE-0316 / PLAN-005 task 7) ────────
+        // Beta-only entry point. Atomises 5 of the 7 legacy memory MD files
+        // into the v2 fact schema, soul.md into communication_styles, and
+        // copies originals into memory-v1-backup/{ISO}/. Originals stay
+        // untouched -- Phase 5 retires them after live verification.
+        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Memory v2 Migration (Beta)' });
+        const v2Setting = new Setting(containerEl)
+            .setName('Migrate v1 memory to v2')
+            .setDesc(
+                'Atomises user-profile.md, projects.md, patterns.md, errors.md, custom-tools.md ' +
+                'into the new fact schema. soul.md becomes a communication style. knowledge.md ' +
+                'is left as a vault note. Originals are copied to memory-v1-backup/{timestamp}/.',
+            );
+        v2Setting.addButton((b) =>
+            b.setButtonText('Migrate now').onClick(() => void this.runMemoryV2Migration(b.buttonEl)),
+        );
     }
+
+    private async runMemoryV2Migration(btn: HTMLButtonElement): Promise<void> {
+        const memDB = this.plugin.memoryDB;
+        const apiHandler = this.plugin.apiHandler;
+        const fs = this.plugin.globalFs;
+        if (!memDB?.isOpen() || !apiHandler || !fs) {
+            new Notice('Memory v2 migration: memory DB, API handler, or file adapter not ready');
+            return;
+        }
+
+        const ok = await confirmModal(this.app, {
+            title: 'Migrate v1 memory to v2?',
+            message:
+                '5 markdown files will be sent through an LLM atomizer and stored as facts. ' +
+                'soul.md becomes a default communication style. knowledge.md stays as is. ' +
+                '\n\nOriginals are copied to memory-v1-backup/{timestamp}/. They are NOT deleted.',
+            confirmLabel: 'Migrate',
+            cancelLabel: 'Cancel',
+        });
+        if (!ok) return;
+
+        btn.setText('Migrating...');
+        btn.disabled = true;
+        const factStore = new FactStore(memDB);
+        const styleStore = new CommunicationStyleStore(memDB);
+        const atomizer = new MemoryAtomizer(apiHandler);
+        const job = new MemoryMigrationJob(fs, factStore, styleStore, atomizer);
+
+        const progressNotice = new Notice('Memory v2 migration in progress...', 0);
+        try {
+            const report = await job.run();
+            progressNotice.hide();
+            new Notice(formatReport(report), 12000);
+            console.debug('[MemoryV2Migration] Report:', report);
+        } catch (e) {
+            progressNotice.hide();
+            console.error('[MemoryV2Migration] Failed:', e);
+            new Notice(`Memory v2 migration failed: ${(e as Error).message}`, 10000);
+        } finally {
+            btn.setText('Migrate now');
+            btn.disabled = false;
+            this.rerender();
+        }
+    }
+}
+
+function formatReport(report: MigrationReport): string {
+    const lines = [
+        `Memory v2 migration done.`,
+        `Facts inserted: ${report.totalFactsInserted}.`,
+        `Style rows: ${report.totalStylesInserted}.`,
+        `Backup: ${report.backupFolder}`,
+    ];
+    return lines.join('\n');
 }
