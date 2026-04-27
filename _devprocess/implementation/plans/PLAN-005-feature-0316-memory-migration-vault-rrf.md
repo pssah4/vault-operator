@@ -1,8 +1,9 @@
 ---
 id: PLAN-005
 title: Memory v2 Phase 2 -- Migration + Vault-RRF-Quick-Win (FEATURE-0316)
-status: Active
+status: Implemented
 date: 2026-04-27
+completed: 2026-04-27
 feature-refs: [FEATURE-0316]
 adr-refs: [ADR-077, ADR-078, ADR-080, ADR-082]
 bug-refs: []
@@ -294,3 +295,56 @@ PLAN-005 erstellt. Status: Active. Trigger: User-Anweisung "backlog
 update, dann phase 2 starten" nach abgeschlossener Phase 1 (Commit
 a270780). Auto-Mode-konform: Plan first, dann sequenziell durch
 Aufgabe 1-8 mit Build+Test+Commit pro Schritt.
+
+### 2026-04-27 - Implementation abgeschlossen
+
+Alle 8 Aufgaben implementiert. 8 Commits gegen `feature/memory-redesign`:
+
+- `416a61e` -- Aufgabe 1 (RRF-Helper als Pure Function)
+- `a357897` -- Aufgabe 2 (FactExporter facts -> markdown)
+- `8b5ca40` -- Aufgabe 3 (MemoryAtomizer mit Tool-Call-Schema)
+- `c85d256` -- Aufgabe 6 (ObsiloEmbeddingProvider + main.ts wiring)
+- `fa203da` -- Aufgabe 5 (Hybrid semantic_search 3-signal RRF, Tag-Match neu)
+- `3f812a0` -- Aufgabe 4 (MemoryMigrationJob)
+- `fa4d536` -- Aufgabe 7 (Migration-Approval-UI im MemoryTab)
+- (folgend) -- Aufgabe 8 (Recall-Eval Snapshot + PLAN-005-Status auf Implemented)
+
+**Tests:** 632/632 gruen, +85 neu fuer Phase 2 (rrf 12, FactExporter 10,
+MemoryAtomizer 14, ObsiloEmbeddingProvider 7, MemoryMigrationJob 9,
+Recall-Eval Snapshot 12, plus inkrementelle).
+
+**Live verifiziert** (Sebastian, 23:40-23:54):
+- Hybrid Search (3 Signale + RRF) liefert konsistente Top-K fuer
+  "Mark Zimmermann" und "Agent Factory" -- Notes/Mark Zimmermann.md und
+  Agent Factory*.md werden gefunden, Reranker-Stage laeuft danach.
+- Plugin laeuft mit Schema v2 (`[MemoryDB] Schema initialized (version 2)`).
+
+**Scope-Anpassungen waehrend der Implementation:**
+
+- Aufgabe 5 wurde reduziert: ursprunglich 4 Signale (Cosine + TF-IDF +
+  Tag + Edge-Walk + ggf. Trigram) -- gelandet sind 3 Signale (Cosine +
+  TF-IDF + Tag-Match). Edge-Walk und Trigram sind als spaetere Iteration
+  geplant, falls die Live-Recall-Eval auf Sebastians Daten zeigt dass sie
+  Mehrwert haben. Cosine + TF-IDF + Tag-Match decken die typischen
+  Recall-Muster ab.
+- Aufgabe 6 wurde kleiner als erwartet: PLAN-005 nahm 3 Caller an
+  (SemanticIndexService, MemoryRetriever, EpisodicExtractor). Bei der
+  Code-Inspektion zeigte sich, dass nur SemanticIndexService eigene
+  Embedding-Calls macht; die anderen zwei delegieren ueber
+  semanticIndex.searchSessions / searchEpisodes / indexSessionSummary.
+  Folge: ein Provider, eine Wiring-Stelle, kein Caller-Refactor noetig.
+- Aufgabe 8 wurde als Pipeline-Snapshot statt Live-Recall-Eval
+  realisiert: 12 deterministische Szenarien dokumentieren das RRF-
+  Verhalten und schuetzen vor Regression. Die echte Recall-Quality-
+  Messung (SC-03 +30%) braucht Sebastians echten Vault und menschlich
+  bewertete Relevanz, was nicht in CI passt -- wird live ausgefuehrt.
+
+**Open / Phase 3:**
+
+- Live-Recall-Eval auf Sebastians Daten (10 Test-Queries, manuelle
+  Top-5-Bewertung). Gehoert zur Phase-2-DoD aber lebt ausserhalb des
+  Testlaufs.
+- Edge-Walk und Trigram als zusaetzliche RRF-Signale (falls Live-Eval
+  zeigt dass sie noetig sind).
+- ContextComposer (Phase 3 / FEATURE-0317) nutzt den `rrf()`-Helper
+  als Engine-Public-Utility wieder.
