@@ -96,6 +96,35 @@ export class EdgeStore {
         this.memoryDB.markDirty();
     }
 
+    /**
+     * Stale-Edge-Lazy-Detection (FEATURE-0317 / PLAN-006 task 7).
+     *
+     * Mark an edge as stale via `metadata.stale=true` instead of deleting
+     * it. Hybrid-Retrieval and ContextRanker respect the flag (score
+     * scaled by 0.3) but the URI stays as a reference token. Reasons:
+     *   - vault://Notes/X.md not found anymore (rename without cascade)
+     *   - https://... 404 / network error
+     *   - file:// path missing
+     */
+    markStale(id: number, reason: string): void {
+        const db = this.memoryDB.getDB();
+        const result = db.exec('SELECT metadata FROM fact_edges WHERE id = ?', [id]);
+        if (result.length === 0 || result[0].values.length === 0) return;
+        const raw = result[0].values[0][0] as string | null;
+        let metadata: Record<string, unknown> = {};
+        if (raw) {
+            try { metadata = JSON.parse(raw) as Record<string, unknown>; } catch { /* keep empty */ }
+        }
+        metadata.stale = true;
+        metadata.staleReason = reason;
+        metadata.staleAt = new Date().toISOString();
+        db.run(
+            'UPDATE fact_edges SET metadata = ? WHERE id = ?',
+            [JSON.stringify(metadata), id],
+        );
+        this.memoryDB.markDirty();
+    }
+
     // -----------------------------------------------------------------------
     // Private
     // -----------------------------------------------------------------------
