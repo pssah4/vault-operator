@@ -238,46 +238,39 @@ export class MemoryTab {
         }
 
         // ─── Memory v2 Migration (FEATURE-0316 / PLAN-005 task 7) ────────
-        // The whole section is hidden for fresh installs (status === 'not-applicable')
-        // because they never had v1 memory files to migrate. Existing users
-        // see one of three sub-states: pending (migration outstanding),
-        // completed (one-line summary + re-run option), skipped ("Later"
-        // chosen in the upgrade modal -- offer to migrate anyway).
+        // Visible only when the user actually has something to do:
+        // 'pending' (just upgraded, modal not yet decided) or 'skipped'
+        // (clicked "Later" -- still offer the migration here).
+        // Hidden for fresh installs ('not-applicable') and after the
+        // migration finished ('completed') -- it is a one-time event.
+        // The v1 backup folder remains accessible via Settings ->
+        // Advanced -> Backups (category "memory-v1-backup").
         const v2Status = this.plugin.settings.memory.v2MigrationStatus;
-        if (v2Status !== 'not-applicable') {
+        if (v2Status === 'pending' || v2Status === 'skipped') {
             this.buildMemoryV2MigrationSection(containerEl);
         }
     }
 
     private buildMemoryV2MigrationSection(containerEl: HTMLElement): void {
-        const mem = this.plugin.settings.memory;
-        const status = mem.v2MigrationStatus;
+        const status = this.plugin.settings.memory.v2MigrationStatus;
 
         containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Memory v2 Migration' });
 
-        // Status banner -- different copy per state so users always know
-        // where they stand.
+        // Status banner -- different copy per pre-migration state.
         const banner = containerEl.createDiv('agent-settings-info-banner');
         const bannerText = banner.createDiv({ cls: 'agent-settings-info-text' });
         if (status === 'pending') {
             bannerText.createEl('strong', { text: 'Migration pending. ' });
             bannerText.appendText(
                 'Pick a migration model below and click "Migrate now". ' +
-                'Your originals stay in place; a copy goes into memory-v1-backup/{timestamp}/.',
-            );
-        } else if (status === 'completed' && mem.v2MigrationReport) {
-            const r = mem.v2MigrationReport;
-            const date = new Date(r.completedAt).toLocaleString();
-            bannerText.createEl('strong', { text: 'Migration done. ' });
-            bannerText.appendText(
-                `Completed ${date} -- ${r.factsInserted} facts, ${r.stylesInserted} style row${r.stylesInserted === 1 ? '' : 's'}. ` +
-                `Backup: ${r.backupFolder}. You can re-run the migration if you want to incorporate later edits to the v1 files (dedup is on).`,
+                'Your originals stay in place; a copy goes into memory-v1-backup/{timestamp}/, ' +
+                'available later under Advanced > Backups.',
             );
         } else if (status === 'skipped') {
             bannerText.createEl('strong', { text: 'Migration skipped. ' });
             bannerText.appendText(
                 'You chose "Later" in the Memory v2 announcement. ' +
-                'The migration is still available below whenever you want to run it.',
+                'The migration is a one-time event -- once you run it, this section disappears.',
             );
         }
 
@@ -303,14 +296,15 @@ export class MemoryTab {
             });
 
         const v2Setting = new Setting(containerEl)
-            .setName(status === 'completed' ? 'Re-run migration' : 'Migrate v1 memory to v2')
+            .setName('Migrate v1 memory to v2')
             .setDesc(
                 'Atomises user-profile.md, projects.md, patterns.md, errors.md, custom-tools.md ' +
                 'into the new fact schema. soul.md becomes a communication style. knowledge.md ' +
-                'is left as a vault note. Originals are copied to memory-v1-backup/{timestamp}/.',
+                'is left as a vault note. Originals are copied to memory-v1-backup/{timestamp}/. ' +
+                'This section disappears after a successful run.',
             );
         v2Setting.addButton((b) =>
-            b.setButtonText(status === 'completed' ? 'Re-run' : 'Migrate now')
+            b.setButtonText('Migrate now')
                 .onClick(() => void this.runMemoryV2Migration(b.buttonEl)),
         );
     }

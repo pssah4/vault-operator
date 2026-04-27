@@ -25,7 +25,7 @@ interface BackupCategory {
 
 /** Category IDs (stable, used for toggles and manifest keys) */
 const CATEGORY_IDS = [
-    'settings', 'memory', 'history', 'workflows', 'rules',
+    'settings', 'memory', 'memory-v1-backup', 'history', 'workflows', 'rules',
     'skills', 'recipes', 'episodes', 'patterns', 'logs',
     'plugin-skills', 'vault-dna', 'semantic-index',
 ] as const;
@@ -51,6 +51,23 @@ function getCategories(plugin: ObsidianAgentPlugin): BackupCategory[] {
             dir: 'memory',
             recursive: true,
             description: t('settings.backup.catMemoryDesc'),
+        },
+        {
+            id: 'memory-v1-backup',
+            // Untranslated for now -- this is a one-shot artefact that
+            // existing v1 users will see once after the migration. Adding
+            // it to all i18n bundles for that single window is overkill.
+            label: 'Memory v1 backup (post-migration)',
+            root: 'global',
+            dir: 'memory-v1-backup',
+            recursive: true,
+            description:
+                'Snapshots of your legacy v1 memory MD files (user-profile, projects, ' +
+                'patterns, errors, custom-tools, soul) created automatically by the ' +
+                'Memory v2 migration. Each run lands under a {timestamp}/ folder. ' +
+                'Memory v2 is not backwards-compatible with v1 storage, so a "restore" ' +
+                'is a manual file-copy back into the memory/ folder if you ever need to ' +
+                'roll back. Safe to delete once you are confident with v2.',
         },
         {
             id: 'history',
