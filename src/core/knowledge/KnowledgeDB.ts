@@ -20,6 +20,9 @@
 import { type Vault, requestUrl } from 'obsidian';
 import * as path from 'path';
 import * as fs from 'fs';
+import { WriterLock, WriterLockHeldError } from '../persistence/WriterLock';
+
+export { WriterLockHeldError } from '../persistence/WriterLock';
 
 // sql.js types -- we import the factory function at runtime
 type SqlJsStatic = {
@@ -44,7 +47,7 @@ type SqlJsStatement = {
 
 export type { SqlJsDatabase, SqlJsStatement };
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 // ---------------------------------------------------------------------------
 // Schema DDL
@@ -61,9 +64,11 @@ CREATE TABLE IF NOT EXISTS vectors (
     vector BLOB NOT NULL,
     mtime INTEGER NOT NULL,
     enriched INTEGER NOT NULL DEFAULT 0,
+    embedding_model TEXT NOT NULL DEFAULT 'unknown',
     UNIQUE(path, chunk_index)
 );
 CREATE INDEX IF NOT EXISTS idx_vectors_path ON vectors(path);
+CREATE INDEX IF NOT EXISTS idx_vectors_model ON vectors(embedding_model);
 
 CREATE TABLE IF NOT EXISTS checkpoint (
     key TEXT PRIMARY KEY,
@@ -154,6 +159,8 @@ export class KnowledgeDB {
     private dirty = false;
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
     private saving = false;
+    /** ADR-079 Cloud-Sync-Abwehr: only set in obsidian-sync setup. */
+    private writerLock: WriterLock | null = null;
 
     constructor(
         vault: Vault,
@@ -190,6 +197,18 @@ export class KnowledgeDB {
     /** Initialize sql.js WASM and open/create the database. */
     async open(): Promise<void> {
         if (this.db) return; // already open
+
+        // BUG-029: WriterLock for Setup-Klasse B (obsidian-sync). Same-host
+        // duplicate instances are blocked here; cross-host (other device on
+        // same Sync-Vault) is advisory only because PIDs are not portable.
+        if (this.storageLocation === 'obsidian-sync') {
+            this.writerLock = new WriterLock(path.dirname(this.absolutePath));
+            const result = await this.writerLock.acquire();
+            if (!result.acquired) {
+                this.writerLock = null;
+                throw new WriterLockHeldError(result.heldBy!);
+            }
+        }
 
         // eslint-disable-next-line @typescript-eslint/no-require-imports -- sql.js WASM init needs require for Electron compatibility
         const initSqlJs = require('sql.js') as (config?: { wasmBinary?: ArrayBuffer }) => Promise<SqlJsStatic>;
@@ -288,6 +307,16 @@ export class KnowledgeDB {
         return this.db !== null;
     }
 
+    /** Absolute filesystem path of the live DB file. Used by SnapshotJob. */
+    getAbsolutePath(): string {
+        return this.absolutePath;
+    }
+
+    /** Storage location, used by callers that need to skip vault-sync paths. */
+    getStorageLocation(): 'global' | 'local' | 'obsidian-sync' {
+        return this.storageLocation;
+    }
+
     /** Mark the DB as dirty (needs saving). Triggers debounced save. */
     markDirty(): void {
         this.dirty = true;
@@ -319,6 +348,12 @@ export class KnowledgeDB {
         if (this.db) {
             this.db.close();
             this.db = null;
+        }
+        if (this.writerLock) {
+            await this.writerLock.release().catch((e) =>
+                console.warn('[KnowledgeDB] WriterLock release failed (non-fatal):', e),
+            );
+            this.writerLock = null;
         }
     }
 
@@ -407,6 +442,18 @@ export class KnowledgeDB {
             // v7 -> v8: Add dismissed_health_findings table (vault health skip/ignore)
             // All CREATE TABLE IF NOT EXISTS — idempotent, handled by initSchema() below
 
+            // v8 -> v9: Add embedding_model column so the cosine search can
+            // filter on the model that produced each vector (FEATURE-0314,
+            // ADR-079). URI schemas for paths land separately, in Memory v2
+            // Phase 1+ via new tables -- not by mutating the existing columns.
+            if (currentVersion < 9) {
+                try {
+                    this.db.run("ALTER TABLE vectors ADD COLUMN embedding_model TEXT NOT NULL DEFAULT 'unknown'");
+                } catch {
+                    // Column may already exist if schema was partially migrated
+                }
+            }
+
             // Re-run DDL (CREATE IF NOT EXISTS is idempotent)
             this.initSchema();
             this.db.run('UPDATE schema_meta SET version = ?', [SCHEMA_VERSION]);
@@ -414,6 +461,7 @@ export class KnowledgeDB {
             console.debug(`[KnowledgeDB] Migrated schema from v${currentVersion} to v${SCHEMA_VERSION}`);
         }
     }
+
 
     // -----------------------------------------------------------------------
     // Private: Integrity Check + Recovery
@@ -423,15 +471,29 @@ export class KnowledgeDB {
      * Try to load a DB from raw data, run integrity check + schema migration.
      * Returns true if the DB is healthy and assigned to this.db.
      * Returns false if the data is corrupt (this.db remains null).
+     *
+     * Two-stage integrity check (FEATURE-0314, ADR-079):
+     *   1. Touch-the-B-tree queries on schema_meta + vectors -- catches blob
+     *      truncation, missing tables, broken root pages.
+     *   2. PRAGMA integrity_check -- SQLite's own deeper structural audit.
+     *      Catches corruption that the lightweight queries miss (orphan
+     *      pages, broken indexes, freelist mismatches).
      */
     private tryLoadWithIntegrityCheck(data: Uint8Array): boolean {
         if (!this.SQL) return false;
         let candidate: SqlJsDatabase | null = null;
         try {
             candidate = new this.SQL.Database(data);
-            // Integrity check: test queries that touch the B-tree
+            // Stage 1: light B-tree touch
             candidate.exec('SELECT count(*) FROM schema_meta');
             candidate.exec('SELECT count(*) FROM vectors');
+            // Stage 2: PRAGMA integrity_check (returns 'ok' or list of errors)
+            const integrity = candidate.exec('PRAGMA integrity_check;');
+            const verdict = integrity[0]?.values?.[0]?.[0];
+            if (verdict !== 'ok') {
+                console.warn('[KnowledgeDB] integrity_check failed:', verdict);
+                throw new Error(`integrity_check returned ${String(verdict)}`);
+            }
             // DB is healthy -- assign and migrate
             this.db = candidate;
             this.migrateSchema();
@@ -517,7 +579,15 @@ export class KnowledgeDB {
         await fs.promises.rename(tmpPath, this.absolutePath);
     }
 
-    /** Backup-before-write via vault.adapter (no rename available). */
+    /**
+     * Vault-mode write: write-tmp -> verify -> backup-current -> replace.
+     *
+     * vault.adapter has no rename, so we cannot use the global atomic-rename
+     * pattern. Instead we stage to `.tmp`, read it back to verify the bytes
+     * landed correctly, only then overwrite the real file. The previous
+     * version is rotated to `.bak` so the open-path recovery (tryLoad ->
+     * readBackup) still has a fallback. FEATURE-0314, ADR-079 Massnahme 2.
+     */
     private async writeDBVaultWithBackup(data: Uint8Array): Promise<void> {
         // Ensure parent directory exists
         const dir = this.vaultRelativePath.substring(0, this.vaultRelativePath.lastIndexOf('/'));
@@ -526,10 +596,26 @@ export class KnowledgeDB {
             if (!dirExists) await this.vault.adapter.mkdir(dir);
         }
 
+        const tmpPath = this.vaultRelativePath + '.tmp';
         const bakPath = this.vaultRelativePath + '.bak';
 
-        // 1. Backup the current (pre-write) version to .bak before overwriting.
-        //    Extra I/O is unavoidable: the export blob is the NEW version, not the current one.
+        // 1. Stage new data in .tmp
+        await this.vault.adapter.writeBinary(tmpPath, data.buffer);
+
+        // 2. Verify the staged bytes match what we intended to write.
+        //    Catches truncation under iCloud/Dropbox sync conflicts before we touch the live file.
+        try {
+            const staged = await this.vault.adapter.readBinary(tmpPath);
+            if (!this.bytesEqual(new Uint8Array(staged), data)) {
+                await this.vault.adapter.remove(tmpPath).catch(() => undefined);
+                throw new Error('Staged DB bytes did not match expected payload');
+            }
+        } catch (e) {
+            await this.vault.adapter.remove(tmpPath).catch(() => undefined);
+            throw e;
+        }
+
+        // 3. Rotate current -> .bak (read-modify-write because vault.adapter has no rename).
         try {
             const exists = await this.vault.adapter.exists(this.vaultRelativePath);
             if (exists) {
@@ -537,11 +623,20 @@ export class KnowledgeDB {
                 await this.vault.adapter.writeBinary(bakPath, currentData);
             }
         } catch {
-            console.warn('[KnowledgeDB] Backup creation failed (non-fatal)');
+            console.warn('[KnowledgeDB] Backup rotation failed (non-fatal)');
         }
 
-        // 2. Write new data
+        // 4. Promote .tmp -> live by writing the verified payload, then drop .tmp
         await this.vault.adapter.writeBinary(this.vaultRelativePath, data.buffer);
+        await this.vault.adapter.remove(tmpPath).catch(() => undefined);
+    }
+
+    private bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
     }
 
     /** Remove stale .tmp files left behind by interrupted writes. */

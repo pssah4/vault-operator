@@ -562,7 +562,7 @@ Branch `feature/memory-redesign`. Capability-Set unter EPIC-003 (context-memory-
 | Phase | Status | Feature-ID (vorgesehen) | Hauptdeliverable | Vorbedingung |
 |-------|--------|------------------------|------------------|--------------|
 | 0 Spikes + ADRs | Planned | (kein Feature, ADR-Arbeit) | 3 Spikes (ATTACH+CTE-Performance, FTS5-WASM-Bundle-Size, Single-Call-Token-Profil), ADR-076-079 finalisiert, ADR-062-Implementation-Spec | Branch existiert |
-| 0.5 Knowledge-DB-Haertung | Planned | FEATURE-0314 | BUG-012-Fix (Multi-File-Atomic-Commit), Vault-Rename-Cascade, embedding_model-Spalte, URI-Konvention-Migration, implicit_edges +edge_type | Phase 0 ADRs gruen |
+| 0.5 Knowledge-DB-Haertung | Implemented (2026-04-27, PLAN-003) | FEATURE-0314 | BUG-012-Fix (Single-File-Atomic-Commit pro DB + Vault-Mode-Haertung mit Verify), Vault-Rename-Cascade (Listener immer aktiv, nicht mehr im `semanticAutoIndexOnChange`-Gate; live verifiziert mit `Notes/Dominik Klumpp.md` -> 57 Reihen sauber migriert), embedding_model-Spalte (v9), Daily-Snapshot-Job, integrity_check + Auto-Recovery aus `.bak`, WriterLock am `obsidian-sync`-Pfad in `KnowledgeDB.open()`/`close()` mit Notice via `WriterLockHeldError`. URI-Migration im Hotfix verworfen, neue Tabellen ab Phase 1 nutzen `vault://`/`session://`/`episode://` direkt. **470 Tests gruen** | Phase 0 ADRs gruen |
 | 1 Engine-Foundation | Planned | FEATURE-0315 | facts/fact_edges/communication_styles/known_topics/memory_audit additiv, FactStore + EdgeStore + StyleStore mit DI, ADR-062-KV-Cache-Layout im Code, EmbeddingService | Phase 0.5 gruen |
 | 2 Migration + Vault-RRF-Quick-Win | Planned | FEATURE-0316 | Migration soul.md -> styles, knowledge.md skip, andere 5 -> Facts. Hybrid `semantic_search` mit RRF zuerst als Vault-Tool. Export-Tool facts -> markdown | Phase 1 gruen |
 | 3 Dynamic Context Composition | Planned | FEATURE-0317 | ContextComposer mit per-Conversation-Topic-Lock, lokale Topic-Inference (Centroids), `recall_memory` mit multiHop, UnifiedGraphService (ATTACH-Konfig + Templates) | Phase 2 + RRF battle-tested |
@@ -586,9 +586,11 @@ Branch `feature/memory-redesign`. Capability-Set unter EPIC-003 (context-memory-
 
 **Bug-Resolutions:**
 
-- BUG-012 (KnowledgeDB Corruption, P1): wird in Phase 0.5 via FEATURE-0314 endgueltig adressiert
+- BUG-012 (KnowledgeDB Corruption, P1): RESOLVED 2026-04-27 via FEATURE-0314 (PLAN-003)
 - Vault-Rename-Cascade-Bug (latent, vermutlich heute defekt): in Phase 0.5 gefixt
 - Embedding-Model-Drift (latent): in Phase 0.5 mit embedding_model-Spalte adressiert
+- [BUG-029](../analysis/BUG-029-writerlock-not-wired.md) (WriterLock nicht verdrahtet, P2): RESOLVED 2026-04-27. WriterLock am `obsidian-sync`-Pfad in `KnowledgeDB.open()`/`close()` verdrahtet, `WriterLockHeldError` triggert 10-s-Notice
+- [BUG-030](../analysis/BUG-030-icloud-vault-rename-not-cascaded.md) (Rename-Cascade greift nicht, P2): RESOLVED 2026-04-27. Echte Ursache war `semanticAutoIndexOnChange: false` in data.json -- Listener-Block uebersprungen. Fix: Listener aus dem Settings-Gate herausgezogen, Cascade laeuft jetzt immer wenn KnowledgeDB offen. Live verifiziert mit `Notes/Dominik Klumpp.md` (57 Reihen migriert). Initial gebauter `RenamePairDetector` zurueckgerollt (auf Fehldiagnose gebaut). Lehre in `feedback_check_settings_first.md` festgehalten
 
 **Naechster Schritt:** `/requirements-engineering` -> 8 Phasen werden 8 FEATURE-0314 bis FEATURE-0321 mit Akzeptanzkriterien. Plus FEATURE-0322 (Privacy & Forget-Right) und FEATURE-0323 (Memory-UX, Onboarding & Settings-Migration) als Querschnitts-Features aus A/B-Beschluessen 2026-04-26.
 

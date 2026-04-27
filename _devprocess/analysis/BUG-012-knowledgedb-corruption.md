@@ -1,9 +1,15 @@
 # FIX-12: KnowledgeDB Korruption durch nicht-atomare Writes + Cloud Sync
 
+**Status:** Resolved 2026-04-27 via FEATURE-0314 (Knowledge-DB-Haertung).
 **Prioritaet:** P1 (Kurzfristig)
 **Datei:** `src/core/knowledge/KnowledgeDB.ts`
 **Feature:** SQLite Knowledge Layer (ADR-050, FEATURE-1500)
 **Entdeckt:** 2026-04-10, eigener Vault + Community-Report
+**Resolution-Bezug:** PLAN-003, ADR-079. Atomic-Write greift jetzt in beiden
+Storage-Modi (`global` und `local`/`obsidian-sync`), Multi-File-Coordination
+ueber Journal-Pattern, integrity_check + Auto-Recovery beim Open, Lock-File
+verhindert Doppel-Writes durch parallele Plugin-Instanzen,
+Daily-Snapshot-Job laeuft 7-Tage-Retention.
 
 ---
 

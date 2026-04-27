@@ -1,7 +1,7 @@
 ---
 id: ADR-077
 title: Memory v2 Storage Schema -- Facts, Edges, Embeddings
-status: Proposed
+status: Accepted
 date: 2026-04-26
 deciders: Sebastian Hanke
 related:

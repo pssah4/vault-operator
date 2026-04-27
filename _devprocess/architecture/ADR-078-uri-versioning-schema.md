@@ -1,7 +1,7 @@
 ---
 id: ADR-078
 title: URI-Schema fuer Memory-Knoten und Versionierungs-Strategie
-status: Proposed
+status: Accepted
 date: 2026-04-26
 deciders: Sebastian Hanke
 related:

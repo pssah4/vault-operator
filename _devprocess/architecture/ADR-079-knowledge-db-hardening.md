@@ -1,7 +1,7 @@
 ---
 id: ADR-079
 title: Knowledge-DB-Haertung -- Atomic Write, Multi-File-Commit, Rename-Cascade
-status: Proposed
+status: Accepted
 date: 2026-04-26
 deciders: Sebastian Hanke
 related:
@@ -13,13 +13,31 @@ related:
 
 # ADR-079 -- Knowledge-DB-Haertung
 
+## Code-Review-Findings (2026-04-26, /coding Phase 2)
+
+**Wichtige Codebase-Korrektur:** Das urspruengliche Problem-1-Statement war zu hart formuliert. Realitaet:
+
+- **Single-File-Atomic-Write existiert bereits** in [src/core/knowledge/KnowledgeDB.ts:485-518](../../src/core/knowledge/KnowledgeDB.ts#L485-L518) als `writeDBGlobalAtomic`-Methode (Marker `FIX-12` im Code-Kommentar). Pattern: `write tmp -> rotate current to .bak -> rename tmp to current`. Plus `cleanupTmp()` (Zeile 547-558) entfernt stale tmp-Files beim DB-Open.
+- **`writeDBVaultWithBackup` (Zeile 521-545) ist NICHT atomic**, weil `vault.adapter` kein rename hat -- nur backup-before-write. Klasse B (vault-resident) bleibt damit Korruptions-anfaellig.
+- Backup-Recovery via `.bak` ist im Open-Pfad implementiert (Zeile 432-444 Try-Open + Fallback).
+
+**Reduzierter ADR-Scope** (was wirklich neu gebaut werden muss):
+
+1. **Multi-File-Coordination** zwischen memory.db, knowledge.db, history.db, ggf. ucm-sidecar.db -- aktuell schreibt jede DB unabhaengig, kein gemeinsames Journal
+2. **Vault-Mode-Haertung** fuer writeDBVaultWithBackup -- entweder Schreib-zu-tmp + Read-Verify + Replace, oder Single-Writer-Lock-per-PID (Klasse B) als dokumentierte Mitigation
+3. **Migration-Journal** als Sub-Typ -- existiert nicht, wird neu gebaut (FEATURE-0319 Setup-Wechsel)
+4. **PRAGMA integrity_check beim Open** -- explizit ergaenzen zur bestehenden Try-Open-Recovery
+5. **Daily-Snapshot-Job** (C2 aus Diskussion) -- existiert nicht, FEATURE-0314 erweitert
+
 ## Context
 
 Drei aktive Probleme im Vault-Retrieval-Pfad, sichtbar geworden durch die Memory-v2-Tiefenanalyse:
 
-### Problem 1: BUG-012 (Atomic-Write-Gap)
+### Problem 1: BUG-012 (Atomic-Write-Gap, teilweise gefixt)
 
-`sql.js@^1.14.1` exportiert die DB als kompletter Blob via `db.export()`. Schreibvorgang nutzt `fs.promises.writeFile()` -- nicht atomar. Bei Crash mid-write oder Cloud-Sync (iCloud, Dropbox) auf der DB-Datei droht Korruption. Status heute: P1 dokumentiert in `_devprocess/analysis/BUG-012-knowledgedb-corruption.md`, NICHT gefixt. Wahrscheinlichkeit waechst linear mit Schreib-Frequenz, Memory v2 verschaerft das massiv.
+`sql.js@^1.14.1` exportiert die DB als kompletter Blob via `db.export()`. Im Storage-Modus 'global' nutzt heute `writeDBGlobalAtomic` ein atomic-rename-Pattern (siehe Code-Review-Findings oben). Im Storage-Modus 'local' und 'obsidian-sync' (vault-resident) nutzt `writeDBVaultWithBackup` nur backup-before-write -- nicht atomic.
+
+Bei Crash mid-write im Vault-Modus oder Cloud-Sync (iCloud, Dropbox) droht weiterhin Korruption. Status heute: P1 dokumentiert in `_devprocess/analysis/BUG-012-knowledgedb-corruption.md`, **teilweise** gefixt (global-Modus). Wahrscheinlichkeit waechst linear mit Schreib-Frequenz, Memory v2 verschaerft das massiv -- vor allem in Klasse B (Vault-Sync).
 
 ### Problem 2: Vault-Rename-Cascade fehlt
 

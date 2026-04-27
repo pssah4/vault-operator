@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, Notice, TFile, requestUrl } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, requestUrl } from 'obsidian';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
 import type { CustomModel } from './types/settings';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
@@ -17,9 +17,11 @@ import { WorkflowLoader } from './core/context/WorkflowLoader';
 import { SkillsManager } from './core/context/SkillsManager';
 import { GitCheckpointService } from './core/checkpoints/GitCheckpointService';
 import { SemanticIndexService } from './core/semantic/SemanticIndexService';
-import { KnowledgeDB } from './core/knowledge/KnowledgeDB';
+import { KnowledgeDB, WriterLockHeldError } from './core/knowledge/KnowledgeDB';
 import { VectorStore } from './core/knowledge/VectorStore';
 import { GraphStore } from './core/knowledge/GraphStore';
+import { VaultRenameHandler } from './core/knowledge/VaultRenameHandler';
+import { SnapshotJob, type SnapshotTarget } from './core/persistence/SnapshotJob';
 import { OntologyStore } from './core/knowledge/OntologyStore';
 import { CommunityDetectionService } from './core/knowledge/CommunityDetectionService';
 import { VaultHealthService } from './core/knowledge/VaultHealthService';
@@ -92,6 +94,9 @@ export default class ObsidianAgentPlugin extends Plugin {
     knowledgeDB: KnowledgeDB | null = null;
     vectorStore: VectorStore | null = null;
     graphStore: GraphStore | null = null;
+    vaultRenameHandler: VaultRenameHandler | null = null;
+    snapshotJob: SnapshotJob | null = null;
+    snapshotTargets: SnapshotTarget[] = [];
     graphExtractor: GraphExtractor | null = null;
     implicitConnectionService: ImplicitConnectionService | null = null;
     ontologyStore: OntologyStore | null = null;
@@ -407,9 +412,12 @@ export default class ObsidianAgentPlugin extends Plugin {
                 undefined, // globalRoot — not used in local mode
                 getAgentFolderPath(this),
             );
-            await this.knowledgeDB.open().catch((e) =>
-                console.warn('[Plugin] KnowledgeDB open failed (non-fatal):', e)
-            );
+            await this.knowledgeDB.open().catch((e) => {
+                if (e instanceof WriterLockHeldError) {
+                    new Notice(e.message, 10000);
+                }
+                console.warn('[Plugin] KnowledgeDB open failed (non-fatal):', e);
+            });
             // FIX-18: If open() failed, null out to prevent cascading "not opened" errors
             if (!this.knowledgeDB.isOpen()) {
                 console.warn('[Plugin] KnowledgeDB not available — semantic features disabled for this session');
@@ -422,6 +430,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.vectorStore = new VectorStore(this.knowledgeDB);
             this.graphStore = new GraphStore(this.knowledgeDB);
             this.ontologyStore = new OntologyStore(this.knowledgeDB);
+            this.vaultRenameHandler = new VaultRenameHandler(this.knowledgeDB);
             this.communityDetectionService = new CommunityDetectionService(
                 this.knowledgeDB, this.graphStore, this.ontologyStore,
             );
@@ -555,16 +564,45 @@ export default class ObsidianAgentPlugin extends Plugin {
             } // end FIX-18 else (knowledgeDB available)
         }
 
-        // Auto-index: keep semantic index current as vault files change.
-        // Only enabled when semanticAutoIndexOnChange is explicitly set.
-        if (this.settings.enableSemanticIndex && this.semanticIndex && this.settings.semanticAutoIndexOnChange) {
+        // Vault file listeners. Two responsibilities are wired here:
+        //
+        //   (1) Path-cascade: rewrite path columns across knowledge.db on
+        //       rename/move so no orphan rows survive. ALWAYS active when
+        //       knowledge.db is open -- it just does UPDATEs, no embedding.
+        //   (2) Auto-reindex: re-embed and re-extract on modify/create/rename.
+        //       Gated on settings.semanticAutoIndexOnChange because users
+        //       opt out for cost reasons.
+        if (this.knowledgeDB && this.vaultRenameHandler) {
+            const autoIndex = !!(
+                this.settings.enableSemanticIndex
+                && this.semanticIndex
+                && this.settings.semanticAutoIndexOnChange
+            );
+
             const DOCUMENT_EXTENSIONS = new Set(['pdf', 'pptx', 'xlsx', 'docx']);
             const isIndexable = (f: TFile): boolean =>
                 f.extension === 'md' || (this.settings.semanticIndexPdfs && DOCUMENT_EXTENSIONS.has(f.extension));
+
+            const applyFileRename = (oldPath: string, file: TFile) => {
+                // Cascade always -- the 8 (table, column) pairs are content-
+                // independent, so this is safe regardless of auto-index.
+                this.vaultRenameHandler?.cascadeFileRename(oldPath, file.path);
+                if (autoIndex && isIndexable(file)) {
+                    void this.semanticIndex?.removeFile(oldPath);
+                    this.graphExtractor?.removeFile(oldPath);
+                    this.ontologyStore?.removeEntriesForPath(oldPath);
+                    if (file.extension === 'md') {
+                        this.graphExtractor?.extractFile(file);
+                        this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
+                        this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                    }
+                    this.scheduleFileIndex(file.path);
+                }
+            };
+
             this.registerEvent(this.app.vault.on('modify', (file) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
+                if (!autoIndex || !(file instanceof TFile) || !isIndexable(file)) return;
                 this.scheduleFileIndex(file.path);
-                // Graph + implicit + ontology: update edges/tags and recompute
                 if (file.extension === 'md') {
                     this.graphExtractor?.extractFile(file);
                     this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
@@ -572,7 +610,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 }
             }));
             this.registerEvent(this.app.vault.on('create', (file) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
+                if (!autoIndex || !(file instanceof TFile) || !isIndexable(file)) return;
                 this.scheduleFileIndex(file.path);
                 if (file.extension === 'md') {
                     this.graphExtractor?.extractFile(file);
@@ -581,22 +619,18 @@ export default class ObsidianAgentPlugin extends Plugin {
                 }
             }));
             this.registerEvent(this.app.vault.on('delete', (file) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
+                if (!autoIndex || !(file instanceof TFile)) return;
                 void this.semanticIndex?.removeFile(file.path);
                 this.graphExtractor?.removeFile(file.path);
                 this.ontologyStore?.removeEntriesForPath(file.path);
             }));
             this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
-                void this.semanticIndex?.removeFile(oldPath);
-                this.graphExtractor?.removeFile(oldPath);
-                this.ontologyStore?.removeEntriesForPath(oldPath);
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.graphExtractor?.extractFile(file);
-                    this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
-                    this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                if (file instanceof TFolder) {
+                    this.vaultRenameHandler?.cascadeFolderRename(oldPath, file.path);
+                    return;
                 }
-                this.scheduleFileIndex(file.path);
+                if (!(file instanceof TFile)) return;
+                applyFileRename(oldPath, file);
             }));
         }
 
@@ -611,6 +645,38 @@ export default class ObsidianAgentPlugin extends Plugin {
                 console.warn('[Plugin] MemoryDB not available — memory features degraded');
                 this.memoryDB = null;
             }
+        }
+
+        // Daily snapshots (FEATURE-0314, ADR-079): copy live DBs into
+        // .bak/<name>/<YYYY-MM-DD>.db so a 7-day rolling Undo exists on top
+        // of the per-write .bak rotation. Only fires for filesystem-backed
+        // storage modes; obsidian-sync DBs are excluded to avoid duplicating
+        // bytes through the same sync provider.
+        try {
+            this.snapshotJob = new SnapshotJob();
+            const targets: SnapshotTarget[] = [];
+            if (this.knowledgeDB && this.knowledgeDB.getStorageLocation() !== 'obsidian-sync') {
+                targets.push({ name: 'knowledge', sourcePath: this.knowledgeDB.getAbsolutePath() });
+            }
+            if (this.memoryDB && this.memoryDB.getStorageLocation() !== 'obsidian-sync') {
+                targets.push({ name: 'memory', sourcePath: this.memoryDB.getAbsolutePath() });
+            }
+            if (targets.length > 0) {
+                this.snapshotTargets = targets;
+                // Run in background; never block plugin startup on snapshot I/O.
+                void this.snapshotJob.runDailySnapshot(targets)
+                    .then((results) => {
+                        const created = results.filter((r) => r.action === 'created').length;
+                        if (created > 0) console.debug(`[SnapshotJob] Created ${created} snapshot(s)`);
+                    })
+                    .then(() => this.snapshotJob?.cleanupOldSnapshots(targets))
+                    .then((removed) => {
+                        if (removed && removed > 0) console.debug(`[SnapshotJob] Removed ${removed} expired snapshot(s)`);
+                    })
+                    .catch((e) => console.warn('[SnapshotJob] Daily snapshot failed (non-fatal):', e));
+            }
+        } catch (e) {
+            console.warn('[SnapshotJob] Setup failed (non-fatal):', e);
         }
 
         // Agent Skill Mastery — Procedural Recipes (ADR-017)

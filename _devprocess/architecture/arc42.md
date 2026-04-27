@@ -376,7 +376,7 @@ Key Files:
 
 ADR: [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md), [ADR-052](ADR-052-local-reranker.md).
 
-### 5.9 Ebene 2: Memory Architecture (3-Tier, FEATURE-1505)
+### 5.9 Ebene 2: Memory Architecture (V1 -- 3-Tier, FEATURE-0304)
 
 ```
 Tier 1: Chat History (ConversationStore)
@@ -405,7 +405,51 @@ Asynchrone Verarbeitung:
     └── LongTermExtractor -> LLM call -> update memory .md files
 ```
 
-ADR: [ADR-013](ADR-013-memory-architecture.md). Feature-Spec: `FEATURE-0304-memory-personalization.md`.
+V1-ADRs: [ADR-013](ADR-013-memory-architecture.md), [ADR-018 Episodic](ADR-018-episodic-task-memory.md), [ADR-058 Recipe-Promotion](ADR-058-semantic-recipe-promotion.md), [ADR-059 Memory-Decay](ADR-059-memory-decay-prevention.md), [ADR-060 Session-Summary](ADR-060-session-summary-reliability.md). Feature-Spec: `FEATURE-0304-memory-personalization.md` (Subsumed by Memory v2).
+
+### 5.9.1 Memory v2 Architecture (in Vorbereitung, EPIC-003 Initiative 2026-04-26)
+
+Memory v2 ersetzt das 3-Tier-Modell durch ein **Fact-zentrisches Schema mit Persistenz-Service-Pattern**. Die Engine ist UCM-Foundation (separates Repo Q3/Q4 2026, eigene BA `BA-UNIFIED-CHAT-MEMORY-V2.md`).
+
+```
+Engine (@obsilo/memory-engine, FEATURE-0321):
+  ├── FactStore (memory.db.facts: kind, importance, is_latest, source_uri, ...)
+  ├── EdgeStore (memory.db.fact_edges: update/extend/derive ueber granulare Edge-Types)
+  ├── HistoryStore (history.db.history_chunks: Cross-Source-Conversation-Index)
+  ├── ContextComposer (KV-Cache-aware, Soft-Topic-Lock, RRF + Reranker)
+  ├── FactExtractor + FactIntegrator (Single-Call Tool-Calling, Lazy-Conflict-Resolution)
+  ├── InferenceService (Background-Job, Pattern-basierte Derives, FEATURE-0324)
+  ├── VaultMemorySourceService (Notes-as-Source, dirty-tracking, FEATURE-0325)
+  ├── AgingService (kind-spezifische Halbwertzeiten: 14/90/180 Tage + persistent-preference)
+  ├── UnifiedGraphService (ATTACH-CTE oder JS-BFS-Fallback je nach Spike-Ergebnis)
+  ├── EmbeddingService (gemeinsam fuer alle Embedding-Operationen)
+  ├── MigrationService (Setup-Wechsel zwischen Klassen A/B/C)
+  └── AdapterRegistry (LocalKnowledge / McpKnowledge / LocalFile / WebUrl / Cloud)
+
+Drei Setup-Klassen (ADR-080):
+  A. Single-Device:    Plugin = Persistenz-Service, DBs Plugin-lokal
+  B. Vault-Sync:       Plugin = Service, DBs vault-resident, Single-Writer-Lock per PID
+  C. Central-Service:  separater Plugin oder Standalone-Service als Service,
+                       Workers (Plugins, Standalone, mobile via OpenClaw) schreiben via RPC
+
+Drei Storage-DBs:
+  ├── memory.db (Engine: facts, fact_edges, communication_styles, audit, conversation_threads,
+                          known_topics, memory_source_notes, plus Bestand sessions/episodes/recipes)
+  ├── history.db (Engine: history_chunks fuer Cross-Source-Search)
+  └── knowledge.db (Plugin-bedient: vectors, implicit_edges, ontology, tags -- bleibt FEATURE-0301)
+
+Plugin-MCP-Tool-Routing (ADR-081):
+  Externer Client (Claude Desktop, ChatGPT, ...)
+    -> Plugin-MCP via Cloudflare-Relay
+       Plugin-MCP empfaengt Tool-Call:
+         ├── Vault-Tool -> Plugin antwortet selbst (knowledge.db lokal)
+         └── Memory-Tool -> Plugin antwortet (Klasse A/B) ODER proxied via HTTPS/JSON-RPC
+                            an Persistenz-Service-URL (Klasse C)
+```
+
+Alle 12 V2-Features (FEATURE-0314 bis FEATURE-0325) plus 12 ADRs (ADR-076 bis ADR-087) detaillieren das Setup. Phase-0-Spikes (ATTACH+CTE-Performance, FTS5-WASM-Bundle-Size, Single-Call-Token-Profil) sind Pflicht-Vorbedingung vor Implementation.
+
+Differenzierung gegen Konkurrenz (Mem0, Zep, Letta, Supermemory): Lizenz-Souveraenitaet (Apache 2.0 vs Closed-Cloud), MCP-Native (Standard vs proprietaere SDKs), Plugin-Worker-Modell (kein Server-Zwang), Pluggable Persistence (3 Klassen), Obsidian-Vault-Bridge (einzigartig). Konzeptuelle Parity mit Supermemory in Update/Extend/Derive (Edge-Konzept-Layer), Memory-Typen (kind: fact/preference/identity/event), Inference-Pass (Pattern-basiert), Documents-Pipeline (Vault-Note-Source).
 
 ### 5.6 Ebene 2: VaultDNA / Plugin Skills
 

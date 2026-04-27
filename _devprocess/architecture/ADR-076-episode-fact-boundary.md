@@ -1,7 +1,7 @@
 ---
 id: ADR-076
 title: Episode-Fact-Boundary -- Trennung von Verhaltens-Outcomes und Wissens-Statements
-status: Proposed
+status: Accepted
 date: 2026-04-26
 deciders: Sebastian Hanke
 related:

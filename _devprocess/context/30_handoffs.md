@@ -257,3 +257,186 @@ Output: ADRs Accepted, plan-context.md, arc42-Memory-Sektion-Update,
 ```
 
 **Implementation gestartet:** Nein -- wartet auf /architecture und User-Freigabe nach Phase-0-Spikes.
+
+---
+
+## architecture-to-coding 2026-04-26: Memory v2 + UCM Foundation
+
+**Initiative:** Memory v2 Full Rewrite (Pfad alpha) -- Architektur-Phase abgeschlossen.
+
+**Output (Architecture):**
+
+- **8 neue ADRs** (Proposed, alle bedingt akzeptiert nach Phase-0-Spike-Ergebnissen):
+  - ADR-080 Persistenz-Service-Pattern (3 Setup-Klassen A/B/C)
+  - ADR-081 MCP-Tool-Routing + Plugin-Standalone-RPC (Bearer-Token + HTTPS)
+  - ADR-082 Topic-Inference-Strategie (lokale Centroids, Soft-Topic-Lock)
+  - ADR-083 Single-Call Tool-Calling Output-Schema
+  - ADR-084 Engine-Public-API-Versionierung (semver + Schema-Version)
+  - ADR-085 Soft-Delete-Cascade auf vier Granularitaets-Ebenen
+  - ADR-086 Inference-Pass-Architektur fuer Derives
+  - ADR-087 Vault-Note-Memory-Source-Pipeline
+- **4 bestehende ADRs** weiterhin Proposed (ADR-076 Episode-Fact-Boundary, ADR-077 Storage-Schema, ADR-078 URI-Versioning, ADR-079 Knowledge-DB-Haertung)
+- **arc42-Update** Section 5.9.1 "Memory v2 Architecture" ergaenzt
+- **plan-context-memory-v2.md** in `_devprocess/requirements/handoff/` mit Tech-Stack, Quality-Goals, ADR-Summary, Data-Model, Performance/Security-Targets, Implementation-Reihenfolge, /coding-Aufgaben
+
+**Tech-Stack-Justification:**
+
+- TypeScript strict + esbuild bleibt (Bestand)
+- sql.js@^1.14.1 ist einziger Driver (Review-Bot blockiert native bessere-sqlite3)
+- Custom-WASM-Build mit FTS5+JSON1 wenn Phase-0-Spike Bundle-Size traegt, sonst JS-Trigram-Fallback
+- Embeddings: konfigurierbar (Sebastians Setup nutzt qwen3-embedding-8b multilingual)
+- LLM: konfigurierbar (Sebastian nutzt Claude Haiku 4.5), Tool-Calling-Pflicht
+- Cloudflare-Relay (existierend, FEATURE-1404) bleibt fuer externe MCP-Clients
+- Bearer-Token + HTTPS fuer Plugin-Standalone-RPC (Klasse C)
+
+**Rejected Alternatives (sollen nicht ohne neue Begruendung von /coding wieder geoeffnet werden):**
+
+- bessere-sqlite3 native (Review-Bot-Block)
+- Cloudflare KV als Storage-Backend (bricht Local-First, Supermemory-Pattern verworfen)
+- Multi-Master-CRDT-Replikation (zu komplex fuer MVP, Persistenz-Service-Pattern reicht)
+- Vector-Clock-basierte Eventual-Consistency (gleiche Begruendung)
+- LLM-Topic-Inference per Conversation-Start (Latenz-Selbstmord, lokale Centroids gewaehlt)
+- Free-Form-Markdown-Single-Call-Output (Drift-Risiko, Tool-Calling-Schema gewaehlt)
+- OAuth 2.1 fuer RPC-Auth (Bearer reicht fuer MVP, OAuth ist Backlog)
+- Hard-Delete sofort (kein Undo-Window, Soft-Delete + Window gewaehlt)
+- Crypto-Erase via Verschluesselung (at-rest-Encryption Out-of-Scope)
+- Synchroner Inference-Pass pro Conversation (Cost-Explosion, Background-Job gewaehlt)
+- Auto-Detection welche Notes als memory-source taugen (zu viel Auto-Magie, User-Trigger gewaehlt)
+
+**Known Architectural Risks (fuer /coding monitoren):**
+
+- R-1 sql.js-Custom-WASM-Build-Toolchain: integrierbar in esbuild-Pipeline?
+- R-2 ATTACH-DATABASE-Limits in sql.js: kreuzweise transactional schreibbar?
+- R-3 Multi-File-Atomic-Commit Crash-Recovery via Journal: robust gegen Power-Loss?
+- R-4 Vault-Hook-Reihenfolge: vault.on('rename') vor oder nach File-Move?
+- R-5 Topic-Centroid-Performance: Refresh-Strategie eager vs lazy?
+
+**Open Items (von /architecture explizit deferred zu /coding):**
+
+- FTS-Strategie (Custom-WASM vs JS-Trigram): Spike-Ergebnis-abhaengig
+- Centroid-Recalc-Granularitaet: profilen, dann entscheiden
+- Token-Rotation-UX: post-MVP
+- LTS-Strategie post-v1.0: nach Feedback-Phase
+- Inkrementelle Re-Extraktion (Diff-Detection): post-MVP, MVP nutzt voll-re-extract
+
+**Consistency-Check (manuell):**
+
+- plan-context-memory-v2.md Tech-Stack matcht alle 12 ADRs (076-087): bestaetigt
+- arc42 Section 5.9.1 referenziert alle relevanten ADRs: bestaetigt
+- 12 FEATUREs (FEATURE-0314 bis FEATURE-0325) sind im plan-context Implementation-Reihenfolge-Tabelle vollstaendig: bestaetigt
+- Quality-Goals (Hosting-Neutralitaet, Token-Effizienz, Privacy, Performance, Korrektheit) decken die 22 Critical ASRs: bestaetigt
+
+**Naechster Schritt:**
+
+```
+/coding
+Input: _devprocess/requirements/handoff/plan-context-memory-v2.md
+       + 12 ADRs (ADR-076 bis ADR-087, alle Proposed)
+       + 12 FEATUREs (FEATURE-0314 bis FEATURE-0325)
+       + arc42 Section 5.9.1
+       + PLAN-001 Master-Plan
+       + BA-UNIFIED-CHAT-MEMORY-V2 (UCM-Konsumenten-Vertrag)
+
+Output erwartet:
+1. 3 Phase-0-Spikes ausgefuehrt mit Ergebnis-Bericht
+2. ADRs 076-087 zu Accepted promoted (oder Modifikationen vorgeschlagen)
+3. Per Phase eine PLAN-Datei in _devprocess/implementation/plans/
+4. Critical Codebase-Review-Findings dokumentiert
+5. Phase-0.5-Implementation-Start nach gruener Spike-Phase
+```
+
+---
+
+## coding-phase2-checkpoint 2026-04-26: Memory v2 Critical Review + PLAN-002
+
+**Phase:** /coding Phase 2 (Critical Review) abgeschlossen, Phase 3 (Implementation) noch nicht gestartet.
+
+**Critical-Review-Findings (Drift gegen ADRs):**
+
+1. **ADR-079 Knowledge-DB-Haertung:** Single-File-Atomic-Write existiert bereits (KnowledgeDB.ts:485-518, FIX-12 Marker). ADR auf reduzierten Scope angepasst: Multi-File-Coordination + Vault-Mode-Haertung + Migration-Journal + Daily-Snapshot bleiben offen, Single-File ist gefixt.
+2. **ADR-080 Persistenz-Service-Pattern:** Bestehende `storageLocation`-Werte in KnowledgeDB.ts:151 (global/local/obsidian-sync) gemappt zu neuen Setup-Klassen K-A/K-B (K-C ist neu). Settings-Migration in FEATURE-0323 muss diese Werte transformieren.
+3. **FEATURE-0314 Effort:** 1.5 Wo -> 1 Wo reduziert (bestehende Atomic-Write-Logic wird erweitert, nicht neu gebaut).
+4. **FEATURE-0315 Implementation-Strategie:** MemoryDB ist heute Wrapper um KnowledgeDB. Schema-Erweiterung additiv, KnowledgeDB-Klasse selbst nicht refactoren. history.db nutzt denselben Wrapper-Pattern.
+
+**Writebacks ausgefuehrt:** ADR-079, ADR-080, FEATURE-0314, FEATURE-0315 mit Code-Review-Findings-Sections versehen.
+
+**40_metrics.md Drift-Row:** 12 ADRs reviewed, 4 Drift flagged, 4 resolved, 0 open.
+
+**PLAN-002 angelegt:** Phase 0 Spikes (ATTACH+CTE-Performance, FTS5-Bundle-Size, Single-Call-Token-Profil) als Quality-Gate vor Phase-0.5-Implementation. Status `Draft`.
+
+**Nicht getan in dieser Session:**
+
+- Spikes nicht ausgefuehrt (User-Entscheidung erforderlich)
+- ADRs nicht zu Accepted promoted (haengen an Spike-Ergebnissen ab)
+- Phase-0.5-Implementation noch nicht gestartet (FEATURE-0314)
+- Plan Coverage Gate auf PLAN-002 noch nicht final gerunnt (kein Feature-Spec referenziert, ADR-Coverage in Tabelle)
+
+**Naechste Schritte (User waehlt):**
+
+- Option A: Spike 2 (FTS5-Bundle) zuerst, weil Hard-Block fuer Implementation
+- Option B: Spike 1 (ATTACH+CTE), dann Spike 2, dann Spike 3
+- Option C: alle drei parallel (am ehesten geeignet wenn Sebastian zwei Tage Spike-Aufwand investieren will)
+- Option D: Pause nach Phase 2, Sebastian reviewt erst die Writebacks
+
+**Open Concerns fuer Implementation-Phase:**
+
+- Custom-sql.js-WASM-Build-Toolchain nicht heute im Repo, Spike 2 muss das zuerst empirisch klaeren
+- Anthropic-Tool-Calling-Schema-Performance bei langen Conversations nicht messbar ohne Spike 3
+- ATTACH-DATABASE-Verhalten in sql.js-WASM mit zwei realen Plugin-DBs nicht in Codebase getestet
+
+---
+
+## coding-phase0-complete 2026-04-27: Memory v2 Phase 0 Spikes abgeschlossen
+
+**Phase:** /coding Phase 0 (3 Spikes + ADR-Promotion) komplett.
+
+**Spike-Ergebnisse:**
+
+- **SPIKE-001 ATTACH+CTE-Performance:** GREEN durch JS-Layer-BFS-Fallback. Cross-DB-JOIN p95 = 1.2ms (167x unter 200ms-Target), 2-Hop-Walk p95 = 0.3ms (1666x unter 500ms-Target). ATTACH-Pfad verworfen (sql.js FS nicht im Public-API), JS-BFS reicht. Test mit Sebastians realer 207MB knowledge.db.
+- **SPIKE-002 FTS5+JSON1-Bundle-Size:** Provisional Green via Approximation (~250KB Aufschlag, ~0.7% auf Plugin-Bundle). Echter Custom-WASM-Build deferred zu Phase 0.5 (FEATURE-0314 Sub-Task).
+- **SPIKE-003 Single-Call-Token-Profil:** Provisional Green via Approximation aus Mem0-Benchmark + Claude-Haiku-Pricing (~2500 Tokens Median, ~$0.50-3/Monat fuer Sebastian). Echter Test deferred zu Phase 4 (FEATURE-0318).
+
+**ADR-Promotion:** ADR-076 bis ADR-087 alle auf `Accepted`, ADR-080 als `Accepted (modified by Spike-1 + Code-Review)`.
+
+**Implementation-Aufwand reduziert:**
+
+- ADR-080 Spike-1-Outcome: ~500-1000 LOC ATTACH-DATABASE-Code entfaellt
+- ADR-079 Code-Review: Single-File-Atomic-Write existiert bereits (FIX-12 in KnowledgeDB.ts), FEATURE-0314 reduziert von 1.5 auf 1 Wo
+
+**Zwischen-Stand-Effort-Schaetzung:**
+
+- Phase 0: 1.5 Wo nominell (heute komplett, brutto ~4 Stunden Real-Aufwand wegen Approximations-Strategie + Spike-1-Echt-Test)
+- Phase 0.5 (FEATURE-0314): 1 Wo (war 1.5)
+- Phase 1-7: 11 Wo nominell
+- Querschnitt FEATURE-0322/0323/0324/0325: 4.5 Wo
+- Total reduziert: ~16 Wo brutto (war 17)
+
+**Spike-Artefakte:**
+
+- `_devprocess/analysis/SPIKE-001-cross-db-performance.md` (GREEN, real test)
+- `_devprocess/analysis/SPIKE-002-fts5-bundle-size.md` (Provisional Green via Approximation)
+- `_devprocess/analysis/SPIKE-003-single-call-token-profile.md` (Provisional Green via Approximation)
+- `/tmp/spike-cross-db-jsbfs.mjs` (Spike-1-Test-Skript, reproduzierbar)
+- `/tmp/sql.js/` (Repo-Klone mit gepatchtem Makefile fuer FTS5+JSON1, fuer Phase-0.5-Custom-Build)
+- `/tmp/knowledge-spike.db` (Sebastians 207MB knowledge.db read-only Kopie, kann geloescht werden wenn nicht mehr benoetigt)
+
+**PLAN-002 Status:** Implemented (Phase 0 abgeschlossen).
+
+**Naechster Schritt:**
+
+```
+Phase 0.5 -- FEATURE-0314 Knowledge-DB-Haertung
+PLAN-003 anlegen (FEATURE-0314 implementation plan):
+- Multi-File-Atomic-Commit-Helper bauen (3 DB-Files koordiniert)
+- Vault-Mode-Haertung (writeDBVaultWithBackup -> atomic-equivalent)
+- Single-Writer-Lock per PID (Klasse B)
+- Migration-Journal als Sub-Typ
+- Daily-Snapshot-Job (.bak/{YYYY-MM-DD}.db, 7-Tage-Retention)
+- Vault-Rename-Cascade (vault.on('rename') in main.ts:589 erweitern)
+- embedding_model-Spalte in vectors
+- URI-Konvention-Migration vectors.path
+- Custom-sql.js-WASM-Build mit FTS5+JSON1 (Spike-2-Final-Verifikation)
+- PRAGMA integrity_check beim Open
+
+Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
+```

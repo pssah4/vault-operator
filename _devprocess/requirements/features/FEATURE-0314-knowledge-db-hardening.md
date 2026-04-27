@@ -3,7 +3,7 @@ id: FEATURE-0314
 title: Knowledge-DB-Haertung
 epic: EPIC-003-context-memory-scaling
 phase: Building
-status: Planned
+status: Implemented
 priority: P0
 effort: M
 depends-on: [ADR-079, ADR-078]
@@ -20,7 +20,22 @@ related:
 > **Epic:** [EPIC-003 Context, Memory & Scaling](../epics/EPIC-003-context-memory-scaling.md)
 > **Backlog ID:** Initiative Memory v2, Phase 0.5
 > **Priority:** P0-Critical (blockiert Memory v2 Phase 1)
-> **Effort:** M (1.5 Wochen)
+> **Effort:** M (1 Wo nach Code-Review reduziert von 1.5 Wo, weil Single-File-Atomic-Write bereits existiert)
+
+## Code-Review-Findings (2026-04-26, /coding Phase 2)
+
+**Bestehende Implementierung:** [KnowledgeDB.ts:485-518](../../src/core/knowledge/KnowledgeDB.ts#L485-L518) hat bereits Single-File-Atomic-Write fuer Storage-Modus `global` (Marker FIX-12). Plus Try-Open mit `.bak`-Recovery (Zeile 432-444). Plus `cleanupTmp()` (Zeile 547-558).
+
+**Was tatsaechlich neu ist** (Scope-Klarstellung):
+
+1. Multi-File-Coordination zwischen memory.db, history.db, knowledge.db (neues Journal-File)
+2. Vault-Mode-Haertung (`writeDBVaultWithBackup` ist NICHT atomic)
+3. Single-Writer-Lock-per-PID fuer Klasse B (Vault-Sync, mehrere Plugins)
+4. URI-Konvention-Migration fuer `vectors.path` (vault://, session://, episode://)
+5. `embedding_model`-Spalte in vectors
+6. Vault-Rename-Cascade (vault.on('rename') ist heute registriert in main.ts:589, aber cascadiert nicht in implicit_edges/tags/note_freshness)
+7. Daily-Snapshot-Job (.bak/{YYYY-MM-DD}.db, 7-Tage-Retention)
+8. PRAGMA integrity_check beim Open (zusaetzlich zur Try-Open-Recovery)
 
 ## Feature Description
 

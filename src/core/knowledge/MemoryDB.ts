@@ -87,6 +87,16 @@ export class MemoryDB {
         return this.initialized && this.knowledgeDB.isOpen();
     }
 
+    /** Absolute filesystem path of the live DB file. Used by SnapshotJob. */
+    getAbsolutePath(): string {
+        return this.knowledgeDB.getAbsolutePath();
+    }
+
+    /** Storage location of the underlying file. */
+    getStorageLocation(): 'global' | 'local' | 'obsidian-sync' {
+        return this.knowledgeDB.getStorageLocation();
+    }
+
     /** Mark as dirty (triggers debounced save). */
     markDirty(): void {
         this.knowledgeDB.markDirty();
