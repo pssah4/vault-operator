@@ -7,7 +7,7 @@
 // Adapted from Obsidian Copilot's CustomModel pattern
 // ---------------------------------------------------------------------------
 
-export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway' | 'bedrock';
+export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway' | 'bedrock' | 'chatgpt-oauth';
 
 export interface CustomModel {
     /** Model identifier used in API calls (e.g. "claude-sonnet-4-5-20250929") */
@@ -753,6 +753,26 @@ export interface ObsidianAgentSettings {
     /** Epoch seconds of last successful token validation */
     kiloLastValidatedAt: number;
 
+    // ChatGPT OAuth (EPIC-021, ADR-088, ADR-089)
+    /** OAuth access token, encrypted via SafeStorageService (enc:v1:<base64>) */
+    chatgptOAuthAccessToken: string;
+    /** OAuth refresh token, encrypted */
+    chatgptOAuthRefreshToken: string;
+    /** ID token (JWT) for account info, encrypted */
+    chatgptOAuthIdToken: string;
+    /** chatgpt-account-id from id_token claim, sent as request header. Not encrypted. */
+    chatgptOAuthAccountId: string;
+    /** Email address from id_token claim, shown in settings UI. Not encrypted. */
+    chatgptOAuthEmail: string;
+    /** Subscription plan tier. Not encrypted. */
+    chatgptOAuthPlanTier: 'plus' | 'pro' | 'unknown' | '';
+    /** Unix timestamp in milliseconds when access_token expires. Not encrypted. */
+    chatgptOAuthExpiresAt: number;
+    /** Active model id, default 'gpt-5-codex'. */
+    chatgptOAuthModel: string;
+    /** Unix milliseconds when user acknowledged the third-party-endpoint disclaimer. 0 = not yet. */
+    chatgptOAuthDisclaimerAcknowledgedAt: number;
+
     // Advanced
     debugMode: boolean;
     /**
@@ -1010,6 +1030,15 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     kiloOrganizationId: '',
     kiloAccountLabel: '',
     kiloLastValidatedAt: 0,
+    chatgptOAuthAccessToken: '',
+    chatgptOAuthRefreshToken: '',
+    chatgptOAuthIdToken: '',
+    chatgptOAuthAccountId: '',
+    chatgptOAuthEmail: '',
+    chatgptOAuthPlanTier: '',
+    chatgptOAuthExpiresAt: 0,
+    chatgptOAuthModel: 'gpt-5-codex',
+    chatgptOAuthDisclaimerAcknowledgedAt: 0,
     debugMode: false,
     agentFolderPath: '.obsilo-vault',
 };
