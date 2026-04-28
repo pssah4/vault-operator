@@ -1455,6 +1455,19 @@ export default class ObsidianAgentPlugin extends Plugin {
     }
 
     /**
+     * Snapshot the active sidebar conversation for the memory pipeline.
+     * Manual extraction paths (mark_for_memory tool, Star button) call this
+     * to find out what to enqueue. Returns null when no sidebar leaf exists
+     * or the active conversation has no messages.
+     */
+    snapshotActiveConversationForMemory(): ReturnType<AgentSidebarView['snapshotForMemory']> | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
+        if (leaves.length === 0) return null;
+        const view = leaves[0].view as AgentSidebarView;
+        return view.snapshotForMemory?.() ?? null;
+    }
+
+    /**
      * Open a conversation by ID via deep-link (ADR-022, FEATURE-300).
      * Activates the sidebar and loads the conversation if it exists.
      */

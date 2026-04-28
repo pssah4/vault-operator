@@ -451,6 +451,11 @@ export class AgentSidebarView extends ItemView {
                 .setTitle(webEnabled ? t('ui.sidebar.webSearchOn') : t('ui.sidebar.webSearchOff'))
                 .setIcon('globe')
                 .onClick(() => { void this.toggleWebSearch(); }));
+            // Save to memory (FEATURE-0318 manual trigger -- bypasses throttle + auto toggle)
+            menu.addItem(item => item
+                .setTitle(t('ui.sidebar.saveToMemory'))
+                .setIcon('star')
+                .onClick(() => { void this.handleSaveToMemory(); }));
             menu.addSeparator();
             // Original options menu items
             this.addOptionsMenuItems(menu);
@@ -739,6 +744,32 @@ export class AgentSidebarView extends ItemView {
         const isAsk = this.plugin.settings.currentMode === 'ask';
         this.toolPickerButton.classList.toggle('agent-u-hidden', isAsk);
         this.updateWebToggleButton();
+    }
+
+    /**
+     * Manual memory save (FEATURE-0318): always available, bypasses both
+     * autoExtractSessions and the message-count threshold. Calls the same
+     * Single-Call pipeline the auto-path uses, just with bypassThrottle=true.
+     */
+    private async handleSaveToMemory(): Promise<void> {
+        const mem = this.plugin.settings.memory;
+        if (!mem.enabled) {
+            new Notice(t('notice.memoryDisabled'));
+            return;
+        }
+        const queue = this.plugin.extractionQueue;
+        const snapshot = this.snapshotForMemory();
+        if (!queue || !snapshot) {
+            new Notice(t('notice.memoryNoActiveConversation'));
+            return;
+        }
+        try {
+            await queue.enqueueImmediate(snapshot);
+            new Notice(t('notice.memorySaveQueued'));
+        } catch (e) {
+            console.warn('[Memory] Manual save failed:', e);
+            new Notice(t('notice.memorySaveFailed'));
+        }
     }
 
     private async toggleWebSearch(): Promise<void> {
@@ -2438,19 +2469,28 @@ export class AgentSidebarView extends ItemView {
         if (!mem.enabled || !mem.autoExtractSessions || !queue) return;
         if (!this.activeConversationId || this.uiMessages.length < mem.extractionThreshold) return;
 
-        // Phase 4: hand structured messages to SingleCallProcessor; delta-window
-        // slicing happens engine-side via ThreadDeltaStore.last_extracted_message_index.
-        const messages = this.uiMessages.map((m) => ({ role: m.role, text: m.text }));
+        const snapshot = this.snapshotForMemory();
+        if (!snapshot) return;
+        queue.enqueue(snapshot).catch((e) => console.warn('[Memory] Enqueue failed:', e));
+    }
 
+    /**
+     * Public snapshot of the active conversation in the shape ExtractionQueue
+     * needs. Returns null when nothing is queueable. Used by the manual paths
+     * (Star button, mark_for_memory tool) which always run regardless of the
+     * autoExtractSessions toggle and the message-threshold.
+     */
+    snapshotForMemory(): { conversationId: string; messages: Array<{ role: 'user' | 'assistant'; text: string }>; title: string; queuedAt: string } | null {
+        if (!this.activeConversationId || this.uiMessages.length === 0) return null;
+        const messages = this.uiMessages.map((m) => ({ role: m.role, text: m.text }));
         const title = this.uiMessages.find((m) => m.role === 'user')?.text.slice(0, 60).replace(/\n/g, ' ').trim()
             || t('ui.sidebar.conversation');
-
-        queue.enqueue({
+        return {
             conversationId: this.activeConversationId,
             messages,
             title,
             queuedAt: new Date().toISOString(),
-        }).catch((e) => console.warn('[Memory] Enqueue failed:', e));
+        };
     }
 
     /**

@@ -104,8 +104,13 @@ export class MemoryTab {
                     t.setValue(mem.autoExtractSessions).onChange(async (v) => {
                         this.plugin.settings.memory.autoExtractSessions = v;
                         await this.plugin.saveSettings();
+                        this.rerender();
                     }),
                 );
+
+            // Hint that the manual path is always available, even when auto is off.
+            const manualHint = containerEl.createEl('div', { cls: 'agent-settings-hint' });
+            manualHint.setText(t('settings.memory.manualAlwaysHint'));
 
             // ─── Memory Model ─────────────────────────────────────────
             containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingModel') });
@@ -131,22 +136,24 @@ export class MemoryTab {
                 });
             });
 
-            // ─── Extraction Threshold ─────────────────────────────────
-            containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingThreshold') });
+            // ─── Extraction Threshold (only relevant when Auto is on) ───
+            if (mem.autoExtractSessions) {
+                containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingThreshold') });
 
-            new Setting(containerEl)
-                .setName(t('settings.memory.minMessages'))
-                .setDesc(t('settings.memory.minMessagesDesc'))
-                .addSlider((s) =>
-                    s
-                        .setLimits(2, 20, 1)
-                        .setValue(mem.extractionThreshold)
-                        .setDynamicTooltip()
-                        .onChange(async (v) => {
-                            this.plugin.settings.memory.extractionThreshold = v;
-                            await this.plugin.saveSettings();
-                        }),
-                );
+                new Setting(containerEl)
+                    .setName(t('settings.memory.minMessages'))
+                    .setDesc(t('settings.memory.minMessagesDesc'))
+                    .addSlider((s) =>
+                        s
+                            .setLimits(2, 20, 1)
+                            .setValue(mem.extractionThreshold)
+                            .setDynamicTooltip()
+                            .onChange(async (v) => {
+                                this.plugin.settings.memory.extractionThreshold = v;
+                                await this.plugin.saveSettings();
+                            }),
+                    );
+            }
 
             // ─── Memory Files ─────────────────────────────────────────
             containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingFiles') });

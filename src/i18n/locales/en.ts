@@ -411,7 +411,8 @@ export const en: Translations = {
     'settings.memory.enableMemory': 'Enable memory',
     'settings.memory.enableMemoryDesc': 'Allow the agent to build long-term memory from conversations. Disable to stop all extraction.',
     'settings.memory.autoExtract': 'Auto-extract session summaries',
-    'settings.memory.autoExtractDesc': 'Automatically create a summary when a conversation ends.',
+    'settings.memory.autoExtractDesc': 'Automatically extract memory when a conversation ends. Manual extraction (Star button + agent tool) is always available regardless of this setting.',
+    'settings.memory.manualAlwaysHint': 'Manual extraction is always available: ask the agent ("remember this") or use the Star button on a conversation.',
     'settings.memory.modelSelect': 'Model for memory extraction',
     'settings.memory.modelSelectDesc': 'Select a small, fast model (e.g., haiku) for cost-efficient background extraction.',
     'settings.memory.noModels': 'No models configured. Add and enable a model in providers first.',
@@ -853,6 +854,7 @@ export const en: Translations = {
     'ui.sidebar.moreOptions': 'More options',
     'ui.sidebar.webSearchOn': 'Web search (on)',
     'ui.sidebar.webSearchOff': 'Web search (off)',
+    'ui.sidebar.saveToMemory': 'Save conversation to memory',
     'ui.sidebar.stop': 'Stop',
     'ui.sidebar.send': 'Send message',
     'ui.sidebar.placeholder': 'Type your message here...',
@@ -1003,6 +1005,10 @@ export const en: Translations = {
     // Notices
     // =========================================================================
     'notice.webSearchEnabled': 'Web search enabled. Set a search provider in settings > web search.',
+    'notice.memoryDisabled': 'Memory is disabled. Enable it in Settings -> Memory.',
+    'notice.memoryNoActiveConversation': 'No active conversation to save.',
+    'notice.memorySaveQueued': 'Conversation queued for memory extraction.',
+    'notice.memorySaveFailed': 'Saving the conversation failed. See console for details.',
     'notice.modeSwitched': 'Switched to {{mode}} mode',
     'notice.taskComplete': 'Agent task complete',
     'notice.loadConversationFailed': 'Could not load conversation',

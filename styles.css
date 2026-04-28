@@ -2712,6 +2712,16 @@
 
 .agent-settings-section:first-child { margin-top: 2px; }
 
+.agent-settings-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 4px 0 12px 0;
+    padding: 8px 12px;
+    background: var(--background-secondary);
+    border-left: 3px solid var(--interactive-accent);
+    border-radius: 4px;
+}
+
 /* Tab intro infobox */
 .agent-settings-desc {
     font-size: 12px;
