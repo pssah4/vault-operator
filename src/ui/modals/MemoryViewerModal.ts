@@ -20,8 +20,11 @@ import { FactStore, type Fact } from '../../core/memory/FactStore';
 import { OBSILO_PROFILE } from '../../core/memory/SoulView';
 import { confirmModal, promptModal } from './PromptModal';
 
+type Tab = 'all' | 'user' | 'soul' | 'capabilities';
+
 export class MemoryViewerModal extends Modal {
     private filterText = '';
+    private activeTab: Tab = 'all';
 
     constructor(app: App, private plugin: ObsidianAgentPlugin) {
         super(app);
@@ -52,9 +55,14 @@ export class MemoryViewerModal extends Modal {
             'Use this view to inspect or remove anything.',
         );
 
-        // Counts summary
+        // Compute counts per bucket
         const factStore = new FactStore(this.plugin.memoryDB!);
-        const totalFacts = factStore.listLatest({ limit: 5000 }).length;
+        const all = factStore.listLatest({ limit: 5000 });
+        const userFacts = all.filter(f => f.profileId !== OBSILO_PROFILE);
+        const soulFacts = all.filter(f =>
+            f.profileId === OBSILO_PROFILE && f.topics.includes('soul'));
+        const capabilityFacts = all.filter(f =>
+            f.profileId === OBSILO_PROFILE && f.topics.includes('capability'));
         let sessionCount = 0;
         try {
             const result = this.plugin.memoryDB!.getDB().exec('SELECT COUNT(*) FROM sessions');
@@ -62,14 +70,34 @@ export class MemoryViewerModal extends Modal {
                 sessionCount = Number(result[0].values[0][0]);
             }
         } catch { /* sessions table may not exist on fresh DB */ }
+
         const stats = this.contentEl.createEl('p', { cls: 'memory-viewer-stats' });
-        stats.setText(`${totalFacts} fact(s) · ${sessionCount} session summary(ies)`);
+        stats.setText(`${all.length} fact(s) · ${sessionCount} session summary(ies)`);
+
+        // Tab switcher
+        const tabBar = this.contentEl.createDiv({ cls: 'memory-viewer-tabs' });
+        const tabs: Array<{ key: Tab; label: string; count: number }> = [
+            { key: 'all', label: 'All', count: all.length },
+            { key: 'user', label: 'User memory', count: userFacts.length },
+            { key: 'soul', label: 'Obsilo’s soul', count: soulFacts.length },
+            { key: 'capabilities', label: 'Capabilities', count: capabilityFacts.length },
+        ];
+        for (const tab of tabs) {
+            const btn = tabBar.createEl('button', {
+                cls: `memory-viewer-tab${this.activeTab === tab.key ? ' memory-viewer-tab-active' : ''}`,
+                text: `${tab.label} (${tab.count})`,
+            });
+            btn.addEventListener('click', () => {
+                this.activeTab = tab.key;
+                this.render();
+            });
+        }
 
         // Filter input
         const filterRow = this.contentEl.createDiv({ cls: 'memory-viewer-filter' });
         const filterInput = filterRow.createEl('input', {
             type: 'text',
-            placeholder: 'Filter...',
+            placeholder: 'Filter within current tab...',
         });
         filterInput.value = this.filterText;
         filterInput.addEventListener('input', () => {
@@ -85,26 +113,33 @@ export class MemoryViewerModal extends Modal {
     private renderLists(container: HTMLElement): void {
         container.empty();
         const factStore = new FactStore(this.plugin.memoryDB!);
-        const all = factStore.listLatest({ limit: 1000 });
-        const filtered = this.filterText
-            ? all.filter(f =>
-                f.text.toLowerCase().includes(this.filterText.toLowerCase())
-                || f.topics.join(' ').toLowerCase().includes(this.filterText.toLowerCase()))
-            : all;
+        const all = factStore.listLatest({ limit: 5000 });
 
-        const userFacts = filtered.filter(f => f.profileId !== OBSILO_PROFILE);
-        const soulFacts = filtered.filter(f =>
+        const userFacts = all.filter(f => f.profileId !== OBSILO_PROFILE);
+        const soulFacts = all.filter(f =>
             f.profileId === OBSILO_PROFILE && f.topics.includes('soul'));
-        const capabilityFacts = filtered.filter(f =>
+        const capabilityFacts = all.filter(f =>
             f.profileId === OBSILO_PROFILE && f.topics.includes('capability'));
 
-        this.renderSection(container, 'User memory', userFacts, true,
-            'Facts Obsilo learned about you across conversations.');
-        this.renderSection(container, 'Obsilo’s soul', soulFacts, true,
-            'How Obsilo behaves: identity, values, anti-patterns, communication style. ' +
-            'Tell the agent in chat to add or change.');
-        this.renderSection(container, 'Capabilities (read-only)', capabilityFacts, false,
-            'What Obsilo knows about its own features. Auto-generated from the plugin code.');
+        const filterFn = (facts: Fact[]) => this.filterText
+            ? facts.filter(f =>
+                f.text.toLowerCase().includes(this.filterText.toLowerCase())
+                || f.topics.join(' ').toLowerCase().includes(this.filterText.toLowerCase()))
+            : facts;
+
+        if (this.activeTab === 'all' || this.activeTab === 'user') {
+            this.renderSection(container, 'User memory', filterFn(userFacts), true,
+                'Facts Obsilo learned about you across conversations.');
+        }
+        if (this.activeTab === 'all' || this.activeTab === 'soul') {
+            this.renderSection(container, 'Obsilo’s soul', filterFn(soulFacts), true,
+                'How Obsilo behaves: identity, values, anti-patterns, communication style. ' +
+                'Tell the agent in chat to add or change.');
+        }
+        if (this.activeTab === 'all' || this.activeTab === 'capabilities') {
+            this.renderSection(container, 'Capabilities (read-only)', filterFn(capabilityFacts), false,
+                'What Obsilo knows about its own features. Auto-generated from the plugin code.');
+        }
     }
 
     private renderSection(

@@ -2838,6 +2838,29 @@
     color: var(--text-faint);
     margin: 0 0 12px 0;
 }
+.memory-viewer-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 10px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.memory-viewer-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+}
+.memory-viewer-tab:hover {
+    color: var(--text-normal);
+}
+.memory-viewer-tab-active {
+    color: var(--text-accent);
+    border-bottom-color: var(--text-accent);
+}
 .memory-viewer-filter {
     margin-bottom: 12px;
 }
