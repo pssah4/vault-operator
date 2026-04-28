@@ -90,24 +90,25 @@ describe('AgingService (PLAN-007 task A.3)', () => {
         expect(report.skipped).toBe(false);
     });
 
-    it('decays a 90d fact (default) by half', () => {
+    it('single-shot fact decays at 60d half-life', () => {
         const f = store.insert({ text: 'old', topics: ['x'], importance: 0.8 });
-        setCreatedAt(f.id, daysAgo(90));
+        setCreatedAt(f.id, daysAgo(60));
         aging.runAgingCycle({ now: NOW, force: true });
         const updated = store.getById(f.id);
+        // 0.8 * 0.5^1 = 0.4
         expect(updated?.importance).toBeCloseTo(0.4, 2);
     });
 
-    it('identity decays much slower (180d half-life)', () => {
+    it('single-shot identity decays at 90d half-life (slower than fact)', () => {
         const f = store.insert({ text: 'I am', topics: [], importance: 0.8, kind: 'identity' });
         setCreatedAt(f.id, daysAgo(90));
         aging.runAgingCycle({ now: NOW, force: true });
         const updated = store.getById(f.id);
-        // 0.8 * 0.5^(90/180) = 0.8 * sqrt(0.5) ≈ 0.566
-        expect(updated?.importance).toBeCloseTo(0.566, 2);
+        // 0.8 * 0.5^1 = 0.4
+        expect(updated?.importance).toBeCloseTo(0.4, 2);
     });
 
-    it('event decays fast (14d half-life)', () => {
+    it('event decays fast (14d half-life single-tier)', () => {
         const f = store.insert({ text: 'today\'s game', topics: [], importance: 0.6, kind: 'event' });
         setCreatedAt(f.id, daysAgo(28));
         aging.runAgingCycle({ now: NOW, force: true });
@@ -116,12 +117,50 @@ describe('AgingService (PLAN-007 task A.3)', () => {
         expect(updated?.importance).toBeCloseTo(0.15, 2);
     });
 
-    it('preference does NOT decay over time', () => {
-        const f = store.insert({ text: 'prefers X', topics: [], importance: 0.6, kind: 'preference' });
+    it('single-shot preference decays at 30d half-life (kurzlebig, kein Muster)', () => {
+        const f = store.insert({ text: 'prefers X today', topics: [], importance: 0.6, kind: 'preference' });
+        setCreatedAt(f.id, daysAgo(30));
+        aging.runAgingCycle({ now: NOW, force: true });
+        const updated = store.getById(f.id);
+        // 0.6 * 0.5 = 0.3
+        expect(updated?.importance).toBeCloseTo(0.3, 2);
+    });
+
+    it('pattern-tier preference (confirmation_count >= 3) does NOT decay', () => {
+        const f = store.insert({ text: 'prefers Plan-Mode', topics: [], importance: 0.6, kind: 'preference' });
         setCreatedAt(f.id, daysAgo(365));
+        rawDb.run('UPDATE facts SET confirmation_count = 5 WHERE id = ?', [f.id]);
         aging.runAgingCycle({ now: NOW, force: true });
         const updated = store.getById(f.id);
         expect(updated?.importance).toBeCloseTo(0.6, 2);
+    });
+
+    it('pattern-tier identity (confirmation_count >= 3) does NOT decay', () => {
+        const f = store.insert({ text: 'works at EnBW', topics: [], importance: 0.7, kind: 'identity' });
+        setCreatedAt(f.id, daysAgo(365));
+        rawDb.run('UPDATE facts SET confirmation_count = 4 WHERE id = ?', [f.id]);
+        aging.runAgingCycle({ now: NOW, force: true });
+        const updated = store.getById(f.id);
+        expect(updated?.importance).toBeCloseTo(0.7, 2);
+    });
+
+    it('pattern-tier fact does NOT decay', () => {
+        const f = store.insert({ text: 'Java 11 has var-keyword', topics: [], importance: 0.5, kind: 'fact' });
+        setCreatedAt(f.id, daysAgo(180));
+        rawDb.run('UPDATE facts SET confirmation_count = 3 WHERE id = ?', [f.id]);
+        aging.runAgingCycle({ now: NOW, force: true });
+        const updated = store.getById(f.id);
+        expect(updated?.importance).toBeCloseTo(0.5, 2);
+    });
+
+    it('pattern-tier event still decays but at 30d half-life (slower than single-tier 14d)', () => {
+        const f = store.insert({ text: 'weekly standup', topics: [], importance: 0.6, kind: 'event' });
+        setCreatedAt(f.id, daysAgo(60));
+        rawDb.run('UPDATE facts SET confirmation_count = 3 WHERE id = ?', [f.id]);
+        aging.runAgingCycle({ now: NOW, force: true });
+        const updated = store.getById(f.id);
+        // 0.6 * 0.5^(60/30) = 0.6 * 0.25 = 0.15
+        expect(updated?.importance).toBeCloseTo(0.15, 2);
     });
 
     it('recent use within 7 days adds a +0.05 boost', () => {
@@ -154,15 +193,16 @@ describe('AgingService (PLAN-007 task A.3)', () => {
     it('reports processed/updated counts and per-kind breakdown', () => {
         const a = store.insert({ text: 'x', topics: [], importance: 0.6, kind: 'fact' });
         const b = store.insert({ text: 'y', topics: [], importance: 0.6, kind: 'identity' });
+        // Pattern-tier preference -> doesn't decay -> not counted as updated.
         const c = store.insert({ text: 'z', topics: [], importance: 0.6, kind: 'preference' });
         setCreatedAt(a.id, daysAgo(90));
         setCreatedAt(b.id, daysAgo(90));
         setCreatedAt(c.id, daysAgo(90));
+        rawDb.run('UPDATE facts SET confirmation_count = 5 WHERE id = ?', [c.id]);
         const report = aging.runAgingCycle({ now: NOW, force: true });
         expect(report.factsProcessed).toBe(3);
         expect(report.byKind.fact).toBe(1);
         expect(report.byKind.identity).toBe(1);
-        // preference doesn't change -> not counted as updated
         expect(report.byKind.preference).toBe(0);
     });
 

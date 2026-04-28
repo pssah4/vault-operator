@@ -47,12 +47,33 @@ export interface AgingReport {
     byKind: Record<FactKind, number>;
 }
 
-const HALF_LIFE_DAYS: Record<FactKind, number | null> = {
-    identity: 180,
-    fact: 90,
-    event: 14,
-    preference: null, // never decays
+/**
+ * Two-tier half-life model (FEATURE-0319 Phase 5 refinement).
+ *
+ * `single`: short-shot information that hasn't repeated. Decays so
+ * unconfirmed claims fade away over time without polluting the hot
+ * memory block.
+ * `pattern`: information that has been confirmed >= PATTERN_THRESHOLD
+ * times in conversations. Treated as stable -- never decays (null) or
+ * decays much slower. The user's framing: information becomes a
+ * "pattern" once it repeats, and patterns are not made unimportant by
+ * mere age.
+ *
+ * Picking thresholds: identity / preference / fact reach pattern-tier
+ * fast (any repeat is enough). event has its own pattern-tier with a
+ * longer half-life because some "events" recur (weekly meeting, daily
+ * standup) and we want them to stick around longer once they show
+ * pattern-like behaviour.
+ */
+const HALF_LIFE_DAYS_BY_TIER: Record<FactKind, { single: number | null; pattern: number | null }> = {
+    identity:   { single: 90,  pattern: null },
+    fact:       { single: 60,  pattern: null },
+    preference: { single: 30,  pattern: null },
+    event:      { single: 14,  pattern: 30   },
 };
+
+/** confirmation_count >= this becomes "pattern" tier. */
+const PATTERN_THRESHOLD = 3;
 
 const RECENCY_BOOST_DAYS = 7;
 const RECENCY_BOOST = 0.05;
@@ -88,7 +109,7 @@ export class AgingService {
 
         const db = this.memoryDB.getDB();
         const candidates = db.exec(
-            `SELECT id, kind, importance, created_at, last_used_at, use_count
+            `SELECT id, kind, importance, created_at, last_used_at, use_count, confirmation_count
                FROM facts
               WHERE is_latest = 1 AND deprecated_at IS NULL`,
         );
@@ -105,10 +126,11 @@ export class AgingService {
                 const createdAt = row[3] as string;
                 const lastUsedAtRaw = row[4] as string | null;
                 const useCount = (row[5] as number) ?? 0;
+                const confirmationCount = (row[6] as number) ?? 1;
 
                 const next = computeNextImportance(
                     currentImportance, kind, createdAt, lastUsedAtRaw,
-                    useCount, now, minImportance,
+                    useCount, confirmationCount, now, minImportance,
                 );
                 if (Math.abs(next - currentImportance) < 0.001) continue;
                 stmt.run([next, id]);
@@ -136,13 +158,17 @@ function computeNextImportance(
     createdAt: string,
     lastUsedAt: string | null,
     useCount: number,
+    confirmationCount: number,
     now: Date,
     floor: number,
 ): number {
-    const halfLifeDays = HALF_LIFE_DAYS[kind];
+    const tier = confirmationCount >= PATTERN_THRESHOLD ? 'pattern' : 'single';
+    const halfLifeDays = HALF_LIFE_DAYS_BY_TIER[kind][tier];
     let decayed = current;
 
-    // Decay path -- skipped for preferences (half-life null).
+    // Decay path -- skipped when half-life is null (pattern-tier
+    // identity/fact/preference, single-tier preference is also null
+    // by the legacy never-decay contract).
     if (halfLifeDays !== null) {
         const ageDays = ageInDays(createdAt, now);
         if (ageDays > 0) {
