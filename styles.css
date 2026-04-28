@@ -2729,22 +2729,49 @@
     border-radius: 4px;
 }
 
+.agent-settings-soul-intro {
+    margin: 4px 0 16px 0;
+    padding: 10px 14px;
+    background: var(--background-secondary);
+    border-left: 3px solid var(--interactive-accent);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.agent-settings-soul-intro p {
+    margin: 0;
+}
+.agent-settings-soul-intro p + p {
+    margin-top: 6px;
+}
+
 .agent-settings-soul-block {
-    margin: 12px 0;
-    padding: 8px 12px;
+    margin: 10px 0;
+    padding: 10px 12px;
     background: var(--background-secondary);
     border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
 }
 .agent-settings-soul-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 4px;
 }
 .agent-settings-soul-header h4 {
     margin: 0;
     font-size: 13px;
+    font-weight: 600;
     color: var(--text-normal);
+}
+.agent-settings-soul-desc {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+.agent-settings-soul-desc-example {
+    color: var(--text-faint);
+    font-style: italic;
 }
 .agent-settings-soul-header button {
     width: 22px;
@@ -2755,12 +2782,13 @@
     cursor: pointer;
 }
 .agent-settings-soul-empty {
+    margin-top: 8px;
     font-size: 12px;
     color: var(--text-faint);
     font-style: italic;
 }
 .agent-settings-soul-list {
-    margin: 4px 0 0 0;
+    margin: 8px 0 0 0;
     padding: 0;
     list-style: none;
 }
@@ -2795,12 +2823,19 @@
 .agent-settings-soul-import {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin: 8px 0 12px 0;
+    gap: 10px;
+    margin: 16px 0 8px 0;
+    padding-top: 8px;
+    border-top: 1px dashed var(--background-modifier-border);
 }
 .agent-settings-soul-import button {
-    padding: 6px 12px;
+    padding: 4px 10px;
+    font-size: 12px;
     cursor: pointer;
+}
+.agent-settings-soul-import-hint {
+    font-size: 11px;
+    color: var(--text-faint);
 }
 .agent-settings-soul-caps {
     margin: 16px 0;

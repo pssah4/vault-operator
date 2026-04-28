@@ -262,7 +262,7 @@ export class MemoryTab {
     private buildSoulSection(containerEl: HTMLElement): void {
         containerEl.createEl('h3', {
             cls: 'agent-settings-section',
-            text: 'Obsilo’s soul',
+            text: 'Obsilo’s soul (agent personality)',
         });
 
         const memDB = this.plugin.memoryDB;
@@ -274,39 +274,94 @@ export class MemoryTab {
             return;
         }
 
-        const intro = containerEl.createDiv({ cls: 'agent-settings-hint' });
-        intro.setText(
-            'Curated values, anti-patterns, identity and communication style. ' +
-            'Surfaces in every conversation’s system prompt (top-3 per category, ranked by importance). ' +
-            'You can also instruct Obsilo directly in chat -- the agent uses update_soul to persist your guidance.',
+        const intro = containerEl.createDiv({ cls: 'agent-settings-soul-intro' });
+        intro.createEl('p').setText(
+            'These four lists shape how Obsilo behaves across every conversation. ' +
+            'The top three entries per category land in the system prompt of every chat, ' +
+            'so what you write here directly steers the agent’s tone, focus, and habits.',
+        );
+        intro.createEl('p').setText(
+            'Tip: you usually don’t need to edit this manually. Just tell Obsilo in chat ' +
+            '("merk dir, ich mag keine Emojis") — the agent persists your instruction ' +
+            'into the right list automatically.',
         );
 
-        // Legacy soul.md import (one-time migration)
-        const importRow = containerEl.createDiv({ cls: 'agent-settings-soul-import' });
-        const importBtn = importRow.createEl('button', { text: 'Import legacy soul.md' });
-        importBtn.addEventListener('click', () => { void this.importLegacySoulMd(); });
-        importRow.createSpan({
-            cls: 'agent-settings-hint',
-            text: 'Idempotent — re-running won’t create duplicates.',
-        });
+        const SOUL_META: Array<{
+            label: string;
+            category: 'identity' | 'value' | 'anti_pattern' | 'communication';
+            description: string;
+            example: string;
+        }> = [
+            {
+                label: 'Identity',
+                category: 'identity',
+                description: 'Who Obsilo is, what role it plays. Rarely changes.',
+                example: 'e.g. "Obsilo is an AI agent embedded in Obsidian"',
+            },
+            {
+                label: 'Values',
+                category: 'value',
+                description: 'Stable beliefs that drive how Obsilo decides.',
+                example: 'e.g. "Usefulness over politeness"',
+            },
+            {
+                label: 'Anti-Patterns',
+                category: 'anti_pattern',
+                description: 'Things Obsilo should not do. Hard rules.',
+                example: 'e.g. "No emojis", "No filler phrases"',
+            },
+            {
+                label: 'Communication',
+                category: 'communication',
+                description: 'Tone, language, level of detail.',
+                example: 'e.g. "German, casual, on equal footing"',
+            },
+        ];
 
         void (async () => {
             const { SoulView } = await import('../../core/memory/SoulView');
             const view = new SoulView(memDB);
             const snapshot = view.snapshot();
-            this.renderSoulCategory(containerEl, 'Identity', 'identity', snapshot.identity);
-            this.renderSoulCategory(containerEl, 'Values', 'value', snapshot.values);
-            this.renderSoulCategory(containerEl, 'Anti-Patterns', 'anti_pattern', snapshot.antiPatterns);
-            this.renderSoulCategory(containerEl, 'Communication', 'communication', snapshot.communication);
+            const buckets: Record<typeof SOUL_META[number]['category'], typeof snapshot.identity> = {
+                identity: snapshot.identity,
+                value: snapshot.values,
+                anti_pattern: snapshot.antiPatterns,
+                communication: snapshot.communication,
+            };
+            for (const meta of SOUL_META) {
+                this.renderSoulCategory(
+                    containerEl, meta.label, meta.category,
+                    buckets[meta.category], meta.description, meta.example,
+                );
+            }
 
-            // Read-only capability snapshot (L3) -- diagnostic.
+            // Legacy soul.md import (small, secondary -- right below the lists).
+            const importRow = containerEl.createDiv({ cls: 'agent-settings-soul-import' });
+            const importBtn = importRow.createEl('button', { text: 'Import legacy soul.md' });
+            importBtn.addEventListener('click', () => { void this.importLegacySoulMd(); });
+            importRow.createSpan({
+                cls: 'agent-settings-soul-import-hint',
+                text: 'One-time pull from the old memory/soul.md. Idempotent.',
+            });
+
+            // Diagnostics: read-only capability snapshot. Visually separated.
+            containerEl.createEl('h3', {
+                cls: 'agent-settings-section',
+                text: 'Diagnostics',
+            });
+            const diagIntro = containerEl.createDiv({ cls: 'agent-settings-hint' });
+            diagIntro.setText(
+                'What Obsilo currently knows about its own features. Auto-generated from the ' +
+                'plugin code on every load -- read-only. Useful when the agent gives a wrong ' +
+                'answer about a feature: check here whether the capability snapshot is up to date.',
+            );
             const caps = view.getCapabilities();
             const capWrap = containerEl.createDiv({ cls: 'agent-settings-soul-caps' });
-            const capHeader = capWrap.createEl('details');
-            capHeader.createEl('summary', {
-                text: `Capabilities snapshot (${caps.length} entries, auto-synced)`,
+            const capDetails = capWrap.createEl('details');
+            capDetails.createEl('summary', {
+                text: `Capabilities snapshot (${caps.length} entries)`,
             });
-            const capList = capHeader.createEl('ul', { cls: 'agent-settings-soul-cap-list' });
+            const capList = capDetails.createEl('ul', { cls: 'agent-settings-soul-cap-list' });
             for (const c of caps) {
                 capList.createEl('li').setText(c.text);
             }
@@ -318,6 +373,8 @@ export class MemoryTab {
         label: string,
         category: 'value' | 'anti_pattern' | 'identity' | 'communication',
         facts: Array<{ id: number; text: string; importance: number }>,
+        description: string,
+        example: string,
     ): void {
         const block = containerEl.createDiv({ cls: 'agent-settings-soul-block' });
         const header = block.createDiv({ cls: 'agent-settings-soul-header' });
@@ -328,8 +385,13 @@ export class MemoryTab {
         });
         addBtn.addEventListener('click', () => { void this.promptAddSoulEntry(category, label); });
 
+        const desc = block.createDiv({ cls: 'agent-settings-soul-desc' });
+        desc.createSpan({ cls: 'agent-settings-soul-desc-main', text: description });
+        desc.createEl('br');
+        desc.createSpan({ cls: 'agent-settings-soul-desc-example', text: example });
+
         if (facts.length === 0) {
-            block.createDiv({ cls: 'agent-settings-soul-empty', text: '(empty)' });
+            block.createDiv({ cls: 'agent-settings-soul-empty', text: 'No entries yet.' });
             return;
         }
         const list = block.createEl('ul', { cls: 'agent-settings-soul-list' });
