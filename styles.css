@@ -2795,6 +2795,16 @@
 .agent-settings-soul-remove:hover {
     color: var(--text-error);
 }
+.agent-settings-soul-import {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0 12px 0;
+}
+.agent-settings-soul-import button {
+    padding: 6px 12px;
+    cursor: pointer;
+}
 .agent-settings-soul-caps {
     margin: 16px 0;
 }
