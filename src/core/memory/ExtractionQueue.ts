@@ -155,14 +155,42 @@ export class ExtractionQueue {
         try {
             const raw = await this.fs.read(this.filePath);
             const parsed = JSON.parse(raw);
-            this.items = Array.isArray(parsed) ? parsed : [];
+            // v2 shape: { items: [...], lastEnqueuedAt: { [id]: ts } }
+            // v1 shape (back-compat): plain array of items, no throttle state.
+            if (Array.isArray(parsed)) {
+                this.items = parsed;
+                this.lastEnqueuedAt.clear();
+            } else if (parsed && typeof parsed === 'object') {
+                this.items = Array.isArray(parsed.items) ? parsed.items : [];
+                this.lastEnqueuedAt.clear();
+                if (parsed.lastEnqueuedAt && typeof parsed.lastEnqueuedAt === 'object') {
+                    for (const [id, ts] of Object.entries(parsed.lastEnqueuedAt as Record<string, unknown>)) {
+                        if (typeof ts === 'number' && Number.isFinite(ts)) {
+                            this.lastEnqueuedAt.set(id, ts);
+                        }
+                    }
+                    // Drop entries older than the throttle window twice over --
+                    // anything older has no chance of blocking a future enqueue.
+                    const cutoff = Date.now() - 2 * this.throttleMs;
+                    for (const [id, ts] of [...this.lastEnqueuedAt]) {
+                        if (ts < cutoff) this.lastEnqueuedAt.delete(id);
+                    }
+                }
+            } else {
+                this.items = [];
+            }
         } catch {
             this.items = [];
+            this.lastEnqueuedAt.clear();
         }
     }
 
     async save(): Promise<void> {
-        await this.fs.write(this.filePath, JSON.stringify(this.items, null, 2));
+        const payload = {
+            items: this.items,
+            lastEnqueuedAt: Object.fromEntries(this.lastEnqueuedAt),
+        };
+        await this.fs.write(this.filePath, JSON.stringify(payload, null, 2));
     }
 
     // -----------------------------------------------------------------------

@@ -267,6 +267,35 @@ describe('ExtractionQueue', () => {
             expect(q.size()).toBe(2);
         });
 
+        it('throttle state survives save -> new instance load', async () => {
+            const fs = createMockFs();
+            const q1 = new ExtractionQueue(fs);
+            q1.setThrottleMs(60_000);
+            await q1.enqueue(makeItem('chat-1'));
+            // New instance reads from same fs.
+            const q2 = new ExtractionQueue(fs);
+            q2.setThrottleMs(60_000);
+            await q2.load();
+            await q2.enqueue(makeItem('chat-1'));
+            // q2's enqueue should be throttled because q1's lastEnqueuedAt
+            // was persisted.
+            expect(q2.size()).toBe(1);
+        });
+
+        it('legacy plain-array persistence loads without throttle state', async () => {
+            const fs = createMockFs();
+            await fs.write(
+                'pending-extractions.json',
+                JSON.stringify([{
+                    conversationId: 'old', messages: [], title: 'T',
+                    queuedAt: new Date().toISOString(),
+                }]),
+            );
+            const q = new ExtractionQueue(fs);
+            await q.load();
+            expect(q.size()).toBe(1);
+        });
+
         it('setThrottleMs(0) disables the throttle entirely', async () => {
             const fs = createMockFs();
             const q = new ExtractionQueue(fs);

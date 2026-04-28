@@ -440,3 +440,56 @@ PLAN-003 anlegen (FEATURE-0314 implementation plan):
 
 Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
 ```
+
+---
+
+## requirements-phase 2026-04-28: EPIC-021 ChatGPT OAuth Provider
+
+**Phase:** /requirements-engineering komplett. Naechster Schritt /architecture.
+
+**NFR-Summary:**
+
+- **Performance:** Token-Refresh <500ms, Loopback-Startup <200ms, TTFT <2s p95, Streaming-Chunk-Verarbeitung <50ms.
+- **Security:** Tokens (access/refresh/id) ueber SafeStorageService verschluesselt, PKCE 64-Byte-Verifier mit SHA-256-Challenge, State-Param 32-Byte-Random, Loopback-Bind ausschliesslich 127.0.0.1 Port-Range 1455-1460, Scope `openid profile email offline_access`, kein Token in Logs, Per-Request-Auth ohne Caching im Handler.
+- **Reliability:** Refresh 60s vor Ablauf, 401-Auto-Retry genau einmal, Promise-Lock fuer parallele Refreshs, Loopback-Timeout 5min, Schema-Validation vor Mapping.
+- **Compliance:** kein fetch(), `requestUrl` plus eslint-disable-Begruendung fuer `require('http')`/`require('crypto')`, kein innerHTML/inline-Style/Emoji im UI.
+
+**Critical ASRs (jeweils ADR-pflichtig):**
+
+1. Eigener `ChatGptOAuthService` als Singleton (Token-State plugin-weit, Refresh-Lock).
+2. Loopback-HTTP-Server in Electron (PKCE-Callback, Renderer vs. Main-Prozess offen).
+3. Schema-Mapping Codex-Responses zu ApiStream (Drift-Resilienz, eine Datei fuer Schema-Annahmen).
+4. Tool-Definitions im Responses-Format (Helper fuer alle Codex-Aufrufe).
+5. SafeStorageService-Integration mit neuem `chatgptOAuth`-Settings-Schema.
+
+**Open Architecture Questions:**
+
+- Streaming-Transport: `requestUrl` mit Buffer-Polling oder Node-`https`-Stream wie `openai.ts:75`?
+- Loopback-Server im Renderer oder Main-Prozess via IPC?
+- Service-Verortung: neuer `src/core/auth/`-Ordner oder zu bestehendem `src/core/security/`?
+- Settings-Struktur: flach oder verschachtelt (`chatgptOAuth: {...}`)?
+- JWT-Decoder: eigene 30-Zeilen-Implementierung oder `jose`-Lib?
+- Modell-Discovery: Hardcode-Liste oder Probe-Request gegen evtl. existierenden /models-Endpoint?
+- Schema-Validation: `zod` (falls schon im Bundle) oder Type-Guards?
+
+**Constraints:**
+
+- Inoffizielle Endpoints (`chatgpt.com/backend-api/codex/responses`), kein SLA, Schema kann sich aendern. Disclaimer-Pflicht im UI.
+- Codex-CLI-Client-ID als Default. Kein Custom-Feld in MVP. OpenAI-Sperrrisiko ueber Endpoint-Drift-Indikator monitoren.
+- Mobile (iOS/Android) ausgeschlossen, weil `safeStorage` und Loopback-Server fehlen.
+- Plugin-Review-Risiko: Loopback-HTTP-Server koennte Aufmerksamkeit ziehen. PR-Begruendung vorbereiten.
+
+**Forbidden-Terms-Check:** Bestanden. Keine Tech-Begriffe (OAuth, JWT, REST, HTTP, JSON, OpenAI, Codex, ChatGPT, SSE, Bearer) in den Success-Criteria-Tabellen der drei Features. Tech-Details ausschliesslich in `Technical NFRs` und `Architecture Considerations`.
+
+**Artefakte:**
+
+- `_devprocess/requirements/epics/EPIC-021-chatgpt-oauth-provider.md`
+- `_devprocess/requirements/features/FEATURE-2101-chatgpt-oauth-lifecycle.md`
+- `_devprocess/requirements/features/FEATURE-2102-chatgpt-codex-api-handler.md`
+- `_devprocess/requirements/features/FEATURE-2103-chatgpt-oauth-settings-ui.md`
+- `_devprocess/requirements/handoff/architect-handoff-021-chatgpt-oauth.md`
+- `_devprocess/context/10_backlog.md` (Eintrag unter "Aktueller Feature-Status" + "Naechste Prioritaeten")
+
+**Naechster Schritt:**
+
+`/architecture` mit Fokus auf ADR-Vorschlag (Loopback-Verortung, Streaming-Transport, Service-Layout) und plan-context-021.md.

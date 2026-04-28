@@ -327,6 +327,22 @@ Obsilo-Adaption: SubTask-Typen (research, implementation, verification) mit Stat
 | Model Compatibility Check | FEATURE-0605-model-compatibility-check.md | P2-Medium |
 | Obsilo Gateway | FEATURE-0901-obsilo-gateway.md | Nach Stabilisierung (Monetarisierung) |
 
+**EPIC-021: ChatGPT OAuth Provider**
+
+Quelle: User-Request 2026-04-28 (analog zu EPIC-012 Copilot, EPIC-013 Kilo Gateway).
+Epic: `_devprocess/requirements/epics/EPIC-021-chatgpt-oauth-provider.md`
+Handoff: `architect-handoff-021-chatgpt-oauth.md`
+Phase: Building
+Status: Planned
+
+| Feature | Spec | Prioritaet | Aufwand | Status |
+|---------|------|------------|---------|--------|
+| ChatGPT OAuth Lifecycle (PKCE + Loopback + Refresh) | FEATURE-2101-chatgpt-oauth-lifecycle.md | P0-Critical | M | Geplant |
+| Codex Responses-API Handler | FEATURE-2102-chatgpt-codex-api-handler.md | P0-Critical | M | Geplant |
+| Settings-UI mit "Mit ChatGPT anmelden" | FEATURE-2103-chatgpt-oauth-settings-ui.md | P0-Critical | S | Geplant |
+
+Implementierungs-Reihenfolge: 2101 (OAuth-Service) -> 2102 (Codex Handler) -> 2103 (Settings UI). Alle drei Features sind P0 fuer den Release. Architektur-ADR (ADR-076 oder Folge-Nummer) noch ausstehend, erstellt durch `/architecture`.
+
 **EPIC-022: Skill-Package Ecosystem (Anthropic-kompatibel)**
 
 Quelle: BA-021 + User-Anforderung nach Anthropic-kompatiblem Skill-Format + Coordinator-Pattern.
@@ -626,6 +642,7 @@ Bleibt Future-Considerations:
 3. **MCP Remote Auth (FEATURE-1404)** -- Eigener Feature-Branch, nicht Wave 2. Heute: Bearer-Token-Auth (McpBridge + Cloudflare-Relay-Worker). Spec fordert OAuth 2.1 + PKCE (Authorization-Endpoint, PKCE-Challenges, Refresh-Tokens, Client-Registration, Settings-UI) -- ~500-1000 LOC plus Security-Review. Zu gross fuer inkrementelle Wave-Arbeit.
 4. ~~**Gemini Provider (ADR-064)**~~ -- Already implemented in the main codebase: `ProviderType 'gemini'`, built-in models, UI labels/colors, model fetching, ModelConfigModal wiring, model-registry entries. Nothing left to do. Flagged in Wave 2 review 2026-04-17.
 5. **Wave-2 Triage** -- BUG-016, Excalidraw-Arrows, Hard Tool-Filter (siehe oben)
+6. **EPIC-021 ChatGPT OAuth Provider** -- Epic + 3 Features + Handoff geschrieben (2026-04-28). ADR (ADR-076 oder Folge-Nummer) ueber `/architecture` ausstehend. Implementierungs-Reihenfolge: 2101 OAuth-Service -> 2102 Codex Handler -> 2103 Settings UI.
 
 ### Kurzfristig (danach)
 
