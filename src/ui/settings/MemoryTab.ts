@@ -262,179 +262,33 @@ export class MemoryTab {
     private buildSoulSection(containerEl: HTMLElement): void {
         containerEl.createEl('h3', {
             cls: 'agent-settings-section',
-            text: 'Obsilo’s soul (agent personality)',
+            text: 'Memory contents',
         });
 
-        const memDB = this.plugin.memoryDB;
-        if (!memDB?.isOpen()) {
-            containerEl.createEl('p', {
-                cls: 'agent-settings-hint',
-                text: 'Memory database not open. Open the plugin once to initialize, then return here.',
-            });
-            return;
-        }
-
-        const intro = containerEl.createDiv({ cls: 'agent-settings-soul-intro' });
-        intro.createEl('p').setText(
-            'These four lists shape how Obsilo behaves across every conversation. ' +
-            'The top three entries per category land in the system prompt of every chat, ' +
-            'so what you write here directly steers the agent’s tone, focus, and habits.',
-        );
-        intro.createEl('p').setText(
-            'Tip: you usually don’t need to edit this manually. Just tell Obsilo in chat ' +
-            '("merk dir, ich mag keine Emojis") — the agent persists your instruction ' +
-            'into the right list automatically.',
+        const intro = containerEl.createDiv({ cls: 'agent-settings-hint' });
+        intro.setText(
+            'Inspect everything Obsilo stores -- about you, about itself, and its self-awareness ' +
+            'capabilities. Add entries by talking to the agent in chat ("merk dir, ich mag keine Emojis"); ' +
+            'this view is for transparency and removal.',
         );
 
-        const SOUL_META: Array<{
-            label: string;
-            category: 'identity' | 'value' | 'anti_pattern' | 'communication';
-            description: string;
-            example: string;
-        }> = [
-            {
-                label: 'Identity',
-                category: 'identity',
-                description: 'Who Obsilo is, what role it plays. Rarely changes.',
-                example: 'e.g. "Obsilo is an AI agent embedded in Obsidian"',
-            },
-            {
-                label: 'Values',
-                category: 'value',
-                description: 'Stable beliefs that drive how Obsilo decides.',
-                example: 'e.g. "Usefulness over politeness"',
-            },
-            {
-                label: 'Anti-Patterns',
-                category: 'anti_pattern',
-                description: 'Things Obsilo should not do. Hard rules.',
-                example: 'e.g. "No emojis", "No filler phrases"',
-            },
-            {
-                label: 'Communication',
-                category: 'communication',
-                description: 'Tone, language, level of detail.',
-                example: 'e.g. "German, casual, on equal footing"',
-            },
-        ];
+        new Setting(containerEl)
+            .setName('View memory')
+            .setDesc('Browse user facts, agent soul, and capability snapshot. Soft-delete from here.')
+            .addButton((b) => b
+                .setButtonText('Open')
+                .setCta()
+                .onClick(async () => {
+                    const { MemoryViewerModal } = await import('../modals/MemoryViewerModal');
+                    new MemoryViewerModal(this.app, this.plugin).open();
+                }));
 
-        void (async () => {
-            const { SoulView } = await import('../../core/memory/SoulView');
-            const view = new SoulView(memDB);
-            const snapshot = view.snapshot();
-            const buckets: Record<typeof SOUL_META[number]['category'], typeof snapshot.identity> = {
-                identity: snapshot.identity,
-                value: snapshot.values,
-                anti_pattern: snapshot.antiPatterns,
-                communication: snapshot.communication,
-            };
-            for (const meta of SOUL_META) {
-                this.renderSoulCategory(
-                    containerEl, meta.label, meta.category,
-                    buckets[meta.category], meta.description, meta.example,
-                );
-            }
-
-            // Legacy soul.md import (small, secondary -- right below the lists).
-            const importRow = containerEl.createDiv({ cls: 'agent-settings-soul-import' });
-            const importBtn = importRow.createEl('button', { text: 'Import legacy soul.md' });
-            importBtn.addEventListener('click', () => { void this.importLegacySoulMd(); });
-            importRow.createSpan({
-                cls: 'agent-settings-soul-import-hint',
-                text: 'One-time pull from the old memory/soul.md. Idempotent.',
-            });
-
-            // Diagnostics: read-only capability snapshot. Visually separated.
-            containerEl.createEl('h3', {
-                cls: 'agent-settings-section',
-                text: 'Diagnostics',
-            });
-            const diagIntro = containerEl.createDiv({ cls: 'agent-settings-hint' });
-            diagIntro.setText(
-                'What Obsilo currently knows about its own features. Auto-generated from the ' +
-                'plugin code on every load -- read-only. Useful when the agent gives a wrong ' +
-                'answer about a feature: check here whether the capability snapshot is up to date.',
-            );
-            const caps = view.getCapabilities();
-            const capWrap = containerEl.createDiv({ cls: 'agent-settings-soul-caps' });
-            const capDetails = capWrap.createEl('details');
-            capDetails.createEl('summary', {
-                text: `Capabilities snapshot (${caps.length} entries)`,
-            });
-            const capList = capDetails.createEl('ul', { cls: 'agent-settings-soul-cap-list' });
-            for (const c of caps) {
-                capList.createEl('li').setText(c.text);
-            }
-        })().catch(e => console.warn('[MemoryTab] soul section render failed:', e));
-    }
-
-    private renderSoulCategory(
-        containerEl: HTMLElement,
-        label: string,
-        category: 'value' | 'anti_pattern' | 'identity' | 'communication',
-        facts: Array<{ id: number; text: string; importance: number }>,
-        description: string,
-        example: string,
-    ): void {
-        const block = containerEl.createDiv({ cls: 'agent-settings-soul-block' });
-        const header = block.createDiv({ cls: 'agent-settings-soul-header' });
-        header.createEl('h4', { text: label });
-        const addBtn = header.createEl('button', {
-            text: '+',
-            attr: { 'aria-label': `Add ${label} entry` },
-        });
-        addBtn.addEventListener('click', () => { void this.promptAddSoulEntry(category, label); });
-
-        const desc = block.createDiv({ cls: 'agent-settings-soul-desc' });
-        desc.createSpan({ cls: 'agent-settings-soul-desc-main', text: description });
-        desc.createEl('br');
-        desc.createSpan({ cls: 'agent-settings-soul-desc-example', text: example });
-
-        if (facts.length === 0) {
-            block.createDiv({ cls: 'agent-settings-soul-empty', text: 'No entries yet.' });
-            return;
-        }
-        const list = block.createEl('ul', { cls: 'agent-settings-soul-list' });
-        for (const f of facts) {
-            const item = list.createEl('li');
-            item.createSpan({ cls: 'agent-settings-soul-text', text: f.text });
-            const removeBtn = item.createEl('button', {
-                cls: 'agent-settings-soul-remove',
-                text: 'remove',
-            });
-            removeBtn.addEventListener('click', () => { void this.removeSoulEntry(f.id, label); });
-        }
-    }
-
-    private async promptAddSoulEntry(
-        category: 'value' | 'anti_pattern' | 'identity' | 'communication',
-        label: string,
-    ): Promise<void> {
-        const { promptModal } = await import('../modals/PromptModal');
-        const text = await promptModal(this.app, {
-            title: `Add ${label} entry`,
-            message: 'Single self-contained statement (max ~120 chars).',
-            placeholder: 'e.g. "Avoid filler phrases"',
-            submitLabel: 'Add',
-        });
-        if (!text || !text.trim()) return;
-        const memDB = this.plugin.memoryDB;
-        if (!memDB?.isOpen()) {
-            new Notice('Memory database not open.');
-            return;
-        }
-        const { OBSILO_PROFILE } = await import('../../core/memory/SoulView');
-        const factStore = new FactStore(memDB);
-        factStore.insert({
-            text: text.trim(),
-            topics: ['soul', category],
-            kind: 'identity',
-            importance: 0.7,
-            profileId: OBSILO_PROFILE,
-            sourceInterface: 'obsilo-self',
-        });
-        await memDB.save().catch(() => undefined);
-        this.rerender();
+        new Setting(containerEl)
+            .setName('Import legacy soul.md')
+            .setDesc('One-time pull from the old memory/soul.md into Memory v2. Idempotent.')
+            .addButton((b) => b
+                .setButtonText('Import')
+                .onClick(() => { void this.importLegacySoulMd(); }));
     }
 
     /**
@@ -491,22 +345,6 @@ export class MemoryTab {
         this.rerender();
     }
 
-    private async removeSoulEntry(factId: number, label: string): Promise<void> {
-        const ok = await confirmModal(this.app, {
-            title: `Remove ${label} entry`,
-            message: 'This deprecates the entry (soft-delete). The audit trail keeps it for recovery.',
-            confirmLabel: 'Remove',
-            cancelLabel: 'Cancel',
-            destructive: true,
-        });
-        if (!ok) return;
-        const memDB = this.plugin.memoryDB;
-        if (!memDB?.isOpen()) return;
-        const factStore = new FactStore(memDB);
-        factStore.deprecate(factId, 'removed by user via settings UI');
-        await memDB.save().catch(() => undefined);
-        this.rerender();
-    }
 
     private buildMemoryV2MigrationSection(containerEl: HTMLElement): void {
         const status = this.plugin.settings.memory.v2MigrationStatus;
