@@ -5246,20 +5246,27 @@
 .history-row-actions {
     display: flex;
     gap: 2px;
-    opacity: 0;
     flex-shrink: 0;
 }
 
-.history-row:hover .history-row-actions {
-    opacity: 1;
-}
-
+/* Hide hover-only buttons by default; reveal the whole bar on row hover. */
 .history-row-action {
     background: none;
     border: none;
     cursor: pointer;
     color: var(--text-muted);
     padding: 4px;
+    opacity: 0;
+}
+
+.history-row:hover .history-row-action {
+    opacity: 1;
+}
+
+/* Active-state buttons (e.g. memory-pinned star) stay visible even
+   when the row is not hovered -- they're a status indicator. */
+.history-row-action.history-row-action-active {
+    opacity: 1;
 }
 
 .history-row-action:hover {
