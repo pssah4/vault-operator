@@ -265,7 +265,9 @@ export class AgentSidebarView extends ItemView {
                 (id) => { void this.deleteConversation(id); },
                 (convId, title) => { void this.stampChatLinkToActiveFile(convId, title); },
                 this.activeConversationId,
-                (id, title) => { void this.saveHistoryConversationToMemory(id, title); },
+                (id, title) => this.saveHistoryConversationToMemory(id, title),
+                (id, title) => this.removeHistoryConversationFromMemory(id, title),
+                (id) => this.plugin.countMemoryFactsForConversation(id) > 0,
             );
             this.historyPanel.mount(chatWrapper);
         }
@@ -778,6 +780,22 @@ export class AgentSidebarView extends ItemView {
      * Loads the persisted UiMessages from ConversationStore and enqueues
      * them with bypassThrottle=true. Used by the Star button in HistoryPanel.
      */
+    /** Un-pin: deprecate all facts that came from this conversation. */
+    private async removeHistoryConversationFromMemory(id: string, title: string): Promise<void> {
+        const mem = this.plugin.settings.memory;
+        if (!mem.enabled) {
+            new Notice(t('notice.memoryDisabled'));
+            return;
+        }
+        try {
+            const removed = await this.plugin.unpinMemoryFactsForConversation(id);
+            new Notice(t('notice.memoryRemoved', { count: removed, title }));
+        } catch (e) {
+            console.warn('[Memory] Remove failed:', e);
+            new Notice(t('notice.memorySaveFailed'));
+        }
+    }
+
     private async saveHistoryConversationToMemory(id: string, title: string): Promise<void> {
         const mem = this.plugin.settings.memory;
         if (!mem.enabled) {

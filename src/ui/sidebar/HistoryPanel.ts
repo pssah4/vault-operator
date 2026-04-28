@@ -60,7 +60,9 @@ export class HistoryPanel {
         private onDelete: (id: string) => void,
         private onStampLink: (conversationId: string, title: string) => void,
         private activeConversationId: string | null,
-        private onSaveToMemory: ((id: string, title: string) => void) | null = null,
+        private onSaveToMemory: ((id: string, title: string) => Promise<void> | void) | null = null,
+        private onRemoveFromMemory: ((id: string, title: string) => Promise<void> | void) | null = null,
+        private isInMemory: ((id: string) => boolean) | null = null,
     ) {}
 
     /** Mount the panel inside a parent container. */
@@ -208,14 +210,22 @@ export class HistoryPanel {
                 });
 
                 if (this.onSaveToMemory) {
-                    const memBtn = actions.createEl('button', { cls: 'history-row-action clickable-icon' });
-                    setIcon(memBtn, 'star');
-                    memBtn.setAttribute('aria-label', t('ui.history.saveToMemory'));
+                    const inMem = this.isInMemory?.(conv.id) ?? false;
+                    const memBtn = actions.createEl('button', {
+                        cls: `history-row-action clickable-icon${inMem ? ' history-row-action-active' : ''}`,
+                    });
+                    setIcon(memBtn, inMem ? 'star-off' : 'star');
+                    memBtn.setAttribute('aria-label', inMem
+                        ? t('ui.history.removeFromMemory')
+                        : t('ui.history.saveToMemory'));
                     memBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         let title = conv.title.replace(/\n.*/s, '').trim();
                         if (title.length > 60) title = title.slice(0, 57) + '...';
-                        this.onSaveToMemory!(conv.id, title);
+                        const action = inMem
+                            ? this.onRemoveFromMemory?.(conv.id, title)
+                            : this.onSaveToMemory!(conv.id, title);
+                        Promise.resolve(action).then(() => this.render()).catch(() => undefined);
                     });
                 }
 

@@ -1468,6 +1468,71 @@ export default class ObsidianAgentPlugin extends Plugin {
     }
 
     /**
+     * Returns the count of latest, non-deprecated Memory v2 facts that
+     * came from this conversation. Used by the Star button in HistoryPanel
+     * to render the toggle state (filled = has facts, empty = doesn't).
+     */
+    countMemoryFactsForConversation(conversationId: string): number {
+        if (!this.memoryDB?.isOpen() || !conversationId) return 0;
+        try {
+            const result = this.memoryDB.getDB().exec(
+                `SELECT COUNT(*) FROM facts
+                  WHERE source_session_id = ?
+                    AND is_latest = 1
+                    AND deprecated_at IS NULL`,
+                [conversationId],
+            );
+            if (result.length === 0 || result[0].values.length === 0) return 0;
+            return Number(result[0].values[0][0]);
+        } catch (e) {
+            console.warn('[Memory] Fact count lookup failed:', e);
+            return 0;
+        }
+    }
+
+    /**
+     * Soft-delete all Memory v2 facts that came from this conversation
+     * and reset the thread-delta state so a future Save-to-Memory starts
+     * fresh. Returns the number of facts deprecated.
+     *
+     * Soft-delete (not hard-delete) per ADR-085: the audit trail keeps
+     * the original insert + the deprecate event so we can recover or
+     * inspect later.
+     */
+    async unpinMemoryFactsForConversation(conversationId: string): Promise<number> {
+        if (!this.memoryDB?.isOpen() || !conversationId) return 0;
+        try {
+            const { FactStore } = await import('./core/memory/FactStore');
+            const { ThreadDeltaStore } = await import('./core/memory/ThreadDeltaStore');
+            const factStore = new FactStore(this.memoryDB);
+            const result = this.memoryDB.getDB().exec(
+                `SELECT id FROM facts
+                  WHERE source_session_id = ?
+                    AND is_latest = 1
+                    AND deprecated_at IS NULL`,
+                [conversationId],
+            );
+            const ids = result.length > 0
+                ? result[0].values.map(r => r[0] as number)
+                : [];
+            for (const id of ids) {
+                factStore.deprecate(id, 'unpinned by user', conversationId);
+            }
+            // Reset thread delta so a re-Star starts from message 0 again.
+            const deltas = new ThreadDeltaStore(this.memoryDB);
+            const existing = deltas.get(conversationId);
+            if (existing) {
+                deltas.save({ threadId: conversationId, lastExtractedMessageIndex: null, deltaSummary: null });
+            }
+            await this.memoryDB.save().catch(() => undefined);
+            return ids.length;
+        } catch (e) {
+            console.warn('[Memory] Unpin failed:', e);
+            return 0;
+        }
+    }
+
+    /**
      * Open a conversation by ID via deep-link (ADR-022, FEATURE-300).
      * Activates the sidebar and loads the conversation if it exists.
      */
