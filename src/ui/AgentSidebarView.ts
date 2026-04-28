@@ -2750,6 +2750,12 @@ export class AgentSidebarView extends ItemView {
     private async deleteConversation(id: string): Promise<void> {
         const store = this.plugin.conversationStore;
         if (!store) return;
+        // Cascade: remove derived memory artefacts (facts, session summary,
+        // thread-delta) before the conversation file itself is gone, so the
+        // user expectation "delete the chat = delete its memory" holds.
+        await this.plugin.deleteMemoryForConversationCascade(id).catch((e) =>
+            console.warn('[Memory] cascade delete failed (non-fatal):', e),
+        );
         await store.delete(id);
         // If the deleted conversation is the active one, clear the chat
         if (this.activeConversationId === id) {

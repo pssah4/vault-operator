@@ -1595,6 +1595,29 @@ export default class ObsidianAgentPlugin extends Plugin {
      * the original insert + the deprecate event so we can recover or
      * inspect later.
      */
+    /**
+     * Cascade delete: when a conversation is removed from history, also
+     * remove the derived memory artefacts (session summary, thread-delta
+     * state) and deprecate every fact that came from this conversation.
+     *
+     * Returns the number of facts deprecated. Audit trail of those facts
+     * stays in `memory_audit` so the user can see what was removed; a
+     * full nuke is reachable via "Delete all memory".
+     */
+    async deleteMemoryForConversationCascade(conversationId: string): Promise<number> {
+        if (!this.memoryDB?.isOpen() || !conversationId) return 0;
+        const deprecated = await this.unpinMemoryFactsForConversation(conversationId);
+        try {
+            const db = this.memoryDB.getDB();
+            db.run('DELETE FROM sessions WHERE id = ?', [conversationId]);
+            db.run('DELETE FROM conversation_threads WHERE thread_id = ?', [conversationId]);
+            await this.memoryDB.save().catch(() => undefined);
+        } catch (e) {
+            console.warn('[Memory] Cascade delete (sessions/threads) failed:', e);
+        }
+        return deprecated;
+    }
+
     async unpinMemoryFactsForConversation(conversationId: string): Promise<number> {
         if (!this.memoryDB?.isOpen() || !conversationId) return 0;
         try {
