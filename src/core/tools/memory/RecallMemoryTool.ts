@@ -172,8 +172,58 @@ export class RecallMemoryTool extends BaseTool<'recall_memory'> {
             const topics = h.topics.length > 0 ? ` [${h.topics.join(', ')}]` : '';
             lines.push(`- **${h.text}**${tag}${topics}`);
             lines.push(`  \`${h.uri}\` -- score ${h.score.toFixed(2)}`);
+
+            // External backlinks (thread://, vault://, https://, ...) per hit.
+            // Skip for non-fact URIs to avoid recursion.
+            if (h.uri.startsWith('fact:')) {
+                const factId = Number(h.uri.slice('fact:'.length));
+                const links = this.renderExternalEdges(factId);
+                if (links.length > 0) {
+                    for (const link of links) lines.push(`  ↳ ${link}`);
+                }
+            }
         }
         return lines.join('\n');
+    }
+
+    private renderExternalEdges(factId: number): string[] {
+        const memDB = this.plugin.memoryDB;
+        if (!memDB?.isOpen() || !Number.isFinite(factId)) return [];
+        try {
+            const result = memDB.getDB().exec(
+                `SELECT to_external_ref, edge_type FROM fact_edges
+                  WHERE from_fact_id = ? AND to_external_ref IS NOT NULL
+                  ORDER BY created_at DESC LIMIT 6`,
+                [factId],
+            );
+            if (result.length === 0 || result[0].values.length === 0) return [];
+            return result[0].values.map(row => {
+                const ref = row[0] as string;
+                const edgeType = row[1] as string;
+                return this.formatExternalRef(ref, edgeType);
+            });
+        } catch {
+            return [];
+        }
+    }
+
+    private formatExternalRef(uri: string, edgeType: string): string {
+        // thread:// -> resolve to conversation title via ConversationStore,
+        // render as clickable obsidian://obsilo-chat link.
+        if (uri.startsWith('thread://')) {
+            const id = uri.slice('thread://'.length);
+            const meta = this.plugin.conversationStore?.list().find(m => m.id === id);
+            const title = meta?.title?.trim() || 'Conversation';
+            return `${edgeType}: [${title}](obsidian://obsilo-chat?id=${encodeURIComponent(id)})`;
+        }
+        if (uri.startsWith('vault://')) {
+            const path = uri.slice('vault://'.length);
+            return `${edgeType}: [[${path}]]`;
+        }
+        if (uri.startsWith('https://') || uri.startsWith('http://')) {
+            return `${edgeType}: <${uri}>`;
+        }
+        return `${edgeType}: \`${uri}\``;
     }
 }
 

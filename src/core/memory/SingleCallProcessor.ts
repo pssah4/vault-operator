@@ -124,6 +124,23 @@ export class SingleCallProcessor {
                 sessionId: threadId,
                 threadId,
             });
+            // FEATURE-0319 Phase 5 close-out: link each new fact back to
+            // its source conversation via a thread:// edge. recall_memory
+            // can render those as clickable backlinks so the user (and
+            // the agent) can jump from a fact to the chat that produced it.
+            try {
+                for (const integrated of integration.integrated) {
+                    if (integrated.relation !== 'new') continue;
+                    edgeStore.addExternalEdge(
+                        integrated.fact.id,
+                        `thread://${threadId}`,
+                        'extracted_from',
+                        { sourceInterface: 'obsilo-self' },
+                    );
+                }
+            } catch (e) {
+                console.warn('[SingleCall] thread:// backlink edges skipped:', e);
+            }
             await this.deps.telemetry?.integration({
                 threadId,
                 inserted: integration.stats.inserted,
