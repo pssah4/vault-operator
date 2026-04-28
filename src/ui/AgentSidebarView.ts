@@ -76,9 +76,6 @@ export class AgentSidebarView extends ItemView {
 
     // Health badge (FEATURE-1901)
     private healthBadge: HTMLElement | null = null;
-    // Memory star toggle (FEATURE-0318)
-    private memoryStarBtn: HTMLElement | null = null;
-    private memoryStarIconEl: HTMLElement | null = null;
     // Tool picker (pocket-knife button)
     private toolPickerButton: HTMLElement | null = null;
     // Web search toggle button (globe icon)
@@ -244,17 +241,10 @@ export class AgentSidebarView extends ItemView {
             this.historyPanel?.toggle();
         });
 
-        // Save-to-memory star (FEATURE-0318): toggles between empty / filled
-        // depending on whether the active conversation already has facts in
-        // Memory v2. Click pins or unpins.
-        this.memoryStarBtn = headerRight.createEl('button', {
-            cls: 'header-button memory-star-button',
-            attr: { 'aria-label': t('ui.sidebar.saveToMemory') },
-        });
-        this.memoryStarIconEl = this.memoryStarBtn.createSpan('toolbar-icon');
-        setIcon(this.memoryStarIconEl, 'star');
-        this.memoryStarBtn.addEventListener('click', () => { void this.handleMemoryStarToggle(); });
-        this.refreshMemoryStarButton();
+        // FEATURE-0318: Save-to-memory is exposed via the chat input "..." menu
+        // (Save conversation to memory) and via the per-row star in the
+        // history panel. The header had a duplicate star toggle that confused
+        // the visual language of "filled = in memory" -- removed.
 
         // New Chat button — clears conversation history
         const newChatBtn = headerRight.createEl('button', {
@@ -283,6 +273,7 @@ export class AgentSidebarView extends ItemView {
                 (id, title) => this.saveHistoryConversationToMemory(id, title),
                 (id, title) => this.removeHistoryConversationFromMemory(id, title),
                 (id) => this.plugin.countMemoryFactsForConversation(id) > 0,
+                (id, currentTitle) => this.renameHistoryConversation(id, currentTitle),
             );
             this.historyPanel.mount(chatWrapper);
         }
@@ -304,6 +295,10 @@ export class AgentSidebarView extends ItemView {
             (id) => { void this.deleteConversation(id); },
             (convId, title) => { void this.stampChatLinkToActiveFile(convId, title); },
             this.activeConversationId,
+            (id, title) => this.saveHistoryConversationToMemory(id, title),
+            (id, title) => this.removeHistoryConversationFromMemory(id, title),
+            (id) => this.plugin.countMemoryFactsForConversation(id) > 0,
+            (id, currentTitle) => this.renameHistoryConversation(id, currentTitle),
         );
         this.historyPanel.mount(chatWrapper);
     }
@@ -792,42 +787,10 @@ export class AgentSidebarView extends ItemView {
     }
 
     /**
-     * Header star-toggle: pin (extract) or unpin (deprecate facts) the
-     * currently active conversation. Filled = facts present in DB.
-     */
-    private async handleMemoryStarToggle(): Promise<void> {
-        if (!this.activeConversationId) {
-            new Notice(t('notice.memoryNoActiveConversation'));
-            return;
-        }
-        const inMem = this.plugin.countMemoryFactsForConversation(this.activeConversationId) > 0;
-        if (inMem) {
-            await this.removeHistoryConversationFromMemory(this.activeConversationId, '');
-            this.refreshMemoryStarButton();
-        } else {
-            await this.handleSaveToMemory();
-        }
-    }
-
-    /**
-     * Update the header Star icon to reflect whether the active
-     * conversation has facts in memory.
-     */
-    refreshMemoryStarButton(): void {
-        if (!this.memoryStarIconEl || !this.memoryStarBtn) return;
-        const id = this.activeConversationId;
-        const inMem = id ? this.plugin.countMemoryFactsForConversation(id) > 0 : false;
-        setIcon(this.memoryStarIconEl, inMem ? 'star-off' : 'star');
-        this.memoryStarBtn.classList.toggle('header-button-active', inMem);
-        this.memoryStarBtn.setAttribute('aria-label',
-            inMem ? t('ui.history.removeFromMemory') : t('ui.sidebar.saveToMemory'));
-    }
-
-    /**
      * After enqueueImmediate, the LLM extraction runs in the background
      * and only THEN do facts land in the DB. Poll for up to 90s so the
-     * UI eventually reflects the saved state without forcing the user
-     * to reopen the panel.
+     * history panel star eventually reflects the saved state without
+     * the user having to reopen the panel.
      */
     private async pollMemoryStarUntilReady(conversationId: string): Promise<void> {
         const startedAt = Date.now();
@@ -836,13 +799,10 @@ export class AgentSidebarView extends ItemView {
         while (Date.now() - startedAt < TIMEOUT_MS) {
             await new Promise(resolve => setTimeout(resolve, INTERVAL_MS));
             if (this.plugin.countMemoryFactsForConversation(conversationId) > 0) {
-                this.refreshMemoryStarButton();
                 this.historyPanel?.refresh();
                 return;
             }
         }
-        // Timeout -- one final refresh just in case.
-        this.refreshMemoryStarButton();
         this.historyPanel?.refresh();
     }
 
@@ -851,6 +811,24 @@ export class AgentSidebarView extends ItemView {
      * Loads the persisted UiMessages from ConversationStore and enqueues
      * them with bypassThrottle=true. Used by the Star button in HistoryPanel.
      */
+    /** Rename a history conversation via prompt modal. */
+    private async renameHistoryConversation(id: string, currentTitle: string): Promise<void> {
+        const store = this.plugin.conversationStore;
+        if (!store) return;
+        const { promptModal } = await import('./modals/PromptModal');
+        const next = await promptModal(this.app, {
+            title: t('ui.history.renameTitle'),
+            message: t('ui.history.renameMessage'),
+            placeholder: currentTitle,
+            defaultValue: currentTitle,
+            submitLabel: t('ui.history.renameSubmit'),
+        });
+        if (next === null) return;
+        const trimmed = next.trim();
+        if (!trimmed || trimmed === currentTitle) return;
+        await store.updateMeta(id, { title: trimmed });
+    }
+
     /** Un-pin: deprecate all facts that came from this conversation. */
     private async removeHistoryConversationFromMemory(id: string, title: string): Promise<void> {
         const mem = this.plugin.settings.memory;
@@ -1372,7 +1350,6 @@ export class AgentSidebarView extends ItemView {
                 mode,
                 model?.displayName ?? model?.name ?? modelKey,
             );
-            this.refreshMemoryStarButton();
         }
 
         // Track user UI message for history persistence (skip for hidden messages)
@@ -2503,7 +2480,6 @@ export class AgentSidebarView extends ItemView {
         this.plugin.sessionFlags.clear();
         this.onboarding?.reset();
         this.attachments.clear();
-        this.refreshMemoryStarButton();
         if (this.chatContainer) {
             this.chatContainer.empty();
         }
@@ -2753,7 +2729,6 @@ export class AgentSidebarView extends ItemView {
         this.activeConversationId = id;
         this.userDismissedContext = false;
         this.attachments.clear();
-        this.refreshMemoryStarButton();
 
         // Re-render chat
         if (this.chatContainer) {

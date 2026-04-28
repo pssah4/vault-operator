@@ -63,6 +63,7 @@ export class HistoryPanel {
         private onSaveToMemory: ((id: string, title: string) => Promise<void> | void) | null = null,
         private onRemoveFromMemory: ((id: string, title: string) => Promise<void> | void) | null = null,
         private isInMemory: ((id: string) => boolean) | null = null,
+        private onRename: ((id: string, currentTitle: string) => Promise<void> | void) | null = null,
     ) {}
 
     /** Mount the panel inside a parent container. */
@@ -199,6 +200,17 @@ export class HistoryPanel {
                     });
                 });
 
+                if (this.onRename) {
+                    const renameBtn = actions.createEl('button', { cls: 'history-row-action clickable-icon' });
+                    setIcon(renameBtn, 'pencil');
+                    renameBtn.setAttribute('aria-label', t('ui.history.rename'));
+                    renameBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const action = this.onRename!(conv.id, conv.title);
+                        Promise.resolve(action).then(() => this.render()).catch(() => undefined);
+                    });
+                }
+
                 const stampBtn = actions.createEl('button', { cls: 'history-row-action clickable-icon' });
                 setIcon(stampBtn, 'file-plus');
                 stampBtn.setAttribute('aria-label', t('ui.history.addToNote'));
@@ -212,9 +224,9 @@ export class HistoryPanel {
                 if (this.onSaveToMemory) {
                     const inMem = this.isInMemory?.(conv.id) ?? false;
                     const memBtn = actions.createEl('button', {
-                        cls: `history-row-action clickable-icon${inMem ? ' history-row-action-active' : ''}`,
+                        cls: `history-row-action clickable-icon${inMem ? ' history-row-action-pinned' : ''}`,
                     });
-                    setIcon(memBtn, inMem ? 'star-off' : 'star');
+                    setIcon(memBtn, 'star');
                     memBtn.setAttribute('aria-label', inMem
                         ? t('ui.history.removeFromMemory')
                         : t('ui.history.saveToMemory'));

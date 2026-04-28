@@ -2712,14 +2712,11 @@
 
 .agent-settings-section:first-child { margin-top: 2px; }
 
-.history-row-action-active,
-.history-row-action.history-row-action-active {
+/* Pinned-to-memory star: always visible (status indicator), accent
+   colour, no fill -- the regular `star` icon stays as outline. */
+.history-row-action.history-row-action-pinned {
     color: var(--text-accent);
-    opacity: 1 !important;
-}
-
-.header-button.header-button-active {
-    color: var(--text-accent);
+    opacity: 1;
 }
 
 .agent-settings-hint {
@@ -5351,10 +5348,11 @@
     opacity: 1;
 }
 
-/* Active-state buttons (e.g. memory-pinned star) stay visible even
-   when the row is not hovered -- they're a status indicator. */
-.history-row-action.history-row-action-active {
+/* Memory-pinned star: always visible (status indicator), accent
+   colour, outline-only star icon. */
+.history-row-action.history-row-action-pinned {
     opacity: 1;
+    color: var(--text-accent);
 }
 
 .history-row-action:hover {
