@@ -17,7 +17,12 @@ import fsModule from 'fs';
 import osModule from 'os';
 import pathModule from 'path';
 
-const GLOBAL_DIR_NAME = '.obsidian-agent';
+/** Cross-vault data directory next to the vault. Renamed from
+ *  ".obsidian-agent" to "obsilo-shared" for distribution clarity.
+ *  The legacy name is migrated automatically on plugin onload. */
+const GLOBAL_DIR_NAME = 'obsilo-shared';
+/** Legacy name. Used by onload migration to detect old installs. */
+export const LEGACY_GLOBAL_DIR_NAME = '.obsidian-agent';
 
 export class GlobalFileService implements FileAdapter {
     private readonly root: string;
@@ -35,7 +40,7 @@ export class GlobalFileService implements FileAdapter {
 
     /** Return the legacy root path (~/.obsidian-agent/) for migration purposes. */
     static getLegacyRoot(): string {
-        return pathModule.join(osModule.homedir(), GLOBAL_DIR_NAME);
+        return pathModule.join(osModule.homedir(), LEGACY_GLOBAL_DIR_NAME);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

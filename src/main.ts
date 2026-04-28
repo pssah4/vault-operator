@@ -257,8 +257,27 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 0a. Initialize SafeStorageService (must happen before loadSettings)
         this.safeStorage = new SafeStorageService();
 
-        // 0b. Global file service — shared storage at {vault-parent}/.obsidian-agent/ (FEATURE-1508)
+        // 0b. Pre-init folder rename: legacy `.obsidian-agent` -> `obsilo-vault`
+        //     (vault-local) and `.obsidian-agent` -> `obsilo-shared` (vault-parent).
+        //     Must run BEFORE GlobalFileService points at the new global path,
+        //     otherwise the service would create a fresh empty folder beside
+        //     the unrenamed legacy data.
         const vaultBasePath = (this.app.vault.adapter as unknown as { getBasePath?(): string }).getBasePath?.() ?? '';
+        try {
+            const rawSaved = await this.loadData() as Record<string, unknown> | null;
+            const savedFolderPath = typeof rawSaved?.agentFolderPath === 'string'
+                ? rawSaved.agentFolderPath as string
+                : undefined;
+            const { migrateFolderRename } = await import('./core/utils/migrateFolderRename');
+            const renameReport = await migrateFolderRename(this.app, vaultBasePath, savedFolderPath);
+            if (renameReport.vaultLocalRenamed || renameReport.globalRenamed) {
+                console.debug('[Plugin] Folder rename migrated:', renameReport);
+            }
+        } catch (e) {
+            console.warn('[Plugin] Folder rename migration failed (non-fatal):', e);
+        }
+
+        // 0c. Global file service — shared storage at {vault-parent}/obsilo-shared/ (FEATURE-1508 + folder rename)
         this.globalFs = new GlobalFileService(vaultBasePath);
         this.globalSettingsService = new GlobalSettingsService(this.globalFs, this.safeStorage);
         // Share the GlobalFileService with GlobalModeStore (consolidates all global I/O)
@@ -266,6 +285,14 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // 1. Load settings (merges global + vault-local)
         await this.loadSettings();
+
+        // 1a. Settings consolidation after the folder rename: rewrite the
+        //     legacy default to the new default so VaultTab and consumers
+        //     using getAgentFolderPath() pick it up. Custom paths untouched.
+        if (this.settings.agentFolderPath === '.obsidian-agent') {
+            this.settings.agentFolderPath = 'obsilo-vault';
+            await this.saveSettings();
+        }
 
         // 2. Initialize core services
         const pluginDir = `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
@@ -1795,7 +1822,7 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Migrate knowledge.db to vault-local
         const oldKnowledgeDb = path.join(oldRoot, 'knowledge.db');
-        const newKnowledgeDb = path.join(vaultBasePath, '.obsidian-agent', 'knowledge.db');
+        const newKnowledgeDb = path.join(vaultBasePath, 'obsilo-vault', 'knowledge.db');
         try {
             await fs.promises.access(oldKnowledgeDb);
             await fs.promises.mkdir(path.dirname(newKnowledgeDb), { recursive: true });
@@ -1806,8 +1833,10 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
         } catch { /* skip */ }
 
-        // Migrate memory.db to new global root
+        // Migrate memory.db to new global root (legacy vault-local name was '.obsidian-agent')
         const oldMemoryDb = path.join(vaultBasePath, '.obsidian-agent', 'memory.db');
+        // (Note: my pre-init migration may have already renamed this to 'obsilo-vault'.
+        //  We fall through with whichever path actually exists.)
         const newMemoryDb = path.join(newRoot, 'memory.db');
         try {
             await fs.promises.access(oldMemoryDb);

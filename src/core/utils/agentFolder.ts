@@ -29,8 +29,12 @@
 import { normalizePath } from 'obsidian';
 import type { ObsidianAgentSettings } from '../../types/settings';
 
-/** Built-in default. Kept stable to preserve the legacy on-disk layout. */
-export const DEFAULT_AGENT_FOLDER = '.obsidian-agent';
+/** Built-in default for the vault-local agent folder. Renamed from
+ *  `.obsidian-agent` to `obsilo-vault` for distribution clarity. The
+ *  legacy name is migrated automatically on plugin onload. */
+export const DEFAULT_AGENT_FOLDER = 'obsilo-vault';
+/** Legacy default. Used by the onload migration to detect old installs. */
+export const LEGACY_AGENT_FOLDER = '.obsidian-agent';
 
 /** Setting carrier — anything that exposes settings.agentFolderPath. */
 type SettingsHolder = { settings: Pick<ObsidianAgentSettings, 'agentFolderPath'> };

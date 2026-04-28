@@ -995,5 +995,5 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     kiloAccountLabel: '',
     kiloLastValidatedAt: 0,
     debugMode: false,
-    agentFolderPath: '.obsidian-agent',
+    agentFolderPath: 'obsilo-vault',
 };
