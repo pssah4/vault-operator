@@ -286,11 +286,13 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 1. Load settings (merges global + vault-local)
         await this.loadSettings();
 
-        // 1a. Settings consolidation after the folder rename: rewrite the
-        //     legacy default to the new default so VaultTab and consumers
-        //     using getAgentFolderPath() pick it up. Custom paths untouched.
-        if (this.settings.agentFolderPath === '.obsidian-agent') {
-            this.settings.agentFolderPath = 'obsilo-vault';
+        // 1a. Settings consolidation after the folder rename: rewrite any
+        //     known legacy default to the current default so VaultTab and
+        //     consumers using getAgentFolderPath() pick it up. Custom paths
+        //     are untouched.
+        if (this.settings.agentFolderPath === '.obsidian-agent'
+            || this.settings.agentFolderPath === 'obsilo-vault') {
+            this.settings.agentFolderPath = '.obsilo-vault';
             await this.saveSettings();
         }
 
@@ -1837,7 +1839,7 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Migrate knowledge.db to vault-local
         const oldKnowledgeDb = path.join(oldRoot, 'knowledge.db');
-        const newKnowledgeDb = path.join(vaultBasePath, 'obsilo-vault', 'knowledge.db');
+        const newKnowledgeDb = path.join(vaultBasePath, '.obsilo-vault', 'knowledge.db');
         try {
             await fs.promises.access(oldKnowledgeDb);
             await fs.promises.mkdir(path.dirname(newKnowledgeDb), { recursive: true });

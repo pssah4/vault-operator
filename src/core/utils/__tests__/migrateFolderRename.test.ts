@@ -65,8 +65,16 @@ describe('migrateFolderRename (folder rename migration)', () => {
         const { adapter, state } = makeAdapter({ folders: ['.obsidian-agent'] });
         const result = await migrateFolderRename(makeApp(adapter), vaultBasePath, undefined);
         expect(result.vaultLocalRenamed).toBe(true);
-        expect(state.folders.has('obsilo-vault')).toBe(true);
+        expect(state.folders.has('.obsilo-vault')).toBe(true);
         expect(state.folders.has('.obsidian-agent')).toBe(false);
+    });
+
+    it('renames the intermediate "obsilo-vault" name to ".obsilo-vault"', async () => {
+        const { adapter, state } = makeAdapter({ folders: ['obsilo-vault'] });
+        const result = await migrateFolderRename(makeApp(adapter), vaultBasePath, 'obsilo-vault');
+        expect(result.vaultLocalRenamed).toBe(true);
+        expect(state.folders.has('.obsilo-vault')).toBe(true);
+        expect(state.folders.has('obsilo-vault')).toBe(false);
     });
 
     it('skips vault-local rename when settings has a custom path', async () => {
@@ -78,15 +86,15 @@ describe('migrateFolderRename (folder rename migration)', () => {
     });
 
     it('skips vault-local rename when both legacy and new folders already exist', async () => {
-        const { adapter, state } = makeAdapter({ folders: ['.obsidian-agent', 'obsilo-vault'] });
+        const { adapter, state } = makeAdapter({ folders: ['.obsidian-agent', '.obsilo-vault'] });
         const result = await migrateFolderRename(makeApp(adapter), vaultBasePath, undefined);
         expect(result.vaultLocalRenamed).toBe(false);
-        expect(result.vaultLocalReason).toMatch(/both legacy and new/);
+        expect(result.vaultLocalReason).toMatch(/exist; user must reconcile/);
         expect(state.renames).toEqual([]);
     });
 
     it('is idempotent when only the new folder already exists', async () => {
-        const { adapter, state } = makeAdapter({ folders: ['obsilo-vault'] });
+        const { adapter, state } = makeAdapter({ folders: ['.obsilo-vault'] });
         const result = await migrateFolderRename(makeApp(adapter), vaultBasePath, undefined);
         expect(result.vaultLocalRenamed).toBe(false);
         expect(state.renames).toEqual([]);

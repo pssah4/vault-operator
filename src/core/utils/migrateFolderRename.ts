@@ -19,7 +19,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import type { App } from 'obsidian';
 import {
-    DEFAULT_AGENT_FOLDER, LEGACY_AGENT_FOLDER,
+    DEFAULT_AGENT_FOLDER, LEGACY_AGENT_FOLDERS,
 } from './agentFolder';
 import { LEGACY_GLOBAL_DIR_NAME } from '../storage/GlobalFileService';
 
@@ -56,24 +56,29 @@ export async function migrateFolderRename(
     // ── Vault-local rename ────────────────────────────────────────────
     const adapter = app.vault.adapter;
     const configured = savedAgentFolderPath?.trim();
-    const isCustomPath = !!configured
-        && configured !== LEGACY_AGENT_FOLDER
-        && configured !== DEFAULT_AGENT_FOLDER;
+    const knownNames = new Set<string>([DEFAULT_AGENT_FOLDER, ...LEGACY_AGENT_FOLDERS]);
+    const isCustomPath = !!configured && !knownNames.has(configured);
 
     if (isCustomPath) {
         report.vaultLocalReason = 'custom agentFolderPath, skipping rename';
     } else {
         try {
-            const oldExists = await adapter.exists(LEGACY_AGENT_FOLDER);
             const newExists = await adapter.exists(DEFAULT_AGENT_FOLDER);
-            if (oldExists && !newExists) {
-                await adapter.rename(LEGACY_AGENT_FOLDER, DEFAULT_AGENT_FOLDER);
+            // Find first legacy folder that exists -- ordered newest-first so
+            // a sequence like `obsidian-agent -> obsilo-vault -> .obsilo-vault`
+            // chooses the most recent intermediate state to migrate from.
+            let legacyFound: string | null = null;
+            for (const legacy of LEGACY_AGENT_FOLDERS) {
+                if (await adapter.exists(legacy)) { legacyFound = legacy; break; }
+            }
+            if (legacyFound && !newExists) {
+                await adapter.rename(legacyFound, DEFAULT_AGENT_FOLDER);
                 report.vaultLocalRenamed = true;
-            } else if (newExists && oldExists) {
+            } else if (legacyFound && newExists) {
                 report.vaultLocalReason =
-                    'both legacy and new vault-local folders exist; user must reconcile manually';
+                    `both ${legacyFound} and ${DEFAULT_AGENT_FOLDER} exist; user must reconcile manually`;
             } else {
-                report.vaultLocalReason = oldExists ? 'unexpected state' : 'no legacy vault-local folder';
+                report.vaultLocalReason = newExists ? 'already on new layout' : 'no legacy vault-local folder';
             }
         } catch (e) {
             report.vaultLocalReason = `rename failed: ${(e as Error).message}`;
