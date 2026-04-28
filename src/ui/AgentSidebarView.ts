@@ -2340,7 +2340,17 @@ export class AgentSidebarView extends ItemView {
                     sessionId: this.activeConversationId ?? 'transient',
                     userMessageEmbedding: userEmbedding,
                 });
-                if (composed.markdown) memoryContext = composed.markdown;
+                // FEATURE-0319b: prepend the cache-stable Soul block from
+                // the agent-self profile (profile_id='_obsilo'). Two
+                // separate calls per /architecture decision A so the
+                // blocks stay independently cache-stable and ContextRanker
+                // remains profile-naive.
+                const { SoulView } = await import('../core/memory/SoulView');
+                const soulMarkdown = new SoulView(this.plugin.memoryDB).renderMarkdown();
+                const parts: string[] = [];
+                if (soulMarkdown) parts.push(soulMarkdown);
+                if (composed.markdown) parts.push(composed.markdown);
+                if (parts.length > 0) memoryContext = parts.join('\n\n');
             } catch (e) {
                 console.warn('[Memory] ContextComposer failed:', e);
             }
