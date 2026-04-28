@@ -241,6 +241,19 @@ export class MemoryTab {
                     const { MemoryViewerModal } = await import('../modals/MemoryViewerModal');
                     new MemoryViewerModal(this.app, this.plugin).open();
                 }));
+
+        // Right-to-be-forgotten -- always available, two-step confirmation
+        new Setting(containerEl)
+            .setName('Delete all memory')
+            .setDesc('Permanently removes every entry across user memory, agent soul, sessions, and the audit log. Requires typing DELETE to confirm.')
+            .addButton((b) => b
+                .setButtonText('Delete all')
+                .setWarning()
+                .onClick(async () => {
+                    const { confirmAndWipeAllMemory } = await import('../../core/memory/wipeAllMemory');
+                    await confirmAndWipeAllMemory(this.app, this.plugin);
+                    this.rerender();
+                }));
     }
 
     private buildMemoryV2MigrationSection(containerEl: HTMLElement): void {

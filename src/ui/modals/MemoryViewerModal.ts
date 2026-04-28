@@ -239,65 +239,11 @@ export class MemoryViewerModal extends Modal {
         this.render();
     }
 
-    /**
-     * Right-to-be-forgotten: wipe every Memory v2 + v1 row.
-     * Requires two confirmations: a destructive ConfirmModal that lists
-     * the consequences, then a typed "DELETE" prompt as a safety lock.
-     */
+    /** Right-to-be-forgotten flow lives in core/memory/wipeAllMemory. */
     private async handleWipeAll(): Promise<void> {
-        const ok = await confirmModal(this.app, {
-            title: 'Delete all memory?',
-            message:
-                'This permanently removes EVERYTHING Obsilo has stored:\n\n' +
-                '· All facts you taught it about yourself\n' +
-                '· Obsilo\'s entire soul (identity, values, anti-patterns, communication style)\n' +
-                '· All session summaries from past conversations\n' +
-                '· The audit trail (no recovery, no undo)\n' +
-                '· The capability snapshot (will rebuild on next plugin reload)\n\n' +
-                'You will keep your conversations themselves and your vault content. ' +
-                'Continue?',
-            confirmLabel: 'Continue',
-            cancelLabel: 'Cancel',
-            destructive: true,
-        });
-        if (!ok) return;
-
-        const typed = await promptModal(this.app, {
-            title: 'Type DELETE to confirm',
-            message: 'This action cannot be undone. Type DELETE in capital letters to proceed.',
-            placeholder: 'DELETE',
-            submitLabel: 'Delete all memory',
-        });
-        if (typed === null || typed.trim() !== 'DELETE') {
-            new Notice('Cancelled. Memory not deleted.');
-            return;
-        }
-
-        try {
-            const memDB = this.plugin.memoryDB!;
-            const db = memDB.getDB();
-            const tables = [
-                'memory_audit', 'fact_edges', 'fact_embeddings', 'facts',
-                'communication_styles', 'thread_sessions', 'conversation_threads',
-                'known_topics', 'memory_source_notes',
-                'sessions', 'episodes', 'recipes', 'patterns',
-            ];
-            for (const table of tables) {
-                try { db.run(`DELETE FROM ${table}`); } catch { /* table may not exist */ }
-            }
-            await memDB.save().catch(() => undefined);
-
-            // Reset settings that cache memory state.
-            this.plugin.settings.memory.lastCapabilityHash = null;
-            this.plugin.settings.memory.tokenBudgetState = null;
-            await this.plugin.saveSettings();
-
-            new Notice('All memory deleted.');
-            this.close();
-        } catch (e) {
-            console.warn('[MemoryViewer] wipe failed:', e);
-            new Notice('Memory deletion failed. See console for details.');
-        }
+        const { confirmAndWipeAllMemory } = await import('../../core/memory/wipeAllMemory');
+        const outcome = await confirmAndWipeAllMemory(this.app, this.plugin);
+        if (outcome === 'deleted') this.close();
     }
 
     private async handleDelete(fact: Fact): Promise<void> {
