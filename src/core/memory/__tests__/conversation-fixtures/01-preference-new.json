@@ -1,0 +1,32 @@
+{
+    "name": "preference-new",
+    "description": "Plain new preference statement extracted as one atomic fact",
+    "messages": [
+        { "role": "user", "text": "I prefer Plan-Mode for non-trivial work." },
+        { "role": "assistant", "text": "Got it." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian shared a workflow preference for Plan-Mode.",
+        "episode_outcome": { "success": true, "result_summary": "Acknowledged." },
+        "facts": [
+            {
+                "text": "Sebastian prefers Plan-Mode for non-trivial work",
+                "topics": ["workflow"],
+                "importance": 0.8,
+                "kind": "preference",
+                "relation": "new"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "Sebastian set workflow preference: Plan-Mode for non-trivial work.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 1,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "preference", "relation": "new", "topicsFirst": "workflow" }
+        ]
+    }
+}

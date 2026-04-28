@@ -1,0 +1,47 @@
+{
+    "name": "compound-split",
+    "description": "Compound sentence is split into atomic facts",
+    "messages": [
+        { "role": "user", "text": "I use Obsidian, prefer dark mode, and I write in German." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian shared three preferences.",
+        "episode_outcome": { "success": true, "result_summary": "Captured." },
+        "facts": [
+            {
+                "text": "Sebastian uses Obsidian",
+                "topics": ["tools"],
+                "importance": 0.7,
+                "kind": "preference",
+                "relation": "new"
+            },
+            {
+                "text": "Sebastian prefers dark mode",
+                "topics": ["preferences", "ui"],
+                "importance": 0.5,
+                "kind": "preference",
+                "relation": "new"
+            },
+            {
+                "text": "Sebastian writes in German",
+                "topics": ["preferences", "language"],
+                "importance": 0.65,
+                "kind": "preference",
+                "relation": "new"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "Sebastian: Obsidian + dark mode + German.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 3,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "preference", "relation": "new", "topicsFirst": "tools" },
+            { "kind": "preference", "relation": "new", "topicsFirst": "preferences" },
+            { "kind": "preference", "relation": "new", "topicsFirst": "preferences" }
+        ]
+    }
+}

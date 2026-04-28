@@ -1,0 +1,36 @@
+{
+    "name": "mentions",
+    "description": "URI mentions captured in mentions[] for the integrator to attach",
+    "messages": [
+        { "role": "user", "text": "Add a backlink from vault://Notes/Setup.md to https://obsidian.md and entity://EnBW." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian asked for backlink work involving three URIs.",
+        "episode_outcome": { "success": true, "result_summary": "Mentions noted." },
+        "facts": [
+            {
+                "text": "Sebastian's setup note links to Obsidian project + EnBW",
+                "topics": ["tools", "vault"],
+                "importance": 0.5,
+                "kind": "fact",
+                "relation": "new"
+            }
+        ],
+        "mentions": [
+            { "uri": "vault://Notes/Setup.md", "label": "Setup", "kind": "note" },
+            { "uri": "https://obsidian.md", "kind": "url" },
+            { "uri": "entity://EnBW", "kind": "entity" }
+        ],
+        "conversation_so_far": "Backlink request from Setup.md.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 1,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "mentionsCount": 3,
+        "facts": [
+            { "kind": "fact", "relation": "new", "topicsFirst": "tools" }
+        ]
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "name": "noise-smalltalk",
+    "description": "Smalltalk produces no facts (noise filter)",
+    "messages": [
+        { "role": "user", "text": "Hi, how are you today?" },
+        { "role": "assistant", "text": "I'm well, thanks!" },
+        { "role": "user", "text": "Cool, just checking in." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Brief greeting exchange.",
+        "episode_outcome": { "success": true, "result_summary": "No actionable content." },
+        "facts": [],
+        "mentions": [],
+        "conversation_so_far": "Greeting only.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 0,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": []
+    }
+}

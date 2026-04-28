@@ -1,0 +1,55 @@
+{
+    "name": "mixed-kinds",
+    "description": "All four kinds appear in one conversation (identity, preference, fact, event)",
+    "messages": [
+        { "role": "user", "text": "Just to set context: I'm Sebastian, I prefer concise answers, I'm using Obsilo today, and I'm watching the football final tonight." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian gave a context dump.",
+        "episode_outcome": { "success": true, "result_summary": "Captured identity, preference, fact, event." },
+        "facts": [
+            {
+                "text": "Sebastian is the user",
+                "topics": ["identity"],
+                "importance": 0.9,
+                "kind": "identity",
+                "relation": "new"
+            },
+            {
+                "text": "Sebastian prefers concise answers",
+                "topics": ["preferences", "communication"],
+                "importance": 0.7,
+                "kind": "preference",
+                "relation": "new"
+            },
+            {
+                "text": "Sebastian is using Obsilo today",
+                "topics": ["tools"],
+                "importance": 0.5,
+                "kind": "fact",
+                "relation": "new"
+            },
+            {
+                "text": "Sebastian is watching the football final tonight",
+                "topics": ["events"],
+                "importance": 0.4,
+                "kind": "event",
+                "relation": "new"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "Context dump captured.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 4,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "identity", "relation": "new", "topicsFirst": "identity" },
+            { "kind": "preference", "relation": "new", "topicsFirst": "preferences" },
+            { "kind": "fact", "relation": "new", "topicsFirst": "tools" },
+            { "kind": "event", "relation": "new", "topicsFirst": "events" }
+        ]
+    }
+}

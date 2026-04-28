@@ -1,0 +1,33 @@
+{
+    "name": "derive",
+    "description": "Inferred conclusion drawn from explicit statements",
+    "messages": [
+        { "role": "user", "text": "I work in CI/CD daily and I prefer declarative pipelines." },
+        { "role": "user", "text": "GitHub Actions feels heavier than I'd like." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian discussed CI/CD preferences.",
+        "episode_outcome": { "success": true, "result_summary": "Captured." },
+        "facts": [
+            {
+                "text": "Sebastian likely prefers GitLab CI or similar declarative-first systems over GitHub Actions",
+                "topics": ["tools", "ci"],
+                "importance": 0.5,
+                "kind": "fact",
+                "relation": "derive",
+                "rationale": "Inferred from explicit declarative-pipeline preference + GitHub Actions critique"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "Sebastian's CI/CD preferences sketched.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 1,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "fact", "relation": "derive", "topicsFirst": "tools" }
+        ]
+    }
+}

@@ -1,0 +1,39 @@
+{
+    "name": "identity",
+    "description": "Identity statement (name, role) -- two atomic facts of kind=identity",
+    "messages": [
+        { "role": "user", "text": "I'm Sebastian, I work as a software engineer at EnBW." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian introduced himself.",
+        "episode_outcome": { "success": true, "result_summary": "Identity captured." },
+        "facts": [
+            {
+                "text": "Sebastian is the user",
+                "topics": ["identity"],
+                "importance": 0.9,
+                "kind": "identity",
+                "relation": "new"
+            },
+            {
+                "text": "Sebastian works as a software engineer at EnBW",
+                "topics": ["identity", "work"],
+                "importance": 0.85,
+                "kind": "identity",
+                "relation": "new"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "User introduced himself as Sebastian, software engineer at EnBW.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 2,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "identity", "relation": "new", "topicsFirst": "identity" },
+            { "kind": "identity", "relation": "new", "topicsFirst": "identity" }
+        ]
+    }
+}
