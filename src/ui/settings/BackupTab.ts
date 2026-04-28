@@ -1,4 +1,5 @@
 import { App, Notice, Setting, setIcon, type ButtonComponent } from 'obsidian';
+import JSZip from 'jszip';
 import type ObsidianAgentPlugin from '../../main';
 import { DEFAULT_SETTINGS } from '../../types/settings';
 import type { ObsidianAgentSettings } from '../../types/settings';
@@ -162,17 +163,26 @@ function getCategories(plugin: ObsidianAgentPlugin): BackupCategory[] {
 
 // ── Backup manifest types ────────────────────────────────────────────────────
 
+/**
+ * v3 manifest (FEATURE-0319b): files live as separate entries inside the
+ * surrounding ZIP, manifest only carries metadata. Old v1/v2 manifests
+ * embedded file contents inline (string-only) and broke for binary
+ * payloads like memory.db / knowledge.db. v3 stores everything binary
+ * via JSZip so SQLite databases survive a roundtrip.
+ */
 interface BackupManifest {
     format: 'obsilo-backup';
     version: number;
     exportedAt: string;
-    categories: Record<string, { files: Record<string, { content: string }> }>;
+    categories: Record<string, { files: Array<{ path: string; size: number }> }>;
 }
 
-const BACKUP_VERSION = 2;
+const BACKUP_VERSION = 3;
+const MANIFEST_NAME = 'manifest.json';
+const FILES_PREFIX = 'files';
 
 // Module-level state that survives tab rerenders (new BackupTab instances).
-let _pendingImport: BackupManifest | null = null;
+let _pendingImport: { manifest: BackupManifest; zip: JSZip } | null = null;
 let _importToggles: Record<string, boolean> = {};
 const _exportToggles: Record<string, boolean> = (() => {
     const toggles: Record<string, boolean> = {};
@@ -348,6 +358,7 @@ export class BackupTab {
         btn.setText(t('settings.backup.exporting'));
 
         try {
+            const zip = new JSZip();
             const manifest: BackupManifest = {
                 format: 'obsilo-backup',
                 version: BACKUP_VERSION,
@@ -362,52 +373,92 @@ export class BackupTab {
                 if (!_exportToggles[cat.id]) continue;
                 selectedCount++;
 
-                const files: Record<string, { content: string }> = {};
+                const fileEntries: Array<{ path: string; size: number }> = [];
+                const addToZip = (relPath: string, data: Uint8Array): void => {
+                    zip.file(`${FILES_PREFIX}/${cat.id}/${relPath}`, data);
+                    fileEntries.push({ path: relPath, size: data.byteLength });
+                };
 
                 if (cat.id === 'settings') {
-                    files['data.json'] = {
-                        content: JSON.stringify(this.stripSensitiveFields(this.plugin.settings), null, 2),
-                    };
+                    const json = JSON.stringify(this.stripSensitiveFields(this.plugin.settings), null, 2);
+                    addToZip('data.json', new TextEncoder().encode(json));
                 } else if (cat.id === 'vault-dna') {
                     const path = getVaultDnaPath(this.plugin);
-                    const exists = await this.app.vault.adapter.exists(path);
-                    if (exists) {
-                        files['vault-dna.json'] = {
-                            content: await this.app.vault.adapter.read(path),
-                        };
+                    if (await this.app.vault.adapter.exists(path)) {
+                        const buf = await this.app.vault.adapter.readBinary(path);
+                        addToZip('vault-dna.json', new Uint8Array(buf));
                     }
                 } else if (cat.dir) {
-                    const adapter = this.adapterFor(cat);
-                    const exists = await adapter.exists(cat.dir);
+                    const exists = cat.root === 'global'
+                        ? await this.globalFs.exists(cat.dir)
+                        : await this.app.vault.adapter.exists(cat.dir);
                     if (exists) {
-                        const collected = await this.collectFilesFromAdapter(adapter, cat.dir, cat.dir, cat.recursive);
-                        for (const [path, content] of Object.entries(collected)) {
-                            files[path] = { content };
+                        const files = await this.collectBinaryFiles(cat, cat.dir, cat.dir, cat.recursive);
+                        for (const [relPath, data] of files) {
+                            addToZip(relPath, data);
                         }
                     }
                 }
 
-                manifest.categories[cat.id] = { files };
-                totalFiles += Object.keys(files).length;
+                manifest.categories[cat.id] = { files: fileEntries };
+                totalFiles += fileEntries.length;
             }
 
-            const json = JSON.stringify(manifest, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
+            zip.file(MANIFEST_NAME, JSON.stringify(manifest, null, 2));
+
+            const blob = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 },
+            });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             const date = new Date().toISOString().split('T')[0];
-            a.download = `obsilo-backup-${date}.json`;
+            a.download = `obsilo-backup-${date}.zip`;
             a.click();
             URL.revokeObjectURL(url);
 
-            new Notice(t('settings.backup.exported', { files: totalFiles, categories: selectedCount, size: this.formatSize(json.length) }));
+            new Notice(t('settings.backup.exported', { files: totalFiles, categories: selectedCount, size: this.formatSize(blob.size) }));
         } catch (e) {
             new Notice(t('settings.backup.exportFailed', { error: (e as Error).message }));
         } finally {
             btn.removeClass('is-loading');
             btn.setText(t('settings.backup.export'));
         }
+    }
+
+    /**
+     * Walk a category directory and return [relativePath, bytes] pairs.
+     * Adapter-agnostic helper that reads via readBinary for SQLite-safety.
+     */
+    private async collectBinaryFiles(
+        cat: BackupCategory, dir: string, baseDir: string, recursive: boolean,
+    ): Promise<Array<[string, Uint8Array]>> {
+        const out: Array<[string, Uint8Array]> = [];
+        try {
+            const listed = cat.root === 'global'
+                ? await this.globalFs.list(dir)
+                : await this.app.vault.adapter.list(dir);
+            for (const filePath of listed.files) {
+                try {
+                    const data = cat.root === 'global'
+                        ? await this.globalFs.readBinary(filePath)
+                        : new Uint8Array(await this.app.vault.adapter.readBinary(filePath));
+                    const relative = filePath.startsWith(baseDir)
+                        ? filePath.slice(baseDir.length + 1)
+                        : filePath;
+                    out.push([relative, data]);
+                } catch { /* skip unreadable */ }
+            }
+            if (recursive) {
+                for (const subDir of listed.folders) {
+                    const subFiles = await this.collectBinaryFiles(cat, subDir, baseDir, true);
+                    out.push(...subFiles);
+                }
+            }
+        } catch { /* directory missing */ }
+        return out;
     }
 
     // ── Import ───────────────────────────────────────────────────────────────
@@ -428,46 +479,33 @@ export class BackupTab {
     private pickImportFile(): void {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json,application/json';
+        input.accept = '.zip,application/zip';
         input.addEventListener('change', () => { void (async () => {
             const file = input.files?.[0];
             if (!file) return;
             try {
-                const text = await file.text();
-                const parsed: unknown = JSON.parse(text);
-
+                const buf = await file.arrayBuffer();
+                const zip = await JSZip.loadAsync(buf);
+                const manifestEntry = zip.file(MANIFEST_NAME);
+                if (!manifestEntry) {
+                    new Notice(t('settings.backup.invalidFile'));
+                    return;
+                }
+                const manifestText = await manifestEntry.async('string');
+                const parsed: unknown = JSON.parse(manifestText);
                 if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
                     new Notice(t('settings.backup.invalidFile'));
                     return;
                 }
-
                 const obj = parsed as Record<string, unknown>;
-
                 if (obj.format !== 'obsilo-backup' || typeof obj.version !== 'number') {
-                    // Fallback: try legacy settings-only format
-                    if ('activeModels' in obj || 'customModes' in obj || 'autoApproval' in obj) {
-                        _pendingImport = {
-                            format: 'obsilo-backup',
-                            version: 1,
-                            exportedAt: '',
-                            categories: {
-                                settings: {
-                                    files: {
-                                        'data.json': { content: JSON.stringify(parsed, null, 2) },
-                                    },
-                                },
-                            },
-                        };
-                    } else {
-                        new Notice(t('settings.backup.invalidFile'));
-                        return;
-                    }
-                } else {
-                    _pendingImport = obj as unknown as BackupManifest;
+                    new Notice(t('settings.backup.invalidFile'));
+                    return;
                 }
 
+                _pendingImport = { manifest: obj as unknown as BackupManifest, zip };
                 _importToggles = {};
-                for (const catId of Object.keys(_pendingImport.categories)) {
+                for (const catId of Object.keys(_pendingImport.manifest.categories)) {
                     _importToggles[catId] = true;
                 }
 
@@ -480,7 +518,7 @@ export class BackupTab {
     }
 
     private buildImportConfirmation(container: HTMLElement): void {
-        const data = _pendingImport!;
+        const data = _pendingImport!.manifest;
         const dateStr = data.exportedAt
             ? new Date(data.exportedAt).toLocaleDateString('de-DE', {
                 year: 'numeric', month: 'short', day: 'numeric',
@@ -497,9 +535,8 @@ export class BackupTab {
         const list = container.createDiv('agent-backup-category-list');
         for (const [catId, catData] of Object.entries(data.categories)) {
             const catDef = categories.find((c) => c.id === catId);
-            const fileCount = Object.keys(catData.files).length;
-            const totalSize = Object.values(catData.files)
-                .reduce((sum, f) => sum + f.content.length, 0);
+            const fileCount = catData.files.length;
+            const totalSize = catData.files.reduce((sum, f) => sum + f.size, 0);
 
             const row = list.createDiv('agent-backup-category-row');
             const label = row.createEl('label', { cls: 'agent-backup-label' });
@@ -547,15 +584,23 @@ export class BackupTab {
         try {
             let totalFiles = 0;
             let selectedCount = 0;
+            const { manifest, zip } = _pendingImport;
 
-            for (const [catId, catData] of Object.entries(_pendingImport.categories)) {
+            for (const [catId, catData] of Object.entries(manifest.categories)) {
                 if (!_importToggles[catId]) continue;
                 selectedCount++;
 
+                const readEntry = async (relPath: string): Promise<Uint8Array | null> => {
+                    const entry = zip.file(`${FILES_PREFIX}/${catId}/${relPath}`);
+                    if (!entry) return null;
+                    return entry.async('uint8array');
+                };
+
                 if (catId === 'settings') {
-                    const settingsFile = catData.files['data.json'];
-                    if (settingsFile) {
-                        const raw: unknown = JSON.parse(settingsFile.content);
+                    const data = await readEntry('data.json');
+                    if (data) {
+                        const text = new TextDecoder().decode(data);
+                        const raw: unknown = JSON.parse(text);
                         if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
                             console.warn('[BackupTab] Settings import: not a valid object, skipping');
                             continue;
@@ -566,25 +611,33 @@ export class BackupTab {
                         totalFiles++;
                     }
                 } else if (catId === 'vault-dna') {
-                    const vdnFile = catData.files['vault-dna.json'];
-                    if (vdnFile) {
+                    const data = await readEntry('vault-dna.json');
+                    if (data) {
                         const dir = getAgentFolderPath(this.plugin);
-                        const exists = await this.app.vault.adapter.exists(dir);
-                        if (!exists) await this.app.vault.adapter.mkdir(dir);
-                        await this.app.vault.adapter.write(getVaultDnaPath(this.plugin), vdnFile.content);
+                        if (!(await this.app.vault.adapter.exists(dir))) {
+                            await this.app.vault.adapter.mkdir(dir);
+                        }
+                        await this.app.vault.adapter.writeBinary(getVaultDnaPath(this.plugin), data.buffer as ArrayBuffer);
                         totalFiles++;
                     }
                 } else {
                     const catDef = getCategories(this.plugin).find((c) => c.id === catId);
                     if (!catDef || !catDef.dir) continue;
-
-                    const flat: Record<string, string> = {};
-                    for (const [path, entry] of Object.entries(catData.files)) {
-                        flat[path] = entry.content;
+                    for (const fileEntry of catData.files) {
+                        const data = await readEntry(fileEntry.path);
+                        if (!data) continue;
+                        const fullPath = `${catDef.dir}/${fileEntry.path}`;
+                        if (catDef.root === 'global') {
+                            await this.globalFs.writeBinary(fullPath, data);
+                        } else {
+                            const dirPath = fullPath.includes('/') ? fullPath.slice(0, fullPath.lastIndexOf('/')) : '';
+                            if (dirPath && !(await this.app.vault.adapter.exists(dirPath))) {
+                                await this.app.vault.adapter.mkdir(dirPath);
+                            }
+                            await this.app.vault.adapter.writeBinary(fullPath, data.buffer as ArrayBuffer);
+                        }
+                        totalFiles++;
                     }
-
-                    const adapter = this.adapterFor(catDef);
-                    totalFiles += await this.restoreFilesToAdapter(adapter, flat, catDef.dir);
                 }
             }
 
@@ -604,54 +657,6 @@ export class BackupTab {
 
     private adapterFor(cat: BackupCategory): { list(p: string): Promise<{files: string[], folders: string[]}>; read(p: string): Promise<string>; write(p: string, d: string): Promise<void>; exists(p: string): Promise<boolean>; mkdir(p: string): Promise<void> } {
         return cat.root === 'global' ? this.globalFs : this.app.vault.adapter;
-    }
-
-    private async collectFilesFromAdapter(
-        adapter: { list(p: string): Promise<{files: string[], folders: string[]}>; read(p: string): Promise<string> },
-        dir: string, baseDir: string, recursive: boolean,
-    ): Promise<Record<string, string>> {
-        const result: Record<string, string> = {};
-        try {
-            const listed = await adapter.list(dir);
-            for (const filePath of listed.files) {
-                try {
-                    const content = await adapter.read(filePath);
-                    const relative = filePath.startsWith(baseDir)
-                        ? filePath.slice(baseDir.length + 1)
-                        : filePath;
-                    result[relative] = content;
-                } catch { /* skip unreadable files */ }
-            }
-            if (recursive) {
-                for (const subDir of listed.folders) {
-                    const subFiles = await this.collectFilesFromAdapter(adapter, subDir, baseDir, true);
-                    Object.assign(result, subFiles);
-                }
-            }
-        } catch { /* directory doesn't exist */ }
-        return result;
-    }
-
-    private async restoreFilesToAdapter(
-        adapter: { write(p: string, d: string): Promise<void>; exists(p: string): Promise<boolean>; mkdir(p: string): Promise<void> },
-        files: Record<string, string>, baseDir: string,
-    ): Promise<number> {
-        let count = 0;
-        const createdDirs = new Set<string>();
-        for (const [relativePath, content] of Object.entries(files)) {
-            const fullPath = `${baseDir}/${relativePath}`;
-            const dirPath = fullPath.includes('/')
-                ? fullPath.split('/').slice(0, -1).join('/')
-                : null;
-            if (dirPath && !createdDirs.has(dirPath)) {
-                const exists = await adapter.exists(dirPath);
-                if (!exists) await adapter.mkdir(dirPath);
-                createdDirs.add(dirPath);
-            }
-            await adapter.write(fullPath, content);
-            count++;
-        }
-        return count;
     }
 
     private async countAndSizeFromAdapter(

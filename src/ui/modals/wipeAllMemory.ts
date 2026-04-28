@@ -14,7 +14,7 @@
 import type { App } from 'obsidian';
 import { Notice } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
-import { confirmModal, promptModal } from '../../ui/modals/PromptModal';
+import { confirmModal, promptModal } from './PromptModal';
 
 export type WipeOutcome = 'deleted' | 'cancelled' | 'failed' | 'no-db';
 

@@ -239,9 +239,9 @@ export class MemoryViewerModal extends Modal {
         this.render();
     }
 
-    /** Right-to-be-forgotten flow lives in core/memory/wipeAllMemory. */
+    /** Right-to-be-forgotten flow lives next to this modal in the UI layer. */
     private async handleWipeAll(): Promise<void> {
-        const { confirmAndWipeAllMemory } = await import('../../core/memory/wipeAllMemory');
+        const { confirmAndWipeAllMemory } = await import('./wipeAllMemory');
         const outcome = await confirmAndWipeAllMemory(this.app, this.plugin);
         if (outcome === 'deleted') this.close();
     }

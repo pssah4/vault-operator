@@ -77,6 +77,19 @@ export class GlobalFileService implements FileAdapter {
         await fsModule.promises.writeFile(abs, data, 'utf-8');
     }
 
+    /** Binary read for SQLite DBs and other non-UTF8 payloads (FEATURE-0319b backup-zip). */
+    async readBinary(p: string): Promise<Uint8Array> {
+        const buf = await fsModule.promises.readFile(this.resolvePath(p));
+        return new Uint8Array(buf);
+    }
+
+    /** Binary write counterpart. */
+    async writeBinary(p: string, data: Uint8Array): Promise<void> {
+        const abs = this.resolvePath(p);
+        await fsModule.promises.mkdir(pathModule.dirname(abs), { recursive: true });
+        await fsModule.promises.writeFile(abs, data);
+    }
+
     async mkdir(p: string): Promise<void> {
         await fsModule.promises.mkdir(this.resolvePath(p), { recursive: true });
     }

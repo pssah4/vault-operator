@@ -250,7 +250,7 @@ export class MemoryTab {
                 .setButtonText('Delete all')
                 .setWarning()
                 .onClick(async () => {
-                    const { confirmAndWipeAllMemory } = await import('../../core/memory/wipeAllMemory');
+                    const { confirmAndWipeAllMemory } = await import('../modals/wipeAllMemory');
                     await confirmAndWipeAllMemory(this.app, this.plugin);
                     this.rerender();
                 }));
