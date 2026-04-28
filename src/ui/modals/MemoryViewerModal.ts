@@ -52,6 +52,19 @@ export class MemoryViewerModal extends Modal {
             'Use this view to inspect or remove anything.',
         );
 
+        // Counts summary
+        const factStore = new FactStore(this.plugin.memoryDB!);
+        const totalFacts = factStore.listLatest({ limit: 5000 }).length;
+        let sessionCount = 0;
+        try {
+            const result = this.plugin.memoryDB!.getDB().exec('SELECT COUNT(*) FROM sessions');
+            if (result.length > 0 && result[0].values.length > 0) {
+                sessionCount = Number(result[0].values[0][0]);
+            }
+        } catch { /* sessions table may not exist on fresh DB */ }
+        const stats = this.contentEl.createEl('p', { cls: 'memory-viewer-stats' });
+        stats.setText(`${totalFacts} fact(s) · ${sessionCount} session summary(ies)`);
+
         // Filter input
         const filterRow = this.contentEl.createDiv({ cls: 'memory-viewer-filter' });
         const filterInput = filterRow.createEl('input', {

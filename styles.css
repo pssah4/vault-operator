@@ -2828,6 +2828,11 @@
 .memory-viewer-intro {
     font-size: 12px;
     color: var(--text-muted);
+    margin: 0 0 6px 0;
+}
+.memory-viewer-stats {
+    font-size: 11px;
+    color: var(--text-faint);
     margin: 0 0 12px 0;
 }
 .memory-viewer-filter {

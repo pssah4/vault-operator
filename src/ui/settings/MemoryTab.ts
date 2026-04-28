@@ -158,46 +158,8 @@ export class MemoryTab {
             // ─── Obsilo's Soul (FEATURE-0319b L2 + L3) ─────────────────
             this.buildSoulSection(containerEl);
 
-            // ─── Memory Files ─────────────────────────────────────────
-            containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingFiles') });
-
-            const memService = this.plugin.memoryService;
-            if (memService) {
-                void memService.getStats().then((stats) => {
-                    const desc = [
-                        t('settings.memory.statsFiles', { count: stats.fileCount }),
-                        t('settings.memory.statsSessions', { count: stats.sessionCount }),
-                    ];
-                    if (stats.lastUpdated) {
-                        desc.push(t('settings.memory.statsLastUpdated', { date: new Date(stats.lastUpdated).toLocaleDateString() }));
-                    }
-                    statsSetting.setDesc(desc.join(' | '));
-                });
-            }
-
-            const statsSetting = new Setting(containerEl)
-                .setName(t('settings.memory.memoryStorage'))
-                .setDesc(t('settings.memory.memoryStorageLoading'))
-                .addButton((b) =>
-                    b.setButtonText(t('settings.memory.viewFiles')).onClick(() => {
-                        if (memService) {
-                            // Open the memory directory in Obsidian's file explorer
-                            const dir = memService.getMemoryDir();
-                            new Notice(t('settings.memory.memoryFilesLocation', { dir }));
-                        }
-                    }),
-                )
-                .addButton((b) =>
-                    b.setButtonText(t('settings.memory.resetAll')).setWarning().onClick(async () => {
-                        if (memService) {
-                            await memService.resetAll();
-                            new Notice(t('settings.memory.allMemoryReset'));
-                            this.rerender();
-                        }
-                    }),
-                );
-
             // ─── Onboarding ──────────────────────────────────────────
+            const memService = this.plugin.memoryService;
             containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingOnboarding') });
 
             if (memService) {
