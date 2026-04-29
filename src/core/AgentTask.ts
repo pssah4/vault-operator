@@ -198,7 +198,20 @@ export class AgentTask {
                 );
                 const bestMatch = recipeMatch?.[0];
 
-                if (bestMatch && bestMatch.score >= 0.3 && bestMatch.recipe.source === 'learned' && bestMatch.recipe.successCount >= 3) {
+                // FEATURE-0320 follow-up: when the user explicitly references
+                // chats/conversations as the search source, the vault-centric
+                // "Knowledge Search & Synthesis" recipe is the wrong answer --
+                // it scans Notes and never calls search_history. Skip FastPath
+                // so the agent picks search_history itself.
+                const fpUserText = typeof userMessage === 'string' ? userMessage : '';
+                const chatSourceRegex = /\b(chat|chats|gespr(ä|ae)ch|gespr(ä|ae)che|konversation|konversationen|unterhaltung|unterhaltungen|dialog|dialoge|history)\b/i;
+                const targetsChatHistory = chatSourceRegex.test(fpUserText);
+
+                if (bestMatch && targetsChatHistory) {
+                    console.debug(`[FastPath] Skipped (chat-source query): "${fpUserText.slice(0, 80)}"`);
+                }
+
+                if (bestMatch && !targetsChatHistory && bestMatch.score >= 0.3 && bestMatch.recipe.source === 'learned' && bestMatch.recipe.successCount >= 3) {
                     console.debug(`[FastPath] Recipe match: ${bestMatch.recipe.name} (score=${bestMatch.score.toFixed(2)}, successes=${bestMatch.recipe.successCount})`);
 
                     // Build system prompt for planner (same params as normal loop)
