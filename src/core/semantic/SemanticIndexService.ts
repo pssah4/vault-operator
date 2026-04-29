@@ -55,6 +55,17 @@ export interface SemanticIndexOptions {
     chunkSize?: number;
     /** Contextual Retrieval: prepend LLM-generated context to chunks before embedding (ADR-051). Default: true */
     enableContextualRetrieval?: boolean;
+    /**
+     * AUDIT-013 follow-up: predicate that returns true for paths the user
+     * has marked ignored (.obsidian-agentignore). Files matching this
+     * predicate are excluded at BUILD time, so their content never enters
+     * the embedding store. Defense in depth on top of read-time filters
+     * in searchVault and SearchFilesTool.
+     *
+     * If undefined, the previous behaviour applies (no per-path ignore at
+     * build); excludedFolders still works.
+     */
+    isIgnored?: (path: string) => boolean;
 }
 
 const DEFAULT_CHUNK_SIZE = 2000;   // chars — larger chunks → fewer API calls
@@ -79,6 +90,7 @@ export class SemanticIndexService {
     private batchSize: number;
     private embeddingBatchSize: number;
     private excludedFolders: string[];
+    private isIgnored?: (path: string) => boolean;
     private indexPdfs: boolean;
     private chunkSize: number;
     private enableContextualRetrieval: boolean;
@@ -117,6 +129,7 @@ export class SemanticIndexService {
         this.batchSize = options.batchSize ?? DEFAULT_COMMIT_EVERY;
         this.embeddingBatchSize = options.embeddingBatchSize ?? DEFAULT_EMBED_BATCH;
         this.excludedFolders = options.excludedFolders ?? [];
+        this.isIgnored = options.isIgnored;
         this.indexPdfs = options.indexPdfs ?? false;
         this.chunkSize = options.chunkSize ?? DEFAULT_CHUNK_SIZE;
         this.enableContextualRetrieval = options.enableContextualRetrieval ?? true;
@@ -136,6 +149,7 @@ export class SemanticIndexService {
         if (options.batchSize !== undefined) this.batchSize = options.batchSize;
         if (options.embeddingBatchSize !== undefined) this.embeddingBatchSize = options.embeddingBatchSize;
         if (options.excludedFolders !== undefined) this.excludedFolders = options.excludedFolders;
+        if (options.isIgnored !== undefined) this.isIgnored = options.isIgnored;
         if (options.indexPdfs !== undefined) this.indexPdfs = options.indexPdfs;
         if (options.chunkSize !== undefined) this.chunkSize = options.chunkSize;
         if (options.enableContextualRetrieval !== undefined) this.enableContextualRetrieval = options.enableContextualRetrieval;
@@ -251,11 +265,19 @@ export class SemanticIndexService {
                     ...this.vault.getFiles().filter((f) => DOCUMENT_EXTENSIONS.has(f.extension)),
                 ]
                 : mdFiles;
-            const files = this.excludedFolders.length > 0
-                ? allFiles.filter((f) => !this.excludedFolders.some(
-                    (folder) => f.path.startsWith(folder + '/'),
-                ))
-                : allFiles;
+            // AUDIT-013 follow-up: respect IgnoreService at build time so
+            // ignored notes never enter the embedding store. Read-time
+            // filters (searchVault, SearchFilesTool) remain as a second
+            // line of defence in case the index already contains older
+            // entries.
+            const folderFilter = this.excludedFolders.length > 0
+                ? (path: string) => !this.excludedFolders.some((f) => path.startsWith(f + '/'))
+                : () => true;
+            const files = allFiles.filter((f) => {
+                if (!folderFilter(f.path)) return false;
+                if (this.isIgnored?.(f.path)) return false;
+                return true;
+            });
             const total = files.length;
 
             // Diagnostic: log file count breakdown so we can verify PDF inclusion
@@ -263,7 +285,7 @@ export class SemanticIndexService {
             const excluded = allFiles.length - files.length;
             console.debug(
                 `[SemanticIndex] File breakdown: ${mdFiles.length} markdown, ${docCount} documents (indexPdfs=${this.indexPdfs}), ` +
-                `${excluded} excluded → ${total} total`,
+                `${excluded} excluded (folders + ignore) -> ${total} total`,
             );
 
             const modelKey = this.modelKey();

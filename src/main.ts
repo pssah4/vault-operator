@@ -492,11 +492,13 @@ export default class ObsidianAgentPlugin extends Plugin {
             );
             this.semanticIndex = new SemanticIndexService(this.app.vault, this.knowledgeDB, this.vectorStore, {
                 batchSize: this.settings.semanticBatchSize,
-                embeddingBatchSize: 16,  // texts per API call — batch for performance
+                embeddingBatchSize: 16,  // texts per API call -- batch for performance
                 excludedFolders: this.settings.semanticExcludedFolders,
                 indexPdfs: this.settings.semanticIndexPdfs,
                 chunkSize: this.settings.semanticChunkSize ?? 2000,
                 enableContextualRetrieval: this.settings.enableContextualRetrieval,
+                // AUDIT-013 follow-up: skip ignored notes at index build.
+                isIgnored: (path: string) => this.ignoreService.isIgnored(path),
             });
             const embeddingModel = this.getActiveEmbeddingModel();
             if (embeddingModel) this.semanticIndex.setEmbeddingModel(embeddingModel);

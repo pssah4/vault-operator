@@ -674,9 +674,9 @@ V-Model-Checklist: nach /coding kommt /testing plus /security-audit. Beides empf
 - M-1: AGENT_INTERNAL_TOOLS-Filter auch im Handler-Dispatch (nicht nur Listung)
 - M-2: Telemetry promptPreview opt-in via Settings-Flag (Default false)
 
-**Architektur-Empfehlung fuer naechsten /architecture-Cycle:**
-- C-1 wurde mit interim deny-list gefixt. Der proper fix routet execute_vault_op durch ToolExecutionPipeline. Sollte als ADR fuer einen kommenden Welle dokumentiert werden -- die deny-list ist eine Wartungs-Schuld (jeder neue Write-Tool muss manuell eingetragen werden).
-- IgnoreService-Semantik: aktuell wird der Index ungefiltert gebaut, die Filterung passiert auf Read. Architektur-Frage fuer spaeter: soll IgnoreService auch im SemanticIndex-Build greifen?
+**Architektur-Folgewelle in selbiger Session abgeschlossen (ADR-091):**
+- C-1 ist jetzt PROPER FIXED. `execute_vault_op` routet durch `ToolExecutionPipeline`; die hand-gepflegte `MCP_DENY_TOOLS`-Liste ist weg. Schema-Validation, IgnoreService, Approval-Flow (fail-closed fuer Writes), Checkpoints, Cache und Operation-Log greifen uniform. Neue Write-Tools erben den Schutz automatisch, kein Maintenance-Aufwand mehr.
+- IgnoreService-Build-Semantik ist aufgeloest. SemanticIndex bekommt `isIgnored`-Predicate in den Optionen; ignorierte Files landen nicht mehr im Embedding-Store. Read-time-Filter bleibt als Defense-in-Depth.
 
 **Deferred (P3, Low):**
 - L-1, L-2, L-3: false positive oder bereits mitigated -- keine Backlog-Eintraege noetig
