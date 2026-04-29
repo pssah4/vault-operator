@@ -76,6 +76,14 @@ export class AgentSidebarView extends ItemView {
 
     // Health badge (FEATURE-1901)
     private healthBadge: HTMLElement | null = null;
+    // Browser-style chat navigation: linear stack of conversation IDs the user
+    // visited via arrow nav. navIndex = position in the stack; entries beyond
+    // the index are the forward history (truncated when a fresh chat is loaded
+    // from outside the back/forward path). null sentinel = "new/empty chat".
+    private navStack: Array<string | null> = [];
+    private navIndex = -1;
+    private navBackBtn: HTMLButtonElement | null = null;
+    private navForwardBtn: HTMLButtonElement | null = null;
     // Tool picker (pocket-knife button)
     private toolPickerButton: HTMLElement | null = null;
     // Web search toggle button (globe icon)
@@ -229,6 +237,26 @@ export class AgentSidebarView extends ItemView {
             // Navigate to plugin tab after modal is rendered (200ms is robust for most machines)
             setTimeout(() => this.app.setting?.openTabById('obsilo-agent'), 200);
         });
+
+        // Browser-style back/forward through recently opened chats. Useful
+        // after clicking a chat-link inside a conversation -- one tap to
+        // return to the chat that linked there. Hidden behind disabled state
+        // when the stack only has one entry.
+        this.navBackBtn = headerRight.createEl('button', {
+            cls: 'header-button',
+            attr: { 'aria-label': 'Previous chat' },
+        });
+        setIcon(this.navBackBtn.createSpan('toolbar-icon'), 'arrow-left');
+        this.navBackBtn.addEventListener('click', () => { void this.navBack(); });
+
+        this.navForwardBtn = headerRight.createEl('button', {
+            cls: 'header-button',
+            attr: { 'aria-label': 'Next chat' },
+        });
+        setIcon(this.navForwardBtn.createSpan('toolbar-icon'), 'arrow-right');
+        this.navForwardBtn.addEventListener('click', () => { void this.navForward(); });
+
+        this.updateNavButtons();
 
         // History button — opens conversation history panel
         const historyBtn = headerRight.createEl('button', {
@@ -1350,6 +1378,18 @@ export class AgentSidebarView extends ItemView {
                 mode,
                 model?.displayName ?? model?.name ?? modelKey,
             );
+            // If the nav stack top is the "fresh-chat" sentinel (null), upgrade
+            // it to this just-created conversation id. That keeps back/forward
+            // consistent: visiting a fresh chat counts as one stack entry,
+            // not two ("empty" plus its concrete id).
+            if (
+                this.navStack.length > 0
+                && this.navIndex === this.navStack.length - 1
+                && this.navStack[this.navIndex] === null
+            ) {
+                this.navStack[this.navIndex] = this.activeConversationId;
+                this.updateNavButtons();
+            }
         }
 
         // Track user UI message for history persistence (skip for hidden messages)
@@ -2461,7 +2501,7 @@ export class AgentSidebarView extends ItemView {
     /**
      * Clear conversation history and chat UI (New Chat)
      */
-    private clearConversation(): void {
+    private clearConversation(opts: { skipNavPush?: boolean } = {}): void {
         // Save current conversation before clearing (if there is one)
         this.saveCurrentConversation();
         // Enqueue memory extraction (fire-and-forget, threshold-gated)
@@ -2486,6 +2526,12 @@ export class AgentSidebarView extends ItemView {
         this.showWelcomeMessage();
         this.updateContextBadge();
         this.historyPanel?.setActiveId(null);
+
+        if (!opts.skipNavPush) {
+            this.pushNav(null);
+        } else {
+            this.updateNavButtons();
+        }
     }
 
     /** Save the current conversation to ConversationStore (non-blocking). */
@@ -2715,8 +2761,71 @@ export class AgentSidebarView extends ItemView {
         return this.loadConversation(id);
     }
 
+    /**
+     * Push the next conversation onto the nav stack and truncate forward
+     * history -- standard browser semantics. Called from loadConversation
+     * for "fresh" navigations (deep-links, history-panel clicks); skipped
+     * when the navigation itself comes from the back/forward arrows.
+     */
+    private pushNav(id: string | null): void {
+        // Drop any "forward" entries beyond the current cursor.
+        if (this.navIndex < this.navStack.length - 1) {
+            this.navStack = this.navStack.slice(0, this.navIndex + 1);
+        }
+        // Don't stack consecutive duplicates (e.g. re-loading the same chat).
+        const top = this.navStack[this.navStack.length - 1];
+        if (top !== id) {
+            this.navStack.push(id);
+            this.navIndex = this.navStack.length - 1;
+        }
+        // Soft cap at 50 entries so a long session doesn't grow unbounded.
+        if (this.navStack.length > 50) {
+            const overflow = this.navStack.length - 50;
+            this.navStack = this.navStack.slice(overflow);
+            this.navIndex = Math.max(0, this.navIndex - overflow);
+        }
+        this.updateNavButtons();
+    }
+
+    private async navBack(): Promise<void> {
+        if (this.navIndex <= 0) return;
+        this.navIndex -= 1;
+        const target = this.navStack[this.navIndex];
+        await this.loadConversation(target ?? null, { skipNavPush: true });
+    }
+
+    private async navForward(): Promise<void> {
+        if (this.navIndex >= this.navStack.length - 1) return;
+        this.navIndex += 1;
+        const target = this.navStack[this.navIndex];
+        await this.loadConversation(target ?? null, { skipNavPush: true });
+    }
+
+    private updateNavButtons(): void {
+        if (this.navBackBtn) {
+            const canBack = this.navIndex > 0;
+            this.navBackBtn.disabled = !canBack;
+            this.navBackBtn.classList.toggle('agent-u-hidden', this.navStack.length < 2);
+        }
+        if (this.navForwardBtn) {
+            const canForward = this.navIndex < this.navStack.length - 1;
+            this.navForwardBtn.disabled = !canForward;
+            this.navForwardBtn.classList.toggle('agent-u-hidden', this.navStack.length < 2);
+        }
+    }
+
     /** Load a conversation from history and restore it in the chat panel. */
-    private async loadConversation(id: string): Promise<void> {
+    private async loadConversation(
+        id: string | null,
+        opts: { skipNavPush?: boolean } = {},
+    ): Promise<void> {
+        if (id === null) {
+            // Back-arrow target was an "empty chat" sentinel -- clear without
+            // re-pushing it onto the stack. clearConversation reads navStack
+            // state via the same skipNavPush flag.
+            this.clearConversation({ skipNavPush: true });
+            return;
+        }
         const store = this.plugin.conversationStore;
         if (!store) return;
 
@@ -2756,6 +2865,12 @@ export class AgentSidebarView extends ItemView {
         }
         this.historyPanel?.setActiveId(id);
         this.updateContextBadge();
+
+        if (!opts.skipNavPush) {
+            this.pushNav(id);
+        } else {
+            this.updateNavButtons();
+        }
     }
 
     /** Delete a conversation from history. */
