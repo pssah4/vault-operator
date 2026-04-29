@@ -27,7 +27,8 @@ export class SearchHistoryTool extends BaseTool<'search_history'> {
         return {
             name: 'search_history',
             description:
-                'Keyword-search past conversations for messages that match the query. Use when the user references "we talked about X earlier" or "find that chat where I mentioned Y" -- much narrower than recall_memory (which searches extracted facts). Returns up to top_k matching messages with their source conversation, role, and timestamp; render the results so the user can click through.',
+                'Keyword-search past conversations for messages that match the query. Use when the user references "we talked about X earlier", "find that chat where I mentioned Y", or asks "what did I say about X in my chats" -- much narrower than recall_memory (which searches extracted facts). Returns up to top_k matching messages with their source conversation, role, timestamp, and a clickable obsidian://obsilo-chat link. ' +
+                'IMPORTANT: when you synthesise the final answer, cite each referenced chat by including its obsidian://obsilo-chat link inline (e.g. "[Chat title](<obsidian://obsilo-chat?id=...>)") so the user can re-enter the source conversation. Do not replace these chat links with note links from other tools -- both kinds of sources can co-exist.',
             input_schema: {
                 type: 'object',
                 properties: {
@@ -122,6 +123,11 @@ export class SearchHistoryTool extends BaseTool<'search_history'> {
             lines.push(`- **${role}** in [${title}](<${link}>) -- ${date}`);
             lines.push(`  > ${snippet}`);
         }
+        lines.push('');
+        lines.push(
+            '_When you reference any of these messages in your reply, include the ' +
+            'obsidian://obsilo-chat link inline so the user can re-open the source chat._',
+        );
         return lines.join('\n');
     }
 }
