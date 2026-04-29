@@ -38,6 +38,8 @@ export interface Mention {
     source: 'wikilink' | 'markdown-link' | 'bare-url';
 }
 
+// TODO(R3): migrate to src/core/utils/wikilinks.ts (parseWikilinks).
+// Kept regex-based for now to avoid touching the memory-extraction pipeline.
 const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 const MARKDOWN_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)\)/g;
 // Plain URL detection -- intentionally conservative: must have a scheme,

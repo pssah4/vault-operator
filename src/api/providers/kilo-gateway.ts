@@ -166,7 +166,7 @@ export class KiloGatewayProvider implements ApiHandler {
                     try {
                         input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
                     } catch (e) {
-                        // BUG-031: tool_error increments AgentTask mistake counter.
+                        // BUG-032: tool_error increments AgentTask mistake counter.
                         yield {
                             type: 'tool_error',
                             id: acc.id,

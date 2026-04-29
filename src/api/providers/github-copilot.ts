@@ -278,7 +278,7 @@ export class GitHubCopilotProvider implements ApiHandler {
             try {
                 input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
             } catch (e) {
-                // BUG-031: Emit tool_error (not text) so AgentTask records a
+                // BUG-032: Emit tool_error (not text) so AgentTask records a
                 // failed tool_use, increments consecutiveMistakes, and breaks
                 // the loop after the configured limit. Emitting text causes
                 // the model to retry the same broken call indefinitely.

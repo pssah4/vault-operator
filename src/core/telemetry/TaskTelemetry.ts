@@ -1,5 +1,5 @@
 /**
- * TaskTelemetry -- Per-task token, cost, and tool-sequence logger (ADR-080, Lever 10)
+ * TaskTelemetry -- Per-task token, cost, and tool-sequence logger (ADR-090, Lever 10)
  *
  * Records what the agent did for each task: prompt, iterations, tools used,
  * tokens consumed, EUR cost, outcome. Persists to a single JSON-lines file

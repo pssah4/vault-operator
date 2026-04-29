@@ -120,7 +120,7 @@ export class FastPathExecutor {
         callbacks: ToolCallbacks,
         abortSignal?: AbortSignal,
         tools?: ToolDefinition[],
-        // FIX-H (ADR-080 follow-up): forward the parent task's readFiles set so
+        // FIX-H (ADR-090 follow-up): forward the parent task's readFiles set so
         // FastPath stage-2 reads contribute to todo-verification.
         readFiles?: Set<string>,
     ): Promise<FastPathResult> {
@@ -189,7 +189,7 @@ export class FastPathExecutor {
                         if (filteredRead.length !== beforeTmpFilter) {
                             console.debug(`[FastPath] Stage 2: dropped ${beforeTmpFilter - filteredRead.length} read(s) targeting externalize tmp -- already in planner context`);
                         }
-                        // FIX-G (ADR-080 follow-up, 2026-04-29): dynamic cap.
+                        // FIX-G (ADR-090 follow-up, 2026-04-29): dynamic cap.
                         // Static cap=3 silently dropped the 4th and 5th read for tasks
                         // that explicitly say "alle/all/jede/list of N notes" -- the
                         // user's "konsolidierte Insights aus ALLEN GenAI-Notes" lost

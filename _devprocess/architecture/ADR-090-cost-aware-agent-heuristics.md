@@ -1,4 +1,4 @@
-# ADR-080: Cost-Aware Agent Heuristics
+# ADR-090: Cost-Aware Agent Heuristics
 
 **Status:** Accepted
 **Date:** 2026-04-29

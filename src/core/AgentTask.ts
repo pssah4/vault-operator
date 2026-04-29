@@ -65,7 +65,7 @@ export interface AgentTaskCallbacks {
     /** Called when an unrecoverable error occurs */
     onError: (error: Error) => void;
     /**
-     * ADR-080 Lever 10: Telemetry hook fired exactly once per task at the very
+     * ADR-090 Lever 10: Telemetry hook fired exactly once per task at the very
      * end with all aggregated stats (tokens, tool sequence, outcome). The
      * receiver decides where to persist (typically TaskTelemetry.record).
      */
@@ -200,7 +200,7 @@ export class AgentTask {
             this.api,
         );
 
-        // FIX-H/I (ADR-080 follow-up): set of files read during this task.
+        // FIX-H/I (ADR-090 follow-up): set of files read during this task.
         // Declared early so FastPath (which runs before the main loop) can
         // contribute to it. Pipeline mutates on each successful read.
         const readFiles = new Set<string>();
@@ -232,7 +232,7 @@ export class AgentTask {
                     console.debug(`[FastPath] Skipped (chat-source query): "${fpUserText.slice(0, 80)}"`);
                 }
 
-                // FIX-F (ADR-080 follow-up, 2026-04-29): Recipe-Threshold von 0.3 auf 0.5 angehoben.
+                // FIX-F (ADR-090 follow-up, 2026-04-29): Recipe-Threshold von 0.3 auf 0.5 angehoben.
                 // Bei score=0.33 matched "Metadata Tags Generation" auf eine reine Synthese-Aufgabe
                 // und triggerte FastPath in den falschen Workflow. Niedriger Score = unsicheres Match
                 // = lieber normalen Loop laufen lassen, der die Aufgabe sauber zerlegt.
@@ -325,7 +325,7 @@ export class AgentTask {
         // Phase B: consecutive error tracking
         let consecutiveMistakes = 0;
         const repetitionDetector = new ToolRepetitionDetector();
-        // ADR-080 Lever 10: count loop iterations for telemetry.
+        // ADR-090 Lever 10: count loop iterations for telemetry.
         let telemetryIterations = 0;
 
         // Wire up context extensions for agent-control tools
@@ -975,7 +975,7 @@ export class AgentTask {
             // ADR-063: Clean up externalized temp files after task completion
             await pipeline.cleanupExternalized();
 
-            // ADR-080 Lever 10: emit telemetry before completing
+            // ADR-090 Lever 10: emit telemetry before completing
             this.taskCallbacks.onTaskTelemetry?.({
                 inputTokens: totalInputTokens,
                 outputTokens: totalOutputTokens,
@@ -1069,7 +1069,7 @@ export class AgentTask {
                 continue;  // Retry the agent loop
             }
 
-            // ADR-080 Lever 10: telemetry for error outcomes too
+            // ADR-090 Lever 10: telemetry for error outcomes too
             this.taskCallbacks.onTaskTelemetry?.({
                 inputTokens: totalInputTokens,
                 outputTokens: totalOutputTokens,

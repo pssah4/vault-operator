@@ -349,7 +349,7 @@ export class OpenAiProvider implements ApiHandler {
             try {
                 input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
             } catch (e) {
-                // BUG-031: Emit tool_error so AgentTask increments the mistake
+                // BUG-032: Emit tool_error so AgentTask increments the mistake
                 // counter and breaks after consecutiveMistakeLimit. Text chunks
                 // hide the failure from the loop, causing infinite retries.
                 yield {

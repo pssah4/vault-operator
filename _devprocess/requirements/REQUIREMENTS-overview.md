@@ -202,6 +202,7 @@ Local-only, agentic operating layer fuer Obsidian: safe, governed vault operatio
 | FEATURE-0507 | Konfigurierbarer Agent-Folder | EPIC-005 | P2 | `FEATURE-0507-configurable-agent-folder.md` | Implementiert (v2.5.0) |
 | FEATURE-1206 | Copilot Modern Model Compatibility (max_completion_tokens) | EPIC-012 | P1 | `FEATURE-1206-copilot-modern-model-compatibility.md` | Implementiert (v2.5.0) |
 | FEATURE-1803 | Cross-Platform TMP-Pfade fuer Context Externalization | EPIC-018 | P1 | `FEATURE-1803-cross-platform-tmp-paths.md` | Implementiert (v2.5.0) |
+| FEATURE-1804 | Cost-Aware Agent Heuristics (Plan-First, Tool-Tiers, Brakes, Telemetry) | EPIC-018 | P0 | `FEATURE-1804-cost-aware-agent-heuristics.md` | Implementiert 2026-04-29 (ADR-090, BUG-032) |
 
 **Waehrend Beta-Testing nachgezogen (BUG-017, BUG-018):**
 

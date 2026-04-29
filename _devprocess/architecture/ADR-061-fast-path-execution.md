@@ -233,3 +233,38 @@ Key files:
 - Manus Context Engineering: Maskieren statt Entfernen, Append-only History
 - LLMCompiler (2024): Task-DAG mit paralleler Ausfuehrung
 - ReWOO (2023): Planner-Output mit Variablen-Referenzen
+
+## Revision (2026-04-29) -- Recipe-Threshold + dynamic Stage-2-Fanout
+
+**Trigger:** Bei der Synthese-Aufgabe *"Erstelle eine konsolidierte Insights-Note
+aus allen GenAI-Push-Interview-Notes"* matched FastPath das Recipe
+"Metadata Tags Generation" mit Score 0.33 -- konzeptionell falscher Workflow.
+Plus: Stage 2 cappte still die Fanout von 5 angefragten Reads auf 3, was bei
+"alle/all/every"-Aufgaben Quellen verschluckte.
+
+**Aenderung 1 -- Recipe-Threshold:** In `AgentTask.ts:230` wurde der
+Score-Threshold von **0.3 auf 0.5** angehoben. Schwache Matches gehen jetzt
+in den normalen Loop, der die Aufgabe sauber zerlegt.
+
+**Aenderung 2 -- Dynamic Stage-2-Fanout:** In `FastPathExecutor.ts:192` wird
+der Fanout-Cap nun anhand der User-Message bestimmt:
+
+```typescript
+const wideScope = /\b(alle|all|jede[rsn]?|every|each|complete|...)\b/i.test(userMessage);
+const FANOUT_CAP = wideScope ? 8 : 3;
+```
+
+Bei expliziten Sammel-Begriffen wird der Cap auf 8 erhoeht. Default-Cap bleibt 3.
+
+**Aenderung 3 -- readFiles-Forwarding:** FastPath-stage-2-Reads tragen jetzt
+zum Task-weiten `readFiles: Set<string>` bei (FEATURE-1804 Brakes nutzen das).
+Signature von `FastPathExecutor.execute()` und `executeBatch()` um optionalen
+`readFiles?: Set<string>` Parameter erweitert.
+
+**Verworfene Alternativen:**
+- Threshold pro Recipe-Kategorie -- zu komplex, kein klarer Gewinn
+- LLM-basierte Recipe-Auswahl -- widerspricht dem Sparsamkeits-Ziel
+- Cap=5 als Default -- mehr False-Positive-Risiko bei normalen Tasks ohne wide-scope
+
+**Bezug:** FEATURE-1804 (Cost-Aware Agent Heuristics, ADR-090),
+Recipe-Promotion bleibt in ADR-058 unveraendert.

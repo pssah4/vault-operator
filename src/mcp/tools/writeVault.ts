@@ -41,7 +41,9 @@ export async function handleWriteVault(
 
             switch (op.type) {
                 case 'create': {
-                    if (!op.content) { results.push(`${op.path}: Error -- content required for create`); break; }
+                    // Codex finding (2026-04-29): allow empty string as legitimate content.
+                    // Previous `!op.content` rejected `""` which is a valid empty-file case.
+                    if (op.content === undefined) { results.push(`${op.path}: Error -- content required for create`); break; }
                     // Ensure parent folder exists
                     const dir = op.path.substring(0, op.path.lastIndexOf('/'));
                     if (dir) {
@@ -53,7 +55,7 @@ export async function handleWriteVault(
                     break;
                 }
                 case 'edit': {
-                    if (!op.content) { results.push(`${op.path}: Error -- content required for edit`); break; }
+                    if (op.content === undefined) { results.push(`${op.path}: Error -- content required for edit`); break; }
                     const file = vault.getAbstractFileByPath(op.path);
                     if (!(file instanceof TFile)) { results.push(`${op.path}: Error -- file not found`); break; }
                     await vault.modify(file, op.content);
@@ -61,7 +63,7 @@ export async function handleWriteVault(
                     break;
                 }
                 case 'append': {
-                    if (!op.content) { results.push(`${op.path}: Error -- content required for append`); break; }
+                    if (op.content === undefined) { results.push(`${op.path}: Error -- content required for append`); break; }
                     const appendFile = vault.getAbstractFileByPath(op.path);
                     if (!(appendFile instanceof TFile)) { results.push(`${op.path}: Error -- file not found`); break; }
                     await vault.append(appendFile, op.content);

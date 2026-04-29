@@ -548,7 +548,7 @@ export function getToolsForGroup(group: ToolGroup): Array<[string, ToolMeta]> {
 /**
  * Build the system prompt tool section for the given groups.
  *
- * ADR-080 Lever 8 (Prompt-Schrumpfung): default mode is COMPACT -- one line per
+ * ADR-090 Lever 8 (Prompt-Schrumpfung): default mode is COMPACT -- one line per
  * tool (signature + description). Examples / whenToUse / commonMistakes are
  * pulled on demand via find_tool(name). This drops the tool section from
  * ~6k tokens to ~1.5k tokens without losing capability discovery: the agent

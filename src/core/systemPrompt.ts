@@ -149,7 +149,7 @@ export function buildSystemPromptForMode(
         // 1. Mode role definition
         getModeDefinitionSection(mode),
 
-        // 1b. ADR-080: Cost-Aware Agent Heuristics (plan-first, tool tiers,
+        // 1b. ADR-090: Cost-Aware Agent Heuristics (plan-first, tool tiers,
         //     anti-overthinking, sub-agent gating, error recovery, stop
         //     condition, budget awareness). Placed early so the agent reads
         //     the cost rules BEFORE the tool catalogue.
@@ -162,7 +162,7 @@ export function buildSystemPromptForMode(
         getObsidianConventionsSection(),
 
         // 4. Tools (filtered by mode -- compact form by default, ~1.5k tokens.
-        //    Full docs via find_tool(name). ADR-080 Lever 8.
+        //    Full docs via find_tool(name). ADR-090 Lever 8.
         getToolsSection(mode.toolGroups, mcpClient, allowedMcpServers, webEnabled, false),
 
         // 5. Tool Routing (merged rules + guidelines)

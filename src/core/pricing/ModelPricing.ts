@@ -1,5 +1,5 @@
 /**
- * ModelPricing -- USD/EUR cost calculation per model (ADR-080, Lever 5 + 10)
+ * ModelPricing -- USD/EUR cost calculation per model (ADR-090, Lever 5 + 10)
  *
  * Pricing is per-million tokens. Numbers are best-effort published rates,
  * may drift over time -- update when models change. Falls back to Sonnet

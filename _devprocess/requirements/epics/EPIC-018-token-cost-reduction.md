@@ -35,6 +35,7 @@ und Provider-spezifischen Optimierungen, ohne die Ergebnisqualitaet zu beeintrae
 | FEATURE-1801 | Prompt Caching (Provider-agnostisch) | P0 | S | Implementiert (ADR-062) |
 | FEATURE-1802 | Context Externalization (Dateisystem als Kontext) | P1 | M | Implementiert (ADR-063) |
 | FEATURE-1803 | Cross-Platform TMP-Pfade fuer Context Externalization | P1 | S | Implementiert v2.5.0 (BUG-014, Issue #29) |
+| FEATURE-1804 | Cost-Aware Agent Heuristics (Plan-First, Tool-Tiers, Brakes, Telemetry) | P0 | M | Implementiert 2026-04-29 (ADR-090, BUG-032) |
 
 **Priority:** P0-Critical (ohne geht MVP nicht), P1-High (wichtig), P2-Medium (wertsteigernd)
 **Effort:** S (1-3 Tage), M (4-7 Tage), L (2+ Wochen)

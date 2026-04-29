@@ -515,7 +515,7 @@ function* finalizeToolCall(state: ToolCallState): Generator<ApiStreamChunk> {
     try {
         input = state.argsJson.trim() ? JSON.parse(state.argsJson) as Record<string, unknown> : {};
     } catch (e) {
-        // BUG-031: tool_error so AgentTask records the failure and breaks the loop.
+        // BUG-032: tool_error so AgentTask records the failure and breaks the loop.
         yield {
             type: 'tool_error',
             id: state.callId,

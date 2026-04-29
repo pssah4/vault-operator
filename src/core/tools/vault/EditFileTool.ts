@@ -99,7 +99,7 @@ export class EditFileTool extends BaseTool<'edit_file'> {
                     );
                     return;
                 }
-                // BUG-031: When old_str is short and new_str is large (e.g. inserting
+                // BUG-032: When old_str is short and new_str is large (e.g. inserting
                 // a 6KB summary into a meeting note), edit_file is the wrong tool --
                 // the diff payload is brittle and JSON-streaming can truncate the
                 // tool call. Steer the agent toward a more reliable alternative.
