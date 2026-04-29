@@ -14,9 +14,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
-
-/** Modes that are permitted as sub-agent targets */
-const ALLOWED_SUB_MODES = new Set(['agent', 'ask']);
+import { validateNewTaskInput } from './newTaskValidation';
 
 export class NewTaskTool extends BaseTool<'new_task'> {
     readonly name = 'new_task' as const;
@@ -74,62 +72,21 @@ export class NewTaskTool extends BaseTool<'new_task'> {
 
     async execute(input: Record<string, unknown>, context: ToolExecutionContext): Promise<void> {
         const { callbacks } = context;
-        const mode: string = (input.mode as string ?? '').trim();
-        const message: string = (input.message as string ?? '').trim();
-        const justificationCategory = (input.justification_category as string ?? '').trim().toUpperCase();
-        const justificationReason = (input.justification_reason as string ?? '').trim();
 
-        if (!mode) {
-            callbacks.pushToolResult(this.formatError(new Error('mode parameter is required')));
+        // ADR-090 Lever 4 + 7: full input + justification validation lives in
+        // newTaskValidation.ts so the rules are unit-testable in isolation.
+        const validation = validateNewTaskInput(input);
+        if (!validation.ok) {
+            callbacks.pushToolResult(this.formatError(new Error(validation.error)));
             return;
         }
-        if (!message) {
-            callbacks.pushToolResult(this.formatError(new Error('message parameter is required')));
-            return;
-        }
-
-        // ADR-080 Lever 4 + 7: enforce explicit justification for sub-agent spawning.
-        const allowedCategories = new Set(['PARALLEL', 'SPECIALIST', 'ESCALATION']);
-        if (!allowedCategories.has(justificationCategory)) {
-            callbacks.pushToolResult(this.formatError(new Error(
-                `justification_category must be one of PARALLEL, SPECIALIST, ESCALATION (got "${justificationCategory || '<missing>'}"). ` +
-                `If none truly applies, do not spawn a sub-agent -- continue with your own tools.`,
-            )));
-            return;
-        }
-        if (justificationReason.length < 20) {
-            callbacks.pushToolResult(this.formatError(new Error(
-                `justification_reason must be a concrete sentence (>=20 chars). ` +
-                `Generic phrases like "better context" are rejected -- name the specific blocker, parallel workload, or specialist need.`,
-            )));
-            return;
-        }
-        const generic = /\b(more|better|fresh|deeper|broader|further)\s+(context|perspective|understanding|insight|analysis|exploration)\b/i;
-        if (generic.test(justificationReason)) {
-            callbacks.pushToolResult(this.formatError(new Error(
-                `justification_reason looks generic. Replace abstract phrases ("better context", "fresh perspective") with the concrete reason: ` +
-                `which specific tool failed, which 3+ items run in parallel, or which specialist toolset you need.`,
-            )));
-            return;
-        }
+        const { mode, message } = validation.value;
 
         // Only available in Agent mode.
         if (context.mode !== 'agent') {
             callbacks.pushToolResult(
                 'new_task is only available in Agent mode. ' +
                 'Switch to Agent mode to use sub-agent workflows.'
-            );
-            return;
-        }
-
-        // Restrict sub-agent targets to known safe modes.
-        if (!ALLOWED_SUB_MODES.has(mode)) {
-            callbacks.pushToolResult(
-                this.formatError(
-                    new Error(
-                        `Unknown sub-agent mode "${mode}". Use "agent" (full capabilities) or "ask" (read-only).`
-                    )
-                )
             );
             return;
         }

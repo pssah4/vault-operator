@@ -1,5 +1,5 @@
 /**
- * FIX-H (ADR-080 follow-up) — Todo verification regression tests.
+ * FIX-H (ADR-090 follow-up) — Todo verification regression tests.
  *
  * Two tiers:
  *   1. Done todos that name a specific file/wikilink which has not been read
@@ -36,7 +36,7 @@ function buildContext(readFiles: Set<string>, captured: CapturedResult[]): ToolE
     } as unknown as ToolExecutionContext;
 }
 
-describe('UpdateTodoListTool — verification (FIX-H, ADR-080)', () => {
+describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
     let captured: CapturedResult[];
     beforeEach(() => { captured = []; });
 

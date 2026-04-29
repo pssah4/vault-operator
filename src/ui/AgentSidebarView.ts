@@ -18,8 +18,7 @@ import type { UiMessage } from '../core/history/ConversationStore';
 import { MemoryRetriever } from '../core/memory/MemoryRetriever';
 import { OnboardingService } from '../core/memory/OnboardingService';
 import { ContextTracker } from '../core/context/ContextTracker';
-import { TaskTelemetry, formatTelemetryFooter } from '../core/telemetry/TaskTelemetry';
-import { computeCost } from '../core/pricing/ModelPricing';
+import { TaskMonitor } from './sidebar/TaskMonitor';
 import { ContextDisplay } from './sidebar/ContextDisplay';
 import { CondensationFeedback } from './sidebar/CondensationFeedback';
 import { SuggestionBanner } from './sidebar/SuggestionBanner';
@@ -1683,6 +1682,19 @@ export class AgentSidebarView extends ItemView {
             }
         } catch { /* non-critical -- tools will fall back to source_path */ }
 
+        // ADR-090 / FEATURE-1804: cost display + telemetry persistence run
+        // through TaskMonitor instead of being inlined into the callback hash.
+        const taskMonitor = new TaskMonitor({
+            plugin: this.plugin,
+            app: this.app,
+            apiHandler: resolvedApiHandler,
+            footerEl,
+            getEffectiveModelKey: () => this.getEffectiveModelKey(),
+            promptPreview: typeof messageToSend === 'string' ? messageToSend.slice(0, 200) : '<multimodal>',
+            mode: this.plugin.settings.currentMode,
+            contextTracker: this.contextTracker ?? undefined,
+        });
+
         const task = new AgentTask(
             resolvedApiHandler,
             this.plugin.toolRegistry,
@@ -1953,35 +1965,8 @@ export class AgentSidebarView extends ItemView {
                     outputEl.createEl('pre').setText(content);
                 },
                 onUsage: (inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens) => {
-                    // ADR-080 Lever 5: show EUR cost alongside tokens. Use the
-                    // ApiHandler's actual model id (not getEffectiveModelKey,
-                    // which can drift when the user toggles models mid-task).
-                    const modelId = resolvedApiHandler?.getModel().id ?? '';
-                    const provider = this.plugin.settings.activeModels.find(
-                        (m) => getModelKey(m) === this.getEffectiveModelKey(),
-                    )?.provider;
-                    const cost = computeCost(modelId, inputTokens, outputTokens, cacheReadTokens ?? 0, cacheCreationTokens ?? 0);
-                    // GitHub Copilot / ChatGPT-OAuth route through subscriptions:
-                    // direct billing is $0 for the user; show as "would-be cost".
-                    const isSubscription = provider === 'github-copilot' || provider === 'chatgpt-oauth';
-                    console.debug(
-                        `[Cost] model="${modelId}" provider=${provider ?? '?'} ` +
-                        `in=${inputTokens} out=${outputTokens} cacheR=${cacheReadTokens ?? 0} cacheW=${cacheCreationTokens ?? 0} ` +
-                        `usd=${cost.totalUsd.toFixed(4)} eur=${cost.totalEur.toFixed(4)} subscription=${isSubscription}`,
-                    );
-                    footerEl.setText(formatTelemetryFooter({
-                        inputTokens,
-                        outputTokens,
-                        cacheReadTokens: cacheReadTokens ?? 0,
-                        costEur: cost.totalEur,
-                        isSubscription,
-                    }));
-                    footerEl.classList.remove('agent-u-hidden');
-
-                    // Update context tracker for condensing
-                    if (this.contextTracker) {
-                        this.contextTracker.updateUsage(inputTokens, outputTokens);
-                    }
+                    // ADR-090 / FEATURE-1804: see TaskMonitor.onUsage
+                    taskMonitor.onUsage(inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens);
                 },
                 onTodoUpdate: (items) => {
                     lastTodoItems = items;
@@ -2293,30 +2278,8 @@ export class AgentSidebarView extends ItemView {
                     this.setRunningState(false);
                 },
                 onTaskTelemetry: (data) => {
-                    // ADR-080 Lever 10: persist per-task telemetry (best-effort)
-                    void (async () => {
-                        try {
-                            const { VaultDataFileAdapter } = await import('../core/storage/VaultDataFileAdapter');
-                            const fs = new VaultDataFileAdapter(this.app.vault.adapter);
-                            const telemetry = new TaskTelemetry(fs);
-                            const modelId = this.plugin.settings.activeModels.find(
-                                (m) => getModelKey(m) === this.getEffectiveModelKey(),
-                            )?.name ?? '';
-                            await telemetry.record({
-                                promptPreview: typeof messageToSend === 'string' ? messageToSend : '<multimodal>',
-                                modelId,
-                                mode: this.plugin.settings.currentMode,
-                                inputTokens: data.inputTokens,
-                                outputTokens: data.outputTokens,
-                                cacheReadTokens: data.cacheReadTokens,
-                                cacheCreationTokens: data.cacheCreationTokens,
-                                outcome: data.outcome,
-                                errorMessage: data.errorMessage,
-                            });
-                        } catch (e) {
-                            console.warn('[Telemetry] record failed (non-fatal):', e);
-                        }
-                    })();
+                    // ADR-090 / FEATURE-1804: see TaskMonitor.onTaskTelemetry
+                    taskMonitor.onTaskTelemetry(data);
                 },
             },
             this.modeService,

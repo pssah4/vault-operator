@@ -4,7 +4,7 @@
  * Domain-specific routing rules that the cost-heuristics section doesn't
  * cover (web vs vault, format routing, plugin routing, citation rules).
  * General "use cheap tool first / no sub-agents / stop when done" guidance
- * lives in costAwareHeuristics.ts (ADR-080) -- DO NOT duplicate it here.
+ * lives in `cost-aware/` (ADR-090) -- DO NOT duplicate it here.
  *
  * Target: <=2,000 chars (down from 4,500).
  */

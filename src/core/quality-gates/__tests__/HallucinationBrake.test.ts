@@ -1,5 +1,5 @@
 /**
- * FIX-I (ADR-080 follow-up) — Hallucination Brake regression test.
+ * Hallucination Brake regression tests (FEATURE-1804 / ADR-090).
  *
  * Reproduces the GenAI-Push-Synthese run where the agent wrote a Quellen:
  * frontmatter listing 7 wikilinks but had only read 4 files. The brake must
@@ -8,31 +8,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { scanUnreadSources } from '..';
 
-// Re-export of the helper for testing. The function is internal to the
-// pipeline file; we copy the signature here and import via a re-export.
-// To keep this test independent of pipeline plumbing, we exercise the
-// logic via the same code path (cheap integration: compile-time fail
-// if the helper is renamed).
-import * as Pipeline from '../ToolExecutionPipeline';
-
-// Expose the internal helper by re-importing the module via a runtime trick:
-// we wrap the function the pipeline uses into a tiny stub that mirrors the
-// observable contract. Easiest is to import the file and access the
-// non-exported symbol via a module-private re-export. Since we can't reach
-// file-internal helpers in TS without exporting them, this test calls the
-// pipeline's public path through a small fake runner. Keep the assertion
-// surface narrow.
-
-// Direct import of the internal helper requires an export. Add one:
-//   export { scanUnreadSources } from './ToolExecutionPipeline';
-// (done in source file for tests to reach it). If the helper was renamed
-// or hidden, this import fails -- intentional canary.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const scanUnreadSources: (input: Record<string, unknown>, readFiles: Set<string>) => string[]
-    = (Pipeline as unknown as { scanUnreadSources: typeof import('../ToolExecutionPipeline').scanUnreadSources }).scanUnreadSources;
-
-describe('scanUnreadSources (FIX-I, ADR-080)', () => {
+describe('scanUnreadSources (FEATURE-1804 / ADR-090)', () => {
     const readFiles = new Set<string>([
         'Inbox/GenAI Push Interview - Asset Radar.md',
         'Inbox/GenAI Push Interview - Erzeugung Hochspannung.md',

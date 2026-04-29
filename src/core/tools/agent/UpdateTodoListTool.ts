@@ -15,6 +15,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { extractWikilinkTargets, pathsToBasenames, stripWikilinkExtension } from '../../utils/wikilinks';
 
 interface UpdateTodoListInput {
     todos: string;
@@ -80,48 +81,30 @@ export class UpdateTodoListTool extends BaseTool<'update_todo_list'> {
         const done = items.filter((i) => i.status === 'done').length;
         const total = items.length;
 
-        // FIX-H (ADR-080 follow-up): two-tier verification of done items.
+        // FIX-H (ADR-090 follow-up): two-tier verification of done items.
         // Wrapped in try/catch so a verification bug never blocks the tool.
         const warnings: string[] = [];
         let unreadCount = 0;
         let quantViolCount = 0;
         try {
             const readFiles = context.getReadFiles?.() ?? new Set<string>();
-            const readBasenames = new Set<string>();
-            for (const p of readFiles) {
-                const fn = p.split('/').pop() ?? p;
-                const dot = fn.lastIndexOf('.');
-                readBasenames.add(dot > 0 ? fn.slice(0, dot) : fn);
-            }
+            const readBasenames = pathsToBasenames(readFiles);
 
             // Tier 1: explicit file references in todo text -- must be read.
-            // Linear scan: split on [[ and ]] markers to avoid regex backtracking risk.
+            // Combines wikilink parsing (shared util) with quoted ".md"
+            // mentions (rare in todo text but legitimate).
             const unreadReferences: string[] = [];
+            const QUOTED_MD_RE = /"([^"\n]{1,200}\.md)"/g;
             const extractFileRefs = (text: string): string[] => {
-                const out: string[] = [];
-                let i = 0;
-                while (i < text.length) {
-                    const open = text.indexOf('[[', i);
-                    if (open === -1) break;
-                    const close = text.indexOf(']]', open + 2);
-                    if (close === -1) break;
-                    const inner = text.slice(open + 2, close);
-                    const pipe = inner.indexOf('|');
-                    out.push((pipe >= 0 ? inner.slice(0, pipe) : inner).trim());
-                    i = close + 2;
-                }
-                // Detect quoted ".md" mentions (e.g., "Inbox/Note.md")
-                const quotedRe = /"([^"\n]{1,200}\.md)"/g;
-                for (const m of text.matchAll(quotedRe)) out.push(m[1].trim());
+                const out = extractWikilinkTargets(text);
+                for (const m of text.matchAll(QUOTED_MD_RE)) out.push(m[1].trim());
                 return out;
             };
             for (const item of items) {
                 if (item.status !== 'done') continue;
                 for (const ref of extractFileRefs(item.text)) {
                     if (!ref) continue;
-                    const dot = ref.lastIndexOf('.');
-                    const refBase = dot > 0 && /\.\w{1,5}$/.test(ref) ? ref.slice(0, dot) : ref;
-                    if (!readBasenames.has(refBase)) {
+                    if (!readBasenames.has(stripWikilinkExtension(ref))) {
                         unreadReferences.push(`"${ref}" in todo "${item.text.slice(0, 60)}…"`);
                     }
                 }

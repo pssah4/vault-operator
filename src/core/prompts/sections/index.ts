@@ -18,4 +18,4 @@ export { getPluginSkillsSection } from './pluginSkills';
 export { getSkillsSection } from './skills';
 export { getRulesSection } from './rules';
 export { getObsidianConventionsSection } from './obsidianConventions';
-export { getCostAwareHeuristicsSection } from './costAwareHeuristics';
+export { getCostAwareHeuristicsSection } from './cost-aware';

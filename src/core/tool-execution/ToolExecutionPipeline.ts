@@ -27,6 +27,7 @@ import { ResultExternalizer } from './ResultExternalizer';
 import { VaultDataFileAdapter } from '../storage/VaultDataFileAdapter';
 import { getTmpRoot } from '../utils/agentFolder';
 import { findAllowedMethod } from '../tools/agent/pluginApiAllowlist';
+import { scanUnreadSources } from '../quality-gates';
 
 /**
  * Approval group classification — determines how a tool call gets approved.
@@ -129,7 +130,7 @@ export interface ContextExtensions {
     /** Active conversation ID for chat-linking frontmatter stamping (ADR-022) */
     conversationId?: string;
     /**
-     * FIX-H (ADR-080 follow-up): set of file paths the current task has read.
+     * FIX-H (ADR-090 follow-up): set of file paths the current task has read.
      * The pipeline mutates this on each successful read_file/read_document call;
      * UpdateTodoListTool reads it to verify done items reference actually-read files.
      */
@@ -328,7 +329,7 @@ export class ToolExecutionPipeline {
 
             await tool.execute(toolCall.input, context);
 
-            // FIX-H: track successful file reads for todo-verification (ADR-080 follow-up)
+            // FIX-H: track successful file reads for todo-verification (ADR-090 follow-up)
             // Must happen BEFORE the hallucination scan below so this same call's
             // read counts toward the readFiles set if the user does read+write
             // in one batch (rare but possible).
@@ -343,7 +344,7 @@ export class ToolExecutionPipeline {
             // FIX-I: hallucination brake on write tools. If the agent writes a
             // Quellen:/Sources: frontmatter block with [[wikilinks]] to notes
             // it has not read in this task, push a warning into collectedContent
-            // BEFORE textContent is finalised so the agent sees it. (ADR-080)
+            // BEFORE textContent is finalised so the agent sees it. (ADR-090)
             // Wrapped in try/catch so a scanner bug NEVER blocks tool execution.
             if (!executionHadError && extensions?.readFiles
                 && (toolCall.name === 'write_file' || toolCall.name === 'append_to_file' || toolCall.name === 'update_frontmatter')) {
@@ -575,171 +576,3 @@ export class ToolExecutionPipeline {
     }
 }
 
-/**
- * FIX-I (ADR-080 follow-up): scan write-tool input for Quellen:/Sources:
- * frontmatter blocks listing [[wikilinks]] to notes the agent has not read.
- * Returns the list of unread references (wiki link names without [[ ]]).
- *
- * Triggered by:
- *   write_file / append_to_file: scan `content` parameter
- *   update_frontmatter: scan stringified `updates.Quellen` / `updates.Sources`
- *
- * Heuristic: looks for a `Quellen:` or `Sources:` (case-insensitive) section
- * containing one [[wikilink]] per line, until the next non-list line.
- */
-/**
- * Linear, allocation-bounded scanner. The previous regex-based version had
- * nested quantifiers + optional `\n?` which can trigger catastrophic
- * backtracking on real markdown content (the agent's "freeze" symptom).
- * This implementation walks lines once: O(n) time, no backtracking risk.
- */
-export function scanUnreadSources(input: Record<string, unknown>, readFiles: Set<string>): string[] {
-    const candidates: string[] = [];
-    const SOURCE_KEYS = /^(?:quellen|sources?|referenzen|references)$/i;
-    const FM_LINE_LIMIT = 200; // typical frontmatter has < 50 lines
-
-    // Body-only filter: distinguish document references from person-name
-    // wikilinks. The body of a synthesis legitimately cross-references
-    // people (e.g. [[Magda Krumova]]) without claiming to have read their
-    // dedicated person-note. We only want to flag wikilinks that LOOK like
-    // document references -- titles containing words such as "Interview",
-    // "Note", "Meeting", "Bericht", "Report", "Use Case", "Protokoll", etc.
-    const DOCUMENT_REF_RE = /\b(Interview|Notiz(?:en)?|Note[ns]?|Meeting|Bericht|Report|Use[ -]?Case|Protokoll|Document|Dokument|Briefing|Memo|Synthese)\b/i;
-
-    const collectWikilinks = (s: string, mode: 'all' | 'documents-only' = 'all') => {
-        let i = 0;
-        while (i < s.length) {
-            const open = s.indexOf('[[', i);
-            if (open === -1) break;
-            const close = s.indexOf(']]', open + 2);
-            if (close === -1) break;
-            const inner = s.slice(open + 2, close);
-            const pipe = inner.indexOf('|');
-            const target = (pipe >= 0 ? inner.slice(0, pipe) : inner).trim();
-            if (target) {
-                if (mode === 'all' || DOCUMENT_REF_RE.test(target)) {
-                    candidates.push(target);
-                }
-            }
-            i = close + 2;
-        }
-    };
-
-    const content = typeof input.content === 'string' ? input.content : '';
-    let bodyStartLine = 0;
-    if (content.length > 0) {
-        // Walk the YAML frontmatter region first.
-        const fmLines = content.split('\n', FM_LINE_LIMIT + 2);
-        if (fmLines[0]?.trim() === '---') {
-            let i = 1;
-            let inSourceBlock = false;
-            while (i < fmLines.length && i < FM_LINE_LIMIT + 1) {
-                const line = fmLines[i];
-                if (line.trim() === '---') { bodyStartLine = i + 1; break; }
-                const headerMatch = line.match(/^([A-Za-zäöüÄÖÜß]+):/);
-                if (headerMatch) {
-                    inSourceBlock = SOURCE_KEYS.test(headerMatch[1]);
-                } else if (inSourceBlock && /^\s+-\s/.test(line)) {
-                    collectWikilinks(line);
-                }
-                i++;
-            }
-        }
-
-        // Body scan: pick up wikilinks in citation contexts -- not all body
-        // wikilinks (those are normal cross-references), only:
-        //   (a) Markdown headings "## Quellen / Sources / References / Referenzen"
-        //       followed by a list of [[wikilinks]]
-        //   (b) Markdown table columns whose header is a citation-y word:
-        //       "Gesprächspartner", "Interview", "Quelle", "Source", "Verfasser",
-        //       "Author", "Speaker", "Sprecher", "Interviewter", "Befragter"
-        // Cap the body scan at ~80 KB so a huge note never blocks the main thread.
-        const bodyLines = content.split('\n').slice(bodyStartLine);
-        const BODY_LINE_CAP = 4000;
-        const HEADING_RE = /^#{1,6}\s+(Quellen|Sources?|Referenzen|References)\b/i;
-        const CITATION_COL_RE = /\b(Gespr(ä|ae)chspartner|Interview(?:partner|ter)?|Quelle[n]?|Sources?|Verfasser|Author|Speaker|Sprecher|Interviewter|Befragter|Zitat|Citation)\b/i;
-        let inHeadingBlock = false;
-        let citationColIdx = -1;
-        let inTable = false;
-        for (let i = 0; i < bodyLines.length && i < BODY_LINE_CAP; i++) {
-            const line = bodyLines[i];
-
-            // Heading detection -- enter/exit citation section
-            if (/^#{1,6}\s/.test(line)) {
-                inHeadingBlock = HEADING_RE.test(line);
-                inTable = false;
-                citationColIdx = -1;
-                continue;
-            }
-            if (inHeadingBlock && /^\s*-\s/.test(line)) {
-                // Document-shaped wikilinks under "## Quellen" are clear citation
-                // claims. Person wikilinks under that heading are also citation
-                // claims, but matching them against readFiles produces false
-                // positives because we read interview-notes, not person-notes.
-                // Restrict to document refs to avoid noise.
-                collectWikilinks(line, 'documents-only');
-                continue;
-            }
-            if (inHeadingBlock && line.trim() === '') continue;
-            if (inHeadingBlock && !/^\s*-\s/.test(line)) {
-                // Exit heading-block on first non-list, non-blank line
-                inHeadingBlock = false;
-            }
-
-            // Table header / separator / row detection
-            if (line.includes('|')) {
-                const cells = line.split('|').map((c) => c.trim());
-                // Header row: contains a citation column name
-                if (!inTable && cells.some((c) => CITATION_COL_RE.test(c))) {
-                    citationColIdx = cells.findIndex((c) => CITATION_COL_RE.test(c));
-                    inTable = true;
-                    continue;
-                }
-                // Separator row -- skip
-                if (inTable && /^\s*\|?\s*[-:]+\s*(\|\s*[-:]+\s*)+\|?\s*$/.test(line)) continue;
-                // Body row -- pull DOCUMENT wikilinks from the citation column.
-                // Person-wikilinks are not flagged here for the same reason.
-                if (inTable && citationColIdx >= 0 && cells[citationColIdx]) {
-                    collectWikilinks(cells[citationColIdx], 'documents-only');
-                }
-            } else if (inTable) {
-                // First non-table line ends the table
-                inTable = false;
-                citationColIdx = -1;
-            }
-        }
-    }
-
-    const updates = input.updates;
-    if (updates && typeof updates === 'object') {
-        for (const [key, val] of Object.entries(updates as Record<string, unknown>)) {
-            if (!SOURCE_KEYS.test(key)) continue;
-            if (Array.isArray(val)) {
-                for (const v of val) {
-                    if (typeof v === 'string') collectWikilinks(v);
-                }
-            } else if (typeof val === 'string') {
-                collectWikilinks(val);
-            }
-        }
-    }
-
-    if (candidates.length === 0) return [];
-
-    // Build the set of read basenames (without extension) for exact matching.
-    const readBasenames = new Set<string>();
-    for (const p of readFiles) {
-        const filename = p.split('/').pop() ?? p;
-        const dot = filename.lastIndexOf('.');
-        readBasenames.add(dot > 0 ? filename.slice(0, dot) : filename);
-    }
-
-    const unread = new Set<string>();
-    for (const ref of candidates) {
-        if (!ref) continue;
-        const dot = ref.lastIndexOf('.');
-        const refBase = dot > 0 && /\.\w{1,5}$/.test(ref) ? ref.slice(0, dot) : ref;
-        if (!readBasenames.has(refBase)) unread.add(ref);
-    }
-    return [...unread];
-}
