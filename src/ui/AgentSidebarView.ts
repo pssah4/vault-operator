@@ -2034,7 +2034,12 @@ export class AgentSidebarView extends ItemView {
                         // Finalize current assistant message
                         messageEl.removeClass('message-streaming');
                         if (accumulatedText) {
-                            this.uiMessages.push({ role: 'assistant', text: accumulatedText, ts: new Date().toISOString() });
+                            this.uiMessages.push({
+                                role: 'assistant',
+                                text: accumulatedText,
+                                ts: new Date().toISOString(),
+                                toolStepsHtml: stepsBlockEl?.outerHTML,
+                            });
                         }
                         // Render user answer as a regular chat message
                         this.addUserMessage(answer);
@@ -2213,9 +2218,16 @@ export class AgentSidebarView extends ItemView {
                     if (this.app.workspace.getMostRecentLeaf()?.view !== this) {
                         new Notice(t('notice.taskComplete'), 3000);
                     }
-                    // Track assistant UI message for history persistence
+                    // Track assistant UI message for history persistence,
+                    // including a snapshot of the collapsed steps block so
+                    // tool actions remain inspectable after a chat reload.
                     if (accumulatedText) {
-                        this.uiMessages.push({ role: 'assistant', text: accumulatedText, ts: new Date().toISOString() });
+                        this.uiMessages.push({
+                            role: 'assistant',
+                            text: accumulatedText,
+                            ts: new Date().toISOString(),
+                            toolStepsHtml: stepsBlockEl?.outerHTML,
+                        });
                     }
                     // Auto-save conversation to ConversationStore
                     this.saveCurrentConversation();
@@ -2859,7 +2871,7 @@ export class AgentSidebarView extends ItemView {
                     this.addUserMessage(msg.text);
                 } else {
                     // renderMarkdownMessage already adds response actions for assistant messages
-                    this.renderMarkdownMessage(msg.text, 'assistant');
+                    this.renderMarkdownMessage(msg.text, 'assistant', msg.toolStepsHtml);
                 }
             }
         }
@@ -2956,9 +2968,37 @@ export class AgentSidebarView extends ItemView {
     /**
      * Feature 2: Render markdown into a new assistant message (for static messages)
      */
-    private renderMarkdownMessage(markdown: string, role: 'assistant' | 'user'): HTMLElement | null {
+    private renderMarkdownMessage(
+        markdown: string,
+        role: 'assistant' | 'user',
+        toolStepsHtml?: string,
+    ): HTMLElement | null {
         if (!this.chatContainer) return null;
         const msgEl = this.chatContainer.createDiv(`message ${role}-message`);
+        // Re-inject the collapsed agent steps block above the markdown so
+        // the user can still expand "what did the agent do?" after a chat
+        // reload. Parsed via DOMParser to avoid innerHTML and keep the
+        // review-bot rules clean.
+        if (role === 'assistant' && toolStepsHtml) {
+            const toolsEl = msgEl.createDiv('message-tools');
+            try {
+                const parsed = new DOMParser().parseFromString(toolStepsHtml, 'text/html');
+                const root = parsed.body.firstElementChild;
+                if (root) {
+                    // Imported nodes are detached from the parsed document;
+                    // appending them moves the (already-styled) <details>
+                    // tree into the live message element.
+                    toolsEl.appendChild(document.importNode(root, true));
+                    // Always start collapsed on rehydration so the chat
+                    // doesn't visually explode when an old turn is reopened.
+                    toolsEl.querySelectorAll('details').forEach((d) => {
+                        if (d instanceof HTMLDetailsElement) d.open = false;
+                    });
+                }
+            } catch (e) {
+                console.warn('[AgentSidebar] Failed to rehydrate tool steps block:', e);
+            }
+        }
         const contentEl = msgEl.createDiv('message-content');
         void MarkdownRenderer.render(this.app, markdown, contentEl, '', this);
         // Restore action buttons for history messages

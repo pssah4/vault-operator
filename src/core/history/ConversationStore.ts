@@ -33,6 +33,14 @@ export interface UiMessage {
     role: 'user' | 'assistant';
     text: string;
     ts: string;
+    /**
+     * Serialised HTML of the assistant's collapsed "Steps" block (tool
+     * calls + grouped operations) captured when the turn finished.
+     * Re-injected on conversation reload so the user can still expand
+     * the actions even after switching chats. Optional -- older
+     * messages and turns without tool calls omit it.
+     */
+    toolStepsHtml?: string;
 }
 
 export interface ConversationData {
