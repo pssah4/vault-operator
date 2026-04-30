@@ -77,7 +77,7 @@ Ziel: EPIC-023 anlegen, Features FEATURE-2301..FEATURE-23NN breakdown, Success C
 **Phase:** Security Audit abgeschlossen. Ready for Public Release.
 
 **Artefakte erzeugt:**
-- [AUDIT-012-obsilo-2026-04-19.md](../analysis/security/AUDIT-012-obsilo-2026-04-19.md)
+- [AUDIT-012-obsilo-2026-04-19.md](../analysis/AUDIT-012-obsilo-2026-04-19.md)
 
 **Overall Risk:** MEDIUM. **Release-Verdict: GREEN.**
 
@@ -659,7 +659,7 @@ V-Model-Checklist: nach /coding kommt /testing plus /security-audit. Beides empf
 
 ## 2026-04-29 -- AUDIT-013 abgeschlossen, Fix-Loop closed
 
-**Audit-Report:** [AUDIT-013](../analysis/security/AUDIT-013-obsilo-2026-04-29.md)
+**Audit-Report:** [AUDIT-013](../analysis/AUDIT-013-obsilo-2026-04-29.md)
 
 **Risk-Verdict:** Low (von High before fix)
 **Release-Empfehlung:** GREEN -- Fix-Loop hat alle Critical + High + Medium Findings geschlossen.

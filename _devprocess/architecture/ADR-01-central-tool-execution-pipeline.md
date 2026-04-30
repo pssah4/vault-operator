@@ -18,7 +18,7 @@ Optionen:
 
 **Option 2 — Zentrale ToolExecutionPipeline** als einziger Einstiegspunkt für alle Tool-Ausführungen.
 
-`src/core/tool-execution/ToolExecutionPipeline.ts` implementiert eine 6-stufige Pipeline:
+Die `ToolExecutionPipeline` implementiert eine 6-stufige Pipeline:
 1. Tool-Lookup (ToolRegistry)
 2. Pfad-Validierung (IgnoreService)
 3. Approval-Check (fail-closed)

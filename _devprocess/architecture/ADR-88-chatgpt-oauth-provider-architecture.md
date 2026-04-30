@@ -53,8 +53,8 @@ EPIC-21 fuehrt einen neuen LLM-Provider ein, der das ChatGPT-Plus/Pro-Abo als Ba
 
 ### Option 2: Eigener `ChatGptOAuthProvider` plus `ChatGptOAuthService`-Singleton, Settings verschachtelt
 
-- Neuer `ChatGptOAuthProvider` in `src/api/providers/chatgpt-oauth.ts`, implementiert `ApiHandler`.
-- `ChatGptOAuthService` als Singleton in `src/core/auth/ChatGptOAuthService.ts`.
+- Neuer `ChatGptOAuthProvider`, implementiert `ApiHandler`.
+- `ChatGptOAuthService` als Singleton.
 - Settings: `chatgptOAuth: { accountId, planTier, expiresAt, tokens: SafeStorageEnvelope, disclaimerAcknowledgedAt }`.
 - Schema-Mapping: dedizierte `CodexResponseMapper`-Klasse in derselben Datei oder als Geschwister-Datei `chatgpt-codex-mapper.ts`.
 - Pro: Saubere Trennung, gleiches Pattern wie Copilot (ADR-37).
@@ -112,11 +112,11 @@ PkceLoopbackServer (src/core/auth/PkceLoopbackServer.ts, siehe ADR-89)
 
 **Sub-Decisions:**
 
-- **Streaming-Transport:** Node-`https` mit `IncomingMessage`-Stream, identisch zum Pattern in `src/api/providers/openai.ts:75`. `requestUrl` faellt aus, weil es keinen `ReadableStream` liefert. Der `eslint-disable`-Block aus `openai.ts` wird mit derselben Begruendung wiederverwendet.
+- **Streaming-Transport:** Node-`https` mit `IncomingMessage`-Stream, identisch zum Pattern im OpenAI-Provider. `requestUrl` faellt aus, weil es keinen `ReadableStream` liefert. Der `eslint-disable`-Block aus dem OpenAI-Provider wird mit derselben Begruendung wiederverwendet.
 - **Schema-Validation:** Type-Guards statt `zod`. `zod` ist heute nicht im Bundle, der Bundle-Size-Aufschlag (rund 50 KB) ist nicht gerechtfertigt fuer drei bis vier Schema-Strukturen. Type-Guards bleiben in `chatgpt-codex-mapper.ts` mit Datums-Kommentar (`// Schema as observed 2026-04-28`).
-- **JWT-Decoder:** Eigener Mini-Decoder in `src/core/auth/jwt-decode.ts`, etwa 30 Zeilen. Kein Signatur-Check noetig, weil das `id_token` direkt vom Token-Endpoint kommt und ueber TLS validiert wird. `jose` als Lib waere overkill fuer reines Claim-Lesen.
+- **JWT-Decoder:** Eigener Mini-Decoder im `jwt-decode`-Modul, etwa 30 Zeilen. Kein Signatur-Check noetig, weil das `id_token` direkt vom Token-Endpoint kommt und ueber TLS validiert wird. `jose` als Lib waere overkill fuer reines Claim-Lesen.
 - **Modell-Discovery:** Hardcode-Liste in `chatgpt-codex-mapper.ts` (`gpt-5-codex`, weitere bekannte Codex-Modelle). Probe gegen `/models` schiebt sich bei Bedarf nach, sobald bekannt ist, ob der Endpoint existiert.
-- **Settings-Schema (revidiert nach Codebase-Review):** Codebase-Konvention fuer Provider-Auth-State ist **flach** (siehe `githubCopilot*`-Felder in `src/types/settings.ts:734-742` und `kilo*`-Felder Zeilen 744-754). Verschachteltes Objekt waere Insel. Bleibe bei flach, Konsistenz schlaegt subjektive Eleganz:
+- **Settings-Schema (revidiert nach Codebase-Review):** Codebase-Konvention fuer Provider-Auth-State ist **flach** (siehe `githubCopilot*`- und `kilo*`-Felder im Settings-Typ). Verschachteltes Objekt waere Insel. Bleibe bei flach, Konsistenz schlaegt subjektive Eleganz:
 
   ```typescript
   // ChatGPT OAuth (EPIC-21, ADR-88, ADR-89)

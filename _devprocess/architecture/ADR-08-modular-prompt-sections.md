@@ -25,7 +25,7 @@ Decompose the system prompt into 15 independent section modules in `src/core/pro
 
 ### Part 2: Central Tool Metadata Registry
 
-Create `src/core/tools/toolMetadata.ts` as the single source of truth for display-level tool metadata (label, description, icon, signature, group). Both the prompt builder's tools section and the ToolPickerPopover derive their data from this file. The API-level tool schema (`input_schema`) remains in each tool's `getDefinition()` method, serving a different purpose (function calling).
+Create a central `toolMetadata` module as the single source of truth for display-level tool metadata (label, description, icon, signature, group). Both the prompt builder's tools section and the ToolPickerPopover derive their data from this module. The API-level tool schema (`input_schema`) remains in each tool's `getDefinition()` method, serving a different purpose (function calling).
 
 ## Alternatives Considered
 

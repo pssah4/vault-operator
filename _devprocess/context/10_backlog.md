@@ -221,6 +221,15 @@ Phase: Released | Status: Done
 | FEAT-09-01 | Feature | Obsilo Gateway | Planned | Candidates | EPIC-09 | BA |  |  | 2026-04-30 |  |
 | FEAT-09-02 | Feature | AgentSidebarView Refactoring | Done | Released | EPIC-09 | BA |  |  | 2026-04-30 |  |
 
+### EPIC-10: Office Document Creation
+
+Source: `_devprocess/requirements/epics/EPIC-10-office-document-creation.md`
+Phase: Released | Status: Done
+
+(Container epic. Office creation tools `create_pptx`, `create_docx`,
+`create_xlsx` track under EPIC-11 features and FEAT-04-00 to FEAT-04-02.
+No standalone EPIC-10 feature rows.)
+
 ### EPIC-11: Office Document Quality -- Template Design Intelligence
 
 Source: `_devprocess/requirements/epics/EPIC-11-office-document-quality.md`

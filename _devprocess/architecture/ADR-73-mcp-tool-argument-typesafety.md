@@ -14,7 +14,7 @@ Der Review-Bot meldet konsistent zwei verwandte Klassen von Findings im MCP-Code
 
 1. **`@typescript-eslint/no-explicit-any` Disables:** `RerankerService.ts:33,35`, `SemanticIndexService.ts:1170`, `CloudflareDeployer.ts:126,224`, `McpBridge.ts:134,136`. Begruendung war "MCP-SDK-Typen sind unscharf", aber damit ist die Regel global ausgehebelt.
 
-2. **Object-Stringification Warnings:** Aufrufe wie `args.query ?? ''` werden in Template-Literals interpoliert. Wenn `args.query` weder string noch undefined ist (z.B. ein Object), wird `[object Object]` interpoliert. Betroffene Dateien: `src/mcp/tools/index.ts` (mehrere Stellen), `searchVault.ts:15`, `syncSession.ts:20,23`, `updateMemory.ts:20,21`, `RelayClient.ts:184`, `inputSchemaValidator.ts:75`.
+2. **Object-Stringification Warnings:** Aufrufe wie `args.query ?? ''` werden in Template-Literals interpoliert. Wenn `args.query` weder string noch undefined ist (z.B. ein Object), wird `[object Object]` interpoliert. Betroffen sind die zentrale MCP-Tool-Registry sowie mehrere Tool-Module (`searchVault`, `syncSession`, `updateMemory`, `RelayClient`, `inputSchemaValidator`).
 
 Die zweite Klasse ist eine direkte Folge der ersten: weil wir `args` als `any` typisieren, erkennt TypeScript nicht, dass die einzelnen Felder unsicher sind. Wenn wir `args` als typed-Schema beschreiben, faellt der Stringification-Fall in Type-Errors auf.
 
@@ -62,7 +62,7 @@ Das MCP-SDK exportiert `CallToolRequestSchema`. Wir definieren pro Tool ein Type
 
 ## Decision
 
-**Mix aus Option A und C.** Wir definieren pro Tool ein TypeScript-Interface fuer die erwarteten Args (Option C) und verwenden zentral einen Helper `coerceStringArg(args, key, fallback)` aus `src/mcp/tools/argHelpers.ts` (Option A).
+**Mix aus Option A und C.** Wir definieren pro Tool ein TypeScript-Interface fuer die erwarteten Args (Option C) und verwenden zentral einen Helper `coerceStringArg(args, key, fallback)` aus dem `argHelpers`-Modul (Option A).
 
 Begruendung: Zod ist fuer 6 Tools Overkill. Die manuelle Interface-Definition ist trivial, weil wir die Schemas ohnehin in `tools/index.ts` deklarieren (fuer das MCP-SDK). Die Args-Typen sind Spiegelbilder dieser Schemas.
 
@@ -106,7 +106,7 @@ export async function searchVault(args: unknown, ctx: McpToolContext) {
 
 ### Worker-Code
 
-`src/mcp/mcp-server-worker.ts` und `src/mcp/CloudflareDeployer.ts` haben aktuell `eslint-disable` ohne Begruendung. Wir nutzen denselben Helper-Ansatz und entfernen die Disables. Wo das nicht moeglich ist (z.B. opake SDK-Typen aus `@modelcontextprotocol/sdk`), ergaenzen wir den Disable mit `-- reason: ...`.
+Der MCP-Server-Worker und der Cloudflare-Deployer haben aktuell `eslint-disable` ohne Begruendung. Wir nutzen denselben Helper-Ansatz und entfernen die Disables. Wo das nicht moeglich ist (z.B. opake SDK-Typen aus `@modelcontextprotocol/sdk`), ergaenzen wir den Disable mit `-- reason: ...`.
 
 ### Bot-Effekt
 

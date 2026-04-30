@@ -3,7 +3,7 @@
 **Successor Features:** FEAT-03-15 (Engine-Foundation), FEAT-03-16 (Migration), FEAT-03-17 (Dynamic Composition), FEAT-03-18 (Single-Call Pipeline). Bestehende Implementierung wird phasenweise ersetzt gemaess [PLAN-01](../../implementation/plans/PLAN-01-memory-v2-master.md).
 **Epic:** EPIC-03 Context, Memory & Scaling (re-aligned 2026-04-26)
 **Sources:** CrewAI Memory, OpenClaw Memory, Claude Code Session Memory, ChatGPT Memory, Mem0
-**ADR:** [ADR-07 -- Event Separation](../../devprocess/architecture/ADR-07-event-separation.md), erweitert durch ADR-76/077/078/079
+**ADR:** [ADR-07 -- Event Separation](../../../_devprocess/architecture/ADR-07-event-separation.md), erweitert durch ADR-76/077/078/079
 
 ## Summary
 

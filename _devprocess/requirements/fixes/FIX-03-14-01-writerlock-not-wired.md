@@ -47,7 +47,7 @@ Verdrahtung. Beim Implementieren ist die Acquire/Release-Stelle in
 
 ## Impact
 
-- Sebastians Setup nutzt `local` ([main.ts:410](../../src/main.ts#L410)) -- WriterLock waere fuer ihn
+- Sebastians Setup nutzt `local` ([main.ts:410](../../../src/main.ts#L410)) -- WriterLock waere fuer ihn
   ohnehin inaktiv. Kein Live-Schaden auf seiner Maschine.
 - Setup-Klasse B (`obsidian-sync`-Storage) ist ohne Schutz gegen
   konkurrente Plugin-Instanzen auf zwei Geraeten. Genau der Cloud-Sync-Konflikt,

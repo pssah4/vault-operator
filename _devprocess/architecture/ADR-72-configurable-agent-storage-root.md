@@ -8,7 +8,7 @@
 
 `.obsidian-agent/` ist heute an mehreren Stellen hartcodiert:
 
-- `src/core/knowledge/KnowledgeDB.ts:172` (Default-Pfad fuer global storage)
+- `KnowledgeDB` (Default-Pfad fuer global storage; siehe ARCHITECTURE.map concept `knowledge-db`)
 - SkillRegistry-Prompt-Section ("read_file('.obsidian-agent/plugin-skills/{plugin-id}.skill.md')")
 - VaultDNAScanner und PluginSkill-Loader (impliziter Pfad fuer .skill.md-Files)
 - `globalRoot`-Default in mehreren Service-Konstruktoren

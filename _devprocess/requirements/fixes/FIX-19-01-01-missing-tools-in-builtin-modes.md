@@ -37,7 +37,7 @@ someone notices.
 
 ## Fix Direction (from upstream commit cb5aec3)
 
-In [src/core/modes/builtinModes.ts](../../src/core/modes/builtinModes.ts):
+In [src/core/modes/builtinModes.ts](../../../src/core/modes/builtinModes.ts):
 
 - Add `'vault_health_check'` to the `vault` array.
 - Add `'ingest_document'` to the `edit` array.

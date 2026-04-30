@@ -23,13 +23,13 @@ auf v2, AuditLog + EmbeddingService + URI-Infrastructure stehen, aber
 nichts davon ist im laufenden Plugin verdrahtet. Phase 2 macht zwei Dinge:
 
 1. **Migration der bestehenden Memory-Pipeline** (5 von 7 MD-Dateien aus
-   [MemoryService.ts:41](../../src/core/memory/MemoryService.ts#L41)) in das
+   [MemoryService.ts:41](../../../src/core/memory/MemoryService.ts#L41)) in das
    neue Fact-Schema. `soul.md` -> `communication_styles`, `knowledge.md`
    skip (bleibt as-is in `memoryFolderPath`), die anderen 5 -> Facts via
    Single-Call-Atomizer.
 2. **Hybrid `semantic_search` mit RRF** als Vault-Tool zuerst battle-testen.
    Heute ist der Such-Pfad in
-   [SemanticSearchTool.ts](../../src/core/tools/vault/SemanticSearchTool.ts)
+   [SemanticSearchTool.ts](../../../src/core/tools/vault/SemanticSearchTool.ts)
    reines Cosine. Phase 2 erweitert um FTS/Trigram + Tag-Match + 1-Hop-
    Edge-Walk via implicit_edges, alles fusioniert ueber Reciprocal Rank
    Fusion.
@@ -148,7 +148,7 @@ Counts. Live-Verifikation in Aufgabe 7 mit Approval-UI.
 ### Aufgabe 5 -- Hybrid `semantic_search` mit RRF
 
 **Ziel:** Bestehender Vault-Search-Pfad in
-[SemanticSearchTool.ts](../../src/core/tools/vault/SemanticSearchTool.ts)
+[SemanticSearchTool.ts](../../../src/core/tools/vault/SemanticSearchTool.ts)
 fuesselt vier Signale ueber RRF: Cosine (heute), Tag-Match (heute
 teilweise), Trigram (NEU), 1-Hop-Edge-Walk via implicit_edges (NEU).
 

@@ -58,7 +58,7 @@ Obsidian's abstract-file model that the bridge missed.
 
 ### (a) Refresh hashes
 
-In [src/core/sandbox/EsbuildWasmManager.ts](../../src/core/sandbox/EsbuildWasmManager.ts)
+In [src/core/sandbox/EsbuildWasmManager.ts](../../../src/core/sandbox/EsbuildWasmManager.ts)
 update `INTEGRITY_HASHES`:
 
 - `esbuild-0.25.4.js`: recompute SHA-256 from the current CDN bundle
@@ -69,7 +69,7 @@ locally before merging; do not trust blindly.
 
 ### (b) Normalise root path
 
-In [src/core/sandbox/SandboxBridge.ts](../../src/core/sandbox/SandboxBridge.ts)
+In [src/core/sandbox/SandboxBridge.ts](../../../src/core/sandbox/SandboxBridge.ts)
 `vaultList(path)`:
 
 - If `path === '/'` set `path = ''`.

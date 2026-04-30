@@ -122,6 +122,7 @@ def autofix_status_duplicates(files: Iterable[Path]) -> int:
 
 LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 INTERNAL_PREFIXES = ("_devprocess/", "src/", "docs/", "scripts/", "_devprocess\\")
+SCHEME_RE = re.compile(r"^[a-z][a-z0-9+.-]*:")
 
 
 def check_dead_links(files: Iterable[Path]) -> list[Finding]:
@@ -131,18 +132,26 @@ def check_dead_links(files: Iterable[Path]) -> list[Finding]:
             text = f.read_text(encoding="utf-8")
         except Exception:
             continue
+        in_code_block = False
         for ln, line in enumerate(text.splitlines(), start=1):
+            stripped = line.lstrip()
+            if stripped.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
             for _, target in LINK_RE.findall(line):
-                target_clean = target.split("#")[0]
-                if not target_clean or target_clean.startswith(("http:", "https:", "mailto:")):
+                target_clean = target.split("#")[0].strip()
+                if not target_clean:
                     continue
-                if not any(target_clean.startswith(p) or "/" in target_clean for p in INTERNAL_PREFIXES):
-                    if not target_clean.startswith("./") and "/" not in target_clean:
-                        continue
+                if SCHEME_RE.match(target_clean):
+                    continue
                 if target_clean.startswith(INTERNAL_PREFIXES):
                     candidate = ROOT / target_clean
-                else:
+                elif target_clean.startswith(("./", "../")):
                     candidate = (f.parent / target_clean).resolve()
+                else:
+                    continue
                 if not candidate.exists():
                     out.append(Finding(
                         type="dead-link",
@@ -194,13 +203,19 @@ def check_adr_abstraction(adr_files: Iterable[Path]) -> list[Finding]:
 
 
 BACKLOG_ROW_RE = re.compile(r"^\|\s*([A-Z]+(?:-\d+){1,3})\s*\|", re.MULTILINE)
+BACKLOG_EPIC_HEADER_RE = re.compile(r"^###\s+(EPIC-\d{2})", re.MULTILINE)
 
 
 def parse_backlog_ids() -> set[str]:
+    """All artifact IDs known to the backlog -- table rows OR epic
+    section headers. Epics live as `### EPIC-NN: ...` headings, not
+    as table rows; that is intentional. Other artifacts (FEAT, ADR,
+    PLAN, FIX, IMP) live as table rows.
+    """
     if not BACKLOG.exists():
         return set()
     text = BACKLOG.read_text(encoding="utf-8")
-    return set(BACKLOG_ROW_RE.findall(text))
+    return set(BACKLOG_ROW_RE.findall(text)) | set(BACKLOG_EPIC_HEADER_RE.findall(text))
 
 
 ID_PATTERNS = [

@@ -53,8 +53,8 @@ new plugin instance's `onload`.
 
 ## Fix
 
-Two changes in [main.ts](../../src/main.ts) and
-[AgentSidebarView.ts](../../src/ui/AgentSidebarView.ts):
+Two changes in [main.ts](../../../src/main.ts) and
+[AgentSidebarView.ts](../../../src/ui/AgentSidebarView.ts):
 
 1. **`plugin.readyPromise`**: created synchronously at the top of
    `onload()`, resolved from `.finally()` on `doLoad()`. This gives the

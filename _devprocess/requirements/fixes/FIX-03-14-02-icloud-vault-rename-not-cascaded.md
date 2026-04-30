@@ -42,7 +42,7 @@ ein Create fuer den neuen. Obsidian feuert dann **kein** `vault.on('rename')`,
 sondern `vault.on('delete')` + `vault.on('create')`.
 
 `VaultRenameHandler.cascadeFileRename()` haengt am rename-Event in
-[main.ts:595-608](../../src/main.ts#L595-L608) und wird daher nie
+[main.ts:595-608](../../../src/main.ts#L595-L608) und wird daher nie
 aufgerufen. Folge:
 
 - Vectors auf altem Pfad bleiben (semanticIndex.removeFile in
@@ -53,7 +53,7 @@ aufgerufen. Folge:
 
 Auf einem **lokalen** Vault (kein iCloud) und bei einem Rename via Obsidian-UI
 (File-Explorer Rechtsklick -> Rename) feuert `vault.on('rename')` korrekt;
-das beweist die Vitest-Suite (4 Tests in [VaultRenameHandler.test.ts](../../src/core/knowledge/__tests__/VaultRenameHandler.test.ts)).
+das beweist die Vitest-Suite (4 Tests in [VaultRenameHandler.test.ts](../../../src/core/knowledge/__tests__/VaultRenameHandler.test.ts)).
 Auf iCloud-Vaults greift Obsidian beim Rename teilweise auf die Sync-
 Reconciliation zurueck -- selbst bei UI-Rename -- weil iCloud die
 Filesystem-Operationen orchestriert.
@@ -89,7 +89,7 @@ Cascade-Methode direkt aufgerufen wird ohne Obsidian-Event-Pfad.
 
 ### Option A: delete+create-Paerchen-Erkennung im Plugin
 
-In [main.ts:589-594](../../src/main.ts#L589-L594) und ab Zeile 595:
+In [main.ts:589-594](../../../src/main.ts#L589-L594) und ab Zeile 595:
 einen kurzen Buffer (Map<oldPath, {ts, hash?}>) im Memory halten, in dem
 delete-Events fuer max. 500ms gepuffert werden. Wenn innerhalb dieses
 Fensters ein create-Event kommt mit gleichem Inhalt-Hash oder gleicher
@@ -154,8 +154,7 @@ Listener-Block in `main.ts` (vault.on('modify' / 'create' / 'delete' /
 Der `vault.on('rename')`-Listener wurde nie registriert, also rief
 nichts den `vaultRenameHandler` auf.
 
-Lehre festgehalten als
-[feedback_check_settings_first.md](../../../.claude/projects/-Users-sebastianhanke-projects-obsidian-agent/memory/feedback_check_settings_first.md):
+Lehre festgehalten in der Claude-Memory (`feedback_check_settings_first`):
 "Bei Live-Test-Fehlschlaegen ZUERST `data.json` pruefen, bevor Code
 diagnostiziert wird."
 

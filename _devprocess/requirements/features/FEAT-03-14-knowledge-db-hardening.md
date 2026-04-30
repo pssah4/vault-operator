@@ -22,7 +22,7 @@ related:
 
 ## Code-Review-Findings (2026-04-26, /coding Phase 2)
 
-**Bestehende Implementierung:** [KnowledgeDB.ts:485-518](../../src/core/knowledge/KnowledgeDB.ts#L485-L518) hat bereits Single-File-Atomic-Write fuer Storage-Modus `global` (Marker FIX-12). Plus Try-Open mit `.bak`-Recovery (Zeile 432-444). Plus `cleanupTmp()` (Zeile 547-558).
+**Bestehende Implementierung:** [KnowledgeDB.ts:485-518](../../../src/core/knowledge/KnowledgeDB.ts#L485-L518) hat bereits Single-File-Atomic-Write fuer Storage-Modus `global` (Marker FIX-12). Plus Try-Open mit `.bak`-Recovery (Zeile 432-444). Plus `cleanupTmp()` (Zeile 547-558).
 
 **Was tatsaechlich neu ist** (Scope-Klarstellung):
 

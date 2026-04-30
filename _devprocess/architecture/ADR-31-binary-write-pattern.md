@@ -88,7 +88,7 @@ abstract class BaseTool {
 
 **Vorgeschlagene Option:** Option 1 -- Shared Utility Function
 
-Eine kleine Utility-Funktion `writeBinaryToVault()` in `src/core/tools/vault/writeBinaryToVault.ts` die:
+Eine kleine Utility-Funktion `writeBinaryToVault()` (siehe ARCHITECTURE.map concept `tool-registry`), die:
 
 1. **Ordner-Erstellung:** Prueft ob der Zielordner existiert, erstellt ihn rekursiv falls noetig (analog zum bestehenden `ensureFolderExists()` Pattern)
 2. **Create vs. Modify:** Prueft `getAbstractFileByPath()`, nutzt `modifyBinary()` fuer bestehende Dateien, `createBinary()` fuer neue

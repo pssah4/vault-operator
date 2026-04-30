@@ -13,7 +13,7 @@ title: Context, Memory & Scaling
 
 Semantic Index (vectra HNSW), Context Management, 3-Tier Memory, Multi-Agent Orchestrierung, Context Condensing, Power Steering, Canvas & Bases, Global/Safe Storage.
 
-**Erweitert seit 2026-04-26 um Memory v2 Initiative (Pfad alpha):** Komplette Neuarchitektur des Memory-Subsystems mit `facts`-Schema, dynamischer Composition, Single-Call-Extraction und Engine-Extract als Foundation fuer UCM (Unified Chat Memory). Siehe [PLAN-01-memory-v2-master](../../implementation/plans/PLAN-01-memory-v2-master.md), [BA-UNIFIED-CHAT-MEMORY-V2](../../analysis/BA-UNIFIED-CHAT-MEMORY-V2.md).
+**Erweitert seit 2026-04-26 um Memory v2 Initiative (Pfad alpha):** Komplette Neuarchitektur des Memory-Subsystems mit `facts`-Schema, dynamischer Composition, Single-Call-Extraction und Engine-Extract als Foundation fuer UCM (Unified Chat Memory). Siehe [PLAN-01-memory-v2-master](../../implementation/plans/PLAN-01-memory-v2-master.md), [BA-UNIFIED-CHAT-MEMORY-V2](../../analysis/BA-24-unified-chat-memory-v2.md).
 
 ## Features (Phase C, implementiert)
 

@@ -52,12 +52,12 @@ Betroffene Felder: `CustomModel.apiKey` (Chat + Embedding), `WebToolsSettings.br
 
 ### Implementierung
 
-**Neuer Service:** `src/core/security/SafeStorageService.ts`
+**Neuer Service:** `SafeStorageService`
 - `isAvailable()`: Prueft `safeStorage.isEncryptionAvailable()`
 - `encrypt(plainText)`: Gibt `enc:v1:<base64>` zurueck
 - `decrypt(value)`: Erkennt Praefix, entschluesselt, gibt Klartext zurueck
 
-**Integration in `src/main.ts`:**
+**Integration im Plugin-Entry:**
 - `onload()`: SafeStorageService instanziieren VOR `loadSettings()`
 - `loadSettings()`: Nach `loadData()` sofort `decryptSettings()` aufrufen; One-Time-Migration am Ende
 - `saveSettings()`: `encryptSettingsForSave()` erstellt Deep-Copy mit verschluesselten Keys

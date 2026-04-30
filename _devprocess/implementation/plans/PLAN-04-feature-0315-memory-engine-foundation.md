@@ -20,7 +20,7 @@ related:
 
 Phase 0.5 ist abgeschlossen (knowledge.db ist crash-safe, vault-rename-cascade-correct, embedding_model getrackt, Snapshot + Recovery + WriterLock verdrahtet). Jetzt baut Phase 1 die **Engine-Foundation auf memory.db** -- additiv neben den bestehenden Tabellen `sessions`, `episodes`, `recipes`, `patterns`. Keine Migration der Alt-Tabellen, kein User-sichtbares Verhalten geaendert -- die Engine ist intern call-bar, aber im Conversation-Flow noch nicht eingehaengt.
 
-Heutige Realitaet: [MemoryDB.ts](../../src/core/knowledge/MemoryDB.ts) ist eine 127-Zeilen-Wrapper-Klasse um `KnowledgeDB`. 4 Tabellen, kein `schema_meta`, kein Migration-Pfad. Phase 1 muss das additiv erweitern, ohne das bestehende Recipe/Episode-System zu beruehren.
+Heutige Realitaet: [MemoryDB.ts](../../../src/core/knowledge/MemoryDB.ts) ist eine 127-Zeilen-Wrapper-Klasse um `KnowledgeDB`. 4 Tabellen, kein `schema_meta`, kein Migration-Pfad. Phase 1 muss das additiv erweitern, ohne das bestehende Recipe/Episode-System zu beruehren.
 
 **Entkopplungsziel ab Tag 1:** Stores nutzen Constructor-Injection, importieren `obsidian` nicht, kennen URI-Schemata nur ueber den `UriResolver`. Engine-Extract (Phase 7) wird damit zu einem mechanischen Schritt, nicht zu einem Refactor.
 
@@ -44,10 +44,10 @@ Heutige Realitaet: [MemoryDB.ts](../../src/core/knowledge/MemoryDB.ts) ist eine 
 
 **Anpassungen:**
 
-- `MEMORY_SCHEMA` in [MemoryDB.ts](../../src/core/knowledge/MemoryDB.ts) erweitern um Tabellen `facts`, `memory_source_notes`, `fact_embeddings`, `fact_edges`, `communication_styles`, `conversation_threads`, `thread_sessions`, `known_topics`, `memory_audit` plus alle Indizes aus ADR-77.
+- `MEMORY_SCHEMA` in [MemoryDB.ts](../../../src/core/knowledge/MemoryDB.ts) erweitern um Tabellen `facts`, `memory_source_notes`, `fact_embeddings`, `fact_edges`, `communication_styles`, `conversation_threads`, `thread_sessions`, `known_topics`, `memory_audit` plus alle Indizes aus ADR-77.
 - Neue Tabelle `memory_schema_meta (version INTEGER NOT NULL)`. v1-Detection: wenn `memory_schema_meta` fehlt -> alte v1-DB, addiere v2-Tabellen, INSERT version=2. Wenn `version=2`: keine Aktion. Wenn `version<2`: zukuenftige Migration.
 - `initMemorySchema()` macht den additive run via `CREATE TABLE IF NOT EXISTS` -- bestehende Tabellen unangetastet, keine Daten-Migration.
-- Test: [src/core/knowledge/__tests__/MemoryDB.test.ts](../../src/core/knowledge/__tests__/MemoryDB.test.ts) -- NEU. Cases: "v1 DB without meta migrates to v2", "v2 DB stays at v2 (idempotent)", "all 9 tables exist with correct columns", "facts CHECK constraints reject invalid kind/importance/is_latest", "fact_edges UNIQUE constraints reject duplicates".
+- Test: [src/core/knowledge/__tests__/MemoryDB.test.ts](../../../src/core/knowledge/__tests__/MemoryDB.test.ts) -- NEU. Cases: "v1 DB without meta migrates to v2", "v2 DB stays at v2 (idempotent)", "all 9 tables exist with correct columns", "facts CHECK constraints reject invalid kind/importance/is_latest", "fact_edges UNIQUE constraints reject duplicates".
 
 **Akzeptanz:** alle Tabellen + Indizes existieren, `memory_schema_meta.version=2`, Re-Run aendert nichts, Test-Suite gruen.
 
@@ -180,7 +180,7 @@ Aufgaben werden **sequenziell** umgesetzt. Jede Aufgabe schliesst mit `npm run b
 
 | Datei | Aenderung | Risiko |
 |------|-----------|--------|
-| [MemoryDB.ts](../../src/core/knowledge/MemoryDB.ts) | Schema-Erweiterung + Schema-Versioning | Mittel (Migration) |
+| [MemoryDB.ts](../../../src/core/knowledge/MemoryDB.ts) | Schema-Erweiterung + Schema-Versioning | Mittel (Migration) |
 | `src/core/memory/FactStore.ts` | NEU | Klein |
 | `src/core/memory/EdgeStore.ts` | NEU | Klein |
 | `src/core/memory/CommunicationStyleStore.ts` | NEU | Klein |

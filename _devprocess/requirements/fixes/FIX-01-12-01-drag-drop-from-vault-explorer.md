@@ -48,7 +48,7 @@ handler ran.
 
 ## Fix Direction (from upstream commit cc97106)
 
-In [src/ui/AgentSidebarView.ts](../../src/ui/AgentSidebarView.ts),
+In [src/ui/AgentSidebarView.ts](../../../src/ui/AgentSidebarView.ts),
 `buildChatInput()` -> `drop` handler:
 
 1. Add `e.stopPropagation()` to both `dragover` and `drop`.

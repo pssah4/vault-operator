@@ -21,7 +21,7 @@ related:
 
 ## Code-Review-Findings (2026-04-26, /coding Phase 2)
 
-**Heutige Storage-Layer-Realitaet:** [MemoryDB.ts:64-70](../../src/core/knowledge/MemoryDB.ts#L64-L70) ist eine duenne Wrapper-Klasse um KnowledgeDB. Beide nutzen denselben Storage-Layer (sql.js + writeDBGlobalAtomic / writeDBVaultWithBackup). Schema heute: 4 Tabellen `sessions`, `episodes`, `recipes`, `patterns` ([MemoryDB.ts:20-58](../../src/core/knowledge/MemoryDB.ts#L20-L58)).
+**Heutige Storage-Layer-Realitaet:** [MemoryDB.ts:64-70](../../../src/core/knowledge/MemoryDB.ts#L64-L70) ist eine duenne Wrapper-Klasse um KnowledgeDB. Beide nutzen denselben Storage-Layer (sql.js + writeDBGlobalAtomic / writeDBVaultWithBackup). Schema heute: 4 Tabellen `sessions`, `episodes`, `recipes`, `patterns` ([MemoryDB.ts:20-58](../../../src/core/knowledge/MemoryDB.ts#L20-L58)).
 
 **Implementation-Strategie:** Statt KnowledgeDB komplett zu refactoren, erweitert FEAT-03-15 die MemoryDB-Wrapper-Klasse:
 
@@ -30,7 +30,7 @@ related:
 3. FactStore/EdgeStore/StyleStore werden eigene Klassen, die MemoryDB-Instanz im Constructor erhalten -- konsistent mit Engine-Hosting-Neutralitaet (ADR-80)
 4. KnowledgeDB bleibt Plugin-bedient (Vault-Index-DB), keine Aenderung am bestehenden Code
 
-**history.db als dedizierte Engine-DB (ADR-77):** KnowledgeDB-Klasse kann mit beliebigem dbName instanziiert werden ([KnowledgeDB.ts:162](../../src/core/knowledge/KnowledgeDB.ts#L162)). Damit ist `new KnowledgeDB(vault, pluginDir, 'global', 'history.db')` triviales Pattern -- keine neue Storage-Implementation noetig, nur neue Schema-Init-Sektion fuer history_chunks.
+**history.db als dedizierte Engine-DB (ADR-77):** KnowledgeDB-Klasse kann mit beliebigem dbName instanziiert werden ([KnowledgeDB.ts:162](../../../src/core/knowledge/KnowledgeDB.ts#L162)). Damit ist `new KnowledgeDB(vault, pluginDir, 'global', 'history.db')` triviales Pattern -- keine neue Storage-Implementation noetig, nur neue Schema-Init-Sektion fuer history_chunks.
 
 ## Feature Description
 

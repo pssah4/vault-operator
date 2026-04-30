@@ -39,7 +39,7 @@ introduced after `ReadFileTool` was written. The two systems never met.
 
 ## Fix Direction (from upstream commit 3cbec9d)
 
-In [src/core/tools/vault/ReadFileTool.ts](../../src/core/tools/vault/ReadFileTool.ts):
+In [src/core/tools/vault/ReadFileTool.ts](../../../src/core/tools/vault/ReadFileTool.ts):
 
 - When vault-adapter check misses, test whether the path begins with
   `tmp/` AND `plugin.globalFs` is available.
