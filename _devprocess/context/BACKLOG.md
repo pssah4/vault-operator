@@ -120,6 +120,7 @@ Phase: Released | Status: Done
 | FEAT-03-16 | Feature | Memory-Migration und Vault-RRF-Quick-Win | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-17 | Feature | Dynamic Context Composition | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-18 | Feature | Single-Call Update Pipeline und Combined Note-Index-Pass | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
+| FIX-03-18-01 | Fix | SingleCallProcessor budget-exhausted Test-Setup-Bug (nextMockApi) | Open | Building | FEAT-03-18, EPIC-03, PLAN-07 | BUG | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
 | FEAT-03-19 | Feature | Living Document UX | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-20 | Feature | History Search ueber alle Konversationen | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-21 | Feature | Engine-Extract zu @obsilo/memory-engine | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
