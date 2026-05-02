@@ -707,72 +707,101 @@ V-Model-Checklist: nach /coding kommt /testing plus /security-audit. Beides empf
 
 ---
 
-## 2026-05-02 -- BA-25 Vault-Summary-Pflege: Business Analysis -> Requirements Engineering
+## 2026-05-02 -- BA-25 Karpathy-Wiki-Pattern (3 Dimensionen): Business Analysis -> Requirements Engineering
 
 triage: BA-25
 triage_kind: feature
 related-epics: EPIC-15, EPIC-19, EPIC-03
 
-**Phase:** Business Analysis (MVP-Scope) abgeschlossen. Ready for RE.
+**Phase:** Business Analysis (MVP-Scope, drei Dimensionen) abgeschlossen. Ready for RE.
 
 **Artefakte erzeugt:**
 
-- BA: [BA-25-vault-summary-pflege.md](../analysis/BA-25-vault-summary-pflege.md) (Status: Draft)
-- Parent-BA-Referenz: [BA-19-knowledge-maintenance.md](../analysis/BA-19-knowledge-maintenance.md) (Karpathy-Pattern als Leitstern)
+- BA: [BA-25-vault-summary-pflege.md](../analysis/BA-25-vault-summary-pflege.md) (836 Zeilen, Status: Draft)
+- Title aktualisiert: "Karpathy-Wiki-Pattern fuer Obsilo (Ingest, Retrieval, Lint)"
+- Parent-BA: [BA-19-knowledge-maintenance.md](../analysis/BA-19-knowledge-maintenance.md)
+- Web-Recherche zu swarmvault, PENgram, OwlerLite, Atlan, qmd in BA Section 2.1 dokumentiert
 
-**Scope:** MVP, vier Sub-Initiativen die zusammen das Karpathy-Wiki-Pattern auf Obsilo's existierende Knowledge-Layer-Foundation aufsetzen. Kein neuer Epic, Mapping auf existierende EPIC-15, EPIC-19, EPIC-03.
+**Scope:** MVP, drei Dimensionen Ingest + Retrieval + Lint, sieben Sub-Initiativen, 19 Feature-Kandidaten. Kein neuer Epic, Mapping auf existierende EPIC-15, EPIC-19, EPIC-03.
 
 **HMW:**
-> Wie koennen wir die Pflege von Note-Summaries und Frontmatter-Metadaten so automatisieren, dass User keine aktive Zeit mehr darauf verwenden muessen, der Agent aber jederzeit aktuelle Vault-Awareness hat, ohne User-Edits zu zerstoeren oder das Token-Budget zu sprengen?
+> Wie koennen wir den Vault zum kompoundierenden Wissens-Artefakt machen, ohne dass der User Pflege-Zeit aufwendet, ohne in eine Echo-Chamber zu rutschen, ohne dass Wissen stillschweigend veraltet, und ohne das Token-Budget zu sprengen?
 
 **Value Proposition:**
-Karpathys "LLMs don't tire of bookkeeping" wird auf Obsilo-Niveau eingeloest, ohne den User-Workflow zu stoeren. Default konservativ (DB-only), Power-User-Mehrwert opt-in (Vault-Frontmatter-Write, KV-Cache-Block).
+Karpathys "LLMs don't tire of bookkeeping" wird auf Obsilo-Niveau eingeloest, mit Bias-Awareness und Aktualitaets-Pflege als Innovations-Layer obendrauf. Default konservativ (lokale SQL-Operationen, kein Vault-Write, kein externer Call). Power-User-Mehrwert in opt-in Stufen (Frontmatter-Write, Activity-Triggered Lint, Periodischer Lint mit Token-Budget-Cap).
 
-**Critical Hypotheses (Open, fuer RE und Architektur):**
+**Critical Hypotheses (Open, 15 Hypothesen):**
 
-- H-01: Note-Summary in `note_summaries` verbessert search_vault-Recall um messbare 5-10%.
-- H-02: SQL-Lookup fuer Themen/Konzepte reduziert LLM-Tokens pro neue Note um > 50%.
-- H-03: Setting-gated Frontmatter-Write wird von > 30% der Power-User aktiviert.
-- H-04: Top-Hub-Block reduziert search_vault-Aufrufe pro Conversation um > 20% bei netto positivem Token-Saldo.
-- H-05: MOC-Header-Block-Pflege stoert User-edited Content nicht.
-- H-06: Backfill bewahrt 100% existierender Frontmatter-Properties unveraendert.
+Retrieval (H-01 bis H-06): Note-Summary verbessert Recall, SQL-Lookup spart Tokens, Frontmatter-Toggle Adoption, KV-Cache-Block netto positiv, MOC-Pflege stoert nicht, Backfill bewahrt Properties.
 
-**Feature-Kandidaten (P0/P1/P2 fuer RE):**
+Ingest (H-07 bis H-10): Triage-Pass < 0.05 USD, Source-Diversity-Tracking > 80% Precision, Tension-Detection > 60% Precision, Anti-Echo-Vorschlag > 20% Acceptance.
 
-P0:
-- FEAT-15-09 Note-Summary Storage (note_summaries-Tabelle plus Indexing-Hook)
-- FEAT-15-10 Frontmatter-Property Mirror (frontmatter_properties + SQL-Taxonomie-Lookup)
-- FEAT-19-08 Konfigurierbarer Standard-Prompt (Settings-Feld mit Sebastians Wortlaut als Default)
-- FEAT-19-09 Auto-Summary-Generierung beim Indexing (Setting-gated, Default off)
+Lint (H-11 bis H-15): Stufe-1-Score > 70% Precision, Stufe-2-Hints 1-5/Woche mit > 30% Acceptance, Stufe-3 unter Default-Budget, Update-Findings > 70% Precision, UX-Konsistenz im Health-Modal reduziert Time-to-Action.
 
-P1:
-- FEAT-19-10 Frontmatter-Write plus Backfill-Job mit Progress-UI
+**Feature-Kandidaten (19, gruppiert nach Sub-Initiative):**
 
-P2:
-- FEAT-19-11 Aktive MOC-File-Pflege mit Marker-Konvention
-- FEAT-03-26 Selektiver Top-Hub-Block im KV-Cache
+Retrieval (R, 7 Features):
+- FEAT-15-09 Note-Summary Storage (P0)
+- FEAT-15-10 Frontmatter-Property Mirror (P0)
+- FEAT-19-08 Konfigurierbarer Standard-Prompt (P0)
+- FEAT-19-09 Auto-Summary-Generierung beim Indexing (P0)
+- FEAT-19-10 Frontmatter-Write plus Backfill (P1)
+- FEAT-19-11 Aktive MOC-File-Pflege (P2)
+- FEAT-03-26 Selektiver Top-Hub-Block im KV-Cache (P2)
 
-**ADR-Bedarf (Indikatoren fuer Architektur-Phase):**
-- note_summaries-Schema-Design (separate Tabelle vs Spalte in vectors)
-- frontmatter_properties-Schema (Erweiterung tags vs eigenstaendige Tabelle)
-- Conflict-Detection bei parallelem User-Edit
-- MOC-Marker-Konvention (HTML-Comment vs Dataview-Block)
-- KV-Cache-Block-Lifecycle (Trigger fuer Regenerierung)
+Ingest (I, 5 Features):
+- FEAT-19-12 Pre-Triage-Tool mit 10s-Triage-Karte (P0)
+- FEAT-15-11 cluster_source_stats-Tabelle plus Source-Diversity-Tracking (P0)
+- FEAT-19-13 Tension-Detection beim Deep-Ingest (P1)
+- FEAT-19-14 Concentration-Warning UI plus Anti-Echo-Vorschlag (P1)
+- FEAT-19-15 Inbox-Workflow fuer Batch-Triage (P2)
 
-**Bindende User-Entscheidungen (aus Initiative-Prompt, RE muss diese respektieren):**
+Lint (L, 7 Features, integriert in VaultHealthService):
+- FEAT-15-12 cluster_metadata-Tabelle plus Halbwertszeit-Konfiguration (P0)
+- FEAT-19-16 Stufe-1 Composite-Freshness-Score als VaultHealth-Check (P0)
+- FEAT-19-17 Source-Diversity-Check als Bias-Lint-Kategorie (P0)
+- FEAT-19-18 Health-Modal-Erweiterung mit kontext-spezifischen Action-Buttons (P0)
+- FEAT-19-19 Stufe-2 Activity-Trigger plus Web-Search-Update-Pass (P1)
+- FEAT-19-20 Stufe-3 Periodischer Job plus Token-Budget-Cap plus Notifications (P2)
+- FEAT-19-21 Hot-Cluster-Konfiguration in Settings (P1)
+
+**ADR-Bedarf (13 ADR-Indikatoren):**
+
+Retrieval: note_summaries-Schema, frontmatter_properties-Schema, Conflict-Detection, MOC-Marker-Konvention, KV-Cache-Block-Lifecycle.
+Ingest: Pre-Triage-Architektur, Source-Identitaet, Tension-Detection-Algorithmus.
+Lint: Cluster-Halbwertszeit-Modell, Web-Search-Provider-Wahl, Token-Budget-Enforcement, Health-Modal-Severity, Activity-Trigger-Cooldown.
+
+**Bindende User-Entscheidungen (aus Initiative-Prompt + Konversation):**
 - Variante B: setting-gated Frontmatter-Write, Default OFF, Backfill bei Aktivierung, kein Ueberschreiben.
 - Taxonomie SQL-beschleunigt, nicht LLM-only.
 - Sebastians Standard-Prompt-Wortlaut bleibt erhalten als Settings-Default.
+- Lint integriert in bestehenden VaultHealthService und Vault-Health-Modal (UI-Konsistenz).
+- Drei-Stufen-Lint-Stack mit Token-Budget-Cap (Stufe 3 hart begrenzt).
+- Bias-Awareness als eigene Lint-Kategorie (Innovations-Layer ueber Karpathy hinaus).
 
 **Open Questions fuer RE:**
-- Verteilung der Features auf Backlog-Reihenfolge: alle vier parallel oder strikt sequenziell?
-- Sollen FEAT-15-09 und FEAT-15-10 in einem PLAN gebuendelt werden (gemeinsames Schema-Migration v9 -> v10)?
-- Approval-Modell beim Backfill: pro Note, pro Batch, oder Settings-Level (einmal Ja)?
-- MOC-Pflege-Default: read-only Header-Block oder darf System auch Body anpassen wenn klar markiert?
+
+Retrieval:
+- Bundling FEAT-15-09 + 15-10 + 15-11 + 15-12 in einem Schema-Migration-PLAN (v9 -> v10)?
+- Approval-Modell Backfill: pro Note, Batch, Settings-Level?
+- MOC-Pflege Default-Tiefe: Header-only oder auch Body bei Markern?
+
+Ingest:
+- Triage-Tool als eigenstaendiges `ingest_triage` oder Erweiterung `ingest_document`?
+- Source-Identitaet-Modell: Domain-only fuer MVP, Author-Level spaeter?
+- Tension-Detection: Cosine-Schwellwert vs LLM-Klassifikation vs Hybrid?
+
+Lint:
+- Halbwertszeit-Defaults: globale Liste oder per-User-Vault-Setup?
+- Web-Search-Provider: BYOK obligatorisch oder Default-Provider via Obsilo-Gateway?
+- Stufe-3-Job-Runner: setInterval, BackgroundFetch, oder Cron-via-OS?
 
 **Assumptions (fuer RE und Architektur zu pruefen):**
 - 1.500-Notes-Backfill mit Haiku token-oekonomisch tragbar (< 5 USD).
+- Pre-Triage-Pass < 0.05 USD pro Triage realistisch.
+- Stufe-3 Default-Budget 2 USD/Woche realistisch fuer 50 Hot-Cluster.
 - Indexing-Latenz darf langsamer werden, solange asynchron.
-- Frontmatter-Edits ueber Obsidian-API kollidieren nicht mit aktiven User-Edits (Conflict-Detection bauen).
+- Frontmatter-Edits kollidieren nicht mit aktiven User-Edits (Conflict-Detection bauen).
+- Vault-Health-Modal skaliert auch bei vielen Findings (Severity-Sortierung, Filter, Bulk-Dismiss).
 
 **Recommended next:** /requirements-engineering
