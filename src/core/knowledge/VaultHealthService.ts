@@ -24,13 +24,20 @@ export type HealthCheckType =
     | 'weak_clusters'
     | 'inconsistent_tags'
     | 'category_mismatch'
-    | 'god_nodes';
+    | 'god_nodes'
+    // BA-25 PLAN-11 Lint-Foundation:
+    | 'cluster_freshness'   // FEAT-19-16, ADR-94
+    | 'source_concentration'; // FEAT-19-17, ADR-93
 
 export interface HealthFinding {
     check: HealthCheckType;
     severity: 'high' | 'medium' | 'low';
     paths: string[];
     description: string;
+    /** Optional: cluster name for ba25-checks. */
+    cluster?: string;
+    /** Optional: structured payload for UI action buttons (FEAT-19-18, ADR-106). */
+    metadata?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +75,18 @@ export class VaultHealthService {
 
         try {
             const db = this.getDB();
-            const checksToRun = checks ?? ['orphans', 'missing_backlinks', 'broken_links', 'weak_clusters', 'inconsistent_tags', 'category_mismatch', 'god_nodes'];
+            const checksToRun = checks ?? [
+                'orphans',
+                'missing_backlinks',
+                'broken_links',
+                'weak_clusters',
+                'inconsistent_tags',
+                'category_mismatch',
+                'god_nodes',
+                // BA-25 PLAN-11 additive Checks:
+                'cluster_freshness',
+                'source_concentration',
+            ];
 
             for (const check of checksToRun) {
                 if (this.cancelled) break;
@@ -80,6 +98,8 @@ export class VaultHealthService {
                     case 'inconsistent_tags': this.checkInconsistentTags(db); break;
                     case 'category_mismatch': this.checkCategoryMismatch(db); break;
                     case 'god_nodes': this.checkGodNodes(db); break;
+                    case 'cluster_freshness': this.checkClusterFreshness(db); break;
+                    case 'source_concentration': this.checkSourceConcentration(db); break;
                 }
                 // Yield to UI thread between checks
                 await new Promise<void>(r => setTimeout(r, 0));
@@ -1076,5 +1096,147 @@ export class VaultHealthService {
 
     private getDB(): SqlJsDatabase {
         return this.knowledgeDB.getDB();
+    }
+
+    // -----------------------------------------------------------------------
+    // BA-25 PLAN-11 Lint-Foundation Checks
+    // -----------------------------------------------------------------------
+
+    /**
+     * cluster_freshness (FEAT-19-16, ADR-94 + FEAT-19-16 ADR-106 Severity).
+     *
+     * Pro Cluster: avg-Note-Age aus letzter Modification, Coverage-Drift
+     * (Anteil verlinkter Notes ueber Halbwertszeit). Score via
+     * FreshnessScorer-Konvention inline berechnet, weil VaultHealthService
+     * keine Service-Injection-Pflicht hat (analog zu anderen Checks).
+     *
+     * Liest cluster_metadata (Halbwertszeit) und ontology (Cluster-Membership).
+     * Ohne Cluster-Metadata werden Defaults aus ADR-94 angewendet (180 Tage Tech).
+     */
+    private checkClusterFreshness(db: SqlJsDatabase): void {
+        try {
+            // 1. Sammle alle Cluster aus ontology, mit Member-Pfaden.
+            const clusterMembersRaw = db.exec(
+                `SELECT cluster, entity_path FROM ontology ORDER BY cluster`,
+            );
+            if (clusterMembersRaw.length === 0) return;
+
+            const membersByCluster = new Map<string, string[]>();
+            for (const row of clusterMembersRaw[0].values) {
+                const cluster = row[0] as string;
+                const path = row[1] as string;
+                if (!membersByCluster.has(cluster)) membersByCluster.set(cluster, []);
+                membersByCluster.get(cluster)!.push(path);
+            }
+
+            // 2. Lookup cluster_metadata (half_life_days). Default 180 Tage Tech-Fallback.
+            const metaRaw = db.exec(`SELECT cluster, half_life_days FROM cluster_metadata`);
+            const halfLifeByCluster = new Map<string, number>();
+            if (metaRaw.length > 0) {
+                for (const row of metaRaw[0].values) {
+                    halfLifeByCluster.set(row[0] as string, row[1] as number);
+                }
+            }
+            const DEFAULT_HALF_LIFE = 180;
+
+            const now = Date.now();
+            const dayMs = 86_400_000;
+
+            for (const [cluster, paths] of membersByCluster.entries()) {
+                if (paths.length === 0) continue;
+
+                const halfLife = halfLifeByCluster.get(cluster) ?? DEFAULT_HALF_LIFE;
+                if (halfLife <= 0) continue; // Personal-Cluster, statisch
+
+                // mtime aus vectors (latest pro path)
+                const placeholders = paths.map(() => '?').join(',');
+                const mtimeRaw = db.exec(
+                    `SELECT path, MAX(mtime) FROM vectors WHERE path IN (${placeholders}) GROUP BY path`,
+                    paths,
+                );
+                if (mtimeRaw.length === 0 || mtimeRaw[0].values.length === 0) continue;
+
+                let totalAgeDays = 0;
+                let staleCount = 0;
+                let counted = 0;
+                for (const row of mtimeRaw[0].values) {
+                    const mtime = row[1] as number;
+                    if (!mtime) continue;
+                    const ageDays = (now - mtime) / dayMs;
+                    totalAgeDays += ageDays;
+                    if (ageDays > halfLife) staleCount++;
+                    counted++;
+                }
+                if (counted === 0) continue;
+
+                const avgAge = totalAgeDays / counted;
+                const coverageDrift = staleCount / counted;
+
+                // Score (inline, vermeidet Service-Injection in VaultHealthService).
+                const w1 = 0.6, w2 = 0.3, w3 = 0.1;
+                const ageRatio = Math.min(1, avgAge / halfLife);
+                const score = Math.round(100 * (w1 * (1 - ageRatio) + w2 * (1 - coverageDrift) + w3 * 1));
+
+                if (score < 70) {
+                    const sev: 'high' | 'medium' | 'low' =
+                        score < 30 ? 'high' : score < 50 ? 'medium' : 'low';
+                    this.findings.push({
+                        check: 'cluster_freshness',
+                        severity: sev,
+                        paths: [],
+                        cluster,
+                        description: `Cluster "${cluster}": Freshness-Score ${score}/100 (avg-Age ${Math.round(avgAge)}d, Halbwertszeit ${halfLife}d, ${counted} Notes, ${staleCount} ueber Halbwertszeit)`,
+                        metadata: { score, avgAge: Math.round(avgAge), halfLife, totalNotes: counted, staleCount },
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('[VaultHealth] cluster_freshness check failed:', err);
+        }
+    }
+
+    /**
+     * source_concentration (FEAT-19-17, ADR-93).
+     *
+     * Pro Cluster: top-source-domain anteil > 0.7 plus min 5 Notes
+     * -> Warning mit Anti-Echo-Vorschlag.
+     */
+    private checkSourceConcentration(db: SqlJsDatabase): void {
+        const THRESHOLD = 0.7;
+        const MIN_NOTES = 5;
+        try {
+            const totalsRaw = db.exec(
+                `SELECT cluster, SUM(note_count) FROM cluster_source_stats GROUP BY cluster HAVING SUM(note_count) >= ?`,
+                [MIN_NOTES],
+            );
+            if (totalsRaw.length === 0) return;
+
+            for (const row of totalsRaw[0].values) {
+                const cluster = row[0] as string;
+                const total = row[1] as number;
+
+                const topRaw = db.exec(
+                    `SELECT source_domain, note_count FROM cluster_source_stats WHERE cluster = ? ORDER BY note_count DESC LIMIT 1`,
+                    [cluster],
+                );
+                if (topRaw.length === 0 || topRaw[0].values.length === 0) continue;
+                const dominantDomain = topRaw[0].values[0][0] as string;
+                const dominantCount = topRaw[0].values[0][1] as number;
+                const score = dominantCount / total;
+                if (score < THRESHOLD) continue;
+
+                const pct = Math.round(score * 100);
+                this.findings.push({
+                    check: 'source_concentration',
+                    severity: score >= 0.85 ? 'high' : 'medium',
+                    paths: [],
+                    cluster,
+                    description: `Cluster "${cluster}": ${dominantCount} von ${total} Notes (${pct}%) aus ${dominantDomain}. Suche aktiv Gegenpositionen.`,
+                    metadata: { dominantDomain, dominantCount, total, concentrationScore: score },
+                });
+            }
+        } catch (err) {
+            console.warn('[VaultHealth] source_concentration check failed:', err);
+        }
     }
 }
