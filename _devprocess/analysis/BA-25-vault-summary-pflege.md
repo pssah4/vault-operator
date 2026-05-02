@@ -340,9 +340,15 @@ Alle Findings landen im bestehenden Vault-Health-Modal mit kontext-spezifischen 
 | Triage-Pass-Dauer | n.a. (Feature neu) | < 15s end-to-end | Telemetrie pro Triage-Call |
 | Triage-Token-Kosten | n.a. | < 0.05 USD pro Triage | LLM-Call-Tracking |
 | Ingest-Rate (ingestiert / triaged) | unbekannt | 30-60% (Selektion findet wirklich statt) | Telemetrie ingest-Decisions |
+| Dialog-Modus-Adoption (P1) | n.a. | > 60% Power-User | Settings-Telemetrie |
+| Output-Modus-Verteilung | n.a. | Modus 2 als Default fuer > 70% | Settings-Telemetrie |
+| User-Time pro Dialog-Ingest | n.a. | 5-15 Min (Vergleich zu manueller Pflege) | Telemetrie session-duration |
+| Sense-Making-Note-Qualitaet | n.a. | NPS > 7 in Befragung nach 4 Wochen | User-Survey |
 | Source-Diversity-Score pro Cluster | unbekannt | > 3 distinct Domains pro 10 Notes | DB-Query auf cluster_source_stats |
 | Tension-Marker-Rate | n.a. | > 5% der ingestierten Notes haben min 1 Tension-Marker | Telemetrie ingest-Output |
-| Concentration-Warnings ausgeloest | n.a. | erste warnung innerhalb 4 Wochen Real-Use | Telemetrie warnings.fired |
+| Concentration-Warnings ausgeloest | n.a. | erste Warnung innerhalb 4 Wochen Real-Use | Telemetrie warnings.fired |
+| Multi-Zettel-Anzahl pro Source (Modus 3) | n.a. | 3-7 Zettel im Schnitt | Telemetrie ingest-Output |
+| Cross-Link-Rate zwischen Multi-Zettel | n.a. | > 50% Zettel mit min 1 Cross-Link | DB-Query auf edges |
 
 **Lint-KPIs:**
 
@@ -382,6 +388,9 @@ Der Vault wird zum kompoundierenden Wissens-Artefakt, ohne dass der User dafuer 
 - Keine Re-Generierung bestehender Summaries (alte Standards bleiben respektiert).
 - Keine MOC-File-Pflege, die User-edited Content ueberschreibt.
 - Kein Auto-Ingest ohne User-Approval (selbst nicht bei hoher Confidence).
+- Kein Ersatz fuer User-Sense-Making: System schreibt nur, was im Dialog erarbeitet wurde, oder explizit als Auto-Modus angefordert.
+- Keine vollautomatische Multi-Zettel-Zerlegung von User-edited Notes (nur bei neuem Ingest mit Modus 3).
+- Kein Modus-Wechsel mit retroaktiver Re-Verarbeitung bestehender Notes.
 - Kein blindes periodisches Web-Polling ueber alle Themen (Token-Falle).
 - Keine impliziten Bias-Filter beim Ingest, die Sources verwerfen ohne User-Sicht.
 - Keine getrennten UIs fuer strukturelles und inhaltliches Lint (UX-Konsistenz).
@@ -419,9 +428,14 @@ Der Vault wird zum kompoundierenden Wissens-Artefakt, ohne dass der User dafuer 
 |----------|--------------|------------|
 | Pre-Triage-Tool plus 10-Sekunden-Triage-Karte | EPIC-19 | P0 |
 | `cluster_source_stats`-Tabelle fuer Source-Diversity-Tracking | EPIC-15 | P0 |
+| Aktiver Dialog-Ingest-Modus (Modus A, Karpathy-Default) | EPIC-19 | P0 |
+| Auto-Ingest-Modus (Modus B, less supervised) | EPIC-19 | P1 |
+| Output-Modus-Auswahl (Source-only / Source+Summary / Source+Multi-Zettel) | EPIC-19 | P0 |
 | Tension-Detection beim Deep-Ingest (Vault-Vergleich) | EPIC-19 | P1 |
 | Concentration-Warning UI plus Anti-Echo-Vorschlag | EPIC-19 | P1 |
 | Inbox-Workflow fuer batch-Triage (mehrere Artikel) | EPIC-19 | P2 |
+| Source-Folder vs Wissens-Folder Konfiguration | EPIC-19 | P0 |
+| Dialog-getriebener MOC-Page-Update beim Ingest | EPIC-19 | P1 |
 
 **Lint-Dimension (integriert in VaultHealthService):**
 
@@ -463,6 +477,10 @@ Der Vault wird zum kompoundierenden Wissens-Artefakt, ohne dass der User dafuer 
 - **H-08:** Source-Diversity-Tracking pro Cluster identifiziert Concentration-Cases (> 70% Single-Source) korrekt mit > 80% Precision. *(Test: Manueller Audit der ersten 10 Warnings.)*
 - **H-09:** Tension-Detection markiert widersprechende Aussagen mit > 60% Precision (Sample-Eval), und User findet das wertvoll (NPS > 7 in Befragung). *(Test: Sample-Eval plus User-Feedback nach 4 Wochen.)*
 - **H-10:** Anti-Echo-Vorschlag fuehrt in > 20% der Faelle dazu, dass User aktiv eine Gegenposition sucht. *(Test: Telemetrie click-through-Rate.)*
+- **H-16:** Dialog-Modus (A) wird von > 60% der P1-Power-User als Default gewaehlt, weil es Sense-Making-Beteiligung erlaubt ohne Pflege-Last. *(Test: Settings-Telemetrie nach 4 Wochen Adoption.)*
+- **H-17:** Output-Modus 2 (Source plus Summary-Note) ist Default-Wahl fuer > 70% der User, Modus 3 (Multi-Zettel) wird primaer von Zettelkasten-Praktikern aktiviert. *(Test: Settings-Telemetrie + Zielgruppen-Befragung.)*
+- **H-18:** Aktiver Dialog-Ingest fuehrt zu hoeherer Note-Qualitaet (User-Bewertung der Sense-Making-Notes ueber Modus B), weil User-Betonung einfliesst. *(Test: Side-by-Side-Vergleich derselben Source in beiden Modi, User-Bewertung blind.)*
+- **H-19:** Multi-Zettel-Modus produziert im Schnitt 3-7 Zettel pro Source, mit > 50% Cross-Links zwischen den Zetteln, ohne LLM-Halluzinations-Verbindungen. *(Test: Manueller Audit der ersten 10 Multi-Zettel-Ingests.)*
 
 **Lint-Hypothesen:**
 
@@ -586,6 +604,10 @@ Aufgeteilt nach Dimensionen, IDs sind Vorschlaege fuer RE.
 - ADR fuer Pre-Triage-Tool-Architektur (eigenstaendiges Tool vs Erweiterung von ingest_document).
 - ADR fuer Source-Identitaet (Domain-only vs Domain plus Author plus Section-Klasse).
 - ADR fuer Tension-Detection-Algorithmus (Cosine-Threshold vs LLM-Klassifikation vs Hybrid).
+- ADR fuer Dialog-Ingest-State-Machine (wo lebt der State zwischen Dialog-Turns: Conversation, eigene Tabelle, ephemere Memory?).
+- ADR fuer Output-Modus-Architektur (Note-Generierung pro Modus, Folder-Konfiguration, Frontmatter-Konventionen).
+- ADR fuer Multi-Zettel-Cross-Link-Generierung (LLM-Vorschlag vs Embedding-Aehnlichkeit vs User-only).
+- ADR fuer Source-Folder vs Wissens-Folder Default-Layout.
 
 **Lint:**
 - ADR fuer Cluster-Halbwertszeit-Modell (statische Defaults vs adaptive Heuristik).
@@ -625,22 +647,65 @@ Aufgeteilt nach Dimensionen, IDs sind Vorschlaege fuer RE.
 
 **Token-Kosten:** ein LLM-Call mit ~3k Token Input plus 500 Token Output = ~0.02-0.05 USD bei Haiku.
 
-### 11.2 Deep-Ingest mit Tension-Detection
+### 11.2 Deep-Ingest in zwei Modi
 
-Wird ausgefuehrt wenn User in Triage "Ingest" waehlt.
+Wird ausgefuehrt wenn User in Triage "Ingest" waehlt. Nach Karpathys Pattern: "I prefer to ingest sources one at a time and stay involved -- I read the summaries, check the updates, and guide the LLM on what to emphasize. But you could also batch-ingest many sources at once with less supervision." Daraus folgt: zwei Modi, User-konfigurierbar pro Ingest oder Default in Settings.
+
+#### 11.2.1 Modus A: Aktiver Dialog-Ingest (Karpathys Default, Sebastians Praeferenz)
+
+User bleibt aktiv beteiligt. System schlaegt vor, User leitet.
 
 **Pipeline:**
 
-1. **Vollstaendiges Lesen** (chunked, fuer grosse Sources mehrere LLM-Passes).
-2. **Key-Claims-Extraktion:** Liste atomarer Aussagen mit Source-Position-Marker.
-3. **Vault-Vergleich pro Claim:** Lookup gegen vorhandene Notes im Match-Cluster. Pro Claim: stuetzt-Note-X / widerspricht-Note-Y / neutral.
-4. **Note-Generierung:** neue Vault-Note mit:
-   - YAML-Frontmatter via Standard-Pipeline (Summary, Keywords, Themen, Konzepte).
-   - Body: Originalinhalt strukturiert.
-   - **Tension-Marker:** widersprechende Claims werden explizit als Inline-Callout markiert: `> [!tension] Widerspricht [[Note-Y]]: dort steht X, hier steht Y`.
-   - **Support-Marker:** unterstuetzende Claims als Inline-Callout: `> [!support] Stuetzt [[Note-X]]: bestaetigt das Argument durch...`.
-5. **Source-Diversity-Counter aktualisieren:** cluster_source_stats fuer Match-Cluster inkrementieren.
-6. **Concentration-Check:** wenn Cluster jetzt > 70% Single-Source erreicht: Concentration-Warning ausloesen, Anti-Echo-Vorschlag generieren.
+1. **Vollstaendiges Lesen** (chunked, mehrere LLM-Passes bei grossen Sources).
+2. **Key-Takeaways-Extraktion:** LLM erzeugt strukturierte Liste atomarer Take-Aways mit Source-Position-Marker (Seite/Absatz).
+3. **Dialog-Phase:** LLM zeigt Take-Aways im Chat-Sidebar an, fragt:
+   - "Welche der Take-Aways sind fuer dich wichtig?"
+   - "Was soll betont werden, was eher beilaeufig?"
+   - "Gibt es Aspekte die du persoenlich anders einschaetzt?"
+   User antwortet im Chat (Multi-Turn moeglich, Sebastians Sicht und Praeferenzen werden erfasst).
+4. **Vault-Vergleich pro Take-Away:** SQL-Lookup gegen Match-Cluster, plus LLM-Klassifikation: stuetzt-Note-X / widerspricht-Note-Y / neutral / orthogonal.
+5. **Update-Plan-Vorschlag:** LLM zeigt im Chat:
+   - Welche neuen Notes erstellt werden (Output-Modus, siehe 11.6).
+   - Welche existierenden Notes beruehrt werden (zB MOC-Pages, verlinkte Notes).
+   - Welche Tension-Marker in welchen Notes gesetzt werden.
+   - Geschaetzte Anzahl Vault-Aenderungen ("Ein Source touched ~10-15 Notes" Karpathy-Erwartung).
+6. **User-Approval:** pro Note oder bulk. User kann Plan editieren (Note loeschen, Inhalt anpassen, Tension dismissen).
+7. **Note-Generierung:**
+   - Original-Source als Note im konfigurierbaren Sources-Folder.
+   - Sense-Making-Notes nach gewaehltem Output-Modus (siehe 11.6).
+   - Tension-Marker und Support-Marker als Inline-Callouts.
+   - MOC-Page-Updates bei aktiver MOC-Pflege (siehe Sub-Initiative R).
+   - Log-Eintrag mit Source-Reference und Dialog-Zusammenfassung.
+8. **Source-Diversity-Counter aktualisieren:** cluster_source_stats inkrementieren.
+9. **Concentration-Check:** Concentration-Warning bei > 70% Single-Source.
+
+**Token-Kosten:** ~0.30-1.00 USD pro Source (mehrere LLM-Passes plus Dialog).
+**User-Time:** ~5-15 Minuten pro Source.
+**Mehrwert:** Sebastian versteht die Source, leitet Betonung, verhindert blind ingest.
+
+#### 11.2.2 Modus B: Auto-Ingest (less supervised, Karpathys "batch-ingest")
+
+System macht alles selbst, User reviewt am Ende.
+
+**Pipeline:**
+
+1. Wie 11.2.1 Schritt 1-2 (Lesen + Take-Aways).
+2. **Auto-Plan-Erzeugung** statt Dialog: LLM trifft Default-Annahmen ("alle Take-Aways sind relevant", Standard-Output-Modus aus Settings).
+3. Wie 11.2.1 Schritt 4 (Vault-Vergleich).
+4. **Auto-Generierung** der Notes ohne User-Approval.
+5. Wie 11.2.1 Schritt 8-9.
+6. **Notification:** "Source X ingestiert, Y Notes erstellt, Z Notes beruehrt." Mit Link zum Health-Modal-Tab "Recent Ingests" fuer Review.
+
+**Token-Kosten:** ~0.10-0.30 USD pro Source.
+**User-Time:** ~30 Sekunden Review.
+**Mehrwert:** Skalierung fuer Batch-Inbox.
+
+#### 11.2.3 Mode-Auswahl
+
+- Settings: Default-Modus (A oder B).
+- Pro Triage-Aktion: User kann ueberschreiben ("Triage [Dialog]" vs "Triage [Auto]").
+- Empfohlener Default: **Modus A**, weil Sebastians Praeferenz und Karpathys Default. Casual User ohne Pflege-Vorliebe koennen auf B umschalten.
 
 ### 11.3 Source-Diversity-Tracking
 
@@ -672,6 +737,50 @@ Bei Concentration-Warning:
 - "Triage Inbox"-Command zeigt Liste aller untriaged Notes.
 - Jede Note hat Triage-Karte plus Schnell-Actions.
 - User kann pro Note entscheiden oder Bulk-Action (alle ergaenzenden ingesten, alle nieder-priorisierten verschieben).
+- Bei Bulk-Ingest: Modus B (Auto) ist Default, einzelne Sources koennen auf Modus A (Dialog) geschoben werden.
+
+### 11.6 Output-Modi: Wie wird der Ingest in Notes manifest?
+
+Sebastians Frage: "Original-Source-Note plus Summary-Note vs Zettelkasten-Style mit einer Note pro Gedanke?". Karpathy beschreibt eher Variante mit Single-Summary plus Wiki-Page-Updates. Zettelkasten ist Sebastians persoenliche Praxis. Vorschlag: drei konfigurierbare Output-Modi.
+
+#### Modus 1: Source-only (minimal)
+
+- Original-Source als Note im Sources-Folder.
+- Frontmatter mit Auto-Summary plus Themen plus Konzepte.
+- Kein zusaetzlicher Sense-Making-Note.
+- Tension/Support-Marker als Properties oder Inline-Callouts in der Source-Note.
+- **Use-Case:** schnelle Inbox-Speicherung, Sense-Making spaeter.
+
+#### Modus 2: Source plus Summary-Note (Karpathys Default)
+
+- Original-Source als Note im Sources-Folder.
+- Eine zusaetzliche **Sense-Making-Note** im Wissens-Folder (Cluster-Match).
+- Sense-Making-Note enthaelt: Dialog-Zusammenfassung, Key-Take-Aways mit User-Betonung, Tension-Markers, Wikilink zur Source-Note.
+- MOC-Pages werden updated.
+- **Use-Case:** ein konsolidierter Gedanke pro Source, dialog-getrieben.
+
+#### Modus 3: Source plus Multi-Zettel (Sebastians Zettelkasten-Praxis)
+
+- Original-Source als Note im Sources-Folder.
+- Mehrere **Zettel-Notes** im Wissens-Folder, **eine pro atomarem Gedanke**.
+- Jeder Zettel ist self-contained, hat Frontmatter, verlinkt mit anderen Zetteln und der Source.
+- LLM schlaegt Zettel-Struktur im Dialog vor, User editiert/bestaetigt.
+- Cross-Links zwischen Zetteln werden vorgeschlagen.
+- **Use-Case:** Zettelkasten-Methode, atomares Sense-Making, langfristige Vernetzung.
+
+#### Mode-Konfiguration
+
+- Settings: Default-Output-Modus.
+- Pro Ingest: User kann ueberschreiben (in Modus A explizit Teil des Dialog-Plans).
+- Empfohlener Default: **Modus 2 (Source plus Summary-Note)** als Karpathy-Standard fuer alle User.
+- Power-User mit Zettelkasten-Praxis stellen auf **Modus 3** um.
+
+#### Open Question fuer RE und Architektur
+
+- Wie strikt trennt das System Source-Folder vs Wissens-Folder? Konfigurierbar pro User?
+- Wie verhalten sich Zettel-Notes zur Memory-v2-Fact-Extraktion (FEAT-03-25)? Brauchen Zettel-Notes ein eigenes Frontmatter-Flag das sagt "diese Note ist als Memory-Source markiert"?
+- Wenn User Modus aendert (zB von 2 nach 3): wird ein bestehender Source rueckwirkend in Multi-Zettel zerlegt? Oder bleibt der alte Modus erhalten?
+- Tension-Marker in Multi-Zettel-Modus: gehoeren sie zum Zettel mit dem Claim, oder als separate Tension-Note?
 
 ---
 

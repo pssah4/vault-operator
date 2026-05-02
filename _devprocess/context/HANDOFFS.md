@@ -722,7 +722,12 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 - Parent-BA: [BA-19-knowledge-maintenance.md](../analysis/BA-19-knowledge-maintenance.md)
 - Web-Recherche zu swarmvault, PENgram, OwlerLite, Atlan, qmd in BA Section 2.1 dokumentiert
 
-**Scope:** MVP, drei Dimensionen Ingest + Retrieval + Lint, sieben Sub-Initiativen, 19 Feature-Kandidaten. Kein neuer Epic, Mapping auf existierende EPIC-15, EPIC-19, EPIC-03.
+**Scope:** MVP, drei Dimensionen Ingest + Retrieval + Lint, sieben Sub-Initiativen, 24 Feature-Kandidaten. Kein neuer Epic, Mapping auf existierende EPIC-15, EPIC-19, EPIC-03.
+
+**Wichtige Architektur-Klaerung beim Ingest (User-Round-2):**
+- Zwei Ingest-Modi: Aktiver Dialog (Karpathys Default, Sebastians Praeferenz) vs Auto (less supervised).
+- Drei Output-Modi: Source-only / Source plus Summary-Note (Karpathy-Standard) / Source plus Multi-Zettel (Zettelkasten).
+- Sebastians Praeferenz: Sense-Making bleibt User-Sache, LLM-Hilfe nur aus Dialog. Multi-Zettel nach Zettelkasten-Praxis als Power-User-Modus.
 
 **HMW:**
 > Wie koennen wir den Vault zum kompoundierenden Wissens-Artefakt machen, ohne dass der User Pflege-Zeit aufwendet, ohne in eine Echo-Chamber zu rutschen, ohne dass Wissen stillschweigend veraltet, und ohne das Token-Budget zu sprengen?
@@ -749,12 +754,17 @@ Retrieval (R, 7 Features):
 - FEAT-19-11 Aktive MOC-File-Pflege (P2)
 - FEAT-03-26 Selektiver Top-Hub-Block im KV-Cache (P2)
 
-Ingest (I, 5 Features):
+Ingest (I, 10 Features):
 - FEAT-19-12 Pre-Triage-Tool mit 10s-Triage-Karte (P0)
 - FEAT-15-11 cluster_source_stats-Tabelle plus Source-Diversity-Tracking (P0)
 - FEAT-19-13 Tension-Detection beim Deep-Ingest (P1)
 - FEAT-19-14 Concentration-Warning UI plus Anti-Echo-Vorschlag (P1)
 - FEAT-19-15 Inbox-Workflow fuer Batch-Triage (P2)
+- FEAT-19-22 Aktiver Dialog-Ingest-Modus (Modus A, Karpathy-Default) (P0)
+- FEAT-19-23 Auto-Ingest-Modus (Modus B, less supervised) (P1)
+- FEAT-19-24 Output-Modus-Auswahl (Source-only / Source+Summary / Source+Multi-Zettel) (P0)
+- FEAT-19-25 Source-Folder vs Wissens-Folder Konfiguration (P0)
+- FEAT-19-26 Dialog-getriebener MOC-Page-Update beim Ingest (P1)
 
 Lint (L, 7 Features, integriert in VaultHealthService):
 - FEAT-15-12 cluster_metadata-Tabelle plus Halbwertszeit-Konfiguration (P0)
@@ -790,6 +800,11 @@ Ingest:
 - Triage-Tool als eigenstaendiges `ingest_triage` oder Erweiterung `ingest_document`?
 - Source-Identitaet-Modell: Domain-only fuer MVP, Author-Level spaeter?
 - Tension-Detection: Cosine-Schwellwert vs LLM-Klassifikation vs Hybrid?
+- Dialog-Ingest-State: wo lebt der State zwischen Dialog-Turns (Conversation, eigene Tabelle, Memory-v2)?
+- Wenn User Output-Modus aendert (zB von 2 nach 3): retroaktive Re-Verarbeitung oder nur fuer neue Sources?
+- Source-Folder vs Wissens-Folder: Konvention oder konfigurierbar pro User?
+- Tension-Marker in Multi-Zettel-Modus: an Zettel mit Claim haengen oder als separate Tension-Note?
+- Wie verhalten sich Zettel-Notes zur Memory-v2-Fact-Extraktion (FEAT-03-25)?
 
 Lint:
 - Halbwertszeit-Defaults: globale Liste oder per-User-Vault-Setup?
