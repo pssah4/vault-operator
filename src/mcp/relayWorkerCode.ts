@@ -52,11 +52,15 @@ async function safeTokenCompare(a, b) {
 
 export default {
     async fetch(request, env) {
-        // CORS only for MCP endpoint (AI assistants need it) -- not for plugin endpoints (H-6)
+        // CORS only for MCP endpoint (AI assistants need it) -- not for plugin endpoints (H-6).
+        // FIX-23-04-01: erweitert um GET (Streamable-HTTP SSE-Subscribe) und DELETE
+        // (Session-Termination), plus Mcp-Session-Id im Allow-Headers damit
+        // Spec-strikte Clients wie Perplexity nicht im Preflight haengen bleiben.
         const mcpCorsHeaders = {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id, Last-Event-ID',
+            'Access-Control-Expose-Headers': 'Mcp-Session-Id',
         };
 
         const url = new URL(request.url);
@@ -101,6 +105,49 @@ export default {
         if (!authenticated) {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), {
                 status: 401, headers: { 'Content-Type': 'application/json', ...mcpCorsHeaders },
+            });
+        }
+
+        // FIX-23-04-01: Streamable-HTTP-Spec-Methoden vor dem
+        // POST-Forward abfangen, damit jede Antwort einen korrekten
+        // Content-Type-Header traegt. Perplexity (und neuere
+        // Streamable-HTTP-Clients) erwarten das streng -- ohne
+        // Content-Type werfen sie "Unexpected content type:" (leer).
+        if (request.method === 'GET') {
+            // Optional SSE-Subscribe-Endpunkt. Wir halten heute keinen
+            // server-initiated Stream, antworten aber Spec-konform mit
+            // einer leeren text/event-stream-Response statt 405 plain.
+            // Client kann nichts streamen, aber der Connect-Handshake
+            // bleibt sauber und der Client faellt auf den POST-Pfad zurueck.
+            return new Response(': sse keep-alive\\n\\n', {
+                status: 200,
+                headers: {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-store',
+                    'Connection': 'keep-alive',
+                    ...mcpCorsHeaders,
+                },
+            });
+        }
+
+        if (request.method === 'DELETE') {
+            // Spec: DELETE auf MCP-Endpunkt terminiert Session.
+            // Wir halten keine persistenten Sessions auf Worker-Ebene
+            // (state liegt im DO + Plugin), daher Acknowledge mit 204.
+            return new Response(null, {
+                status: 204,
+                headers: mcpCorsHeaders,
+            });
+        }
+
+        if (request.method !== 'POST') {
+            return new Response(JSON.stringify({
+                jsonrpc: '2.0',
+                id: null,
+                error: { code: -32601, message: 'Method not allowed: ' + request.method },
+            }), {
+                status: 405,
+                headers: { 'Content-Type': 'application/json', 'Allow': 'POST, GET, DELETE, OPTIONS', ...mcpCorsHeaders },
             });
         }
 
@@ -227,7 +274,15 @@ export class RelayDO {
             }
         }
 
-        return new Response('Method not allowed', { status: 405 });
+        // FIX-23-04-01: Spec-strikte Clients erwarten Content-Type
+        // auf jeder Antwort. Kein plain-text 405 mehr.
+        return new Response(JSON.stringify({
+            jsonrpc: '2.0', id: null,
+            error: { code: -32601, message: 'Method not allowed: ' + request.method },
+        }), {
+            status: 405,
+            headers: { 'Content-Type': 'application/json', 'Allow': 'POST' },
+        });
     }
 
     enqueueForPlugin(body) {
