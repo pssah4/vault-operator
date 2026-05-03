@@ -1,12 +1,17 @@
 /**
  * sync_session -- Save the full conversation transcript to Obsilo's shared history.
- * Claude MUST call this at the end of every conversation that uses Obsilo tools.
- * The transcript appears in Obsilo's chat history sidebar.
+ *
+ * FIX-23-01-02: source_interface argument now accepted (defaults to
+ * 'unknown'). Without it the conversation lands in the Unknown tab,
+ * not in the matching provider tab. New cross-surface use cases
+ * should prefer save_conversation (FEAT-23-01), which is built for
+ * Living-Document semantics and Cross-Interface-Threads.
  */
 
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
 import { getAutoSessionId } from './index';
+import { validateSourceInterface } from '../../core/memory/SourceInterface';
 
 interface TranscriptMessage {
     role: 'user' | 'assistant' | 'tool';
@@ -22,6 +27,10 @@ export async function handleSyncSession(
     const transcript = (args.transcript as TranscriptMessage[]) ?? [];
     const learnings = typeof args.learnings === 'string' ? args.learnings : '';
     const toolsUsed = (args.tools_used as string[]) ?? [];
+    // FIX-23-01-02: optional source_interface tag, fallback to 'unknown'.
+    const sourceInterface = args.source_interface !== undefined
+        ? validateSourceInterface(args.source_interface)
+        : 'unknown';
 
     if (transcript.length === 0) {
         return { content: [{ type: 'text', text: 'Error: transcript is required (array of {role, text})' }], isError: true };
@@ -68,9 +77,11 @@ export async function handleSyncSession(
             const allUiMessages = [...existingUiMessages, ...filteredUiMessages];
 
             await plugin.conversationStore.save(sessionId, allMessages, allUiMessages);
-            await plugin.conversationStore.updateMeta(sessionId, { title });
-             
-            results.push(`Conversation updated: "${title}" (${allUiMessages.length} messages total, ${filteredUiMessages.length} new)`);
+            // FIX-23-01-02: tag the conversation with source_interface so
+            // it lands in the correct History-Sidebar tab.
+            await plugin.conversationStore.updateMeta(sessionId, { title, sourceInterface });
+
+            results.push(`Conversation updated: "${title}" (${allUiMessages.length} messages total, ${filteredUiMessages.length} new, source: ${sourceInterface})`);
         } catch (e) {
             results.push(`History save failed: ${e instanceof Error ? e.message : String(e)}`);
         }

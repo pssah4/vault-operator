@@ -99,7 +99,12 @@ const TOOLS: McpToolDefinition[] = [
     },
     {
         name: 'sync_session',
-        description: 'MANDATORY at end of EVERY conversation using Obsilo. Replicate the conversation into Obsidian\'s chat history. Simply copy each message from this conversation.',
+        description:
+            'Legacy auto-tracking tool: replicates the current MCP-session conversation into Obsidian\'s chat history. ' +
+            'PREFER save_conversation for cross-surface use cases -- it provides Living-Document semantics ' +
+            '(conversation grows over multiple turns, no duplication) and Cross-Interface-Threads. Use sync_session ' +
+            'only as a one-shot session-end snapshot when you do not have the structured messages array. ' +
+            'IMPORTANT: pass source_interface to make the conversation appear in the correct History tab.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -117,6 +122,11 @@ const TOOLS: McpToolDefinition[] = [
                     description: 'Copy every message from this conversation. User messages verbatim. Your responses as you wrote them. Simply replicate the chat.',
                 },
                 learnings: { type: 'string', description: 'Optional: anything to remember for next time' },
+                source_interface: {
+                    type: 'string',
+                    enum: ['claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
+                    description: 'Source tag. Defaults to "unknown" -- always pass the right value (e.g. "claude-ai") so the conversation lands in the matching History-Sidebar tab.',
+                },
             },
             required: ['title', 'transcript'],
         },

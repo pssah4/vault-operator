@@ -65,7 +65,13 @@ async function ensureSession(plugin: ObsidianAgentPlugin): Promise<void> {
         systemContextInjected = false;
         if (plugin.conversationStore) {
             try {
-                currentSessionId = await plugin.conversationStore.create('mcp', 'Claude (MCP)');
+                // FIX-23-01-02: tag auto-tracked MCP sessions as 'unknown'
+                // source by default. sync_session can refine this with an
+                // explicit source_interface argument, save_conversation
+                // already passes the right tag through.
+                currentSessionId = await plugin.conversationStore.create('mcp', 'Claude (MCP)', {
+                    sourceInterface: 'unknown',
+                });
                 console.debug(`[MCP] New session: ${currentSessionId}`);
             } catch { /* non-fatal */ }
         } else {
