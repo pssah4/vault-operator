@@ -1162,3 +1162,50 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 - 1112 Tests gruen (1 pre-existing Failure FIX-03-18-01 erfasst)
 
 **Recommended next:** Manuelles Testen im Vault: Auto-Trigger mit "Kategorie: Quelle"-Property ausprobieren, Settings-UI durchklicken, vault_health_check ausfuehren und neue cluster_freshness/source_concentration-Output pruefen.
+
+---
+
+## 2026-05-03 -- BA-25 Testing-Phase
+
+triage: BA-25
+triage_kind: feature
+
+**Phase:** /testing fuer Wiring-Session-Aenderungen abgeschlossen.
+
+**Tests neu:**
+- src/core/tools/vault/__tests__/IngestTriageTool.test.ts (6 Tests):
+  pending-decision, decision-update, concentration-warning fired,
+  no-warning under threshold, missing-cluster handling, error-on-no-db
+- src/core/knowledge/__tests__/VaultHealthService.format.test.ts (6 Tests):
+  empty findings, cluster_freshness rendering, source_concentration
+  rendering, god_nodes rendering, snippet-limit-3, mixed checks
+
+**Coverage-Beobachtung:**
+- 1113 -> 1125 Tests (+12 neu)
+- 108 -> 110 Test-Files
+- 0 Failures (FIX-03-18-01 nicht reproduzierbar in dieser Session, ggf flaky)
+
+**Coverage-Gaps bewusst nicht getestet:**
+- Settings-UI (VaultTab.buildVaultIngestSection): UI-Komponenten brauchen
+  Plugin-Mock + Setting-Storage-Mock; visueller Smoke-Test im realen
+  Plugin reicht.
+- main.ts onload-Wiring: Plugin-Lifecycle-Tests waeren teuer; manueller
+  Smoke-Test im Plugin reicht (Auto-Trigger an, Note erstellen, Notice
+  pruefen).
+- AutoTriggerObserver-vault.on-Listener: Vault-Event-API-Mocking aufwaendig,
+  Service-Logic ist trivial (delegate an triageStore.exists/isInCooldown
+  was schon getestet ist).
+
+**Brittle/Flaky Patterns:**
+- SingleCallProcessor.test.ts: hatte "test setup forgot to assign nextMockApi"
+  in vorheriger Session, in dieser nicht reproduziert. Beobachten.
+
+**Open concerns fuer /security-audit:**
+- IngestTriageTool nimmt source_uri vom Agent. Pruefen ob URL-Parser
+  gegen Path-Traversal oder XSS-Vektor anfaellig.
+- AutoTriggerObserver feuert beim Frontmatter-Match: ggf prompt-injection
+  via boesartiger Frontmatter-Property in einer ingest-Note.
+- FrontmatterWriter via processFrontMatter respektiert User-Properties,
+  aber boesartiger LLM-Output koennte Property-Namen kollidieren lassen.
+
+**Recommended next:** /security-audit fuer BA-25-Pfade.
