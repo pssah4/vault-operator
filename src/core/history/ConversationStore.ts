@@ -42,6 +42,14 @@ export interface ConversationMeta {
      * Default 'confirmed' for backward-compat.
      */
     syncState?: 'pending' | 'confirmed' | 'rejected';
+    /**
+     * FIX-23-01-01 / ADR-110 -- Cross-Interface-Thread-Klammer.
+     * Identifier (`thread-${YYYY-MM-DD}-${6-hex}`) der mehrere
+     * Conversations ueber source_interface-Grenzen hinweg verbindet.
+     * Optional: Conversations ohne ID sind nicht Teil eines
+     * Cross-Interface-Threads.
+     */
+    crossInterfaceThreadId?: string;
 }
 
 export interface UiMessage {
@@ -163,6 +171,51 @@ export class ConversationStore {
         meta.syncState = 'confirmed';
         await this.saveIndex();
         return true;
+    }
+
+    /**
+     * FIX-23-01-01 / ADR-110: append delta messages to an existing
+     * conversation. Living-Document-Pfad fuer Cross-Surface MCP.
+     *
+     * Reads the existing data, concatenates apiMessages + uiMessages,
+     * writes the combined set back. Updates meta.updated +
+     * messageCount. Returns the new total messageCount.
+     *
+     * Returns -1 if the conversation does not exist (caller should
+     * fall back to create).
+     */
+    async appendMessages(
+        id: string,
+        deltaApiMessages: MessageParam[],
+        deltaUiMessages: UiMessage[],
+    ): Promise<number> {
+        const meta = this.getMeta(id);
+        if (!meta) return -1;
+        const data = await this.load(id);
+        if (!data) return -1;
+
+        const combinedApi = [...data.messages, ...deltaApiMessages];
+        const combinedUi = [...data.uiMessages, ...deltaUiMessages];
+
+        meta.updated = new Date().toISOString();
+        meta.messageCount = combinedUi.length;
+
+        const merged: ConversationData = { meta, messages: combinedApi, uiMessages: combinedUi };
+        const filePath = `${this.dir}/${id}.json`;
+        await this.fs.write(filePath, JSON.stringify(merged));
+        await this.saveIndex();
+        return combinedUi.length;
+    }
+
+    /**
+     * FIX-23-01-01: list conversations sharing a Cross-Interface
+     * Thread. Returns members across all source interfaces (so
+     * History UI can group them).
+     */
+    listByThread(threadId: string): ConversationMeta[] {
+        return this.index.conversations.filter((c) =>
+            c.crossInterfaceThreadId === threadId
+        );
     }
 
     /** Save (overwrite) full conversation data. */

@@ -443,6 +443,8 @@ Phase: Building | Status: Active
 | FEAT-23-05 | Feature | update_memory V1-Deprecation + Migrations-Helper | Done | Released | EPIC-23, BA-26, ADR-107, FEAT-23-01 | BA |  |  | 2026-05-03 | P0 |
 | FEAT-23-06 | Feature | Memory-Profile-System (Wiedervorlage nach 2 Wochen Live-Use) | Planned | Candidates | EPIC-23, BA-26, BA-24, FEAT-23-01, FEAT-23-02, FEAT-23-04 | BA |  |  | 2026-05-03 | P1 |
 | FIX-23-04-01 | Fix | Perplexity MCP-Connect schlaegt mit "Unexpected content type" fehl | Planned | Building | FEAT-23-04, EPIC-23, ADR-108 | BUG |  |  | 2026-05-03 | P1 |
+| FIX-23-01-01 | Fix | save_conversation Living-Document-Semantik + Cross-Interface-Thread-Klammer | Done | Released | FEAT-23-01, EPIC-23, BA-24, ADR-110 | REV |  |  | 2026-05-03 | P0 |
+| ADR-110 | ADR | Living-Document-Semantik + Cross-Interface-Thread-Klammer fuer Cross-Surface MCP | Accepted | Released | FIX-23-01-01, BA-24, FEAT-23-01, FEAT-03-18 | ARCH |  |  | 2026-05-03 |  |
 
 ## Cross-cutting Items (no Epic)
 

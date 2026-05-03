@@ -19,6 +19,7 @@ import { handleExecuteVaultOp } from './executeVaultOp';
 import { handleGetVaultImplicitEdges, handleGetVaultNoteMetadata } from './getVaultGraph';
 import { handleSaveToMemory } from './saveToMemory';
 import { handleSaveConversation } from './saveConversation';
+import { handleCloseConversation } from './closeConversation';
 import { handleRecallMemory } from './recallMemory';
 import { handleSearchHistory } from './searchHistory';
 import { buildPrompts } from '../prompts/systemContext';
@@ -38,6 +39,7 @@ const handlers = new Map<string, McpHandler>([
     // BA-26 / EPIC-23 -- Cross-Surface MCP Tools (FEAT-23-01, -02, -05)
     ['save_to_memory', handleSaveToMemory],
     ['save_conversation', handleSaveConversation],
+    ['close_conversation', handleCloseConversation],
     ['recall_memory', handleRecallMemory],
     ['search_history', handleSearchHistory],
 ]);

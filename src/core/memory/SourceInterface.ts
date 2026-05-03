@@ -42,6 +42,15 @@ export interface CrossSurfaceSettings {
     defaultSyncMode: SyncMode;
     /** Per-Provider-Override. Leere Eintraege fallen implizit auf 'global'. */
     perProvider: Partial<Record<SourceInterface, PerProviderSyncOverride>>;
+    /**
+     * FIX-23-01-01 / ADR-110: Default fuer Living-Document-Semantik.
+     * Wenn true (Default), behandelt Plugin save_conversation-Calls
+     * automatisch als Living Documents -- save-Calls innerhalb 30min
+     * von der gleichen MCP-Session werden in dieselbe Conversation
+     * appended statt neu zu erstellen. Per-Call living_document=false
+     * ueberschreibt fuer Edge-Cases.
+     */
+    livingDocumentByDefault?: boolean;
 }
 
 /**
@@ -59,6 +68,7 @@ export const DEFAULT_CROSS_SURFACE_SETTINGS: CrossSurfaceSettings = {
         'perplexity': 'manual',
         'unknown': 'manual',
     },
+    livingDocumentByDefault: true,
 };
 
 /**

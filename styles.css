@@ -5593,6 +5593,52 @@
     letter-spacing: 0.5px;
 }
 
+/* FIX-23-01-01: Thread-Pill (klickbarer Filter-Button) auf Listeneintraegen */
+.history-row-thread-pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: 500;
+    background: rgba(120, 80, 200, 0.16);
+    color: rgb(120, 80, 200);
+    border: none;
+    cursor: pointer;
+    line-height: 1.4;
+    text-transform: lowercase;
+}
+.history-row-thread-pill:hover {
+    background: rgba(120, 80, 200, 0.28);
+}
+
+/* FIX-23-01-01: Thread-Filter-Chip (oben in der Sidebar wenn Filter aktiv) */
+.history-panel-thread-chip-row {
+    padding: 6px 16px 0;
+    flex-shrink: 0;
+}
+.history-panel-thread-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 4px 4px 10px;
+    background: rgba(120, 80, 200, 0.18);
+    color: rgb(120, 80, 200);
+    border-radius: 999px;
+    font-size: 0.78em;
+    font-weight: 500;
+}
+.history-panel-thread-chip-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    color: rgb(120, 80, 200);
+    line-height: 0;
+}
+.history-panel-thread-chip-close:hover {
+    color: rgb(80, 50, 160);
+}
+
 .history-panel-memory-toggle {
     background: none;
     border: 1px solid var(--background-modifier-border);

@@ -59,6 +59,7 @@ isoliertes Tool.
 | SC-04 | Klick auf externe Conversation oeffnet Read-Only-Chat-View mit Source-Banner | UI-Sicht | Manuell |
 | SC-05 | Source-Pill am Listeneintrag zeigt das Tool kompakt | UI-Sicht | Manuell |
 | SC-06 | Pending-Marker (Manual-Sync) am Listeneintrag, plus Confirm-Button | UI-Sicht | Manuell |
+| SC-07 | Thread-Pill (FIX-23-01-01) am Listeneintrag bei Conversations mit `crossInterfaceThreadId`. Klick filtert auf alle Thread-Mitglieder ueber source-Tabs hinweg. | UI-Sicht | Manuell |
 
 ## Technical NFRs
 

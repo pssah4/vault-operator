@@ -126,6 +126,9 @@ export default class ObsidianAgentPlugin extends Plugin {
     memoryV2Telemetry: MemoryV2Telemetry | null = null;
     /** IMP-03-18-01: Daily-Scheduler-Tick fuer AgingService. setInterval handle. */
     private agingSchedulerHandle: ReturnType<typeof setInterval> | null = null;
+    /** FIX-23-01-01: Living-Document state for Cross-Surface MCP. */
+    activeMcpSessions: import('./core/memory/ActiveMcpSessions').ActiveMcpSessions | null = null;
+    private activeMcpSessionsEvictHandle: ReturnType<typeof setInterval> | null = null;
     driftBus: DriftEventBus | null = null;
     tokenBudget: TokenBudgetGuard | null = null;
     mcpClient: McpClient;
@@ -1021,6 +1024,18 @@ export default class ObsidianAgentPlugin extends Plugin {
         // MCP Server (EPIC-014): Expose Obsilo as MCP Server for Claude Desktop/Code
         if (this.settings.enableMcpServer) {
             const { McpBridge } = await import('./mcp/McpBridge');
+            // FIX-23-01-01: Living-Document state for save_conversation.
+            const { ActiveMcpSessions } = await import('./core/memory/ActiveMcpSessions');
+            this.activeMcpSessions = new ActiveMcpSessions();
+            // Eviction-Tick alle 5 Minuten -- entfernt abgelaufene
+            // Sessions auch wenn keine MCP-Calls reinkommen.
+            this.activeMcpSessionsEvictHandle = setInterval(() => {
+                const removed = this.activeMcpSessions?.evictExpired() ?? 0;
+                if (removed > 0) {
+                    console.debug(`[ActiveMcpSessions] evicted ${removed} expired session(s)`);
+                }
+            }, 5 * 60 * 1000);
+
             this.mcpBridge = new McpBridge(this);
             await this.mcpBridge.start().catch((e: unknown) =>
                 console.warn('[Plugin] MCP Server start failed (non-fatal):', e)
@@ -1077,6 +1092,10 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (this.agingSchedulerHandle) {
             clearInterval(this.agingSchedulerHandle);
             this.agingSchedulerHandle = null;
+        }
+        if (this.activeMcpSessionsEvictHandle) {
+            clearInterval(this.activeMcpSessionsEvictHandle);
+            this.activeMcpSessionsEvictHandle = null;
         }
         this.sandboxExecutor?.destroy();
         this.ringBuffer?.uninstall();

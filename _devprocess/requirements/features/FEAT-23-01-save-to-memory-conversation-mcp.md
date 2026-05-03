@@ -64,8 +64,21 @@ Insight geht verloren.
   save_conversation (vor Atomizer-Extraction).
 - **Concurrency**: WriterLock-Pattern (ADR-79) bei v2-Schreibern
   bleibt erhalten.
-- **Idempotenz**: save_conversation mit identischer
-  message-Reihenfolge schreibt nicht doppelt (Hash-basierter Dedup).
+- **Living-Document-Semantik (Update FIX-23-01-01, ADR-110)**:
+  save_conversation erweitert die Active-Session der Source statt
+  jedes Mal eine neue Conversation anzulegen. BA-24 Selling-Point #5
+  wird damit in der MCP-Schicht sichtbar. Reuse von FEAT-03-18
+  Memory-Delta-Logik ueber `lastExtractedMessageIndex`. Default:
+  `crossSurface.livingDocumentByDefault = true`. Per-Call-Override
+  `living_document=false` legt eine getrennte Conversation an.
+- **Cross-Interface-Thread-Klammer (Update FIX-23-01-01)**: Plugin
+  generiert einen `cross_interface_thread_id`, externer LLM kann
+  ihn ueber source_interface-Grenzen hinweg mitsenden, alle
+  Conversations werden ueber das Thread-ID verbunden.
+- **Idempotenz**: save_conversation appendet bei identischem
+  Message-Anfang automatisch in die bestehende Active-Session
+  (Hash-Match), explizit ueberschreibbar via `conversation_id`-
+  Argument oder `living_document=false`.
 
 ## ASRs
 

@@ -67,6 +67,8 @@ export class HistoryPanel {
     private memoryOnly = false;
     /** BA-26 / FEAT-23-03: active Source-Tab. 'all' shows everything. */
     private sourceTab: SourceTab = 'all';
+    /** FIX-23-01-01: when set, filter list to one cross-interface thread; null = no filter. */
+    private threadFilter: string | null = null;
 
     constructor(
         private store: ConversationStore,
@@ -139,6 +141,24 @@ export class HistoryPanel {
         setIcon(closeBtn, 'x');
         closeBtn.addEventListener('click', () => this.close());
 
+        // FIX-23-01-01: aktiver Thread-Filter wird oben als entfernbarer Chip
+        // angezeigt -- gibt User die Sicht "alle Conversations dieses Threads
+        // ueber alle Surfaces hinweg" plus klaren Exit.
+        if (this.threadFilter) {
+            const chipRow = this.panelEl.createDiv({ cls: 'history-panel-thread-chip-row' });
+            const chip = chipRow.createDiv({ cls: 'history-panel-thread-chip' });
+            chip.createSpan({ text: `Thread ${this.threadFilter.replace('thread-', '')}` });
+            const closeBtn = chip.createEl('button', {
+                cls: 'history-panel-thread-chip-close clickable-icon',
+                attr: { 'aria-label': 'Clear thread filter' },
+            });
+            setIcon(closeBtn, 'x');
+            closeBtn.addEventListener('click', () => {
+                this.threadFilter = null;
+                this.render();
+            });
+        }
+
         // BA-26 / FEAT-23-03: Source-Tabs. Tab erscheint nur wenn min. eine
         // Conversation der jeweiligen Source existiert. Klick filtert die
         // Liste vollstaendig -- keine Vermischung.
@@ -203,9 +223,15 @@ export class HistoryPanel {
         container.empty();
 
         let conversations = this.store.list();
-        // BA-26 / FEAT-23-03: Source-Tab-Filter, vollstaendige Trennung pro
-        // Provider. Conversations ohne Tag gelten als 'obsilo'.
-        if (this.sourceTab !== 'all') {
+        // FIX-23-01-01: Thread-Filter ueberschreibt Source-Tab-Filter --
+        // wer einen Thread anklickt, will Conversations aller Surfaces sehen.
+        if (this.threadFilter) {
+            conversations = conversations.filter((c) =>
+                c.crossInterfaceThreadId === this.threadFilter
+            );
+        } else if (this.sourceTab !== 'all') {
+            // BA-26 / FEAT-23-03: Source-Tab-Filter, vollstaendige Trennung pro
+            // Provider. Conversations ohne Tag gelten als 'obsilo'.
             conversations = conversations.filter((c) =>
                 ((c.sourceInterface ?? 'obsilo') as SourceTab) === this.sourceTab
             );
@@ -259,6 +285,22 @@ export class HistoryPanel {
                     titleRow.createSpan({
                         cls: 'history-row-pending-marker',
                         text: 'pending',
+                    });
+                }
+                // FIX-23-01-01: Thread-Pill fuer Conversations mit
+                // crossInterfaceThreadId. Klick filtert auf Thread-Mitglieder
+                // ueber alle Source-Tabs hinweg. Skip wenn schon im
+                // Thread-Filter (kein Sinn).
+                if (conv.crossInterfaceThreadId && this.threadFilter !== conv.crossInterfaceThreadId) {
+                    const threadPill = titleRow.createEl('button', {
+                        cls: 'history-row-thread-pill',
+                        text: 'thread',
+                        attr: { 'aria-label': `Filter by thread ${conv.crossInterfaceThreadId}` },
+                    });
+                    threadPill.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.threadFilter = conv.crossInterfaceThreadId ?? null;
+                        this.render();
                     });
                 }
                 const meta = info.createDiv({ cls: 'history-row-meta' });

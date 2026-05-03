@@ -1004,6 +1004,8 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
                 'perplexity': 'manual',
                 'unknown': 'manual',
             },
+            // FIX-23-01-01: Living-Document-Default. true = Auto-Continuation.
+            livingDocumentByDefault: true,
         },
     },
     chatLinking: {

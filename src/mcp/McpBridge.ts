@@ -186,7 +186,14 @@ const TOOLS: McpToolDefinition[] = [
             'per-provider sync-mode setting: auto-sync triggers extraction immediately with the same ' +
             'thresholds as Obsilo-internal conversations; manual-sync parks the conversation as ' +
             'pending until the user confirms. ChatGPT and Perplexity default to manual to keep ' +
-            'family-shared accounts out of personal memory.',
+            'family-shared accounts out of personal memory. ' +
+            'LIVING-DOCUMENT (default): subsequent save_conversation calls within 30 minutes from ' +
+            'the same source append to the existing conversation instead of creating a new one. ' +
+            'You can either send the FULL conversation again (plugin computes the delta) or just ' +
+            'the new turns. To explicitly continue the SAME conversation, pass the conversation_id ' +
+            'returned by the first call. To link a thread across source_interfaces (e.g. you used ' +
+            'claude-ai earlier and now claude-code), pass the cross_interface_thread_id from the ' +
+            'first result.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -209,8 +216,34 @@ const TOOLS: McpToolDefinition[] = [
                     enum: ['claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
                     description: 'Source tag (required, "obsilo" reserved for the plugin).',
                 },
+                living_document: {
+                    type: 'boolean',
+                    description: 'Default: true (Settings). Set false to force a new standalone conversation.',
+                },
+                conversation_id: {
+                    type: 'string',
+                    description: 'Optional: conversation_id returned by a previous save_conversation. Forces append into the same conversation.',
+                },
+                cross_interface_thread_id: {
+                    type: 'string',
+                    description: 'Optional: thread-YYYY-MM-DD-{6-hex} ID. Links the new conversation to an existing cross-interface thread.',
+                },
             },
             required: ['messages', 'source_interface'],
+        },
+    },
+    {
+        name: 'close_conversation',
+        description:
+            'Explicitly end the Living-Document Active-Session for a given conversation. After this ' +
+            'call, the next save_conversation from the same MCP-Session creates a new conversation ' +
+            'instead of appending. Use when the user signals end-of-topic.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                conversation_id: { type: 'string', description: 'The conversation_id returned by save_conversation.' },
+            },
+            required: ['conversation_id'],
         },
     },
     {

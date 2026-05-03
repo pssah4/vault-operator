@@ -272,6 +272,22 @@ export class MemoryTab {
                 });
             });
 
+        // FIX-23-01-01: Living-Document default
+        new Setting(containerEl)
+            .setName('Living-Document by default')
+            .setDesc(
+                'When on (default), save_conversation calls within 30 minutes from the same source append to the existing conversation '
+                + 'instead of creating a new one. Memory-extraction runs incrementally on the new turns. Turn off if you want every '
+                + 'save_conversation call to start a fresh conversation.',
+            )
+            .addToggle((t) => {
+                t.setValue(cs.livingDocumentByDefault ?? true);
+                t.onChange(async (v) => {
+                    cs.livingDocumentByDefault = v;
+                    await this.plugin.saveSettings();
+                });
+            });
+
         // Per-provider overrides
         const PROVIDER_LABELS: Record<SourceInterface, string> = {
             'obsilo': 'Obsilo (internal)',
