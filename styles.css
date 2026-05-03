@@ -5593,22 +5593,30 @@
     letter-spacing: 0.5px;
 }
 
-/* FIX-23-01-01: Thread-Pill (klickbarer Filter-Button) auf Listeneintraegen */
+/* FIX-23-01-01: Thread-Pill (klickbarer Filter-Button) auf Listeneintraegen.
+   Style matched .history-row-source-pill 1:1, plus button-resets damit der
+   Browser-Default fuer <button> nicht reinkommt. */
 .history-row-thread-pill {
     display: inline-block;
-    padding: 1px 7px;
+    padding: 1px 6px;
     border-radius: 3px;
     font-size: 0.7em;
     font-weight: 500;
     background: rgba(120, 80, 200, 0.16);
     color: rgb(120, 80, 200);
-    border: none;
-    cursor: pointer;
     line-height: 1.4;
-    text-transform: lowercase;
+    white-space: nowrap;
+    border: none;
+    margin: 0;
+    box-shadow: none;
+    cursor: pointer;
+    font-family: inherit;
+    height: auto;
+    min-height: 0;
 }
 .history-row-thread-pill:hover {
     background: rgba(120, 80, 200, 0.28);
+    box-shadow: none;
 }
 
 /* FIX-23-01-01: Thread-Filter-Chip (oben in der Sidebar wenn Filter aktiv) */
