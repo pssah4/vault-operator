@@ -18,6 +18,7 @@
  */
 
 import type { ClusterMetadataStore, ClusterMetadataRecord } from '../knowledge/ClusterMetadataStore';
+import type { KnowledgeDB } from '../knowledge/KnowledgeDB';
 
 export interface PreFilterResult { decision: 'yes' | 'no' | 'unsure'; tokensUsed: number; }
 export interface UpdateFinding {
@@ -66,6 +67,50 @@ export interface Stufe3RunResult {
 
 const DEFAULT_TOKENS_PER_USD = 660_000; // ~0.0015 USD per 1k tokens (Haiku-Schaetzung input)
 
+/**
+ * AUDIT-014 Info-1 (IMP-19-20-01): persistent state via dedicated row
+ * in cluster_metadata. Reserved cluster-name guarantees no collision
+ * with real clusters; custom_weights JSON-Spalte wird als state-blob
+ * verwendet. Vermeidet Schema-Migration v10 -> v11.
+ */
+const STATE_ROW_CLUSTER = '__stufe3_job_state__';
+
+export interface Stufe3StatePersistence {
+    load(): Stufe3JobState | null;
+    save(state: Stufe3JobState): void;
+}
+
+/** Default-Persistence ueber cluster_metadata-Row mit reserviertem Namen. */
+export class ClusterMetadataStatePersistence implements Stufe3StatePersistence {
+    constructor(private readonly knowledgeDB: KnowledgeDB) {}
+    load(): Stufe3JobState | null {
+        if (!this.knowledgeDB.isOpen()) return null;
+        const db = this.knowledgeDB.getDB();
+        const r = db.exec(
+            `SELECT custom_weights FROM cluster_metadata WHERE cluster = ?`,
+            [STATE_ROW_CLUSTER],
+        );
+        if (!r.length || !r[0].values.length) return null;
+        const raw = r[0].values[0][0] as string | null;
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw) as Stufe3JobState;
+        } catch {
+            return null;
+        }
+    }
+    save(state: Stufe3JobState): void {
+        if (!this.knowledgeDB.isOpen()) return;
+        const db = this.knowledgeDB.getDB();
+        db.run(
+            `INSERT INTO cluster_metadata (cluster, half_life_days, custom_weights) VALUES (?, ?, ?)
+             ON CONFLICT(cluster) DO UPDATE SET custom_weights = excluded.custom_weights`,
+            [STATE_ROW_CLUSTER, 0, JSON.stringify(state)],
+        );
+        this.knowledgeDB.markDirty();
+    }
+}
+
 export class Stufe3PeriodicJob {
     private state: Stufe3JobState;
 
@@ -77,8 +122,9 @@ export class Stufe3PeriodicJob {
         private readonly options: Stufe3JobOptions,
         initialState?: Stufe3JobState,
         private readonly budgetExceededSink?: BudgetExceededSink,
+        private readonly persistence?: Stufe3StatePersistence,
     ) {
-        this.state = initialState ?? this.freshState();
+        this.state = initialState ?? this.persistence?.load() ?? this.freshState();
     }
 
     /** Sollte beim Plugin-Onload aufgerufen werden bevor run() laeuft. */
@@ -86,6 +132,7 @@ export class Stufe3PeriodicJob {
         const currentWeekStart = mondayOfWeek(new Date()).toISOString();
         if (currentWeekStart !== this.state.weekStartIso) {
             this.state = { weekStartIso: currentWeekStart, spentUsd: 0, notifiedAt80Percent: false };
+            this.persistence?.save(this.state);
         }
     }
 
@@ -160,6 +207,9 @@ export class Stufe3PeriodicJob {
             this.state.notifiedAt80Percent = true;
             this.budgetExceededSink?.({ spentUsd: this.state.spentUsd, budgetUsd: this.options.weeklyBudgetUsd });
         }
+        // AUDIT-014 IMP-19-20-01: persist state nach jeder Spending-Operation
+        // damit Plugin-Reload mid-week das Budget korrekt fortfuehrt.
+        this.persistence?.save(this.state);
     }
 
     private budgetReached(): boolean {

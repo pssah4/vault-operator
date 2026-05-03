@@ -20,6 +20,15 @@ export interface AutoTriggerOptions {
     cooldownMs?: number;
     /** Optional folder-allowlist (zB ['Inbox/']). */
     folderAllowList?: string[];
+    /**
+     * AUDIT-014 L-2 (FIX-19-27-01, CWE-770):
+     * Rate-Limit gegen vault.on-Storm (zB git pull mit vielen Notes).
+     * Default 10 Trigger pro 60 Sekunden. Excess-Events werden silent
+     * gedropped mit Warning-Log; Doppel-Trigger-Schutz via Triage-Log
+     * bleibt unabhaengig wirksam.
+     */
+    rateLimitMaxPerWindow?: number;
+    rateLimitWindowMs?: number;
 }
 
 export type TriggerCallback = (file: TFile) => void | Promise<void>;
@@ -27,6 +36,8 @@ export type TriggerCallback = (file: TFile) => void | Promise<void>;
 export class AutoTriggerObserver {
     private listeners: Array<() => void> = [];
     private options: AutoTriggerOptions;
+    /** AUDIT-014 L-2: sliding-window rate-limit timestamps (ms). */
+    private recentTriggers: number[] = [];
 
     constructor(
         private readonly app: App,
@@ -34,7 +45,27 @@ export class AutoTriggerObserver {
         private readonly onTrigger: TriggerCallback,
         options: AutoTriggerOptions,
     ) {
-        this.options = { cooldownMs: 3_600_000, ...options };
+        this.options = {
+            cooldownMs: 3_600_000,
+            rateLimitMaxPerWindow: 10,
+            rateLimitWindowMs: 60_000,
+            ...options,
+        };
+    }
+
+    /** AUDIT-014 L-2: prune-and-check sliding-window rate-limit. */
+    private allowRateLimit(): boolean {
+        const max = this.options.rateLimitMaxPerWindow ?? 10;
+        const windowMs = this.options.rateLimitWindowMs ?? 60_000;
+        const now = Date.now();
+        // Drop timestamps outside the window
+        this.recentTriggers = this.recentTriggers.filter((t) => now - t < windowMs);
+        if (this.recentTriggers.length >= max) {
+            console.warn(`[AutoTriggerObserver] rate-limit hit (${max} triggers in ${windowMs}ms), dropping event`);
+            return false;
+        }
+        this.recentTriggers.push(now);
+        return true;
     }
 
     /** Registriert vault.on-Listener. Idempotent. */
@@ -84,6 +115,10 @@ export class AutoTriggerObserver {
         const sourceUri = `vault://${file.path}`;
         if (this.triageLog.exists(sourceUri)) return false;
         if (this.triageLog.isInCooldown(sourceUri, this.options.cooldownMs)) return false;
+
+        // AUDIT-014 L-2: Rate-Limit-Check VOR Triage-Log-Write um auch
+        // pending-Records nicht zu spam-en bei vault.on-Storm.
+        if (!this.allowRateLimit()) return false;
 
         // Record als pending zuerst (verhindert Doppel-Trigger durch parallele Events)
         const recorded = this.triageLog.record(sourceUri, 'pending');

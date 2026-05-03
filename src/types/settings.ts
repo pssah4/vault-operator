@@ -834,6 +834,19 @@ export interface VaultIngestSettings {
     };
     /** FEAT-19-29 (PLAN-13). */
     pdfStrategy: 'page-refs' | 'markdown-mirror';
+
+    /**
+     * FEAT-03-26 Top-Hub-Block im KV-Cache.
+     *
+     * AUDIT-014 M-2 (FIX-03-26-01): Privacy-Trade-Off ist im Settings-UI
+     * explizit ausgewiesen, weil Note-Summaries der Top-30 Hubs bei
+     * jeder LLM-Conversation an den Provider gehen. Default OFF.
+     */
+    topHubBlock: {
+        enabled: boolean;
+        /** User hat Privacy-Hint gelesen und bestaetigt. Toggle deaktiviert wenn false. */
+        privacyAcknowledged: boolean;
+    };
 }
 
 /**
@@ -864,6 +877,10 @@ export const DEFAULT_VAULT_INGEST_SETTINGS: VaultIngestSettings = {
         notification: false,
     },
     pdfStrategy: 'page-refs',
+    topHubBlock: {
+        enabled: false,
+        privacyAcknowledged: false,
+    },
 };
 
 // ---------------------------------------------------------------------------

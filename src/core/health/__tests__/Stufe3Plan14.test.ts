@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import initSqlJs from 'sql.js';
-import { Stufe3PeriodicJob, mondayOfWeek } from '../Stufe3PeriodicJob';
+import { Stufe3PeriodicJob, mondayOfWeek, ClusterMetadataStatePersistence } from '../Stufe3PeriodicJob';
 import { TopHubBlockGenerator } from '../../memory/TopHubBlockGenerator';
 import { NoteSummaryStore } from '../../knowledge/NoteSummaryStore';
 import type { ClusterMetadataStore, ClusterMetadataRecord } from '../../knowledge/ClusterMetadataStore';
@@ -16,6 +16,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS edges (id INTEGER PRIMARY KEY AUTOINCREMENT, source_path TEXT NOT NULL, target_path TEXT NOT NULL, link_type TEXT NOT NULL, property_name TEXT, confidence REAL NOT NULL DEFAULT 1.0, UNIQUE(source_path, target_path, link_type, property_name));
 CREATE TABLE IF NOT EXISTS ontology (entity_path TEXT NOT NULL, cluster TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member', confidence REAL NOT NULL DEFAULT 1.0, source TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(entity_path, cluster));
 CREATE TABLE IF NOT EXISTS note_summaries (note_path TEXT PRIMARY KEY, summary TEXT NOT NULL, summary_model TEXT NOT NULL, summarized_at TEXT NOT NULL, source_mtime INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS cluster_metadata (cluster TEXT PRIMARY KEY, half_life_days INTEGER NOT NULL, custom_weights TEXT, last_external_check TEXT, last_hint_at TEXT, hot_cluster INTEGER NOT NULL DEFAULT 0);
 `;
 
 function makeMockKnowledgeDB(db: SqlJsDb): KnowledgeDB {
@@ -136,6 +137,38 @@ describe('Stufe3PeriodicJob', () => {
         const state = job.getState();
         expect(state.spentUsd).toBe(0);
         expect(state.notifiedAt80Percent).toBe(false);
+    });
+
+    it('AUDIT-014 IMP-19-20-01: persistence saves and loads state across instances', async () => {
+        const SQL = await initSqlJs();
+        const sqlDb = new SQL.Database();
+        sqlDb.exec(SCHEMA);
+        const knowledgeDB = makeMockKnowledgeDB(sqlDb as unknown as SqlJsDb);
+        const persistence = new ClusterMetadataStatePersistence(knowledgeDB);
+
+        // Initially empty
+        expect(persistence.load()).toBeNull();
+
+        // First job runs and spends tokens
+        preFilter.mockResolvedValue({ decision: 'no', tokensUsed: 100_000 });
+        const job1 = new Stufe3PeriodicJob(
+            metaStore, preFilter, webPass, notify,
+            { weeklyBudgetUsd: 5, notificationThreshold: 0.8 },
+            undefined, undefined, persistence,
+        );
+        await job1.run();
+        const state1 = job1.getState();
+        expect(state1.spentUsd).toBeGreaterThan(0);
+
+        // Second job loads state via persistence
+        const job2 = new Stufe3PeriodicJob(
+            metaStore, preFilter, webPass, notify,
+            { weeklyBudgetUsd: 5, notificationThreshold: 0.8 },
+            undefined, undefined, persistence,
+        );
+        const state2 = job2.getState();
+        expect(state2.spentUsd).toBe(state1.spentUsd);
+        expect(state2.weekStartIso).toBe(state1.weekStartIso);
     });
 });
 

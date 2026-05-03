@@ -1249,3 +1249,29 @@ triage_kind: feature
 **Recommended next:** /dia-orchestrator Phase 7 Release Closure, ODER manueller Review der vier deferred FIX/IMP-Items vor Merge.
 
 **AUDIT-Report:** _devprocess/analysis/security/AUDIT-014-ba25-2026-05-03.md
+
+---
+
+## 2026-05-03 -- BA-25 AUDIT-014 Folge-Session: alle deferred Items abgearbeitet
+
+triage: BA-25
+triage_kind: feature
+
+**Phase:** Security-Audit Re-Pass. Alle 4 deferred Findings aus AUDIT-014 in dieser Session resolved.
+
+**Resolved:**
+- FIX-19-12-02 (L-1): URL-Sanitizer in IngestTriageLogStore. SENSITIVE_QUERY_PARAMS-Set strippt token/code/state/api_key/session/password etc case-insensitive bei record/get/exists/updateDecision. _sanitized-Marker als Audit-Trail.
+- FIX-19-27-01 (L-2): Sliding-Window Rate-Limit in AutoTriggerObserver. Default 10/60s. Check VOR Triage-Log-Write um pending-Storm zu dropping. Konfigurierbar.
+- FIX-03-26-01 (M-2): topHubBlock-Settings-Section mit zweistufigem Toggle (Privacy-Acknowledged + Enabled). Settings-Schema um topHubBlock: { enabled, privacyAcknowledged } erweitert. Enabled-Toggle disabled bis Acknowledged.
+- IMP-19-20-01 (Info-1): Stufe3StatePersistence-Interface plus ClusterMetadataStatePersistence (state als JSON in cluster_metadata-Spalte mit reserviertem cluster-Name). Konstruktor laed automatisch, save bei spendTokens + rolloverIfNewWeek. Keine Schema-Migration noetig.
+
+**Tests:** 1144/1144 gruen (+13 neue Tests):
+- 5 IngestTriageLogStore sanitizer (record-strip, lookup-roundtrip, vault-passthrough, invalid-url-graceful, case-insensitive)
+- 7 AutoTriggerObserver (5 functional + 2 rate-limit incl. sliding-window)
+- 1 Stufe3 persistence (save+load across instances)
+
+**AUDIT-014 Final-Status: alle 6 Findings Resolved, 0 deferred. Release-Empfehlung: Green.**
+
+**Build:** gruen, deployed nach iCloud.
+
+**Recommended next:** Phase 7 Release Closure ueber /dia-orchestrator. BA-25 ist nun komplett (Backend + Wiring + Tests + Security-Audit + Fixes), bereit fuer dev->main->public Release-Pipeline.

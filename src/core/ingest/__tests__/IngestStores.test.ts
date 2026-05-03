@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import initSqlJs from 'sql.js';
 import { IngestSessionStore } from '../IngestSessionStore';
-import { IngestTriageLogStore } from '../IngestTriageLogStore';
+import { IngestTriageLogStore, sanitizeSourceUri } from '../IngestTriageLogStore';
 import type { KnowledgeDB } from '../../knowledge/KnowledgeDB';
 
 type SqlJsDb = {
@@ -136,5 +136,37 @@ describe('IngestTriageLogStore', () => {
         const pending = store.listPending();
         expect(pending.length).toBe(2);
         expect(pending.map((r) => r.sourceUri).sort()).toEqual(['vault://A.md', 'vault://C.md']);
+    });
+
+    it('AUDIT-014 L-1: strips sensitive query params on record', () => {
+        store.record('https://example.com/cb?code=secret&state=xyz&topic=ai', 'pending');
+        // Persisted source_uri sollte sanitized sein
+        const all = store.listPending();
+        expect(all[0].sourceUri).not.toContain('code=secret');
+        expect(all[0].sourceUri).not.toContain('state=xyz');
+        expect(all[0].sourceUri).toContain('topic=ai');
+        expect(all[0].sourceUri).toContain('_sanitized=');
+    });
+
+    it('AUDIT-014 L-1: lookup with original raw URI still finds sanitized record', () => {
+        store.record('https://x.com/y?token=abc', 'pending');
+        // Same raw URI -> sanitize liefert dieselbe Form -> exists() true
+        expect(store.exists('https://x.com/y?token=abc')).toBe(true);
+    });
+
+    it('AUDIT-014 L-1: sanitizeSourceUri leaves non-URL strings untouched', () => {
+        expect(sanitizeSourceUri('vault://Notes/A.md')).toBe('vault://Notes/A.md');
+        expect(sanitizeSourceUri('file:///x.pdf')).toBe('file:///x.pdf');
+    });
+
+    it('AUDIT-014 L-1: sanitizeSourceUri handles invalid URLs gracefully', () => {
+        expect(sanitizeSourceUri('http://invalid url with spaces')).toBe('http://invalid url with spaces');
+    });
+
+    it('AUDIT-014 L-1: case-insensitive sensitive param match', () => {
+        const r = sanitizeSourceUri('https://x.com/y?Token=abc&API_KEY=def&keep=ok');
+        expect(r).not.toContain('Token=abc');
+        expect(r).not.toContain('API_KEY=def');
+        expect(r).toContain('keep=ok');
     });
 });

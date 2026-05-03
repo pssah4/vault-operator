@@ -336,6 +336,55 @@ export class VaultTab {
                         await this.plugin.saveSettings();
                     }),
             );
+
+        // ── Top-Hub-Block (FEAT-03-26 + FIX-03-26-01 Privacy-Hint, AUDIT-014 M-2) ──
+        containerEl.createEl('h4', { text: 'Top-Hub-Block im System-Prompt (FEAT-03-26)' });
+
+        const privacyWarn = containerEl.createEl('div', { cls: 'agent-settings-desc' });
+        privacyWarn.createEl('strong', { text: 'Privacy-Hinweis: ' });
+        privacyWarn.appendText(
+            'Bei Aktivierung werden Note-Summaries der Top-30 Hub-Notes deines Vaults '
+            + 'bei JEDER LLM-Conversation als System-Prompt-Block an den LLM-Provider gesendet. '
+            + 'Pruefe vor Aktivierung welche deiner Hub-Notes vertrauliche Daten enthalten '
+            + '(Tagebuch, Patient-Notes, Geschaeftsinfos). Setting kann jederzeit zurueckgenommen werden, '
+            + 'aber bereits gesendete Daten bleiben beim Provider.',
+        );
+
+        new Setting(containerEl)
+            .setName('Privacy-Hinweis gelesen und akzeptiert')
+            .setDesc('Erst nach Bestaetigung kann der Top-Hub-Block aktiviert werden.')
+            .addToggle((toggle) =>
+                toggle.setValue(cfg.topHubBlock.privacyAcknowledged).onChange(async (v) => {
+                    cfg.topHubBlock.privacyAcknowledged = v;
+                    if (!v) cfg.topHubBlock.enabled = false; // disable enabled if ack revoked
+                    this.plugin.settings.vaultIngest = cfg;
+                    await this.plugin.saveSettings();
+                    this.rerender();
+                }),
+            );
+
+        const enabledSetting = new Setting(containerEl)
+            .setName('Top-Hub-Block aktivieren')
+            .setDesc('Default OFF. Erfordert vorherige Privacy-Bestaetigung.')
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(cfg.topHubBlock.enabled)
+                    .setDisabled(!cfg.topHubBlock.privacyAcknowledged)
+                    .onChange(async (v) => {
+                        if (v && !cfg.topHubBlock.privacyAcknowledged) {
+                            new Notice('Bitte zuerst den Privacy-Hinweis bestaetigen.', 6000);
+                            toggle.setValue(false);
+                            return;
+                        }
+                        cfg.topHubBlock.enabled = v;
+                        this.plugin.settings.vaultIngest = cfg;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+        if (!cfg.topHubBlock.privacyAcknowledged) {
+            enabledSetting.descEl.createEl('br');
+            enabledSetting.descEl.createEl('em', { text: '(deaktiviert bis Privacy-Hinweis akzeptiert)' });
+        }
     }
 
     /**

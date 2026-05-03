@@ -389,10 +389,10 @@ Phase: Building | Status: Active
 | FEAT-19-10 | Feature | Frontmatter-Write Toggle plus Backfill-Job mit Progress-UI | Active | Building | EPIC-19, BA-25, ADR-95 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
 | FEAT-19-11 | Feature | Aktive MOC-File-Pflege mit Marker-Konvention | Active | Building | EPIC-19, BA-25, ADR-96 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
 | FEAT-19-12 | Feature | Pre-Triage-Tool mit 10s-Triage-Karte | Done | Released | EPIC-19, BA-25, ADR-98 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
-| FIX-19-12-02 | Fix | URL-Sanitizer in IngestTriageLogStore (Query-Params strippen) | Planned | Building | FEAT-19-12, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
-| FIX-19-27-01 | Fix | Rate-Limit fuer AutoTriggerObserver gegen vault.on-Storm | Planned | Building | FEAT-19-27, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
-| FIX-03-26-01 | Fix | Settings-UI-Hinweis fuer Top-Hub-Block Privacy-Trade-Off | Planned | Building | FEAT-03-26, EPIC-03, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
-| IMP-19-20-01 | Improvement | Stufe3PeriodicJob state-Persistierung in DB | Planned | Building | FEAT-19-20, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
+| FIX-19-12-02 | Fix | URL-Sanitizer in IngestTriageLogStore (Query-Params strippen) | Done | Released | FEAT-19-12, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
+| FIX-19-27-01 | Fix | Rate-Limit fuer AutoTriggerObserver gegen vault.on-Storm | Done | Released | FEAT-19-27, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
+| FIX-03-26-01 | Fix | Settings-UI-Hinweis fuer Top-Hub-Block Privacy-Trade-Off | Done | Released | FEAT-03-26, EPIC-03, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
+| IMP-19-20-01 | Improvement | Stufe3PeriodicJob state-Persistierung in DB | Done | Released | FEAT-19-20, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
 | FEAT-19-13 | Feature | Tension-Detection beim Deep-Ingest | Active | Building | EPIC-19, BA-25, ADR-99 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
 | FEAT-19-14 | Feature | Concentration-Warning UI plus Anti-Echo-Vorschlag | Active | Building | EPIC-19, BA-25, ADR-93, ADR-104 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
 | FEAT-19-15 | Feature | Inbox-Workflow fuer Batch-Triage | Active | Building | EPIC-19, BA-25 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
