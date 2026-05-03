@@ -57,12 +57,17 @@ export class ActiveMcpSessions {
      * conversation or CREATE a new one. Returns the appended-into
      * session OR null if a new conversation must be created.
      *
-     * Append rules:
+     * Append rules (Pass 7 -- relaxed for external clients that send
+     * only the new turns instead of the full transcript):
      *   1. explicit conversation_id given AND matches active session
+     *      -> append
      *   2. explicit conversation_id given that does NOT match active
      *      session -> create new (do not silently override)
-     *   3. living_document=true AND active session exists AND
-     *      initialMessagesHash matches -> append
+     *   3. living_document=true AND active session exists -> APPEND.
+     *      Hash-match no longer required because many MCP clients send
+     *      only the delta-messages on subsequent calls. The 30-min
+     *      timeout plus close_conversation tool are the safeguards
+     *      against accidental cross-topic merging.
      *   4. else -> create new
      */
     decide(ctx: SessionLookupContext): ActiveSession | null {
@@ -78,7 +83,7 @@ export class ActiveMcpSessions {
 
         if (!ctx.livingDocument) return null;
 
-        if (active && active.initialMessagesHash === ctx.initialMessagesHash) {
+        if (active) {
             return active;
         }
 

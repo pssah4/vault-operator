@@ -37,10 +37,12 @@ describe('ActiveMcpSessions (FIX-23-01-01 / ADR-110)', () => {
             expect(decision?.conversationId).toBe('conv-1');
         });
 
-        it('living-document=true with different hash creates new (returns null)', () => {
+        it('living-document=true with different hash now ALSO appends (Pass 7 relaxation)', () => {
             sessions.register(ctx(), 'conv-1', 'thread-1');
+            // External clients often send only delta-messages -> hash differs
+            // -> we must still append into the active session, not create new.
             const decision = sessions.decide(ctx({ initialMessagesHash: 'different' }));
-            expect(decision).toBeNull();
+            expect(decision?.conversationId).toBe('conv-1');
         });
 
         it('living-document=false always creates new', () => {

@@ -192,18 +192,21 @@ const TOOLS: McpToolDefinition[] = [
         name: 'save_conversation',
         description:
             'Copy a conversation from an external chat tool into Obsilo\'s shared History sidebar. ' +
-            'Conversations appear in the matching source-tab. Memory-extraction follows the user\'s ' +
-            'per-provider sync-mode setting: auto-sync triggers extraction immediately with the same ' +
-            'thresholds as Obsilo-internal conversations; manual-sync parks the conversation as ' +
-            'pending until the user confirms. ChatGPT and Perplexity default to manual to keep ' +
-            'family-shared accounts out of personal memory. ' +
-            'LIVING-DOCUMENT (default): subsequent save_conversation calls within 30 minutes from ' +
-            'the same source append to the existing conversation instead of creating a new one. ' +
-            'You can either send the FULL conversation again (plugin computes the delta) or just ' +
-            'the new turns. To explicitly continue the SAME conversation, pass the conversation_id ' +
-            'returned by the first call. To link a thread across source_interfaces (e.g. you used ' +
-            'claude-ai earlier and now claude-code), pass the cross_interface_thread_id from the ' +
-            'first result.',
+            'Conversations appear in the matching source-tab.\n\n' +
+            'LIVING-DOCUMENT BEHAVIOUR (default ON): when the user asks you to save the current ' +
+            'conversation again later in the same session, JUST CALL save_conversation AGAIN with ' +
+            'the new turns -- the plugin auto-detects the active conversation (within 30 minutes ' +
+            'from the same source_interface) and appends. You do NOT need to track the ' +
+            'conversation_id yourself. You can send either the FULL transcript (plugin computes ' +
+            'the delta) or only the NEW turns (plugin appends them as-is). For explicit control ' +
+            'pass the conversation_id from the previous result.\n\n' +
+            'CROSS-INTERFACE THREADS: the first save_conversation result returns a ' +
+            'cross_interface_thread_id. When the user continues the same topic in a different ' +
+            'tool (e.g. claude-ai -> claude-code), pass that thread_id to link both conversations.\n\n' +
+            'SYNC-MODE: per-provider Auto vs Manual is user-configured. Auto triggers memory-' +
+            'extraction immediately with the same thresholds as Obsilo-internal conversations; ' +
+            'Manual parks the conversation as pending until the user confirms. ChatGPT and ' +
+            'Perplexity default to Manual to keep family-shared accounts out of personal memory.',
         inputSchema: {
             type: 'object',
             properties: {
