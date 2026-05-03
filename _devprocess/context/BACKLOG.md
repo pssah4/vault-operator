@@ -490,6 +490,7 @@ Phase: Building | Status: Active
 | FIX-23-04-09 | Fix | ConversationStore.generateId crypto.randomUUID (AUDIT-016 M-4) | Done | Released | EPIC-23, AUDIT-016 | SEC |  |  | 2026-05-03 | M |
 | FIX-23-04-10 | Fix | ActiveMcpSessions ohne Hash + cosine NaN-Guard + OutputModeGenerator instanceof + validateVaultPath-Helper (AUDIT-016 L-1/L-2/L-3/L-5) | Done | Released | AUDIT-016 | SEC |  |  | 2026-05-03 | L |
 | IMP-23-04-05 | Improvement | relay /poll partitioniert pro Plugin-Session (AUDIT-016 L-4, deferred) | Planned | Building | EPIC-23, AUDIT-016 | SEC |  |  | 2026-05-03 | L |
+| FIX-03-26-02 | Fix | Top-Hub-Block + andere Settings-Toggles reagieren nach Privacy-Ack nicht (loadSettings shallow-merge) | Done | Released | FEAT-03-26, FEAT-23-04 | BUG |  |  | 2026-05-04 | H |
 | ADR-110 | ADR | Living-Document-Semantik + Cross-Interface-Thread-Klammer fuer Cross-Surface MCP | Accepted | Released | FIX-23-01-01, BA-24, FEAT-23-01, FEAT-03-18 | ARCH |  |  | 2026-05-03 |  |
 
 ## Cross-cutting Items (no Epic)

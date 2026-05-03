@@ -189,6 +189,26 @@ export class VaultTab {
         if (!this.plugin.settings.vaultIngest) {
             this.plugin.settings.vaultIngest = cfg;
         }
+        // FIX (Live-Bug 2026-05-04): shallow Object.assign in loadSettings
+        // ueberschreibt vaultIngest komplett wenn es im persistenten data.json
+        // existiert, auch wenn neue Sub-Objekte (topHubBlock, stufe2Hint,
+        // autoTrigger) im Saved fehlen. Hier defensive Init pro Sub-Objekt
+        // damit alte Settings-Files mit neuen Toggles funktionieren.
+        if (!cfg.topHubBlock) {
+            cfg.topHubBlock = { ...DEFAULT_VAULT_INGEST_SETTINGS.topHubBlock };
+        }
+        if (!cfg.stufe2Hint) {
+            cfg.stufe2Hint = { ...DEFAULT_VAULT_INGEST_SETTINGS.stufe2Hint };
+        }
+        if (!cfg.autoTrigger) {
+            cfg.autoTrigger = { ...DEFAULT_VAULT_INGEST_SETTINGS.autoTrigger };
+        }
+        if (!cfg.autoSummary) {
+            cfg.autoSummary = { ...DEFAULT_VAULT_INGEST_SETTINGS.autoSummary };
+        }
+        if (!cfg.summaryPrompt) {
+            cfg.summaryPrompt = { ...DEFAULT_VAULT_INGEST_SETTINGS.summaryPrompt };
+        }
 
         // Auto-Summary-Toggle
         new Setting(containerEl)

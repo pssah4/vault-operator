@@ -257,6 +257,14 @@ export class MemoryTab {
             this.plugin.settings.memory.crossSurface = { ...DEFAULT_CROSS_SURFACE_SETTINGS };
         }
         const cs = this.plugin.settings.memory.crossSurface as CrossSurfaceSettings;
+        // Defensive Init der Sub-Objekte (gleicher Bug-Klasse wie VaultTab
+        // 2026-05-04: shallow Object.assign in loadSettings ueberschreibt
+        // memory.crossSurface komplett wenn es im persistenten data.json
+        // existiert, neue Felder fehlen dann.).
+        if (!cs.perProvider) cs.perProvider = { ...DEFAULT_CROSS_SURFACE_SETTINGS.perProvider };
+        if (cs.livingDocumentByDefault === undefined) cs.livingDocumentByDefault = true;
+        if (cs.strictSourceIsolation === undefined) cs.strictSourceIsolation = false;
+        if (!cs.defaultSyncMode) cs.defaultSyncMode = 'auto';
 
         // Default sync-mode
         new Setting(containerEl)

@@ -1542,7 +1542,19 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     async loadSettings() {
         const saved = (await this.loadData()) ?? {};
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+        // FIX (Live-Bug 2026-05-04): deep-merge fuer Settings damit
+        // neue Sub-Objekte (vaultIngest.topHubBlock, vaultIngest.stufe2Hint,
+        // memory.crossSurface.strictSourceIsolation, etc.) bei Upgrade
+        // aus aelteren Plugin-Versionen automatisch mit Defaults
+        // gefuellt werden. Vorher: shallow Object.assign machte Sub-
+        // Toggles wie "Enable top-hub block" nicht-funktional, weil
+        // .topHubBlock im persistenten data.json fehlte und der UI-
+        // Click `cfg.topHubBlock.privacyAcknowledged = v` mit
+        // TypeError stillschweigend abbrach.
+        this.settings = deepMergeSettings(
+            DEFAULT_SETTINGS as unknown as Record<string, unknown>,
+            saved as Record<string, unknown>,
+        ) as unknown as ObsidianAgentSettings;
 
         // One-time migration: copy per-vault data to global storage (ADR-020)
         if (!saved._globalStorageMigrated && this.globalFs) {
@@ -2877,4 +2889,37 @@ function isGeminiApiUrl(url: string | undefined): boolean {
     } catch {
         return false;
     }
+}
+
+/**
+ * FIX 2026-05-04: deep-merge fuer Settings. Sub-Objekte (z.B.
+ * vaultIngest.topHubBlock, memory.crossSurface) werden aus den
+ * Defaults rekursiv gefuellt wenn sie im persistenten data.json
+ * fehlen. Arrays + null-Werte aus saved werden nicht gemergt
+ * sondern uebernommen wie sie sind. Plain-Objects werden rekursiv
+ * gemergt. Vermeidet die "neuer Toggle reagiert nicht"-Falle bei
+ * Plugin-Upgrades.
+ */
+function deepMergeSettings<T extends Record<string, unknown>>(defaults: T, saved: Partial<T>): T {
+    if (!saved || typeof saved !== 'object') return { ...defaults };
+    const merged = { ...defaults } as Record<string, unknown>;
+    for (const [key, savedValue] of Object.entries(saved)) {
+        const defaultValue = (defaults as Record<string, unknown>)[key];
+        if (
+            savedValue !== null
+            && typeof savedValue === 'object'
+            && !Array.isArray(savedValue)
+            && defaultValue !== null
+            && typeof defaultValue === 'object'
+            && !Array.isArray(defaultValue)
+        ) {
+            merged[key] = deepMergeSettings(
+                defaultValue as Record<string, unknown>,
+                savedValue as Record<string, unknown>,
+            );
+        } else {
+            merged[key] = savedValue;
+        }
+    }
+    return merged as T;
 }
