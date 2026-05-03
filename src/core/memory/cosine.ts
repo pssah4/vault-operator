@@ -20,5 +20,11 @@ export function cosine(a: Float32Array, b: Float32Array): number {
         nb += b[i] * b[i];
     }
     const denom = Math.sqrt(na) * Math.sqrt(nb);
-    return denom === 0 ? 0 : dot / denom;
+    if (denom === 0) return 0;
+    const sim = dot / denom;
+    // AUDIT-016 L-2: NaN-Guard. NaN/Infinity koennen entstehen, wenn
+    // ein Vektor NaN-Eintraege traegt (Embedding-Provider-Bug). Wir
+    // returnen 0 statt NaN damit Sortier-Logik (b.score - a.score)
+    // nicht in undefined ordering laeuft.
+    return Number.isFinite(sim) ? sim : 0;
 }

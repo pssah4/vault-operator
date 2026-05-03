@@ -29,17 +29,9 @@ import { normalizeDomain } from '../../knowledge/ClusterSourceStatsStore';
  * triage-log entries and downstream UI; rejecting at the boundary is
  * the right place.
  */
-function validateVaultPath(rawPath: string): string | null {
-    if (!rawPath || typeof rawPath !== 'string') return null;
-    // Normalize Windows path separators, strip leading slashes
-    const normalized = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-    // Reject parent-traversal segments and NUL chars
-    if (normalized.split('/').some((seg) => seg === '..' || seg === '.')) return null;
-    if (normalized.includes('\0')) return null;
-    // Reject double-encoded escapes
-    if (/%2e%2e|%2f%2f/i.test(normalized)) return null;
-    return normalized;
-}
+// AUDIT-016 L-5: Re-export shared helper -- single source of truth.
+import { validateVaultRelativePath as _validateVaultPath } from './pathValidation';
+const validateVaultPath = _validateVaultPath;
 
 interface IngestTriageInput {
     /** Source URI: 'vault://path', 'https://...', or 'file://...'. */

@@ -82,10 +82,17 @@ interface ConversationIndex {
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
-    const now = new Date();
-    const date = now.toISOString().slice(0, 10); // "2026-02-20"
-    const hex = Math.random().toString(16).slice(2, 8); // "a1b2c3"
-    return `${date}-${hex}`;
+    // AUDIT-016 M-4: crypto.randomUUID() liefert 122 Bits Entropie statt
+    // Math.random()s 24 Bits. Birthday-Collision damit praktisch
+    // ausgeschlossen, ID-Predictability verschwindet. Wir behalten den
+    // YYYY-MM-DD-Prefix fuer Sortier-/Browse-Komfort und nehmen die
+    // ersten 12 hex-chars der UUID (48 Bit Entropie pro Tag, > 16M
+    // mehr als die alte Variante).
+    const date = new Date().toISOString().slice(0, 10);
+    const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+        : Math.random().toString(36).slice(2, 14);
+    return `${date}-${uuid}`;
 }
 
 // ---------------------------------------------------------------------------

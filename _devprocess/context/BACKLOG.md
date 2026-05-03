@@ -483,6 +483,13 @@ Phase: Building | Status: Active
 | FIX-23-04-02 | Fix | MCP Rate-Limiter (sliding window, AUDIT-015 M-1) | Done | Released | EPIC-23, AUDIT-015 | SEC |  |  | 2026-05-03 | M |
 | FIX-23-04-03 | Fix | sanitizeVaultContentForLLM gegen Prompt-Injection im memorySourceHook (AUDIT-015 M-2) | Done | Released | FEAT-03-25, EPIC-23, AUDIT-015 | SEC |  |  | 2026-05-03 | M |
 | FIX-23-04-04 | Fix | strictSourceIsolation Setting fuer recall_memory + search_history (AUDIT-015 M-3) | Done | Released | FEAT-23-02, FEAT-23-04, EPIC-23, AUDIT-015 | SEC |  |  | 2026-05-03 | M |
+| FIX-23-04-05 | Fix | sync_session per-message-cap + transcript-length-limit (AUDIT-016 H-1) | Done | Released | EPIC-23, AUDIT-016 | SEC |  |  | 2026-05-03 | H |
+| FIX-23-04-06 | Fix | write_vault content-length cap (AUDIT-016 M-1) | Done | Released | AUDIT-016 | SEC |  |  | 2026-05-03 | M |
+| FIX-23-04-07 | Fix | search_history LIKE-wildcard escape (AUDIT-016 M-2) | Done | Released | FEAT-23-02, AUDIT-016 | SEC |  |  | 2026-05-03 | M |
+| FIX-23-04-08 | Fix | get_context strictSourceIsolation gating (AUDIT-016 M-3) | Done | Released | EPIC-23, AUDIT-016 | SEC |  |  | 2026-05-03 | M |
+| FIX-23-04-09 | Fix | ConversationStore.generateId crypto.randomUUID (AUDIT-016 M-4) | Done | Released | EPIC-23, AUDIT-016 | SEC |  |  | 2026-05-03 | M |
+| FIX-23-04-10 | Fix | ActiveMcpSessions ohne Hash + cosine NaN-Guard + OutputModeGenerator instanceof + validateVaultPath-Helper (AUDIT-016 L-1/L-2/L-3/L-5) | Done | Released | AUDIT-016 | SEC |  |  | 2026-05-03 | L |
+| IMP-23-04-05 | Improvement | relay /poll partitioniert pro Plugin-Session (AUDIT-016 L-4, deferred) | Planned | Building | EPIC-23, AUDIT-016 | SEC |  |  | 2026-05-03 | L |
 | ADR-110 | ADR | Living-Document-Semantik + Cross-Interface-Thread-Klammer fuer Cross-Surface MCP | Accepted | Released | FIX-23-01-01, BA-24, FEAT-23-01, FEAT-03-18 | ARCH |  |  | 2026-05-03 |  |
 
 ## Cross-cutting Items (no Epic)

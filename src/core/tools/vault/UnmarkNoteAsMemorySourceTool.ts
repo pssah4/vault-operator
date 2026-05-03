@@ -11,6 +11,7 @@ import { TFile } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { validateVaultRelativePath } from './pathValidation';
 
 interface Input {
     note_path: string;
@@ -51,7 +52,12 @@ export class UnmarkNoteAsMemorySourceTool extends BaseTool<'unmark_note_as_memor
             ctx.callbacks.pushToolResult(this.formatError('note_path is required'));
             return;
         }
-        const safe = note_path.replace(/\\/g, '/').replace(/^\/+/, '');
+        // AUDIT-016 L-5: shared validateVaultRelativePath
+        const safe = validateVaultRelativePath(note_path);
+        if (!safe) {
+            ctx.callbacks.pushToolResult(this.formatError(`Invalid note path: ${note_path}`));
+            return;
+        }
 
         const store = this.plugin.memorySourceStore;
         if (!store) {

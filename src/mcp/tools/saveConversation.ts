@@ -41,10 +41,14 @@ interface InputMessage {
     ts?: string;
 }
 
-/** AUDIT-015 H-1: per-message text-cap. 100k chars per message ist
- *  grosszuegig (Kapazitaet eines mittleren Buch-Kapitels) und schliesst
- *  den DoS-Vektor "500 messages * beliebige Groesse" zuverlaessig. */
-const MAX_MESSAGE_TEXT_LENGTH = 100_000;
+/** AUDIT-015 H-1 / AUDIT-016 H-1: per-message text-cap. 100k chars
+ *  per message ist grosszuegig (Kapazitaet eines mittleren Buch-
+ *  Kapitels) und schliesst den DoS-Vektor "500 messages * beliebige
+ *  Groesse" zuverlaessig. Exportiert damit sync_session denselben Cap
+ *  nutzt (DRY). */
+export const MAX_MESSAGE_TEXT_LENGTH = 100_000;
+/** Max parallel transcript-Eintraege fuer Bulk-Save-Tools. */
+export const MAX_MESSAGES_PER_CALL = 500;
 
 function isInputMessage(m: unknown): m is InputMessage {
     return typeof m === 'object' && m !== null
@@ -69,8 +73,8 @@ export async function handleSaveConversation(
             + `at ${MAX_MESSAGE_TEXT_LENGTH} characters; longer messages are rejected.`,
         );
     }
-    if (messages.length > 500) {
-        return errorResult('too many messages (max 500); split into multiple conversations');
+    if (messages.length > MAX_MESSAGES_PER_CALL) {
+        return errorResult(`too many messages (max ${MAX_MESSAGES_PER_CALL}); split into multiple conversations`);
     }
     // Reject the call if ANY message of the original raw array was
     // dropped by isInputMessage -- silent truncation would lose data.

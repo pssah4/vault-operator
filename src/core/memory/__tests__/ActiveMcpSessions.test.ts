@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
     ActiveMcpSessions,
-    djb2,
     hashInitialMessages,
     generateThreadId,
     isValidThreadId,
@@ -168,8 +167,12 @@ describe('generateThreadId + isValidThreadId', () => {
     });
 });
 
-describe('djb2', () => {
+describe('makeKey', () => {
+    it('produces unique keys per (token, source) pair', () => {
+        expect(makeKey('tA', 'claude-ai')).not.toBe(makeKey('tB', 'claude-ai'));
+        expect(makeKey('tA', 'claude-ai')).not.toBe(makeKey('tA', 'chatgpt'));
+    });
     it('is deterministic', () => {
-        expect(djb2('hello')).toBe(djb2('hello'));
+        expect(makeKey('tA', 'claude-ai')).toBe(makeKey('tA', 'claude-ai'));
     });
 });

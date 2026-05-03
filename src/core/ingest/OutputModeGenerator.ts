@@ -13,7 +13,7 @@
  * Generator mit ContentBuilder/SummaryGenerator nach Bedarf.
  */
 
-import { TFile, type App, type TFolder } from 'obsidian';
+import { TFile, TFolder, type App } from 'obsidian';
 import { markBlockIds } from './BlockIdSetter';
 
 export type OutputMode = 'source-only' | 'source-plus-summary' | 'source-plus-multi-zettel';
@@ -188,8 +188,10 @@ export class OutputModeGenerator {
         const existing = this.app.vault.getAbstractFileByPath(trimmed);
         if (!existing) {
             await this.app.vault.createFolder(trimmed);
-        } else if (!(existing as TFolder).children) {
-            // Path exists as file, not folder. Append timestamp to avoid clash.
+        } else if (!(existing instanceof TFolder)) {
+            // AUDIT-016 L-3: instanceof statt `as TFolder`-Cast (Plugin-
+            // Review-Bot-Compliance). Path exists as file, not folder.
+            // Append timestamp to avoid clash.
             return `${trimmed}-${Date.now()}`;
         }
         return trimmed;

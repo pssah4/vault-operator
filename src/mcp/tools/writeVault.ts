@@ -14,6 +14,10 @@ interface WriteOp {
     content?: string;
 }
 
+/** AUDIT-016 M-1: per-content + aggregate caps to close the disk-fill DoS vector. */
+const MAX_CONTENT_BYTES_PER_OP = 4 * 1024 * 1024;       // 4 MB per file write
+const MAX_AGGREGATE_BYTES_PER_BATCH = 16 * 1024 * 1024; // 16 MB per write_vault call
+
 export async function handleWriteVault(
     plugin: ObsidianAgentPlugin,
     args: Record<string, unknown>,
@@ -25,6 +29,21 @@ export async function handleWriteVault(
 
     if (operations.length > 20) {
         return { content: [{ type: 'text', text: 'Error: max 20 operations per call' }], isError: true };
+    }
+
+    // AUDIT-016 M-1: pre-flight content-cap check before any disk write.
+    let aggregate = 0;
+    for (const op of operations) {
+        if (typeof op?.content === 'string') {
+            const size = Buffer.byteLength(op.content, 'utf8');
+            if (size > MAX_CONTENT_BYTES_PER_OP) {
+                return { content: [{ type: 'text', text: `Error: ${op.path}: content exceeds per-op cap (${MAX_CONTENT_BYTES_PER_OP} bytes)` }], isError: true };
+            }
+            aggregate += size;
+        }
+    }
+    if (aggregate > MAX_AGGREGATE_BYTES_PER_BATCH) {
+        return { content: [{ type: 'text', text: `Error: aggregate content size exceeds batch cap (${MAX_AGGREGATE_BYTES_PER_BATCH} bytes)` }], isError: true };
     }
 
     const results: string[] = [];

@@ -45,8 +45,13 @@ export async function handleSearchHistory(
     }
 
     try {
-        const where: string[] = ['text LIKE ?'];
-        const params: unknown[] = [`%${query}%`];
+        // AUDIT-016 M-2: escape user-controlled LIKE wildcards before
+        // building the pattern. Without escape, query='%' would match
+        // the whole history_chunks table -- a Privacy-Leak ueber MCP-
+        // Boundary. Use \ as the escape char and declare it in SQL.
+        const escapedQuery = query.replace(/[%_\\]/g, '\\$&');
+        const where: string[] = ["text LIKE ? ESCAPE '\\'"];
+        const params: unknown[] = [`%${escapedQuery}%`];
         if (roleFilter) { where.push('role = ?'); params.push(roleFilter); }
         params.push(topK);
 

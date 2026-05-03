@@ -15,6 +15,7 @@ import { TFile } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { validateVaultRelativePath } from './pathValidation';
 
 interface Input {
     note_path: string;
@@ -55,8 +56,11 @@ export class MarkNoteAsMemorySourceTool extends BaseTool<'mark_note_as_memory_so
             ctx.callbacks.pushToolResult(this.formatError('note_path is required'));
             return;
         }
-        const safe = note_path.replace(/\\/g, '/').replace(/^\/+/, '');
-        if (safe.split('/').some((s) => s === '..' || s === '.') || safe.includes('\0')) {
+        // AUDIT-016 L-5: shared validateVaultRelativePath -- gleicher
+        // Schutz wie in IngestTriageTool (Windows backslashes, NUL,
+        // url-encoded traversal).
+        const safe = validateVaultRelativePath(note_path);
+        if (!safe) {
             ctx.callbacks.pushToolResult(this.formatError(`Invalid note path: ${note_path}`));
             return;
         }
