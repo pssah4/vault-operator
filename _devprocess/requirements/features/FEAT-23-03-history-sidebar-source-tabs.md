@@ -55,9 +55,10 @@ isoliertes Tool.
 |----|-----------|-------------|--------|
 | SC-01 | Tabs erscheinen am oberen Rand der History-Sidebar | UI-Sicht | Manuell |
 | SC-02 | Tab erscheint nur wenn min. eine Conversation der Source existiert | UI-Sicht | Manuell |
-| SC-03 | Klick auf Tab filtert die Liste | UI-Test | Test |
+| SC-03 | Klick auf Tab filtert die Liste, keine Vermischung der Provider | UI-Test | Test |
 | SC-04 | Klick auf externe Conversation oeffnet Read-Only-Chat-View mit Source-Banner | UI-Sicht | Manuell |
 | SC-05 | Source-Pill am Listeneintrag zeigt das Tool kompakt | UI-Sicht | Manuell |
+| SC-06 | Pending-Marker (Manual-Sync) am Listeneintrag, plus Confirm-Button | UI-Sicht | Manuell |
 
 ## Technical NFRs
 

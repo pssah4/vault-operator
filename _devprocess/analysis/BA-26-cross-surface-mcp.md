@@ -23,8 +23,10 @@ Obsilo-Sidebar nachlesen.
 Schicht** ueber alle Chat-Surfaces hinweg, via Obsilo Remote MCP
 (Cloudflare-DO-relayed). Das bestehende `update_memory`-MCP-Tool
 schreibt heute in V1-Legacy-MD-Files und wird ersetzt durch einen
-v2-Pfad mit vier Kern-Tools. UI-seitig erscheinen externe Chats in
-der History-Sidebar mit klar erkennbarem Source-Tag.
+v2-Pfad mit vier Kern-Tools. UI-seitig bekommt die History-Sidebar
+**Tabs pro Provider** (All / Obsilo / ChatGPT / Claude.ai /
+Claude Code / Perplexity); ein Tab zeigt nur die Conversations
+seines Providers, keine Vermischung.
 
 ## 1.1 How might we
 
@@ -151,19 +153,66 @@ Obsilo-Chat-View **read-only** (Banner oben: "Imported from
 
 ### 5.4 Sync-Mode-Setting
 
-User kann zwischen zwei Modi waehlen:
+Externe UIs koennen Obsilo nicht von sich aus pushen -- sie haben
+keinen Filesystem- oder DB-Zugriff. Der Trigger laeuft IMMER ueber
+einen MCP-Tool-Call vom externen Client. Die Frage "wie kommt ein
+Chat in die Shared History und Memory?" hat drei Pfade:
 
-- **Auto-Sync (default)**: Jede MCP-`save_conversation` schreibt
-  immer in `ConversationStore` plus `HistoryDB`. Memory-Extraction
-  laeuft mit denselben Thresholds wie der Obsilo-interne
-  Auto-Save (siehe FEAT-03-19 `extractionThreshold`,
-  `reExtractThrottleMs`).
-- **Manual-Sync**: `save_conversation` schreibt nur, wenn der
-  externe Client zusaetzlich `save_to_memory(...)` oder ein
-  `mark_for_memory(true)`-Flag im `save_conversation`-Argument
-  setzt. Ohne expliziten Trigger landen externe Conversations
-  in einem `pending`-Bucket, der per Notice / Settings-Liste
-  inspizierbar bleibt.
+#### Pfad A -- User triggert explizit per Prompt
+
+Sebastian sagt im externen Chat sinngemaess "speicher das in mein
+Obsilo-Memory" oder "speicher diese Conversation in Obsilo". Das
+externe LLM ruft `save_to_memory(content, source_interface=...)`
+oder `save_conversation(messages[], title?, source_interface=...)`.
+Funktioniert in jedem MCP-fähigen Client.
+
+#### Pfad B -- Auto-Sync-Mode (default)
+
+`Settings -> Memory -> Cross-Surface Sync = Auto-Sync` aktiviert.
+Wenn dann `save_conversation` ueber MCP eintrifft (entweder weil
+das LLM es proaktiv ruft oder weil eine Custom Instruction es
+triggert), schreibt das Plugin sofort in `ConversationStore` plus
+`HistoryDB`. Memory-Extraction laeuft ueber dieselbe
+`ExtractionQueue` wie interne Conversations -- gleiche Thresholds
+(`extractionThreshold` ~3 Messages, `reExtractThrottleMs` 60s,
+Star-Override).
+
+**Wichtig**: Auto-Sync triggert NICHT von alleine ohne MCP-Call.
+Es sagt nur "wenn ein Aufruf kommt, speichere ohne weitere
+Bedingung". Es macht keinen Polling-Mechanismus auf, weil das mit
+externen Tools technisch nicht moeglich ist.
+
+#### Pfad C -- Manual-Sync-Mode
+
+`Cross-Surface Sync = Manual-Sync`. `save_conversation` schreibt
+in einen `pending`-Bucket der `ConversationStore`-Tabelle. Der
+Eintrag erscheint im History-Tab des jeweiligen Providers mit
+sichtbarem `pending`-Marker. Memory-Extraction laeuft NICHT
+automatisch. Erst wenn:
+- Sebastian den Pending-Eintrag in Obsilo bestaetigt (Star-Click
+  oder Save-Button), oder
+- externes UI explizit `mark_for_memory(conversation_id)` ruft, oder
+- externes UI `save_to_memory(...)` parallel ruft (geht direkt in
+  Facts).
+
+Konsequenz: nichts landet ungewollt im Memory; volle Kontrolle
+pro Eintrag.
+
+#### Source-Interface-Wertquelle
+
+Pro MCP-Client wird `source_interface` als Konstante in der
+Connector-Konfiguration empfohlen (zB `'claude-ai'` im
+Claude-Desktop-Connector, `'chatgpt'` im ChatGPT-MCP-Connector).
+Der Tool-Handler nimmt diesen Wert als Default. Ohne expliziten
+Wert: Whitelist-Fallback `'unknown'` (sichtbar als eigener Tab,
+manuell re-tagbar).
+
+#### Globale Setting vs Per-Provider
+
+Sync-Mode ist global, nicht pro Provider. Begruendung: weniger
+Konfigurations-Aufwand. Falls Live-Use zeigt dass ein
+Per-Provider-Override gebraucht wird (zB ChatGPT auf Auto,
+Perplexity auf Manual), wird das als Folge-IMP nachgezogen.
 
 Setting-Pfad: `Settings -> Memory -> Cross-Surface Sync`.
 

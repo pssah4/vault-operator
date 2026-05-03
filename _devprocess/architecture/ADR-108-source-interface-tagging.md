@@ -66,10 +66,14 @@ Konkret:
    'perplexity' | 'obsilo' | 'unknown'`.
 2. Memory v2 `facts.source_interface` existiert bereits (FEAT-03-15
    Schema). Konsistente Befuellung sicherstellen.
-3. ConversationStore-Schema v2 -> v3 additiv:
-   `ALTER TABLE conversations ADD COLUMN source_interface TEXT
-   NOT NULL DEFAULT 'obsilo'`. Migration faellt unter 1s bei 5000
-   Conversations.
+3. ConversationStore-Schema v2 -> v3 additiv mit zwei neuen Spalten:
+   - `ALTER TABLE conversations ADD COLUMN source_interface TEXT
+     NOT NULL DEFAULT 'obsilo'`
+   - `ALTER TABLE conversations ADD COLUMN sync_state TEXT NOT NULL
+     DEFAULT 'confirmed'` (Werte: 'pending', 'confirmed', 'rejected'
+     -- Manual-Sync-Mode parkt save_conversation-Eintraege in
+     'pending' bis User Star-Click oder mark_for_memory triggert).
+   Migration faellt unter 1s bei 5000 Conversations.
 4. MCP-Tool-Layer nimmt source_interface als Argument, validiert
    gegen Whitelist, faellt auf 'unknown' bei unbekanntem Wert.
 5. Filter-API in:

@@ -56,18 +56,28 @@ dann bleibt das Memory-Layer transparent und vorhersagbar.
 | SC-02 | source_interface in `facts.source_interface` ueberall gesetzt | DB-Audit | SQL |
 | SC-03 | Settings "Cross-Surface Sync" mit Toggle Auto/Manual sichtbar | UI-Sicht | Manuell |
 | SC-04 | Auto-Sync triggert ExtractionQueue mit Plugin-internen Throttles | Eval | Test |
-| SC-05 | Manual-Sync schreibt Conversation, ohne Extraction zu triggern | Eval | Test |
+| SC-05 | Manual-Sync schreibt Conversation in pending-Bucket, ohne Extraction zu triggern | Eval | Test |
 | SC-06 | Whitelist-Validation, unbekannte Werte fallen auf 'unknown' | Test | Test |
+| SC-07 | Pending-Conversations sind im jeweiligen History-Tab sichtbar mit `pending`-Marker | UI-Sicht | Manuell |
+| SC-08 | Pending -> Confirmed-Pfade: Star-Click in Obsilo, mark_for_memory MCP-Call, save_to_memory parallel | Eval | Test |
 
 ## Technical NFRs
 
 - **Migration**: ConversationStore-Schema v2 -> v3 additiv (ALTER
-  TABLE ADD COLUMN source_interface TEXT DEFAULT 'obsilo'),
-  bestehende Eintraege ohne Tag werden als 'obsilo' interpretiert.
+  TABLE ADD COLUMN source_interface TEXT DEFAULT 'obsilo' plus
+  ALTER TABLE ADD COLUMN sync_state TEXT DEFAULT 'confirmed'),
+  bestehende Eintraege ohne Tag werden als 'obsilo' interpretiert,
+  ohne sync_state als 'confirmed'.
 - **Performance**: Migration laeuft auch bei 5000 Conversations
   unter 1s (additives ALTER TABLE).
 - **Settings-Persistenz**: ueber die bestehende Settings-Pipeline
-  (`vaultIngest.crossSurface` als neuer Block).
+  (`memory.crossSurface` als neuer Block, mit `syncMode:
+  'auto' | 'manual'` und Default `'auto'`).
+- **Pending-Bucket**: `sync_state = 'pending' | 'confirmed' |
+  'rejected'`. Pending-Conversations werden gelistet aber nicht
+  im ExtractionQueue verarbeitet. Pending -> Confirmed Uebergang
+  loescht den Marker und triggert ExtractionQueue genau einmal
+  (idempotent durch sync_state-Check).
 
 ## ASRs
 
