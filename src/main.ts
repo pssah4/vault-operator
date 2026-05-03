@@ -38,6 +38,7 @@ import { FrontmatterIndexer } from './core/ingest/FrontmatterIndexer';
 import { AutoTriggerObserver } from './core/ingest/AutoTriggerObserver';
 import { TopHubBlockGenerator, type TopHubBlockState } from './core/memory/TopHubBlockGenerator';
 import { Stufe3PeriodicJob, ClusterMetadataStatePersistence } from './core/health/Stufe3PeriodicJob';
+import { Stufe2ActivityTrigger } from './core/health/Stufe2ActivityTrigger';
 import { FrontmatterBackfillJob } from './core/ingest/FrontmatterBackfillJob';
 import { buildSummaryGenerator } from './core/ingest/SummaryGenerator';
 import { DEFAULT_VAULT_INGEST_SETTINGS } from './types/settings';
@@ -100,6 +101,13 @@ import { PluginReloader } from './core/self-development/PluginReloader';
  * - MCP Integration: External tool extensibility
  * - Semantic Index: Local vector search
  */
+
+/** Extract HTTP(S) URLs from a free-form text. Used by Stufe-3 web-pass to count distinct sources. */
+function extractUrlsFromText(text: string): string[] {
+    const matches = text.match(/https?:\/\/[^\s)\]<>"']+/g) ?? [];
+    return Array.from(new Set(matches));
+}
+
 export default class ObsidianAgentPlugin extends Plugin {
     settings: ObsidianAgentSettings;
     toolRegistry: ToolRegistry;
@@ -136,6 +144,8 @@ export default class ObsidianAgentPlugin extends Plugin {
     topHubBlockGenerator: TopHubBlockGenerator | null = null;
     stufe3PeriodicJob: Stufe3PeriodicJob | null = null;
     private stufe3IntervalHandle: ReturnType<typeof setInterval> | null = null;
+    /** FEAT-19-19: Stufe-2 Activity-Trigger fuer Light-Web-Search-Update-Hints. */
+    stufe2ActivityTrigger: Stufe2ActivityTrigger | null = null;
     /** FEAT-03-26: cached state for cooldown-decision and ContextComposer-Hook. */
     topHubBlockState: TopHubBlockState | null = null;
     topHubBlockMarkdown: string = '';
@@ -146,6 +156,8 @@ export default class ObsidianAgentPlugin extends Plugin {
     rerankerService: RerankerService | null = null;
     mcpBridge: { start(): Promise<void>; stop(): void; running: boolean; tunnelUrl: string | null; remoteConnected: boolean; remoteConnecting: boolean; startTunnel(onUrl?: (url: string | null) => void): void; stopTunnel(): void; connectRelay(): void; disconnectRelay(): void; getToolsWithContext(): unknown[]; buildResourceList(): unknown[] } | null = null;
     private autoIndexDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    /** FEAT-03-26 Lifecycle: Debounce-Timer fuer Top-Hub-Block Regen bei Ontology-Changes. */
+    private topHubBlockRegenTimer: ReturnType<typeof setTimeout> | null = null;
     private warmupFired = false;
     /** Session flags for cross-tool coordination (e.g. plan_presentation → create_pptx gate). */
     sessionFlags = new Set<string>();
@@ -688,9 +700,34 @@ export default class ObsidianAgentPlugin extends Plugin {
                     this.app,
                     this.ingestTriageLogStore,
                     async (file) => {
-                        // Triage-Action wird von ingest_triage Tool oder UI uebernommen.
-                        // Hier nur Hint-Notice als Default-Verhalten, bis Tool-Aufruf
-                        // vom Plugin via Agent-Trigger gewired ist.
+                        // FEAT-19-27 Wiring: ruft das ingest_triage Tool im
+                        // Pending-Mode auf, damit Cluster-Match und Source-
+                        // Domain-Stats automatisch festgehalten werden. Tool
+                        // schreibt das Triage-Log selbst und vermeidet so
+                        // doppelten Trigger; die User-Entscheidung kommt
+                        // spaeter ueber UI oder Agent-Tool-Call.
+                        const tool = this.toolRegistry?.getTool('ingest_triage');
+                        if (tool) {
+                            const captured: string[] = [];
+                            const ctx = {
+                                plugin: this,
+                                callbacks: {
+                                    pushToolResult: (r: string) => { captured.push(r); },
+                                    say: () => Promise.resolve(),
+                                    ask: () => Promise.resolve({ response: 'noButtonClicked' as const }),
+                                    isParallelExecution: false,
+                                    shouldUseImmediateApproval: () => false,
+                                } as unknown as ToolCallbacks,
+                            } as unknown as import('./core/tools/types').ToolExecutionContext;
+                            try {
+                                await tool.execute({
+                                    source_uri: `vault://${file.path}`,
+                                    decision: 'pending',
+                                }, ctx);
+                            } catch (e) {
+                                console.debug(`[BA-25] auto-triage tool failed for ${file.path}:`, e);
+                            }
+                        }
                         if (autoTriggerCfg.notification) {
                             new Notice(`Auto-Triage candidate: ${file.path}`, 4000);
                         }
@@ -708,21 +745,82 @@ export default class ObsidianAgentPlugin extends Plugin {
             // FEAT-19-20 / IMP-19-20-01: Stufe-3 Periodischer Job mit
             // Persistenz und setInterval-Wrapper. Default OFF; Wrapper
             // checkt internal weeklyBudget plus 7d-Cooldown selbst.
-            // Hooks bleiben hier null bis Web-Search-Provider in einem
-            // spaeteren Wiring konkret eingebunden wird; preFilter/webPass
-            // melden dann no-op damit ein dummy-Run die State-Persistierung
-            // nicht zerstoert.
+            // Hooks: real LLM-Pre-Filter via apiHandler.classifyText (Haiku-
+            // class quick yes/no), webUpdatePass nutzt das registrierte
+            // web_search Tool (BYOK-Provider via FEAT-04-02). Wenn weder
+            // apiHandler noch web_search verfuegbar ist, fallen die Hooks
+            // auf no-op zurueck damit Tokenverbrauch null bleibt.
             const stufe3Cfg = ingestCfg.autoTrigger; // share enabled-flag conservatively; UI separates topic later
             if (this.knowledgeDB && this.clusterMetadataStore) {
                 const persistence = new ClusterMetadataStatePersistence(this.knowledgeDB);
+                const preFilter = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
+                    if (!this.apiHandler?.classifyText) return { decision: 'no' as const, tokensUsed: 0 };
+                    const prompt = `Cluster "${cluster.cluster}" wurde zuletzt am ${cluster.lastExternalCheck ?? 'nie'} extern verifiziert. `
+                        + `Halbwertszeit: ${cluster.halfLifeDays} Tage. Lohnt sich JETZT eine Web-Suche `
+                        + `nach Updates? Antworte ausschliesslich mit "yes", "no" oder "unsure".`;
+                    try {
+                        const reply = (await this.apiHandler.classifyText(prompt)).toLowerCase().trim();
+                        const decision: 'yes' | 'no' | 'unsure' = reply.startsWith('yes') ? 'yes'
+                            : reply.startsWith('unsure') ? 'unsure' : 'no';
+                        return { decision, tokensUsed: prompt.length / 4 + 5 };
+                    } catch (e) {
+                        console.debug('[Stufe3] preFilter classify failed:', e);
+                        return { decision: 'no' as const, tokensUsed: 0 };
+                    }
+                };
+                const webUpdatePass = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
+                    const tool = this.toolRegistry?.getTool('web_search');
+                    if (!tool) return { findings: [], tokensUsed: 0 };
+                    const captured: string[] = [];
+                    const ctx = {
+                        plugin: this,
+                        callbacks: {
+                            pushToolResult: (r: string) => { captured.push(r); },
+                            say: () => Promise.resolve(),
+                            ask: () => Promise.resolve({ response: 'noButtonClicked' as const }),
+                            isParallelExecution: false,
+                            shouldUseImmediateApproval: () => false,
+                        } as unknown as import('./core/tools/types').ToolCallbacks,
+                    } as unknown as import('./core/tools/types').ToolExecutionContext;
+                    try {
+                        await tool.execute({
+                            query: `${cluster.cluster} latest update news`,
+                            max_results: 5,
+                        }, ctx);
+                    } catch (e) {
+                        console.debug('[Stufe3] webUpdatePass failed:', e);
+                        return { findings: [], tokensUsed: 0 };
+                    }
+                    const text = captured.join('\n');
+                    if (!text.trim()) return { findings: [], tokensUsed: 0 };
+                    return {
+                        findings: [{
+                            cluster: cluster.cluster,
+                            title: `Updates fuer ${cluster.cluster}`,
+                            summary: text.slice(0, 600),
+                            sources: extractUrlsFromText(text).slice(0, 5),
+                            detectedAt: new Date().toISOString(),
+                            strongSignal: extractUrlsFromText(text).length >= 2,
+                        }],
+                        tokensUsed: text.length / 4,
+                    };
+                };
+                const notificationSink = (findings: import('./core/health/Stufe3PeriodicJob').UpdateFinding[]) => {
+                    if (!findings.length) return;
+                    new Notice(`Stufe-3: ${findings.length} Update-Hinweise gefunden (siehe Console).`, 6_000);
+                    for (const f of findings) console.debug(`[Stufe3] ${f.cluster}: ${f.title}`);
+                };
+                const budgetExceededSink = (info: { spentUsd: number; budgetUsd: number }) => {
+                    new Notice(`Stufe-3 Budget bei ${(info.spentUsd / info.budgetUsd * 100).toFixed(0)}%.`, 5_000);
+                };
                 this.stufe3PeriodicJob = new Stufe3PeriodicJob(
                     this.clusterMetadataStore,
-                    async () => ({ decision: 'no', tokensUsed: 0 }),
-                    async () => ({ findings: [], tokensUsed: 0 }),
-                    () => {},
+                    preFilter,
+                    webUpdatePass,
+                    notificationSink,
                     { weeklyBudgetUsd: 2.0, notificationThreshold: 0.8 },
                     undefined,
-                    undefined,
+                    budgetExceededSink,
                     persistence,
                 );
                 // Wrapper: stuendlich check, run weekly via job's internal
@@ -748,6 +846,53 @@ export default class ObsidianAgentPlugin extends Plugin {
                     this.topHubBlockState = result.state;
                     this.topHubBlockMarkdown = result.block;
                 }
+            }
+
+            // FEAT-19-19: Stufe-2 Activity-Trigger. Bei Note-Open/Modify in
+            // einem reifen Cluster zeigt das Plugin dezent eine Notice.
+            // Klick auf Notice startet anti_echo_search-Pass (UI-Hook).
+            const stufe2Cfg = ingestCfg.stufe2Hint;
+            if (
+                stufe2Cfg?.enabled
+                && this.knowledgeDB
+                && this.clusterMetadataStore
+            ) {
+                this.stufe2ActivityTrigger = new Stufe2ActivityTrigger(
+                    this.app,
+                    this.knowledgeDB,
+                    this.clusterMetadataStore,
+                    (info) => {
+                        const days = info.daysSinceLastCheck === null
+                            ? 'nie'
+                            : `${Math.round(info.daysSinceLastCheck)}d`;
+                        const notice = new Notice(
+                            `Cluster "${info.cluster}" wirkt veraltet (Score ${info.score}, letzter Check: ${days}). `
+                                + `Klick fuer Anti-Echo-Suche.`,
+                            10_000,
+                        );
+                        // Klick-Handler fuer dezenten Trigger; nur wenn Notice-API verfuegbar.
+                        const el = notice.noticeEl;
+                        if (el) {
+                            el.style.cursor = 'pointer';
+                            el.addEventListener('click', () => {
+                                notice.hide();
+                                new Notice(
+                                    `Tipp: "@anti_echo_search cluster:${info.cluster}" im Agent ausfuehren, `
+                                        + `um Gegenpositionen zu suchen.`,
+                                    8_000,
+                                );
+                            });
+                        }
+                    },
+                    {
+                        enabled: stufe2Cfg.enabled,
+                        hintThresholdScore: stufe2Cfg.hintThresholdScore,
+                        minDaysSinceCheck: stufe2Cfg.minDaysSinceCheck,
+                        perClusterCooldownDays: stufe2Cfg.perClusterCooldownDays,
+                        maxHintsPerDay: stufe2Cfg.maxHintsPerDay,
+                    },
+                );
+                this.stufe2ActivityTrigger.start();
             }
 
             // Vault Health Check (FEATURE-1901): background lint on startup
@@ -829,6 +974,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                         this.graphExtractor?.extractFile(file);
                         this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
                         this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                        this.scheduleTopHubBlockRegen();
                     }
                     this.scheduleFileIndex(file.path);
                 }
@@ -841,6 +987,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                     this.graphExtractor?.extractFile(file);
                     this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
                     this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                    this.scheduleTopHubBlockRegen();
                 }
             }));
             this.registerEvent(this.app.vault.on('create', (file) => {
@@ -850,6 +997,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                     this.graphExtractor?.extractFile(file);
                     this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
                     this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                    this.scheduleTopHubBlockRegen();
                 }
             }));
             this.registerEvent(this.app.vault.on('delete', (file) => {
@@ -857,6 +1005,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 void this.semanticIndex?.removeFile(file.path);
                 this.graphExtractor?.removeFile(file.path);
                 this.ontologyStore?.removeEntriesForPath(file.path);
+                this.scheduleTopHubBlockRegen();
             }));
             this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
                 if (file instanceof TFolder) {
@@ -1175,6 +1324,13 @@ export default class ObsidianAgentPlugin extends Plugin {
             callback: () => { void this.refreshAllMOCs(); },
         });
 
+        // BA-25 FEAT-19-11: Initial-Marker-Injection in MOC-Kandidaten.
+        this.addCommand({
+            id: 'ba25-inject-moc-markers',
+            name: 'BA-25: MOC-Marker initial einfuegen (Cluster-Kandidaten)',
+            callback: () => { void this.injectInitialMOCMarkers(); },
+        });
+
         // BA-25 FEAT-03-26: Top-Hub-Block manueller Refresh
         this.addCommand({
             id: 'ba25-refresh-top-hub-block',
@@ -1242,6 +1398,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.vaultHealthService?.cancel();
             // BA-25 listener cleanup
             this.autoTriggerObserver?.stop();
+            this.stufe2ActivityTrigger?.stop();
             for (const off of this.frontmatterIndexerListeners) {
                 try { off(); } catch { /* noop */ }
             }
@@ -1249,6 +1406,10 @@ export default class ObsidianAgentPlugin extends Plugin {
             if (this.stufe3IntervalHandle) {
                 clearInterval(this.stufe3IntervalHandle);
                 this.stufe3IntervalHandle = null;
+            }
+            if (this.topHubBlockRegenTimer) {
+                clearTimeout(this.topHubBlockRegenTimer);
+                this.topHubBlockRegenTimer = null;
             }
             this.rerankerService?.unload();
             this.mcpBridge?.stop();
@@ -1989,6 +2150,83 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
         }
         new Notice(`MOC-Pflege: ${touched} aktualisiert, ${skippedUserModified} wegen User-Edit uebersprungen.`);
+    }
+
+    /**
+     * FEAT-03-26 Lifecycle: regen Top-Hub-Block nach Ontology-Change.
+     * Debounced auf 60s damit Burst-Edits einen einzigen Regen-Pass
+     * ergeben. generateIfNeeded vergleicht Hash und respektiert
+     * Cooldown (24h Default), neue Hubs schlagen aber sofort durch.
+     */
+    scheduleTopHubBlockRegen(): void {
+        if (!this.settings.vaultIngest?.topHubBlock?.enabled) return;
+        if (!this.topHubBlockGenerator) return;
+        if (this.topHubBlockRegenTimer) clearTimeout(this.topHubBlockRegenTimer);
+        this.topHubBlockRegenTimer = setTimeout(() => {
+            this.topHubBlockRegenTimer = null;
+            if (!this.topHubBlockGenerator) return;
+            const result = this.topHubBlockGenerator.generateIfNeeded(this.topHubBlockState);
+            if (result) {
+                this.topHubBlockState = result.state;
+                this.topHubBlockMarkdown = result.block;
+                console.debug('[BA-25] TopHubBlock regenerated after ontology change');
+            }
+        }, 60_000);
+    }
+
+    /**
+     * FEAT-19-11: Injects the obsilo:auto-start/end Marker into MOC-Kandidaten,
+     * die noch keinen Marker-Block tragen. Kandidat = Markdown-File dessen
+     * Basename als Cluster im ClusterMetadataStore oder in der Ontologie
+     * auftaucht. Idempotent: Files mit bereits vorhandenem Marker werden
+     * uebersprungen.
+     */
+    async injectInitialMOCMarkers(): Promise<void> {
+        const { findAutoBlock, replaceOrInsertAutoBlock } = await import('./core/ingest/MOCMaintainer');
+        if (!this.knowledgeDB?.isOpen()) {
+            new Notice('KnowledgeDB nicht verfuegbar.');
+            return;
+        }
+        const knownClusters = new Set<string>();
+        if (this.clusterMetadataStore) {
+            for (const m of this.clusterMetadataStore.getAll()) knownClusters.add(m.cluster);
+        }
+        try {
+            const db = this.knowledgeDB.getDB();
+            const r = db.exec('SELECT DISTINCT cluster FROM ontology WHERE cluster IS NOT NULL');
+            if (r.length && r[0].values.length) {
+                for (const row of r[0].values) {
+                    const c = row[0] as string | null;
+                    if (c) knownClusters.add(c);
+                }
+            }
+        } catch (e) {
+            console.debug('[BA-25] ontology cluster lookup failed:', e);
+        }
+        if (knownClusters.size === 0) {
+            new Notice('Keine Cluster bekannt -- Ontologie zuerst aufbauen.');
+            return;
+        }
+
+        const allFiles = this.app.vault.getMarkdownFiles();
+        let injected = 0;
+        let skipped = 0;
+        for (const file of allFiles) {
+            const basename = file.basename;
+            if (!knownClusters.has(basename)) continue;
+            const content = await this.app.vault.read(file);
+            if (findAutoBlock(content, 'moc-header')) { skipped++; continue; }
+            const newBody = await this.buildMOCAutoBody(file.path);
+            const result = replaceOrInsertAutoBlock(content, newBody, {
+                blockId: 'moc-header',
+                position: 'after-frontmatter',
+            });
+            if (result.written && result.newContent) {
+                await this.app.vault.modify(file, result.newContent);
+                injected++;
+            }
+        }
+        new Notice(`MOC-Marker-Injection: ${injected} eingefuegt, ${skipped} bereits markiert.`);
     }
 
     /** Hilfs-Renderer fuer MOC-Auto-Body (Hub-Status + Cluster-Statistik). */

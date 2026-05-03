@@ -46,6 +46,10 @@ export type ToolName =
     | 'ingest_document'
     // Vault: BA-25 Karpathy-Wiki-Pattern (FEAT-19-12, ADR-98)
     | 'ingest_triage'
+    // Vault: BA-25 Deep-Ingest-Pipeline (FEAT-19-22/23/24/26/30 + 19-13 Caller)
+    | 'ingest_deep'
+    // Vault: BA-25 Anti-Echo Web-Search-Suche (FEAT-19-14)
+    | 'anti_echo_search'
     // Web
     | 'web_fetch'
     | 'web_search'

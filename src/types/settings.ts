@@ -847,6 +847,24 @@ export interface VaultIngestSettings {
         /** User hat Privacy-Hint gelesen und bestaetigt. Toggle deaktiviert wenn false. */
         privacyAcknowledged: boolean;
     };
+    /**
+     * FEAT-19-19: Stufe-2 Activity-Trigger.
+     *
+     * Bei Note-Open/Modify in einem reifen Cluster zeigt das Plugin
+     * dezent eine Notice mit Klick-Trigger fuer einen Light-Web-Search-
+     * Update-Pass. Default OFF damit das User-Erlebnis nicht stoert.
+     */
+    stufe2Hint: {
+        enabled: boolean;
+        /** Score-Schwelle (0..100). Default 70. Niedriger Score loest Hint aus. */
+        hintThresholdScore: number;
+        /** Default 30: keine Hints wenn letzter externer Check juenger. */
+        minDaysSinceCheck: number;
+        /** Default 7: pro-Cluster Cooldown in Tagen. */
+        perClusterCooldownDays: number;
+        /** Default 5: globale Hints pro Tag (Cap). */
+        maxHintsPerDay: number;
+    };
 }
 
 /**
@@ -880,6 +898,13 @@ export const DEFAULT_VAULT_INGEST_SETTINGS: VaultIngestSettings = {
     topHubBlock: {
         enabled: false,
         privacyAcknowledged: false,
+    },
+    stufe2Hint: {
+        enabled: false,
+        hintThresholdScore: 70,
+        minDaysSinceCheck: 30,
+        perClusterCooldownDays: 7,
+        maxHintsPerDay: 5,
     },
 };
 

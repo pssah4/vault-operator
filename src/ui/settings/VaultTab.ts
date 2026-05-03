@@ -423,6 +423,76 @@ export class VaultTab {
             }
         }
 
+        // ── Stufe-2 Activity-Hint (FEAT-19-19) ─────────────────────────
+        containerEl.createEl('h4', { text: 'Stufe-2 Activity-Hint (FEAT-19-19)' });
+        const stufe2Desc = containerEl.createEl('div', { cls: 'agent-settings-desc' });
+        stufe2Desc.appendText(
+            'Bei Note-Open/Modify in einem Cluster mit niedrigem Freshness-Score zeigt das Plugin '
+            + 'eine dezente Notice mit Klick-Trigger fuer Anti-Echo-Suche. Default OFF damit kein '
+            + 'Notice-Spam entsteht. Cooldowns verhindern Wiederholung pro Cluster.',
+        );
+        new Setting(containerEl)
+            .setName('Stufe-2 Activity-Hint aktivieren')
+            .setDesc('Loest dezente Notices aus, wenn Du eine Note in einem reifen Cluster oeffnest oder editierst.')
+            .addToggle((toggle) => {
+                toggle.setValue(cfg.stufe2Hint.enabled).onChange(async (v) => {
+                    cfg.stufe2Hint.enabled = v;
+                    await this.plugin.saveSettings();
+                });
+            });
+        new Setting(containerEl)
+            .setName('Score-Schwelle')
+            .setDesc('Hint feuert wenn Cluster-Freshness-Score unter diesem Wert liegt (0..100). Default 70.')
+            .addText((text) => {
+                text.setValue(String(cfg.stufe2Hint.hintThresholdScore))
+                    .onChange(async (v) => {
+                        const n = parseInt(v, 10);
+                        if (Number.isFinite(n) && n >= 0 && n <= 100) {
+                            cfg.stufe2Hint.hintThresholdScore = n;
+                            await this.plugin.saveSettings();
+                        }
+                    });
+            });
+        new Setting(containerEl)
+            .setName('Min. Tage seit letztem externen Check')
+            .setDesc('Default 30. Verhindert Hint kurz nach einem Stufe-3-Pass.')
+            .addText((text) => {
+                text.setValue(String(cfg.stufe2Hint.minDaysSinceCheck))
+                    .onChange(async (v) => {
+                        const n = parseInt(v, 10);
+                        if (Number.isFinite(n) && n >= 0) {
+                            cfg.stufe2Hint.minDaysSinceCheck = n;
+                            await this.plugin.saveSettings();
+                        }
+                    });
+            });
+        new Setting(containerEl)
+            .setName('Cooldown pro Cluster (Tage)')
+            .setDesc('Default 7. Pro Cluster max ein Hint in diesem Zeitraum.')
+            .addText((text) => {
+                text.setValue(String(cfg.stufe2Hint.perClusterCooldownDays))
+                    .onChange(async (v) => {
+                        const n = parseInt(v, 10);
+                        if (Number.isFinite(n) && n >= 1) {
+                            cfg.stufe2Hint.perClusterCooldownDays = n;
+                            await this.plugin.saveSettings();
+                        }
+                    });
+            });
+        new Setting(containerEl)
+            .setName('Max Hints pro Tag (global)')
+            .setDesc('Default 5. Schuetzt vor Notice-Spam an aktiven Tagen.')
+            .addText((text) => {
+                text.setValue(String(cfg.stufe2Hint.maxHintsPerDay))
+                    .onChange(async (v) => {
+                        const n = parseInt(v, 10);
+                        if (Number.isFinite(n) && n >= 1) {
+                            cfg.stufe2Hint.maxHintsPerDay = n;
+                            await this.plugin.saveSettings();
+                        }
+                    });
+            });
+
         // ── Aktionen (Backfill, Inbox-Triage, MOC-Refresh) ──────────────
         containerEl.createEl('h4', { text: 'BA-25 Aktionen' });
         new Setting(containerEl)
@@ -433,6 +503,10 @@ export class VaultTab {
             .setName('Inbox-Triage jetzt ausfuehren')
             .setDesc('Erfasst alle Notes mit Auto-Trigger-Property als pending im Triage-Log.')
             .addButton((btn) => btn.setButtonText('Inbox triagen').onClick(() => { void this.plugin.runInboxTriage(); }));
+        new Setting(containerEl)
+            .setName('MOC-Marker initial einfuegen')
+            .setDesc('Fuegt den auto-Marker-Block in alle MOC-Kandidaten ein, deren Basename als Cluster bekannt ist. Idempotent.')
+            .addButton((btn) => btn.setButtonText('Marker injizieren').onClick(() => { void this.plugin.injectInitialMOCMarkers(); }));
         new Setting(containerEl)
             .setName('MOC-Pflege jetzt aktualisieren')
             .setDesc('Aktualisiert auto-generierte Marker-Bloecke in MOC-Pages. User-modifizierte Bloecke werden uebersprungen.')
