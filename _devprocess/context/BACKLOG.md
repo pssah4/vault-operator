@@ -6,7 +6,7 @@
 > /architecture, /coding, /testing, /security-audit, /release,
 > /consistency-check.
 
-Last update: 2026-04-30 by /coding (V-Model restructure round 3)
+Last update: 2026-05-03 by /coding (PLAN-10 BA-25 Phase 1 Foundation: Schema v10 + 4 Stores + 32 Tests)
 
 ---
 
@@ -14,18 +14,16 @@ Last update: 2026-04-30 by /coding (V-Model restructure round 3)
 
 | Status      | Count | | Phase      | Count | | Type         | Count |
 |-------------|-------|-|------------|-------|-|--------------|-------|
-| Planned     |    15 | Released   |   259 | Epic         |    22 |
-| Active      |     7 | Building   |    48 | Feature      |   167 |
+| Planned     |    43 | Released   |   259 | Epic         |    22 |
+| Active      |     7 | Building   |    96 | Feature      |   195 |
 | Done        |   185 | Planned    |     0 | Fix          |    24 |
-| Wont Fix    |     1 | Candidates |     4 | Improvement  |     0 |
-| Superseded  |     2 |            |        | ADR          |    91 |
+| Wont Fix    |     1 |            |        | Improvement  |     0 |
+| Superseded  |     2 |            |        | ADR          |   106 |
 | Deprecated  |     1 |            |        | Plan         |     7 |
 | Accepted    |    88 |            |        |              |        |
-| Proposed    |     1 |            |        |              |        |
-| Draft       |     4 |            |        |              |        |
-| Open        |     7 |            |        |              |        |
+| Proposed    |    16 |            |        |              |        |
 
-Total artifacts: 311
+Total artifacts: 354
 
 ---
 
@@ -122,6 +120,7 @@ Phase: Released | Status: Done
 | FEAT-03-16 | Feature | Memory-Migration und Vault-RRF-Quick-Win | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-17 | Feature | Dynamic Context Composition | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-18 | Feature | Single-Call Update Pipeline und Combined Note-Index-Pass | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
+| FIX-03-18-01 | Fix | SingleCallProcessor budget-exhausted Test-Setup-Bug (nextMockApi) | Open | Building | FEAT-03-18, EPIC-03, PLAN-07 | BUG | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
 | FEAT-03-19 | Feature | Living Document UX | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-20 | Feature | History Search ueber alle Konversationen | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-21 | Feature | Engine-Extract zu @obsilo/memory-engine | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
@@ -129,6 +128,7 @@ Phase: Released | Status: Done
 | FEAT-03-23 | Feature | Memory-UX, Onboarding und Settings-Migration | Active | Building | EPIC-03 | BA |  |  | 2026-05-03 |  |
 | FEAT-03-24 | Feature | Inference-Pass fuer Derives | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-25 | Feature | Vault-Note-zu-Fact-Extraction | Active | Building | EPIC-03, BA-25, ADR-109 | BA |  |  | 2026-05-03 |  |
+| FEAT-03-26 | Feature | Selektiver Top-Hub-Block im KV-Cache | Done | Released | EPIC-03, BA-25, ADR-97 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
 | IMP-03-17-01 | Improvement | recall_memory queryFacts auf Cosine ueber fact_embeddings | Done | Released | FEAT-03-17, EPIC-03 | REV |  |  | 2026-05-03 | P2 |
 | IMP-03-18-01 | Improvement | AgingService Daily-Scheduler (setInterval, nicht nur onload) | Done | Released | FEAT-03-18, EPIC-03 | REV |  |  | 2026-05-03 | P2 |
 | IMP-03-18-02 | Improvement | DriftEventBus Subscriber in ExtractionQueue (Throttle-Bypass) | Done | Released | FEAT-03-18, EPIC-03 | REV |  |  | 2026-05-03 | P2 |
@@ -323,6 +323,10 @@ Phase: Released | Status: Done
 | FEAT-15-05 | Feature | Knowledge Data Consolidation | Done | Released | EPIC-15 | BA |  |  | 2026-04-30 |  |
 | FEAT-15-06 | Feature | Implicit Connection UI | Done | Released | EPIC-15 | BA |  |  | 2026-04-30 |  |
 | FEAT-15-08 | Feature | Storage Consolidation | Done | Released | EPIC-15 | BA |  |  | 2026-04-30 |  |
+| FEAT-15-09 | Feature | Note-Summary Storage (note_summaries-Tabelle + Indexing-Hook) | Done | Released | EPIC-15, BA-25, ADR-92 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-15-10 | Feature | Frontmatter-Property Mirror (frontmatter_properties + SQL-Taxonomie-Lookup) | Done | Released | EPIC-15, BA-25, ADR-92 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-15-11 | Feature | Cluster-Source-Stats fuer Source-Diversity-Tracking | Done | Released | EPIC-15, BA-25, ADR-92, ADR-93 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-15-12 | Feature | Cluster-Metadata mit Halbwertszeit-Konfiguration | Done | Released | EPIC-15, BA-25, ADR-92, ADR-94 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
 | FIX-15-00-01 | Fix | KnowledgeDB Korruption durch nicht-atomare Writes + Cloud Sync | Open | Building | FEAT-15-00, EPIC-15 | BUG |  |  | 2026-04-30 | P1 |
 | FIX-15-03-01 | Fix | ImplicitConnections "Statement closed" Race Condition | Done | Released | FEAT-15-03, EPIC-15 | BUG |  |  | 2026-04-30 | P2 |
 | FIX-15-04-01 | Fix | Reranker ONNX-Runtime Fehler in Electron | Done | Released | FEAT-15-04, EPIC-15 | BUG |  |  | 2026-04-30 | P2 |
@@ -385,6 +389,33 @@ Phase: Building | Status: Active
 | FEAT-19-05 | Feature | OCR-Integration | Done | Released | EPIC-19 | BA |  |  | 2026-04-30 |  |
 | FEAT-19-06 | Feature | Attachment-Batch-Umbenennung | Done | Released | EPIC-19 | BA |  |  | 2026-04-30 |  |
 | FEAT-19-07 | Feature | Chat UI Polish | Done | Released | EPIC-19 | BA |  |  | 2026-04-30 |  |
+| FEAT-19-08 | Feature | Konfigurierbarer Standard-Prompt fuer Note-Summary-Generierung | Done | Released | EPIC-19, BA-25 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-09 | Feature | Auto-Summary-Generierung beim Indexing | Done | Released | EPIC-19, BA-25, ADR-95 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-10 | Feature | Frontmatter-Write Toggle plus Backfill-Job mit Progress-UI | Done | Released | EPIC-19, BA-25, ADR-95 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-11 | Feature | Aktive MOC-File-Pflege mit Marker-Konvention | Done | Released | EPIC-19, BA-25, ADR-96 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
+| FEAT-19-12 | Feature | Pre-Triage-Tool mit 10s-Triage-Karte | Done | Released | EPIC-19, BA-25, ADR-98 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FIX-19-12-02 | Fix | URL-Sanitizer in IngestTriageLogStore (Query-Params strippen) | Done | Released | FEAT-19-12, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
+| FIX-19-27-01 | Fix | Rate-Limit fuer AutoTriggerObserver gegen vault.on-Storm | Done | Released | FEAT-19-27, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
+| FIX-03-26-01 | Fix | Settings-UI-Hinweis fuer Top-Hub-Block Privacy-Trade-Off | Done | Released | FEAT-03-26, EPIC-03, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
+| IMP-19-20-01 | Improvement | Stufe3PeriodicJob state-Persistierung in DB | Done | Released | FEAT-19-20, EPIC-19, AUDIT-014 | SEC | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P3 |
+| FEAT-19-13 | Feature | Tension-Detection beim Deep-Ingest | Done | Released | EPIC-19, BA-25, ADR-99 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-14 | Feature | Concentration-Warning UI plus Anti-Echo-Vorschlag | Done | Released | EPIC-19, BA-25, ADR-93, ADR-104 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-15 | Feature | Inbox-Workflow fuer Batch-Triage | Done | Released | EPIC-19, BA-25 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
+| FEAT-19-16 | Feature | Stufe-1 Composite-Freshness-Score als VaultHealth-Check | Done | Released | EPIC-19, BA-25, ADR-94 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-17 | Feature | Source-Diversity-Check als Bias-Lint-Kategorie | Done | Released | EPIC-19, BA-25, ADR-93 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-18 | Feature | Health-Modal-Erweiterung mit kontext-spezifischen Action-Buttons | Done | Released | EPIC-19, BA-25, ADR-106 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-19 | Feature | Stufe-2 Activity-Trigger plus Web-Search-Update-Pass | Done | Released | EPIC-19, BA-25, ADR-104, ADR-106 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-20 | Feature | Stufe-3 Periodischer Job plus Token-Budget-Cap plus Notifications | Done | Released | EPIC-19, BA-25, ADR-104, ADR-105 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
+| FEAT-19-21 | Feature | Hot-Cluster-Konfiguration in Settings | Done | Released | EPIC-19, BA-25, ADR-105 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-22 | Feature | Aktiver Dialog-Ingest-Modus (Modus A) | Done | Released | EPIC-19, BA-25, ADR-100 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-23 | Feature | Auto-Ingest-Modus (Modus B) | Done | Released | EPIC-19, BA-25 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-24 | Feature | Output-Modus-Auswahl (Source-only / Summary / Multi-Zettel) | Done | Released | EPIC-19, BA-25, ADR-101 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-25 | Feature | Source-Folder vs Wissens-Folder Konfiguration | Done | Released | EPIC-19, BA-25, ADR-101 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-26 | Feature | Dialog-getriebener MOC-Page-Update beim Ingest | Done | Released | EPIC-19, BA-25, ADR-96 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-27 | Feature | Konfigurierbarer Auto-Trigger via Frontmatter-Property | Done | Released | EPIC-19, BA-25, ADR-102 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-28 | Feature | Source-Position-Marker (Block-Refs MD, Page-Refs PDF, Anchor URL) | Done | Released | EPIC-19, BA-25, ADR-103 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
+| FEAT-19-29 | Feature | PDF-Strategie (Page-Refs Default vs Markdown-Mirror opt-in) | Done | Released | EPIC-19, BA-25, ADR-103 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
+| FEAT-19-30 | Feature | Bibliographische Summary-Note mit Base-Block fuer Multi-Zettel-Modus | Done | Released | EPIC-19, BA-25, ADR-101 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P1 |
 | FIX-19-01-01 | Fix | vault_health_check and ingest_document missing from builtin mode tool groups | Done | Released | FEAT-19-01, EPIC-19 | BUG |  |  | 2026-04-30 | P2 |
 | FIX-19-01-02 | Fix | Vault-health badge disappeared + redesign to heart-pulse icon | Done | Released | FEAT-19-01, EPIC-19 | BUG |  |  | 2026-04-30 | P1 |
 
@@ -544,6 +575,21 @@ ADRs and PLANs that span multiple epics.
 | ADR-89 | ADR | ChatGPT PKCE Loopback OAuth Flow | Accepted | Building |  | ARCH |  |  | 2026-04-30 |  |
 | ADR-90 | ADR | Cost-Aware Agent Heuristics | Accepted | Building |  | ARCH |  |  | 2026-04-30 |  |
 | ADR-91 | ADR | MCP Pipeline Routing and IgnoreService at Index Build | Accepted | Building |  | ARCH |  |  | 2026-04-30 |  |
+| ADR-92 | ADR | Schema-Migration knowledge.db v9 -> v10 (4-Tabellen-Bundle) | Accepted | Building | BA-25, FEAT-15-09, FEAT-15-10, FEAT-15-11, FEAT-15-12 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-93 | ADR | Source-Identitaet-Modell (Domain-only MVP) | Accepted | Building | BA-25, FEAT-15-11, FEAT-19-14, FEAT-19-17 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-94 | ADR | Cluster-Halbwertszeit-Modell (statische Defaults) | Accepted | Building | BA-25, FEAT-15-12, FEAT-19-16 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-95 | ADR | Frontmatter-Write Conflict-Detection | Accepted | Building | BA-25, FEAT-19-09, FEAT-19-10 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-96 | ADR | MOC-Marker-Konvention (HTML-Comment-Marker) | Accepted | Building | BA-25, FEAT-19-11, FEAT-19-26 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-97 | ADR | KV-Cache-Block-Lifecycle (Top-Hub) | Accepted | Building | BA-25, FEAT-03-26 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-98 | ADR | Pre-Triage-Tool-Architektur (eigenes ingest_triage) | Accepted | Building | BA-25, FEAT-19-12 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-99 | ADR | Tension-Detection-Algorithmus (Hybrid Cosine+LLM) | Accepted | Building | BA-25, FEAT-19-13 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-100 | ADR | Dialog-Ingest-State-Storage (ingest_session-Tabelle) | Accepted | Building | BA-25, FEAT-19-22 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-101 | ADR | Output-Modus-Architektur (3 Modi + Folder-Layout + Bibliografie) | Accepted | Building | BA-25, FEAT-19-24, FEAT-19-25, FEAT-19-30 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-102 | ADR | Auto-Trigger-Detection-Mechanik (vault.on-Listener) | Accepted | Building | BA-25, FEAT-19-27 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-103 | ADR | Source-Position-Marker und PDF-Strategie | Accepted | Building | BA-25, FEAT-19-28, FEAT-19-29 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-104 | ADR | Web-Search-Provider-Strategie (BYOK obligatorisch) | Accepted | Building | BA-25, FEAT-19-14, FEAT-19-19, FEAT-19-20 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-105 | ADR | Stufe-3 Job-Runner und Token-Budget-Enforcement | Accepted | Building | BA-25, FEAT-19-20 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
+| ADR-106 | ADR | Health-Modal-Severity und Activity-Trigger-Cooldown | Accepted | Building | BA-25, FEAT-19-18, FEAT-19-19 | ARCH | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | |
 | ADR-107 | ADR | MCP-Memory-Tools Versionierung (V1 deprecaten, V2 als save_to_memory) | Accepted | Released | EPIC-23, BA-26, FEAT-23-01, FEAT-23-05 | ARCH |  |  | 2026-05-03 |  |
 | ADR-108 | ADR | Source-Interface-Tagging fuer cross-surface origin tracking | Accepted | Released | EPIC-23, BA-26, FEAT-23-04 | ARCH |  |  | 2026-05-03 |  |
 | ADR-109 | ADR | Vault-zu-Memory-Bruecke via Single-Listener-Pattern | Proposed | Building | FEAT-03-25, BA-25, ADR-87 (superseded) | ARCH |  |  | 2026-05-03 |  |

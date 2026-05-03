@@ -2412,9 +2412,15 @@ export class AgentSidebarView extends ItemView {
                     const vectors = await this.plugin.embeddingService.embed([text]);
                     userEmbedding = vectors[0] ?? null;
                 }
+                // FEAT-03-26 (BA-25): Top-Hub-Block (Vault-Karte) optional
+                // im stabilen Prompt-Prefix. Default off, Setting-gated.
+                const topHubBlock = this.plugin.settings.vaultIngest?.topHubBlock?.enabled
+                    ? this.plugin.topHubBlockMarkdown
+                    : undefined;
                 const composed = composer.compose({
                     sessionId: this.activeConversationId ?? 'transient',
                     userMessageEmbedding: userEmbedding,
+                    topHubBlockMarkdown: topHubBlock,
                 });
                 // FEATURE-0319b: prepend the cache-stable Soul block from
                 // the agent-self profile (profile_id='_obsilo'). Two

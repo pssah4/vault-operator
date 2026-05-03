@@ -25,6 +25,9 @@ import { CreateFolderTool } from './vault/CreateFolderTool';
 import { DeleteFileTool } from './vault/DeleteFileTool';
 import { MoveFileTool } from './vault/MoveFileTool';
 import { IngestDocumentTool } from './vault/IngestDocumentTool';
+import { IngestTriageTool } from './vault/IngestTriageTool';
+import { IngestDeepTool } from './vault/IngestDeepTool';
+import { AntiEchoSearchTool } from './vault/AntiEchoSearchTool';
 // Import tools — vault: intelligence (Phase 1.2)
 import { GetFrontmatterTool } from './vault/GetFrontmatterTool';
 import { UpdateFrontmatterTool } from './vault/UpdateFrontmatterTool';
@@ -147,6 +150,9 @@ export class ToolRegistry {
         this.register(new EditFileTool(this.plugin));
         this.register(new AppendToFileTool(this.plugin));
         this.register(new IngestDocumentTool(this.plugin));
+        this.register(new IngestTriageTool(this.plugin));
+        this.register(new IngestDeepTool(this.plugin));
+        this.register(new AntiEchoSearchTool(this.plugin));
         this.register(new CreateFolderTool(this.plugin));
         this.register(new DeleteFileTool(this.plugin));
         this.register(new MoveFileTool(this.plugin));

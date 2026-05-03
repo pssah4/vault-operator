@@ -60,6 +60,13 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     create_folder: 'vault-change',
     delete_file: 'vault-change',
     move_file: 'vault-change',
+    // BA-25 Karpathy-Wiki-Pattern: Triage schreibt nur ins Triage-Log,
+    // kein Vault-Side-Effect ausser Decision-Persistierung -> als 'note-edit' kategorisiert
+    ingest_triage: 'note-edit',
+    // ingest_deep schreibt mehrere neue Notes in den Vault -> note-edit
+    ingest_deep: 'note-edit',
+    // anti_echo_search nutzt nur Web-Search-API (read-only)
+    anti_echo_search: 'web',
     generate_canvas: 'vault-change',
     create_base: 'vault-change',
     update_base: 'vault-change',

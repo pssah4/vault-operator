@@ -49,7 +49,7 @@ type SqlJsStatement = {
 
 export type { SqlJsDatabase, SqlJsStatement };
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 // ---------------------------------------------------------------------------
 // Schema DDL
@@ -144,6 +144,82 @@ CREATE TABLE IF NOT EXISTS dismissed_health_findings (
     path TEXT NOT NULL,
     dismissed_at TEXT NOT NULL,
     PRIMARY KEY (check_type, path)
+);
+
+-- v9 -> v10: BA-25 Karpathy-Wiki-Pattern Foundation (ADR-92 Bundle).
+-- Six additive tables for Note-Summary storage, Frontmatter-Property
+-- mirror, Cluster-Source-Stats, Cluster-Metadata plus two tables that
+-- PLAN-12 will fill (Dialog-Ingest-State and Triage-Log).
+
+-- FEAT-15-09: Note-Level summaries plus generation metadata.
+CREATE TABLE IF NOT EXISTS note_summaries (
+    note_path TEXT PRIMARY KEY,
+    summary TEXT NOT NULL,
+    summary_model TEXT NOT NULL,
+    summarized_at TEXT NOT NULL,
+    source_mtime INTEGER NOT NULL
+);
+
+-- FEAT-15-10: SQL mirror of frontmatter properties for taxonomy lookups.
+CREATE TABLE IF NOT EXISTS frontmatter_properties (
+    note_path TEXT NOT NULL,
+    property_name TEXT NOT NULL,
+    property_value TEXT NOT NULL,
+    list_index INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(note_path, property_name, list_index)
+);
+CREATE INDEX IF NOT EXISTS idx_frontmatter_value ON frontmatter_properties(property_name, property_value);
+CREATE INDEX IF NOT EXISTS idx_frontmatter_path ON frontmatter_properties(note_path);
+
+-- FEAT-15-11 (ADR-93 Domain-only): per-cluster source-domain counts
+-- backing the source-diversity score and concentration warning.
+CREATE TABLE IF NOT EXISTS cluster_source_stats (
+    cluster TEXT NOT NULL,
+    source_domain TEXT NOT NULL,
+    note_count INTEGER NOT NULL DEFAULT 0,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    PRIMARY KEY (cluster, source_domain)
+);
+CREATE INDEX IF NOT EXISTS idx_cluster_source_cluster ON cluster_source_stats(cluster);
+
+-- FEAT-15-12 (ADR-94 Halbwertszeit + ADR-106 last_hint_at): per-cluster
+-- configuration for freshness scoring, hot-cluster filter, and
+-- activity-trigger cooldown.
+CREATE TABLE IF NOT EXISTS cluster_metadata (
+    cluster TEXT PRIMARY KEY,
+    half_life_days INTEGER NOT NULL,
+    custom_weights TEXT,
+    last_external_check TEXT,
+    last_hint_at TEXT,
+    hot_cluster INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_cluster_metadata_hot ON cluster_metadata(hot_cluster);
+
+-- ADR-100 (FEAT-19-22 Dialog-State, filled by PLAN-12): persistent
+-- ingest-session state across multi-turn dialogs and plugin restarts.
+CREATE TABLE IF NOT EXISTS ingest_session (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_uri TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    last_turn_at TEXT NOT NULL,
+    state_json TEXT NOT NULL,
+    conversation_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_session_status ON ingest_session(status);
+
+-- ADR-98 + ADR-102 (FEAT-19-12, FEAT-19-27, filled by PLAN-12):
+-- triage-decision log plus double-trigger guard for the auto-trigger
+-- listener.
+CREATE TABLE IF NOT EXISTS ingest_triage_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_uri TEXT NOT NULL,
+    triaged_at TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    decision_reason TEXT,
+    UNIQUE(source_uri)
 );
 `;
 
@@ -455,6 +531,12 @@ export class KnowledgeDB {
                     // Column may already exist if schema was partially migrated
                 }
             }
+
+            // v9 -> v10: BA-25 Karpathy-Wiki-Pattern foundation (ADR-92).
+            // Six new additive tables: note_summaries, frontmatter_properties,
+            // cluster_source_stats, cluster_metadata, ingest_session,
+            // ingest_triage_log. All created idempotently by the initSchema()
+            // re-run below; no ALTER on existing tables needed.
 
             // Re-run DDL (CREATE IF NOT EXISTS is idempotent)
             this.initSchema();

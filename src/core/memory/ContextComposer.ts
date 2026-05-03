@@ -58,6 +58,13 @@ export interface ComposeInput {
     profile?: string;
     /** Cap on the number of hits to render. Default 8. */
     maxHits?: number;
+    /**
+     * FEAT-03-26 (BA-25): optional pre-rendered Top-Hub-Block, der vor
+     * dem Memory-Block in den stabilen Prompt-Prefix gehaengt wird
+     * (KV-Cache-tauglich). Wird vom Caller (Plugin) erzeugt und
+     * gecached; ContextComposer prefixt nur. Empty string = kein Block.
+     */
+    topHubBlockMarkdown?: string;
 }
 
 export interface ComposedContext {
@@ -119,7 +126,12 @@ export class ContextComposer {
             now,
         }).slice(0, maxHits);
 
-        const markdown = this.renderMarkdown(reranked, lock, profile, coldStart);
+        let markdown = this.renderMarkdown(reranked, lock, profile, coldStart);
+        // FEAT-03-26: Top-Hub-Block bleibt cache-stabil oben (Hub-Liste
+        // aendert sich selten), Memory-Block darunter (variabel pro Topic).
+        if (input.topHubBlockMarkdown && input.topHubBlockMarkdown.trim().length > 0) {
+            markdown = input.topHubBlockMarkdown.trim() + '\n\n' + markdown;
+        }
 
         return {
             markdown,
