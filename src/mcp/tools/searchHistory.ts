@@ -30,9 +30,19 @@ export async function handleSearchHistory(
     const roleFilter = typeof args.role === 'string'
         && ['user', 'assistant', 'system', 'tool'].includes(args.role)
             ? args.role : undefined;
-    const sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
+    let sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
         ? validateSourceInterface(args.source_interface)
         : undefined;
+
+    // AUDIT-015 M-3: strictSourceIsolation erzwingt source_interface
+    // Filter, sonst Read-Verweigerung.
+    const crossSurface = plugin.settings?.memory?.crossSurface;
+    if (crossSurface?.strictSourceIsolation && !sourceFilter) {
+        return errorResult(
+            'strictSourceIsolation is enabled in Settings -- search_history requires '
+            + 'an explicit source_interface argument to scope the read.',
+        );
+    }
 
     try {
         const where: string[] = ['text LIKE ?'];

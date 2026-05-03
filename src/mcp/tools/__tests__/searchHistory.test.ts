@@ -78,4 +78,25 @@ describe('handleSearchHistory (AUDIT-015 Eval-Coverage)', () => {
         const r = await handleSearchHistory(plugin({ rows: [] }), { query: 'x', top_k: 999 });
         expect(r.isError).toBeUndefined();
     });
+
+    describe('AUDIT-015 M-3: strictSourceIsolation', () => {
+        function strictPlugin() {
+            return {
+                historyDB: { isOpen: () => true, getDB: () => ({ exec: () => [] }) },
+                conversationStore: { list: () => [] },
+                settings: { memory: { crossSurface: { strictSourceIsolation: true } } },
+            } as unknown as Parameters<typeof handleSearchHistory>[0];
+        }
+
+        it('rejects call without source_interface when strict isolation is on', async () => {
+            const r = await handleSearchHistory(strictPlugin(), { query: 'x' });
+            expect(r.isError).toBe(true);
+            expect(r.content[0].text).toMatch(/strictSourceIsolation/);
+        });
+
+        it('accepts call WITH source_interface when strict isolation is on', async () => {
+            const r = await handleSearchHistory(strictPlugin(), { query: 'x', source_interface: 'claude-ai' });
+            expect(r.isError).toBeUndefined();
+        });
+    });
 });

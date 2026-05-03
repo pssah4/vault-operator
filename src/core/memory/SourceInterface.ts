@@ -51,6 +51,16 @@ export interface CrossSurfaceSettings {
      * ueberschreibt fuer Edge-Cases.
      */
     livingDocumentByDefault?: boolean;
+    /**
+     * AUDIT-015 M-3: Cross-Source-ACL fuer recall_memory + search_history.
+     * Wenn true: jeder MCP-Read-Call MUSS source_interface mitbringen,
+     * und das Plugin filtert zwangslaeufig auf diesen Wert -- ein
+     * ChatGPT-Connector kann dann keine Claude-History sehen. Default
+     * false (heute existing behaviour). Sebastian sollte das ON setzen,
+     * sobald er Familien-Account-Reads (ChatGPT/Perplexity) strikt von
+     * persoenlichen (Claude.ai/Code) trennen will.
+     */
+    strictSourceIsolation?: boolean;
 }
 
 /**
@@ -69,6 +79,7 @@ export const DEFAULT_CROSS_SURFACE_SETTINGS: CrossSurfaceSettings = {
         'unknown': 'manual',
     },
     livingDocumentByDefault: true,
+    strictSourceIsolation: false,
 };
 
 /**

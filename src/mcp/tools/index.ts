@@ -237,6 +237,28 @@ export async function handleToolCall(
         };
     }
 
+    // AUDIT-015 M-1: Rate-Limit-Check vor jeglicher Verarbeitung.
+    // Caller-Key = mcpToken + source_interface (falls mitgegeben).
+    // 429-Antwort mit retry_after-Sek wenn Limit ueberschritten.
+    const rateLimiter = plugin.mcpRateLimiter;
+    if (rateLimiter) {
+        const { classifyTool } = await import('../McpRateLimiter');
+        const callerKey = `${plugin.settings.mcpServerToken ?? ''}:${
+            typeof args.source_interface === 'string' ? args.source_interface : 'unknown'
+        }`;
+        const decision = rateLimiter.consume(callerKey, classifyTool(tool));
+        if (!decision.allowed) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: `Rate limit exceeded for tool "${tool}" (limit ${decision.limitInWindow}/min). `
+                        + `Retry after ${decision.retryAfterSec}s.`,
+                }],
+                isError: true,
+            };
+        }
+    }
+
     // Auto-track session
     await ensureSession(plugin);
 

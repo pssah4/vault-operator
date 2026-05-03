@@ -35,6 +35,7 @@ import { ClusterSourceStatsStore } from './core/knowledge/ClusterSourceStatsStor
 import { IngestSessionStore } from './core/ingest/IngestSessionStore';
 import { IngestTriageLogStore } from './core/ingest/IngestTriageLogStore';
 import { FrontmatterIndexer } from './core/ingest/FrontmatterIndexer';
+import { sanitizeVaultContentForLLM } from './core/memory/sanitizeVaultContentForLLM';
 import { AutoTriggerObserver } from './core/ingest/AutoTriggerObserver';
 import { TopHubBlockGenerator, type TopHubBlockState } from './core/memory/TopHubBlockGenerator';
 import { Stufe3PeriodicJob, ClusterMetadataStatePersistence } from './core/health/Stufe3PeriodicJob';
@@ -174,6 +175,9 @@ export default class ObsidianAgentPlugin extends Plugin {
     /** FIX-23-01-01: Living-Document state for Cross-Surface MCP. */
     activeMcpSessions: import('./core/memory/ActiveMcpSessions').ActiveMcpSessions | null = null;
     private activeMcpSessionsEvictHandle: ReturnType<typeof setInterval> | null = null;
+    /** AUDIT-015 M-1: Sliding-window MCP Rate-Limiter. */
+    mcpRateLimiter: import('./mcp/McpRateLimiter').McpRateLimiter | null = null;
+    private mcpRateLimiterCleanupHandle: ReturnType<typeof setInterval> | null = null;
     driftBus: DriftEventBus | null = null;
     tokenBudget: TokenBudgetGuard | null = null;
     mcpClient: McpClient;
@@ -576,18 +580,23 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.memorySourceStore = new MemorySourceStore(this.memoryDB);
             }
             const memorySourceStore = this.memorySourceStore;
+            // AUDIT-015 M-2: Prompt-Injection-Resistance fuer Vault-Notes.
+            // Vault-Inhalte koennen unkontrolliert sein (Web-Imports, Notes
+            // mit "ignore previous instructions"-Pattern, etc.). Wir
+            // wrappen sie in deutlich abgegrenzte Marker, kappen die
+            // Laenge auf 16k Chars und entschaerfen typische Injection-
+            // Patterns. SingleCallProcessor sieht nur 'user'-content,
+            // also bleibt das Risiko Surface-orientiert.
             const memorySourceHook = memorySourceStore
                 ? async (input: { file: TFile; fromFrontmatter: boolean }) => {
                     if (!this.extractionQueue) return;
                     try {
-                        const content = await this.app.vault.cachedRead(input.file);
-                        // Repackage als pseudo-conversation: ein 'user'-Turn
-                        // mit dem Note-Inhalt, ConversationId = vault://path.
-                        // SingleCallProcessor extrahiert wie bei einem Chat.
+                        const raw = await this.app.vault.cachedRead(input.file);
+                        const sanitized = sanitizeVaultContentForLLM(raw, input.file.path);
                         const conversationId = `vault://${input.file.path}`;
                         await this.extractionQueue.enqueueImmediate({
                             conversationId,
-                            messages: [{ role: 'user', text: content }],
+                            messages: [{ role: 'user', text: sanitized }],
                             title: `Vault note: ${input.file.basename}`,
                             queuedAt: new Date().toISOString(),
                         });
@@ -1435,6 +1444,14 @@ export default class ObsidianAgentPlugin extends Plugin {
                 }
             }, 5 * 60 * 1000);
 
+            // AUDIT-015 M-1: MCP Rate-Limiter, sliding window pro
+            // (token, source_interface, rate-class). Cleanup alle 5 min.
+            const { McpRateLimiter } = await import('./mcp/McpRateLimiter');
+            this.mcpRateLimiter = new McpRateLimiter();
+            this.mcpRateLimiterCleanupHandle = setInterval(() => {
+                this.mcpRateLimiter?.cleanup();
+            }, 5 * 60 * 1000);
+
             this.mcpBridge = new McpBridge(this);
             await this.mcpBridge.start().catch((e: unknown) =>
                 console.warn('[Plugin] MCP Server start failed (non-fatal):', e)
@@ -1510,6 +1527,10 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (this.activeMcpSessionsEvictHandle) {
             clearInterval(this.activeMcpSessionsEvictHandle);
             this.activeMcpSessionsEvictHandle = null;
+        }
+        if (this.mcpRateLimiterCleanupHandle) {
+            clearInterval(this.mcpRateLimiterCleanupHandle);
+            this.mcpRateLimiterCleanupHandle = null;
         }
         this.sandboxExecutor?.destroy();
         this.ringBuffer?.uninstall();

@@ -288,6 +288,22 @@ export class MemoryTab {
                 });
             });
 
+        // AUDIT-015 M-3: Cross-Source-ACL
+        new Setting(containerEl)
+            .setName('Strict source isolation (recall_memory + search_history)')
+            .setDesc(
+                'When on, every recall_memory and search_history MCP-call MUST pass an explicit source_interface argument, and reads are '
+                + 'scoped to that source only. Use this to prevent ChatGPT/Perplexity connectors from reading conversations or facts that '
+                + 'came from claude-ai/claude-code. Default off for backward compatibility.',
+            )
+            .addToggle((t) => {
+                t.setValue(cs.strictSourceIsolation ?? false);
+                t.onChange(async (v) => {
+                    cs.strictSourceIsolation = v;
+                    await this.plugin.saveSettings();
+                });
+            });
+
         // Per-provider overrides
         const PROVIDER_LABELS: Record<SourceInterface, string> = {
             'obsilo': 'Obsilo (internal)',

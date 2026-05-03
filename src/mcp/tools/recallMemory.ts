@@ -35,9 +35,21 @@ export async function handleRecallMemory(
     const kindFilter = (typeof args.kind === 'string' && VALID_KINDS.includes(args.kind as FactKind))
         ? args.kind as FactKind
         : undefined;
-    const sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
+    let sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
         ? validateSourceInterface(args.source_interface)
         : undefined;
+
+    // AUDIT-015 M-3: strictSourceIsolation erzwingt source_interface
+    // Filter -- ohne explicit Wert lehnt das Tool den Call ab.
+    const crossSurface = plugin.settings?.memory?.crossSurface;
+    if (crossSurface?.strictSourceIsolation) {
+        if (!sourceFilter) {
+            return errorResult(
+                'strictSourceIsolation is enabled in Settings -- recall_memory requires '
+                + 'an explicit source_interface argument to scope the read.',
+            );
+        }
+    }
 
     try {
         const store = new FactStore(memDB);

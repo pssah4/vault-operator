@@ -1121,6 +1121,10 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
             },
             // FIX-23-01-01: Living-Document-Default. true = Auto-Continuation.
             livingDocumentByDefault: true,
+            // AUDIT-015 M-3: Cross-Source-ACL. Default OFF -- Sebastian
+            // kann das ON setzen wenn ChatGPT/Perplexity strikt von
+            // claude-ai/claude-code getrennt sein muessen.
+            strictSourceIsolation: false,
         },
     },
     chatLinking: {
