@@ -26,13 +26,21 @@ import { requestUrl } from 'obsidian';
 import type ObsidianAgentPlugin from '../main';
 import { handleToolCall } from './tools/index';
 
+// FIX-14-03-01: 10s default. Workers Free Plan has 100k requests/day per
+// account. At 2s the plugin alone burns 43.200/day per open Obsidian instance,
+// independent of actual MCP usage. 10s drops that to ~8.640/day, leaving
+// headroom for external clients and multi-device setups.
+const POLL_INTERVAL_MS = 10_000;
+const INITIAL_RECONNECT_DELAY_MS = 5_000;
+const MAX_RECONNECT_DELAY_MS = 60_000;
+
 export class RelayClient {
     private polling = false;
     private _connected = false;
     private _connecting = false;
     private shouldReconnect = true;
-    private reconnectDelay = 1000;
-    private maxReconnectDelay = 30000;
+    private reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+    private maxReconnectDelay = MAX_RECONNECT_DELAY_MS;
     private relayUrl = '';
     private token = '';
 
@@ -53,7 +61,7 @@ export class RelayClient {
         this.relayUrl = cleanUrl;
         this.token = token;
         this.shouldReconnect = true;
-        this.reconnectDelay = 1000;
+        this.reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
         this.startPolling();
     }
 
@@ -85,7 +93,7 @@ export class RelayClient {
                 if (!this._connected) {
                     this._connected = true;
                     this._connecting = false;
-                    this.reconnectDelay = 1000;
+                    this.reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
                     console.debug('[RelayClient] Connected to relay');
                 }
 
@@ -99,8 +107,8 @@ export class RelayClient {
                     }
                 }
 
-                // Short-poll interval: wait 2s before next poll
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Short-poll interval: see POLL_INTERVAL_MS (FIX-14-03-01)
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
             } catch {
                 if (!this.shouldReconnect) break;
 

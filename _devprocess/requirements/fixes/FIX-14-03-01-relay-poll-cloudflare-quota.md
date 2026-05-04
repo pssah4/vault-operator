@@ -74,9 +74,13 @@ um zu bestaetigen dass /poll der Hauptverursacher ist. Option 2 ist
 die saubere Langzeit-Loesung, Option 3 als Fallback wenn Volumen mit
 externen Clients dauerhaft >100k bleibt.
 
-Implementation pointer: setzt Plan-Upgrade in Cloudflare voraus (kein
-Code), danach optional Polling-Interval-Anpassung in
-`src/mcp/RelayClient.ts:103`.
+Implementiert: Option 1 (Polling-Intervall 2s -> 10s) in
+`src/mcp/RelayClient.ts`. Konstanten `POLL_INTERVAL_MS = 10_000`,
+`INITIAL_RECONNECT_DELAY_MS = 5_000`, `MAX_RECONNECT_DELAY_MS = 60_000`
+ersetzen die Magic Numbers. Verbrauch sinkt von 43.200 auf 8.640
+Requests/Tag pro Plugin-Instanz. Long-Polling im Worker (Option 2)
+bleibt als spaetere Optimierung im Backlog. Plan-Upgrade (Option 3)
+nicht noetig, solange Multi-Device-Setup stabil unter 100k bleibt.
 
 ## Regression test
 
