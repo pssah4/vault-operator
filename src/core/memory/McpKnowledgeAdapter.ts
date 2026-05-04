@@ -57,6 +57,7 @@ export class McpKnowledgeAdapter implements KnowledgeGraphAdapter {
         };
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- KnowledgeAdapter interface contract; Phase-4 lifts the no-op and adds the real network call
     async searchSimilar(
         _queryVector: Float32Array,
         opts: { topK?: number } = {},

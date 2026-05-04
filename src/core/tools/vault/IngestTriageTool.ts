@@ -86,6 +86,7 @@ export class IngestTriageTool extends BaseTool<'ingest_triage'> {
         };
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- ToolExecution interface contract: async signature shared with tools that do LLM calls
     async execute(input: Record<string, unknown>, ctx: ToolExecutionContext): Promise<void> {
         const { source_uri, cluster_hint, decision = 'pending' } = input as unknown as IngestTriageInput;
         const triageStore = this.plugin.ingestTriageLogStore;

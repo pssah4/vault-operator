@@ -78,7 +78,7 @@ class MemoryV2UpgradeModalImpl extends Modal {
         const later = contentEl.createEl('p');
         later.appendText('You can run this upgrade later from ');
         // eslint-disable-next-line obsidianmd/ui/sentence-case -- breadcrumb path: each segment is the literal Obsidian UI label ("Settings" tab, "Memory" section, "Obsilo upgrade" button)
-        later.createEl('em', { text: 'Settings → Memory → Obsilo upgrade' });
+        later.createEl('em', { text: 'Settings → memory → Obsilo upgrade' });
         later.appendText('. The dialog only appears once per release.');
 
         new Setting(contentEl)

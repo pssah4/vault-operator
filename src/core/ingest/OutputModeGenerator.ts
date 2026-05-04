@@ -197,6 +197,7 @@ export class OutputModeGenerator {
         return trimmed;
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- async kept for symmetry with vault.adapter.exists path used in tests
     private async uniquePath(path: string): Promise<string> {
         let candidate = path;
         let counter = 1;
@@ -238,7 +239,7 @@ export function renderFrontmatter(fm: Record<string, unknown>): string {
 function formatYamlValue(value: unknown): string {
     if (typeof value === 'string') {
         // Bei einfachen Strings ohne Sonderzeichen unquoted
-        if (/[:#\n"'\[\]{}|>%@`]/.test(value)) {
+        if (/[:#\n"'[\]{}|>%@`]/.test(value)) {
             return JSON.stringify(value);
         }
         return value;

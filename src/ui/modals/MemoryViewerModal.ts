@@ -55,7 +55,7 @@ export class MemoryViewerModal extends Modal {
         );
 
         // Compute counts per bucket
-        const factStore = new FactStore(this.plugin.memoryDB!);
+        const factStore = new FactStore(this.plugin.memoryDB);
         const all = factStore.listLatest({ limit: 5000 });
         const userFacts = all.filter(f => f.profileId !== OBSILO_PROFILE);
         const soulFacts = all.filter(f =>
@@ -64,7 +64,7 @@ export class MemoryViewerModal extends Modal {
             f.profileId === OBSILO_PROFILE && f.topics.includes('capability'));
         let sessionCount = 0;
         try {
-            const result = this.plugin.memoryDB!.getDB().exec('SELECT COUNT(*) FROM sessions');
+            const result = this.plugin.memoryDB.getDB().exec('SELECT COUNT(*) FROM sessions');
             if (result.length > 0 && result[0].values.length > 0) {
                 sessionCount = Number(result[0].values[0][0]);
             }

@@ -114,7 +114,7 @@ export async function startPkceLoopbackServer(
         if (timeoutHandle) clearTimeout(timeoutHandle);
         timeoutHandle = null;
         if (server) {
-            // eslint-disable-next-line @typescript-eslint/no-empty-function -- close is fire-and-forget; handle errors via the close event
+             
             server.close(() => {});
             server = null;
         }

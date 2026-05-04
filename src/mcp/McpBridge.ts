@@ -778,7 +778,7 @@ export class McpBridge {
         if (!('extension' in file) || (file as { extension?: string }).extension !== 'md') return [];
 
         try {
-            const content = await vault.cachedRead(file as Parameters<typeof vault.cachedRead>[0]);
+            const content = await vault.cachedRead(file);
             return [{
                 uri,
                 mimeType: 'text/markdown',

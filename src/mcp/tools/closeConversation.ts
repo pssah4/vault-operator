@@ -14,6 +14,7 @@
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
 
+// eslint-disable-next-line @typescript-eslint/require-await -- MCP-Tool-Handler interface contract: async signature shared with handlers that do disk/HTTP I/O
 export async function handleCloseConversation(
     plugin: ObsidianAgentPlugin,
     args: Record<string, unknown>,

@@ -35,7 +35,7 @@ export async function handleRecallMemory(
     const kindFilter = (typeof args.kind === 'string' && VALID_KINDS.includes(args.kind as FactKind))
         ? args.kind as FactKind
         : undefined;
-    let sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
+    const sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
         ? validateSourceInterface(args.source_interface)
         : undefined;
 

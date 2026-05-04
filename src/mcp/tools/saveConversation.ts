@@ -115,7 +115,7 @@ export async function handleSaveConversation(
         ? args.conversation_id
         : undefined;
     const explicitThreadId = isValidThreadId(args.cross_interface_thread_id)
-        ? args.cross_interface_thread_id as string
+        ? args.cross_interface_thread_id
         : undefined;
 
     // Append vs Create decision via ActiveMcpSessions

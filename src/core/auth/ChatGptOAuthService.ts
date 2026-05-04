@@ -418,6 +418,7 @@ function randomUrlSafe(numBytes: number): string {
     return crypto.randomBytes(numBytes).toString('base64url');
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await -- async signature kept for symmetry with future SubtleCrypto path that returns a Promise
 async function sha256Base64Url(input: string): Promise<string> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node.js crypto for PKCE; web SubtleCrypto path is not always available in Electron renderer
     const crypto = require('crypto') as typeof import('crypto');

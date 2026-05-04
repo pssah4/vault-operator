@@ -36,6 +36,7 @@ export class ListMemorySourceNotesTool extends BaseTool<'list_memory_source_note
         };
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- ToolExecution interface contract: async signature shared with tools that do LLM calls
     async execute(input: Record<string, unknown>, ctx: ToolExecutionContext): Promise<void> {
         const onlyDirty = input.only_dirty === true;
 

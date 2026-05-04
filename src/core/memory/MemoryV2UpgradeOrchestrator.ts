@@ -203,6 +203,7 @@ export class SettingsDefaultsStep implements UpgradeStep {
     readonly label = 'Refreshing default settings';
     readonly critical = false;
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- UpgradeStep interface contract: async signature shared with steps that do disk I/O
     async execute(ctx: UpgradeStepContext): Promise<UpgradeStepResult> {
         ctx.onProgress?.(this.label);
         // Reserved -- no diff today. When new releases need to migrate

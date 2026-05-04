@@ -324,7 +324,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         try {
             const rawSaved = await this.loadData() as Record<string, unknown> | null;
             const savedFolderPath = typeof rawSaved?.agentFolderPath === 'string'
-                ? rawSaved.agentFolderPath as string
+                ? rawSaved.agentFolderPath
                 : undefined;
             const { migrateFolderRename } = await import('./core/utils/migrateFolderRename');
             const renameReport = await migrateFolderRename(this.app, vaultBasePath, savedFolderPath);
@@ -922,9 +922,10 @@ export default class ObsidianAgentPlugin extends Plugin {
                             10_000,
                         );
                         // Klick-Handler fuer dezenten Trigger; nur wenn Notice-API verfuegbar.
-                        const el = notice.noticeEl;
+                        const el = notice.messageEl;
                         if (el) {
-                            el.style.cursor = 'pointer';
+                            // eslint-disable-next-line obsidianmd/no-static-styles-assignment -- transient inline cursor on a Notice toast (no theme involvement)
+                            el.style.setProperty('cursor', 'pointer');
                             el.addEventListener('click', () => {
                                 notice.hide();
                                 new Notice(
@@ -2186,7 +2187,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             : null;
         // semanticStorageLocation ist die kanonische Storage-Mode-Setting fuer
         // knowledge.db (siehe FEATURE-1508). Map fuer FrontmatterWriter.
-        const storageMode = (this.settings.semanticStorageLocation ?? 'global') as 'global' | 'local' | 'obsidian-sync';
+        const storageMode = (this.settings.semanticStorageLocation ?? 'global');
         const job = new FrontmatterBackfillJob(
             this.app,
             this.noteSummaryStore,
@@ -2208,6 +2209,7 @@ export default class ObsidianAgentPlugin extends Plugin {
      * mit konfigurierter Auto-Trigger-Property und ruft das ingest_triage-Tool
      * fuer jede neu (idempotent ueber Triage-Log).
      */
+    // eslint-disable-next-line @typescript-eslint/require-await -- async kept for symmetry with future LLM-backed triage decision flow
     async runInboxTriage(): Promise<void> {
         const cfg = this.settings.vaultIngest ?? DEFAULT_VAULT_INGEST_SETTINGS;
         if (!cfg.autoTrigger.propertyName) {
@@ -2229,7 +2231,8 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
         }
         if (candidates.length === 0) {
-            new Notice(`Inbox-Triage: keine Notes mit ${cfg.autoTrigger.propertyName}=${cfg.autoTrigger.propertyValue} gefunden.`);
+            const valueStr = Array.isArray(cfg.autoTrigger.propertyValue) ? cfg.autoTrigger.propertyValue.join(',') : cfg.autoTrigger.propertyValue;
+            new Notice(`Inbox-Triage: keine Notes mit ${cfg.autoTrigger.propertyName}=${valueStr} gefunden.`);
             return;
         }
         new Notice(`Inbox-Triage: ${candidates.length} Kandidaten, log via Konsole.`, 6000);
@@ -2348,6 +2351,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     }
 
     /** Hilfs-Renderer fuer MOC-Auto-Body (Hub-Status + Cluster-Statistik). */
+    // eslint-disable-next-line @typescript-eslint/require-await -- async kept for future LLM-backed body composition
     private async buildMOCAutoBody(mocPath: string): Promise<string> {
         const lines: string[] = [];
         const meta = this.clusterMetadataStore;

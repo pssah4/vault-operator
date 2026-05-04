@@ -205,7 +205,7 @@ export class VaultHealthRepairModal extends Modal {
                 if (finding.check === 'cluster_freshness' && finding.cluster) {
                     const refreshBtn = actions.createEl('button', {
                         cls: 'vault-health-icon-btn',
-                        attr: { 'aria-label': 'Discuss cluster freshness update' },
+                        attr: { 'aria-label': 'Discuss freshness update for this cluster' },
                     });
                     setIcon(refreshBtn, 'refresh-cw');
                     refreshBtn.addEventListener('click', (ev) => {

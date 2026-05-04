@@ -49,7 +49,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [x] Read [[Asset Radar]]\n- [x] Read [[Chatbot Netze]]',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         expect(result).toContain('VERIFICATION WARNING');
         expect(result).toContain('Chatbot Netze');
         expect(result).not.toContain('Asset Radar"'); // Asset Radar is read, must not appear in the warning's quoted refs
@@ -64,7 +64,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [x] Read [[Asset Radar]]\n- [x] Read [[Chatbot Netze]]',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         expect(result).not.toContain('VERIFICATION WARNING');
     });
 
@@ -77,7 +77,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [x] Alle GenAI-Push-Interview-Notes lesen\n- [~] Synthese schreiben',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         expect(result).toContain('VERIFICATION WARNING');
         expect(result).toContain('quantifier');
         expect(result).toContain('Alle GenAI-Push-Interview-Notes lesen');
@@ -92,7 +92,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [x] Alle Notes im Inbox lesen',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         expect(result).not.toContain('quantifier');
     });
 
@@ -107,7 +107,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [x] Alle Notes lesen: [[A]], [[B]], [[C]]',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         // Tier 1 fires (B and C unread); tier 2 must NOT fire because file refs are present
         expect(result).toContain('VERIFICATION WARNING');
         expect(result).toContain('"B"');
@@ -125,7 +125,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [x] GenAI-Push-Interview-Notes im Inbox finden und lesen',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         expect(result).toContain('quantifier');
         expect(result).toContain('GenAI-Push-Interview-Notes');
     });
@@ -136,7 +136,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [x] Drei Notes lesen und vergleichen',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         expect(result).not.toContain('quantifier');
     });
 
@@ -146,7 +146,7 @@ describe('UpdateTodoListTool — verification (FIX-H, ADR-090)', () => {
         await tool.execute({
             todos: '- [~] Plan erstellen\n- [ ] Daten erfassen',
         }, ctx);
-        const result = captured[0]!.text;
+        const result = captured[0].text;
         expect(result).not.toContain('VERIFICATION WARNING');
     });
 });

@@ -120,5 +120,6 @@ export class CloudAdapterStub implements SourceAdapter {
     canHandle(uri: string): boolean { return uri.startsWith('cloud://'); }
     /** Phase 7 / UCM connects this. Phase 3 returns null so the URI
      *  survives as a reference token but doesn't render. */
+    // eslint-disable-next-line @typescript-eslint/require-await -- SourceAdapter interface contract; Phase 7 wires the network call
     async resolve(_uri: string): Promise<ResolvedSource | null> { return null; }
 }

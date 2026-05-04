@@ -14,6 +14,7 @@ import {
     type SourceInterface,
 } from '../../core/memory/SourceInterface';
 
+// eslint-disable-next-line @typescript-eslint/require-await -- MCP-Tool-Handler interface contract: async signature shared with handlers that do disk/HTTP I/O
 export async function handleSearchHistory(
     plugin: ObsidianAgentPlugin,
     args: Record<string, unknown>,
@@ -30,7 +31,7 @@ export async function handleSearchHistory(
     const roleFilter = typeof args.role === 'string'
         && ['user', 'assistant', 'system', 'tool'].includes(args.role)
             ? args.role : undefined;
-    let sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
+    const sourceFilter: SourceInterface | undefined = args.source_interface !== undefined
         ? validateSourceInterface(args.source_interface)
         : undefined;
 
@@ -77,7 +78,7 @@ export async function handleSearchHistory(
         for (const row of rows) {
             const sessionId = row[0] as string;
             const meta = metaById.get(sessionId);
-            const source = (meta?.sourceInterface ?? 'obsilo') as SourceInterface;
+            const source = (meta?.sourceInterface ?? 'obsilo');
             if (sourceFilter && source !== sourceFilter) continue;
             hits.push({
                 sessionId,

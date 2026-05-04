@@ -55,6 +55,7 @@ export class SearchHistoryTool extends BaseTool<'search_history'> {
         };
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- ToolExecution interface contract: async signature shared with tools that do LLM calls
     async execute(input: Record<string, unknown>, context: ToolExecutionContext): Promise<void> {
         const { callbacks } = context;
         const query = ((input.query as string) ?? '').trim();
