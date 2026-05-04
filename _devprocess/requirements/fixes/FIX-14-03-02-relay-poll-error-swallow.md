@@ -41,27 +41,27 @@ RelayClient.pollLoop()
 
 ## Fix
 
-Offen. Vorschlag: `catch (err)` mit Binding, dann sanitiziertes Logging:
+Implementiert: `catch (err)` mit Binding plus zwei reine Helfer
+`describeRequestError(err, token)` und `redactToken(text, token)` in
+`src/mcp/RelayClient.ts`. Der Catch-Block loggt jetzt Format
+`[RelayClient] Poll failed (HTTP 429: error code: 1027), retrying in
+5000 ms`. AUDIT-005 H-2/H-3 bleibt erfuellt: jeder geloggte String
+laeuft durch `redactToken`, das den Relay-Token und alle generischen
+`Bearer`-Header durch `<redacted>` ersetzt. Nach drei aufeinander
+folgenden Fehlern erscheint einmalig eine Obsidian-`Notice`, damit
+ein Outage ohne Devtools sichtbar ist; der Counter resettet beim
+naechsten erfolgreichen Poll.
 
-- HTTP-Status loggen (kein Token-Material).
-- Bei `requestUrl`-Errors aus Obsidian: `err.status` und ein gekuerzter
-  Body (max 200 Zeichen, Token-Patterns redacted).
-- Bei Network-Errors: `err.name` plus `err.message` (Token via
-  Regex-Redaction durch `<redacted>` ersetzen, der relayUrl-Hostname
-  bleibt).
-- Optional: nach 3 Fehlern in Folge eine Notice an den User
-  (`new Notice('Relay nicht erreichbar, Details in Console')`),
-  damit der Bug nicht silent bleibt.
-
-Implementation pointer: `src/mcp/RelayClient.ts:104-114`. ARCHITECTURE.map
-fuehrt RelayClient unter `src/mcp/RelayClient.ts` als Entry-Point.
+Implementation pointer: `src/mcp/RelayClient.ts` (Helfer + erweiterter
+`pollLoop`-Catch).
 
 ## Regression test
 
-Test, der `requestUrl` so mockt, dass er einen Error mit `status: 429`
-und `body: 'error code: 1027'` wirft. Erwartung: ein einzelner
-`console.warn`-Aufruf mit String, der `429` enthaelt und keinen Token
-enthaelt.
+`src/mcp/__tests__/RelayClient.test.ts` deckt beide Helfer ab: 8
+Cases inkl. Status+Body-Format, Token-Redaction, Body-Truncation
+auf 200 Zeichen, Fallback auf `err.message` und `err.name`. Vitest
+`npx vitest run src/mcp/__tests__/RelayClient.test.ts` muss alle 8
+Tests gruen liefern.
 
 ## Status
 
