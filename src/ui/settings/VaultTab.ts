@@ -293,7 +293,7 @@ export class VaultTab {
 
         new Setting(containerEl)
             .setName('Enable auto-trigger')
-            .setDesc('Triage starts automatically when a note carries the property and value configured below. Default OFF.')
+            .setDesc('Triage starts automatically when a note carries the property and value configured below. Default off.')
             .addToggle((toggle) =>
                 toggle.setValue(cfg.autoTrigger.enabled).onChange(async (v) => {
                     cfg.autoTrigger.enabled = v;
@@ -307,7 +307,7 @@ export class VaultTab {
 
         new Setting(containerEl)
             .setName('Property name')
-            .setDesc('Name of the frontmatter property to watch (e.g. "Kategorie").')
+            .setDesc('Name of the frontmatter property to watch, for example category.')
             .addText((text) =>
                 text
                     .setValue(cfg.autoTrigger.propertyName)
@@ -321,7 +321,7 @@ export class VaultTab {
 
         new Setting(containerEl)
             .setName('Property value')
-            .setDesc('Value that triggers a match (e.g. "Quelle"). Separate multiple values with commas.')
+            .setDesc('Value that triggers a match, for example source. Separate multiple values with commas.')
             .addText((text) =>
                 text
                     .setValue(Array.isArray(cfg.autoTrigger.propertyValue) ? cfg.autoTrigger.propertyValue.join(', ') : cfg.autoTrigger.propertyValue)
@@ -336,7 +336,7 @@ export class VaultTab {
 
         new Setting(containerEl)
             .setName('Show notification on trigger')
-            .setDesc('Display a toast when auto-trigger fires. Default OFF (the vault health modal already lists triggered notes).')
+            .setDesc('Display a toast when auto-trigger fires. Default off (the vault health modal already lists triggered notes).')
             .addToggle((toggle) =>
                 toggle.setValue(cfg.autoTrigger.notification).onChange(async (v) => {
                     cfg.autoTrigger.notification = v;
@@ -410,7 +410,7 @@ export class VaultTab {
 
         const enabledSetting = new Setting(containerEl)
             .setName('Enable top-hub block')
-            .setDesc('Default OFF. Requires the privacy notice to be accepted first.')
+            .setDesc('Default off. Requires the privacy notice to be accepted first.')
             .addToggle((toggle) =>
                 toggle
                     .setValue(cfg.topHubBlock.enabled)
@@ -445,13 +445,13 @@ export class VaultTab {
 
         const store = this.plugin.clusterMetadataStore;
         if (!store) {
-            containerEl.createEl('p', { cls: 'agent-settings-desc', text: '(Cluster metadata store not loaded.)' });
+            containerEl.createEl('p', { cls: 'agent-settings-desc', text: 'Cluster metadata store not loaded.' });
         } else {
             const all = store.getAll();
             if (all.length === 0) {
                 containerEl.createEl('p', {
                     cls: 'agent-settings-desc',
-                    text: '(No clusters in the ontology yet. Run vault indexing first.)',
+                    text: 'No clusters in the ontology yet. Run vault indexing first.',
                 });
             } else {
                 for (const cluster of all) {
@@ -502,7 +502,7 @@ export class VaultTab {
                     });
             });
         new Setting(containerEl)
-            .setName('Min. days since last external check')
+            .setName('Minimum days since last external check')
             .setDesc('Default 30. Prevents hints right after the periodic freshness lint already ran.')
             .addText((text) => {
                 text.setValue(String(cfg.stufe2Hint.minDaysSinceCheck))
@@ -545,7 +545,7 @@ export class VaultTab {
         containerEl.createEl('h4', { cls: 'agent-settings-section', text: 'Manual actions' });
         new Setting(containerEl)
             .setName('Run frontmatter backfill')
-            .setDesc('Iterates over all markdown notes and adds missing frontmatter summaries. Requires "Write auto-summary into frontmatter" to be enabled. Can take a while on large vaults.')
+            .setDesc('Iterates over all Markdown notes and adds missing frontmatter summaries. Requires the auto-summary toggle above to be enabled. Can take a while on large vaults.')
             .addButton((btn) => btn.setButtonText('Run backfill').onClick(() => { void this.plugin.runFrontmatterBackfill(); }));
         new Setting(containerEl)
             .setName('Run inbox triage now')
@@ -553,12 +553,12 @@ export class VaultTab {
             .addButton((btn) => btn.setButtonText('Triage inbox').onClick(() => { void this.plugin.runInboxTriage(); }));
         new Setting(containerEl)
             .setName('Insert MOC markers')
-            .setDesc('A "MOC" (Map of Content) is a hub note that lists related notes. This action inserts the auto-generated marker block into all MOC candidate notes whose name matches a known cluster. Idempotent (safe to re-run).')
+            .setDesc('A MOC (map-of-content) is a hub note that lists related notes. This action inserts the auto-generated marker block into all MOC candidate notes whose name matches a known cluster. Idempotent (safe to re-run).')
             .addButton((btn) => btn.setButtonText('Insert markers').onClick(() => { void this.plugin.injectInitialMOCMarkers(); }));
         new Setting(containerEl)
             .setName('Refresh MOC pages')
             .setDesc('Updates the auto-generated marker blocks inside MOC pages. User-edited blocks are skipped.')
-            .addButton((btn) => btn.setButtonText('Refresh MOCs').onClick(() => { void this.plugin.refreshAllMOCs(); }));
+            .addButton((btn) => btn.setButtonText('Refresh MOC pages').onClick(() => { void this.plugin.refreshAllMOCs(); }));
         new Setting(containerEl)
             .setName('Regenerate top-hub block')
             .setDesc('Manually rebuild the cached system-prompt block listing your top hubs. Otherwise it only refreshes when hub membership changes (with a 24h cooldown).')

@@ -27,6 +27,7 @@ export class LocalKnowledgeAdapter implements KnowledgeGraphAdapter {
         private readonly vectorStore: VectorStore,
     ) {}
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- KnowledgeAdapter interface contract: async signature shared with McpKnowledgeAdapter (HTTP) and CloudKnowledgeAdapter (network)
     async getImplicitNeighbors(
         notePath: string,
         opts: { hops?: number; limit?: number } = {},
@@ -62,6 +63,7 @@ export class LocalKnowledgeAdapter implements KnowledgeGraphAdapter {
             .slice(0, limit);
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- KnowledgeAdapter interface contract (see getImplicitNeighbors)
     async getNoteMetadata(notePath: string): Promise<NoteMetadata | null> {
         if (!this.knowledgeDB.isOpen()) return null;
         const db = this.knowledgeDB.getDB();
@@ -88,6 +90,7 @@ export class LocalKnowledgeAdapter implements KnowledgeGraphAdapter {
         return { path: notePath, tags, lastIndexedAt };
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- KnowledgeAdapter interface contract (see getImplicitNeighbors)
     async searchSimilar(
         queryVector: Float32Array,
         opts: { topK?: number } = {},

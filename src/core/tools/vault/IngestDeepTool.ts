@@ -170,7 +170,7 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
             }
         };
 
-        const cfg = this.plugin.settings.vaultIngest!;
+        const cfg = this.plugin.settings.vaultIngest;
         const pipeline = new DeepIngestPipeline(this.plugin.app, {
             folderConfig: {
                 sourceFolder: 'Sources',
@@ -210,6 +210,7 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- async kept for symmetry with future LLM-backed body composition
     private async buildMOCBody(cluster: string): Promise<string> {
         const stats = this.plugin.clusterSourceStatsStore?.getStatsForCluster(cluster) ?? [];
         const conc = this.plugin.clusterSourceStatsStore?.concentrationScore(cluster) ?? 0;

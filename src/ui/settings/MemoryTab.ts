@@ -256,7 +256,7 @@ export class MemoryTab {
         if (!this.plugin.settings.memory.crossSurface) {
             this.plugin.settings.memory.crossSurface = { ...DEFAULT_CROSS_SURFACE_SETTINGS };
         }
-        const cs = this.plugin.settings.memory.crossSurface as CrossSurfaceSettings;
+        const cs = this.plugin.settings.memory.crossSurface;
         // Defensive Init der Sub-Objekte (gleicher Bug-Klasse wie VaultTab
         // 2026-05-04: shallow Object.assign in loadSettings ueberschreibt
         // memory.crossSurface komplett wenn es im persistenten data.json
@@ -347,7 +347,7 @@ export class MemoryTab {
         containerEl.createEl('p', {
             cls: 'agent-settings-paragraph',
             // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Obsilo" is the product brand name
-            text: 'See what Obsilo remembers about you and how it knows itself. To add an entry, just say it in chat ("remember, I don\'t like emojis"). This view is for checking what is stored and removing entries you do not want.',
+            text: 'See what Obsilo remembers about you and how it knows itself. To add an entry, just say it in chat (for example: remember, I do not like emojis). This view is for checking what is stored and removing entries you do not want.',
         });
 
         new Setting(containerEl)
@@ -365,7 +365,7 @@ export class MemoryTab {
         new Setting(containerEl)
             .setName('Delete all memory')
             // eslint-disable-next-line obsidianmd/ui/sentence-case -- "DELETE" is the literal confirmation phrase the user types
-            .setDesc('Permanently removes every entry across user memory, agent soul, sessions, and the audit log. Requires typing DELETE to confirm.')
+            .setDesc('Permanently removes every entry across user memory, agent soul, sessions, and the audit log. Requires typing the literal word DELETE to confirm.')
             .addButton((b) => b
                 .setButtonText('Delete all')
                 .setWarning()
@@ -413,7 +413,7 @@ export class MemoryTab {
             )
             .addDropdown(d => {
                 // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Memory Model" references the literal setting label above
-                d.addOption('', '(use Memory Model)');
+                d.addOption('', 'Use the configured memory model');
                 for (const m of activeModels) {
                     d.addOption(getModelKey(m), `${m.displayName ?? m.name} (${m.provider})`);
                 }

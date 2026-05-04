@@ -181,7 +181,7 @@ export class MemoryMigrationJob {
                 text: candidate.text,
                 topics: candidate.topics,
                 importance: candidate.importance,
-                kind: candidate.kind as FactKind,
+                kind: candidate.kind,
                 sourceUri,
                 metadata: candidate.rationale ? { rationale: candidate.rationale } : undefined,
             });

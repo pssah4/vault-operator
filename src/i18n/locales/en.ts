@@ -221,7 +221,7 @@ export const en: Translations = {
     // =========================================================================
     'settings.mcp.introTitle': 'Model context protocol',
     'settings.mcp.introDesc': 'Connect external tools and data sources to the agent. Each server provides new tools the agent can use.',
-    'settings.mcp.desc': 'Connect external tools and data sources via the model context protocol. Each server exposes tools the agent can call using use_mcp_tool.',
+    'settings.mcp.desc': 'Connect external tools and data sources via the model context protocol. Each server exposes tools the agent can call using `use_mcp_tool`.',
     'settings.mcp.addServer': 'Add server',
     'settings.mcp.disconnect': 'Disconnect',
     'settings.mcp.retry': 'Retry',
@@ -677,7 +677,7 @@ export const en: Translations = {
     'settings.backup.cancel': 'Cancel',
     'settings.backup.overwriteWarning': 'Existing files will be overwritten.',
     'settings.backup.backupFrom': 'Backup from {{date}} (v{{version}})',
-    'settings.backup.invalidFile': 'Invalid backup file. Not recognized as an obsilo backup.',
+    'settings.backup.invalidFile': 'Invalid backup file. Not recognized as an Obsilo backup.',
     'settings.backup.exported': 'Backup exported: {{files}} files in {{categories}} categories ({{size}})',
     'settings.backup.exportFailed': 'Export failed: {{error}}',
     'settings.backup.imported': 'Backup imported: {{files}} files in {{categories}} categories. Reload Obsidian for full effect.',
@@ -1000,8 +1000,8 @@ export const en: Translations = {
     // =========================================================================
     // Chat UI — Error Messages
     // =========================================================================
-    'ui.error.invalidKey': 'Invalid API key \u2014 check settings \u2192 obsilo agent',
-    'ui.error.modelNotFound': 'Model not found \u2014 verify the model ID in settings \u2192 obsilo agent',
+    'ui.error.invalidKey': 'Invalid API key \u2014 check settings \u2192 Obsilo agent',
+    'ui.error.modelNotFound': 'Model not found \u2014 verify the model ID in settings \u2192 Obsilo agent',
     'ui.error.rateLimit': 'Rate limit reached \u2014 please wait a moment',
     'ui.error.overloaded': 'API overloaded \u2014 try again shortly',
     'ui.error.network': 'Network error \u2014 check your connection and that the local server is running',
@@ -1309,7 +1309,7 @@ export const en: Translations = {
     // =========================================================================
     // Onboarding (German UI — localized per language)
     // =========================================================================
-    'onboarding.welcome.heading': 'Welcome to obsilo',
+    'onboarding.welcome.heading': 'Welcome to Obsilo',
     'onboarding.welcome.modelNeeded': 'Before we start, the agent needs access to a language model.',
     'onboarding.welcome.quickFree': 'This is quick, and free.',
     'onboarding.welcome.freeButton': 'Try for free',

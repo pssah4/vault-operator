@@ -83,6 +83,7 @@ export class Stufe2ActivityTrigger {
     }
 
     /** Public fuer Tests. Returns true wenn Hint gefeuert. */
+    // eslint-disable-next-line @typescript-eslint/require-await -- async kept for future LLM-backed hint resolution
     async maybeHint(file: TFile): Promise<boolean> {
         if (!this.opts.enabled) return false;
         if (!this.knowledgeDB.isOpen()) return false;

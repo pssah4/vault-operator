@@ -153,7 +153,7 @@ export class FrontmatterBackfillJob {
 
     private collectFiles(options: BackfillJobOptions): TFile[] {
         const allow = options.folderAllowList;
-        const vault = this.app.vault as Vault;
+        const vault = this.app.vault;
         const all = vault.getMarkdownFiles();
         const filtered = allow && allow.length > 0
             ? all.filter((f) => allow.some((folder) => f.path.startsWith(folder)))

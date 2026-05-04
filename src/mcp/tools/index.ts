@@ -63,6 +63,7 @@ const SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min inactivity = new session
  * (auch save_conversation, das seinen eigenen Storage-Pfad hat)
  * eine leere "Claude (MCP)"-Conversation im Unknown-Tab hinterlaesst.
  */
+// eslint-disable-next-line @typescript-eslint/require-await -- async kept lazily for the in-flight refactor that wires ConversationStore.create here once FIX-23-01-04 lands its second pass
 async function ensureSession(plugin: ObsidianAgentPlugin): Promise<void> {
     const now = Date.now();
 

@@ -294,7 +294,7 @@ export class HistoryPanel {
                 if (conv.crossInterfaceThreadId && this.threadFilter !== conv.crossInterfaceThreadId) {
                     const threadPill = titleRow.createEl('button', {
                         cls: 'history-row-thread-pill',
-                        text: 'thread',
+                        text: 'Thread',
                         attr: { 'aria-label': `Filter by thread ${conv.crossInterfaceThreadId}` },
                     });
                     threadPill.addEventListener('click', (e) => {

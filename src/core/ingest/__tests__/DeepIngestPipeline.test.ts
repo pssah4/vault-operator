@@ -11,6 +11,7 @@ import type { App } from 'obsidian';
  */
 
 function makeFile(path: string): TFile {
+    // eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast -- test factory: synthesises a TFile prototype for a mock vault, never reaches the real Vault API where instanceof checks apply
     const f = Object.create(TFile.prototype) as TFile;
     Object.assign(f, { path, basename: path.split('/').pop()?.replace(/\.md$/, '') ?? '', extension: 'md' });
     return f;

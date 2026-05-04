@@ -56,7 +56,7 @@ export async function confirmAndWipeAllMemory(
     }
 
     try {
-        const memDB = plugin.memoryDB!;
+        const memDB = plugin.memoryDB;
         const db = memDB.getDB();
         const tables = [
             'memory_audit', 'fact_edges', 'fact_embeddings', 'facts',
