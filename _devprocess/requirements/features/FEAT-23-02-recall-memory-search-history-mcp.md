@@ -2,7 +2,6 @@
 id: FEAT-23-02
 title: recall_memory + search_history MCP-Tools (Lese-Pfad)
 epic: EPIC-23
-status: Active
 priority: P0
 date: 2026-05-03
 related-bas: BA-26

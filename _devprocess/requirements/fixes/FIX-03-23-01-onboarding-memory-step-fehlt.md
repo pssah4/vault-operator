@@ -17,7 +17,7 @@ Backlog auf `Done/Released`, das Audit (REFLECTION-2026-05-03) hat
 aber gezeigt:
 
 - `OnboardingStep` enum
-  ([src/core/onboarding/OnboardingService.ts](../../../src/core/onboarding/OnboardingService.ts))
+  ([src/core/memory/OnboardingService.ts](../../../src/core/memory/OnboardingService.ts))
   hat keinen `'memory'`-Schritt -- Hauptdeliverable von SC-02 fehlt.
 - Inline Coach-Marks fuer Star-Button + mark_for_memory (SC-03) sind
   nicht implementiert.

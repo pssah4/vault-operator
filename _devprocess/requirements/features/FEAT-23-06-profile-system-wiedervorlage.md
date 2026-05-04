@@ -2,7 +2,6 @@
 id: FEAT-23-06
 title: Memory-Profile-System (4+ Profile, Wiedervorlage)
 epic: EPIC-23
-status: Planned
 priority: P1
 date: 2026-05-03
 related-bas: BA-26, BA-24

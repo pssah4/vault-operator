@@ -1,7 +1,6 @@
 ---
 id: EPIC-23
 title: Cross-Surface AI Workflow
-status: Active
 date: 2026-05-03
 related-bas: BA-26
 ---
