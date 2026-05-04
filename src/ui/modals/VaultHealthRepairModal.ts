@@ -25,13 +25,19 @@ const CHECK_LABELS: Record<string, string> = {
     inconsistent_tags: 'Inconsistent tags',
     category_mismatch: 'Category mismatches',
     god_nodes: 'Overloaded hub notes',
+    cluster_freshness: 'Cluster freshness (Karpathy-Lint)',
+    source_concentration: 'Source concentration (Bias)',
 };
+
+type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 
 export class VaultHealthRepairModal extends Modal {
     private plugin: ObsidianAgentPlugin;
     private findings: HealthFinding[];
     private selectedFindings = new Set<number>();
     private onDiscuss?: (prompt: string) => void;
+    /** FEAT-19-18: severity filter pill (all/high/medium/low). Default 'all'. */
+    private severityFilter: SeverityFilter = 'all';
 
     constructor(
         plugin: ObsidianAgentPlugin,
@@ -66,9 +72,40 @@ export class VaultHealthRepairModal extends Modal {
 
         contentEl.createEl('h3', { text: `Vault health (${totalCount} findings)` });
 
+        // FEAT-19-18: Severity filter tabs.
+        const counts = {
+            high: this.findings.filter(f => f.severity === 'high').length,
+            medium: this.findings.filter(f => f.severity === 'medium').length,
+            low: this.findings.filter(f => f.severity === 'low').length,
+        };
+        const filterRow = contentEl.createDiv('vault-health-filter-row');
+        const tabs: Array<{ key: SeverityFilter; label: string }> = [
+            { key: 'all', label: `All (${totalCount})` },
+            { key: 'high', label: `High (${counts.high})` },
+            { key: 'medium', label: `Medium (${counts.medium})` },
+            { key: 'low', label: `Low (${counts.low})` },
+        ];
+        for (const tab of tabs) {
+            const btn = filterRow.createEl('button', {
+                text: tab.label,
+                cls: 'vault-health-filter-tab' + (this.severityFilter === tab.key ? ' is-active' : ''),
+            });
+            btn.addEventListener('click', () => {
+                this.severityFilter = tab.key;
+                this.selectedFindings.clear();
+                this.showFindings();
+            });
+        }
+
+        // Apply filter
+        const visibleFindings = this.severityFilter === 'all'
+            ? this.findings
+            : this.findings.filter(f => f.severity === this.severityFilter);
+
         // Group findings by check type
         const grouped = new Map<HealthCheckType, { findings: HealthFinding[]; indices: number[] }>();
-        this.findings.forEach((f, idx) => {
+        visibleFindings.forEach((f) => {
+            const idx = this.findings.indexOf(f);
             const entry = grouped.get(f.check) ?? { findings: [], indices: [] };
             entry.findings.push(f);
             entry.indices.push(idx);
@@ -150,6 +187,34 @@ export class VaultHealthRepairModal extends Modal {
                         this.onDiscuss(prompt);
                     }
                 });
+
+                // FEAT-19-18: BA-25 Action-Buttons fuer Lint-Findings.
+                if (finding.check === 'source_concentration' && finding.cluster) {
+                    const antiEchoBtn = actions.createEl('button', {
+                        cls: 'vault-health-icon-btn',
+                        attr: { 'aria-label': 'Run anti-echo search' },
+                    });
+                    setIcon(antiEchoBtn, 'search');
+                    antiEchoBtn.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        const prompt = `Run anti_echo_search for cluster "${finding.cluster}" to surface alternative sources beyond the dominant domain.`;
+                        this.close();
+                        this.onDiscuss?.(prompt);
+                    });
+                }
+                if (finding.check === 'cluster_freshness' && finding.cluster) {
+                    const refreshBtn = actions.createEl('button', {
+                        cls: 'vault-health-icon-btn',
+                        attr: { 'aria-label': 'Discuss freshness update for this cluster' },
+                    });
+                    setIcon(refreshBtn, 'refresh-cw');
+                    refreshBtn.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        const prompt = `Cluster "${finding.cluster}" ist ueber Halbwertszeit. Schlage einen Web-Search-Update-Pass und passende Source-Notes zum Deep-Ingest vor.`;
+                        this.close();
+                        this.onDiscuss?.(prompt);
+                    });
+                }
 
                 // Skip/dismiss (all finding types)
                 const skipBtn = actions.createEl('button', {

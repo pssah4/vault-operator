@@ -93,3 +93,89 @@ describe('systemPrompt section ordering (ADR-062)', () => {
         expect(prompt).toContain('Test Recipe');
     });
 });
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FEATURE-0315 / PLAN-004 task 6 -- KV-Cache-Layout invariants.
+//
+// The cache-stability invariant: anything before the dynamic Memory / Skills
+// / Recipes / Vault-Context / DateTime block must be byte-identical across
+// builds that share the same mode + tools + capabilities. If a future
+// refactor leaks a per-message token (e.g. a session id or timestamp) into
+// the stable prefix, every Anthropic cache_control hit collapses.
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('systemPrompt KV-cache stability (FEATURE-0315 / ADR-062)', () => {
+    it('Memory section sits between the stable prefix and DateTime', async () => {
+        const prompt = await buildTestPrompt({ memoryContext: 'USER MEMORY: testdata' });
+
+        const memoryIndex = prompt.indexOf('USER MEMORY: testdata');
+        const dateTimeIndex = prompt.lastIndexOf('TODAY IS:');
+        // Stable prefix anchor: the security boundary section is the last
+        // stable section before the cache breakpoint per systemPrompt.ts.
+        const securityIndex = prompt.indexOf('SECURITY');
+
+        expect(memoryIndex).toBeGreaterThan(0);
+        expect(dateTimeIndex).toBeGreaterThan(0);
+        expect(securityIndex).toBeGreaterThan(0);
+
+        // securityBoundary < memory < dateTime
+        expect(securityIndex).toBeLessThan(memoryIndex);
+        expect(memoryIndex).toBeLessThan(dateTimeIndex);
+    });
+
+    it('changing memoryContext does not change the stable prefix', async () => {
+        const a = await buildTestPrompt({
+            memoryContext: 'USER MEMORY: alice version',
+            includeTime: false, // strip time to make the comparison deterministic
+        });
+        const b = await buildTestPrompt({
+            memoryContext: 'USER MEMORY: bob version with longer text and more detail',
+            includeTime: false,
+        });
+
+        const securityMarker = 'SECURITY';
+        const aPrefix = a.slice(0, a.indexOf(securityMarker) + securityMarker.length);
+        const bPrefix = b.slice(0, b.indexOf(securityMarker) + securityMarker.length);
+
+        // The whole stable prefix (up to and including the security marker)
+        // must be byte-identical -- otherwise the Anthropic prompt cache
+        // breakpoint cannot land cleanly between stable and dynamic.
+        expect(aPrefix).toBe(bPrefix);
+    });
+
+    it('changing memoryContext changes only the dynamic suffix', async () => {
+        const a = await buildTestPrompt({
+            memoryContext: 'USER MEMORY: alice',
+            includeTime: false,
+        });
+        const b = await buildTestPrompt({
+            memoryContext: 'USER MEMORY: bob',
+            includeTime: false,
+        });
+
+        expect(a).not.toBe(b);
+        // The differing slice must be in the dynamic region (after the
+        // security boundary)
+        const securityIdx = Math.min(a.indexOf('SECURITY'), b.indexOf('SECURITY'));
+        const firstDiff = firstDifferingIndex(a, b);
+        expect(firstDiff).toBeGreaterThan(securityIdx);
+    });
+
+    it('DateTime never lands in the stable prefix', async () => {
+        const prompt = await buildTestPrompt({ includeTime: true });
+        const securityIdx = prompt.indexOf('SECURITY');
+        const dateTimeIdx = prompt.lastIndexOf('TODAY IS:');
+        // Stable prefix ends before SECURITY's full block; any TODAY IS:
+        // before that would mean the timestamp invalidates every cached
+        // turn -- the scenario ADR-062 was created to prevent.
+        expect(dateTimeIdx).toBeGreaterThan(securityIdx);
+    });
+});
+
+function firstDifferingIndex(a: string, b: string): number {
+    const len = Math.min(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+        if (a[i] !== b[i]) return i;
+    }
+    return len;
+}

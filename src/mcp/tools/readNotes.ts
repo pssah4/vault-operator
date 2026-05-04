@@ -6,6 +6,7 @@ import { TFile } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
 import { validateMcpVaultPath } from './mcpPathValidation';
+import { wrapVaultContentForMcp } from '../McpBridge';
 
 export async function handleReadNotes(
     plugin: ObsidianAgentPlugin,
@@ -58,14 +59,18 @@ export async function handleReadNotes(
             // Linked notes
             const links = cache?.links?.map(l => l.link) ?? [];
 
-            results.push([
-                `--- ${path} ---`,
+            // AUDIT-013 H-4: wrap user-controlled vault content in a
+            // trust-boundary tag so the downstream agent treats note bodies
+            // and frontmatter as data, not as instructions. Mitigates
+            // indirect prompt injection through note content.
+            const inner = [
                 fmStr ? `Frontmatter:\n${fmStr}` : '',
                 tags.length > 0 ? `Tags: ${tags.join(', ')}` : '',
                 links.length > 0 ? `Links: ${links.join(', ')}` : '',
                 '',
                 content,
-            ].filter(Boolean).join('\n'));
+            ].filter(Boolean).join('\n');
+            results.push(`--- ${path} ---\n${wrapVaultContentForMcp(path, inner)}`);
         } catch (e) {
             results.push(`--- ${path} ---\nError: ${e instanceof Error ? e.message : String(e)}`);
         }

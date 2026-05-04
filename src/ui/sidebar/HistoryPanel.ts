@@ -49,10 +49,26 @@ function formatDate(isoDate: string): string {
 // HistoryPanel
 // ---------------------------------------------------------------------------
 
+type SourceTab = 'all' | 'obsilo' | 'claude-ai' | 'claude-code' | 'chatgpt' | 'perplexity' | 'unknown';
+const SOURCE_TAB_LABELS: Record<SourceTab, string> = {
+    'all': 'All',
+    'obsilo': 'Obsilo',
+    'claude-ai': 'Claude.ai',
+    'claude-code': 'Claude Code',
+    'chatgpt': 'ChatGPT',
+    'perplexity': 'Perplexity',
+    'unknown': 'Unknown',
+};
+
 export class HistoryPanel {
     private panelEl: HTMLElement | null = null;
     private isOpen = false;
     private filterText = '';
+    private memoryOnly = false;
+    /** BA-26 / FEAT-23-03: active Source-Tab. 'all' shows everything. */
+    private sourceTab: SourceTab = 'all';
+    /** FIX-23-01-01: when set, filter list to one cross-interface thread; null = no filter. */
+    private threadFilter: string | null = null;
 
     constructor(
         private store: ConversationStore,
@@ -60,6 +76,12 @@ export class HistoryPanel {
         private onDelete: (id: string) => void,
         private onStampLink: (conversationId: string, title: string) => void,
         private activeConversationId: string | null,
+        private onSaveToMemory: ((id: string, title: string) => Promise<void> | void) | null = null,
+        private onRemoveFromMemory: ((id: string, title: string) => Promise<void> | void) | null = null,
+        private isInMemory: ((id: string) => boolean) | null = null,
+        private onRename: ((id: string, currentTitle: string) => Promise<void> | void) | null = null,
+        /** BA-26 / FEAT-23-04: confirm a pending external conversation (Manual-Sync). */
+        private onConfirmPending: ((id: string, title: string) => Promise<void> | void) | null = null,
     ) {}
 
     /** Mount the panel inside a parent container. */
@@ -78,6 +100,7 @@ export class HistoryPanel {
         if (!this.panelEl) return;
         this.isOpen = true;
         this.filterText = '';
+        this.memoryOnly = false;
         this.render();
         this.panelEl.classList.remove('agent-u-hidden');
         requestAnimationFrame(() => this.panelEl?.addClass('history-panel-open'));
@@ -118,6 +141,52 @@ export class HistoryPanel {
         setIcon(closeBtn, 'x');
         closeBtn.addEventListener('click', () => this.close());
 
+        // FIX-23-01-01: aktiver Thread-Filter wird oben als entfernbarer Chip
+        // angezeigt -- gibt User die Sicht "alle Conversations dieses Threads
+        // ueber alle Surfaces hinweg" plus klaren Exit.
+        if (this.threadFilter) {
+            const chipRow = this.panelEl.createDiv({ cls: 'history-panel-thread-chip-row' });
+            const chip = chipRow.createDiv({ cls: 'history-panel-thread-chip' });
+            chip.createSpan({ text: `Thread ${this.threadFilter.replace('thread-', '')}` });
+            const closeBtn = chip.createEl('button', {
+                cls: 'history-panel-thread-chip-close clickable-icon',
+                attr: { 'aria-label': 'Clear thread filter' },
+            });
+            setIcon(closeBtn, 'x');
+            closeBtn.addEventListener('click', () => {
+                this.threadFilter = null;
+                this.render();
+            });
+        }
+
+        // BA-26 / FEAT-23-03: Source-Tabs. Tab erscheint nur wenn min. eine
+        // Conversation der jeweiligen Source existiert. Klick filtert die
+        // Liste vollstaendig -- keine Vermischung.
+        const allConvs = this.store.list();
+        const sourceCounts = new Map<SourceTab, number>();
+        for (const c of allConvs) {
+            const s = (c.sourceInterface ?? 'obsilo') as SourceTab;
+            sourceCounts.set(s, (sourceCounts.get(s) ?? 0) + 1);
+        }
+        const visibleTabs: SourceTab[] = ['all'];
+        for (const k of ['obsilo', 'claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'] as SourceTab[]) {
+            if ((sourceCounts.get(k) ?? 0) > 0) visibleTabs.push(k);
+        }
+        if (visibleTabs.length > 1) {
+            const tabRow = this.panelEl.createDiv({ cls: 'history-panel-tabs' });
+            for (const tab of visibleTabs) {
+                const count = tab === 'all' ? allConvs.length : (sourceCounts.get(tab) ?? 0);
+                const btn = tabRow.createEl('button', {
+                    text: `${SOURCE_TAB_LABELS[tab]} (${count})`,
+                    cls: `history-panel-tab${this.sourceTab === tab ? ' history-panel-tab-active' : ''}`,
+                });
+                btn.addEventListener('click', () => {
+                    this.sourceTab = tab;
+                    this.render();
+                });
+            }
+        }
+
         // Filter
         const filterRow = this.panelEl.createDiv({ cls: 'history-panel-filter' });
         const filterInput = filterRow.createEl('input', {
@@ -131,6 +200,20 @@ export class HistoryPanel {
             this.renderList(listEl);
         });
 
+        // Memory-only toggle (FEATURE-0318): only meaningful when the
+        // host wired the isInMemory predicate through.
+        if (this.isInMemory) {
+            const memToggle = filterRow.createEl('button', {
+                cls: `history-panel-memory-toggle clickable-icon${this.memoryOnly ? ' history-panel-memory-toggle-active' : ''}`,
+                attr: { 'aria-label': t('ui.history.filterMemoryOnly') },
+            });
+            setIcon(memToggle, 'star');
+            memToggle.addEventListener('click', () => {
+                this.memoryOnly = !this.memoryOnly;
+                this.render();
+            });
+        }
+
         // List
         const listEl = this.panelEl.createDiv({ cls: 'history-panel-list' });
         this.renderList(listEl);
@@ -140,9 +223,25 @@ export class HistoryPanel {
         container.empty();
 
         let conversations = this.store.list();
+        // FIX-23-01-01: Thread-Filter ueberschreibt Source-Tab-Filter --
+        // wer einen Thread anklickt, will Conversations aller Surfaces sehen.
+        if (this.threadFilter) {
+            conversations = conversations.filter((c) =>
+                c.crossInterfaceThreadId === this.threadFilter
+            );
+        } else if (this.sourceTab !== 'all') {
+            // BA-26 / FEAT-23-03: Source-Tab-Filter, vollstaendige Trennung pro
+            // Provider. Conversations ohne Tag gelten als 'obsilo'.
+            conversations = conversations.filter((c) =>
+                ((c.sourceInterface ?? 'obsilo') as SourceTab) === this.sourceTab
+            );
+        }
         if (this.filterText) {
             const lower = this.filterText.toLowerCase();
             conversations = conversations.filter((c) => c.title.toLowerCase().includes(lower));
+        }
+        if (this.memoryOnly && this.isInMemory) {
+            conversations = conversations.filter((c) => this.isInMemory!(c.id));
         }
 
         if (conversations.length === 0) {
@@ -171,7 +270,39 @@ export class HistoryPanel {
                 });
 
                 const info = row.createDiv({ cls: 'history-row-info' });
-                info.createDiv({ cls: 'history-row-title', text: conv.title });
+                const titleRow = info.createDiv({ cls: 'history-row-title-row' });
+                titleRow.createDiv({ cls: 'history-row-title', text: conv.title });
+                // BA-26 / FEAT-23-03: Source-Pill (nur fuer non-obsilo + non-default).
+                const source = conv.sourceInterface ?? 'obsilo';
+                if (source !== 'obsilo') {
+                    titleRow.createSpan({
+                        cls: `history-row-source-pill history-row-source-pill-${source}`,
+                        text: SOURCE_TAB_LABELS[source as SourceTab] ?? source,
+                    });
+                }
+                // BA-26 / FEAT-23-04: Pending-Marker fuer Manual-Sync Conversations.
+                if (conv.syncState === 'pending') {
+                    titleRow.createSpan({
+                        cls: 'history-row-pending-marker',
+                        text: 'pending',
+                    });
+                }
+                // FIX-23-01-01: Thread-Pill fuer Conversations mit
+                // crossInterfaceThreadId. Klick filtert auf Thread-Mitglieder
+                // ueber alle Source-Tabs hinweg. Skip wenn schon im
+                // Thread-Filter (kein Sinn).
+                if (conv.crossInterfaceThreadId && this.threadFilter !== conv.crossInterfaceThreadId) {
+                    const threadPill = titleRow.createEl('button', {
+                        cls: 'history-row-thread-pill',
+                        text: 'Thread',
+                        attr: { 'aria-label': `Filter by thread ${conv.crossInterfaceThreadId}` },
+                    });
+                    threadPill.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.threadFilter = conv.crossInterfaceThreadId ?? null;
+                        this.render();
+                    });
+                }
                 const meta = info.createDiv({ cls: 'history-row-meta' });
                 const timeStr = groupName === 'today' || groupName === 'yesterday'
                     ? formatTime(conv.updated)
@@ -181,6 +312,18 @@ export class HistoryPanel {
 
                 // Action buttons (visible on hover)
                 const actions = row.createDiv({ cls: 'history-row-actions' });
+
+                // BA-26 / FEAT-23-04: Confirm-Button fuer Pending-Conversations.
+                if (conv.syncState === 'pending' && this.onConfirmPending) {
+                    const confirmBtn = actions.createEl('button', { cls: 'history-row-action clickable-icon' });
+                    setIcon(confirmBtn, 'check');
+                    confirmBtn.setAttribute('aria-label', 'Confirm and add to memory');
+                    confirmBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const action = this.onConfirmPending!(conv.id, conv.title);
+                        Promise.resolve(action).then(() => this.render()).catch(() => undefined);
+                    });
+                }
 
                 const copyBtn = actions.createEl('button', { cls: 'history-row-action clickable-icon' });
                 setIcon(copyBtn, 'link');
@@ -196,6 +339,17 @@ export class HistoryPanel {
                     });
                 });
 
+                if (this.onRename) {
+                    const renameBtn = actions.createEl('button', { cls: 'history-row-action clickable-icon' });
+                    setIcon(renameBtn, 'pencil');
+                    renameBtn.setAttribute('aria-label', t('ui.history.rename'));
+                    renameBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const action = this.onRename!(conv.id, conv.title);
+                        Promise.resolve(action).then(() => this.render()).catch(() => undefined);
+                    });
+                }
+
                 const stampBtn = actions.createEl('button', { cls: 'history-row-action clickable-icon' });
                 setIcon(stampBtn, 'file-plus');
                 stampBtn.setAttribute('aria-label', t('ui.history.addToNote'));
@@ -205,6 +359,26 @@ export class HistoryPanel {
                     if (linkTitle.length > 60) linkTitle = linkTitle.slice(0, 57) + '...';
                     this.onStampLink(conv.id, linkTitle);
                 });
+
+                if (this.onSaveToMemory) {
+                    const inMem = this.isInMemory?.(conv.id) ?? false;
+                    const memBtn = actions.createEl('button', {
+                        cls: `history-row-action clickable-icon${inMem ? ' history-row-action-pinned' : ''}`,
+                    });
+                    setIcon(memBtn, 'star');
+                    memBtn.setAttribute('aria-label', inMem
+                        ? t('ui.history.removeFromMemory')
+                        : t('ui.history.saveToMemory'));
+                    memBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        let title = conv.title.replace(/\n.*/s, '').trim();
+                        if (title.length > 60) title = title.slice(0, 57) + '...';
+                        const action = inMem
+                            ? this.onRemoveFromMemory?.(conv.id, title)
+                            : this.onSaveToMemory!(conv.id, title);
+                        Promise.resolve(action).then(() => this.render()).catch(() => undefined);
+                    });
+                }
 
                 const delBtn = actions.createEl('button', { cls: 'history-row-action history-row-action-danger clickable-icon' });
                 setIcon(delBtn, 'trash-2');

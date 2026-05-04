@@ -1,12 +1,18 @@
 /**
  * sync_session -- Save the full conversation transcript to Obsilo's shared history.
- * Claude MUST call this at the end of every conversation that uses Obsilo tools.
- * The transcript appears in Obsilo's chat history sidebar.
+ *
+ * FIX-23-01-02: source_interface argument now accepted (defaults to
+ * 'unknown'). Without it the conversation lands in the Unknown tab,
+ * not in the matching provider tab. New cross-surface use cases
+ * should prefer save_conversation (FEAT-23-01), which is built for
+ * Living-Document semantics and Cross-Interface-Threads.
  */
 
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
 import { getAutoSessionId } from './index';
+import { validateSourceInterface } from '../../core/memory/SourceInterface';
+import { MAX_MESSAGE_TEXT_LENGTH, MAX_MESSAGES_PER_CALL } from './saveConversation';
 
 interface TranscriptMessage {
     role: 'user' | 'assistant' | 'tool';
@@ -22,9 +28,26 @@ export async function handleSyncSession(
     const transcript = (args.transcript as TranscriptMessage[]) ?? [];
     const learnings = typeof args.learnings === 'string' ? args.learnings : '';
     const toolsUsed = (args.tools_used as string[]) ?? [];
+    // FIX-23-01-02: optional source_interface tag, fallback to 'unknown'.
+    const sourceInterface = args.source_interface !== undefined
+        ? validateSourceInterface(args.source_interface)
+        : 'unknown';
 
     if (transcript.length === 0) {
         return { content: [{ type: 'text', text: 'Error: transcript is required (array of {role, text})' }], isError: true };
+    }
+    // AUDIT-016 H-1: same caps as save_conversation. Reject the call
+    // if any message text exceeds 100k or transcript > 500 entries.
+    if (transcript.length > MAX_MESSAGES_PER_CALL) {
+        return { content: [{ type: 'text', text: `Error: transcript too long (max ${MAX_MESSAGES_PER_CALL} messages)` }], isError: true };
+    }
+    for (const m of transcript) {
+        if (typeof m?.text !== 'string') {
+            return { content: [{ type: 'text', text: 'Error: each transcript entry must have a string text field' }], isError: true };
+        }
+        if (m.text.length > MAX_MESSAGE_TEXT_LENGTH) {
+            return { content: [{ type: 'text', text: `Error: transcript message text exceeds ${MAX_MESSAGE_TEXT_LENGTH} characters` }], isError: true };
+        }
     }
 
     const sessionId = getAutoSessionId() ?? `mcp-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
@@ -68,9 +91,11 @@ export async function handleSyncSession(
             const allUiMessages = [...existingUiMessages, ...filteredUiMessages];
 
             await plugin.conversationStore.save(sessionId, allMessages, allUiMessages);
-            await plugin.conversationStore.updateMeta(sessionId, { title });
-             
-            results.push(`Conversation updated: "${title}" (${allUiMessages.length} messages total, ${filteredUiMessages.length} new)`);
+            // FIX-23-01-02: tag the conversation with source_interface so
+            // it lands in the correct History-Sidebar tab.
+            await plugin.conversationStore.updateMeta(sessionId, { title, sourceInterface });
+
+            results.push(`Conversation updated: "${title}" (${allUiMessages.length} messages total, ${filteredUiMessages.length} new, source: ${sourceInterface})`);
         } catch (e) {
             results.push(`History save failed: ${e instanceof Error ? e.message : String(e)}`);
         }

@@ -57,8 +57,15 @@ export class SearchFilesTool extends BaseTool<'search_files'> {
 
             const dirPath = rawPath === '/' || rawPath === '' ? '' : rawPath;
 
+            // AUDIT-013 H-1: respect IgnoreService. Notes the user has marked
+            // ignored must not appear in search results, ever. The pipeline's
+            // path-validation gate only sees the directory parameter; per-file
+            // filtering belongs here, in the iteration.
+            const ignoreService = this.plugin.ignoreService;
+
             // Get candidate files
             let files = this.app.vault.getFiles().filter((f) => {
+                if (ignoreService.isIgnored(f.path)) return false;
                 if (dirPath && !f.path.startsWith(dirPath + '/') && f.path !== dirPath) return false;
                 if (filePattern && !f.name.endsWith(filePattern)) return false;
                 return true;

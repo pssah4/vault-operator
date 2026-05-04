@@ -44,6 +44,16 @@ export type ToolName =
     | 'create_xlsx'
     // Vault: document ingest
     | 'ingest_document'
+    // Vault: BA-25 Karpathy-Wiki-Pattern (FEAT-19-12, ADR-98)
+    | 'ingest_triage'
+    // Vault: BA-25 Deep-Ingest-Pipeline (FEAT-19-22/23/24/26/30 + 19-13 Caller)
+    | 'ingest_deep'
+    // Vault: BA-25 Anti-Echo Web-Search-Suche (FEAT-19-14)
+    | 'anti_echo_search'
+    // Vault: FEAT-03-25 / ADR-109 Vault-zu-Memory-Bruecke
+    | 'mark_note_as_memory_source'
+    | 'unmark_note_as_memory_source'
+    | 'list_memory_source_notes'
     // Web
     | 'web_fetch'
     | 'web_search'
@@ -76,7 +86,21 @@ export type ToolName =
     // Self-Development (Phase 3: Expression evaluation)
     | 'evaluate_expression'
     // Self-Development (Phase 4: Core Self-Modification)
-    | 'manage_source';
+    | 'manage_source'
+    // Memory v2 (Phase 3 / FEATURE-0317): cold-memory recall for the agent.
+    | 'recall_memory'
+    // Memory v2 (Phase 4 / FEATURE-0318): user-triggered manual extraction.
+    | 'mark_for_memory'
+    // Memory v2 (Phase 4.5 / FEATURE-0319b): agent-self layer.
+    | 'update_soul'
+    | 'inspect_self'
+    // Memory v2 (Phase 6 / FEATURE-0320): history search.
+    | 'search_history'
+    // Memory v2 internal -- Engine-only tool schemas, never registered with
+    // the agent ToolRegistry. Carried in ToolName so ApiHandler.createMessage
+    // type-checks across the same ToolDefinition surface.
+    | '_memory_atomize'
+    | '_memory_single_call';
 
 /**
  * Tool use request from LLM
@@ -191,6 +215,15 @@ export interface ToolExecutionContext {
      * Used by update_todo_list tool.
      */
     updateTodos?: (items: import('../tools/agent/UpdateTodoListTool').TodoItem[]) => void;
+
+    /**
+     * FIX-H (ADR-090 follow-up): Return the set of file paths the agent has
+     * read in the current task (via read_file / read_document / FastPath stage 2).
+     * UpdateTodoListTool uses this to detect done items that reference unread
+     * files -- prevents the "I marked it done but never opened the file"
+     * hallucination pattern.
+     */
+    getReadFiles?: () => Set<string>;
 
     /**
      * Switch the active mode. Used by switch_mode tool.

@@ -7,6 +7,7 @@
 
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
+import { wrapVaultContentForMcp } from '../McpBridge';
 
 export async function handleSearchVault(
     plugin: ObsidianAgentPlugin,
@@ -26,6 +27,13 @@ export async function handleSearchVault(
     const folderFilter = (args.folder as string)?.trim() || undefined;
     const tagsFilter = Array.isArray(args.tags) ? (args.tags as string[]).map(t => t.replace(/^#/, '').toLowerCase()) : undefined;
     const searchK = Math.min(topK * 3, 40);
+
+    // AUDIT-013 H-2: never return ignored paths to MCP clients. The
+    // semantic index, keyword fallback, graph expansion and implicit
+    // connections all bypass IgnoreService at retrieval time, so we must
+    // filter every result stream here at the boundary.
+    const ignoreService = plugin.ignoreService;
+    const isIgnored = (p: string) => ignoreService.isIgnored(p);
 
     try {
         // Parallel: Semantic + Keyword search
@@ -55,7 +63,9 @@ export async function handleSearchVault(
             }
         });
 
-        let results = Array.from(fused.values()).sort((a, b) => b.score - a.score);
+        let results = Array.from(fused.values())
+            .filter(r => !isIgnored(r.path))
+            .sort((a, b) => b.score - a.score);
 
         // Metadata filters
         if (folderFilter) {
@@ -96,11 +106,12 @@ export async function handleSearchVault(
                 const neighbors = graphStore.getNeighbors(r.path, hops, 5);
                 for (const n of neighbors) {
                     if (topKPaths.has(n.path) || graphLines.length >= 5) continue;
+                    if (isIgnored(n.path)) continue; // AUDIT-013 H-2
                     topKPaths.add(n.path);
                     const chunks = await semanticIndex.getChunksByPath(n.path);
                     if (chunks.length === 0) continue;
                     const ctx = n.propertyName ? `via ${n.viaPath} (${n.propertyName})` : `via ${n.viaPath}`;
-                    graphLines.push(`[graph] ${n.path} (${ctx})\n${chunks[0].slice(0, 500)}`);
+                    graphLines.push(`[graph] ${n.path} (${ctx})\n${wrapVaultContentForMcp(n.path, chunks[0].slice(0, 500))}`);
                 }
             }
         }
@@ -114,18 +125,21 @@ export async function handleSearchVault(
                 const neighbors = implicitService.getImplicitNeighbors(r.path, 3);
                 for (const n of neighbors) {
                     if (implicitLines.length >= 3) continue;
+                    if (isIgnored(n.path)) continue; // AUDIT-013 H-2
                     const chunks = await semanticIndex.getChunksByPath(n.path);
                     if (chunks.length === 0) continue;
-                    implicitLines.push(`[implicit] ${n.path} (similarity: ${n.similarity.toFixed(2)})\n${chunks[0].slice(0, 500)}`);
+                    implicitLines.push(`[implicit] ${n.path} (similarity: ${n.similarity.toFixed(2)})\n${wrapVaultContentForMcp(n.path, chunks[0].slice(0, 500))}`);
                 }
             }
         }
 
-        // Format output
+        // Format output. AUDIT-013 H-4: every excerpt drawn from user-
+        // controlled vault content is wrapped in a trust-boundary tag so
+        // the downstream agent does not treat it as instructions.
         const lines: string[] = [`Search results for: "${query}" (${results.length} results)\n`];
         for (const r of results) {
             lines.push(`--- ${r.path} (${r.method}, score: ${r.score.toFixed(4)}) ---`);
-            lines.push(r.excerpt.slice(0, 1500));
+            lines.push(wrapVaultContentForMcp(r.path, r.excerpt.slice(0, 1500)));
             lines.push('');
         }
         if (graphLines.length > 0) {

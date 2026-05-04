@@ -1,6 +1,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { rrf } from '../../memory/rrf';
 
 export class SemanticSearchTool extends BaseTool<'semantic_search'> {
     readonly name = 'semantic_search' as const;
@@ -113,37 +114,51 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                 }
             }
 
-            // ── Hybrid search: semantic + keyword in parallel, fused via RRF ──
-            const [semanticResults, keywordResults] = await Promise.all([
+            // ── Hybrid search: 3 signals in parallel, fused via Engine-public RRF ──
+            // PLAN-005 task 5: Cosine + TF-IDF stay; Tag-Match is the new
+            // signal (notes whose tags overlap the query tokens). Edge-Walk
+            // and Trigram are deferred to Phase 3 / a follow-up iteration --
+            // they are unlikely to dominate the recall delta and add risk to
+            // the heat path.
+            const [semanticResults, keywordResults, tagResults] = await Promise.all([
                 semanticIndex.search(query, searchK, hydeText, { adjacentChunks: 1, adjacentThreshold: 0.3, maxPerFile: 2 }),
                 semanticIndex.keywordSearch(query, searchK),
+                semanticIndex.tagMatchSearch(query, searchK),
             ]);
 
-            // Reciprocal Rank Fusion (RRF k=60): score(d) = Σ 1/(k + rank)
-            // Results appearing in both lists float naturally to the top.
-            const RRF_K = 60;
+            // Cache excerpts per path so the fused result can pick the best
+            // available text (cosine excerpt > keyword excerpt > tag excerpt).
+            const excerptByPath = new Map<string, string>();
+            const remember = (path: string, text: string) => {
+                if (text && !excerptByPath.has(path)) excerptByPath.set(path, text);
+            };
+            for (const r of semanticResults) remember(r.path, r.excerpt);
+            for (const r of keywordResults) remember(r.path, r.excerpt);
+            for (const r of tagResults) remember(r.path, r.excerpt);
+
+            // Reciprocal Rank Fusion via the engine-public utility from
+            // FEATURE-0316 task 1. Method tag mirrors which signals contributed
+            // (semantic / keyword / tag / hybrid) for the result line.
+            const fused = rrf([
+                { name: 'semantic', items: semanticResults.map(r => r.path) },
+                { name: 'keyword', items: keywordResults.map(r => r.path) },
+                { name: 'tag', items: tagResults.map(r => r.path) },
+            ]);
+
             type HybridEntry = { path: string; excerpt: string; score: number; method: 'semantic' | 'keyword' | 'hybrid' };
-            const fused = new Map<string, HybridEntry>();
+            const classify = (contribs: Record<string, number>): HybridEntry['method'] => {
+                const signals = Object.keys(contribs).filter(k => contribs[k] > 0);
+                if (signals.length >= 2) return 'hybrid';
+                if (signals[0] === 'semantic') return 'semantic';
+                return 'keyword'; // tag-only and keyword-only both render with the keyword/hybrid badge
+            };
 
-            semanticResults.forEach((r, i) => {
-                // Keep first (best-ranked) occurrence per file — don't overwrite with worse rank
-                if (!fused.has(r.path)) {
-                    fused.set(r.path, { path: r.path, excerpt: r.excerpt, score: 1 / (RRF_K + i + 1), method: 'semantic' });
-                }
-            });
-            keywordResults.forEach((r, i) => {
-                const rrf = 1 / (RRF_K + i + 1);
-                const existing = fused.get(r.path);
-                if (existing) {
-                    existing.score += rrf;
-                    existing.method = 'hybrid';
-                } else {
-                    fused.set(r.path, { path: r.path, excerpt: r.excerpt, score: rrf, method: 'keyword' });
-                }
-            });
-
-            let results = Array.from(fused.values())
-                .sort((a, b) => b.score - a.score);
+            let results: HybridEntry[] = fused.map(f => ({
+                path: f.id,
+                excerpt: excerptByPath.get(f.id) ?? '',
+                score: f.score,
+                method: classify(f.contributions),
+            }));
 
             // ── Metadata filters ─────────────────────────────────────────────
             if (folderFilter) {

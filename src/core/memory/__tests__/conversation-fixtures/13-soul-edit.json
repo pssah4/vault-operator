@@ -1,0 +1,32 @@
+{
+    "name": "soul-edit",
+    "description": "User instructs Obsilo about its own behaviour -- agent should call update_soul, not mark_for_memory",
+    "messages": [
+        { "role": "user", "text": "Merk dir, ich mag keine Floskeln in deinen Antworten." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian gave a behavior preference for Obsilo (no filler phrases).",
+        "episode_outcome": { "success": true, "result_summary": "Behavior preference captured." },
+        "facts": [
+            {
+                "text": "Sebastian prefers responses without filler phrases",
+                "topics": ["preferences", "communication"],
+                "importance": 0.75,
+                "kind": "preference",
+                "relation": "new",
+                "rationale": "Explicit user instruction; also matches an Obsilo soul anti-pattern handled separately via update_soul."
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "Sebastian set a no-filler-phrases preference.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 1,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "preference", "relation": "new", "topicsFirst": "preferences" }
+        ]
+    }
+}

@@ -3,13 +3,12 @@ import type { FileAdapter } from '../../storage/types';
 import { ExtractionQueue } from '../ExtractionQueue';
 import type { PendingExtraction } from '../ExtractionQueue';
 
-function makeItem(id: string, type: 'session' | 'long-term' = 'session'): PendingExtraction {
+function makeItem(id: string): PendingExtraction {
     return {
         conversationId: id,
-        transcript: `Transcript for ${id}`,
+        messages: [{ role: 'user', text: `Hello from ${id}` }],
         title: `Title ${id}`,
         queuedAt: new Date().toISOString(),
-        type,
     };
 }
 
@@ -222,6 +221,147 @@ describe('ExtractionQueue', () => {
             queue['items'].push(makeItem('b'));
             await queue.processQueue();
             expect(calls).toBe(1);
+        });
+    });
+
+    describe('re-extraction throttle (PLAN-009 / Phase 5)', () => {
+        it('blocks a second auto-enqueue within the throttle window', async () => {
+            const fs = createMockFs();
+            const q = new ExtractionQueue(fs);
+            q.setThrottleMs(60_000);
+            await q.enqueue(makeItem('chat-1'));
+            await q.enqueue(makeItem('chat-1'));
+            expect(q.size()).toBe(1);
+        });
+
+        it('lets the same conversation through after the window elapsed', async () => {
+            const fs = createMockFs();
+            const q = new ExtractionQueue(fs);
+            q.setThrottleMs(50);
+            await q.enqueue(makeItem('chat-1'));
+            await new Promise(r => setTimeout(r, 80));
+            await q.enqueue(makeItem('chat-1'));
+            expect(q.size()).toBe(2);
+        });
+
+        it('different conversations are independent', async () => {
+            const fs = createMockFs();
+            const q = new ExtractionQueue(fs);
+            q.setThrottleMs(60_000);
+            await q.enqueue(makeItem('chat-a'));
+            await q.enqueue(makeItem('chat-b'));
+            expect(q.size()).toBe(2);
+        });
+
+        it('bypassThrottle items are not throttled', async () => {
+            const fs = createMockFs();
+            const q = new ExtractionQueue(fs);
+            q.setThrottleMs(60_000);
+            await q.enqueue(makeItem('chat-1'));
+            await q.enqueueImmediate({
+                conversationId: 'chat-1',
+                messages: [{ role: 'user', text: 'force-save' }],
+                title: 'T',
+                queuedAt: new Date().toISOString(),
+            });
+            expect(q.size()).toBe(2);
+        });
+
+        it('throttle state survives save -> new instance load', async () => {
+            const fs = createMockFs();
+            const q1 = new ExtractionQueue(fs);
+            q1.setThrottleMs(60_000);
+            await q1.enqueue(makeItem('chat-1'));
+            // New instance reads from same fs.
+            const q2 = new ExtractionQueue(fs);
+            q2.setThrottleMs(60_000);
+            await q2.load();
+            await q2.enqueue(makeItem('chat-1'));
+            // q2's enqueue should be throttled because q1's lastEnqueuedAt
+            // was persisted.
+            expect(q2.size()).toBe(1);
+        });
+
+        it('legacy plain-array persistence loads without throttle state', async () => {
+            const fs = createMockFs();
+            await fs.write(
+                'pending-extractions.json',
+                JSON.stringify([{
+                    conversationId: 'old', messages: [], title: 'T',
+                    queuedAt: new Date().toISOString(),
+                }]),
+            );
+            const q = new ExtractionQueue(fs);
+            await q.load();
+            expect(q.size()).toBe(1);
+        });
+
+        it('setThrottleMs(0) disables the throttle entirely', async () => {
+            const fs = createMockFs();
+            const q = new ExtractionQueue(fs);
+            q.setThrottleMs(0);
+            await q.enqueue(makeItem('chat-1'));
+            await q.enqueue(makeItem('chat-1'));
+            expect(q.size()).toBe(2);
+        });
+    });
+
+    describe('bypass flag (PLAN-007 task A.6)', () => {
+        // Processors are not set in these tests so processQueue() is a no-op
+        // (no processor configured) and we can inspect the queued item before
+        // it gets drained.
+        it('enqueueImmediate sets bypassThrottle=true on the persisted item', async () => {
+            const fs = createMockFs();
+            const queue = new ExtractionQueue(fs);
+            await queue.enqueueImmediate({
+                conversationId: 'a', messages: [{ role: 'user', text: 'hi' }], title: 'T',
+                queuedAt: new Date().toISOString(),
+            });
+            const peeked = queue.peek();
+            expect(peeked?.bypassThrottle).toBe(true);
+        });
+
+        it('regular enqueue leaves bypassThrottle undefined by default', async () => {
+            const fs = createMockFs();
+            const queue = new ExtractionQueue(fs);
+            await queue.enqueue({
+                conversationId: 'a', messages: [{ role: 'user', text: 'hi' }], title: 'T',
+                queuedAt: new Date().toISOString(),
+            });
+            expect(queue.peek()?.bypassThrottle).toBeUndefined();
+        });
+
+        it('bypassThrottle survives serialise -> load roundtrip', async () => {
+            const fs = createMockFs();
+            const queue1 = new ExtractionQueue(fs);
+            await queue1.enqueueImmediate({
+                conversationId: 'a', messages: [{ role: 'user', text: 'hi' }], title: 'T',
+                queuedAt: new Date().toISOString(),
+            });
+            const queue2 = new ExtractionQueue(fs);
+            await queue2.load();
+            expect(queue2.peek()?.bypassThrottle).toBe(true);
+        });
+    });
+
+    describe('IMP-03-18-02: clearThrottle', () => {
+        it('after clearThrottle the next enqueue passes the throttle gate', async () => {
+            queue.setThrottleMs(60_000);
+            await queue.enqueue(makeItem('conv-x'));
+            expect(queue.size()).toBe(1);
+
+            // Second enqueue within throttle window is dropped
+            await queue.enqueue(makeItem('conv-x'));
+            expect(queue.size()).toBe(1);
+
+            // Drift fires -> clearThrottle -> next enqueue passes
+            queue.clearThrottle('conv-x');
+            await queue.enqueue(makeItem('conv-x'));
+            expect(queue.size()).toBe(2);
+        });
+
+        it('clearThrottle on unknown id is a no-op', () => {
+            expect(() => queue.clearThrottle('does-not-exist')).not.toThrow();
         });
     });
 });

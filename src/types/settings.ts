@@ -7,7 +7,7 @@
 // Adapted from Obsidian Copilot's CustomModel pattern
 // ---------------------------------------------------------------------------
 
-export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway' | 'bedrock';
+export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway' | 'bedrock' | 'chatgpt-oauth';
 
 export interface CustomModel {
     /** Model identifier used in API calls (e.g. "claude-sonnet-4-5-20250929") */
@@ -433,14 +433,22 @@ export interface AdvancedApiSettings {
     rateLimitMs: number;
     /** Automatically summarize conversation when estimated tokens exceed threshold */
     condensingEnabled: boolean;
-    /** Percentage of model context window at which to trigger condensing (50–95) */
+    /** Percentage of model context window at which to trigger condensing (50-95) */
     condensingThreshold: number;
     /** Inject a mode-role reminder every N iterations to keep the model on track (0 = disabled) */
     powerSteeringFrequency: number;
-    /** Maximum iterations per message before the agent stops (5–50, default 25) */
+    /** Maximum iterations per message before the agent stops (5-50, default 25) */
     maxIterations: number;
     /** Maximum sub-agent nesting depth (1 = no grandchildren, 2 = one level of grandchildren) */
     maxSubtaskDepth: number;
+    /**
+     * Telemetry opt-in: persist a 200-char preview of the user's message
+     * with each task's telemetry entry (.obsidian-agent/telemetry/tasks.jsonl).
+     * AUDIT-013 M-2: defaults to false because the telemetry file lives
+     * inside the vault and may be synced or shared. Tokens, cost, model id
+     * and tool sequence are recorded regardless of this flag.
+     */
+    telemetryRecordPromptPreview?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -452,12 +460,65 @@ export interface MemorySettings {
     enabled: boolean;
     /** Automatically extract session summaries when a conversation ends */
     autoExtractSessions: boolean;
-    /** Promote durable facts from session summaries to long-term memory files */
-    autoUpdateLongTerm: boolean;
     /** Model key for extraction LLM calls (picks from activeModels[]) */
     memoryModelKey: string;
     /** Minimum total messages (user + assistant) before extraction triggers */
     extractionThreshold: number;
+    /**
+     * Memory v2 migration state (FEATURE-0316).
+     * - `not-applicable`: fresh install, never had v1 memory MDs -> Memory v2 is the only path
+     * - `pending`: v1 user upgraded but has not yet decided
+     * - `completed`: migration ran successfully (timestamp + counts in v2MigrationReport)
+     * - `skipped`: user chose "Later" in the upgrade modal
+     */
+    v2MigrationStatus: 'not-applicable' | 'pending' | 'completed' | 'skipped';
+    /** ISO timestamp + counts of the last successful migration run (null if never). */
+    v2MigrationReport: {
+        completedAt: string;
+        factsInserted: number;
+        stylesInserted: number;
+        backupFolder: string;
+    } | null;
+    /**
+     * Persistent state for TokenBudgetGuard (FEATURE-0318). Holds the
+     * current day's running tally of input + output tokens consumed by
+     * the memory pipeline. Auto-resets at midnight via guard.snapshot().
+     */
+    tokenBudgetState?: {
+        day: string;
+        inputTokens: number;
+        outputTokens: number;
+    } | null;
+
+    /**
+     * Hash of the last-synced CapabilityManifest (FEATURE-0319b).
+     * On each plugin onload the live manifest is hashed and compared;
+     * mismatch triggers a soul-snapshot rebuild (deprecate old, insert new).
+     */
+    lastCapabilityHash?: string | null;
+
+    /**
+     * ISO timestamp of the last AgingService run (FEATURE-0319 Phase 5).
+     * Aging short-circuits when called less than 24h after this stamp,
+     * so a flurry of plugin reloads doesn't repeatedly decay facts.
+     */
+    lastAgingRunAt?: string | null;
+
+    /**
+     * Throttle window between automatic re-extracts of the same
+     * conversation (FEATURE-0319 Phase 5). Manual saves (Star button,
+     * mark_for_memory tool) bypass the throttle. Default 60_000 ms.
+     */
+    reExtractThrottleMs?: number;
+
+    /**
+     * BA-26 / FEAT-23-04: Cross-Surface AI Workflow settings.
+     * Controls Auto-Sync vs Manual-Sync per provider for MCP-saved
+     * conversations. Privacy-sichere Defaults: chatgpt + perplexity
+     * + unknown auf manual (Familien-Account-Use-Case Sebastian).
+     * Optional: missing block reads as DEFAULT_CROSS_SURFACE_SETTINGS.
+     */
+    crossSurface?: import('../core/memory/SourceInterface').CrossSurfaceSettings;
 }
 
 // ---------------------------------------------------------------------------
@@ -681,6 +742,8 @@ export interface ObsidianAgentSettings {
     _syncDirMigrated?: boolean;
     /** Whether data has been migrated from ~/.obsidian-agent/ to {vault-parent}/.obsidian-agent/ (FEATURE-1508) */
     _parentDirMigrated?: boolean;
+    /** Whether the legacy in-vault folders (.obsilo, .obsilo-sync, .obsidian/.obsilo) have been cleaned up. */
+    _legacyVaultDirsCleaned?: boolean;
 
     // Task Extraction (FEATURE-100, ADR-026/027/028)
     taskExtraction: import('../core/tasks/types').TaskExtractionSettings;
@@ -707,6 +770,26 @@ export interface ObsidianAgentSettings {
     /** Epoch seconds of last successful token validation */
     kiloLastValidatedAt: number;
 
+    // ChatGPT OAuth (EPIC-021, ADR-088, ADR-089)
+    /** OAuth access token, encrypted via SafeStorageService (enc:v1:<base64>) */
+    chatgptOAuthAccessToken: string;
+    /** OAuth refresh token, encrypted */
+    chatgptOAuthRefreshToken: string;
+    /** ID token (JWT) for account info, encrypted */
+    chatgptOAuthIdToken: string;
+    /** chatgpt-account-id from id_token claim, sent as request header. Not encrypted. */
+    chatgptOAuthAccountId: string;
+    /** Email address from id_token claim, shown in settings UI. Not encrypted. */
+    chatgptOAuthEmail: string;
+    /** Subscription plan tier. Not encrypted. */
+    chatgptOAuthPlanTier: 'plus' | 'pro' | 'unknown' | '';
+    /** Unix timestamp in milliseconds when access_token expires. Not encrypted. */
+    chatgptOAuthExpiresAt: number;
+    /** Active model id, default 'gpt-5-codex'. */
+    chatgptOAuthModel: string;
+    /** Unix milliseconds when user acknowledged the third-party-endpoint disclaimer. 0 = not yet. */
+    chatgptOAuthDisclaimerAcknowledgedAt: number;
+
     // Advanced
     debugMode: boolean;
     /**
@@ -717,7 +800,122 @@ export interface ObsidianAgentSettings {
      * FEATURE-0507 / Issue #26.
      */
     agentFolderPath?: string;
+
+    /** BA-25: Vault-Ingest-Pflege (Note-Summary, Frontmatter, Auto-Trigger, PDF). */
+    vaultIngest: VaultIngestSettings;
 }
+
+// ---------------------------------------------------------------------------
+// Vault Ingest Settings (BA-25, PLAN-10 ff)
+// ---------------------------------------------------------------------------
+
+/**
+ * Settings fuer den Karpathy-Wiki-Pattern (BA-25): Note-Summary-
+ * Generierung, Frontmatter-Pflege, optionaler Auto-Trigger,
+ * PDF-Strategie. Alle Toggles default OFF (User-Trust per
+ * ADR-95). Standard-Prompt aus BA-25 Anhang B (Sebastians Wortlaut).
+ */
+export interface VaultIngestSettings {
+    /** FEAT-19-08: konfigurierbarer Standard-Prompt fuer Auto-Summary. */
+    summaryPrompt: {
+        /** Multi-Line String. Default = Sebastians Standard-Prompt-Wortlaut. */
+        template: string;
+        /** Optional: anderes Modell als der Default-LLM (zB Haiku statt Sonnet). */
+        modelOverride?: string;
+    };
+    /** FEAT-19-09: Auto-Generierung beim Indexing. */
+    autoSummary: {
+        enabled: boolean;
+        /**
+         * Wenn true und Frontmatter "Zusammenfassung" fehlt: System
+         * darf Property in der Vault-Note ergaenzen (FEAT-19-10,
+         * ADR-95). Default false. Bei Aktivierung steht ein einmaliger
+         * Backfill-Job an.
+         */
+        writeFrontmatter: boolean;
+    };
+    /** FEAT-19-27 (PLAN-12, Schema additiv vorbereitet). */
+    autoTrigger: {
+        enabled: boolean;
+        propertyName: string;
+        propertyValue: string | string[];
+        notification: boolean;
+    };
+    /** FEAT-19-29 (PLAN-13). */
+    pdfStrategy: 'page-refs' | 'markdown-mirror';
+
+    /**
+     * FEAT-03-26 Top-Hub-Block im KV-Cache.
+     *
+     * AUDIT-014 M-2 (FIX-03-26-01): Privacy-Trade-Off ist im Settings-UI
+     * explizit ausgewiesen, weil Note-Summaries der Top-30 Hubs bei
+     * jeder LLM-Conversation an den Provider gehen. Default OFF.
+     */
+    topHubBlock: {
+        enabled: boolean;
+        /** User hat Privacy-Hint gelesen und bestaetigt. Toggle deaktiviert wenn false. */
+        privacyAcknowledged: boolean;
+    };
+    /**
+     * FEAT-19-19: Stufe-2 Activity-Trigger.
+     *
+     * Bei Note-Open/Modify in einem reifen Cluster zeigt das Plugin
+     * dezent eine Notice mit Klick-Trigger fuer einen Light-Web-Search-
+     * Update-Pass. Default OFF damit das User-Erlebnis nicht stoert.
+     */
+    stufe2Hint: {
+        enabled: boolean;
+        /** Score-Schwelle (0..100). Default 70. Niedriger Score loest Hint aus. */
+        hintThresholdScore: number;
+        /** Default 30: keine Hints wenn letzter externer Check juenger. */
+        minDaysSinceCheck: number;
+        /** Default 7: pro-Cluster Cooldown in Tagen. */
+        perClusterCooldownDays: number;
+        /** Default 5: globale Hints pro Tag (Cap). */
+        maxHintsPerDay: number;
+    };
+}
+
+/**
+ * BA-25 Anhang B: Sebastians vorgegebener Standard-Prompt-Wortlaut.
+ * Bleibt 1:1 als Default in Settings hinterlegt, vom User editierbar.
+ */
+export const DEFAULT_SUMMARY_PROMPT_TEMPLATE = `Erstelle eine einzige Zusammenfassung in genau einem Satz in deutscher Sprache fuer die aktive Note.
+
+Die Ausgabe darf nicht mehr als 25 Woerter enthalten. Gib nur den Satz aus, keine Erklaerungen.
+Wenn die Zusammenfassung laenger waere, kuerze sie radikal.
+
+Erzeuge zusaetzlich 5-10 Keywords in deutscher und englischer Sprache (Bindestrich-Schreibweise wie "Wort1-Wort2", max 2 verbundene Woerter). Wenn Fachbegriffe eher in Englisch gebraeuchlich sind, verwende die englische Variante (z.B. "AI-Agent" statt "KI-Agent").
+
+Erstelle 2-3 Vorschlaege fuer "Themen" und 2-3 Vorschlaege fuer "Konzepte" passend zum Inhalt der Note. Suche zuerst im Vault nach passenden vorhandenen Themen und Konzepten. Erstelle nur dann ein neues Thema oder Konzept, wenn kein passendes existiert.`;
+
+export const DEFAULT_VAULT_INGEST_SETTINGS: VaultIngestSettings = {
+    summaryPrompt: {
+        template: DEFAULT_SUMMARY_PROMPT_TEMPLATE,
+    },
+    autoSummary: {
+        enabled: false,
+        writeFrontmatter: false,
+    },
+    autoTrigger: {
+        enabled: false,
+        propertyName: '',
+        propertyValue: '',
+        notification: false,
+    },
+    pdfStrategy: 'page-refs',
+    topHubBlock: {
+        enabled: false,
+        privacyAcknowledged: false,
+    },
+    stufe2Hint: {
+        enabled: false,
+        hintThresholdScore: 70,
+        minDaysSinceCheck: 30,
+        perClusterCooldownDays: 7,
+        maxHintsPerDay: 5,
+    },
+};
 
 // ---------------------------------------------------------------------------
 // Plugin API Settings (PAS-1.5, ADR-108)
@@ -755,7 +953,7 @@ export interface RecipeSettings {
 // Onboarding Settings
 // ---------------------------------------------------------------------------
 
-export type OnboardingStep = 'backup' | 'profile' | 'model' | 'permissions' | 'done';
+export type OnboardingStep = 'backup' | 'profile' | 'model' | 'permissions' | 'memory' | 'done';
 
 export interface OnboardingSettings {
     /** true when setup has been fully completed */
@@ -848,6 +1046,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         powerSteeringFrequency: 0,
         maxIterations: 25,
         maxSubtaskDepth: 2,
+        telemetryRecordPromptPreview: false, // AUDIT-013 M-2: opt-in
     },
 
     enableSemanticIndex: false,
@@ -900,9 +1099,33 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     memory: {
         enabled: true,
         autoExtractSessions: true,
-        autoUpdateLongTerm: true,
         memoryModelKey: '',
         extractionThreshold: 6,
+        // Default for FRESH installs. Existing v1 users get bumped to 'pending'
+        // by the detector in main.ts when memory/{file}.md is found and no
+        // facts row exists yet. See `detectMemoryV2MigrationStatus`.
+        v2MigrationStatus: 'not-applicable',
+        v2MigrationReport: null,
+        // BA-26 / FEAT-23-04: privacy-sichere Defaults fuer Cross-Surface MCP.
+        // chatgpt + perplexity stehen auf manual, weil sie haeufig in
+        // Familien-Accounts genutzt werden (Sebastian-Use-Case).
+        crossSurface: {
+            defaultSyncMode: 'auto',
+            perProvider: {
+                'obsilo': 'global',
+                'claude-ai': 'global',
+                'claude-code': 'global',
+                'chatgpt': 'manual',
+                'perplexity': 'manual',
+                'unknown': 'manual',
+            },
+            // FIX-23-01-01: Living-Document-Default. true = Auto-Continuation.
+            livingDocumentByDefault: true,
+            // AUDIT-015 M-3: Cross-Source-ACL. Default OFF -- Sebastian
+            // kann das ON setzen wenn ChatGPT/Perplexity strikt von
+            // claude-ai/claude-code getrennt sein muessen.
+            strictSourceIsolation: false,
+        },
     },
     chatLinking: {
         enabled: true,
@@ -960,6 +1183,16 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     kiloOrganizationId: '',
     kiloAccountLabel: '',
     kiloLastValidatedAt: 0,
+    chatgptOAuthAccessToken: '',
+    chatgptOAuthRefreshToken: '',
+    chatgptOAuthIdToken: '',
+    chatgptOAuthAccountId: '',
+    chatgptOAuthEmail: '',
+    chatgptOAuthPlanTier: '',
+    chatgptOAuthExpiresAt: 0,
+    chatgptOAuthModel: 'gpt-5.5',
+    chatgptOAuthDisclaimerAcknowledgedAt: 0,
     debugMode: false,
-    agentFolderPath: '.obsidian-agent',
+    agentFolderPath: '.obsilo-vault',
+    vaultIngest: DEFAULT_VAULT_INGEST_SETTINGS,
 };

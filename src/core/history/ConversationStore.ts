@@ -12,6 +12,7 @@
 
 import type { FileAdapter } from '../../core/storage/types';
 import type { MessageParam } from '../../api/types';
+import type { SourceInterface } from '../memory/SourceInterface';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,12 +28,42 @@ export interface ConversationMeta {
     model: string;
     inputTokens: number;
     outputTokens: number;
+    /**
+     * BA-26 / FEAT-23-04: chat surface this conversation came from.
+     * Optional for backward-compat with conversations created before
+     * Cross-Surface MCP. Reads default to 'obsilo' when missing.
+     */
+    sourceInterface?: SourceInterface;
+    /**
+     * BA-26 / FEAT-23-04: gating state for Manual-Sync-Mode.
+     * 'pending' conversations are visible in the History sidebar but
+     * not picked up by the ExtractionQueue until they get confirmed
+     * (Star-click, mark_for_memory, save_to_memory parallel call).
+     * Default 'confirmed' for backward-compat.
+     */
+    syncState?: 'pending' | 'confirmed' | 'rejected';
+    /**
+     * FIX-23-01-01 / ADR-110 -- Cross-Interface-Thread-Klammer.
+     * Identifier (`thread-${YYYY-MM-DD}-${6-hex}`) der mehrere
+     * Conversations ueber source_interface-Grenzen hinweg verbindet.
+     * Optional: Conversations ohne ID sind nicht Teil eines
+     * Cross-Interface-Threads.
+     */
+    crossInterfaceThreadId?: string;
 }
 
 export interface UiMessage {
     role: 'user' | 'assistant';
     text: string;
     ts: string;
+    /**
+     * Serialised HTML of the assistant's collapsed "Steps" block (tool
+     * calls + grouped operations) captured when the turn finished.
+     * Re-injected on conversation reload so the user can still expand
+     * the actions even after switching chats. Optional -- older
+     * messages and turns without tool calls omit it.
+     */
+    toolStepsHtml?: string;
 }
 
 export interface ConversationData {
@@ -51,10 +82,17 @@ interface ConversationIndex {
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
-    const now = new Date();
-    const date = now.toISOString().slice(0, 10); // "2026-02-20"
-    const hex = Math.random().toString(16).slice(2, 8); // "a1b2c3"
-    return `${date}-${hex}`;
+    // AUDIT-016 M-4: crypto.randomUUID() liefert 122 Bits Entropie statt
+    // Math.random()s 24 Bits. Birthday-Collision damit praktisch
+    // ausgeschlossen, ID-Predictability verschwindet. Wir behalten den
+    // YYYY-MM-DD-Prefix fuer Sortier-/Browse-Komfort und nehmen die
+    // ersten 12 hex-chars der UUID (48 Bit Entropie pro Tag, > 16M
+    // mehr als die alte Variante).
+    const date = new Date().toISOString().slice(0, 10);
+    const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+        : Math.random().toString(36).slice(2, 14);
+    return `${date}-${uuid}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +122,18 @@ export class ConversationStore {
     // CRUD
     // -----------------------------------------------------------------------
 
-    /** Create a new conversation and return its id. */
-    async create(mode: string, model: string): Promise<string> {
+    /**
+     * Create a new conversation and return its id.
+     *
+     * BA-26 / FEAT-23-04: optional source-tagging + sync-state for
+     * Cross-Surface MCP. Default values keep backward-compat with
+     * Obsilo-internal call sites that pass only mode + model.
+     */
+    async create(
+        mode: string,
+        model: string,
+        opts?: { sourceInterface?: SourceInterface; syncState?: 'pending' | 'confirmed' | 'rejected' },
+    ): Promise<string> {
         const id = generateId();
         const now = new Date().toISOString();
         const meta: ConversationMeta = {
@@ -98,10 +146,83 @@ export class ConversationStore {
             model,
             inputTokens: 0,
             outputTokens: 0,
+            sourceInterface: opts?.sourceInterface,
+            syncState: opts?.syncState,
         };
         this.index.conversations.unshift(meta);
         await this.saveIndex();
         return id;
+    }
+
+    /**
+     * BA-26 / FEAT-23-03: list conversations filtered by source.
+     * Pass `undefined` to get the full list. Conversations without an
+     * explicit sourceInterface tag are treated as 'obsilo'.
+     */
+    listBySource(source: SourceInterface | undefined): ConversationMeta[] {
+        if (!source) return this.list();
+        return this.index.conversations.filter((c) =>
+            (c.sourceInterface ?? 'obsilo') === source
+        );
+    }
+
+    /**
+     * BA-26 / FEAT-23-04: confirm a pending conversation. Idempotent.
+     * Returns true on a state change (pending -> confirmed), false
+     * if the row was already confirmed or unknown.
+     */
+    async confirm(id: string): Promise<boolean> {
+        const meta = this.getMeta(id);
+        if (!meta) return false;
+        if ((meta.syncState ?? 'confirmed') === 'confirmed') return false;
+        meta.syncState = 'confirmed';
+        await this.saveIndex();
+        return true;
+    }
+
+    /**
+     * FIX-23-01-01 / ADR-110: append delta messages to an existing
+     * conversation. Living-Document-Pfad fuer Cross-Surface MCP.
+     *
+     * Reads the existing data, concatenates apiMessages + uiMessages,
+     * writes the combined set back. Updates meta.updated +
+     * messageCount. Returns the new total messageCount.
+     *
+     * Returns -1 if the conversation does not exist (caller should
+     * fall back to create).
+     */
+    async appendMessages(
+        id: string,
+        deltaApiMessages: MessageParam[],
+        deltaUiMessages: UiMessage[],
+    ): Promise<number> {
+        const meta = this.getMeta(id);
+        if (!meta) return -1;
+        const data = await this.load(id);
+        if (!data) return -1;
+
+        const combinedApi = [...data.messages, ...deltaApiMessages];
+        const combinedUi = [...data.uiMessages, ...deltaUiMessages];
+
+        meta.updated = new Date().toISOString();
+        meta.messageCount = combinedUi.length;
+
+        const merged: ConversationData = { meta, messages: combinedApi, uiMessages: combinedUi };
+        const filePath = `${this.dir}/${id}.json`;
+        await this.fs.write(filePath, JSON.stringify(merged));
+        await this.saveIndex();
+        return combinedUi.length;
+    }
+
+    /**
+     * FIX-23-01-01: list conversations sharing a Cross-Interface
+     * Thread. Returns members across all source interfaces (so
+     * History UI can group them).
+     */
+    listByThread(threadId: string): ConversationMeta[] {
+        return this.index.conversations.filter((c) =>
+            c.crossInterfaceThreadId === threadId
+        );
     }
 
     /** Save (overwrite) full conversation data. */

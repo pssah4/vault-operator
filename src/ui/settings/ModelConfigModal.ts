@@ -5,6 +5,7 @@ import { PROVIDER_LABELS, MODEL_SUGGESTIONS, EMBEDDING_PROVIDERS, EMBEDDING_SUGG
 import { testModelConnection, testEmbeddingConnection, fetchProviderModels, fetchOllamaModels, fetchEmbeddingModels, isTemperatureFixed, maxTemperature } from './testModelConnection';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
 import { KiloAuthService } from '../../core/security/KiloAuthService';
+import { ChatGptOAuthService } from '../../core/auth/ChatGptOAuthService';
 import { t } from '../../i18n';
 
 /** Derive vendor group for a Copilot model ID (no slash-prefix like OpenRouter). */
@@ -120,6 +121,7 @@ export class ModelConfigModal extends Modal {
     private copilotAuthRow: HTMLElement | null = null;
     private kiloAuthRow: HTMLElement | null = null;
     private bedrockAuthRow: HTMLElement | null = null;
+    private chatgptOAuthRow: HTMLElement | null = null;
     private thinkingBudgetSliderEl: HTMLInputElement | null = null;
     private thinkingBudgetValueEl: HTMLElement | null = null;
 
@@ -194,7 +196,7 @@ export class ModelConfigModal extends Modal {
         // ── Provider ─────────────────────────────────────────────────────
         const provRow = row(t('modal.modelConfig.provider'));
         const provSel = provRow.createEl('select', { cls: 'mcm-select' });
-        (this.forEmbedding ? EMBEDDING_PROVIDERS : ['anthropic', 'openai', 'gemini', 'bedrock', 'github-copilot', 'kilo-gateway', 'ollama', 'lmstudio', 'openrouter', 'azure', 'custom'] as ProviderType[]).forEach((p) => {
+        (this.forEmbedding ? EMBEDDING_PROVIDERS : ['anthropic', 'openai', 'gemini', 'bedrock', 'github-copilot', 'chatgpt-oauth', 'kilo-gateway', 'ollama', 'lmstudio', 'openrouter', 'azure', 'custom'] as ProviderType[]).forEach((p) => {
             const opt = provSel.createEl('option', { value: p, text: PROVIDER_LABELS[p] });
             if (p === this.formProvider) opt.selected = true;
         });
@@ -251,9 +253,18 @@ export class ModelConfigModal extends Modal {
             fetchBtn.disabled = true;
             setIcon(fetchBtn, 'loader');
             try {
+                const bedrockCreds = this.formProvider === 'bedrock' ? {
+                    region: this.formAwsRegion,
+                    authMode: this.formAwsAuthMode,
+                    apiKey: this.formAwsApiKey,
+                    accessKey: this.formAwsAccessKey,
+                    secretKey: this.formAwsSecretKey,
+                    sessionToken: this.formAwsSessionToken,
+                    endpoint: this.formAwsEndpoint,
+                } : undefined;
                 const models = this.forEmbedding
                     ? await fetchEmbeddingModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, this.formApiVersion || undefined)
-                    : await fetchProviderModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined);
+                    : await fetchProviderModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, undefined, bedrockCreds);
                 this.suggestSelEl.options.length = 0;
                 this.suggestSelEl.createEl('option', { value: '', text: t('modal.modelConfig.modelsFetched', { count: models.length }), attr: { disabled: '', selected: '' } });
                 // For OpenRouter and Copilot chat models, group by vendor
@@ -348,6 +359,10 @@ export class ModelConfigModal extends Modal {
         // This is a section wrapper, not a row -- it contains multiple rows internally.
         this.bedrockAuthRow = form.createDiv('mcm-bedrock-auth');
         this.buildBedrockAuthSection(this.bedrockAuthRow);
+
+        // ── ChatGPT OAuth Auth (shown instead of API Key for chatgpt-oauth) ──
+        this.chatgptOAuthRow = form.createDiv('mcm-row mcm-chatgpt-oauth-auth');
+        this.buildChatGptOAuthSection(this.chatgptOAuthRow);
 
         // ── Base URL ──────────────────────────────────────────────────────
         this.baseUrlRow = form.createDiv('mcm-row');
@@ -530,12 +545,14 @@ export class ModelConfigModal extends Modal {
         const isCopilot = p === 'github-copilot';
         const isKilo = p === 'kilo-gateway';
         const isBedrock = p === 'bedrock';
-        this.apiKeyRow.classList.toggle('agent-u-hidden', p === 'ollama' || p === 'lmstudio' || isCopilot || isKilo || isBedrock);
+        const isChatGpt = p === 'chatgpt-oauth';
+        this.apiKeyRow.classList.toggle('agent-u-hidden', p === 'ollama' || p === 'lmstudio' || isCopilot || isKilo || isBedrock || isChatGpt);
         if (this.copilotAuthRow) this.copilotAuthRow.classList.toggle('agent-u-hidden', !isCopilot);
         if (this.kiloAuthRow) this.kiloAuthRow.classList.toggle('agent-u-hidden', !isKilo);
         if (this.bedrockAuthRow) this.bedrockAuthRow.classList.toggle('agent-u-hidden', !isBedrock);
+        if (this.chatgptOAuthRow) this.chatgptOAuthRow.classList.toggle('agent-u-hidden', !isChatGpt);
         if (isBedrock) this.updateBedrockAuthVisibility();
-        this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'gemini' || p === 'openrouter' || isCopilot || isKilo || isBedrock);
+        this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'gemini' || p === 'openrouter' || isCopilot || isKilo || isBedrock || isChatGpt);
         if (this.apiVersionRow) this.apiVersionRow.classList.toggle('agent-u-hidden', p !== 'azure');
         if (this.ollamaBrowserRow) this.ollamaBrowserRow.classList.toggle('agent-u-hidden', p !== 'ollama');
         if (this.customBrowserRow) this.customBrowserRow.classList.toggle('agent-u-hidden', p !== 'custom' && p !== 'lmstudio');
@@ -554,7 +571,7 @@ export class ModelConfigModal extends Modal {
         // Fetch is available for embedding providers with live APIs (not azure — no list endpoint)
         const hasFetchFetch = this.forEmbedding
             ? (p === 'openai' || p === 'openrouter' || p === 'ollama' || p === 'lmstudio' || p === 'custom' || isCopilot)
-            : (p === 'anthropic' || p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'lmstudio' || isCopilot || isKilo);
+            : (p === 'anthropic' || p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'lmstudio' || p === 'bedrock' || isCopilot || isKilo);
         if (this.suggestRow) {
             this.suggestRow.classList.toggle('agent-u-hidden', !hasStaticSuggestions && !hasFetchFetch);
             if (this.suggestSelEl) {
@@ -621,6 +638,11 @@ export class ModelConfigModal extends Modal {
         // Update Kilo auth status when visible
         if (isKilo && this.kiloAuthRow) {
             this.updateKiloAuthStatus();
+        }
+
+        // Update ChatGPT OAuth auth status when visible
+        if (isChatGpt && this.chatgptOAuthRow) {
+            this.updateChatGptOAuthStatus();
         }
 
         // Render provider setup guide
@@ -1022,6 +1044,108 @@ export class ModelConfigModal extends Modal {
         } finally {
             btn.disabled = false;
             btn.setText(t('copilot.signIn'));
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // ChatGPT OAuth Auth Section (EPIC-021)
+    // ---------------------------------------------------------------------------
+
+    private buildChatGptOAuthSection(container: HTMLElement): void {
+        const label = container.createDiv('mcm-label');
+        label.createSpan({ text: t('chatgpt.auth') });
+        const desc = label.createSpan({ cls: 'mcm-desc' });
+        desc.setText(t('chatgpt.authDesc'));
+
+        const controls = container.createDiv('mcm-chatgpt-controls');
+
+        // Status badge
+        controls.createDiv({ cls: 'mcm-chatgpt-status' });
+
+        // Sign in button
+        const signInBtn = controls.createEl('button', {
+            cls: 'mcm-chatgpt-signin',
+            text: t('chatgpt.signIn'),
+        });
+        signInBtn.addEventListener('click', () => { void this.startChatGptOAuth(signInBtn); });
+
+        // Sign out button
+        const signOutBtn = controls.createEl('button', {
+            cls: 'mcm-chatgpt-signout',
+            text: t('chatgpt.signOut'),
+        });
+        signOutBtn.addEventListener('click', () => { void (async () => {
+            const auth = ChatGptOAuthService.getInstance();
+            await auth.logout();
+            this.updateChatGptOAuthStatus();
+            new Notice(t('chatgpt.signedOut'));
+        })(); });
+    }
+
+    private updateChatGptOAuthStatus(): void {
+        if (!this.chatgptOAuthRow) return;
+        const auth = ChatGptOAuthService.getInstance();
+        const isAuth = auth.isAuthenticated();
+        const supported = auth.isPlatformSupported();
+
+        const statusEl = this.chatgptOAuthRow.querySelector<HTMLElement>('.mcm-chatgpt-status');
+        if (statusEl) {
+            statusEl.empty();
+            statusEl.classList.toggle('mcm-chatgpt-status--connected', isAuth);
+            statusEl.classList.toggle('mcm-chatgpt-status--disconnected', !isAuth);
+            if (!supported) {
+                statusEl.createSpan({ text: t('chatgpt.unsupportedPlatform') });
+            } else if (isAuth) {
+                const info = auth.getAccountInfo();
+                const planLabel = info.planTier === 'pro' ? 'ChatGPT Pro'
+                    : info.planTier === 'plus' ? 'ChatGPT Plus'
+                    : 'ChatGPT';
+                const text = info.email ? `${planLabel} (${info.email})` : planLabel;
+                statusEl.createSpan({ text });
+            } else {
+                statusEl.createSpan({ text: t('chatgpt.notConnected') });
+            }
+        }
+
+        const signInBtn = this.chatgptOAuthRow.querySelector<HTMLElement>('.mcm-chatgpt-signin');
+        const signOutBtn = this.chatgptOAuthRow.querySelector<HTMLElement>('.mcm-chatgpt-signout');
+        if (signInBtn) {
+            signInBtn.classList.toggle('agent-u-hidden', isAuth || !supported);
+        }
+        if (signOutBtn) {
+            signOutBtn.classList.toggle('agent-u-hidden', !isAuth);
+        }
+    }
+
+    private async startChatGptOAuth(btn: HTMLButtonElement): Promise<void> {
+        const auth = ChatGptOAuthService.getInstance();
+        btn.disabled = true;
+        btn.setText(t('chatgpt.polling'));
+
+        try {
+            const flow = await auth.startAuthFlow();
+            // Force the OS default browser. window.open() lands inside Obsidian's
+            // built-in webview, which breaks federated logins (Microsoft SSO,
+            // Google Workspace) because those identity providers refuse the
+            // embedded webview's user-agent. shell.openExternal hands the URL
+            // to the OS, which resolves it via the user's default browser.
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron shell only loadable via dynamic require in the renderer
+            const electron = require('electron') as { shell?: { openExternal: (url: string) => Promise<void> } };
+            if (electron.shell?.openExternal) {
+                await electron.shell.openExternal(flow.authorizeUrl);
+            } else {
+                window.open(flow.authorizeUrl);
+            }
+            new Notice(t('chatgpt.openedBrowser'), 5000);
+            await flow.completion;
+            new Notice(t('chatgpt.authSuccess'));
+            this.updateChatGptOAuthStatus();
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            new Notice(t('chatgpt.authFailed', { error: msg }));
+        } finally {
+            btn.disabled = false;
+            btn.setText(t('chatgpt.signIn'));
         }
     }
 

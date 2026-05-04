@@ -278,9 +278,15 @@ export class GitHubCopilotProvider implements ApiHandler {
             try {
                 input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
             } catch (e) {
+                // BUG-032: Emit tool_error (not text) so AgentTask records a
+                // failed tool_use, increments consecutiveMistakes, and breaks
+                // the loop after the configured limit. Emitting text causes
+                // the model to retry the same broken call indefinitely.
                 yield {
-                    type: 'text',
-                    text: `[Tool input parse error for "${acc.name}": ${(e as Error).message}]`,
+                    type: 'tool_error',
+                    id: acc.id,
+                    name: acc.name,
+                    error: `Tool input parse error: ${(e as Error).message}. The tool arguments were truncated or malformed -- try a smaller payload (e.g. write_file or append_to_file with a shorter content block) or split the work into multiple tool calls.`,
                 } satisfies ApiStreamChunk;
                 continue;
             }

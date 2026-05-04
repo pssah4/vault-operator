@@ -16,6 +16,12 @@ import { handleWriteVault } from './writeVault';
 import { handleSyncSession } from './syncSession';
 import { handleUpdateMemory } from './updateMemory';
 import { handleExecuteVaultOp } from './executeVaultOp';
+import { handleGetVaultImplicitEdges, handleGetVaultNoteMetadata } from './getVaultGraph';
+import { handleSaveToMemory } from './saveToMemory';
+import { handleSaveConversation } from './saveConversation';
+import { handleCloseConversation } from './closeConversation';
+import { handleRecallMemory } from './recallMemory';
+import { handleSearchHistory } from './searchHistory';
 import { buildPrompts } from '../prompts/systemContext';
 
 type McpHandler = (plugin: ObsidianAgentPlugin, args: Record<string, unknown>) => Promise<McpToolResult>;
@@ -28,6 +34,14 @@ const handlers = new Map<string, McpHandler>([
     ['execute_vault_op', handleExecuteVaultOp],
     ['sync_session', handleSyncSession],
     ['update_memory', handleUpdateMemory],
+    ['get_vault_implicit_edges', handleGetVaultImplicitEdges],
+    ['get_vault_note_metadata', handleGetVaultNoteMetadata],
+    // BA-26 / EPIC-23 -- Cross-Surface MCP Tools (FEAT-23-01, -02, -05)
+    ['save_to_memory', handleSaveToMemory],
+    ['save_conversation', handleSaveConversation],
+    ['close_conversation', handleCloseConversation],
+    ['recall_memory', handleRecallMemory],
+    ['search_history', handleSearchHistory],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -40,31 +54,54 @@ let sessionLastActivity = 0;
 let systemContextInjected = false;
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min inactivity = new session
 
+/**
+ * FIX-23-01-04 (Pass 9): ensureSession ist jetzt LAZY -- es markiert
+ * nur die Session-Grenze (Timeout-Reset), legt aber KEINE
+ * ConversationStore-Row mehr an. Die Conversation wird beim ERSTEN
+ * Aufruf von logToolCallToHistory tatsaechlich erzeugt
+ * (createSessionIfNeeded). Das verhindert, dass jeder MCP-Tool-Call
+ * (auch save_conversation, das seinen eigenen Storage-Pfad hat)
+ * eine leere "Claude (MCP)"-Conversation im Unknown-Tab hinterlaesst.
+ */
+// eslint-disable-next-line @typescript-eslint/require-await -- async kept lazily for the in-flight refactor that wires ConversationStore.create here once FIX-23-01-04 lands its second pass
 async function ensureSession(plugin: ObsidianAgentPlugin): Promise<void> {
     const now = Date.now();
 
-    // Start a new session if none exists or if timed out
-    if (!currentSessionId || (now - sessionLastActivity > SESSION_TIMEOUT_MS)) {
+    if (sessionLastActivity === 0 || (now - sessionLastActivity > SESSION_TIMEOUT_MS)) {
         sessionToolCalls = [];
         sessionMessages = [];
         sessionUiMessages = [];
         systemContextInjected = false;
-        if (plugin.conversationStore) {
-            try {
-                currentSessionId = await plugin.conversationStore.create('mcp', 'Claude (MCP)');
-                console.debug(`[MCP] New session: ${currentSessionId}`);
-            } catch { /* non-fatal */ }
-        } else {
-            currentSessionId = `mcp-${now}`;
-        }
+        currentSessionId = null;  // lazy: wird beim ersten Log-Call erzeugt
     }
 
     sessionLastActivity = now;
 }
 
+/**
+ * Lazy create the auto-tracked Conversation. Called by
+ * logToolCallToHistory and updateSessionTitle on demand. No-op if
+ * already created.
+ */
+async function createSessionIfNeeded(plugin: ObsidianAgentPlugin): Promise<void> {
+    if (currentSessionId) return;
+    if (!plugin.conversationStore) {
+        currentSessionId = `mcp-${Date.now()}`;
+        return;
+    }
+    try {
+        currentSessionId = await plugin.conversationStore.create('mcp', 'Claude (MCP)', {
+            sourceInterface: 'unknown',
+        });
+        console.debug(`[MCP] New auto-tracked session: ${currentSessionId}`);
+    } catch { /* non-fatal */ }
+}
+
 async function updateSessionTitle(plugin: ObsidianAgentPlugin, tool: string): Promise<void> {
     sessionToolCalls.push(tool);
 
+    // Lazy: only update title when an auto-tracked session was already created.
+    // Skip-pure tools (save_conversation et al.) leave currentSessionId null.
     if (!plugin.conversationStore || !currentSessionId) return;
 
     // Generate a title from the tools used
@@ -88,7 +125,13 @@ async function logToolCallToHistory(
     args: Record<string, unknown>,
     result: McpToolResult,
 ): Promise<void> {
-    if (!plugin.conversationStore || !currentSessionId) return;
+    if (!plugin.conversationStore) return;
+    // Lazy: erzeuge die auto-tracked Conversation hier, nicht in
+    // ensureSession. Damit entstehen keine leeren ConversationStore-
+    // Rows mehr, wenn ausschliesslich SKIP_AUTO_TRACK-Tools gerufen
+    // wurden (save_conversation etc.).
+    await createSessionIfNeeded(plugin);
+    if (!currentSessionId) return;
 
     try {
         const now = new Date().toISOString();
@@ -195,6 +238,28 @@ export async function handleToolCall(
         };
     }
 
+    // AUDIT-015 M-1: Rate-Limit-Check vor jeglicher Verarbeitung.
+    // Caller-Key = mcpToken + source_interface (falls mitgegeben).
+    // 429-Antwort mit retry_after-Sek wenn Limit ueberschritten.
+    const rateLimiter = plugin.mcpRateLimiter;
+    if (rateLimiter) {
+        const { classifyTool } = await import('../McpRateLimiter');
+        const callerKey = `${plugin.settings.mcpServerToken ?? ''}:${
+            typeof args.source_interface === 'string' ? args.source_interface : 'unknown'
+        }`;
+        const decision = rateLimiter.consume(callerKey, classifyTool(tool));
+        if (!decision.allowed) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: `Rate limit exceeded for tool "${tool}" (limit ${decision.limitInWindow}/min). `
+                        + `Retry after ${decision.retryAfterSec}s.`,
+                }],
+                isError: true,
+            };
+        }
+    }
+
     // Auto-track session
     await ensureSession(plugin);
 
@@ -233,8 +298,23 @@ export async function handleToolCall(
         } catch { /* non-fatal */ }
     }
 
-    // Log to history only for non-sync tools (sync_session writes its own full transcript)
-    if (tool !== 'sync_session' && tool !== 'get_context') {
+    // Log to history only for tools that don't write their own full
+    // transcript. Pass 8 (FIX-23-01-03): EPIC-23 Cross-Surface tools
+    // (save_conversation, save_to_memory, close_conversation, recall_*,
+    // search_history, update_memory) write into ConversationStore /
+    // FactStore directly. Auto-tracking would create a duplicate
+    // 'unknown'-tab entry, so we skip them here.
+    const SKIP_AUTO_TRACK = new Set([
+        'sync_session',
+        'get_context',
+        'save_conversation',
+        'save_to_memory',
+        'close_conversation',
+        'recall_memory',
+        'search_history',
+        'update_memory', // legacy, also routes to v2
+    ]);
+    if (!SKIP_AUTO_TRACK.has(tool)) {
         await logToolCallToHistory(plugin, tool, args, result);
     }
     void updateSessionTitle(plugin, tool);

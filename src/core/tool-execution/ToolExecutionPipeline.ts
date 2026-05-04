@@ -27,6 +27,7 @@ import { ResultExternalizer } from './ResultExternalizer';
 import { VaultDataFileAdapter } from '../storage/VaultDataFileAdapter';
 import { getTmpRoot } from '../utils/agentFolder';
 import { findAllowedMethod } from '../tools/agent/pluginApiAllowlist';
+import { scanUnreadSources } from '../quality-gates';
 
 /**
  * Approval group classification — determines how a tool call gets approved.
@@ -59,6 +60,17 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     create_folder: 'vault-change',
     delete_file: 'vault-change',
     move_file: 'vault-change',
+    // BA-25 Karpathy-Wiki-Pattern: Triage schreibt nur ins Triage-Log,
+    // kein Vault-Side-Effect ausser Decision-Persistierung -> als 'note-edit' kategorisiert
+    ingest_triage: 'note-edit',
+    // ingest_deep schreibt mehrere neue Notes in den Vault -> note-edit
+    ingest_deep: 'note-edit',
+    // anti_echo_search nutzt nur Web-Search-API (read-only)
+    anti_echo_search: 'web',
+    // FEAT-03-25 / ADR-109 Vault-zu-Memory-Bruecke
+    mark_note_as_memory_source: 'note-edit',
+    unmark_note_as_memory_source: 'note-edit',
+    list_memory_source_notes: 'read',
     generate_canvas: 'vault-change',
     create_base: 'vault-change',
     update_base: 'vault-change',
@@ -128,6 +140,12 @@ export interface ContextExtensions {
     activateDeferredTool?: (toolName: string) => void;
     /** Active conversation ID for chat-linking frontmatter stamping (ADR-022) */
     conversationId?: string;
+    /**
+     * FIX-H (ADR-090 follow-up): set of file paths the current task has read.
+     * The pipeline mutates this on each successful read_file/read_document call;
+     * UpdateTodoListTool reads it to verify done items reference actually-read files.
+     */
+    readFiles?: Set<string>;
 }
 
 export class ToolExecutionPipeline {
@@ -317,9 +335,41 @@ export class ToolExecutionPipeline {
                 spawnSubtask: extensions?.spawnSubtask,
                 invalidateToolCache: extensions?.invalidateToolCache,
                 activateDeferredTool: extensions?.activateDeferredTool,
+                getReadFiles: extensions?.readFiles ? () => extensions.readFiles! : undefined,
             };
 
             await tool.execute(toolCall.input, context);
+
+            // FIX-H: track successful file reads for todo-verification (ADR-090 follow-up)
+            // Must happen BEFORE the hallucination scan below so this same call's
+            // read counts toward the readFiles set if the user does read+write
+            // in one batch (rare but possible).
+            if (!executionHadError && extensions?.readFiles
+                && (toolCall.name === 'read_file' || toolCall.name === 'read_document')) {
+                const path = toolCall.input?.path;
+                if (typeof path === 'string' && path.length > 0) {
+                    extensions.readFiles.add(path);
+                }
+            }
+
+            // FIX-I: hallucination brake on write tools. If the agent writes a
+            // Quellen:/Sources: frontmatter block with [[wikilinks]] to notes
+            // it has not read in this task, push a warning into collectedContent
+            // BEFORE textContent is finalised so the agent sees it. (ADR-090)
+            // Wrapped in try/catch so a scanner bug NEVER blocks tool execution.
+            if (!executionHadError && extensions?.readFiles
+                && (toolCall.name === 'write_file' || toolCall.name === 'append_to_file' || toolCall.name === 'update_frontmatter')) {
+                try {
+                    const unread = scanUnreadSources(toolCall.input, extensions.readFiles);
+                    if (unread.length > 0) {
+                        const warn = `\n[HALLUCINATION BRAKE] You wrote source references to notes you have not read in this task: ${unread.slice(0, 5).map((u) => `"${u}"`).join(', ')}${unread.length > 5 ? `, ... +${unread.length - 5} more` : ''}. Either read those notes now (read_file) and rewrite with verified content, or remove them from the Quellen/Sources frontmatter. Do not claim sources you have not opened.`;
+                        collectedContent.push(warn);
+                        console.debug(`[HallucinationBrake] ${toolCall.name}: ${unread.length} unread refs — ${unread.slice(0, 3).join(', ')}`);
+                    }
+                } catch (e) {
+                    console.warn('[HallucinationBrake] scan failed (non-fatal, skipping):', e);
+                }
+            }
 
             // 6. Persistent operation log + cache write
             const durationMs = Date.now() - startTime;
@@ -536,3 +586,4 @@ export class ToolExecutionPipeline {
         };
     }
 }
+

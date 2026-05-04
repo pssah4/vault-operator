@@ -52,11 +52,15 @@ async function safeTokenCompare(a, b) {
 
 export default {
     async fetch(request, env) {
-        // CORS only for MCP endpoint (AI assistants need it) -- not for plugin endpoints (H-6)
+        // CORS only for MCP endpoint (AI assistants need it) -- not for plugin endpoints (H-6).
+        // FIX-23-04-01: erweitert um GET (Streamable-HTTP SSE-Subscribe) und DELETE
+        // (Session-Termination), plus Mcp-Session-Id im Allow-Headers damit
+        // Spec-strikte Clients wie Perplexity nicht im Preflight haengen bleiben.
         const mcpCorsHeaders = {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id, Last-Event-ID',
+            'Access-Control-Expose-Headers': 'Mcp-Session-Id',
         };
 
         const url = new URL(request.url);
@@ -104,13 +108,113 @@ export default {
             });
         }
 
-        // Forward authenticated MCP request to DO
+        // FIX-23-04-01: Streamable-HTTP-Spec-Methoden vor dem
+        // POST-Forward abfangen, damit jede Antwort einen korrekten
+        // Content-Type-Header traegt. Perplexity (und neuere
+        // Streamable-HTTP-Clients) erwarten das streng -- ohne
+        // Content-Type werfen sie "Unexpected content type:" (leer).
+        if (request.method === 'GET') {
+            // Optional SSE-Subscribe-Endpunkt. Wir halten heute keinen
+            // server-initiated Stream, antworten aber Spec-konform mit
+            // einer leeren text/event-stream-Response statt 405 plain.
+            // Client kann nichts streamen, aber der Connect-Handshake
+            // bleibt sauber und der Client faellt auf den POST-Pfad zurueck.
+            return new Response(': sse keep-alive\\n\\n', {
+                status: 200,
+                headers: {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-store',
+                    'Connection': 'keep-alive',
+                    ...mcpCorsHeaders,
+                },
+            });
+        }
+
+        if (request.method === 'DELETE') {
+            // Spec: DELETE auf MCP-Endpunkt terminiert Session.
+            // Wir halten keine persistenten Sessions auf Worker-Ebene
+            // (state liegt im DO + Plugin), daher Acknowledge mit 204.
+            return new Response(null, {
+                status: 204,
+                headers: mcpCorsHeaders,
+            });
+        }
+
+        if (request.method !== 'POST') {
+            return new Response(JSON.stringify({
+                jsonrpc: '2.0',
+                id: null,
+                error: { code: -32601, message: 'Method not allowed: ' + request.method },
+            }), {
+                status: 405,
+                headers: { 'Content-Type': 'application/json', 'Allow': 'POST, GET, DELETE, OPTIONS', ...mcpCorsHeaders },
+            });
+        }
+
+        // FIX-23-04-01 Pass 3: Body MUSS vor DO-fetch geparst werden,
+        // sonst hat der DO den Stream konsumiert und unser clone() ist
+        // leer. Wir parsen einmal, leiten den Body als String an die
+        // DO weiter und nutzen das parsed Object fuer Method-Detection.
+        const acceptHeader = (request.headers.get('Accept') || '').toLowerCase();
+        const wantsSSE = acceptHeader.includes('text/event-stream');
+        const wantsJSON = acceptHeader.includes('application/json') || acceptHeader.includes('*/*');
+        const sseOnly = wantsSSE && !wantsJSON;
+
+        let bodyText = '';
+        let isInitialize = false;
+        try {
+            bodyText = await request.text();
+            const parsed = JSON.parse(bodyText);
+            isInitialize = parsed?.method === 'initialize';
+        } catch { /* not JSON or no body */ }
+
+        // Forward to DO with the already-read body (rebuild request).
         const id = env.RELAY_DO.idFromName('default');
         const relay = env.RELAY_DO.get(id);
-        const resp = await relay.fetch(request);
-        const newResp = new Response(resp.body, resp);
-        for (const [k, v] of Object.entries(mcpCorsHeaders)) newResp.headers.set(k, v);
-        return newResp;
+        const forwardReq = new Request(request.url, {
+            method: request.method,
+            headers: request.headers,
+            body: bodyText.length > 0 ? bodyText : undefined,
+        });
+        const resp = await relay.fetch(forwardReq);
+
+        // Read the upstream response body.
+        const upstreamBody = await resp.text();
+
+        const finalHeaders = new Headers();
+        for (const [k, v] of Object.entries(mcpCorsHeaders)) finalHeaders.set(k, v);
+
+        // Content-Type-Handling: passthrough was upstream lieferte.
+        // FIX-23-04-01 Pass 5: kein Default-CT mehr aufzwingen --
+        // Notifications kommen jetzt mit 202 + leerem Body + kein CT
+        // (Spec-konform "no body to parse"); 200/JSON-Responses tragen
+        // den CT bereits selbst. Default 'application/json' nur dann,
+        // wenn der Status weder 202 noch 204 ist UND ein nicht-leerer
+        // Body vorhanden ist (defensiv).
+        const upstreamCT = resp.headers.get('content-type');
+        if (upstreamCT) {
+            finalHeaders.set('Content-Type', upstreamCT);
+        } else if (resp.status !== 202 && resp.status !== 204 && upstreamBody.length > 0) {
+            finalHeaders.set('Content-Type', 'application/json');
+        }
+
+        // Set Mcp-Session-Id on initialize response.
+        if (isInitialize) {
+            finalHeaders.set('Mcp-Session-Id', crypto.randomUUID());
+        }
+
+        if (sseOnly && upstreamBody && upstreamBody.trim().startsWith('{')) {
+            // Wrap JSON-RPC body as a single SSE event.
+            finalHeaders.set('Content-Type', 'text/event-stream');
+            finalHeaders.set('Cache-Control', 'no-store');
+            const sseFrame = \`data: \${upstreamBody.trim()}\\n\\n\`;
+            return new Response(sseFrame, { status: resp.status, headers: finalHeaders });
+        }
+
+        return new Response(upstreamBody.length > 0 ? upstreamBody : null, {
+            status: resp.status,
+            headers: finalHeaders,
+        });
     },
 };
 
@@ -189,10 +293,18 @@ export class RelayDO {
             let parsed;
             try { parsed = JSON.parse(body); } catch { return new Response('Invalid JSON', { status: 400 }); }
 
-            // Notification (no id) -- fire and forget
+            // Notification (no id) -- fire and forget. FIX-23-04-01 Pass 5:
+            // MCP Streamable HTTP Spec verlangt: "Server MUST respond with
+            // HTTP status code 202 Accepted with no body". Pydantic von
+            // Perplexity lehnt 'null' als Body ab, weil JSON-RPC schemas
+            // einen Object erwarten. 202 + leer + kein Content-Type ist
+            // spec-konform: Status 202 signalisiert "no body to parse".
             if (parsed.id === undefined || parsed.id === null) {
                 this.enqueueForPlugin(body);
-                return new Response(null, { status: 204 });
+                return new Response(null, {
+                    status: 202,
+                    headers: { 'Content-Length': '0' },
+                });
             }
 
             // M-7: Use random correlation ID instead of client-provided sequential ID
@@ -227,7 +339,15 @@ export class RelayDO {
             }
         }
 
-        return new Response('Method not allowed', { status: 405 });
+        // FIX-23-04-01: Spec-strikte Clients erwarten Content-Type
+        // auf jeder Antwort. Kein plain-text 405 mehr.
+        return new Response(JSON.stringify({
+            jsonrpc: '2.0', id: null,
+            error: { code: -32601, message: 'Method not allowed: ' + request.method },
+        }), {
+            status: 405,
+            headers: { 'Content-Type': 'application/json', 'Allow': 'POST' },
+        });
     }
 
     enqueueForPlugin(body) {

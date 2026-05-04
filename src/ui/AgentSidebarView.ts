@@ -18,6 +18,7 @@ import type { UiMessage } from '../core/history/ConversationStore';
 import { MemoryRetriever } from '../core/memory/MemoryRetriever';
 import { OnboardingService } from '../core/memory/OnboardingService';
 import { ContextTracker } from '../core/context/ContextTracker';
+import { TaskMonitor } from './sidebar/TaskMonitor';
 import { ContextDisplay } from './sidebar/ContextDisplay';
 import { CondensationFeedback } from './sidebar/CondensationFeedback';
 import { SuggestionBanner } from './sidebar/SuggestionBanner';
@@ -76,6 +77,14 @@ export class AgentSidebarView extends ItemView {
 
     // Health badge (FEATURE-1901)
     private healthBadge: HTMLElement | null = null;
+    // Browser-style chat navigation: linear stack of conversation IDs the user
+    // visited via arrow nav. navIndex = position in the stack; entries beyond
+    // the index are the forward history (truncated when a fresh chat is loaded
+    // from outside the back/forward path). null sentinel = "new/empty chat".
+    private navStack: Array<string | null> = [];
+    private navIndex = -1;
+    private navBackBtn: HTMLButtonElement | null = null;
+    private navForwardBtn: HTMLButtonElement | null = null;
     // Tool picker (pocket-knife button)
     private toolPickerButton: HTMLElement | null = null;
     // Web search toggle button (globe icon)
@@ -241,6 +250,11 @@ export class AgentSidebarView extends ItemView {
             this.historyPanel?.toggle();
         });
 
+        // FEATURE-0318: Save-to-memory is exposed via the chat input "..." menu
+        // (Save conversation to memory) and via the per-row star in the
+        // history panel. The header had a duplicate star toggle that confused
+        // the visual language of "filled = in memory" -- removed.
+
         // New Chat button — clears conversation history
         const newChatBtn = headerRight.createEl('button', {
             cls: 'header-button',
@@ -248,6 +262,26 @@ export class AgentSidebarView extends ItemView {
         });
         setIcon(newChatBtn.createSpan('toolbar-icon'), 'message-square-plus');
         newChatBtn.addEventListener('click', () => this.clearConversation());
+
+        // Browser-style back/forward through recently opened chats. Sit on
+        // the far right of the header so the arrow cluster doesn't compete
+        // with the primary controls. Triangles (chevron-left/right) read
+        // better than full arrows in the narrow sidebar.
+        this.navBackBtn = headerRight.createEl('button', {
+            cls: 'header-button header-button--nav',
+            attr: { 'aria-label': 'Previous chat' },
+        });
+        setIcon(this.navBackBtn.createSpan('toolbar-icon'), 'chevron-left');
+        this.navBackBtn.addEventListener('click', () => { void this.navBack(); });
+
+        this.navForwardBtn = headerRight.createEl('button', {
+            cls: 'header-button header-button--nav',
+            attr: { 'aria-label': 'Next chat' },
+        });
+        setIcon(this.navForwardBtn.createSpan('toolbar-icon'), 'chevron-right');
+        this.navForwardBtn.addEventListener('click', () => { void this.navForward(); });
+
+        this.updateNavButtons();
     }
 
     private buildChatContainer(container: HTMLElement): void {
@@ -265,6 +299,11 @@ export class AgentSidebarView extends ItemView {
                 (id) => { void this.deleteConversation(id); },
                 (convId, title) => { void this.stampChatLinkToActiveFile(convId, title); },
                 this.activeConversationId,
+                (id, title) => this.saveHistoryConversationToMemory(id, title),
+                (id, title) => this.removeHistoryConversationFromMemory(id, title),
+                (id) => this.plugin.countMemoryFactsForConversation(id) > 0,
+                (id, currentTitle) => this.renameHistoryConversation(id, currentTitle),
+                (id, title) => this.confirmPendingConversation(id, title),
             );
             this.historyPanel.mount(chatWrapper);
         }
@@ -286,6 +325,10 @@ export class AgentSidebarView extends ItemView {
             (id) => { void this.deleteConversation(id); },
             (convId, title) => { void this.stampChatLinkToActiveFile(convId, title); },
             this.activeConversationId,
+            (id, title) => this.saveHistoryConversationToMemory(id, title),
+            (id, title) => this.removeHistoryConversationFromMemory(id, title),
+            (id) => this.plugin.countMemoryFactsForConversation(id) > 0,
+            (id, currentTitle) => this.renameHistoryConversation(id, currentTitle),
         );
         this.historyPanel.mount(chatWrapper);
     }
@@ -451,6 +494,11 @@ export class AgentSidebarView extends ItemView {
                 .setTitle(webEnabled ? t('ui.sidebar.webSearchOn') : t('ui.sidebar.webSearchOff'))
                 .setIcon('globe')
                 .onClick(() => { void this.toggleWebSearch(); }));
+            // Save to memory (FEATURE-0318 manual trigger -- bypasses throttle + auto toggle)
+            menu.addItem(item => item
+                .setTitle(t('ui.sidebar.saveToMemory'))
+                .setIcon('star')
+                .onClick(() => { void this.handleSaveToMemory(); }));
             menu.addSeparator();
             // Original options menu items
             this.addOptionsMenuItems(menu);
@@ -739,6 +787,163 @@ export class AgentSidebarView extends ItemView {
         const isAsk = this.plugin.settings.currentMode === 'ask';
         this.toolPickerButton.classList.toggle('agent-u-hidden', isAsk);
         this.updateWebToggleButton();
+    }
+
+    /**
+     * Manual memory save (FEATURE-0318): always available, bypasses both
+     * autoExtractSessions and the message-count threshold. Calls the same
+     * Single-Call pipeline the auto-path uses, just with bypassThrottle=true.
+     */
+    private async handleSaveToMemory(): Promise<void> {
+        const mem = this.plugin.settings.memory;
+        if (!mem.enabled) {
+            new Notice(t('notice.memoryDisabled'));
+            return;
+        }
+        const queue = this.plugin.extractionQueue;
+        const snapshot = this.snapshotForMemory();
+        if (!queue || !snapshot) {
+            new Notice(t('notice.memoryNoActiveConversation'));
+            return;
+        }
+        try {
+            await queue.enqueueImmediate(snapshot);
+            new Notice(t('notice.memorySaveQueued'));
+            void this.pollMemoryStarUntilReady(snapshot.conversationId);
+        } catch (e) {
+            console.warn('[Memory] Manual save failed:', e);
+            new Notice(t('notice.memorySaveFailed'));
+        }
+    }
+
+    /**
+     * After enqueueImmediate, the LLM extraction runs in the background
+     * and only THEN do facts land in the DB. Poll for up to 90s so the
+     * history panel star eventually reflects the saved state without
+     * the user having to reopen the panel.
+     */
+    private async pollMemoryStarUntilReady(conversationId: string): Promise<void> {
+        const startedAt = Date.now();
+        const TIMEOUT_MS = 90_000;
+        const INTERVAL_MS = 2_000;
+        while (Date.now() - startedAt < TIMEOUT_MS) {
+            await new Promise(resolve => setTimeout(resolve, INTERVAL_MS));
+            if (this.plugin.countMemoryFactsForConversation(conversationId) > 0) {
+                this.historyPanel?.refresh();
+                return;
+            }
+        }
+        this.historyPanel?.refresh();
+    }
+
+    /**
+     * Save a HISTORY conversation (not the currently active one) to memory.
+     * Loads the persisted UiMessages from ConversationStore and enqueues
+     * them with bypassThrottle=true. Used by the Star button in HistoryPanel.
+     */
+    /** Rename a history conversation via prompt modal. */
+    private async renameHistoryConversation(id: string, currentTitle: string): Promise<void> {
+        const store = this.plugin.conversationStore;
+        if (!store) return;
+        const { promptModal } = await import('./modals/PromptModal');
+        const next = await promptModal(this.app, {
+            title: t('ui.history.renameTitle'),
+            message: t('ui.history.renameMessage'),
+            placeholder: currentTitle,
+            defaultValue: currentTitle,
+            submitLabel: t('ui.history.renameSubmit'),
+        });
+        if (next === null) return;
+        const trimmed = next.trim();
+        if (!trimmed || trimmed === currentTitle) return;
+        await store.updateMeta(id, { title: trimmed });
+    }
+
+    /** Un-pin: deprecate all facts that came from this conversation. */
+    private async removeHistoryConversationFromMemory(id: string, title: string): Promise<void> {
+        const mem = this.plugin.settings.memory;
+        if (!mem.enabled) {
+            new Notice(t('notice.memoryDisabled'));
+            return;
+        }
+        try {
+            const removed = await this.plugin.unpinMemoryFactsForConversation(id);
+            new Notice(t('notice.memoryRemoved', { count: removed, title }));
+        } catch (e) {
+            console.warn('[Memory] Remove failed:', e);
+            new Notice(t('notice.memorySaveFailed'));
+        }
+    }
+
+    private async saveHistoryConversationToMemory(id: string, title: string): Promise<void> {
+        const mem = this.plugin.settings.memory;
+        if (!mem.enabled) {
+            new Notice(t('notice.memoryDisabled'));
+            return;
+        }
+        const queue = this.plugin.extractionQueue;
+        const store = this.plugin.conversationStore;
+        if (!queue || !store) {
+            new Notice(t('notice.memoryNoActiveConversation'));
+            return;
+        }
+        try {
+            const data = await store.load(id);
+            if (!data || data.uiMessages.length === 0) {
+                new Notice(t('notice.memoryNoActiveConversation'));
+                return;
+            }
+            const messages = data.uiMessages.map((m) => ({ role: m.role, text: m.text }));
+            await queue.enqueueImmediate({
+                conversationId: id,
+                messages,
+                title,
+                queuedAt: new Date().toISOString(),
+            });
+            new Notice(t('notice.memorySaveQueued'));
+            void this.pollMemoryStarUntilReady(id);
+        } catch (e) {
+            console.warn('[Memory] Save history conversation failed:', e);
+            new Notice(t('notice.memorySaveFailed'));
+        }
+    }
+
+    /**
+     * BA-26 / FEAT-23-04: confirm a pending external conversation.
+     * Flips syncState 'pending' -> 'confirmed' and enqueues the
+     * conversation for memory extraction with shared thresholds.
+     */
+    private async confirmPendingConversation(id: string, title: string): Promise<void> {
+        const store = this.plugin.conversationStore;
+        const queue = this.plugin.extractionQueue;
+        if (!store) {
+            new Notice(t('notice.memoryNoActiveConversation'));
+            return;
+        }
+        try {
+            const flipped = await store.confirm(id);
+            if (!flipped) {
+                new Notice('Conversation already confirmed.');
+                return;
+            }
+            // Trigger memory extraction (auto-sync would have done this on save).
+            if (this.plugin.settings.memory.enabled && queue) {
+                const data = await store.load(id);
+                if (data && data.uiMessages.length > 0) {
+                    const messages = data.uiMessages.map((m) => ({ role: m.role, text: m.text }));
+                    await queue.enqueueImmediate({
+                        conversationId: id,
+                        messages,
+                        title,
+                        queuedAt: new Date().toISOString(),
+                    });
+                }
+            }
+            new Notice(`Confirmed: ${title}`);
+        } catch (e) {
+            console.warn('[Memory] Confirm pending failed:', e);
+            new Notice(t('notice.memorySaveFailed'));
+        }
     }
 
     private async toggleWebSearch(): Promise<void> {
@@ -1213,6 +1418,18 @@ export class AgentSidebarView extends ItemView {
                 mode,
                 model?.displayName ?? model?.name ?? modelKey,
             );
+            // If the nav stack top is the "fresh-chat" sentinel (null), upgrade
+            // it to this just-created conversation id. That keeps back/forward
+            // consistent: visiting a fresh chat counts as one stack entry,
+            // not two ("empty" plus its concrete id).
+            if (
+                this.navStack.length > 0
+                && this.navIndex === this.navStack.length - 1
+                && this.navStack[this.navIndex] === null
+            ) {
+                this.navStack[this.navIndex] = this.activeConversationId;
+                this.updateNavButtons();
+            }
         }
 
         // Track user UI message for history persistence (skip for hidden messages)
@@ -1504,6 +1721,19 @@ export class AgentSidebarView extends ItemView {
             }
         } catch { /* non-critical -- tools will fall back to source_path */ }
 
+        // ADR-090 / FEATURE-1804: cost display + telemetry persistence run
+        // through TaskMonitor instead of being inlined into the callback hash.
+        const taskMonitor = new TaskMonitor({
+            plugin: this.plugin,
+            app: this.app,
+            apiHandler: resolvedApiHandler,
+            footerEl,
+            getEffectiveModelKey: () => this.getEffectiveModelKey(),
+            promptPreview: typeof messageToSend === 'string' ? messageToSend.slice(0, 200) : '<multimodal>',
+            mode: this.plugin.settings.currentMode,
+            contextTracker: this.contextTracker ?? undefined,
+        });
+
         const task = new AgentTask(
             resolvedApiHandler,
             this.plugin.toolRegistry,
@@ -1774,18 +2004,8 @@ export class AgentSidebarView extends ItemView {
                     outputEl.createEl('pre').setText(content);
                 },
                 onUsage: (inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens) => {
-                    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    let text = `${time}  ·  ${inputTokens.toLocaleString()} in · ${outputTokens.toLocaleString()} out`;
-                    if (cacheReadTokens && cacheReadTokens > 0) {
-                        text += ` · ${cacheReadTokens.toLocaleString()} cached`;
-                    }
-                    footerEl.setText(text);
-                    footerEl.classList.remove('agent-u-hidden');
-
-                    // Update context tracker for condensing
-                    if (this.contextTracker) {
-                        this.contextTracker.updateUsage(inputTokens, outputTokens);
-                    }
+                    // ADR-090 / FEATURE-1804: see TaskMonitor.onUsage
+                    taskMonitor.onUsage(inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens);
                 },
                 onTodoUpdate: (items) => {
                     lastTodoItems = items;
@@ -1857,7 +2077,12 @@ export class AgentSidebarView extends ItemView {
                         // Finalize current assistant message
                         messageEl.removeClass('message-streaming');
                         if (accumulatedText) {
-                            this.uiMessages.push({ role: 'assistant', text: accumulatedText, ts: new Date().toISOString() });
+                            this.uiMessages.push({
+                                role: 'assistant',
+                                text: accumulatedText,
+                                ts: new Date().toISOString(),
+                                toolStepsHtml: stepsBlockEl?.outerHTML,
+                            });
                         }
                         // Render user answer as a regular chat message
                         this.addUserMessage(answer);
@@ -2036,9 +2261,16 @@ export class AgentSidebarView extends ItemView {
                     if (this.app.workspace.getMostRecentLeaf()?.view !== this) {
                         new Notice(t('notice.taskComplete'), 3000);
                     }
-                    // Track assistant UI message for history persistence
+                    // Track assistant UI message for history persistence,
+                    // including a snapshot of the collapsed steps block so
+                    // tool actions remain inspectable after a chat reload.
                     if (accumulatedText) {
-                        this.uiMessages.push({ role: 'assistant', text: accumulatedText, ts: new Date().toISOString() });
+                        this.uiMessages.push({
+                            role: 'assistant',
+                            text: accumulatedText,
+                            ts: new Date().toISOString(),
+                            toolStepsHtml: stepsBlockEl?.outerHTML,
+                        });
                     }
                     // Auto-save conversation to ConversationStore
                     this.saveCurrentConversation();
@@ -2083,6 +2315,10 @@ export class AgentSidebarView extends ItemView {
                     messageEl.removeClass('message-streaming');
                     this.currentAbortController = null;
                     this.setRunningState(false);
+                },
+                onTaskTelemetry: (data) => {
+                    // ADR-090 / FEATURE-1804: see TaskMonitor.onTaskTelemetry
+                    taskMonitor.onTaskTelemetry(data);
                 },
             },
             this.modeService,
@@ -2149,24 +2385,72 @@ export class AgentSidebarView extends ItemView {
 
         const allowedMcpServers = this.plugin.settings.modeMcpServers?.[activeMode.slug];
 
-        // Load memory context for system prompt injection
+        // Memory v2 is the only path. The legacy v1 MD-file pipeline was
+        // removed once the upgrade orchestrator landed -- existing users
+        // are taken through the upgrade modal on first load, fresh users
+        // start on v2 from minute one. ContextComposer renders an empty
+        // block until the user has facts; no fallback to v1.
         let memoryContext: string | undefined;
         const isFirstMessage = this.conversationHistory.length === 0;
+
+        if (
+            this.plugin.settings.memory.enabled
+            && this.plugin.memoryDB?.isOpen()
+            && this.plugin.embeddingService?.isReady()
+        ) {
+            try {
+                const { TopicInference } = await import('../core/memory/TopicInference');
+                const { UserProfileView } = await import('../core/memory/UserProfileView');
+                const { ContextComposer } = await import('../core/memory/ContextComposer');
+                const inference = new TopicInference(this.plugin.memoryDB);
+                const profileView = new UserProfileView(this.plugin.memoryDB);
+                const composer = new ContextComposer(
+                    this.plugin.memoryDB, inference, profileView, this.plugin.driftBus,
+                );
+                let userEmbedding: Float32Array | null = null;
+                if (text.trim()) {
+                    const vectors = await this.plugin.embeddingService.embed([text]);
+                    userEmbedding = vectors[0] ?? null;
+                }
+                // FEAT-03-26 (BA-25): Top-Hub-Block (Vault-Karte) optional
+                // im stabilen Prompt-Prefix. Default off, Setting-gated.
+                const topHubBlock = this.plugin.settings.vaultIngest?.topHubBlock?.enabled
+                    ? this.plugin.topHubBlockMarkdown
+                    : undefined;
+                const composed = composer.compose({
+                    sessionId: this.activeConversationId ?? 'transient',
+                    userMessageEmbedding: userEmbedding,
+                    topHubBlockMarkdown: topHubBlock,
+                });
+                // FEATURE-0319b: prepend the cache-stable Soul block from
+                // the agent-self profile (profile_id='_obsilo'). Two
+                // separate calls per /architecture decision A so the
+                // blocks stay independently cache-stable and ContextRanker
+                // remains profile-naive.
+                const { SoulView } = await import('../core/memory/SoulView');
+                const soulMarkdown = new SoulView(this.plugin.memoryDB).renderMarkdown();
+                const parts: string[] = [];
+                if (soulMarkdown) parts.push(soulMarkdown);
+                if (composed.markdown) parts.push(composed.markdown);
+                if (parts.length > 0) memoryContext = parts.join('\n\n');
+            } catch (e) {
+                console.warn('[Memory] ContextComposer failed:', e);
+            }
+        }
+
+        // Session retrieval + onboarding: independent of v1/v2 memory engine.
+        // Session summaries live in the same memory.db.sessions table either
+        // way; onboarding prompts are still surfaced through MemoryService
+        // until OnboardingService gets re-homed onto the v2 stores
+        // (FEATURE-0323).
         if (this.plugin.settings.memory.enabled && this.plugin.memoryService) {
             try {
-                const parts: string[] = [];
-
-                // Long-term memory files (user-profile, projects, patterns)
-                const files = await this.plugin.memoryService.loadMemoryFiles();
-                const ctx = this.plugin.memoryService.buildMemoryContext(files);
-                if (ctx) parts.push(ctx);
+                const parts: string[] = memoryContext ? [memoryContext] : [];
 
                 // Onboarding: inject step-specific setup instructions when setup is incomplete
-                if (this.plugin.memoryService) {
-                    const onboarding = new OnboardingService(this.plugin.memoryService, this.plugin);
-                    const onboardingPrompt = onboarding.getOnboardingPrompt();
-                    if (onboardingPrompt) parts.unshift(onboardingPrompt);
-                }
+                const onboarding = new OnboardingService(this.plugin.memoryService, this.plugin);
+                const onboardingPrompt = onboarding.getOnboardingPrompt();
+                if (onboardingPrompt) parts.unshift(onboardingPrompt);
 
                 // Session retrieval — only on first message, using raw user text
                 // (not userMessageText which includes <context> and <vault_context> blocks).
@@ -2187,7 +2471,7 @@ export class AgentSidebarView extends ItemView {
 
                 if (parts.length > 0) memoryContext = parts.join('\n\n');
             } catch (e) {
-                console.warn('[Memory] Failed to load memory context:', e);
+                console.warn('[Memory] Session retrieval failed:', e);
             }
         }
 
@@ -2282,7 +2566,7 @@ export class AgentSidebarView extends ItemView {
     /**
      * Clear conversation history and chat UI (New Chat)
      */
-    private clearConversation(): void {
+    private clearConversation(opts: { skipNavPush?: boolean } = {}): void {
         // Save current conversation before clearing (if there is one)
         this.saveCurrentConversation();
         // Enqueue memory extraction (fire-and-forget, threshold-gated)
@@ -2307,15 +2591,24 @@ export class AgentSidebarView extends ItemView {
         this.showWelcomeMessage();
         this.updateContextBadge();
         this.historyPanel?.setActiveId(null);
+
+        if (!opts.skipNavPush) {
+            this.pushNav(null);
+        } else {
+            this.updateNavButtons();
+        }
     }
 
     /** Save the current conversation to ConversationStore (non-blocking). */
     private saveCurrentConversation(): void {
         const store = this.plugin.conversationStore;
         if (!store || !this.activeConversationId || this.uiMessages.length === 0) return;
-        store.save(this.activeConversationId, this.conversationHistory, this.uiMessages).catch((e) =>
-            console.warn('[History] Save failed:', e)
-        );
+        const convId = this.activeConversationId;
+        const messagesSnapshot = [...this.uiMessages];
+        store.save(convId, this.conversationHistory, this.uiMessages).then(() => {
+            // FEATURE-0320 Phase 6: re-index history_chunks after every save.
+            void this.plugin.historyIndexer?.onConversationSaved(convId, messagesSnapshot);
+        }).catch((e) => console.warn('[History] Save failed:', e));
     }
 
     /**
@@ -2404,28 +2697,39 @@ export class AgentSidebarView extends ItemView {
         const mem = this.plugin.settings.memory;
         const queue = this.plugin.extractionQueue;
         if (!mem.enabled || !mem.autoExtractSessions || !queue) return;
-        if (!this.activeConversationId || this.uiMessages.length < mem.extractionThreshold) return;
+        if (!this.activeConversationId) return;
 
-        // Build a minimal transcript from UI messages (~8000 chars max)
-        const MAX_TRANSCRIPT = 8000;
-        let transcript = '';
-        for (const msg of this.uiMessages) {
-            const prefix = msg.role === 'user' ? 'User: ' : 'Assistant: ';
-            const line = prefix + msg.text + '\n\n';
-            if (transcript.length + line.length > MAX_TRANSCRIPT) break;
-            transcript += line;
-        }
+        // Pinned conversations (already have facts in memory) get a
+        // lower threshold of 1 -- the user explicitly opted into memory
+        // for them, every new message is potentially relevant. Fresh
+        // conversations still wait for the configured threshold so
+        // smalltalk doesn't trigger an extraction.
+        const isPinned = this.plugin.countMemoryFactsForConversation(this.activeConversationId) > 0;
+        const threshold = isPinned ? 1 : mem.extractionThreshold;
+        if (this.uiMessages.length < threshold) return;
 
+        const snapshot = this.snapshotForMemory();
+        if (!snapshot) return;
+        queue.enqueue(snapshot).catch((e) => console.warn('[Memory] Enqueue failed:', e));
+    }
+
+    /**
+     * Public snapshot of the active conversation in the shape ExtractionQueue
+     * needs. Returns null when nothing is queueable. Used by the manual paths
+     * (Star button, mark_for_memory tool) which always run regardless of the
+     * autoExtractSessions toggle and the message-threshold.
+     */
+    snapshotForMemory(): { conversationId: string; messages: Array<{ role: 'user' | 'assistant'; text: string }>; title: string; queuedAt: string } | null {
+        if (!this.activeConversationId || this.uiMessages.length === 0) return null;
+        const messages = this.uiMessages.map((m) => ({ role: m.role, text: m.text }));
         const title = this.uiMessages.find((m) => m.role === 'user')?.text.slice(0, 60).replace(/\n/g, ' ').trim()
             || t('ui.sidebar.conversation');
-
-        queue.enqueue({
+        return {
             conversationId: this.activeConversationId,
-            transcript,
+            messages,
             title,
             queuedAt: new Date().toISOString(),
-            type: 'session',
-        }).catch((e) => console.warn('[Memory] Enqueue failed:', e));
+        };
     }
 
     /**
@@ -2522,8 +2826,71 @@ export class AgentSidebarView extends ItemView {
         return this.loadConversation(id);
     }
 
+    /**
+     * Push the next conversation onto the nav stack and truncate forward
+     * history -- standard browser semantics. Called from loadConversation
+     * for "fresh" navigations (deep-links, history-panel clicks); skipped
+     * when the navigation itself comes from the back/forward arrows.
+     */
+    private pushNav(id: string | null): void {
+        // Drop any "forward" entries beyond the current cursor.
+        if (this.navIndex < this.navStack.length - 1) {
+            this.navStack = this.navStack.slice(0, this.navIndex + 1);
+        }
+        // Don't stack consecutive duplicates (e.g. re-loading the same chat).
+        const top = this.navStack[this.navStack.length - 1];
+        if (top !== id) {
+            this.navStack.push(id);
+            this.navIndex = this.navStack.length - 1;
+        }
+        // Soft cap at 50 entries so a long session doesn't grow unbounded.
+        if (this.navStack.length > 50) {
+            const overflow = this.navStack.length - 50;
+            this.navStack = this.navStack.slice(overflow);
+            this.navIndex = Math.max(0, this.navIndex - overflow);
+        }
+        this.updateNavButtons();
+    }
+
+    private async navBack(): Promise<void> {
+        if (this.navIndex <= 0) return;
+        this.navIndex -= 1;
+        const target = this.navStack[this.navIndex];
+        await this.loadConversation(target ?? null, { skipNavPush: true });
+    }
+
+    private async navForward(): Promise<void> {
+        if (this.navIndex >= this.navStack.length - 1) return;
+        this.navIndex += 1;
+        const target = this.navStack[this.navIndex];
+        await this.loadConversation(target ?? null, { skipNavPush: true });
+    }
+
+    private updateNavButtons(): void {
+        if (this.navBackBtn) {
+            const canBack = this.navIndex > 0;
+            this.navBackBtn.disabled = !canBack;
+            this.navBackBtn.classList.toggle('agent-u-hidden', this.navStack.length < 2);
+        }
+        if (this.navForwardBtn) {
+            const canForward = this.navIndex < this.navStack.length - 1;
+            this.navForwardBtn.disabled = !canForward;
+            this.navForwardBtn.classList.toggle('agent-u-hidden', this.navStack.length < 2);
+        }
+    }
+
     /** Load a conversation from history and restore it in the chat panel. */
-    private async loadConversation(id: string): Promise<void> {
+    private async loadConversation(
+        id: string | null,
+        opts: { skipNavPush?: boolean } = {},
+    ): Promise<void> {
+        if (id === null) {
+            // Back-arrow target was an "empty chat" sentinel -- clear without
+            // re-pushing it onto the stack. clearConversation reads navStack
+            // state via the same skipNavPush flag.
+            this.clearConversation({ skipNavPush: true });
+            return;
+        }
         const store = this.plugin.conversationStore;
         if (!store) return;
 
@@ -2557,18 +2924,30 @@ export class AgentSidebarView extends ItemView {
                     this.addUserMessage(msg.text);
                 } else {
                     // renderMarkdownMessage already adds response actions for assistant messages
-                    this.renderMarkdownMessage(msg.text, 'assistant');
+                    this.renderMarkdownMessage(msg.text, 'assistant', msg.toolStepsHtml);
                 }
             }
         }
         this.historyPanel?.setActiveId(id);
         this.updateContextBadge();
+
+        if (!opts.skipNavPush) {
+            this.pushNav(id);
+        } else {
+            this.updateNavButtons();
+        }
     }
 
     /** Delete a conversation from history. */
     private async deleteConversation(id: string): Promise<void> {
         const store = this.plugin.conversationStore;
         if (!store) return;
+        // Cascade: remove derived memory artefacts (facts, session summary,
+        // thread-delta) before the conversation file itself is gone, so the
+        // user expectation "delete the chat = delete its memory" holds.
+        await this.plugin.deleteMemoryForConversationCascade(id).catch((e) =>
+            console.warn('[Memory] cascade delete failed (non-fatal):', e),
+        );
         await store.delete(id);
         // If the deleted conversation is the active one, clear the chat
         if (this.activeConversationId === id) {
@@ -2642,9 +3021,37 @@ export class AgentSidebarView extends ItemView {
     /**
      * Feature 2: Render markdown into a new assistant message (for static messages)
      */
-    private renderMarkdownMessage(markdown: string, role: 'assistant' | 'user'): HTMLElement | null {
+    private renderMarkdownMessage(
+        markdown: string,
+        role: 'assistant' | 'user',
+        toolStepsHtml?: string,
+    ): HTMLElement | null {
         if (!this.chatContainer) return null;
         const msgEl = this.chatContainer.createDiv(`message ${role}-message`);
+        // Re-inject the collapsed agent steps block above the markdown so
+        // the user can still expand "what did the agent do?" after a chat
+        // reload. Parsed via DOMParser to avoid innerHTML and keep the
+        // review-bot rules clean.
+        if (role === 'assistant' && toolStepsHtml) {
+            const toolsEl = msgEl.createDiv('message-tools');
+            try {
+                const parsed = new DOMParser().parseFromString(toolStepsHtml, 'text/html');
+                const root = parsed.body.firstElementChild;
+                if (root) {
+                    // Imported nodes are detached from the parsed document;
+                    // appending them moves the (already-styled) <details>
+                    // tree into the live message element.
+                    toolsEl.appendChild(document.importNode(root, true));
+                    // Always start collapsed on rehydration so the chat
+                    // doesn't visually explode when an old turn is reopened.
+                    toolsEl.querySelectorAll('details').forEach((d) => {
+                        if (d instanceof HTMLDetailsElement) d.open = false;
+                    });
+                }
+            } catch (e) {
+                console.warn('[AgentSidebar] Failed to rehydrate tool steps block:', e);
+            }
+        }
         const contentEl = msgEl.createDiv('message-content');
         void MarkdownRenderer.render(this.app, markdown, contentEl, '', this);
         // Restore action buttons for history messages
@@ -2907,10 +3314,26 @@ export class AgentSidebarView extends ItemView {
     /**
      * Make internal [[wikilinks]] and note links in the rendered markdown clickable.
      * MarkdownRenderer handles most links, but we intercept to ensure sidebar context.
+     *
+     * Special-case obsidian://obsilo-chat?id=X URLs (used by recall_memory and
+     * search_history outputs): route through the plugin's deep-link handler
+     * directly. Without this they'd fall through to openLinkText() and the
+     * ":" in the protocol scheme triggers a createFolder error.
      */
     private wireInternalLinks(contentEl: HTMLElement): void {
         contentEl.querySelectorAll('a').forEach((anchor) => {
             const href = anchor.getAttribute('href') ?? '';
+            if (href.startsWith('obsidian://obsilo-chat')) {
+                anchor.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const match = /[?&]id=([^&]+)/.exec(href);
+                    if (match) {
+                        const id = decodeURIComponent(match[1]);
+                        void this.plugin.openChatById(id);
+                    }
+                });
+                return;
+            }
             // Internal links: [[Note]] renders as data-href or href without http
             if (!href.startsWith('http') && !href.startsWith('mailto')) {
                 anchor.addEventListener('click', (e) => {

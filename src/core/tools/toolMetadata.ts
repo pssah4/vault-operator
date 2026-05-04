@@ -547,13 +547,20 @@ export function getToolsForGroup(group: ToolGroup): Array<[string, ToolMeta]> {
 
 /**
  * Build the system prompt tool section for the given groups.
- * Generates the same format as the previous hardcoded TOOL_SECTIONS.
+ *
+ * ADR-090 Lever 8 (Prompt-Schrumpfung): default mode is COMPACT -- one line per
+ * tool (signature + description). Examples / whenToUse / commonMistakes are
+ * pulled on demand via find_tool(name). This drops the tool section from
+ * ~6k tokens to ~1.5k tokens without losing capability discovery: the agent
+ * still sees every tool, just not the full docs.
+ *
+ * Pass includeExamples=true only when full docs are explicitly needed
+ * (e.g. find_tool result, debugging tools).
  *
  * @param groups - Tool groups to include
- * @param includeExamples - When true, emit example/whenToUse/commonMistakes lines (default true).
- *                          Set to false for subtask prompts to save tokens.
+ * @param includeExamples - Default false (compact). True emits Example / Best for / Avoid lines.
  */
-export function buildToolPromptSection(groups: ToolGroup[], includeExamples = true): string {
+export function buildToolPromptSection(groups: ToolGroup[], includeExamples = false): string {
     const parts: string[] = [];
     for (const group of GROUP_ORDER) {
         if (!groups.includes(group)) continue;
@@ -571,6 +578,9 @@ export function buildToolPromptSection(groups: ToolGroup[], includeExamples = tr
         });
         parts.push(`${header}\n${lines.join('\n')}`);
         parts.push('');
+    }
+    if (!includeExamples) {
+        parts.push('Need an example or to know when to pick a specific tool? Call find_tool(name) -- it returns the full documentation for that tool. Do not guess.');
     }
     return parts.join('\n');
 }

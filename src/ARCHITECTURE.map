@@ -1,0 +1,214 @@
+# Architecture Map
+#
+# Two sections in one file:
+#   1. CONCEPTS: concept -> entry-point file -> ADR -> how-to-extend
+#   2. ADR CATALOG: ADR-NNN -> topic -> title (overview of all decisions)
+#
+# Single-call lookup: `grep "ADR-79" src/ARCHITECTURE.map` returns
+# both the concept rows that reference ADR-79 AND the catalog row
+# with its title. `grep "<concept>" src/ARCHITECTURE.map` finds the
+# entry-point file and the relevant ADR number.
+#
+# Status, phase, last-change live in the backlog row, not here.
+# Run `grep "ADR-NNN" _devprocess/context/10_backlog.md` for status.
+#
+# Format Section 1: `concept | entry-point | adr | how-to-extend`
+# Format Section 2: `ADR-NNN | topic | title`
+# Columns are separated by ` | `. Lines starting with `#` are comments.
+
+# =====================================================================
+# SECTION 1: CONCEPTS
+# =====================================================================
+
+# CORE / AGENT LIFECYCLE (src/core/)
+agent-task                | src/core/AgentTask.ts                                 | ADR-01          | new tool: register in ToolRegistry, add ToolExecutionContext field
+tool-execution            | src/core/tool-execution/ToolExecutionPipeline.ts      | ADR-01          | new step: insert in pipeline order, see JSDoc header
+tool-registry             | src/core/tools/ToolRegistry.ts                        | ADR-01, ADR-16 | new tool: add file in src/core/tools/<name>/, register in ToolRegistry
+fast-path                 | src/core/FastPathExecutor.ts                          | ADR-61          | new recipe pattern: extend planner heuristics in FastPathExecutor
+mode-service              | src/core/modes/ModeService.ts                         | ADR-04          | new mode: add to builtinModes.ts plus tool-group map
+modes-builtin             | src/core/modes/builtinModes.ts                        | ADR-04          | new tool group: add entry to TOOL_GROUP_MAP
+context-condensing        | src/core/context/ContextCondenser.ts                  | ADR-12          | new strategy: implement CondenseStrategy and register
+power-steering            | src/core/AgentTask.ts                                 | ADR-06          | new injection point: extend powerSteeringFrequency switch
+checkpoint                | src/core/checkpoints/GitCheckpointService.ts          | ADR-02          | new checkpoint trigger: extend Pipeline step 4 hooks
+
+# MEMORY V2 STACK (src/core/memory/, src/core/knowledge/)
+knowledge-db              | src/core/knowledge/KnowledgeDB.ts                     | ADR-79          | new table: add migration in ensureSchema(), add typed methods
+memory-db                 | src/core/knowledge/MemoryDB.ts                        | ADR-77          | new collection: add migration plus typed methods
+fact-store                | src/core/memory/FactStore.ts                          | ADR-77, ADR-80 | new fact source: implement Persistence pattern
+edge-store                | src/core/memory/EdgeStore.ts                          | ADR-77, ADR-80 | new edge type: extend EdgeKind union plus types
+fact-integrator           | src/core/memory/FactIntegrator.ts                    | ADR-77, ADR-86 | new integration source: extend integrate() switch
+single-call-extractor     | src/core/memory/SingleCallExtractor.ts                | ADR-83          | new prompt section: extend buildPrompt schema
+memory-atomizer           | src/core/memory/MemoryAtomizer.ts                     | ADR-76          | new atom type: extend AtomKind union
+memory-retriever          | src/core/memory/MemoryRetriever.ts                   | ADR-77, ADR-87 | new source pipeline: extend retrieve() pipeline list
+ontology-store            | src/core/knowledge/OntologyStore.ts                   | ADR-82          | new tag heuristic: extend inferTopic() rules
+implicit-connection       | src/core/knowledge/ImplicitConnectionService.ts       | ADR-77          | new edge inference: extend computeAll() rule set
+vector-store              | src/core/knowledge/VectorStore.ts                     | ADR-79          | new collection scope: extend buildScope() switch
+
+# SEMANTIC INDEX
+semantic-index            | src/core/semantic/SemanticIndexService.ts             | ADR-79          | new index target: extend index lifecycle hooks
+embedding-service         | src/core/memory/EmbeddingService.ts                   | ADR-77          | new provider: implement EmbeddingProvider interface
+
+# AI PROVIDERS
+api-handler               | src/api/index.ts                                      | ADR-11          | new provider: implement ApiHandler, register in resolveProvider()
+anthropic                 | src/api/providers/anthropic.ts                        | ADR-11, ADR-62 | extend cache_control or model preset
+openai                    | src/api/providers/openai.ts                           | ADR-11          | extend streaming, tool-call, embedding flow
+chatgpt-oauth             | src/api/providers/chatgpt-oauth.ts                    | ADR-88, ADR-89 | extend OAuth lifecycle in ChatGptOAuthService
+github-copilot            | src/api/providers/github-copilot.ts                   | ADR-37, ADR-43 | extend Copilot completion or model resolution
+bedrock                   | src/api/providers/bedrock.ts                          | ADR-11          | extend region or model resolver
+openrouter                | src/api/providers/openrouter.ts                       | ADR-11          | extend route fallback or pricing
+
+# AUTH
+chatgpt-oauth-auth        | src/core/auth/ChatGptOAuthService.ts                  | ADR-88, ADR-89 | extend PKCE or token-refresh flow
+copilot-auth              | src/core/security/GitHubCopilotAuthService.ts         | ADR-37          | extend session-refresh or device-flow
+kilo-auth                 | src/core/security/KiloAuthService.ts                  | ADR-19          | extend auth flow or storage encryption
+safe-storage              | src/core/security/SafeStorageService.ts               | ADR-19          | new encrypted-key path: extend WRITABLE_KEYS
+
+# UI
+sidebar                   | src/ui/AgentSidebarView.ts                            | -                | new sidebar action: extend command map and renderer
+diff-review               | src/ui/DiffReviewModal.ts                             | -                | new diff layout: extend renderer plus toolbar
+model-config              | src/ui/settings/ModelConfigModal.ts                   | -                | new model preset: extend MODEL_REGISTRY plus defaults
+mcp-tab                   | src/ui/settings/McpTab.ts                             | ADR-05          | new MCP entry: extend tab renderer
+memory-tab                | src/ui/settings/MemoryTab.ts                          | ADR-77          | new memory control: extend renderer plus settings.ts
+modes-tab                 | src/ui/settings/ModesTab.ts                           | ADR-04          | new mode UI: extend renderer
+embeddings-tab            | src/ui/settings/EmbeddingsTab.ts                      | ADR-79          | new embedding source UI: extend renderer
+backup-tab                | src/ui/settings/BackupTab.ts                          | ADR-79          | new backup target: extend BackupService and renderer
+tool-picker               | src/ui/sidebar/ToolPickerPopover.ts                   | ADR-16          | new tool category: extend popover groups
+onboarding                | src/ui/sidebar/OnboardingFlow.ts                      | -                | new onboarding step: extend step list
+
+# MCP
+mcp-bridge                | src/mcp/McpBridge.ts                                  | ADR-05, ADR-81 | new transport: implement McpTransport interface
+mcp-tools                 | src/mcp/tools/index.ts                                | ADR-73          | new tool integration: extend tool registry mapping
+relay-client              | src/mcp/RelayClient.ts                                | ADR-55          | extend relay protocol or auth path
+
+# SANDBOX
+sandbox                   | src/core/sandbox/SandboxBridge.ts                     | -                | new sandbox executor: implement SandboxExecutor interface
+process-sandbox           | src/core/sandbox/ProcessSandboxExecutor.ts            | -                | extend OS-level isolation policy
+esbuild-wasm              | src/core/sandbox/EsbuildWasmManager.ts                | -                | extend bundle source resolution
+
+# OFFICE / DOCUMENT GENERATION
+office-index              | src/core/office/index.ts                              | ADR-48          | new generator: implement OfficeGenerator and register
+document-parsers          | src/core/document-parsers/                            | ADR-25          | new format: implement DocumentParser interface
+
+# SKILLS / VAULT DNA / MASTERY
+vault-dna                 | src/core/skills/VaultDNAScanner.ts                    | ADR-14          | new heuristic: extend scanner rule set
+self-authored-skills      | src/core/skills/SelfAuthoredSkillLoader.ts            | ADR-09, ADR-75 | new skill format: extend SKILL.md parser
+core-plugin-library       | src/core/skills/CorePluginLibrary.ts                  | ADR-14          | new core skill: add metadata entry plus skill file
+mastery                   | src/core/mastery/RecipePromotion.ts                   | ADR-17          | new promotion rule: extend RecipePromotion heuristics
+quality-gates             | src/core/quality-gates/index.ts                       | -                | new quality gate: implement QualityGate interface
+
+# OBSERVABILITY
+observability             | src/core/observability/                               | -                | new event class: extend ObservabilityEvent union
+
+# PRICING / COST
+pricing                   | src/core/pricing/PricingService.ts                    | ADR-90          | new model price: extend MODEL_PRICING table
+
+# CONFIG / GOVERNANCE
+config-store              | src/core/config/CodeConfigParser.ts                   | -                | new config knob: extend schema plus validators
+governance                | src/core/governance/                                  | ADR-05, ADR-10 | new approval rule: extend GovernanceService
+ignore-service            | src/core/governance/IgnoreService.ts                  | ADR-91          | new ignore source: extend ignore-file resolver
+update-settings-tool      | src/core/tools/agent/UpdateSettingsTool.ts            | -                | new settable path: extend WRITABLE_PATHS plus typings
+configure-model-tool      | src/core/tools/agent/ConfigureModelTool.ts            | -                | new model knob: extend handler plus settings types
+
+# PLUGIN ENTRY
+plugin-entry              | src/main.ts                                           | -                | wiring: register service and tool in onload()
+
+# =====================================================================
+# SECTION 2: ADR CATALOG
+# =====================================================================
+#
+# All architecture decisions, in numerical order.
+# Format: ADR-NNN | topic | title
+# For status (Accepted, Superseded, Proposed, ...): grep the backlog.
+# For full content: open the ADR file under _devprocess/architecture/.
+
+ADR-01 | core                   | Zentrale ToolExecutionPipeline fuer alle Tool-Aufrufe
+ADR-02 | core                   | isomorphic-git fuer Checkpoints (Shadow Repository)
+ADR-03 | core                   | vectra plus Xenova Transformers fuer lokalen Semantic Index
+ADR-04 | core                   | Mode-basierte Tool-Filterung via Tool-Gruppen
+ADR-05 | core                   | Fail-Closed Approval (kein Callback ist Ablehnung)
+ADR-06 | core                   | Sliding Window fuer Tool-Repetition-Erkennung
+ADR-07 | core                   | Event Separation -- Completion Signals vs. Text Output
+ADR-08 | core                   | Modular Prompt Sections und Central Tool Metadata
+ADR-09 | skills                 | PAS-1 Local Skills
+ADR-10 | governance             | Permissions Audit -- Auto-Approval Wiring
+ADR-11 | providers              | Multi-Provider API Architecture (Adapter Pattern)
+ADR-12 | context                | Context Condensing Strategy (Keep-First-Last)
+ADR-13 | memory-v1              | 3-Tier Memory Architecture [SUPERSEDED -> ADR-77]
+ADR-14 | skills                 | VaultDNA Automatische Plugin-Erkennung als Skills
+ADR-15 | search                 | Hybrid Search mit Semantic plus BM25 plus RRF Fusion
+ADR-16 | tools                  | Rich Tool Descriptions in ToolMeta
+ADR-17 | mastery                | Procedural Skill Recipes
+ADR-18 | mastery                | Episodic Task Memory
+ADR-19 | security               | Electron safeStorage fuer API-Key-Verschluesselung
+ADR-20 | storage                | Global Storage Architecture mit Sync Bridge
+ADR-21 | sandbox                | OS-Level Sandbox via child_process.fork()
+ADR-22 | chat-linking           | Chat-Linking via Pipeline Post-Write Hook
+ADR-23 | document-parsing       | Document Parser als wiederverwendbare Tools
+ADR-24 | document-parsing       | Parsing-Library-Auswahl fuer Office-Formate
+ADR-25 | document-parsing       | On-Demand Bild-Nachlade-Strategie
+ADR-26 | task-extraction        | Post-Processing Hook fuer Task Extraction
+ADR-27 | task-extraction        | Task-Note Frontmatter Schema
+ADR-28 | task-extraction        | Base-Erstellung und optionale Plugin-Integration
+ADR-29 | office-creation        | Input-Schema-Design fuer Office-Creation-Tools
+ADR-30 | office-creation        | Library-Selection fuer Office-Format-Erzeugung
+ADR-31 | office-creation        | Binary-Write-Pattern fuer Office-Format-Dateien
+ADR-32 | pptx-pipeline          | Template-basierte PPTX-Erzeugung (JSZip plus OOXML) [historisch]
+ADR-33 | pptx-pipeline          | Multimodaler Template-Analyzer (Cloud Run plus BYOK) [historisch]
+ADR-34 | pptx-pipeline          | Visual Design Language Document als Skill-Format [historisch]
+ADR-35 | pptx-pipeline          | Visual Intelligence -- Lokale Qualitaetskontrolle [historisch]
+ADR-36 | copilot                | GitHub Copilot Streaming Strategy
+ADR-37 | copilot                | GitHub Copilot Provider Architecture
+ADR-38 | copilot                | Copilot Token Storage in Settings
+ADR-39 | copilot                | Copilot Content Normalization Strategy
+ADR-40 | kilo                   | Kilo Gateway Provider Architecture
+ADR-41 | kilo                   | Kilo Auth and Session Architecture
+ADR-42 | kilo                   | Kilo Metadata Discovery Strategy
+ADR-43 | kilo                   | Kilo Embedding Gating Strategy
+ADR-44 | pptx-pipeline          | CSS-SVG Slide Engine (Abloesung PPTX Template Analyzer) [historisch]
+ADR-45 | pptx-pipeline          | pptx-automizer Template Pipeline (Abloesung CSS-SVG Engine) [historisch]
+ADR-46 | pptx-pipeline          | Direct Template Mode (Abloesung Composition-Abstraktion)
+ADR-47 | pptx-pipeline          | Schema-Constrained Slide Generation [historisch]
+ADR-48 | pptx-pipeline          | plan_presentation Pipeline -- Content-Transformation
+ADR-49 | pptx-pipeline          | Raw XML Clear plus Generate (Vorgeschlagen, nicht umgesetzt)
+ADR-50 | knowledge-db           | SQLite Knowledge DB (sql.js WASM)
+ADR-51 | knowledge-db           | Stufen-Retrieval-Pipeline
+ADR-52 | knowledge-db           | Local Reranker Integration
+ADR-53 | mcp                    | MCP Server Prozess-Architektur
+ADR-54 | mcp                    | MCP Tool-Mapping und System-Prompt-Uebertragung
+ADR-55 | mcp                    | Remote MCP Relay via Cloudflare Workers plus Durable Objects
+ADR-56 | website                | Static Site Generator fuer Website-Dokumentation
+ADR-57 | website                | Informationsarchitektur und Seitenstruktur
+ADR-58 | mastery                | Semantic Recipe Promotion (Intent-basiert)
+ADR-59 | memory-v1              | Memory Decay Prevention (Aktive Qualitaetssicherung)
+ADR-60 | observability          | Session-Summary Zuverlaessigkeit und Observability
+ADR-61 | fast-path              | Fast Path Execution -- Recipe-gesteuertes Batching
+ADR-62 | prompt-cache           | KV-Cache-Optimized Prompt Structure
+ADR-63 | context                | Context Externalization -- Dateisystem als Kontext
+ADR-64 | providers              | Google Gemini als eigenstaendiger Provider
+ADR-65 | knowledge-maintenance  | Ontologie-Schema und Befuellung
+ADR-66 | knowledge-maintenance  | Ingest-Strategie (Schema-Erkennung und Entitaets-Zuordnung)
+ADR-67 | knowledge-maintenance  | Lint-Architektur (Tool, UI und Trigger)
+ADR-68 | knowledge-maintenance  | OCR-Provider-Auswahl
+ADR-69 | knowledge-maintenance  | Confidence Storage Model
+ADR-70 | graph-intel            | Community Detection Library Selection
+ADR-71 | graph-intel            | Retrieval Integration Pattern
+ADR-72 | config                 | Konfigurierbarer Agent-Storage-Root
+ADR-73 | mcp                    | MCP-Tool-Argument Type-Safety
+ADR-74 | security               | Dependency-Override-Strategie fuer transitive Vulnerabilities
+ADR-75 | skill-packages         | Skill-Package-Architektur (Anthropic-kompatibel plus Coordinator)
+ADR-76 | memory-v2              | Episode-Fact-Boundary
+ADR-77 | memory-v2              | Memory v2 Storage Schema
+ADR-78 | memory-v2              | URI-Schema fuer Memory-Knoten
+ADR-79 | memory-v2              | Knowledge-DB-Haertung (Atomic Write, Multi-File-Commit)
+ADR-80 | memory-v2              | Persistenz-Service-Pattern fuer Memory-v2-Setup-Klassen
+ADR-81 | mcp                    | MCP-Tool-Routing plus Plugin-Standalone-RPC
+ADR-82 | memory-v2              | Topic-Inference-Strategie
+ADR-83 | memory-v2              | Single-Call Tool-Calling Output-Schema
+ADR-84 | memory-v2              | Engine-Public-API-Versionierung
+ADR-85 | memory-v2              | Soft-Delete-Cascade
+ADR-86 | memory-v2              | Inference-Pass-Architektur
+ADR-87 | memory-v2              | Vault-Note-Memory-Source-Pipeline
+ADR-88 | chatgpt-oauth          | ChatGPT OAuth Provider Architecture
+ADR-89 | chatgpt-oauth          | ChatGPT PKCE Loopback OAuth Flow
+ADR-90 | cost                   | Cost-Aware Agent Heuristics
+ADR-91 | mcp                    | MCP Pipeline Routing und IgnoreService at Index Build

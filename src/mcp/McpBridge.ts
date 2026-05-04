@@ -16,6 +16,7 @@ import type { McpToolDefinition } from './types';
 import { handleToolCall } from './tools/index';
 import { RelayClient } from './RelayClient';
 import { buildPrompts } from './prompts/systemContext';
+import { validateMcpVaultPath } from './tools/mcpPathValidation';
 
 const DEFAULT_PORT = 27182;
 
@@ -98,7 +99,12 @@ const TOOLS: McpToolDefinition[] = [
     },
     {
         name: 'sync_session',
-        description: 'MANDATORY at end of EVERY conversation using Obsilo. Replicate the conversation into Obsidian\'s chat history. Simply copy each message from this conversation.',
+        description:
+            'Legacy auto-tracking tool: replicates the current MCP-session conversation into Obsidian\'s chat history. ' +
+            'PREFER save_conversation for cross-surface use cases -- it provides Living-Document semantics ' +
+            '(conversation grows over multiple turns, no duplication) and Cross-Interface-Threads. Use sync_session ' +
+            'only as a one-shot session-end snapshot when you do not have the structured messages array. ' +
+            'IMPORTANT: pass source_interface to make the conversation appear in the correct History tab.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -116,20 +122,223 @@ const TOOLS: McpToolDefinition[] = [
                     description: 'Copy every message from this conversation. User messages verbatim. Your responses as you wrote them. Simply replicate the chat.',
                 },
                 learnings: { type: 'string', description: 'Optional: anything to remember for next time' },
+                source_interface: {
+                    type: 'string',
+                    enum: ['claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
+                    description: 'Source tag. Defaults to "unknown" -- always pass the right value (e.g. "claude-ai") so the conversation lands in the matching History-Sidebar tab.',
+                },
             },
             required: ['title', 'transcript'],
         },
     },
     {
         name: 'update_memory',
-        description: 'Update persistent memory: user profile, behavioral patterns, known errors, or active projects.',
+        description:
+            '[deprecated, use save_to_memory] Update persistent memory: user profile, behavioral patterns, known errors, or active projects. ' +
+            'This call is now routed to save_to_memory (Memory v2); the legacy memory/{category}.md V1 files are no longer written.',
         inputSchema: {
             type: 'object',
             properties: {
                 category: { type: 'string', enum: ['profile', 'patterns', 'errors', 'projects'] },
                 content: { type: 'string', description: 'Content to append' },
+                source_interface: {
+                    type: 'string',
+                    enum: ['obsilo', 'claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
+                    description: 'Optional source tag (BA-26). Default: unknown.',
+                },
             },
             required: ['category', 'content'],
+        },
+    },
+    // BA-26 / EPIC-23 -- Cross-Surface MCP Tools (FEAT-23-01, -02, -05)
+    {
+        name: 'save_to_memory',
+        description:
+            'Persist a single fact or insight in Obsilo Memory v2. Each call produces one fact entry. ' +
+            'Use for things you want available across all of Sebastian\'s chat tools (Obsilo, ChatGPT, ' +
+            'Claude.ai, Claude Code, Perplexity). Tags are optional. The configured source_interface ' +
+            'tag (per connector config) labels the entry so it stays filterable later.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                content: { type: 'string', description: 'The fact text. Single statement, max 4000 chars.' },
+                tags: {
+                    type: 'array', items: { type: 'string' },
+                    description: 'Optional 1-5 short lowercase tags (e.g. ["coding", "preferences"]).',
+                },
+                kind: {
+                    type: 'string',
+                    enum: ['fact', 'preference', 'identity', 'event'],
+                    description: 'Default "fact".',
+                },
+                importance: {
+                    type: 'number',
+                    description: '0..1 (default 0.5). 0.9 = identity-level, 0.7 = stable preference.',
+                },
+                source_interface: {
+                    type: 'string',
+                    enum: ['obsilo', 'claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
+                    description: 'Source tag. Configure as a connector constant. Default "unknown".',
+                },
+                source_uri: {
+                    type: 'string',
+                    description: 'Optional URI of origin (chat link, vault path, web URL).',
+                },
+            },
+            required: ['content'],
+        },
+    },
+    {
+        name: 'save_conversation',
+        description:
+            'Copy a conversation from an external chat tool into Obsilo\'s shared History sidebar. ' +
+            'Conversations appear in the matching source-tab.\n\n' +
+            'LIVING-DOCUMENT BEHAVIOUR (default ON): when the user asks you to save the current ' +
+            'conversation again later in the same session, JUST CALL save_conversation AGAIN with ' +
+            'the new turns -- the plugin auto-detects the active conversation (within 30 minutes ' +
+            'from the same source_interface) and appends. You do NOT need to track the ' +
+            'conversation_id yourself. You can send either the FULL transcript (plugin computes ' +
+            'the delta) or only the NEW turns (plugin appends them as-is). For explicit control ' +
+            'pass the conversation_id from the previous result.\n\n' +
+            'CROSS-INTERFACE THREADS: the first save_conversation result returns a ' +
+            'cross_interface_thread_id. When the user continues the same topic in a different ' +
+            'tool (e.g. claude-ai -> claude-code), pass that thread_id to link both conversations.\n\n' +
+            'SYNC-MODE: per-provider Auto vs Manual is user-configured. Auto triggers memory-' +
+            'extraction immediately with the same thresholds as Obsilo-internal conversations; ' +
+            'Manual parks the conversation as pending until the user confirms. ChatGPT and ' +
+            'Perplexity default to Manual to keep family-shared accounts out of personal memory.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                messages: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            role: { type: 'string', enum: ['user', 'assistant'] },
+                            text: { type: 'string' },
+                            ts: { type: 'string', description: 'Optional ISO timestamp.' },
+                        },
+                        required: ['role', 'text'],
+                    },
+                    description: 'Up to 500 messages.',
+                },
+                title: { type: 'string', description: 'Optional title (max 200 chars).' },
+                source_interface: {
+                    type: 'string',
+                    enum: ['claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
+                    description: 'Source tag (required, "obsilo" reserved for the plugin).',
+                },
+                living_document: {
+                    type: 'boolean',
+                    description: 'Default: true (Settings). Set false to force a new standalone conversation.',
+                },
+                conversation_id: {
+                    type: 'string',
+                    description: 'Optional: conversation_id returned by a previous save_conversation. Forces append into the same conversation.',
+                },
+                cross_interface_thread_id: {
+                    type: 'string',
+                    description: 'Optional: thread-YYYY-MM-DD-{6-hex} ID. Links the new conversation to an existing cross-interface thread.',
+                },
+            },
+            required: ['messages', 'source_interface'],
+        },
+    },
+    {
+        name: 'close_conversation',
+        description:
+            'Explicitly end the Living-Document Active-Session for a given conversation. After this ' +
+            'call, the next save_conversation from the same MCP-Session creates a new conversation ' +
+            'instead of appending. Use when the user signals end-of-topic.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                conversation_id: { type: 'string', description: 'The conversation_id returned by save_conversation.' },
+            },
+            required: ['conversation_id'],
+        },
+    },
+    {
+        name: 'recall_memory',
+        description:
+            'Search Obsilo Memory v2 facts by meaning. Returns top-K hits ranked by cosine over ' +
+            'fact_embeddings (with token-overlap fallback). Optional source_interface filter to ' +
+            'restrict to facts from a specific tool.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Natural-language search query.' },
+                top_k: { type: 'number', description: '1-30, default 10.' },
+                kind: {
+                    type: 'string',
+                    enum: ['fact', 'preference', 'identity', 'event'],
+                    description: 'Optional kind filter.',
+                },
+                source_interface: {
+                    type: 'string',
+                    enum: ['obsilo', 'claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
+                    description: 'Optional: restrict to facts from this surface only.',
+                },
+            },
+            required: ['query'],
+        },
+    },
+    {
+        name: 'search_history',
+        description:
+            'Keyword-search across past conversations from any source (Obsilo, ChatGPT, Claude.ai, ' +
+            'Claude Code, Perplexity). Returns matching messages with clickable obsidian://obsilo-chat ' +
+            'links to the source conversation. Optional source_interface filter.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Keyword or short phrase, case-insensitive.' },
+                top_k: { type: 'number', description: '1-30, default 10.' },
+                role: {
+                    type: 'string',
+                    enum: ['user', 'assistant', 'system', 'tool'],
+                    description: 'Optional role filter.',
+                },
+                source_interface: {
+                    type: 'string',
+                    enum: ['obsilo', 'claude-ai', 'claude-code', 'chatgpt', 'perplexity', 'unknown'],
+                    description: 'Optional: restrict to one chat surface.',
+                },
+            },
+            required: ['query'],
+        },
+    },
+    // Memory v2 Phase 3 (FEATURE-0317 / PLAN-006 task 10): expose
+    // implicit-edge + note-metadata reads so a Setup-C standalone engine
+    // (McpKnowledgeAdapter) can route Vault-graph queries through the
+    // Plugin-MCP. Read-only.
+    {
+        name: 'get_vault_implicit_edges',
+        description:
+            'Return implicit (cosine-based) neighbours of a vault note. Used by Memory v2 ' +
+            'cross-DB walks when the engine runs as a standalone service.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                path: { type: 'string', description: 'Vault-relative note path.' },
+                hops: { type: 'number', description: 'BFS depth (1-3, default 1).' },
+                limit: { type: 'number', description: 'Max neighbours (default 20).' },
+            },
+            required: ['path'],
+        },
+    },
+    {
+        name: 'get_vault_note_metadata',
+        description:
+            'Return tags + last-indexed timestamp for a vault note. Used by Memory v2 ' +
+            'edge-resolution to detect stale references.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                path: { type: 'string', description: 'Vault-relative note path.' },
+            },
+            required: ['path'],
         },
     },
 ];
@@ -311,11 +520,16 @@ export class McpBridge {
             return;
         }
 
-        // AUDIT-006 H-1: Bearer token authentication
+        // AUDIT-006 H-1 + AUDIT-013 H-5: Bearer token authentication with
+        // timing-safe comparison. The previous `!==` comparison short-
+        // circuited on first mismatch, leaking the token byte-by-byte over
+        // many requests. Token is high-entropy (UUID v4) so the practical
+        // attack window is small, but the standard fix is one stdlib call.
         const expectedToken = this.plugin.settings.mcpServerToken;
         if (expectedToken) {
             const authHeader = req.headers['authorization'] ?? '';
-            if (!authHeader.startsWith('Bearer ') || authHeader.slice(7) !== expectedToken) {
+            const presentedRaw = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+            if (!timingSafeStringEqual(presentedRaw, expectedToken)) {
                 res.writeHead(401, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Unauthorized' } }));
                 return;
@@ -382,9 +596,17 @@ export class McpBridge {
 
     private async handleJsonRpc(request: { method: string; params?: Record<string, unknown> }): Promise<unknown> {
         switch (request.method) {
-            case 'initialize':
+            case 'initialize': {
+                // FIX-23-04-01 Pass 6: echo the client's protocolVersion when
+                // we recognise it, so spec-strict clients (Perplexity) accept
+                // the connection. Fallback to our highest known version.
+                const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+                const requested = typeof request.params?.protocolVersion === 'string'
+                    ? request.params.protocolVersion
+                    : '';
+                const negotiated = SUPPORTED_VERSIONS.includes(requested) ? requested : '2025-03-26';
                 return {
-                    protocolVersion: '2025-03-26',
+                    protocolVersion: negotiated,
                     capabilities: { tools: {}, prompts: {}, resources: {} },
                     serverInfo: { name: 'Obsilo', version: '1.0.0' },
                     instructions: 'You are connected to Obsilo, an intelligence backend for an Obsidian vault. '
@@ -394,6 +616,7 @@ export class McpBridge {
                         + '2. Use search_vault, read_notes, write_vault, execute_vault_op as needed.\n'
                         + '3. ALWAYS call sync_session as your LAST action to save the conversation to Obsidian.',
                 };
+            }
 
             case 'tools/list':
                 return {
@@ -517,36 +740,88 @@ export class McpBridge {
     // -----------------------------------------------------------------------
 
     buildResourceList() {
+        // AUDIT-013 H-3: never expose ignored notes via the MCP resource list.
+        // Without this filter, the user's ignored notes show up in Claude
+        // Desktop's "Add from Obsilo" picker.
         const vault = this.plugin.app.vault;
+        const ignoreService = this.plugin.ignoreService;
         const files = vault.getMarkdownFiles();
-        // Return all markdown files as resources (Claude shows these in "Add from Obsilo")
-        return files.map(f => {
-            const name = f.path.split('/').pop()?.replace(/\.md$/, '') ?? f.path;
-            return {
-                uri: `vault://${f.path}`,
-                name,
-                description: f.path,
-                mimeType: 'text/markdown',
-            };
-        });
+        return files
+            .filter((f) => !ignoreService.isIgnored(f.path))
+            .map((f) => {
+                const name = f.path.split('/').pop()?.replace(/\.md$/, '') ?? f.path;
+                return {
+                    uri: `vault://${f.path}`,
+                    name,
+                    description: f.path,
+                    mimeType: 'text/markdown',
+                };
+            });
     }
 
     private async readResource(uri: string) {
-        // Decode URI components (Claude may encode spaces, special chars)
-        const path = decodeURIComponent(uri.replace(/^vault:\/\//, ''));
+        // AUDIT-013 H-3 + H-4: validate path through the standard MCP gate
+        // (traversal, ignore, protected) and wrap the returned content in a
+        // trust-boundary tag so a downstream agent treats it as data, not as
+        // instructions.
+        const MAX_URI_LEN = 2048;
+        if (uri.length > MAX_URI_LEN) return [];
+        const rawPath = decodeURIComponent(uri.replace(/^vault:\/\//, ''));
+        const validation = validateMcpVaultPath(this.plugin, rawPath, false);
+        if (!validation.allowed) return [];
+
         const vault = this.plugin.app.vault;
-        const file = vault.getFileByPath(path);
+        const file = vault.getFileByPath(rawPath);
         if (!file) return [];
+        // Restrict to markdown files; binary or sidecar files are out of
+        // scope for the resource picker.
+        if (!('extension' in file) || (file as { extension?: string }).extension !== 'md') return [];
 
         try {
             const content = await vault.cachedRead(file);
             return [{
                 uri,
                 mimeType: 'text/markdown',
-                text: content,
+                text: wrapVaultContentForMcp(rawPath, content),
             }];
         } catch {
             return [];
         }
     }
+}
+
+/**
+ * AUDIT-013 H-5: timing-safe string comparison for Bearer tokens.
+ * Wraps Node's `crypto.timingSafeEqual` with the length-equality guard it
+ * requires. Returns false for any length mismatch in constant-ish time
+ * (length comparison itself is fast and non-secret).
+ *
+ * Exported for testability.
+ */
+export function timingSafeStringEqual(presented: string, expected: string): boolean {
+    if (presented.length !== expected.length) return false;
+    if (expected.length === 0) return false; // empty expected = misconfig, deny
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- node:crypto in plugin runtime
+    const { timingSafeEqual } = require('node:crypto') as typeof import('node:crypto');
+    const a = Buffer.from(presented, 'utf8');
+    const b = Buffer.from(expected, 'utf8');
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+}
+
+/**
+ * AUDIT-013 H-4: wrap untrusted vault content in a boundary tag the
+ * downstream agent recognises as user data rather than as instructions.
+ * Mitigates indirect prompt injection through note bodies or frontmatter
+ * (e.g. "Ignore previous instructions" planted in a markdown file).
+ *
+ * Path is XML-escaped to prevent attribute injection.
+ */
+export function wrapVaultContentForMcp(path: string, content: string): string {
+    const safePath = path
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    return `<vault-content path="${safePath}" trust="user-data">\n${content}\n</vault-content>`;
 }

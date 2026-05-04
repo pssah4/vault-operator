@@ -127,7 +127,7 @@ export class EpisodicExtractor {
             const episodes: TaskEpisode[] = [];
 
             for (const result of results) {
-                const episodeId = result.path.replace('episode:', '');
+                const episodeId = result.path.replace(/^episode:(\/\/)?/, '');
                 const episode = await this.loadEpisode(episodeId);
                 if (episode) episodes.push(episode);
             }

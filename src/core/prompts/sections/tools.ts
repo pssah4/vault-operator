@@ -15,7 +15,8 @@ export function getToolsSection(
     mcpClient?: McpClient,
     allowedMcpServers?: string[],
     webEnabled?: boolean,
-    includeExamples = true,
+    // ADR-080 Lever 8: default to COMPACT (one line per tool). Full docs via find_tool.
+    includeExamples = false,
 ): string {
     const parts: string[] = [
         '====', '', 'TOOLS', '',

@@ -199,7 +199,7 @@ Die 61 Agents im Repo sind auf Software-Entwicklungsteams zugeschnitten (Fronten
 ## 7. Referenzen
 
 - **agency-agents Repo:** [github.com/msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents/)
-- **Bestehende Architektur:** ADR-004 (Mode-based Tool Filtering), ADR-008 (Modular Prompt Sections), ADR-009 (Local Skills)
+- **Bestehende Architektur:** ADR-04 (Mode-based Tool Filtering), ADR-08 (Modular Prompt Sections), ADR-09 (Local Skills)
 - **Presentation Design Skill:** `bundled-skills/presentation-design/SKILL.md`
 - **Mode-System:** `src/core/modes/ModeService.ts`, `src/core/modes/builtinModes.ts`
 - **Subtask-System:** `src/core/AgentTask.ts:227-288`, `src/core/tools/agent/NewTaskTool.ts`

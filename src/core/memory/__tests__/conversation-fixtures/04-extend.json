@@ -1,0 +1,31 @@
+{
+    "name": "extend",
+    "description": "Refines an existing claim without invalidating it",
+    "messages": [
+        { "role": "user", "text": "Java 11 also has var-keyword for local type inference." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian added a Java 11 detail.",
+        "episode_outcome": { "success": true, "result_summary": "Added." },
+        "facts": [
+            {
+                "text": "Java 11 supports the var-keyword for local type inference",
+                "topics": ["tools", "lang"],
+                "importance": 0.55,
+                "kind": "fact",
+                "relation": "extend"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "Sebastian noted Java 11 var-keyword.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 1,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "fact", "relation": "extend", "topicsFirst": "tools" }
+        ]
+    }
+}

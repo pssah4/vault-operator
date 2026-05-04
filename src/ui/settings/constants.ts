@@ -20,6 +20,7 @@ const BRAND_LABELS: Record<string, string> = {
     'github-copilot': 'GitHub Copilot',
     'kilo-gateway':   'Kilo Gateway',
     bedrock:          'Amazon Bedrock',
+    'chatgpt-oauth':  'ChatGPT (OAuth)',
 };
 
 function getProviderLabels(): Record<string, string> {
@@ -38,6 +39,7 @@ const PROVIDER_COLORS: Record<string, string> = {
     'github-copilot': '#6e40c9',
     'kilo-gateway':   '#ff6200',
     bedrock:          '#ff9900',
+    'chatgpt-oauth':  '#10a37f',
 };
 
 // Model suggestions shown in the Quick Pick dropdown per provider
@@ -122,6 +124,12 @@ const MODEL_SUGGESTIONS: Record<string, { group: string; id: string; label: stri
         { group: 'Amazon Nova',    id: 'eu.amazon.nova-lite-v1:0',                    label: 'Nova Lite (EU)' },
         { group: 'Amazon Nova',    id: 'us.amazon.nova-pro-v1:0',                     label: 'Nova Pro (US)' },
         { group: 'Amazon Nova',    id: 'us.amazon.nova-lite-v1:0',                    label: 'Nova Lite (US)' },
+    ],
+    'chatgpt-oauth': [
+        { group: 'GPT-5',  id: 'gpt-5.5',          label: 'GPT-5.5  (recommended for Pro)' },
+        { group: 'GPT-5',  id: 'gpt-5',            label: 'GPT-5' },
+        { group: 'Codex',  id: 'gpt-5-codex',      label: 'GPT-5 Codex' },
+        { group: 'Codex',  id: 'gpt-5-codex-mini', label: 'GPT-5 Codex mini' },
     ],
 };
 

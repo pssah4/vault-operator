@@ -1,0 +1,23 @@
+{
+    "name": "topic-drift",
+    "description": "User pivots topic mid-conversation -- topic_drift_detected=true",
+    "messages": [
+        { "role": "user", "text": "Help me debug this TypeScript error." },
+        { "role": "assistant", "text": "Sure, share the error." },
+        { "role": "user", "text": "Actually never mind, can you suggest a recipe for tonight?" }
+    ],
+    "extractorOutput": {
+        "session_summary": "Started with a TS debug request, pivoted to dinner planning.",
+        "episode_outcome": { "success": true, "result_summary": "Drift handled." },
+        "facts": [],
+        "mentions": [],
+        "conversation_so_far": "User pivoted from coding to cooking.",
+        "topic_drift_detected": true
+    },
+    "expected": {
+        "factCount": 0,
+        "rejectedCount": 0,
+        "topicDriftDetected": true,
+        "facts": []
+    }
+}

@@ -48,7 +48,6 @@ const WRITABLE_PATHS = new Set([
     // Memory
     'memory.enabled',
     'memory.autoExtractSessions',
-    'memory.autoUpdateLongTerm',
     // UI
     'autoAddActiveFileContext',
     'sendWithEnter',

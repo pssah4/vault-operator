@@ -1,16 +1,26 @@
 /**
- * update_memory -- Update persistent memory files (profile, patterns, errors, projects).
- * Called by Claude when it learns something about the user or discovers a pattern.
+ * update_memory -- BA-26 / FEAT-23-05.
+ *
+ * DEPRECATED: this tool predates Memory v2. New clients should call
+ * `save_to_memory` directly. We keep this handler for backward-compat
+ * with existing Claude Desktop / ChatGPT / Claude Code MCP-Configs:
+ * the call is routed transparently to save_to_memory (Memory v2),
+ * and a telemetry counter records the legacy invocation so we know
+ * when no client uses it any more.
+ *
+ * The original behaviour (writing into memory/{file}.md V1 files)
+ * is removed -- those files are dead storage in v2.
  */
 
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
+import { handleSaveToMemory } from './saveToMemory';
 
-const CATEGORY_MAP: Record<string, string> = {
-    profile: 'user-profile.md',
-    patterns: 'patterns.md',
-    errors: 'errors.md',
-    projects: 'projects.md',
+const CATEGORIES_TO_TAGS: Record<string, string[]> = {
+    profile: ['profile'],
+    patterns: ['patterns'],
+    errors: ['errors'],
+    projects: ['projects'],
 };
 
 export async function handleUpdateMemory(
@@ -20,31 +30,34 @@ export async function handleUpdateMemory(
     const category = typeof args.category === 'string' ? args.category : '';
     const content = typeof args.content === 'string' ? args.content : '';
 
-    if (!category || !CATEGORY_MAP[category]) {
+    if (!category || !CATEGORIES_TO_TAGS[category]) {
         return {
-            content: [{ type: 'text', text: `Error: category must be one of: ${Object.keys(CATEGORY_MAP).join(', ')}` }],
+            content: [{
+                type: 'text',
+                text: `Error: category must be one of: ${Object.keys(CATEGORIES_TO_TAGS).join(', ')}`,
+            }],
             isError: true,
         };
     }
-
     if (!content.trim()) {
         return { content: [{ type: 'text', text: 'Error: content is required' }], isError: true };
     }
 
-    if (!plugin.memoryService) {
-        return { content: [{ type: 'text', text: 'Error: Memory service not available' }], isError: true };
-    }
-
+    // Telemetry: count legacy invocations so we know when to remove
+    // the tool entirely. Best-effort.
     try {
-        const fileName = CATEGORY_MAP[category];
-        // Prefix with [via MCP] for transparency (FEATURE-1411)
-        const prefixed = `\n[via MCP] ${content}`;
-        await plugin.memoryService.appendToFile(fileName, prefixed);
-        return { content: [{ type: 'text', text: `Updated ${fileName} (${category})` }] };
-    } catch (e) {
-        return {
-            content: [{ type: 'text', text: `Error updating memory: ${e instanceof Error ? e.message : String(e)}` }],
-            isError: true,
-        };
-    }
+        plugin.memoryV2Telemetry?.legacyUpdateMemory?.({
+            category,
+            sourceInterface: typeof args.source_interface === 'string' ? args.source_interface : 'unknown',
+        });
+    } catch { /* non-fatal */ }
+
+    // Route to v2 path. Tags carry the original category so the user
+    // can still filter for "profile" / "patterns" / "errors" / "projects".
+    return handleSaveToMemory(plugin, {
+        content,
+        tags: CATEGORIES_TO_TAGS[category],
+        source_interface: args.source_interface,
+        kind: 'fact',
+    });
 }

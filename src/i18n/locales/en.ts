@@ -153,8 +153,8 @@ export const en: Translations = {
     'settings.embeddings.contextualRetrievalDesc': 'Enrich chunks with AI-generated context in the background. Improves search quality by 49-67%. Requires a contextual model below.',
     'settings.embeddings.contextualModel': 'Contextual retrieval model',
     'settings.embeddings.contextualModelDesc': 'Chat model for context prefix generation. Use a cheap/fast model (e.g. Haiku, gpt-4o-mini).',
-    'settings.embeddings.contextualModelPlaceholder': '-- select model --',
-    'settings.embeddings.statusEnriching': 'Enriching: {{processed}}/{{total}} chunks (search works -- quality improving)',
+    'settings.embeddings.contextualModelPlaceholder': 'Select model',
+    'settings.embeddings.statusEnriching': 'Enriching: {{processed}}/{{total}} chunks (search works, quality improving)',
     'settings.embeddings.statusPendingEnrichment': '{{count}} chunks pending enrichment',
     // Graph expansion (FEATURE-1502)
     'settings.embeddings.headingGraph': 'Graph expansion',
@@ -221,7 +221,7 @@ export const en: Translations = {
     // =========================================================================
     'settings.mcp.introTitle': 'Model context protocol',
     'settings.mcp.introDesc': 'Connect external tools and data sources to the agent. Each server provides new tools the agent can use.',
-    'settings.mcp.desc': 'Connect external tools and data sources via the model context protocol. Each server exposes tools the agent can call using use_mcp_tool.',
+    'settings.mcp.desc': 'Connect external tools and data sources via the model context protocol. Each server exposes tools the agent can call using `use_mcp_tool`.',
     'settings.mcp.addServer': 'Add server',
     'settings.mcp.disconnect': 'Disconnect',
     'settings.mcp.retry': 'Retry',
@@ -244,7 +244,7 @@ export const en: Translations = {
     'settings.mcp.toolCount': '{{count}} tool(s)',
     'settings.mcp.edit': 'Edit',
     'settings.mcp.delete': 'Delete',
-    'settings.mcp.builtInDisabledHint': 'Requires API key -- click edit to configure, then connect',
+    'settings.mcp.builtInDisabledHint': 'Requires an API key. Click edit to configure, then connect.',
 
     // =========================================================================
     // Settings — Modes Tab
@@ -411,9 +411,8 @@ export const en: Translations = {
     'settings.memory.enableMemory': 'Enable memory',
     'settings.memory.enableMemoryDesc': 'Allow the agent to build long-term memory from conversations. Disable to stop all extraction.',
     'settings.memory.autoExtract': 'Auto-extract session summaries',
-    'settings.memory.autoExtractDesc': 'Automatically create a summary when a conversation ends.',
-    'settings.memory.autoLongTerm': 'Auto-update long-term memory',
-    'settings.memory.autoLongTermDesc': 'Promote durable facts from session summaries to long-term memory files.',
+    'settings.memory.autoExtractDesc': 'Automatically extract memory when a conversation ends. The star button and the "remember this" agent prompt always work, regardless of this setting.',
+    'settings.memory.manualAlwaysHint': 'You can always save manually: ask the agent ("remember this") or click the star button on a conversation.',
     'settings.memory.modelSelect': 'Model for memory extraction',
     'settings.memory.modelSelectDesc': 'Select a small, fast model (e.g., haiku) for cost-efficient background extraction.',
     'settings.memory.noModels': 'No models configured. Add and enable a model in providers first.',
@@ -433,7 +432,7 @@ export const en: Translations = {
     'settings.memory.restartSetup': 'Restart setup',
     'settings.memory.startSetup': 'Start setup',
     'settings.memory.skipSetup': 'Skip setup',
-    'settings.memory.selectModel': '-- select model --',
+    'settings.memory.selectModel': 'Select model',
     'settings.memory.allConversationsDeleted': 'All conversations deleted',
     'settings.memory.memoryFilesLocation': 'Memory files: {{dir}}',
     'settings.memory.allMemoryReset': 'All memory files reset',
@@ -583,7 +582,7 @@ export const en: Translations = {
     'settings.interface.chatLinkingModel': 'Titling model',
     'settings.interface.chatLinkingModelDesc': 'Select a small, fast model for cost-efficient semantic title generation. Leave empty to use the first 60 characters as title.',
     'settings.interface.chatLinkingNoModels': 'No models configured. Add and enable a model in providers first.',
-    'settings.interface.chatLinkingSelectModel': '-- no semantic titling --',
+    'settings.interface.chatLinkingSelectModel': 'No semantic titling',
 
     // =========================================================================
     // Settings — Shell Tab
@@ -678,7 +677,7 @@ export const en: Translations = {
     'settings.backup.cancel': 'Cancel',
     'settings.backup.overwriteWarning': 'Existing files will be overwritten.',
     'settings.backup.backupFrom': 'Backup from {{date}} (v{{version}})',
-    'settings.backup.invalidFile': 'Invalid backup file -- not recognized as obsilo backup',
+    'settings.backup.invalidFile': 'Invalid backup file. Not recognized as an Obsilo backup.',
     'settings.backup.exported': 'Backup exported: {{files}} files in {{categories}} categories ({{size}})',
     'settings.backup.exportFailed': 'Export failed: {{error}}',
     'settings.backup.imported': 'Backup imported: {{files}} files in {{categories}} categories. Reload Obsidian for full effect.',
@@ -855,6 +854,14 @@ export const en: Translations = {
     'ui.sidebar.moreOptions': 'More options',
     'ui.sidebar.webSearchOn': 'Web search (on)',
     'ui.sidebar.webSearchOff': 'Web search (off)',
+    'ui.sidebar.saveToMemory': 'Save conversation to memory',
+    'ui.history.saveToMemory': 'Save this conversation to memory',
+    'ui.history.removeFromMemory': 'Remove this conversation from memory',
+    'ui.history.rename': 'Rename conversation',
+    'ui.history.renameTitle': 'Rename conversation',
+    'ui.history.renameMessage': 'Set a new title for this conversation.',
+    'ui.history.renameSubmit': 'Rename',
+    'ui.history.filterMemoryOnly': 'Show only conversations saved to memory',
     'ui.sidebar.stop': 'Stop',
     'ui.sidebar.send': 'Send message',
     'ui.sidebar.placeholder': 'Type your message here...',
@@ -993,8 +1000,8 @@ export const en: Translations = {
     // =========================================================================
     // Chat UI — Error Messages
     // =========================================================================
-    'ui.error.invalidKey': 'Invalid API key \u2014 check settings \u2192 obsilo agent',
-    'ui.error.modelNotFound': 'Model not found \u2014 verify the model ID in settings \u2192 obsilo agent',
+    'ui.error.invalidKey': 'Invalid API key \u2014 check settings \u2192 Obsilo agent',
+    'ui.error.modelNotFound': 'Model not found \u2014 verify the model ID in settings \u2192 Obsilo agent',
     'ui.error.rateLimit': 'Rate limit reached \u2014 please wait a moment',
     'ui.error.overloaded': 'API overloaded \u2014 try again shortly',
     'ui.error.network': 'Network error \u2014 check your connection and that the local server is running',
@@ -1005,6 +1012,11 @@ export const en: Translations = {
     // Notices
     // =========================================================================
     'notice.webSearchEnabled': 'Web search enabled. Set a search provider in settings > web search.',
+    'notice.memoryDisabled': 'Memory is disabled. Enable it in settings, then try again.',
+    'notice.memoryNoActiveConversation': 'No active conversation to save.',
+    'notice.memorySaveQueued': 'Conversation queued for memory extraction.',
+    'notice.memorySaveFailed': 'Saving the conversation failed. See console for details.',
+    'notice.memoryRemoved': 'Removed {{count}} fact(s) from memory for "{{title}}".',
     'notice.modeSwitched': 'Switched to {{mode}} mode',
     'notice.taskComplete': 'Agent task complete',
     'notice.loadConversationFailed': 'Could not load conversation',
@@ -1278,7 +1290,7 @@ export const en: Translations = {
     'modal.vaultHealth.resultBacklinks': '{{entities}} entities: {{links}} backlinks, {{bases}} bases created',
     'modal.vaultHealth.resultCategories': '{{count}} notes: category assignment corrected',
     'modal.vaultHealth.resultInvalidLinks': '{{count}} invalid links removed',
-    'modal.vaultHealth.noRepairsNeeded': 'No repairs needed -- all clean.',
+    'modal.vaultHealth.noRepairsNeeded': 'No repairs needed. All clean.',
     'modal.vaultHealth.remaining': 'Remaining: {{count}} finding(s) ({{critical}} critical).',
     'modal.vaultHealth.undoBtn': 'Undo',
     'modal.vaultHealth.doneBtn': 'Done',
@@ -1297,12 +1309,12 @@ export const en: Translations = {
     // =========================================================================
     // Onboarding (German UI — localized per language)
     // =========================================================================
-    'onboarding.welcome.heading': 'Welcome to obsilo',
+    'onboarding.welcome.heading': 'Welcome to Obsilo',
     'onboarding.welcome.modelNeeded': 'Before we start, the agent needs access to a language model.',
-    'onboarding.welcome.quickFree': 'This is quick -- and free.',
+    'onboarding.welcome.quickFree': 'This is quick, and free.',
     'onboarding.welcome.freeButton': 'Try for free',
     'onboarding.welcome.apiKeyButton': 'I have an API key',
-    'onboarding.free.intro': 'A powerful model is available for free -- no credit card required.',
+    'onboarding.free.intro': 'A powerful model is available for free. No credit card required.',
     'onboarding.free.howTo': 'How to get your API key:',
     'onboarding.free.step1': '1. Open the [Google AI Studio API key page](https://aistudio.google.com/app/apikey)',
     'onboarding.free.step2': '2. Sign in with your account and accept the terms of service',
@@ -1314,9 +1326,9 @@ export const en: Translations = {
     'onboarding.provider.selectPrompt': 'Which provider would you like to use?',
     'onboarding.provider.anthropic': 'Anthropic',
     'onboarding.provider.google': 'Google',
-    'onboarding.provider.pasteKey': '{{label}} -- Paste your API key here in the chat.',
+    'onboarding.provider.pasteKey': '{{label}}: paste your API key here in the chat.',
     'onboarding.noModel.heading': 'No model configured. To get started, you need an API key.',
-    'onboarding.noModel.freeOffer': 'A powerful model is available for free -- no credit card:',
+    'onboarding.noModel.freeOffer': 'A powerful model is available for free, no credit card:',
     'onboarding.noModel.step1': '1. Open the [Google AI Studio API key page](https://aistudio.google.com/app/apikey)',
     'onboarding.noModel.step2': '2. Sign in and click "create API key"',
     'onboarding.noModel.step3': '3. Paste the key here in the chat',
@@ -1381,7 +1393,7 @@ export const en: Translations = {
     // GitHub Copilot
     'guide.copilot.heading': 'GitHub copilot (requires active subscription):',
     'guide.copilot.step1': 'You need an active GitHub copilot subscription (individual, business, or enterprise).',
-    'guide.copilot.step2': 'Click "Sign in with GitHub" below. A code will appear -- enter it at github.com/login/device.',
+    'guide.copilot.step2': 'Click "Sign in with GitHub" below. A code will appear, enter it at github.com/login/device.',
     'guide.copilot.step3': 'After authorization, pick a model from the quick pick dropdown or use the fetch button.',
     'guide.copilot.disclaimer': 'This uses an unofficial API. Models and availability may change without notice.',
     'copilot.auth': 'GitHub account',
@@ -1395,6 +1407,28 @@ export const en: Translations = {
     'copilot.authSuccess': 'Successfully connected to GitHub copilot.',
     'copilot.authFailed': 'Authentication failed: {error}',
     'copilot.signedOut': 'Signed out from GitHub copilot.',
+
+    // ChatGPT OAuth (EPIC-021). Brand names (ChatGPT, Plus, Pro) and acronyms
+    // (OS) appear inside several strings here. The obsidianmd sentence-case
+    // rule does not recognise these as proper nouns, so each flagged entry
+    // gets an eslint-disable with the brand-name justification.
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
+    'chatgpt.auth': 'ChatGPT account',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT", "Plus", "Pro" are brand and product names
+    'chatgpt.authDesc': 'Use your ChatGPT Plus or Pro subscription. This uses unofficial codex endpoints; the schema can change without notice.',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
+    'chatgpt.signIn': 'Sign in with ChatGPT',
+    'chatgpt.signOut': 'Disconnect',
+    'chatgpt.notConnected': 'Not connected',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "OS" is an acronym
+    'chatgpt.unsupportedPlatform': 'Desktop only (OS keychain required)',
+    'chatgpt.polling': 'Waiting for browser...',
+    'chatgpt.openedBrowser': 'Browser opened. Complete sign-in there, then return to Obsidian.',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
+    'chatgpt.authSuccess': 'Successfully connected to ChatGPT.',
+    'chatgpt.authFailed': 'Sign-in failed: {error}',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
+    'chatgpt.signedOut': 'Disconnected from ChatGPT.',
 
     // Kilo gateway
     'kilo.auth': 'Kilo account',

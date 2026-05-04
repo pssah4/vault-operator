@@ -12,6 +12,8 @@
 import type { App, TFile, Vault } from 'obsidian';
 import type { GraphStore, Edge } from './GraphStore';
 
+// TODO(R3): migrate to src/core/utils/wikilinks.ts (parseWikilinks).
+// Kept regex-based for now to avoid touching the graph-extraction pipeline.
 // Wikilink regex — matches [[target]], [[target|alias]], [[target#heading]]
 const WIKILINK_RE = /\[\[([^\]|#\n]+?)(?:[|#][^\]]*?)?\]\]/g;
 

@@ -1,0 +1,33 @@
+{
+    "name": "update",
+    "description": "Correction of a prior claim -- LLM tags relation=update",
+    "messages": [
+        { "role": "assistant", "text": "Earlier I noted you use Java 8." },
+        { "role": "user", "text": "Actually, I'm on Java 11 now." }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian corrected the Java version.",
+        "episode_outcome": { "success": true, "result_summary": "Corrected." },
+        "facts": [
+            {
+                "text": "Sebastian uses Java 11",
+                "topics": ["tools", "lang"],
+                "importance": 0.7,
+                "kind": "fact",
+                "relation": "update",
+                "rationale": "supersedes earlier Java 8 claim"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "Sebastian's Java version updated from 8 to 11.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 1,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "fact", "relation": "update", "topicsFirst": "tools" }
+        ]
+    }
+}

@@ -1,8 +1,8 @@
 # arc42 — Obsidian Agent Architecture
 
-**Version:** 5.0
-**Stand:** 2026-04-13
-**Status:** Aktuell — EPIC-018 Token-Kostenreduktion implementiert, EPIC-019 Knowledge Maintenance Phase 1 teilweise implementiert, EPIC-020 Graph Intelligence implementiert (v2.4.3), MCP Remote Transport (FEATURE-1403) implementiert
+**Version:** 5.1
+**Stand:** 2026-05-04
+**Status:** Aktuell — EPIC-18 Token-Kostenreduktion implementiert, EPIC-19 Knowledge Maintenance Phase 1 implementiert, EPIC-20 Graph Intelligence implementiert (v2.4.3), MCP Remote Transport (FEAT-14-03) implementiert, **EPIC-23 Cross-Surface AI Workflow** ausgeliefert (v2.7.0): MCP-Remote-Tools save_to_memory / save_conversation / recall_memory / search_history; Cloudflare-Worker-Relay; Source-Interface-Tagging; Living Documents + Cross-Interface-Threads. **BA-25 Vault-Summary-Pflege** komplett: PLAN-10..14 released, knowledge.db Schema v9 -> v10. Memory v2 Stabilisierungs-Pass (3 IMPs). Drei Security-Audits (AUDIT-014/015/016) abgeschlossen mit Hardening: McpRateLimiter, sanitizeVaultContentForLLM, strictSourceIsolation, content-caps, crypto.randomUUID.
 
 ---
 
@@ -35,7 +35,7 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 
 ### 2.1 Technische Randbedingungen
 - **Obsidian Plugin API** — Zugriff auf Vault, MetadataCache, Workspace via `app.*`
-- **Electron-Renderer** — TypeScript/Node.js, Hybrid-Sandbox fuer Code-Ausfuehrung: Desktop `child_process.fork()` (OS-Level Prozess-Isolation, ADR-021), Mobile iframe (V8 Origin Isolation)
+- **Electron-Renderer** — TypeScript/Node.js, Hybrid-Sandbox fuer Code-Ausfuehrung: Desktop `child_process.fork()` (OS-Level Prozess-Isolation, ADR-21), Mobile iframe (V8 Origin Isolation)
 - **No system git** — `isomorphic-git` für Checkpoints (Pure-JS, keine System-Abhängigkeit)
 - **Obsidian Sync kompatibel** — Index-Daten im `.obsidian/`-Verzeichnis für Sync
 
@@ -95,29 +95,29 @@ Obsidian Agent ist ein Obsidian-Plugin, das einen vollständigen KI-Agenten dire
 
 4. **Mode-Based Tool Filtering** — Jeder Mode definiert seine Tool-Gruppen. Der Agent sieht nur die für seinen Mode relevanten Tools. Keine globalem Tool-Whitelist nötig.
 
-5. **4-Stufen Retrieval Pipeline (EPIC-015)** — SQLite Knowledge DB (sql.js WASM) + 4-Stufen Suche: Vector Search (Cosine-Similarity) → Graph Expansion (Wikilinks + MOC-Properties) → Implicit Connections (vorberechnete semantische Paare) → Local Reranking (Cross-Encoder via @huggingface/transformers WASM). Keine Cloud-Abhängigkeit. Zwei DBs: knowledge.db (global, Vektoren) + memory.db (vault-lokal, Sessions). [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md), [ADR-052](ADR-052-local-reranker.md)
+5. **4-Stufen Retrieval Pipeline (EPIC-15)** — SQLite Knowledge DB (sql.js WASM) + 4-Stufen Suche: Vector Search (Cosine-Similarity) → Graph Expansion (Wikilinks + MOC-Properties) → Implicit Connections (vorberechnete semantische Paare) → Local Reranking (Cross-Encoder via @huggingface/transformers WASM). Keine Cloud-Abhängigkeit. Zwei DBs: knowledge.db (global, Vektoren) + memory.db (vault-lokal, Sessions). [ADR-50](ADR-50-sqlite-knowledge-db.md), [ADR-51](ADR-51-retrieval-pipeline.md), [ADR-52](ADR-52-local-reranker.md)
 
 6. **Sliding Window Repetition Detection** — Erkennt Tool-Loops (gleiche Tool+Input-Kombination >= 3x in letzten 10 Calls) und bricht den Loop ab.
 
-7. **Multi-Provider API (Adapter Pattern)** — Einheitliches `ApiHandler`-Interface fuer Anthropic (nativ) und alle OpenAI-kompatiblen Provider (OpenAI, Ollama, LM Studio, OpenRouter, Azure, Custom, GitHub Copilot, Kilo Gateway). Internes Message-Format ist Anthropic-nativ. GitHub Copilot via OAuth Device Code Flow ([ADR-036](ADR-036-copilot-streaming-strategy.md)-[ADR-039](ADR-039-copilot-content-normalization.md)), Kilo Gateway via Device Auth + OpenAI-kompatible API ([ADR-040](ADR-040-kilo-provider-architecture.md)-[ADR-043](ADR-043-kilo-embedding-gating-strategy.md)). [ADR-011](ADR-011-multi-provider-api.md)
+7. **Multi-Provider API (Adapter Pattern)** — Einheitliches `ApiHandler`-Interface fuer Anthropic (nativ) und alle OpenAI-kompatiblen Provider (OpenAI, Ollama, LM Studio, OpenRouter, Azure, Custom, GitHub Copilot, Kilo Gateway). Internes Message-Format ist Anthropic-nativ. GitHub Copilot via OAuth Device Code Flow ([ADR-36](ADR-36-copilot-streaming-strategy.md)-[ADR-39](ADR-39-copilot-content-normalization.md)), Kilo Gateway via Device Auth + OpenAI-kompatible API ([ADR-40](ADR-40-kilo-provider-architecture.md)-[ADR-43](ADR-43-kilo-embedding-gating-strategy.md)). [ADR-11](ADR-11-multi-provider-api.md)
 
-8. **3-Tier Memory Architecture** — Chat History (kurzfristig) -> Session Summaries (mittelfristig, LLM-extrahiert) -> Long-Term Memory (langfristig, Fakten-Promotion). Asynchrone Verarbeitung via persistenter ExtractionQueue. [ADR-013](ADR-013-memory-architecture.md)
+8. **3-Tier Memory Architecture** — Chat History (kurzfristig) -> Session Summaries (mittelfristig, LLM-extrahiert) -> Long-Term Memory (langfristig, Fakten-Promotion). Asynchrone Verarbeitung via persistenter ExtractionQueue. [ADR-13](ADR-13-memory-architecture.md)
 
-9. **VaultDNA Plugin Discovery** — Automatischer Runtime-Scan aller installierten Plugins. Generiert Skill-Files mit Commands und API-Methoden. Agent kann Plugins aktivieren und deren APIs nutzen. [ADR-014](ADR-014-vault-dna-plugin-discovery.md)
+9. **VaultDNA Plugin Discovery** — Automatischer Runtime-Scan aller installierten Plugins. Generiert Skill-Files mit Commands und API-Methoden. Agent kann Plugins aktivieren und deren APIs nutzen. [ADR-14](ADR-14-vault-dna-plugin-discovery.md)
 
-10. **Hybrid Search (Semantic + TF-IDF + RRF + Graph + Implicit + Reranking)** — Kombiniert Vektor-Aehnlichkeit (SQLite Cosine) mit TF-IDF-Keyword-Scoring (Stemming + Stop-Word-Filter + Title-Boost). Ergebnis-Fusion via Reciprocal Rank Fusion (k=60). Dann: Local Reranking (Cross-Encoder), Graph Expansion (1-3 Hops via edges-Tabelle), Implicit Connection Discovery (semantisch aehnliche Notes ohne Link). [ADR-015](ADR-015-hybrid-search-rrf.md), [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md)
+10. **Hybrid Search (Semantic + TF-IDF + RRF + Graph + Implicit + Reranking)** — Kombiniert Vektor-Aehnlichkeit (SQLite Cosine) mit TF-IDF-Keyword-Scoring (Stemming + Stop-Word-Filter + Title-Boost). Ergebnis-Fusion via Reciprocal Rank Fusion (k=60). Dann: Local Reranking (Cross-Encoder), Graph Expansion (1-3 Hops via edges-Tabelle), Implicit Connection Discovery (semantisch aehnliche Notes ohne Link). [ADR-15](ADR-15-hybrid-search-rrf.md), [ADR-50](ADR-50-sqlite-knowledge-db.md), [ADR-51](ADR-51-retrieval-pipeline.md)
 
-11. **Agent Skill Mastery (3-Ebenen)** — A) Rich Tool Descriptions mit Examples/When-to-use in ToolMeta [ADR-016](ADR-016-rich-tool-descriptions.md). B) Procedural Recipes: Schritt-fuer-Schritt Rezepte fuer bekannte Tasks, keyword-first Matching, 2000 chars Budget [ADR-017](ADR-017-procedural-recipes.md). C) Episodic Task Memory: Aufzeichnung erfolgreicher Ausfuehrungen ohne extra API-Call, Auto-Promotion zu Rezepten bei 3+ Erfolgen [ADR-018](ADR-018-episodic-task-memory.md).
+11. **Agent Skill Mastery (3-Ebenen)** — A) Rich Tool Descriptions mit Examples/When-to-use in ToolMeta [ADR-16](ADR-16-rich-tool-descriptions.md). B) Procedural Recipes: Schritt-fuer-Schritt Rezepte fuer bekannte Tasks, keyword-first Matching, 2000 chars Budget [ADR-17](ADR-17-procedural-recipes.md). C) Episodic Task Memory: Aufzeichnung erfolgreicher Ausfuehrungen ohne extra API-Call, Auto-Promotion zu Rezepten bei 3+ Erfolgen [ADR-18](ADR-18-episodic-task-memory.md).
 
-12. **Chat-Linking (Pipeline Post-Write Hook)** — Nach jeder erfolgreichen Write-Operation auf `.md`-Dateien wird die aktuelle Conversation-ID als `obsidian://obsilo-chat?id={id}` Deep-Link im YAML-Frontmatter gespeichert. Hook sitzt in der Pipeline (konsistent mit Checkpoint, Cache, Audit). Nutzer kann aus jeder Note direkt in den Chat-Kontext zurueckspringen. [ADR-022](ADR-022-chat-linking.md)
+12. **Chat-Linking (Pipeline Post-Write Hook)** — Nach jeder erfolgreichen Write-Operation auf `.md`-Dateien wird die aktuelle Conversation-ID als `obsidian://obsilo-chat?id={id}` Deep-Link im YAML-Frontmatter gespeichert. Hook sitzt in der Pipeline (konsistent mit Checkpoint, Cache, Audit). Nutzer kann aus jeder Note direkt in den Chat-Kontext zurueckspringen. [ADR-22](ADR-22-chat-linking.md)
 
-13. **Document Parser als wiederverwendbare Tools (Hybrid)** — Parsing-Logik in `DocumentParserRegistry` (Service-Kern), Chat-Attachments rufen Service direkt auf (Performance), Agent nutzt Tool-Wrapper (`read_document`, `extract_document_images`) in ToolRegistry. Neue Formate ohne Architekturaenderung. [ADR-023](ADR-023-document-parser-tools.md)
+13. **Document Parser als wiederverwendbare Tools (Hybrid)** — Parsing-Logik in `DocumentParserRegistry` (Service-Kern), Chat-Attachments rufen Service direkt auf (Performance), Agent nutzt Tool-Wrapper (`read_document`, `extract_document_images`) in ToolRegistry. Neue Formate ohne Architekturaenderung. [ADR-23](ADR-23-document-parser-tools.md)
 
-14. **Leichtgewicht-Parsing (JSZip + Custom OOXML)** — JSZip (~30 KB) als einzige neue Dependency fuer OOXML-Formate (PPTX, XLSX, DOCX). Eigene Parser navigieren ZIP-Struktur + DOMParser fuer XML. PDF via pdfjs-dist (bestehend). JSON/XML/CSV nativ. [ADR-024](ADR-024-parsing-library-selection.md)
+14. **Leichtgewicht-Parsing (JSZip + Custom OOXML)** — JSZip (~30 KB) als einzige neue Dependency fuer OOXML-Formate (PPTX, XLSX, DOCX). Eigene Parser navigieren ZIP-Struktur + DOMParser fuer XML. PDF via pdfjs-dist (bestehend). JSON/XML/CSV nativ. [ADR-24](ADR-24-parsing-library-selection.md)
 
-15. **On-Demand Bild-Nachlade (Lazy Extraction)** — Beim Parsing nur Bild-Metadaten erfasst, Bilder erst bei Agent-Tool-Aufruf extrahiert. Vision-Gate prueft Model-Capability. System Prompt steuert Agent-Entscheidung. [ADR-025](ADR-025-on-demand-image-strategy.md)
+15. **On-Demand Bild-Nachlade (Lazy Extraction)** — Beim Parsing nur Bild-Metadaten erfasst, Bilder erst bei Agent-Tool-Aufruf extrahiert. Vision-Gate prueft Model-Capability. System Prompt steuert Agent-Entscheidung. [ADR-25](ADR-25-on-demand-image-strategy.md)
 
-16. **Deterministische Task Extraction (Post-Processing Hook)** — Nach Agent-Completion scannt ein Regex-basierter `TaskExtractor` den Antworttext auf `- [ ]` Items. Gefundene Tasks werden im `TaskSelectionModal` praesentiert. Ausgewaehlte Items werden als eigenstaendige Notes mit 10-Property-Frontmatter-Schema (Kategorie, Status, Zusammenfassung, Eisenhower-Felder, Quelle, Assignee) erstellt. Iconic-Integration und Base-Erstellung sind als Erweiterung geplant (ADR-028), aber noch nicht implementiert. Kein AI-Inferenzaufwand — gesamter Flow deterministisch. [ADR-026](ADR-026-post-processing-hook.md), [ADR-027](ADR-027-task-note-schema.md), [ADR-028](ADR-028-base-plugin-integration.md)
+16. **Deterministische Task Extraction (Post-Processing Hook)** — Nach Agent-Completion scannt ein Regex-basierter `TaskExtractor` den Antworttext auf `- [ ]` Items. Gefundene Tasks werden im `TaskSelectionModal` praesentiert. Ausgewaehlte Items werden als eigenstaendige Notes mit 10-Property-Frontmatter-Schema (Kategorie, Status, Zusammenfassung, Eisenhower-Felder, Quelle, Assignee) erstellt. Iconic-Integration und Base-Erstellung sind als Erweiterung geplant (ADR-28), aber noch nicht implementiert. Kein AI-Inferenzaufwand — gesamter Flow deterministisch. [ADR-26](ADR-26-post-processing-hook.md), [ADR-27](ADR-27-task-note-schema.md), [ADR-28](ADR-28-base-plugin-integration.md)
 
 ---
 
@@ -212,9 +212,9 @@ ToolRegistry
   + DynamicToolFactory (runtime-registered custom tools)
 ```
 
-Hinweis: `ingest_template` wurde entfernt (kein IngestTemplateTool.ts mehr vorhanden). `vault_health_check` (FEATURE-1901, ADR-067) ist registriert aber nicht in den Standard-Tool-Gruppen, da es primaer beim Vault-Open automatisch ausgefuehrt wird.
+Hinweis: `ingest_template` wurde entfernt (kein IngestTemplateTool.ts mehr vorhanden). `vault_health_check` (FEAT-19-01, ADR-67) ist registriert aber nicht in den Standard-Tool-Gruppen, da es primaer beim Vault-Open automatisch ausgefuehrt wird.
 
-### 5.4 Ebene 2: Document Parser Pipeline (EPIC-006)
+### 5.4 Ebene 2: Document Parser Pipeline (EPIC-06)
 
 ```
 DocumentParserRegistry (Service-Kern)
@@ -236,9 +236,9 @@ Aufrufwege:
   4. Semantic Index:   SemanticIndexService -> PdfParser.parse() (Refactoring, keine Duplikation)
 ```
 
-ADR: [ADR-023](ADR-023-document-parser-tools.md), [ADR-024](ADR-024-parsing-library-selection.md), [ADR-025](ADR-025-on-demand-image-strategy.md).
+ADR: [ADR-23](ADR-23-document-parser-tools.md), [ADR-24](ADR-24-parsing-library-selection.md), [ADR-25](ADR-25-on-demand-image-strategy.md).
 
-### 5.7 Ebene 2: Task Extraction Pipeline (FEATURE-0801)
+### 5.7 Ebene 2: Task Extraction Pipeline (FEAT-08-01)
 
 ```
 AgentSidebarView.onComplete()
@@ -255,17 +255,17 @@ AgentSidebarView.onComplete()
               └── onConfirm(selectedItems)
                     │
                     ├── TaskNoteCreator.createNotes(items, settings, sourceNote)
-                    │     ├── Frontmatter: 10 Properties (Schema ADR-027, implementiertes Schema)
+                    │     ├── Frontmatter: 10 Properties (Schema ADR-27, implementiertes Schema)
                     │     ├── Vault.create() pro Note
                     │     └── Fehler: partial success (bereits erstellte Notes bleiben)
 ```
 
-ADR: [ADR-026](ADR-026-post-processing-hook.md), [ADR-027](ADR-027-task-note-schema.md), [ADR-028](ADR-028-base-plugin-integration.md). Feature-Spec: `FEATURE-0801-task-extraction.md`.
+ADR: [ADR-26](ADR-26-post-processing-hook.md), [ADR-27](ADR-27-task-note-schema.md), [ADR-28](ADR-28-base-plugin-integration.md). Feature-Spec: `FEAT-08-01-task-extraction.md`.
 
-### 5.8 Ebene 2: Office Document Creation (EPIC-010 + EPIC-011)
+### 5.8 Ebene 2: Office Document Creation (EPIC-10 + EPIC-11)
 
 ```
-CreateDocxTool / CreateXlsxTool (EPIC-010 -- programmatisch)
+CreateDocxTool / CreateXlsxTool (EPIC-10 -- programmatisch)
   │
   ├── Input: Strukturiertes Schema (Sections/Sheets mit Inhalt, Styling)
   ├── Library: docx (DOCX), ExcelJS (XLSX)
@@ -275,7 +275,7 @@ CreateDocxTool / CreateXlsxTool (EPIC-010 -- programmatisch)
   │     └── Ordner-Erstellung (automatisch)
   └── Limits: max 100 Sections (DOCX), 20 Sheets (XLSX)
 
-CreatePptxTool (EPIC-011 -- Direct Template Mode, ADR-046)
+CreatePptxTool (EPIC-11 -- Direct Template Mode, ADR-46)
   │
   ├── Modus 1: Template Mode (source_slide + content mit physischen Shape-Namen)
   │     ├── Input: source_slide (Slide-Nr. aus Slide-Type-Guide) + content (Shape-Name → Wert)
@@ -291,7 +291,7 @@ CreatePptxTool (EPIC-011 -- Direct Template Mode, ADR-046)
         ├── Engine: AdhocSlideBuilder.ts (PptxGenJS)
         └── Output: ArrayBuffer → writeBinaryToVault()
 
-IngestTemplateTool (EPIC-011 -- Template-Ingestion, ADR-046)
+IngestTemplateTool (EPIC-11 -- Template-Ingestion, ADR-46)
   │
   ├── Shape Discovery: pptx-automizer extrahiert alle Shapes + Layouts
   ├── groupByLayoutName(): Gruppiert Slides nach PowerPoint-Layout-Namen
@@ -307,21 +307,21 @@ IngestTemplateTool (EPIC-011 -- Template-Ingestion, ADR-046)
   │     └── Ergänzt: visual_description + use_when pro SlideType
   └── Output: catalog.json (.obsilo/themes/{name}/) + Slide-Type-Guide im Tool-Result
 
-RenderPresentationTool (EPIC-011 -- Visuelle QA)
+RenderPresentationTool (EPIC-11 -- Visuelle QA)
   │
   ├── LibreOffice headless: PPTX → PDF → PNG
   ├── Agent prüft Slides visuell (multimodale Tool-Ergebnisse)
   └── Optionaler Schritt nach create_pptx
 ```
 
-ADR: [ADR-029](ADR-029-office-tool-input-schema.md), [ADR-030](ADR-030-office-library-selection.md), [ADR-031](ADR-031-binary-write-pattern.md), [ADR-046](ADR-046-direct-template-mode.md). (ADR-032, ADR-033, ADR-034, ADR-035, ADR-044, ADR-045: deprecated, superseded by ADR-046)
+ADR: [ADR-29](ADR-29-office-tool-input-schema.md), [ADR-30](ADR-30-office-library-selection.md), [ADR-31](ADR-31-binary-write-pattern.md), [ADR-46](ADR-46-direct-template-mode.md). (ADR-32, ADR-33, ADR-34, ADR-35, ADR-44, ADR-45: deprecated, superseded by ADR-46)
 
-Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
+Tool-Beschreibungen kommen aus `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Spec: `FEAT-05-06-tool-metadata-registry.md`. ADR: [ADR-08](ADR-08-modular-prompt-sections.md).
 
-### 5.5 Ebene 2: Unified Knowledge Layer (EPIC-015)
+### 5.5 Ebene 2: Unified Knowledge Layer (EPIC-15)
 
 ```
-Zwei-DB-Strategie (ADR-050):
+Zwei-DB-Strategie (ADR-50):
 
   knowledge.db (global, ~/.obsidian-agent/)        memory.db (vault-lokal)
   ├── vectors (Chunk-Embeddings, Float32 BLOBs)    ├── sessions
@@ -331,7 +331,7 @@ Zwei-DB-Strategie (ADR-050):
   ├── dismissed_pairs (UI Feedback)
   └── checkpoint (Metadaten)
 
-4-Stufen Retrieval Pipeline (ADR-051):
+4-Stufen Retrieval Pipeline (ADR-51):
 
   SemanticSearchTool.execute()
     │
@@ -363,7 +363,7 @@ Zwei-DB-Strategie (ADR-050):
     └── Implicit Computation: Paarweiser Cosine auf Note-Level-Vektoren
 
 Key Files:
-  ├── src/core/knowledge/KnowledgeDB.ts        (SQLite Wrapper, Schema v5)
+  ├── src/core/knowledge/KnowledgeDB.ts        (SQLite Wrapper, Schema v10 -- BA-25 Bundle, ADR-92)
   ├── src/core/knowledge/MemoryDB.ts           (Zweite DB fuer Memory-Daten)
   ├── src/core/knowledge/VectorStore.ts        (Vector CRUD + Cosine Search)
   ├── src/core/knowledge/GraphStore.ts         (Edge/Tag CRUD + BFS)
@@ -374,9 +374,9 @@ Key Files:
   └── src/core/tools/vault/SemanticSearchTool.ts (Search-UI)
 ```
 
-ADR: [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md), [ADR-052](ADR-052-local-reranker.md).
+ADR: [ADR-50](ADR-50-sqlite-knowledge-db.md), [ADR-51](ADR-51-retrieval-pipeline.md), [ADR-52](ADR-52-local-reranker.md).
 
-### 5.9 Ebene 2: Memory Architecture (3-Tier, FEATURE-1505)
+### 5.9 Ebene 2: Memory Architecture (V1 -- 3-Tier, FEAT-03-04)
 
 ```
 Tier 1: Chat History (ConversationStore)
@@ -405,7 +405,53 @@ Asynchrone Verarbeitung:
     └── LongTermExtractor -> LLM call -> update memory .md files
 ```
 
-ADR: [ADR-013](ADR-013-memory-architecture.md). Feature-Spec: `FEATURE-0304-memory-personalization.md`.
+V1-ADRs: [ADR-13](ADR-13-memory-architecture.md), [ADR-18 Episodic](ADR-18-episodic-task-memory.md), [ADR-58 Recipe-Promotion](ADR-58-semantic-recipe-promotion.md), [ADR-59 Memory-Decay](ADR-59-memory-decay-prevention.md), [ADR-60 Session-Summary](ADR-60-session-summary-reliability.md). Feature-Spec: `FEAT-03-04-memory-personalization.md` (Subsumed by Memory v2).
+
+### 5.9.1 Memory v2 Architecture (Phase 6 released, EPIC-03 Initiative; Cross-Surface MCP released 2026-05-04 EPIC-23)
+
+Memory v2 ersetzt das 3-Tier-Modell durch ein **Fact-zentrisches Schema mit Persistenz-Service-Pattern**. Die Engine ist UCM-Foundation (separates Repo Q3/Q4 2026, eigene BA `BA-UNIFIED-CHAT-MEMORY-V2.md`).
+
+**Cross-Surface MCP (EPIC-23, released 2026-05-04):** Externe Surfaces (Claude Desktop, ChatGPT, Perplexity) sprechen Memory v2 jetzt ueber den Cloudflare-Worker-Relay an. Fuenf neue MCP-Tools: save_to_memory, save_conversation, recall_memory, search_history und sync_session. Source-Interface-Tagging (ADR-108) markiert jede Conversation mit ihrer Origin-Surface; History-Sidebar-Tabs filtern danach. Living-Document-Semantik (ADR-110) buendelt mehrere Append-Calls in einen Cross-Interface-Thread (Format `thread-YYYY-MM-DD-{6-hex}`). ActiveMcpSessions sliding 30-min Map haelt MCP-Sessions zusammen. Per-Provider Sync-Mode (Auto / Manual) -- Default Auto fuer eigene Surfaces, Manual fuer Drittanbieter mit Privacy-Trade-Off. V1 update_memory ist deprecated; Migration-Helper im Settings-Tab (FEAT-23-05).
+
+```
+Engine (@obsilo/memory-engine, FEAT-03-21):
+  ├── FactStore (memory.db.facts: kind, importance, is_latest, source_uri, ...)
+  ├── EdgeStore (memory.db.fact_edges: update/extend/derive ueber granulare Edge-Types)
+  ├── HistoryStore (history.db.history_chunks: Cross-Source-Conversation-Index)
+  ├── ContextComposer (KV-Cache-aware, Soft-Topic-Lock, RRF + Reranker)
+  ├── FactExtractor + FactIntegrator (Single-Call Tool-Calling, Lazy-Conflict-Resolution)
+  ├── InferenceService (Background-Job, Pattern-basierte Derives, FEAT-03-24)
+  ├── VaultMemorySourceService (Notes-as-Source, dirty-tracking, FEAT-03-25)
+  ├── AgingService (kind-spezifische Halbwertzeiten: 14/90/180 Tage + persistent-preference)
+  ├── UnifiedGraphService (ATTACH-CTE oder JS-BFS-Fallback je nach Spike-Ergebnis)
+  ├── EmbeddingService (gemeinsam fuer alle Embedding-Operationen)
+  ├── MigrationService (Setup-Wechsel zwischen Klassen A/B/C)
+  └── AdapterRegistry (LocalKnowledge / McpKnowledge / LocalFile / WebUrl / Cloud)
+
+Drei Setup-Klassen (ADR-80):
+  A. Single-Device:    Plugin = Persistenz-Service, DBs Plugin-lokal
+  B. Vault-Sync:       Plugin = Service, DBs vault-resident, Single-Writer-Lock per PID
+  C. Central-Service:  separater Plugin oder Standalone-Service als Service,
+                       Workers (Plugins, Standalone, mobile via OpenClaw) schreiben via RPC
+
+Drei Storage-DBs:
+  ├── memory.db (Engine: facts, fact_edges, communication_styles, audit, conversation_threads,
+                          known_topics, memory_source_notes, plus Bestand sessions/episodes/recipes)
+  ├── history.db (Engine: history_chunks fuer Cross-Source-Search)
+  └── knowledge.db (Plugin-bedient: vectors, implicit_edges, ontology, tags -- bleibt FEAT-03-01)
+
+Plugin-MCP-Tool-Routing (ADR-81):
+  Externer Client (Claude Desktop, ChatGPT, ...)
+    -> Plugin-MCP via Cloudflare-Relay
+       Plugin-MCP empfaengt Tool-Call:
+         ├── Vault-Tool -> Plugin antwortet selbst (knowledge.db lokal)
+         └── Memory-Tool -> Plugin antwortet (Klasse A/B) ODER proxied via HTTPS/JSON-RPC
+                            an Persistenz-Service-URL (Klasse C)
+```
+
+Alle 12 V2-Features (FEAT-03-14 bis FEAT-03-25) plus 12 ADRs (ADR-76 bis ADR-87) detaillieren das Setup. Phase-0-Spikes (ATTACH+CTE-Performance, FTS5-WASM-Bundle-Size, Single-Call-Token-Profil) sind Pflicht-Vorbedingung vor Implementation.
+
+Differenzierung gegen Konkurrenz (Mem0, Zep, Letta, Supermemory): Lizenz-Souveraenitaet (Apache 2.0 vs Closed-Cloud), MCP-Native (Standard vs proprietaere SDKs), Plugin-Worker-Modell (kein Server-Zwang), Pluggable Persistence (3 Klassen), Obsidian-Vault-Bridge (einzigartig). Konzeptuelle Parity mit Supermemory in Update/Extend/Derive (Edge-Konzept-Layer), Memory-Typen (kind: fact/preference/identity/event), Inference-Pass (Pattern-basiert), Documents-Pipeline (Vault-Note-Source).
 
 ### 5.6 Ebene 2: VaultDNA / Plugin Skills
 
@@ -427,7 +473,7 @@ Agent-Nutzung:
   └── call_plugin_api(plugin_id, method, args)
 ```
 
-ADR: [ADR-014](ADR-014-vault-dna-plugin-discovery.md). Feature-Spec: `FEATURE-0204-local-skills.md`.
+ADR: [ADR-14](ADR-14-vault-dna-plugin-discovery.md). Feature-Spec: `FEAT-02-04-local-skills.md`.
 
 ---
 
@@ -530,9 +576,9 @@ Emergency Condensing (Catch-Block, Auto-Retry):
         └── Fehlschlag → normaler Fehler-Handler
 ```
 
-ADR: [ADR-012](ADR-012-context-condensing.md). Context Condensing ist standardmaessig AKTIVIERT (`condensingEnabled: true`).
+ADR: [ADR-12](ADR-12-context-condensing.md). Context Condensing ist standardmaessig AKTIVIERT (`condensingEnabled: true`).
 
-### 6.6 Semantic Search Pipeline (EPIC-015)
+### 6.6 Semantic Search Pipeline (EPIC-15)
 
 ```
 semantic_search(query, top_k, folder?, tags?, since?)
@@ -552,7 +598,7 @@ semantic_search(query, top_k, folder?, tags?, since?)
   └── Suggestion Banner: Sidebar-UI fuer Implicit Connection Vorschlaege
 ```
 
-ADR: [ADR-015](ADR-015-hybrid-search-rrf.md), [ADR-050](ADR-050-sqlite-knowledge-db.md), [ADR-051](ADR-051-retrieval-pipeline.md), [ADR-052](ADR-052-local-reranker.md).
+ADR: [ADR-15](ADR-15-hybrid-search-rrf.md), [ADR-50](ADR-50-sqlite-knowledge-db.md), [ADR-51](ADR-51-retrieval-pipeline.md), [ADR-52](ADR-52-local-reranker.md).
 
 ---
 
@@ -607,19 +653,19 @@ Nutzer-Gerät:
 
 ### 8.3 Context Management
 
-- **System Prompt** wird pro Task einmalig aufgebaut (nicht pro Iteration). Modulare Architektur: 15 Sections als Pure Functions in `src/core/prompts/sections/`, orchestriert von `buildSystemPromptForMode()`. Tool-Beschreibungen kommen aus der zentralen `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Specs: `FEATURE-0312-modular-system-prompt.md`, `FEATURE-0506-tool-metadata-registry.md`. ADR: [ADR-008](ADR-008-modular-prompt-sections.md).
+- **System Prompt** wird pro Task einmalig aufgebaut (nicht pro Iteration). Modulare Architektur: 15 Sections als Pure Functions in `src/core/prompts/sections/`, orchestriert von `buildSystemPromptForMode()`. Tool-Beschreibungen kommen aus der zentralen `toolMetadata.ts` (Single Source of Truth fuer Prompt und UI). Feature-Specs: `FEAT-03-12-modular-system-prompt.md`, `FEAT-05-06-tool-metadata-registry.md`. ADR: [ADR-08](ADR-08-modular-prompt-sections.md).
 - **Context Condensing** — wenn Kontext-Schätzung den `condensingThreshold` überschreitet: erste + letzte 4 Nachrichten behalten, Rest via LLM-Komprimierung. Standardmaessig aktiviert (`condensingEnabled: true`). Zusaetzlich: Emergency Condensing im Catch-Block bei 400 "context too long" Fehlern.
 - **Power Steering** — alle `powerSteeringFrequency` Iterationen wird der Mode-Reminder erneut injiziert.
 
 ### 8.4 Chat History & Memory System
 
-Persistentes Memory-System mit drei Säulen: Chat History, Short/Long-Term Memory, Onboarding. Alle Daten liegen im Plugin-Verzeichnis (`.obsidian/plugins/obsidian-agent/`). Feature-Spec: `FEATURE-0304-memory-personalization.md`. ADR: [ADR-007](ADR-007-event-separation.md).
+Persistentes Memory-System mit drei Säulen: Chat History, Short/Long-Term Memory, Onboarding. Alle Daten liegen im Plugin-Verzeichnis (`.obsidian/plugins/obsidian-agent/`). Feature-Spec: `FEAT-03-04-memory-personalization.md`. ADR: [ADR-07](ADR-07-event-separation.md).
 
 #### Storage Layout
 
 ```
 ~/.obsidian-agent/                       # Global Storage (nicht gesynct)
-├── knowledge.db                         # SQLite: Vektoren, Graph, Implicit Edges (EPIC-015)
+├── knowledge.db                         # SQLite: Vektoren, Graph, Implicit Edges (EPIC-15)
 ├── history/                             # Chat History
 │   ├── index.json
 │   └── {id}.json
@@ -635,7 +681,7 @@ Persistentes Memory-System mit drei Säulen: Chat History, Short/Long-Term Memor
 └── logs/
 
 {vault}/.obsidian-agent/                 # Vault-lokal (gesynct via Vault Sync)
-└── memory.db                            # SQLite: Sessions, Episodes, Recipes, Patterns (FEATURE-1505)
+└── memory.db                            # SQLite: Sessions, Episodes, Recipes, Patterns (FEAT-15-05)
 ```
 
 #### ConversationStore (`src/core/history/ConversationStore.ts`)
@@ -675,11 +721,11 @@ At session start, `MemoryService.buildMemoryContext()` injects:
 
 Total budget: ~1200 tokens. Knowledge memory is retrieved on demand via `semantic_search`.
 
-#### Event Separation (ADR-007)
+#### Event Separation (ADR-07)
 
 `attempt_completion` result is an internal signal, not user-facing text. `AgentTask` tracks `hasStreamedText` — completion result only rendered as fallback when no text was streamed. System prompt rules ensure attempt_completion is only called after multi-step tool workflows.
 
-#### Chat-Linking (ADR-022)
+#### Chat-Linking (ADR-22)
 
 Automatische Traceability zwischen Chats und Notes. Wenn der Agent eine `.md`-Datei schreibt, wird der aktuelle Chat als Deep-Link im Frontmatter gespeichert:
 
@@ -756,15 +802,15 @@ VaultDNA ermoeglicht dem Agent die Nutzung aller installierten Obsidian-Plugins:
 4. Permissions (Preset: Permissive / Balanced / Restrictive)
 5. Abschluss
 
-### 8.12 Token-Kostenreduktion (EPIC-018)
+### 8.12 Token-Kostenreduktion (EPIC-18)
 
 Drei-Stufen-Ansatz zur Reduktion des Token-Verbrauchs (634k -> 60k fuer einfache Tasks, 90% Reduktion):
 
-1. **Fast Path Execution (ADR-061)**: Recipe-gesteuertes Batching. `FastPathExecutor.ts` erkennt gelernte Recipes und fuehrt Tool-Sequenzen deterministisch aus (Planner + Execution), ohne iterative LLM-Calls. Fallback auf normale ReAct-Loop bei unbekannten Tasks.
+1. **Fast Path Execution (ADR-61)**: Recipe-gesteuertes Batching. `FastPathExecutor.ts` erkennt gelernte Recipes und fuehrt Tool-Sequenzen deterministisch aus (Planner + Execution), ohne iterative LLM-Calls. Fallback auf normale ReAct-Loop bei unbekannten Tasks.
 
-2. **KV-Cache-Optimized Prompt (ADR-062)**: Stabile Prompt-Sections (System Prompt, Tool Definitions, Rules) werden vorne positioniert fuer maximale KV-Cache-Hits. Volatile Sections (DateTime, Active File) stehen am Ende. Provider-agnostisch: Anthropic (explizites Caching), OpenAI/Gemini (implizites Prefix-Caching).
+2. **KV-Cache-Optimized Prompt (ADR-62)**: Stabile Prompt-Sections (System Prompt, Tool Definitions, Rules) werden vorne positioniert fuer maximale KV-Cache-Hits. Volatile Sections (DateTime, Active File) stehen am Ende. Provider-agnostisch: Anthropic (explizites Caching), OpenAI/Gemini (implizites Prefix-Caching).
 
-3. **Context Externalization (ADR-063)**: Grosse Tool-Results (>4000 Chars) werden in temporaere Dateien ausgelagert. `ResultExternalizer.ts` schreibt in `.obsidian-agent/context/` und injiziert kompakte Referenzen (`<context_ref path="..." lines="N"/>`) in den Kontext. Agent liest bei Bedarf via `read_file`.
+3. **Context Externalization (ADR-63)**: Grosse Tool-Results (>4000 Chars) werden in temporaere Dateien ausgelagert. `ResultExternalizer.ts` schreibt in `.obsidian-agent/context/` und injiziert kompakte Referenzen (`<context_ref path="..." lines="N"/>`) in den Kontext. Agent liest bei Bedarf via `read_file`.
 
 | Komponente | Datei |
 |------------|-------|
@@ -772,9 +818,9 @@ Drei-Stufen-Ansatz zur Reduktion des Token-Verbrauchs (634k -> 60k fuer einfache
 | `ResultExternalizer` | `src/core/tool-execution/ResultExternalizer.ts` |
 | Prompt-Sections | `src/core/prompts/sections/` |
 
-### 8.13 Knowledge Maintenance (EPIC-019, Phase 1)
+### 8.13 Knowledge Maintenance (EPIC-19, Phase 1)
 
-Erweitert die passive Knowledge Layer (EPIC-015) um aktive Wissens-Pflege:
+Erweitert die passive Knowledge Layer (EPIC-15) um aktive Wissens-Pflege:
 
 1. **VaultHealthService** (`src/core/knowledge/VaultHealthService.ts`): SQL-basierte Lint-Checks beim Vault-Open: verwaiste Notes, fehlende Backlinks, gebrochene Links, schwache Cluster, inkonsistente Tags, Kategorie-Mismatches. Kein LLM-Call fuer den Scan (0 Tokens).
 
@@ -784,24 +830,26 @@ Erweitert die passive Knowledge Layer (EPIC-015) um aktive Wissens-Pflege:
 
 4. **OntologyStore** (`src/core/knowledge/OntologyStore.ts`): Taxonomie-Verwaltung in SQLite. Cluster/Entity-Beziehungen, Health-Checks fuer Backlinks, inkrementelles Update.
 
-ADRs: [ADR-065](ADR-065-ontologie-schema.md), [ADR-066](ADR-066-ingest-strategy.md), [ADR-067](ADR-067-lint-architecture.md), [ADR-068](ADR-068-ocr-provider.md).
+ADRs: [ADR-65](ADR-65-ontologie-schema.md), [ADR-66](ADR-66-ingest-strategy.md), [ADR-67](ADR-67-lint-architecture.md), [ADR-68](ADR-68-ocr-provider.md).
 
 5. **AssetProvisioner** (`src/core/AssetProvisioner.ts`): Extrahiert eingebettete Runtime-Assets (Worker, Skills, Templates) aus main.js bei BRAT-Installation. Version-Gating ueber .obsilo-assets-version Marker.
 
 6. **CommunityDetectionService** (`src/core/knowledge/CommunityDetectionService.ts`): Louvain Community Detection ueber graphology. Identifiziert Themen-Cluster im Knowledge Graph fuer Ontologie-Validierung.
 
-ADRs: [ADR-069](ADR-069-confidence-storage.md), [ADR-070](ADR-070-community-detection-library.md), [ADR-071](ADR-071-retrieval-integration.md).
+ADRs: [ADR-69](ADR-69-confidence-storage.md), [ADR-70](ADR-70-community-detection-library.md), [ADR-71](ADR-71-retrieval-integration.md).
 
-### 8.14 MCP Server (EPIC-014)
+### 8.14 MCP Server (EPIC-14)
 
 MCP-Server-Architektur fuer externen Zugriff auf Obsilo-Funktionen:
 
-- **McpBridge** (`src/mcp/McpBridge.ts`): Hauptorchestrator, stdio JSON-RPC
-- **6 MCP Tools**: getContext, searchVault, readNotes, writeVault, executeVaultOp, syncSession, updateMemory
+- **McpBridge** (`src/mcp/McpBridge.ts`): Hauptorchestrator, stdio JSON-RPC plus Streamable-HTTP-konformer Worker-Pfad
+- **Vault-Tools (Approval-tiered)**: getContext, searchVault, readNotes, writeVault, executeVaultOp, syncSession
+- **Memory-v2 Cross-Surface Tools (EPIC-23)**: save_to_memory, save_conversation, recall_memory, search_history, plus update_memory (deprecated, V1-Migration). Source-Interface-Tagging (ADR-108), Living-Documents (ADR-110), McpRateLimiter (sliding-window 60s, drei Klassen cheap=60/min, medium=30/min, expensive=10/min).
 - **3-Tier Approval**: read (auto) / search (auto) / write (User-Approval)
-- **Remote Transport (FEATURE-1403)**: Cloudflare Workers + Durable Objects Relay (`CloudflareDeployer.ts`, `RelayClient.ts`). HTTP Long-Polling, Token-in-URL Auth, Auto-Deployment.
+- **Remote Transport (FEAT-14-03)**: Cloudflare Workers + Durable Objects Relay (`CloudflareDeployer.ts`, `RelayClient.ts`). HTTP Long-Polling, Token-in-URL Auth, Auto-Deployment. Worker antwortet Spec-konform Streamable-HTTP (Accept-Negotiation JSON vs SSE, Notification-202, Mcp-Session-Id Echo).
+- **Sicherheit (AUDIT-015 / AUDIT-016)**: per-message + transcript caps; sanitizeVaultContentForLLM mit Prompt-Injection-Filter; strictSourceIsolation Setting fuer Cross-Source-ACL; LIKE-wildcard escaping in search_history; crypto.randomUUID statt Math.random fuer ConversationStore-IDs.
 
-ADRs: [ADR-053](ADR-053-mcp-server-architecture.md), [ADR-054](ADR-054-mcp-tool-mapping.md), [ADR-055](ADR-055-remote-relay.md).
+ADRs: [ADR-53](ADR-53-mcp-server-architecture.md), [ADR-54](ADR-54-mcp-tool-mapping.md), [ADR-55](ADR-55-remote-relay.md), [ADR-107](ADR-107-mcp-memory-tools-versionierung.md), [ADR-108](ADR-108-source-interface-tagging.md), [ADR-110](ADR-110-living-documents-cross-interface-threads.md).
 
 ---
 
@@ -811,80 +859,103 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 
 | ADR | Entscheidung |
 |-----|-------------|
-| [ADR-001](ADR-001-central-tool-execution-pipeline.md) | Zentrale ToolExecutionPipeline für alle Tool-Aufrufe |
-| [ADR-002](ADR-002-isomorphic-git-checkpoints.md) | isomorphic-git statt System-Git für Checkpoints |
-| ~~[ADR-003](ADR-003-vectra-semantic-index.md)~~ | ~~vectra + Xenova fuer Semantic Index~~ — **Superseded** by ADR-050 |
-| [ADR-004](ADR-004-mode-based-tool-filtering.md) | Mode-basierte Tool-Filterung statt globaler Whitelist |
-| [ADR-005](ADR-005-fail-closed-approval.md) | Fail-Closed Approval (kein Callback = ablehnen) |
-| [ADR-006](ADR-006-sliding-window-repetition.md) | Sliding Window für Tool-Repetition-Erkennung |
-| [ADR-007](ADR-007-event-separation.md) | Event Separation — Completion-Signale getrennt von Text-Output |
-| [ADR-008](ADR-008-modular-prompt-sections.md) | Modulare Prompt-Sections & zentrale Tool-Metadata-Registry |
-| [ADR-009](ADR-009-local-skills.md) | Lokale Plugin-Skills (VaultDNA PAS-1) |
-| [ADR-010](ADR-010-permissions-audit.md) | Permissions Audit & Governance-Analyse |
-| [ADR-011](ADR-011-multi-provider-api.md) | Multi-Provider API Architecture (Adapter Pattern) |
-| [ADR-012](ADR-012-context-condensing.md) | Context Condensing (Keep-First-Last + LLM-Summarize) |
-| [ADR-013](ADR-013-memory-architecture.md) | 3-Tier Memory Architecture |
-| [ADR-014](ADR-014-vault-dna-plugin-discovery.md) | VaultDNA — Automatische Plugin-Erkennung als Skills |
-| [ADR-015](ADR-015-hybrid-search-rrf.md) | Hybrid Search mit Semantic + BM25 + RRF Fusion |
-| [ADR-016](ADR-016-rich-tool-descriptions.md) | Rich Tool Descriptions (example, whenToUse, commonMistakes) |
-| [ADR-017](ADR-017-procedural-recipes.md) | Procedural Skill Recipes (keyword-first Matching, Budget) |
-| [ADR-018](ADR-018-episodic-task-memory.md) | Episodic Task Memory (Aufzeichnung, Auto-Promotion) |
-| [ADR-019](ADR-019-electron-safestorage.md) | Electron SafeStorage (OS Keychain fuer API-Keys) |
-| [ADR-020](ADR-020-global-storage.md) | Global Storage Architecture (cross-vault Settings) |
-| [ADR-021](ADR-021-sandbox-os-isolation.md) | OS-Level Sandbox via child_process.fork() (Hybrid Desktop/Mobile) |
-| [ADR-022](ADR-022-chat-linking.md) | Chat-Linking via Pipeline Post-Write Hook (Frontmatter Deep-Links) |
-| [ADR-023](ADR-023-document-parser-tools.md) | Document Parser als wiederverwendbare Tools (Service-Kern + Tool-Wrapper) |
-| [ADR-024](ADR-024-parsing-library-selection.md) | Parsing-Library-Auswahl: JSZip + Custom OOXML + pdfjs-dist + Native APIs |
-| [ADR-025](ADR-025-on-demand-image-strategy.md) | On-Demand Bild-Nachlade via Lazy Extraction + Vision-Gate |
-| [ADR-026](ADR-026-post-processing-hook.md) | Direkter Post-Processing Hook in onComplete fuer Task Extraction |
-| [ADR-027](ADR-027-task-note-schema.md) | Task-Note Frontmatter Schema (10 Properties, deutsch, Eisenhower-kompatibel) |
-| [ADR-028](ADR-028-base-plugin-integration.md) | Eigene Base-YAML-Generierung + Iconic-Detection via direkte Obsidian-API |
-| [ADR-029](ADR-029-office-tool-input-schema.md) | Office-Tool Input-Schema (strukturierte Slides/Sections/Sheets statt Freitext) |
-| [ADR-030](ADR-030-office-library-selection.md) | Office-Library-Auswahl: docx + ExcelJS (PPTX-Teil superseded by ADR-046) |
-| [ADR-031](ADR-031-binary-write-pattern.md) | Binary-Write-Pattern: Shared writeBinaryToVault() mit Path-Traversal-Schutz |
-| ~~[ADR-032](ADR-032-template-based-pptx.md)~~ | ~~Template-basierte PPTX-Erzeugung: JSZip + OOXML~~ — **Deprecated**, superseded by ADR-046 |
-| ~~[ADR-033](ADR-033-multimodal-template-analyzer.md)~~ | ~~Multimodaler Template-Analyzer: Cloud Run + BYOK~~ — **Deprecated**, nie implementiert, superseded by ADR-046 |
-| ~~[ADR-034](ADR-034-visual-design-language-document.md)~~ | ~~Visual Design Language Document als Skill-Format~~ — **Deprecated**, nie implementiert, superseded by ADR-046 |
-| ~~[ADR-035](ADR-035-embedding-enhanced-template-analysis.md)~~ | ~~Agent-basierte Template-Analyse~~ — **Deprecated**, superseded by ADR-046 |
-| ~~[ADR-044](ADR-044-css-svg-slide-engine.md)~~ | ~~CSS-SVG Slide Engine~~ — **Deprecated**, superseded by ADR-046 |
-| ~~[ADR-045](ADR-045-pptx-automizer-pipeline.md)~~ | ~~pptx-automizer Template Pipeline~~ — **Deprecated**, superseded by ADR-046 |
-| [ADR-046](ADR-046-direct-template-mode.md) | Direct Template Mode: groupByLayoutName + physische Shape-Namen statt Composition-Abstraktion |
-| [ADR-047](ADR-047-schema-constrained-slide-generation.md) | Schema-Constrained Slide Generation: Validierung + Quality Gates |
-| [ADR-048](ADR-048-plan-presentation-pipeline.md) | plan_presentation: Interner LLM-Call fuer Source -> Outline -> Content-Transformation |
-| [ADR-049](ADR-049-raw-xml-clear-generate.md) | Raw XML Clear-Generate Strategie fuer Shape-Content |
-| [ADR-036](ADR-036-copilot-streaming-strategy.md) | Copilot Streaming Strategy (Chat Completions API) |
-| [ADR-037](ADR-037-copilot-provider-architecture.md) | Copilot Provider Architecture (VS Code Language Model API) |
-| [ADR-038](ADR-038-copilot-token-storage.md) | Copilot Token Storage (VS Code Authentication API) |
-| [ADR-039](ADR-039-copilot-content-normalization.md) | Copilot Content Normalization (tool_use -> function_call) |
-| [ADR-040](ADR-040-kilo-provider-architecture.md) | Kilo Provider Architecture (Gateway-Mode, lokale Modelle + Cloud-Routing) |
-| [ADR-041](ADR-041-kilo-auth-session-architecture.md) | Kilo Auth & Session Architecture (JWT + Refresh Token) |
-| [ADR-042](ADR-042-kilo-metadata-discovery.md) | Kilo Metadata Discovery (Model-Catalog vom Gateway) |
-| [ADR-043](ADR-043-kilo-embedding-gating-strategy.md) | Kilo Embedding Gating Strategy (Feature-Flags pro Modell) |
-| [ADR-050](ADR-050-sqlite-knowledge-db.md) | SQLite Knowledge DB: sql.js WASM, Zwei-DB-Strategie, Schema v5 |
-| [ADR-051](ADR-051-retrieval-pipeline.md) | 4-Stufen Retrieval Pipeline: Vector → Graph → Implicit → Reranking |
-| [ADR-052](ADR-052-local-reranker.md) | Local Reranker: transformers.js WASM, ms-marco-MiniLM-L-6-v2 |
-| [ADR-053](ADR-053-mcp-server-architecture.md) | MCP Server Prozess-Architektur (stdio, McpBridge) |
-| [ADR-054](ADR-054-mcp-tool-mapping.md) | MCP Tool-Mapping & System-Prompt-Uebertragung (3-Tier) |
-| [ADR-055](ADR-055-remote-relay.md) | Remote MCP Relay via Cloudflare Workers + Durable Objects |
-| [ADR-056](ADR-056-ssg-selection.md) | Static Site Generator fuer Website-Dokumentation |
-| [ADR-057](ADR-057-information-architecture.md) | Informationsarchitektur & Seitenstruktur |
-| [ADR-058](ADR-058-semantic-recipe-promotion.md) | Semantic Recipe Promotion (Intent-basiert statt Sequenz-basiert) |
-| [ADR-059](ADR-059-memory-decay-prevention.md) | Memory Decay Prevention (Aktive Qualitaetssicherung) |
-| [ADR-060](ADR-060-session-summary-reliability.md) | Session-Summary Zuverlaessigkeit und Observability |
-| [ADR-061](ADR-061-fast-path-execution.md) | Fast Path Execution: Recipe-gesteuertes Batching |
-| [ADR-062](ADR-062-kv-cache-optimized-prompt.md) | KV-Cache-Optimized Prompt Structure & Provider-Agnostic Caching |
-| [ADR-063](ADR-063-context-externalization.md) | Context Externalization: Dateisystem als erweiterter Kontext |
-| [ADR-064](ADR-064-gemini-provider.md) | Google Gemini als eigenstaendiger Provider |
-| [ADR-065](ADR-065-ontologie-schema.md) | Ontologie-Schema und Befuellung (EPIC-019) |
-| [ADR-066](ADR-066-ingest-strategy.md) | Ingest-Strategie: Schema-Erkennung und Entitaets-Zuordnung (EPIC-019) |
-| [ADR-067](ADR-067-lint-architecture.md) | Lint-Architektur: Tool, UI und Trigger (EPIC-019) |
-| [ADR-068](ADR-068-ocr-provider.md) | OCR-Provider-Auswahl (FEATURE-1905) |
-| [ADR-069](ADR-069-confidence-storage.md) | Confidence-Storage und -Propagation (EPIC-019) |
-| [ADR-070](ADR-070-community-detection-library.md) | Community-Detection-Library (EPIC-019) |
-| [ADR-071](ADR-071-retrieval-integration.md) | Retrieval-Integration mit Confidence/Cluster-Boost (EPIC-019) |
-| [ADR-072](ADR-072-configurable-agent-storage-root.md) | Konfigurierbarer Agent-Storage-Root (EPIC-005, FEATURE-0507) |
-| [ADR-073](ADR-073-mcp-tool-argument-typesafety.md) | MCP-Tool-Argument Type-Safety (Querschnitt: Review-Bot-Compliance) |
-| [ADR-074](ADR-074-dependency-override-strategy.md) | Dependency-Override-Strategie fuer transitive Vulnerabilities (Querschnitt: Security-Maintenance) |
+| [ADR-01](ADR-01-central-tool-execution-pipeline.md) | Zentrale ToolExecutionPipeline für alle Tool-Aufrufe |
+| [ADR-02](ADR-02-isomorphic-git-checkpoints.md) | isomorphic-git statt System-Git für Checkpoints |
+| ~~[ADR-03](ADR-03-vectra-semantic-index.md)~~ | ~~vectra + Xenova fuer Semantic Index~~ — **Superseded** by ADR-50 |
+| [ADR-04](ADR-04-mode-based-tool-filtering.md) | Mode-basierte Tool-Filterung statt globaler Whitelist |
+| [ADR-05](ADR-05-fail-closed-approval.md) | Fail-Closed Approval (kein Callback = ablehnen) |
+| [ADR-06](ADR-06-sliding-window-repetition.md) | Sliding Window für Tool-Repetition-Erkennung |
+| [ADR-07](ADR-07-event-separation.md) | Event Separation — Completion-Signale getrennt von Text-Output |
+| [ADR-08](ADR-08-modular-prompt-sections.md) | Modulare Prompt-Sections & zentrale Tool-Metadata-Registry |
+| [ADR-09](ADR-09-local-skills.md) | Lokale Plugin-Skills (VaultDNA PAS-1) |
+| [ADR-10](ADR-10-permissions-audit.md) | Permissions Audit & Governance-Analyse |
+| [ADR-11](ADR-11-multi-provider-api.md) | Multi-Provider API Architecture (Adapter Pattern) |
+| [ADR-12](ADR-12-context-condensing.md) | Context Condensing (Keep-First-Last + LLM-Summarize) |
+| [ADR-13](ADR-13-memory-architecture.md) | 3-Tier Memory Architecture |
+| [ADR-14](ADR-14-vault-dna-plugin-discovery.md) | VaultDNA — Automatische Plugin-Erkennung als Skills |
+| [ADR-15](ADR-15-hybrid-search-rrf.md) | Hybrid Search mit Semantic + BM25 + RRF Fusion |
+| [ADR-16](ADR-16-rich-tool-descriptions.md) | Rich Tool Descriptions (example, whenToUse, commonMistakes) |
+| [ADR-17](ADR-17-procedural-recipes.md) | Procedural Skill Recipes (keyword-first Matching, Budget) |
+| [ADR-18](ADR-18-episodic-task-memory.md) | Episodic Task Memory (Aufzeichnung, Auto-Promotion) |
+| [ADR-19](ADR-19-electron-safestorage.md) | Electron SafeStorage (OS Keychain fuer API-Keys) |
+| [ADR-20](ADR-20-global-storage.md) | Global Storage Architecture (cross-vault Settings) |
+| [ADR-21](ADR-21-sandbox-os-isolation.md) | OS-Level Sandbox via child_process.fork() (Hybrid Desktop/Mobile) |
+| [ADR-22](ADR-22-chat-linking.md) | Chat-Linking via Pipeline Post-Write Hook (Frontmatter Deep-Links) |
+| [ADR-23](ADR-23-document-parser-tools.md) | Document Parser als wiederverwendbare Tools (Service-Kern + Tool-Wrapper) |
+| [ADR-24](ADR-24-parsing-library-selection.md) | Parsing-Library-Auswahl: JSZip + Custom OOXML + pdfjs-dist + Native APIs |
+| [ADR-25](ADR-25-on-demand-image-strategy.md) | On-Demand Bild-Nachlade via Lazy Extraction + Vision-Gate |
+| [ADR-26](ADR-26-post-processing-hook.md) | Direkter Post-Processing Hook in onComplete fuer Task Extraction |
+| [ADR-27](ADR-27-task-note-schema.md) | Task-Note Frontmatter Schema (10 Properties, deutsch, Eisenhower-kompatibel) |
+| [ADR-28](ADR-28-base-plugin-integration.md) | Eigene Base-YAML-Generierung + Iconic-Detection via direkte Obsidian-API |
+| [ADR-29](ADR-29-office-tool-input-schema.md) | Office-Tool Input-Schema (strukturierte Slides/Sections/Sheets statt Freitext) |
+| [ADR-30](ADR-30-office-library-selection.md) | Office-Library-Auswahl: docx + ExcelJS (PPTX-Teil superseded by ADR-46) |
+| [ADR-31](ADR-31-binary-write-pattern.md) | Binary-Write-Pattern: Shared writeBinaryToVault() mit Path-Traversal-Schutz |
+| ~~[ADR-32](ADR-32-template-based-pptx.md)~~ | ~~Template-basierte PPTX-Erzeugung: JSZip + OOXML~~ — **Deprecated**, superseded by ADR-46 |
+| ~~[ADR-33](ADR-33-multimodal-template-analyzer.md)~~ | ~~Multimodaler Template-Analyzer: Cloud Run + BYOK~~ — **Deprecated**, nie implementiert, superseded by ADR-46 |
+| ~~[ADR-34](ADR-34-visual-design-language-document.md)~~ | ~~Visual Design Language Document als Skill-Format~~ — **Deprecated**, nie implementiert, superseded by ADR-46 |
+| ~~[ADR-35](ADR-35-embedding-enhanced-template-analysis.md)~~ | ~~Agent-basierte Template-Analyse~~ — **Deprecated**, superseded by ADR-46 |
+| ~~[ADR-44](ADR-44-css-svg-slide-engine.md)~~ | ~~CSS-SVG Slide Engine~~ — **Deprecated**, superseded by ADR-46 |
+| ~~[ADR-45](ADR-45-pptx-automizer-pipeline.md)~~ | ~~pptx-automizer Template Pipeline~~ — **Deprecated**, superseded by ADR-46 |
+| [ADR-46](ADR-46-direct-template-mode.md) | Direct Template Mode: groupByLayoutName + physische Shape-Namen statt Composition-Abstraktion |
+| [ADR-47](ADR-47-schema-constrained-slide-generation.md) | Schema-Constrained Slide Generation: Validierung + Quality Gates |
+| [ADR-48](ADR-48-plan-presentation-pipeline.md) | plan_presentation: Interner LLM-Call fuer Source -> Outline -> Content-Transformation |
+| [ADR-49](ADR-49-raw-xml-clear-generate.md) | Raw XML Clear-Generate Strategie fuer Shape-Content |
+| [ADR-36](ADR-36-copilot-streaming-strategy.md) | Copilot Streaming Strategy (Chat Completions API) |
+| [ADR-37](ADR-37-copilot-provider-architecture.md) | Copilot Provider Architecture (VS Code Language Model API) |
+| [ADR-38](ADR-38-copilot-token-storage.md) | Copilot Token Storage (VS Code Authentication API) |
+| [ADR-39](ADR-39-copilot-content-normalization.md) | Copilot Content Normalization (tool_use -> function_call) |
+| [ADR-40](ADR-40-kilo-provider-architecture.md) | Kilo Provider Architecture (Gateway-Mode, lokale Modelle + Cloud-Routing) |
+| [ADR-41](ADR-41-kilo-auth-session-architecture.md) | Kilo Auth & Session Architecture (JWT + Refresh Token) |
+| [ADR-42](ADR-42-kilo-metadata-discovery.md) | Kilo Metadata Discovery (Model-Catalog vom Gateway) |
+| [ADR-43](ADR-43-kilo-embedding-gating-strategy.md) | Kilo Embedding Gating Strategy (Feature-Flags pro Modell) |
+| [ADR-50](ADR-50-sqlite-knowledge-db.md) | SQLite Knowledge DB: sql.js WASM, Zwei-DB-Strategie, Schema v5 |
+| [ADR-51](ADR-51-retrieval-pipeline.md) | 4-Stufen Retrieval Pipeline: Vector → Graph → Implicit → Reranking |
+| [ADR-52](ADR-52-local-reranker.md) | Local Reranker: transformers.js WASM, ms-marco-MiniLM-L-6-v2 |
+| [ADR-53](ADR-53-mcp-server-architecture.md) | MCP Server Prozess-Architektur (stdio, McpBridge) |
+| [ADR-54](ADR-54-mcp-tool-mapping.md) | MCP Tool-Mapping & System-Prompt-Uebertragung (3-Tier) |
+| [ADR-55](ADR-55-remote-relay.md) | Remote MCP Relay via Cloudflare Workers + Durable Objects |
+| [ADR-56](ADR-56-ssg-selection.md) | Static Site Generator fuer Website-Dokumentation |
+| [ADR-57](ADR-57-information-architecture.md) | Informationsarchitektur & Seitenstruktur |
+| [ADR-58](ADR-58-semantic-recipe-promotion.md) | Semantic Recipe Promotion (Intent-basiert statt Sequenz-basiert) |
+| [ADR-59](ADR-59-memory-decay-prevention.md) | Memory Decay Prevention (Aktive Qualitaetssicherung) |
+| [ADR-60](ADR-60-session-summary-reliability.md) | Session-Summary Zuverlaessigkeit und Observability |
+| [ADR-61](ADR-61-fast-path-execution.md) | Fast Path Execution: Recipe-gesteuertes Batching |
+| [ADR-62](ADR-62-kv-cache-optimized-prompt.md) | KV-Cache-Optimized Prompt Structure & Provider-Agnostic Caching |
+| [ADR-63](ADR-63-context-externalization.md) | Context Externalization: Dateisystem als erweiterter Kontext |
+| [ADR-64](ADR-64-gemini-provider.md) | Google Gemini als eigenstaendiger Provider |
+| [ADR-65](ADR-65-ontologie-schema.md) | Ontologie-Schema und Befuellung (EPIC-19) |
+| [ADR-66](ADR-66-ingest-strategy.md) | Ingest-Strategie: Schema-Erkennung und Entitaets-Zuordnung (EPIC-19) |
+| [ADR-67](ADR-67-lint-architecture.md) | Lint-Architektur: Tool, UI und Trigger (EPIC-19) |
+| [ADR-68](ADR-68-ocr-provider.md) | OCR-Provider-Auswahl (FEAT-19-05) |
+| [ADR-69](ADR-69-confidence-storage.md) | Confidence-Storage und -Propagation (EPIC-19) |
+| [ADR-70](ADR-70-community-detection-library.md) | Community-Detection-Library (EPIC-19) |
+| [ADR-71](ADR-71-retrieval-integration.md) | Retrieval-Integration mit Confidence/Cluster-Boost (EPIC-19) |
+| [ADR-72](ADR-72-configurable-agent-storage-root.md) | Konfigurierbarer Agent-Storage-Root (EPIC-05, FEAT-05-07) |
+| [ADR-73](ADR-73-mcp-tool-argument-typesafety.md) | MCP-Tool-Argument Type-Safety (Querschnitt: Review-Bot-Compliance) |
+| [ADR-74](ADR-74-dependency-override-strategy.md) | Dependency-Override-Strategie fuer transitive Vulnerabilities (Querschnitt: Security-Maintenance) |
+| [ADR-88](ADR-88-chatgpt-oauth-provider-architecture.md) | ChatGPT OAuth Provider Architecture (Service plus Mapper, Node-https-Streaming, verschachteltes Settings-Schema, EPIC-21) |
+| [ADR-89](ADR-89-chatgpt-pkce-loopback-flow.md) | ChatGPT PKCE Loopback OAuth Flow (Renderer-Loopback-Server auf 127.0.0.1, Port-Range, EPIC-21) |
+| [ADR-90](ADR-90-cost-aware-agent-heuristics.md) | Cost-Aware Agent Heuristics (Token-Budget pro Tool-Loop, EPIC-18) |
+| [ADR-91](ADR-91-mcp-pipeline-routing-and-ignore-at-index-build.md) | MCP-Pipeline-Routing und Ignore-at-Index-Build (EPIC-19) |
+| [ADR-92](ADR-92-knowledge-db-schema-v10-bundle.md) | knowledge.db Schema v10 Bundle (BA-25 Foundation, 4 neue Tabellen) |
+| [ADR-93](ADR-93-source-identitaet-domain-only.md) | Source-Identitaet domain-only fuer Cluster-Stabilitaet (BA-25) |
+| [ADR-94](ADR-94-cluster-halbwertszeit-modell.md) | Cluster-Halbwertszeit-Modell fuer Top-Hub-Block-Pflege (BA-25) |
+| [ADR-95](ADR-95-frontmatter-write-conflict-detection.md) | Frontmatter Write-Conflict-Detection (BA-25 Phase 4) |
+| [ADR-96](ADR-96-moc-marker-konvention.md) | MOC-Marker-Konvention fuer Auto-Hub-Detection (BA-25) |
+| [ADR-97](ADR-97-kv-cache-block-lifecycle.md) | KV-Cache-Block-Lifecycle fuer Top-Hub-Block (BA-25) |
+| [ADR-98](ADR-98-pre-triage-tool-architektur.md) | Pre-Triage-Tool-Architektur (BA-25 Phase 3) |
+| [ADR-99](ADR-99-tension-detection-hybrid.md) | Tension-Detection-Hybrid (BA-25 Lint-Foundation) |
+| [ADR-100](ADR-100-dialog-ingest-state-storage.md) | Dialog-Ingest-State-Storage (ingest_session-Tabelle, BA-25) |
+| [ADR-101](ADR-101-output-modus-architektur.md) | Output-Modus-Architektur (3 Modi + Folder-Layout + Bibliografie, BA-25) |
+| [ADR-102](ADR-102-auto-trigger-detection-mechanik.md) | Auto-Trigger-Detection-Mechanik (vault.on-Listener, BA-25) |
+| [ADR-103](ADR-103-source-position-marker-und-pdf-strategie.md) | Source-Position-Marker und PDF-Strategie (BA-25) |
+| [ADR-104](ADR-104-web-search-provider-strategie.md) | Web-Search-Provider-Strategie (BYOK obligatorisch, BA-25) |
+| [ADR-105](ADR-105-stufe-3-job-runner-token-budget.md) | Stufe-3 Job-Runner und Token-Budget-Enforcement (BA-25 Phase 5) |
+| [ADR-106](ADR-106-health-modal-severity-und-cooldown.md) | Health-Modal-Severity und Activity-Trigger-Cooldown (BA-25) |
+| [ADR-107](ADR-107-mcp-memory-tools-versionierung.md) | MCP-Memory-Tools Versionierung -- V1 update_memory deprecaten, V2 als save_to_memory (EPIC-23) |
+| [ADR-108](ADR-108-source-interface-tagging.md) | Source-Interface-Tagging fuer cross-surface origin tracking (EPIC-23) |
+| [ADR-109](ADR-109-vault-zu-memory-bruecke.md) | Vault-zu-Memory-Bruecke via Single-Listener-Pattern (FEAT-03-25, supersedes ADR-87) |
+| [ADR-110](ADR-110-living-documents-cross-interface-threads.md) | Living-Document-Semantik plus Cross-Interface-Thread-Klammer (EPIC-23) |
 
 ---
 
@@ -908,7 +979,7 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 
 | Risiko | Auswirkung | Mitigation |
 |--------|-----------|-----------|
-| ~~vectra RAM~~ | ~~Resolved: Ersetzt durch SQLite (ADR-050)~~ | ~~EPIC-015~~ |
+| ~~vectra RAM~~ | ~~Resolved: Ersetzt durch SQLite (ADR-50)~~ | ~~EPIC-15~~ |
 | `query_base` nutzt Regex-YAML-Parser | Komplexe Filterausdrücke können falsch geparst werden | Echter YAML-Parser (future) |
 | `update_base` erkennt View-Blöcke via Regex | Fragil bei unerwarteter YAML-Formatierung | Vollständiger YAML-Parser (future) |
 | Keyword-Suche (TF-IDF) ist ein Live-Scan | Linear mit Vault-Groesse | Vorkompilierter Index (future), aktuell <50ms |
@@ -916,12 +987,14 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | Memory-Extraktion basiert auf LLM-Qualitaet | Ungenaue Fakten bei schwachen Modellen | Separate memoryModelKey-Einstellung |
 | VaultDNA Reflection kann bei Plugins fehlschlagen | Unvollstaendige Skill-Files | Nutzer kann Skill-Files manuell anpassen |
 | MCP stdio spawnt Subprozesse | Sicherheitsrisiko bei boeswilligen Configs | Shell-Metacharacter-Validation |
+| ChatGPT-OAuth-Provider nutzt undokumentierte Codex-Endpoints (EPIC-21) | Schema kann sich ohne Vorwarnung aendern, OpenAI koennte Drittanbieter-Nutzung sperren | Schema-Mapper isoliert, Datums-Kommentare, Disclaimer im UI, Endpoint-Drift-Indikator (ADR-88, ADR-89) |
+| ChatGPT-OAuth-Loopback nutzt require('http') im Renderer | Plugin-Review-Aufmerksamkeit moeglich | Eslint-disable mit klarer Begruendung, kurze Server-Lifetime, Bind 127.0.0.1, Port-Range 1455 bis 1460 (ADR-89) |
 
 ### Technische Schulden
 
 | Bereich | Beschreibung | Status |
 |---------|-------------|--------|
-| UI Modularisierung | `AgentSidebarView.ts` (~3500 LOC) -- Split in Unterkomponenten | Teilweise (FEATURE-0902: SuggestionBanner, OnboardingFlow extrahiert) |
+| UI Modularisierung | `AgentSidebarView.ts` (~3500 LOC) -- Split in Unterkomponenten | Teilweise (FEAT-09-02: SuggestionBanner, OnboardingFlow extrahiert) |
 | Virtual Scrolling | Lange Chat-Historien verursachen UI-Lag | Offen |
 | Token-Estimation | ~4 chars/token Schaetzung -- genauer mit js-tiktoken | Niedrige Prio |
 | SuggestionService | Dead Code -- nie instanziiert, nie aufgerufen | Offen (Backlog) |
@@ -934,10 +1007,10 @@ Alle bekannten Bugs (FIX-01 bis FIX-12) resolved:
 - FIX-01 bis FIX-06: Resolved (Details siehe Backlog)
 - FIX-07: Reranker ONNX-Runtime -- Fail-Once-Guard implementiert
 - FIX-08: ImplicitConnections Race Condition -- isOpen() Guard
-- FIX-09: Session-Summaries nicht abrufbar -- DB-Fallback (ADR-060)
+- FIX-09: Session-Summaries nicht abrufbar -- DB-Fallback (ADR-60)
 - FIX-10: learnedRecipesEnabled -- Force-True in main.ts (UI-Toggle ausstehend)
 - FIX-11: ChatLink YAML-Parse-Fehler -- concise geloggt, Note uebersprungen
-- FIX-12: Token Overflow -- geloest durch EPIC-018 (ADR-061/062/063)
+- FIX-12: Token Overflow -- geloest durch EPIC-18 (ADR-61/062/063)
 
 Security Audits: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md` bis `AUDIT-006-obsilo-2026-04-02.md`
 
@@ -965,7 +1038,7 @@ Security Audits: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md` 
 | **SessionExtractor** | LLM-basierte Session-Zusammenfassung (verwendet memoryModelKey) |
 | **LongTermExtractor** | Promoviert Fakten aus Session-Summaries in die Long-Term-Memory-Dateien |
 | **MemoryRetriever** | Semantische Suche über Session-Summaries für Cross-Session-Kontext |
-| **Event Separation** | Architekturmuster: Completion-Signale (attempt_completion) getrennt von Text-Output. hasStreamedText-Flag steuert Fallback-Rendering (ADR-007) |
+| **Event Separation** | Architekturmuster: Completion-Signale (attempt_completion) getrennt von Text-Output. hasStreamedText-Flag steuert Fallback-Rendering (ADR-07) |
 | **ToolPickerPopover** | UI-Element für session-lokale Overrides von Tools, Skills und Workflows |
 | **Session-Override** | RAM-only Ueberschreibung von Mode-Einstellungen fuer die aktuelle Chat-Session |
 | **VaultDNA** | Automatischer Runtime-Scan aller installierten Plugins. Generiert Skill-Files mit Commands und API-Methoden |
@@ -977,7 +1050,7 @@ Security Audits: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md` 
 | **Soul** | Persistente Agent-Persoenlichkeit (Name, Sprache, Werte, Anti-Patterns) in `memory/soul.md` |
 | **OnboardingService** | Erkennt ersten Kontakt und fuehrt den Nutzer durch einen 5-Schritt-Setup-Dialog |
 | **ExplicitInstructions** | Best-Practice-Anweisungen im System Prompt (z.B. "Vault is sacred", parallele Reads) |
-| **SafeStorageService** | Verschluesselt API-Keys via Electron safeStorage (OS Keychain). ADR-019 |
+| **SafeStorageService** | Verschluesselt API-Keys via Electron safeStorage (OS Keychain). ADR-19 |
 | **GlobalFileService** | Liest/schreibt Dateien im globalen Verzeichnis ~/.obsidian-agent/ fuer cross-vault Persistenz |
 | **GlobalSettingsService** | Verwaltet globale Settings (500KB Limit), migriert von vault-lokaler zu globaler Speicherung |
 | **SyncBridge** | Bidirektionale Synchronisation von globalen Daten mit Obsidian Sync (via .obsidian/ Mirror) |
@@ -986,29 +1059,29 @@ Security Audits: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md` 
 | **RecipeStore** | Persistiert gelernte Rezepte (Procedural Memory) im Plugin-Verzeichnis |
 | **EpisodicExtractor** | Zeichnet erfolgreiche Tool-Sequenzen auf und speichert sie als episodische Erinnerungen |
 | **RecipePromotionService** | Promoviert haeufig erfolgreiche Episoden (3+ Erfolge) automatisch zu wiederverwendbaren Rezepten |
-| **ISandboxExecutor** | Interface fuer Sandbox-Backends. Desktop: ProcessSandboxExecutor (child_process.fork, OS-Level), Mobile: IframeSandboxExecutor (iframe, V8-Level). ADR-021 |
+| **ISandboxExecutor** | Interface fuer Sandbox-Backends. Desktop: ProcessSandboxExecutor (child_process.fork, OS-Level), Mobile: IframeSandboxExecutor (iframe, V8-Level). ADR-21 |
 | **ProcessSandboxExecutor** | Desktop-Sandbox-Backend. Startet eigenstaendigen Node.js-Prozess via child_process.fork() mit ELECTRON_RUN_AS_NODE=1. OS-Level Prozess-Isolation |
-| **Chat-Linking** | Automatische Verlinkung von Agent-Chats im YAML-Frontmatter bearbeiteter Notes. Pipeline Post-Write Hook fuegt `obsidian://obsilo-chat?id={id}` Deep-Links ein. ADR-022 |
+| **Chat-Linking** | Automatische Verlinkung von Agent-Chats im YAML-Frontmatter bearbeiteter Notes. Pipeline Post-Write Hook fuegt `obsidian://obsilo-chat?id={id}` Deep-Links ein. ADR-22 |
 | **stampChatLink** | Pipeline-Methode die nach erfolgreichen Write-Ops auf .md-Dateien den Chat-Link im Frontmatter einfuegt. Nutzt `processFrontMatter()` fuer atomare Updates |
-| **DocumentParserRegistry** | Service-Registry die Dateiendungen auf Parser-Implementierungen mappt. Zentraler Dispatcher fuer alle Dokument-Parsing-Aufrufe (ADR-023) |
+| **DocumentParserRegistry** | Service-Registry die Dateiendungen auf Parser-Implementierungen mappt. Zentraler Dispatcher fuer alle Dokument-Parsing-Aufrufe (ADR-23) |
 | **IDocumentParser** | Interface fuer Document Parser: `parse(data: ArrayBuffer, options?): Promise<ParseResult>`. Jeder Parser (PPTX, XLSX, DOCX, PDF, Datenformate) implementiert dieses Interface |
 | **ParseResult** | Ergebnis eines Parser-Aufrufs: strukturierter Text, Bild-Metadaten (Anzahl, Positionen, Dateinamen), Dokument-Metadaten (Seitenanzahl, Sheets, etc.) |
 | **ReadDocumentTool** | Tool-Wrapper (`read_document`) ueber den der Agent Dokumente aus dem Vault lesen und parsen kann. Delegiert an DocumentParserRegistry |
-| **ExtractDocumentImagesTool** | Tool-Wrapper (`extract_document_images`) fuer On-Demand Bild-Extraktion aus OOXML-Dokumenten. Prueft Vision-Capability des Modells (Vision-Gate). ADR-025 |
-| **Lazy Extraction** | Bild-Nachlade-Strategie: Beim initialen Parsing werden nur Metadaten erfasst. Bilder werden erst aus dem OOXML-Archiv extrahiert wenn der Agent das Tool aufruft (ADR-025) |
+| **ExtractDocumentImagesTool** | Tool-Wrapper (`extract_document_images`) fuer On-Demand Bild-Extraktion aus OOXML-Dokumenten. Prueft Vision-Capability des Modells (Vision-Gate). ADR-25 |
+| **Lazy Extraction** | Bild-Nachlade-Strategie: Beim initialen Parsing werden nur Metadaten erfasst. Bilder werden erst aus dem OOXML-Archiv extrahiert wenn der Agent das Tool aufruft (ADR-25) |
 | **Vision-Gate** | Pruefung ob das aktuelle LLM-Modell Vision (Bildanalyse) unterstuetzt. ExtractDocumentImagesTool liefert erklaerenden Fehler bei Modellen ohne Vision |
 | **OOXML** | Office Open XML -- ZIP-basiertes Dateiformat von Microsoft Office (PPTX, XLSX, DOCX). Enthaelt XML-Dateien fuer Inhalte und Media-Ordner fuer Bilder |
-| **JSZip** | Leichtgewichtige JavaScript-Library (~30 KB) zum Lesen und Schreiben von ZIP-Archiven. Basis fuer alle OOXML-Parser (ADR-024) |
-| **Task Extraction** | Deterministischer Post-Processing Hook: Regex-Scan auf `- [ ]` Items in Agent-Antworten, TaskSelectionModal zur Auswahl, Task-Notes mit strukturiertem Frontmatter. Kein LLM-Call im Flow (ADR-026) |
+| **JSZip** | Leichtgewichtige JavaScript-Library (~30 KB) zum Lesen und Schreiben von ZIP-Archiven. Basis fuer alle OOXML-Parser (ADR-24) |
+| **Task Extraction** | Deterministischer Post-Processing Hook: Regex-Scan auf `- [ ]` Items in Agent-Antworten, TaskSelectionModal zur Auswahl, Task-Notes mit strukturiertem Frontmatter. Kein LLM-Call im Flow (ADR-26) |
 | **TaskExtractor** | Pure Function die Agent-Antworttext nach `- [ ]` Markdown-Patterns scannt und `TaskItem[]` zurueckgibt. Liegt in `src/core/tasks/` |
 | **TaskSelectionModal** | Obsidian Modal mit Checkbox-Liste aller erkannten Tasks. Nutzer waehlt welche Items als Task-Notes erstellt werden |
 | **TaskNoteCreator** | Service der ausgewaehlte Tasks als eigenstaendige Notes mit 10-Property-Frontmatter erstellt und die Task-Base (3 Views) generiert |
-| **Task-Frontmatter-Schema** | 10 Properties: Kategorie, Zusammenfassung, Status, Dringend, Wichtig, Faelligkeit, Assignee, Quelle, created, Notizen. Implementiertes Schema weicht vom ADR-027-Vorschlag ab (siehe ADR-027 "Implementiertes Schema") |
+| **Task-Frontmatter-Schema** | 10 Properties: Kategorie, Zusammenfassung, Status, Dringend, Wichtig, Faelligkeit, Assignee, Quelle, created, Notizen. Implementiertes Schema weicht vom ADR-27-Vorschlag ab (siehe ADR-27 "Implementiertes Schema") |
 | **Graceful Degradation** | Pattern fuer optionale Plugin-Integration: Feature funktioniert vollstaendig ohne externe Plugins (Iconic, Bases). Fehlende Plugins fuehren zu reduziertem (aber funktionalem) Feature-Set, nicht zu Fehlern |
-| **FastPathExecutor** | Recipe-gesteuertes Batching: Erkennt gelernte Patterns, fuehrt Tool-Sequenzen deterministisch aus ohne iterative LLM-Calls. ADR-061 |
-| **ResultExternalizer** | Lagert grosse Tool-Results (>4000 Chars) in temporaere Dateien aus und injiziert kompakte Referenzen in den Kontext. ADR-063 |
-| **VaultHealthService** | SQL-basierte Lint-Checks auf dem Knowledge Graph: verwaiste Notes, fehlende Backlinks, gebrochene Links, schwache Cluster, inkonsistente Tags. ADR-067, FEATURE-1901 |
-| **OntologyStore** | Taxonomie-Verwaltung in SQLite: Cluster/Entity-Beziehungen, Health-Checks, inkrementelles Update. ADR-065, EPIC-019 |
-| **McpBridge** | MCP-Server-Orchestrator: stdio JSON-RPC, 6 Tools (getContext, searchVault, readNotes, writeVault, executeVaultOp, syncSession, updateMemory). ADR-053 |
-| **CloudflareDeployer** | Deployt MCP Relay-Worker auf Cloudflare Workers + Durable Objects fuer Remote-Zugriff. ADR-055, FEATURE-1403 |
-| **RelayClient** | HTTP Long-Polling Client fuer Remote MCP Transport. Token-in-URL Auth. ADR-055, FEATURE-1403 |
+| **FastPathExecutor** | Recipe-gesteuertes Batching: Erkennt gelernte Patterns, fuehrt Tool-Sequenzen deterministisch aus ohne iterative LLM-Calls. ADR-61 |
+| **ResultExternalizer** | Lagert grosse Tool-Results (>4000 Chars) in temporaere Dateien aus und injiziert kompakte Referenzen in den Kontext. ADR-63 |
+| **VaultHealthService** | SQL-basierte Lint-Checks auf dem Knowledge Graph: verwaiste Notes, fehlende Backlinks, gebrochene Links, schwache Cluster, inkonsistente Tags. ADR-67, FEAT-19-01 |
+| **OntologyStore** | Taxonomie-Verwaltung in SQLite: Cluster/Entity-Beziehungen, Health-Checks, inkrementelles Update. ADR-65, EPIC-19 |
+| **McpBridge** | MCP-Server-Orchestrator: stdio JSON-RPC, 6 Tools (getContext, searchVault, readNotes, writeVault, executeVaultOp, syncSession, updateMemory). ADR-53 |
+| **CloudflareDeployer** | Deployt MCP Relay-Worker auf Cloudflare Workers + Durable Objects fuer Remote-Zugriff. ADR-55, FEAT-14-03 |
+| **RelayClient** | HTTP Long-Polling Client fuer Remote MCP Transport. Token-in-URL Auth. ADR-55, FEAT-14-03 |

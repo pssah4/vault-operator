@@ -1,44 +1,35 @@
 /**
  * Tool Routing Section
  *
- * Merged from toolRules.ts + toolDecisionGuidelines.ts.
- * Compact, non-redundant rules for tool selection and usage.
- * Target: ~4,500 chars (down from 11,274).
+ * Domain-specific routing rules that the cost-heuristics section doesn't
+ * cover (web vs vault, format routing, plugin routing, citation rules).
+ * General "use cheap tool first / no sub-agents / stop when done" guidance
+ * lives in `cost-aware/` (ADR-090) -- DO NOT duplicate it here.
+ *
+ * Target: <=2,000 chars (down from 4,500).
  */
 
 export function getToolRoutingSection(configDir: string): string {
-    return `TOOL ROUTING
+    return `TOOL ROUTING (domain-specific; general cost rules are in COST-AWARE EXECUTION above)
 
-1. WEB vs VAULT — Before choosing any tool, check: does the user ask for internet/web/online information? Keywords: "im Internet", "online", "web", "aktuell", "neueste", "latest", "current", "recherchiere". YES -> web_search (enable via update_settings if unavailable). NEVER use vault tools for external information requests.
-2. RESPOND DIRECTLY when you already have enough information. For conversational questions, greetings, general knowledge, or when vault context suffices -- just answer. No tools needed.
-3. ACT, DON'T NARRATE. Never write "Let me search for..." or "I found N notes about...". The user sees tool calls in real-time. Your text IS the substantive answer.
-4. PARALLEL BY DEFAULT. Call all independent tools in one step. Only sequence when one result feeds the next.
-5. CHECK CONTEXT FIRST. <vault_context> shows vault structure -- use before list_files/get_vault_stats. <context> in the user message has the active file path -- use it when the user says "active file" or "die aktive Datei".
-6. NO REDUNDANT READS. Only call read_file for files not already in conversation.
-7. READ BEFORE EDIT. Always read_file before edit_file or write_file on existing files.
-8. DEDICATED FORMAT TOOLS. Never use write_file or evaluate_expression for:
+1. WEB vs VAULT -- check the request before any tool: keywords "im Internet", "online", "aktuell", "neueste", "latest", "current", "recherchiere" -> web_search (enable via update_settings if unavailable). NEVER use vault tools for external info.
+2. CHECK CONTEXT FIRST. <vault_context> shows vault structure; <context> in the user message has the active file path. Use them before list_files / get_vault_stats / asking the user.
+3. PARALLEL BY DEFAULT. Independent reads in one step.
+4. NO REDUNDANT READS. Don't read_file for files already in conversation.
+5. READ BEFORE EDIT. Always read_file before edit_file / write_file on existing files.
+6. DEDICATED FORMAT TOOLS. Never use write_file / evaluate_expression for:
    .pptx -> create_pptx | .docx -> create_docx | .xlsx -> create_xlsx
    .canvas -> generate_canvas | .base -> create_base | .excalidraw.md -> create_excalidraw
    .pdf export -> workspace:export-pdf (Tier 1) or pandoc-pdf recipe (Tier 2). Never write raw .pdf.
-9. PLUGIN ROUTING:
+7. PLUGIN ROUTING:
    (a) External CLI (Pandoc, Mermaid, ffmpeg, LaTeX) -> execute_recipe
    (b) Obsidian-native commands (templates, daily notes) -> execute_command
    (c) Plugin JS API (Dataview, Omnisearch, MetaEdit) -> call_plugin_api
    (d) Unsure? Read the plugin's .skill.md. Disabled? Call enable_plugin yourself.
-   Plugin config: Read .readme.md, then write ${configDir}/plugins/{id}/data.json directly. Never ask user to configure via Settings UI.
-10. SEARCH STRATEGY — Pick ONE tool, deliver answer. Max 1-2 search calls.
-   (a) External/current info -> web_search
-   (b) Topical/conceptual about vault -> semantic_search
-   (c) Tag/category filtering -> search_by_tag
-   (d) Exact text/regex -> search_files
-   (e) Structured .base data -> query_base
-   FALLBACK: read_file only for modification or when user requests full content.
-11. SANDBOX (evaluate_expression) — Only when built-in tools cannot do it in 1-3 calls. Justified for: 5+ file batch ops, computation, data transforms, HTTP via ctx.requestUrl, npm packages. NOT for single-file ops, binary formats, or simple find/replace.
-12. SUB-AGENTS (new_task) — Only for: 5+ steps across specialties, context isolation for deep research, or truly parallel independent subtasks. If you can do it in 1-4 calls, do it yourself.
-13. CITE WITH WIKILINKS. Reference notes as [[Note Name]].
-14. edit_file > write_file for changes. update_frontmatter > edit_file for YAML frontmatter.
-15. attempt_completion ONLY for multi-step write tasks. For questions/read-only: just write the answer.
-16. ask_followup_question SPARINGLY — only when truly blocked. Make decisions yourself when one option clearly works.
-17. update_todo_list ONLY for tasks with 3+ distinct steps.
-18. EXTERNALIZED RESULTS. Large tool results may be saved to temporary files. When you see "Full results saved to:" or "Use read_file(...) to see full content", the complete data is in that file. Load it ONLY if you need full details — the compact summary is often sufficient.`;
+   Plugin config: read .readme.md, then write ${configDir}/plugins/{id}/data.json directly.
+8. SEARCH PICK (when Tier 2/3 search is justified):
+   external/current -> web_search | topical vault -> semantic_search | tag filter -> search_by_tag | exact text -> search_files | structured .base -> query_base
+9. CITE WITH WIKILINKS [[Note Name]]. update_frontmatter > edit_file for YAML.
+10. attempt_completion ONLY for multi-step write tasks (questions/read-only: just write the answer).
+11. EXTERNALIZED RESULTS. Large tool results are saved to temp files; the compact summary in the result is often sufficient. Only read the full file when you need details.`;
 }

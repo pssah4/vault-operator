@@ -25,6 +25,12 @@ import { CreateFolderTool } from './vault/CreateFolderTool';
 import { DeleteFileTool } from './vault/DeleteFileTool';
 import { MoveFileTool } from './vault/MoveFileTool';
 import { IngestDocumentTool } from './vault/IngestDocumentTool';
+import { IngestTriageTool } from './vault/IngestTriageTool';
+import { IngestDeepTool } from './vault/IngestDeepTool';
+import { AntiEchoSearchTool } from './vault/AntiEchoSearchTool';
+import { MarkNoteAsMemorySourceTool } from './vault/MarkNoteAsMemorySourceTool';
+import { UnmarkNoteAsMemorySourceTool } from './vault/UnmarkNoteAsMemorySourceTool';
+import { ListMemorySourceNotesTool } from './vault/ListMemorySourceNotesTool';
 // Import tools — vault: intelligence (Phase 1.2)
 import { GetFrontmatterTool } from './vault/GetFrontmatterTool';
 import { UpdateFrontmatterTool } from './vault/UpdateFrontmatterTool';
@@ -36,6 +42,11 @@ import { OpenNoteTool } from './vault/OpenNoteTool';
 import { GetDailyNoteTool } from './vault/GetDailyNoteTool';
 // Import tools — vault: semantic search (Phase C2)
 import { SemanticSearchTool } from './vault/SemanticSearchTool';
+import { RecallMemoryTool } from './memory/RecallMemoryTool';
+import { MarkForMemoryTool } from './memory/MarkForMemoryTool';
+import { UpdateSoulTool } from './memory/UpdateSoulTool';
+import { InspectSelfTool } from './agent/InspectSelfTool';
+import { SearchHistoryTool } from './memory/SearchHistoryTool';
 // Import tools — vault: canvas (Phase C3)
 import { GenerateCanvasTool } from './vault/GenerateCanvasTool';
 // Import tools — vault: excalidraw
@@ -142,6 +153,12 @@ export class ToolRegistry {
         this.register(new EditFileTool(this.plugin));
         this.register(new AppendToFileTool(this.plugin));
         this.register(new IngestDocumentTool(this.plugin));
+        this.register(new IngestTriageTool(this.plugin));
+        this.register(new IngestDeepTool(this.plugin));
+        this.register(new AntiEchoSearchTool(this.plugin));
+        this.register(new MarkNoteAsMemorySourceTool(this.plugin));
+        this.register(new UnmarkNoteAsMemorySourceTool(this.plugin));
+        this.register(new ListMemorySourceNotesTool(this.plugin));
         this.register(new CreateFolderTool(this.plugin));
         this.register(new DeleteFileTool(this.plugin));
         this.register(new MoveFileTool(this.plugin));
@@ -156,6 +173,15 @@ export class ToolRegistry {
         this.register(new GetDailyNoteTool(this.plugin));
         // Vault: semantic search (Phase C2 — only active when index is built)
         this.register(new SemanticSearchTool(this.plugin));
+        // Memory v2: recall_memory (FEATURE-0317 / PLAN-006 task 9)
+        this.register(new RecallMemoryTool(this.plugin));
+        // Memory v2: mark_for_memory (FEATURE-0318 / PLAN-007 manual trigger)
+        this.register(new MarkForMemoryTool(this.plugin));
+        // Memory v2: agent-self layer (FEATURE-0319b / PLAN-008)
+        this.register(new UpdateSoulTool(this.plugin));
+        this.register(new InspectSelfTool(this.plugin));
+        // Memory v2: history search (FEATURE-0320 / Phase 6)
+        this.register(new SearchHistoryTool(this.plugin));
         // Vault: canvas (Phase C3)
         this.register(new GenerateCanvasTool(this.plugin));
         // Vault: excalidraw

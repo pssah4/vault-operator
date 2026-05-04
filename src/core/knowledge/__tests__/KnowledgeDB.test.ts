@@ -258,6 +258,106 @@ describe('KnowledgeDB Checkpoint', () => {
     });
 });
 
+// FEATURE-0314: schema v9 adds the embedding_model column so cosine search
+// can filter on the producing model. URI schemas are deferred to Memory v2.
+describe('KnowledgeDB Schema Migration (v8 -> v9)', () => {
+    it('adds embedding_model column with default unknown', async () => {
+        const SQL = await getSQL();
+        const db = new SQL.Database();
+        execDDL(db, SCHEMA_V1);
+        db.run('INSERT INTO schema_meta VALUES (8)');
+
+        const v = new Uint8Array(new Float32Array([1, 2]).buffer);
+        db.run('INSERT INTO vectors (path, chunk_index, text, vector, mtime) VALUES (?, ?, ?, ?, ?)',
+            ['note.md', 0, 'old', v, 1000]);
+
+        try {
+            db.run("ALTER TABLE vectors ADD COLUMN embedding_model TEXT NOT NULL DEFAULT 'unknown'");
+        } catch { /* idempotent */ }
+
+        const result = db.exec('SELECT path, embedding_model FROM vectors');
+        expect(result[0].values[0][0]).toBe('note.md');
+        expect(result[0].values[0][1]).toBe('unknown');
+
+        db.run('INSERT INTO vectors (path, chunk_index, text, vector, mtime, embedding_model) VALUES (?, ?, ?, ?, ?, ?)',
+            ['new.md', 0, 'new', v, 2000, 'qwen3-embedding-8b']);
+        const filtered = db.exec(
+            "SELECT path FROM vectors WHERE embedding_model = ? ORDER BY path",
+            ['qwen3-embedding-8b'],
+        );
+        expect(filtered[0].values).toHaveLength(1);
+        expect(filtered[0].values[0][0]).toBe('new.md');
+
+        db.close();
+    });
+});
+
+// FEATURE-0314: PRAGMA integrity_check used as second verification stage on open
+describe('KnowledgeDB integrity_check', () => {
+    it('reports ok for a healthy DB', async () => {
+        const SQL = await getSQL();
+        const db = new SQL.Database();
+        execDDL(db, SCHEMA_DDL);
+        db.run('INSERT INTO schema_meta VALUES (9)');
+
+        const result = db.exec('PRAGMA integrity_check;');
+        expect(result[0].values[0][0]).toBe('ok');
+
+        db.close();
+    });
+
+    // AK 8 Stage 2: a corrupt main DB must be rejected so the open-path
+    // can fall back to .bak. The corruption pattern targets a B-tree page
+    // boundary so the lightweight Stage-1 queries pass and only the deeper
+    // PRAGMA integrity_check catches it.
+    it('rejects corrupt B-tree, healthy .bak loads instead', async () => {
+        const SQL = await getSQL();
+
+        // Build a healthy DB with realistic content -- export bytes for both
+        // the corruption candidate and the backup copy.
+        const seed = new SQL.Database();
+        execDDL(seed, SCHEMA_DDL);
+        seed.run('INSERT INTO schema_meta VALUES (9)');
+        const v = new Uint8Array(new Float32Array([1, 2, 3]).buffer);
+        for (let i = 0; i < 64; i++) {
+            seed.run(
+                'INSERT INTO vectors (path, chunk_index, text, vector, mtime) VALUES (?, ?, ?, ?, ?)',
+                [`note-${i}.md`, 0, `chunk ${i}`.repeat(32), v, i],
+            );
+        }
+        const healthyBytes = seed.export();
+        seed.close();
+
+        // Corruption: zero out a page deep enough to invalidate B-tree links
+        // without truncating the file. SQLite default page size is 4096; we
+        // hit page 4 (offset 0x4000).
+        const corruptBytes = new Uint8Array(healthyBytes);
+        const corruptOffset = 0x4000;
+        for (let i = 0; i < 256; i++) corruptBytes[corruptOffset + i] = 0xff;
+
+        // Replicate the production tryLoadWithIntegrityCheck flow.
+        const tryLoad = (data: Uint8Array): boolean => {
+            try {
+                const candidate = new SQL.Database(data);
+                candidate.exec('SELECT count(*) FROM schema_meta');
+                candidate.exec('SELECT count(*) FROM vectors');
+                const integrity = candidate.exec('PRAGMA integrity_check;');
+                const verdict = integrity[0]?.values?.[0]?.[0];
+                candidate.close();
+                return verdict === 'ok';
+            } catch {
+                return false;
+            }
+        };
+
+        // Stage 1: corrupt main file is rejected.
+        expect(tryLoad(corruptBytes)).toBe(false);
+
+        // Stage 2: open-path falls back to .bak which is intact.
+        expect(tryLoad(healthyBytes)).toBe(true);
+    });
+});
+
 describe('KnowledgeDB DB Export/Import roundtrip', () => {
     it('should preserve data across export/import', async () => {
         const SQL = await getSQL();

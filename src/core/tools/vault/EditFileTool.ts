@@ -99,9 +99,17 @@ export class EditFileTool extends BaseTool<'edit_file'> {
                     );
                     return;
                 }
+                // BUG-032: When old_str is short and new_str is large (e.g. inserting
+                // a 6KB summary into a meeting note), edit_file is the wrong tool --
+                // the diff payload is brittle and JSON-streaming can truncate the
+                // tool call. Steer the agent toward a more reliable alternative.
+                const newStrSize = (new_str ?? '').length;
+                const sizeHint = newStrSize > 2000
+                    ? ` Note: new_str is ${newStrSize} chars. For large insertions or full rewrites prefer write_file (replace whole file) or append_to_file (add at end) -- edit_file is meant for targeted small changes.`
+                    : '';
                 throw new Error(
                     `old_str not found in file "${path}". ` +
-                    `Make sure old_str exactly matches the file content including whitespace and newlines.`
+                    `Read the file first to get the exact bytes (whitespace, blank lines, trailing newlines all count) and retry with a shorter, more unique old_str.${sizeHint}`
                 );
             }
 

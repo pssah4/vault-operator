@@ -1,0 +1,25 @@
+{
+    "name": "settings-inquiry",
+    "description": "User asks for current setting state -- agent should consult inspect_self instead of inventing a value",
+    "messages": [
+        { "role": "user", "text": "Ist Auto-Extract gerade an oder aus?" },
+        {
+            "role": "assistant",
+            "text": "Lass mich das nachschauen statt zu raten -- inspect_self mit area=settings gibt die Wahrheit. Auto-Extract ist an, Threshold steht auf 6 Messages."
+        }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian asked for the current Auto-Extract state; Obsilo looked it up via inspect_self instead of guessing.",
+        "episode_outcome": { "success": true, "result_summary": "Setting reported correctly via introspection." },
+        "facts": [],
+        "mentions": [],
+        "conversation_so_far": "User informed about current Auto-Extract setting.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 0,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": []
+    }
+}

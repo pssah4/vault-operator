@@ -92,6 +92,7 @@ const conceptsSidebar = [
     items: [
       { text: 'Knowledge layer', link: '/concepts/knowledge-layer' },
       { text: 'Memory', link: '/concepts/memory-system' },
+      { text: 'Unified Chat Memory', link: '/concepts/unified-chat-memory' },
       { text: 'Token optimization', link: '/concepts/token-optimization' },
     ],
   },

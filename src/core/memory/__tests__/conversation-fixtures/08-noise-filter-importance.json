@@ -1,0 +1,38 @@
+{
+    "name": "noise-filter-importance",
+    "description": "Borderline candidate at importance < 0.2 is dropped by the noise filter",
+    "messages": [
+        { "role": "user", "text": "btw the weather is mild today, but I might use a dark theme later" }
+    ],
+    "extractorOutput": {
+        "session_summary": "Brief environmental remark + tentative theme thought.",
+        "episode_outcome": { "success": true, "result_summary": "Captured one preference candidate." },
+        "facts": [
+            {
+                "text": "The weather is mild",
+                "topics": ["smalltalk"],
+                "importance": 0.1,
+                "kind": "event",
+                "relation": "new"
+            },
+            {
+                "text": "Sebastian is considering a dark theme",
+                "topics": ["preferences"],
+                "importance": 0.35,
+                "kind": "preference",
+                "relation": "new"
+            }
+        ],
+        "mentions": [],
+        "conversation_so_far": "User considering dark theme.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 1,
+        "rejectedCount": 1,
+        "topicDriftDetected": false,
+        "facts": [
+            { "kind": "preference", "relation": "new", "topicsFirst": "preferences" }
+        ]
+    }
+}

@@ -1,0 +1,21 @@
+{
+    "name": "hypothetical",
+    "description": "Hypothetical questions produce no facts (noise filter directive in system prompt)",
+    "messages": [
+        { "role": "user", "text": "What if I switched from Obsidian to Logseq someday?" }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian asked a hypothetical about switching tools.",
+        "episode_outcome": { "success": true, "result_summary": "No durable facts." },
+        "facts": [],
+        "mentions": [],
+        "conversation_so_far": "Hypothetical only.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 0,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": []
+    }
+}

@@ -37,6 +37,9 @@ interface PlannedToolCall {
 const STAGE1_ALLOWED = new Set([
     'semantic_search', 'search_files', 'search_by_tag', 'list_files',
     'get_vault_stats', 'web_search',
+    // FEATURE-0320: cross-source recall. Broad "what do I have about X"
+    // questions should fan out across vault notes AND past conversations.
+    'search_history', 'recall_memory',
 ]);
 
 /** Tools allowed in Stage 2 (read). Hard allowlist. */
@@ -71,12 +74,17 @@ USER REQUEST:
 {USER_MESSAGE}
 
 Output ONLY search/discovery tool calls as a JSON array. No markdown.
-Include ONLY: semantic_search, search_files, search_by_tag, list_files, web_search.
+Include ONLY: semantic_search, search_files, search_by_tag, list_files, web_search, search_history, recall_memory.
 Do NOT include read_file, write_file, or other tools — those come in stage 2.
+
+CROSS-SOURCE RECALL: For broad "what do I have / know about X" questions, run search_history in PARALLEL to the vault searches so past conversation context surfaces alongside notes. Vault and chats are equally valid sources.
 
 {TOOL_SCHEMAS}
 
-Example: [{"tool": "semantic_search", "input": {"query": "Kant ethics philosophy"}}]`;
+Example: [
+  {"tool": "semantic_search", "input": {"query": "Kant ethics philosophy"}},
+  {"tool": "search_history", "input": {"query": "Kant", "top_k": 10}}
+]`;
 
 const READ_PLANNER = `Stage 2: Based on the search results below, parametrize the READ steps.
 
@@ -112,6 +120,9 @@ export class FastPathExecutor {
         callbacks: ToolCallbacks,
         abortSignal?: AbortSignal,
         tools?: ToolDefinition[],
+        // FIX-H (ADR-090 follow-up): forward the parent task's readFiles set so
+        // FastPath stage-2 reads contribute to todo-verification.
+        readFiles?: Set<string>,
     ): Promise<FastPathResult> {
         const failed: FastPathResult = { success: false, historyEntries: [], toolCallsExecuted: 0 };
 
@@ -139,7 +150,7 @@ export class FastPathExecutor {
                     console.warn(`[FastPath] Stage 1: filtered ${searchCalls.length - filteredSearch.length} disallowed tool(s)`);
                 }
                 console.debug(`[FastPath] Stage 1: ${filteredSearch.length} search calls`);
-                const searchResults = await this.executeBatch(filteredSearch, callbacks, abortSignal);
+                const searchResults = await this.executeBatch(filteredSearch, callbacks, abortSignal, readFiles);
 
                 // Save full content for Read-Planner before it gets externalized in history
                 searchContentForPlanner = searchResults
@@ -162,12 +173,39 @@ export class FastPathExecutor {
 
                     if (readCalls && readCalls.length > 0) {
                         // S-2: Hard allowlist for Stage 2
-                        const filteredRead = readCalls.filter((c) => STAGE2_ALLOWED.has(c.tool));
+                        let filteredRead = readCalls.filter((c) => STAGE2_ALLOWED.has(c.tool));
                         if (filteredRead.length !== readCalls.length) {
                             console.warn(`[FastPath] Stage 2: filtered ${readCalls.length - filteredRead.length} disallowed tool(s)`);
                         }
+                        // Block re-reading of externalised stage-1 tmp files.
+                        // The planner already saw the full payload via
+                        // searchContentForPlanner; pulling it back in via
+                        // read_file just doubles the agent's input tokens.
+                        const beforeTmpFilter = filteredRead.length;
+                        filteredRead = filteredRead.filter((c) => {
+                            const path = (c.input?.path as string | undefined) ?? '';
+                            return !(path.includes('/tmp/task-') || path.includes('.obsilo-vault/tmp/'));
+                        });
+                        if (filteredRead.length !== beforeTmpFilter) {
+                            console.debug(`[FastPath] Stage 2: dropped ${beforeTmpFilter - filteredRead.length} read(s) targeting externalize tmp -- already in planner context`);
+                        }
+                        // FIX-G (ADR-090 follow-up, 2026-04-29): dynamic cap.
+                        // Static cap=3 silently dropped the 4th and 5th read for tasks
+                        // that explicitly say "alle/all/jede/list of N notes" -- the
+                        // user's "konsolidierte Insights aus ALLEN GenAI-Notes" lost
+                        // 2 sources, leading to a halluzinated synthesis claiming 12
+                        // interviews from 3 actually-read files. Detect "wide scope"
+                        // intent in the user message and lift the cap to 8.
+                        const wideScope = /\b(alle|all|jede[rsn]?|every|each|complete|vollst(ä|ae)ndig|s(ä|ae)mtlich|liste|list of \d+|\d+\s*(meeting|interview|note))\b/i.test(userMessage);
+                        const FANOUT_CAP = wideScope ? 8 : 3;
+                        if (filteredRead.length > FANOUT_CAP) {
+                            console.debug(`[FastPath] Stage 2: capping fanout from ${filteredRead.length} to ${FANOUT_CAP} (wideScope=${wideScope})`);
+                            filteredRead = filteredRead.slice(0, FANOUT_CAP);
+                        } else if (wideScope) {
+                            console.debug(`[FastPath] Stage 2: wideScope detected, keeping all ${filteredRead.length} reads`);
+                        }
                         console.debug(`[FastPath] Stage 2: ${filteredRead.length} read calls`);
-                        const readResults = await this.executeBatch(filteredRead, callbacks, abortSignal);
+                        const readResults = await this.executeBatch(filteredRead, callbacks, abortSignal, readFiles);
                         allResults.push(...readResults);
                         toolCallsExecuted += readResults.length;
                     }
@@ -282,6 +320,7 @@ export class FastPathExecutor {
         calls: PlannedToolCall[],
         callbacks: ToolCallbacks,
         abortSignal?: AbortSignal,
+        readFiles?: Set<string>,
     ): Promise<Array<{ tool: string; input: Record<string, unknown>; content: string; isError: boolean }>> {
         const results: Array<{ tool: string; input: Record<string, unknown>; content: string; isError: boolean }> = [];
 
@@ -296,6 +335,7 @@ export class FastPathExecutor {
                     const result = await this.pipeline.executeTool(
                         { type: 'tool_use', id, name: call.tool as ToolName, input: call.input },
                         callbacks,
+                        readFiles ? { readFiles } : undefined,
                     );
                     return {
                         tool: call.tool,
@@ -314,6 +354,7 @@ export class FastPathExecutor {
             const result = await this.pipeline.executeTool(
                 { type: 'tool_use', id, name: call.tool as ToolName, input: call.input },
                 callbacks,
+                readFiles ? { readFiles } : undefined,
             );
             results.push({
                 tool: call.tool,

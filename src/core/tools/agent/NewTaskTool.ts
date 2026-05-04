@@ -14,9 +14,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
-
-/** Modes that are permitted as sub-agent targets */
-const ALLOWED_SUB_MODES = new Set(['agent', 'ask']);
+import { validateNewTaskInput } from './newTaskValidation';
 
 export class NewTaskTool extends BaseTool<'new_task'> {
     readonly name = 'new_task' as const;
@@ -30,12 +28,12 @@ export class NewTaskTool extends BaseTool<'new_task'> {
         return {
             name: 'new_task',
             description:
-                'Spawn a sub-agent for tasks that CANNOT be done directly with your tools. ' +
-                'ONLY use when: (a) task needs 5+ steps across specialties, ' +
-                '(b) context isolation helps (deep research into many files), ' +
-                'or (c) truly parallel independent subtasks. ' +
-                'For file conversion, plugin commands, or simple read/write: use your own tools directly. ' +
-                'The sub-agent runs with a fresh conversation — pass all context in the message. ' +
+                'Spawn a sub-agent. Tier 4 escalation -- VERY expensive (each sub-agent pays a fresh ~16k system prompt). ' +
+                'Only use for one of three categories (must be named in `justification_category`): ' +
+                'PARALLEL (3+ truly independent investigations to run simultaneously), ' +
+                'SPECIALIST (sub-task needs a different mode/toolset), or ' +
+                'ESCALATION (main loop is stuck for 3+ iterations on the same blocker). ' +
+                'NOT for: "I am confused", "fresh perspective", routine read/write, file conversion. ' +
                 'Only available in Agent mode.',
             input_schema: {
                 type: 'object',
@@ -43,52 +41,52 @@ export class NewTaskTool extends BaseTool<'new_task'> {
                     mode: {
                         type: 'string',
                         description:
-                            'Sub-agent mode: "agent" (full capabilities — reading, writing, web) ' +
+                            'Sub-agent mode: "agent" (full capabilities -- reading, writing, web) ' +
                             'or "ask" (read-only vault queries and search).',
                     },
                     message: {
                         type: 'string',
                         description:
-                            'The task description for the sub-agent. Include all context needed — ' +
+                            'The task description for the sub-agent. Include all context needed -- ' +
                             'the sub-agent cannot see the current conversation.',
                     },
+                    justification_category: {
+                        type: 'string',
+                        enum: ['PARALLEL', 'SPECIALIST', 'ESCALATION'],
+                        description:
+                            'Which of the three allowed categories applies. Refusing or guessing returns an error: spawn only when one truly applies.',
+                    },
+                    justification_reason: {
+                        type: 'string',
+                        description:
+                            'One concrete sentence explaining the chosen category. Examples: ' +
+                            '"PARALLEL: comparing 5 independent meeting notes to extract per-meeting decisions" / ' +
+                            '"ESCALATION: edit_file failed twice, search_files cannot find the section, need fresh approach". ' +
+                            'Generic phrases ("better context", "more thorough") are rejected.',
+                    },
                 },
-                required: ['mode', 'message'],
+                required: ['mode', 'message', 'justification_category', 'justification_reason'],
             },
         };
     }
 
     async execute(input: Record<string, unknown>, context: ToolExecutionContext): Promise<void> {
         const { callbacks } = context;
-        const mode: string = (input.mode as string ?? '').trim();
-        const message: string = (input.message as string ?? '').trim();
 
-        if (!mode) {
-            callbacks.pushToolResult(this.formatError(new Error('mode parameter is required')));
+        // ADR-090 Lever 4 + 7: full input + justification validation lives in
+        // newTaskValidation.ts so the rules are unit-testable in isolation.
+        const validation = validateNewTaskInput(input);
+        if (!validation.ok) {
+            callbacks.pushToolResult(this.formatError(new Error(validation.error)));
             return;
         }
-        if (!message) {
-            callbacks.pushToolResult(this.formatError(new Error('message parameter is required')));
-            return;
-        }
+        const { mode, message } = validation.value;
 
         // Only available in Agent mode.
         if (context.mode !== 'agent') {
             callbacks.pushToolResult(
                 'new_task is only available in Agent mode. ' +
                 'Switch to Agent mode to use sub-agent workflows.'
-            );
-            return;
-        }
-
-        // Restrict sub-agent targets to known safe modes.
-        if (!ALLOWED_SUB_MODES.has(mode)) {
-            callbacks.pushToolResult(
-                this.formatError(
-                    new Error(
-                        `Unknown sub-agent mode "${mode}". Use "agent" (full capabilities) or "ask" (read-only).`
-                    )
-                )
             );
             return;
         }

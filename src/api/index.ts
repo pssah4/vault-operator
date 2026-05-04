@@ -11,6 +11,7 @@ import { OpenAiProvider } from './providers/openai';
 import { GitHubCopilotProvider } from './providers/github-copilot';
 import { KiloGatewayProvider } from './providers/kilo-gateway';
 import { BedrockProvider } from './providers/bedrock';
+import { ChatGptOAuthProvider } from './providers/chatgpt-oauth';
 
 export type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ContentBlock, ModelInfo } from './types';
 
@@ -35,6 +36,8 @@ export function buildApiHandler(config: LLMProvider) {
             return new KiloGatewayProvider(config);
         case 'bedrock':
             return new BedrockProvider(config);
+        case 'chatgpt-oauth':
+            return new ChatGptOAuthProvider(config);
         case 'openai':
         case 'gemini':
         case 'ollama':

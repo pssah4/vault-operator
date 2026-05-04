@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, Notice, TFile, requestUrl } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, requestUrl } from 'obsidian';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
 import type { CustomModel } from './types/settings';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
@@ -17,12 +17,32 @@ import { WorkflowLoader } from './core/context/WorkflowLoader';
 import { SkillsManager } from './core/context/SkillsManager';
 import { GitCheckpointService } from './core/checkpoints/GitCheckpointService';
 import { SemanticIndexService } from './core/semantic/SemanticIndexService';
-import { KnowledgeDB } from './core/knowledge/KnowledgeDB';
+import { EmbeddingService } from './core/memory/EmbeddingService';
+import { ObsiloEmbeddingProvider } from './core/memory/ObsiloEmbeddingProvider';
+import { KnowledgeDB, WriterLockHeldError } from './core/knowledge/KnowledgeDB';
 import { VectorStore } from './core/knowledge/VectorStore';
 import { GraphStore } from './core/knowledge/GraphStore';
+import { VaultRenameHandler } from './core/knowledge/VaultRenameHandler';
+import { SnapshotJob, type SnapshotTarget } from './core/persistence/SnapshotJob';
 import { OntologyStore } from './core/knowledge/OntologyStore';
 import { CommunityDetectionService } from './core/knowledge/CommunityDetectionService';
 import { VaultHealthService } from './core/knowledge/VaultHealthService';
+// BA-25 Karpathy-Wiki-Pattern (PLAN-10..14)
+import { NoteSummaryStore } from './core/knowledge/NoteSummaryStore';
+import { FrontmatterPropertyStore } from './core/knowledge/FrontmatterPropertyStore';
+import { ClusterMetadataStore } from './core/knowledge/ClusterMetadataStore';
+import { ClusterSourceStatsStore } from './core/knowledge/ClusterSourceStatsStore';
+import { IngestSessionStore } from './core/ingest/IngestSessionStore';
+import { IngestTriageLogStore } from './core/ingest/IngestTriageLogStore';
+import { FrontmatterIndexer } from './core/ingest/FrontmatterIndexer';
+import { sanitizeVaultContentForLLM } from './core/memory/sanitizeVaultContentForLLM';
+import { AutoTriggerObserver } from './core/ingest/AutoTriggerObserver';
+import { TopHubBlockGenerator, type TopHubBlockState } from './core/memory/TopHubBlockGenerator';
+import { Stufe3PeriodicJob, ClusterMetadataStatePersistence } from './core/health/Stufe3PeriodicJob';
+import { Stufe2ActivityTrigger } from './core/health/Stufe2ActivityTrigger';
+import { FrontmatterBackfillJob } from './core/ingest/FrontmatterBackfillJob';
+import { buildSummaryGenerator } from './core/ingest/SummaryGenerator';
+import { DEFAULT_VAULT_INGEST_SETTINGS } from './types/settings';
 import { GraphExtractor } from './core/knowledge/GraphExtractor';
 import { ImplicitConnectionService } from './core/knowledge/ImplicitConnectionService';
 import { MemoryDB } from './core/knowledge/MemoryDB';
@@ -31,13 +51,16 @@ import { ChatHistoryService } from './core/ChatHistoryService';
 import { ConversationStore } from './core/history/ConversationStore';
 import { MemoryService } from './core/memory/MemoryService';
 import { ExtractionQueue } from './core/memory/ExtractionQueue';
-import { SessionExtractor } from './core/memory/SessionExtractor';
-import { LongTermExtractor } from './core/memory/LongTermExtractor';
+import { SingleCallProcessor } from './core/memory/SingleCallProcessor';
+import { MemoryV2Telemetry } from './core/memory/MemoryV2Telemetry';
+import { DriftEventBus } from './core/memory/DriftEventBus';
+import { TokenBudgetGuard } from './core/memory/TokenBudgetGuard';
+import { generateSoakReport } from './core/memory/SoakReport';
 import { McpClient } from './core/mcp/McpClient';
 import { VaultDNAScanner } from './core/skills/VaultDNAScanner';
 import { SkillRegistry } from './core/skills/SkillRegistry';
 import { CapabilityGapResolver } from './core/skills/CapabilityGapResolver';
-import { buildApiHandler } from './api/index';
+import { buildApiHandler, buildApiHandlerForModel } from './api/index';
 import type { ApiHandler } from './api/types';
 import type { ToolUse, ToolCallbacks } from './core/tools/types';
 import { BUILT_IN_MODES } from './core/modes/builtinModes';
@@ -45,6 +68,7 @@ import { mergeDefaultPrompts } from './core/prompts/defaultPrompts';
 import { t } from './i18n';
 import { SafeStorageService } from './core/security/SafeStorageService';
 import { GitHubCopilotAuthService } from './core/security/GitHubCopilotAuthService';
+import { ChatGptOAuthService } from './core/auth/ChatGptOAuthService';
 import { KiloAuthService } from './core/security/KiloAuthService';
 import { setGlobalModeStoreFs } from './core/modes/GlobalModeStore';
 import { RecipeStore } from './core/mastery/RecipeStore';
@@ -78,6 +102,13 @@ import { PluginReloader } from './core/self-development/PluginReloader';
  * - MCP Integration: External tool extensibility
  * - Semantic Index: Local vector search
  */
+
+/** Extract HTTP(S) URLs from a free-form text. Used by Stufe-3 web-pass to count distinct sources. */
+function extractUrlsFromText(text: string): string[] {
+    const matches = text.match(/https?:\/\/[^\s)\]<>"']+/g) ?? [];
+    return Array.from(new Set(matches));
+}
+
 export default class ObsidianAgentPlugin extends Plugin {
     settings: ObsidianAgentSettings;
     toolRegistry: ToolRegistry;
@@ -89,18 +120,47 @@ export default class ObsidianAgentPlugin extends Plugin {
     workflowLoader: WorkflowLoader;
     skillsManager: SkillsManager;
     semanticIndex: SemanticIndexService | null = null;
+    embeddingService: EmbeddingService | null = null;
     knowledgeDB: KnowledgeDB | null = null;
     vectorStore: VectorStore | null = null;
     graphStore: GraphStore | null = null;
+    vaultRenameHandler: VaultRenameHandler | null = null;
+    snapshotJob: SnapshotJob | null = null;
+    snapshotTargets: SnapshotTarget[] = [];
     graphExtractor: GraphExtractor | null = null;
     implicitConnectionService: ImplicitConnectionService | null = null;
     ontologyStore: OntologyStore | null = null;
     communityDetectionService: CommunityDetectionService | null = null;
     vaultHealthService: VaultHealthService | null = null;
     memoryDB: MemoryDB | null = null;
+    // BA-25 Karpathy-Wiki-Pattern stores and services
+    noteSummaryStore: NoteSummaryStore | null = null;
+    frontmatterPropertyStore: FrontmatterPropertyStore | null = null;
+    clusterMetadataStore: ClusterMetadataStore | null = null;
+    clusterSourceStatsStore: ClusterSourceStatsStore | null = null;
+    ingestSessionStore: IngestSessionStore | null = null;
+    ingestTriageLogStore: IngestTriageLogStore | null = null;
+    /** FEAT-03-25 / ADR-109: Vault-zu-Memory-Bruecke-Tabellenzugriff. */
+    memorySourceStore: import('./core/knowledge/MemorySourceStore').MemorySourceStore | null = null;
+    frontmatterIndexer: FrontmatterIndexer | null = null;
+    autoTriggerObserver: AutoTriggerObserver | null = null;
+    topHubBlockGenerator: TopHubBlockGenerator | null = null;
+    stufe3PeriodicJob: Stufe3PeriodicJob | null = null;
+    private stufe3IntervalHandle: ReturnType<typeof setInterval> | null = null;
+    /** FEAT-19-19: Stufe-2 Activity-Trigger fuer Light-Web-Search-Update-Hints. */
+    stufe2ActivityTrigger: Stufe2ActivityTrigger | null = null;
+    /** FEAT-03-26: cached state for cooldown-decision and ContextComposer-Hook. */
+    topHubBlockState: TopHubBlockState | null = null;
+    topHubBlockMarkdown: string = '';
+    /** FEAT-19-09 wiring: indexer-event listener cleanup callbacks. */
+    private frontmatterIndexerListeners: Array<() => void> = [];
+    historyDB: import('./core/knowledge/HistoryDB').HistoryDB | null = null;
+    historyIndexer: import('./core/memory/HistoryIndexer').HistoryIndexer | null = null;
     rerankerService: RerankerService | null = null;
     mcpBridge: { start(): Promise<void>; stop(): void; running: boolean; tunnelUrl: string | null; remoteConnected: boolean; remoteConnecting: boolean; startTunnel(onUrl?: (url: string | null) => void): void; stopTunnel(): void; connectRelay(): void; disconnectRelay(): void; getToolsWithContext(): unknown[]; buildResourceList(): unknown[] } | null = null;
     private autoIndexDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    /** FEAT-03-26 Lifecycle: Debounce-Timer fuer Top-Hub-Block Regen bei Ontology-Changes. */
+    private topHubBlockRegenTimer: ReturnType<typeof setTimeout> | null = null;
     private warmupFired = false;
     /** Session flags for cross-tool coordination (e.g. plan_presentation → create_pptx gate). */
     sessionFlags = new Set<string>();
@@ -109,6 +169,17 @@ export default class ObsidianAgentPlugin extends Plugin {
     conversationStore: ConversationStore | null = null;
     memoryService: MemoryService | null = null;
     extractionQueue: ExtractionQueue | null = null;
+    memoryV2Telemetry: MemoryV2Telemetry | null = null;
+    /** IMP-03-18-01: Daily-Scheduler-Tick fuer AgingService. setInterval handle. */
+    private agingSchedulerHandle: ReturnType<typeof setInterval> | null = null;
+    /** FIX-23-01-01: Living-Document state for Cross-Surface MCP. */
+    activeMcpSessions: import('./core/memory/ActiveMcpSessions').ActiveMcpSessions | null = null;
+    private activeMcpSessionsEvictHandle: ReturnType<typeof setInterval> | null = null;
+    /** AUDIT-015 M-1: Sliding-window MCP Rate-Limiter. */
+    mcpRateLimiter: import('./mcp/McpRateLimiter').McpRateLimiter | null = null;
+    private mcpRateLimiterCleanupHandle: ReturnType<typeof setInterval> | null = null;
+    driftBus: DriftEventBus | null = null;
+    tokenBudget: TokenBudgetGuard | null = null;
     mcpClient: McpClient;
     vaultDNAScanner: VaultDNAScanner | null = null;
     skillRegistry: SkillRegistry | null = null;
@@ -244,8 +315,27 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 0a. Initialize SafeStorageService (must happen before loadSettings)
         this.safeStorage = new SafeStorageService();
 
-        // 0b. Global file service — shared storage at {vault-parent}/.obsidian-agent/ (FEATURE-1508)
+        // 0b. Pre-init folder rename: legacy `.obsidian-agent` -> `obsilo-vault`
+        //     (vault-local) and `.obsidian-agent` -> `obsilo-shared` (vault-parent).
+        //     Must run BEFORE GlobalFileService points at the new global path,
+        //     otherwise the service would create a fresh empty folder beside
+        //     the unrenamed legacy data.
         const vaultBasePath = (this.app.vault.adapter as unknown as { getBasePath?(): string }).getBasePath?.() ?? '';
+        try {
+            const rawSaved = await this.loadData() as Record<string, unknown> | null;
+            const savedFolderPath = typeof rawSaved?.agentFolderPath === 'string'
+                ? rawSaved.agentFolderPath
+                : undefined;
+            const { migrateFolderRename } = await import('./core/utils/migrateFolderRename');
+            const renameReport = await migrateFolderRename(this.app, vaultBasePath, savedFolderPath);
+            if (renameReport.vaultLocalRenamed || renameReport.globalRenamed) {
+                console.debug('[Plugin] Folder rename migrated:', renameReport);
+            }
+        } catch (e) {
+            console.warn('[Plugin] Folder rename migration failed (non-fatal):', e);
+        }
+
+        // 0c. Global file service — shared storage at {vault-parent}/obsilo-shared/ (FEATURE-1508 + folder rename)
         this.globalFs = new GlobalFileService(vaultBasePath);
         this.globalSettingsService = new GlobalSettingsService(this.globalFs, this.safeStorage);
         // Share the GlobalFileService with GlobalModeStore (consolidates all global I/O)
@@ -253,6 +343,16 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // 1. Load settings (merges global + vault-local)
         await this.loadSettings();
+
+        // 1a. Settings consolidation after the folder rename: rewrite any
+        //     known legacy default to the current default so VaultTab and
+        //     consumers using getAgentFolderPath() pick it up. Custom paths
+        //     are untouched.
+        if (this.settings.agentFolderPath === '.obsidian-agent'
+            || this.settings.agentFolderPath === 'obsilo-vault') {
+            this.settings.agentFolderPath = '.obsilo-vault';
+            await this.saveSettings();
+        }
 
         // 2. Initialize core services
         const pluginDir = `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
@@ -270,6 +370,21 @@ export default class ObsidianAgentPlugin extends Plugin {
             );
             this.settings._parentDirMigrated = true;
             await this.saveData({ ...this.settings, _parentDirMigrated: true });
+        }
+
+        // Legacy in-vault folder cleanup. Pre-FEATURE-1508 the plugin
+        // experimented with .obsilo / .obsilo-sync / .obsidian/.obsilo
+        // names. cleanupLegacyVaultDirs() handled them but only ran via
+        // the migrateToParentDir branch when ~/.obsidian-agent had already
+        // disappeared. For users where the legacy ~/.obsidian-agent still
+        // exists alongside, that branch never fired. Run it directly,
+        // gated by an idempotent flag.
+        if (!this.settings._legacyVaultDirsCleaned) {
+            await this.cleanupLegacyVaultDirs().catch((e) =>
+                console.warn('[Plugin] Legacy vault dir cleanup failed (non-fatal):', e)
+            );
+            this.settings._legacyVaultDirsCleaned = true;
+            await this.saveSettings();
         }
 
         // Governance: ignore/protected path rules
@@ -407,9 +522,12 @@ export default class ObsidianAgentPlugin extends Plugin {
                 undefined, // globalRoot — not used in local mode
                 getAgentFolderPath(this),
             );
-            await this.knowledgeDB.open().catch((e) =>
-                console.warn('[Plugin] KnowledgeDB open failed (non-fatal):', e)
-            );
+            await this.knowledgeDB.open().catch((e) => {
+                if (e instanceof WriterLockHeldError) {
+                    new Notice(e.message, 10000);
+                }
+                console.warn('[Plugin] KnowledgeDB open failed (non-fatal):', e);
+            });
             // FIX-18: If open() failed, null out to prevent cascading "not opened" errors
             if (!this.knowledgeDB.isOpen()) {
                 console.warn('[Plugin] KnowledgeDB not available — semantic features disabled for this session');
@@ -422,16 +540,120 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.vectorStore = new VectorStore(this.knowledgeDB);
             this.graphStore = new GraphStore(this.knowledgeDB);
             this.ontologyStore = new OntologyStore(this.knowledgeDB);
+            this.vaultRenameHandler = new VaultRenameHandler(this.knowledgeDB);
+            // BA-25 Stores (knowledge.db v10 tables)
+            this.noteSummaryStore = new NoteSummaryStore(this.knowledgeDB);
+            this.frontmatterPropertyStore = new FrontmatterPropertyStore(this.knowledgeDB);
+            this.clusterMetadataStore = new ClusterMetadataStore(this.knowledgeDB);
+            this.clusterSourceStatsStore = new ClusterSourceStatsStore(this.knowledgeDB);
+            this.ingestSessionStore = new IngestSessionStore(this.knowledgeDB);
+            this.ingestTriageLogStore = new IngestTriageLogStore(this.knowledgeDB);
+            // FrontmatterIndexer wires the per-note read-and-mirror hook (FEAT-15-09/10, FEAT-19-09).
+            // SummaryGeneratorFn stays null until autoSummary feature is enabled in settings; the
+            // indexer then only mirrors properties from frontmatter and adopts existing summaries.
+            // FEAT-19-09: Auto-Summary-Generator-Hook (LLM via Memory-Model).
+            // SummaryGenerator wird nur registriert wenn autoSummary.enabled.
+            const ingestCfg = this.settings.vaultIngest ?? DEFAULT_VAULT_INGEST_SETTINGS;
+            const summaryGenerator = ingestCfg.autoSummary.enabled
+                ? buildSummaryGenerator({
+                    promptTemplate: ingestCfg.summaryPrompt.template,
+                    apiHandlerFactory: () => {
+                        const model = this.getMemoryModel();
+                        if (!model) return null;
+                        try {
+                            return buildApiHandlerForModel(model);
+                        } catch (e) {
+                            console.warn('[Plugin] SummaryGenerator API handler failed:', e);
+                            return null;
+                        }
+                    },
+                })
+                : undefined;
+            // FEAT-03-25 / ADR-109: MemorySourceStore + Bridge-Hook
+            // initialisieren. Der Hook liest die Note und triggert
+            // ExtractionQueue.enqueueImmediate, damit der bereits
+            // existierende SingleCallProcessor die Facts extrahiert.
+            // Best-effort: alles in eigenem try/catch -- Hook-Fehler
+            // blockieren den Vault-Indexer niemals.
+            if (this.memoryDB?.isOpen()) {
+                const { MemorySourceStore } = await import('./core/knowledge/MemorySourceStore');
+                this.memorySourceStore = new MemorySourceStore(this.memoryDB);
+            }
+            const memorySourceStore = this.memorySourceStore;
+            // AUDIT-015 M-2: Prompt-Injection-Resistance fuer Vault-Notes.
+            // Vault-Inhalte koennen unkontrolliert sein (Web-Imports, Notes
+            // mit "ignore previous instructions"-Pattern, etc.). Wir
+            // wrappen sie in deutlich abgegrenzte Marker, kappen die
+            // Laenge auf 16k Chars und entschaerfen typische Injection-
+            // Patterns. SingleCallProcessor sieht nur 'user'-content,
+            // also bleibt das Risiko Surface-orientiert.
+            const memorySourceHook = memorySourceStore
+                ? async (input: { file: TFile; fromFrontmatter: boolean }) => {
+                    if (!this.extractionQueue) return;
+                    try {
+                        const raw = await this.app.vault.cachedRead(input.file);
+                        const sanitized = sanitizeVaultContentForLLM(raw, input.file.path);
+                        const conversationId = `vault://${input.file.path}`;
+                        await this.extractionQueue.enqueueImmediate({
+                            conversationId,
+                            messages: [{ role: 'user', text: sanitized }],
+                            title: `Vault note: ${input.file.basename}`,
+                            queuedAt: new Date().toISOString(),
+                        });
+                        memorySourceStore.markDirty(input.file.path);
+                    } catch (e) {
+                        console.debug(`[memory-source-hook] failed for ${input.file.path}:`, e);
+                    }
+                }
+                : undefined;
+
+            this.frontmatterIndexer = new FrontmatterIndexer(
+                this.app,
+                this.noteSummaryStore,
+                this.frontmatterPropertyStore,
+                {
+                    autoSummaryEnabled: ingestCfg.autoSummary.enabled,
+                    summaryGenerator,
+                    memorySourceStore: memorySourceStore ?? undefined,
+                    memorySourceHook,
+                },
+            );
+
+            // FEAT-19-09 / FEAT-15-09 / FEAT-15-10: vault-event-Hooks fuer
+            // FrontmatterIndexer (per-note Spiegel von Frontmatter und
+            // optional Auto-Summary). Idempotent ueber mtime im Indexer.
+            const indexerOnCreate = this.app.vault.on('create', (file) => {
+                if (file instanceof TFile && file.extension === 'md' && this.frontmatterIndexer) {
+                    void this.frontmatterIndexer.indexNote(file).catch(() => {});
+                }
+            });
+            const indexerOnModify = this.app.vault.on('modify', (file) => {
+                if (file instanceof TFile && file.extension === 'md' && this.frontmatterIndexer) {
+                    void this.frontmatterIndexer.indexNote(file).catch(() => {});
+                }
+            });
+            this.frontmatterIndexerListeners.push(
+                () => this.app.vault.offref(indexerOnCreate),
+                () => this.app.vault.offref(indexerOnModify),
+            );
+            // TopHubBlockGenerator (FEAT-03-26) ist als Read-Only-Helper verfuegbar.
+            // ContextComposer-Wiring kommt mit explizitem Setting-Toggle.
+            this.topHubBlockGenerator = new TopHubBlockGenerator(
+                this.knowledgeDB,
+                this.noteSummaryStore,
+            );
             this.communityDetectionService = new CommunityDetectionService(
                 this.knowledgeDB, this.graphStore, this.ontologyStore,
             );
             this.semanticIndex = new SemanticIndexService(this.app.vault, this.knowledgeDB, this.vectorStore, {
                 batchSize: this.settings.semanticBatchSize,
-                embeddingBatchSize: 16,  // texts per API call — batch for performance
+                embeddingBatchSize: 16,  // texts per API call -- batch for performance
                 excludedFolders: this.settings.semanticExcludedFolders,
                 indexPdfs: this.settings.semanticIndexPdfs,
                 chunkSize: this.settings.semanticChunkSize ?? 2000,
                 enableContextualRetrieval: this.settings.enableContextualRetrieval,
+                // AUDIT-013 follow-up: skip ignored notes at index build.
+                isIgnored: (path: string) => this.ignoreService.isIgnored(path),
             });
             const embeddingModel = this.getActiveEmbeddingModel();
             if (embeddingModel) this.semanticIndex.setEmbeddingModel(embeddingModel);
@@ -448,6 +670,16 @@ export default class ObsidianAgentPlugin extends Plugin {
             await this.semanticIndex.initialize().catch((e) =>
                 console.warn('[Plugin] Semantic index init failed (non-fatal):', e)
             );
+            // Memory v2 / FEATURE-0316 task 6: shared EmbeddingService backed by
+            // SemanticIndexService.embedTexts. Phase 2+ engine modules (FactStore
+            // embeddings, future history embeddings, Hybrid-Search Cosine signal)
+            // route through this single Service instead of growing parallel
+            // embed paths.
+            const semanticIndexRef = this.semanticIndex;
+            this.embeddingService = new EmbeddingService(new ObsiloEmbeddingProvider(
+                (texts) => semanticIndexRef.embedTexts(texts),
+                () => semanticIndexRef.getEmbeddingModelInfo(),
+            ));
             // Auto-index on startup if configured
             if (this.settings.semanticAutoIndex === 'startup') {
                 // buildIndex() auto-triggers enrichment after completion
@@ -507,6 +739,214 @@ export default class ObsidianAgentPlugin extends Plugin {
                 });
             }
 
+            // BA-25 AutoTriggerObserver (FEAT-19-27, ADR-102): listen on vault create/modify
+            // and trigger ingest_triage when a note carries the configured frontmatter property.
+            const autoTriggerCfg = this.settings.vaultIngest?.autoTrigger;
+            if (
+                autoTriggerCfg?.enabled
+                && autoTriggerCfg.propertyName
+                && this.ingestTriageLogStore
+            ) {
+                this.autoTriggerObserver = new AutoTriggerObserver(
+                    this.app,
+                    this.ingestTriageLogStore,
+                    async (file) => {
+                        // FEAT-19-27 Wiring: ruft das ingest_triage Tool im
+                        // Pending-Mode auf, damit Cluster-Match und Source-
+                        // Domain-Stats automatisch festgehalten werden. Tool
+                        // schreibt das Triage-Log selbst und vermeidet so
+                        // doppelten Trigger; die User-Entscheidung kommt
+                        // spaeter ueber UI oder Agent-Tool-Call.
+                        const tool = this.toolRegistry?.getTool('ingest_triage');
+                        if (tool) {
+                            const captured: string[] = [];
+                            const ctx = {
+                                plugin: this,
+                                callbacks: {
+                                    pushToolResult: (r: string) => { captured.push(r); },
+                                    say: () => Promise.resolve(),
+                                    ask: () => Promise.resolve({ response: 'noButtonClicked' as const }),
+                                    isParallelExecution: false,
+                                    shouldUseImmediateApproval: () => false,
+                                } as unknown as ToolCallbacks,
+                            } as unknown as import('./core/tools/types').ToolExecutionContext;
+                            try {
+                                await tool.execute({
+                                    source_uri: `vault://${file.path}`,
+                                    decision: 'pending',
+                                }, ctx);
+                            } catch (e) {
+                                console.debug(`[BA-25] auto-triage tool failed for ${file.path}:`, e);
+                            }
+                        }
+                        if (autoTriggerCfg.notification) {
+                            new Notice(`Auto-Triage candidate: ${file.path}`, 4000);
+                        }
+                        console.debug(`[BA-25] auto-trigger fired for ${file.path}`);
+                    },
+                    {
+                        enabled: autoTriggerCfg.enabled,
+                        propertyName: autoTriggerCfg.propertyName,
+                        propertyValue: autoTriggerCfg.propertyValue,
+                    },
+                );
+                this.autoTriggerObserver.start();
+            }
+
+            // FEAT-19-20 / IMP-19-20-01: Stufe-3 Periodischer Job mit
+            // Persistenz und setInterval-Wrapper. Default OFF; Wrapper
+            // checkt internal weeklyBudget plus 7d-Cooldown selbst.
+            // Hooks: real LLM-Pre-Filter via apiHandler.classifyText (Haiku-
+            // class quick yes/no), webUpdatePass nutzt das registrierte
+            // web_search Tool (BYOK-Provider via FEAT-04-02). Wenn weder
+            // apiHandler noch web_search verfuegbar ist, fallen die Hooks
+            // auf no-op zurueck damit Tokenverbrauch null bleibt.
+            const stufe3Cfg = ingestCfg.autoTrigger; // share enabled-flag conservatively; UI separates topic later
+            if (this.knowledgeDB && this.clusterMetadataStore) {
+                const persistence = new ClusterMetadataStatePersistence(this.knowledgeDB);
+                const preFilter = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
+                    if (!this.apiHandler?.classifyText) return { decision: 'no' as const, tokensUsed: 0 };
+                    const prompt = `Cluster "${cluster.cluster}" wurde zuletzt am ${cluster.lastExternalCheck ?? 'nie'} extern verifiziert. `
+                        + `Halbwertszeit: ${cluster.halfLifeDays} Tage. Lohnt sich JETZT eine Web-Suche `
+                        + `nach Updates? Antworte ausschliesslich mit "yes", "no" oder "unsure".`;
+                    try {
+                        const reply = (await this.apiHandler.classifyText(prompt)).toLowerCase().trim();
+                        const decision: 'yes' | 'no' | 'unsure' = reply.startsWith('yes') ? 'yes'
+                            : reply.startsWith('unsure') ? 'unsure' : 'no';
+                        return { decision, tokensUsed: prompt.length / 4 + 5 };
+                    } catch (e) {
+                        console.debug('[Stufe3] preFilter classify failed:', e);
+                        return { decision: 'no' as const, tokensUsed: 0 };
+                    }
+                };
+                const webUpdatePass = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
+                    const tool = this.toolRegistry?.getTool('web_search');
+                    if (!tool) return { findings: [], tokensUsed: 0 };
+                    const captured: string[] = [];
+                    const ctx = {
+                        plugin: this,
+                        callbacks: {
+                            pushToolResult: (r: string) => { captured.push(r); },
+                            say: () => Promise.resolve(),
+                            ask: () => Promise.resolve({ response: 'noButtonClicked' as const }),
+                            isParallelExecution: false,
+                            shouldUseImmediateApproval: () => false,
+                        } as unknown as import('./core/tools/types').ToolCallbacks,
+                    } as unknown as import('./core/tools/types').ToolExecutionContext;
+                    try {
+                        await tool.execute({
+                            query: `${cluster.cluster} latest update news`,
+                            max_results: 5,
+                        }, ctx);
+                    } catch (e) {
+                        console.debug('[Stufe3] webUpdatePass failed:', e);
+                        return { findings: [], tokensUsed: 0 };
+                    }
+                    const text = captured.join('\n');
+                    if (!text.trim()) return { findings: [], tokensUsed: 0 };
+                    return {
+                        findings: [{
+                            cluster: cluster.cluster,
+                            title: `Updates fuer ${cluster.cluster}`,
+                            summary: text.slice(0, 600),
+                            sources: extractUrlsFromText(text).slice(0, 5),
+                            detectedAt: new Date().toISOString(),
+                            strongSignal: extractUrlsFromText(text).length >= 2,
+                        }],
+                        tokensUsed: text.length / 4,
+                    };
+                };
+                const notificationSink = (findings: import('./core/health/Stufe3PeriodicJob').UpdateFinding[]) => {
+                    if (!findings.length) return;
+                    new Notice(`Stufe-3: ${findings.length} Update-Hinweise gefunden (siehe Console).`, 6_000);
+                    for (const f of findings) console.debug(`[Stufe3] ${f.cluster}: ${f.title}`);
+                };
+                const budgetExceededSink = (info: { spentUsd: number; budgetUsd: number }) => {
+                    new Notice(`Stufe-3 Budget bei ${(info.spentUsd / info.budgetUsd * 100).toFixed(0)}%.`, 5_000);
+                };
+                this.stufe3PeriodicJob = new Stufe3PeriodicJob(
+                    this.clusterMetadataStore,
+                    preFilter,
+                    webUpdatePass,
+                    notificationSink,
+                    { weeklyBudgetUsd: 2.0, notificationThreshold: 0.8 },
+                    undefined,
+                    budgetExceededSink,
+                    persistence,
+                );
+                // Wrapper: stuendlich check, run weekly via job's internal
+                // rolloverIfNewWeek + lastRun-Logik (vereinfacht via ClusterMeta-State).
+                this.stufe3IntervalHandle = setInterval(() => {
+                    if (!this.stufe3PeriodicJob) return;
+                    this.stufe3PeriodicJob.rolloverIfNewWeek();
+                    // Run heute nur wenn user explicitly enabled; aktuell
+                    // gating nur ueber suppressRun-Flag aus Settings (no-op
+                    // hooks oben verhindern Tokenverbrauch sowieso).
+                    if (this.settings.vaultIngest?.autoTrigger?.enabled) {
+                        void this.stufe3PeriodicJob.run().catch((e) => {
+                            console.debug('[Stufe3] periodic run failed:', e);
+                        });
+                    }
+                }, 3_600_000);
+            }
+
+            // FEAT-03-26: Top-Hub-Block initialer Build (cache-stabil).
+            if (this.topHubBlockGenerator && ingestCfg.topHubBlock?.enabled) {
+                const result = this.topHubBlockGenerator.generateIfNeeded(this.topHubBlockState);
+                if (result) {
+                    this.topHubBlockState = result.state;
+                    this.topHubBlockMarkdown = result.block;
+                }
+            }
+
+            // FEAT-19-19: Stufe-2 Activity-Trigger. Bei Note-Open/Modify in
+            // einem reifen Cluster zeigt das Plugin dezent eine Notice.
+            // Klick auf Notice startet anti_echo_search-Pass (UI-Hook).
+            const stufe2Cfg = ingestCfg.stufe2Hint;
+            if (
+                stufe2Cfg?.enabled
+                && this.knowledgeDB
+                && this.clusterMetadataStore
+            ) {
+                this.stufe2ActivityTrigger = new Stufe2ActivityTrigger(
+                    this.app,
+                    this.knowledgeDB,
+                    this.clusterMetadataStore,
+                    (info) => {
+                        const days = info.daysSinceLastCheck === null
+                            ? 'nie'
+                            : `${Math.round(info.daysSinceLastCheck)}d`;
+                        const notice = new Notice(
+                            `Cluster "${info.cluster}" wirkt veraltet (Score ${info.score}, letzter Check: ${days}). `
+                                + `Klick fuer Anti-Echo-Suche.`,
+                            10_000,
+                        );
+                        // Klick-Handler fuer dezenten Trigger; nur wenn Notice-API verfuegbar.
+                        const el = notice.messageEl;
+                        if (el) {
+                            // eslint-disable-next-line obsidianmd/no-static-styles-assignment -- transient inline cursor on a Notice toast (no theme involvement)
+                            el.style.setProperty('cursor', 'pointer');
+                            el.addEventListener('click', () => {
+                                notice.hide();
+                                new Notice(
+                                    `Tipp: "@anti_echo_search cluster:${info.cluster}" im Agent ausfuehren, `
+                                        + `um Gegenpositionen zu suchen.`,
+                                    8_000,
+                                );
+                            });
+                        }
+                    },
+                    {
+                        enabled: stufe2Cfg.enabled,
+                        hintThresholdScore: stufe2Cfg.hintThresholdScore,
+                        minDaysSinceCheck: stufe2Cfg.minDaysSinceCheck,
+                        perClusterCooldownDays: stufe2Cfg.perClusterCooldownDays,
+                        maxHintsPerDay: stufe2Cfg.maxHintsPerDay,
+                    },
+                );
+                this.stufe2ActivityTrigger.start();
+            }
+
             // Vault Health Check (FEATURE-1901): background lint on startup
             if ((this.settings.enableVaultHealthCheck ?? true) && this.knowledgeDB) {
                 this.vaultHealthService = new VaultHealthService(this.app, this.knowledgeDB);
@@ -555,48 +995,83 @@ export default class ObsidianAgentPlugin extends Plugin {
             } // end FIX-18 else (knowledgeDB available)
         }
 
-        // Auto-index: keep semantic index current as vault files change.
-        // Only enabled when semanticAutoIndexOnChange is explicitly set.
-        if (this.settings.enableSemanticIndex && this.semanticIndex && this.settings.semanticAutoIndexOnChange) {
+        // Vault file listeners. Two responsibilities are wired here:
+        //
+        //   (1) Path-cascade: rewrite path columns across knowledge.db on
+        //       rename/move so no orphan rows survive. ALWAYS active when
+        //       knowledge.db is open -- it just does UPDATEs, no embedding.
+        //   (2) Auto-reindex: re-embed and re-extract on modify/create/rename.
+        //       Gated on settings.semanticAutoIndexOnChange because users
+        //       opt out for cost reasons.
+        if (this.knowledgeDB && this.vaultRenameHandler) {
+            const autoIndex = !!(
+                this.settings.enableSemanticIndex
+                && this.semanticIndex
+                && this.settings.semanticAutoIndexOnChange
+            );
+
             const DOCUMENT_EXTENSIONS = new Set(['pdf', 'pptx', 'xlsx', 'docx']);
             const isIndexable = (f: TFile): boolean =>
                 f.extension === 'md' || (this.settings.semanticIndexPdfs && DOCUMENT_EXTENSIONS.has(f.extension));
+
+            const applyFileRename = (oldPath: string, file: TFile) => {
+                // Cascade always -- the 8 (table, column) pairs are content-
+                // independent, so this is safe regardless of auto-index.
+                this.vaultRenameHandler?.cascadeFileRename(oldPath, file.path);
+                if (autoIndex && isIndexable(file)) {
+                    void this.semanticIndex?.removeFile(oldPath);
+                    this.graphExtractor?.removeFile(oldPath);
+                    this.ontologyStore?.removeEntriesForPath(oldPath);
+                    if (file.extension === 'md') {
+                        this.graphExtractor?.extractFile(file);
+                        this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
+                        this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                        this.scheduleTopHubBlockRegen();
+                    }
+                    this.scheduleFileIndex(file.path);
+                }
+            };
+
             this.registerEvent(this.app.vault.on('modify', (file) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
+                if (!autoIndex || !(file instanceof TFile) || !isIndexable(file)) return;
                 this.scheduleFileIndex(file.path);
-                // Graph + implicit + ontology: update edges/tags and recompute
                 if (file.extension === 'md') {
                     this.graphExtractor?.extractFile(file);
                     this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
                     this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                    this.scheduleTopHubBlockRegen();
                 }
             }));
             this.registerEvent(this.app.vault.on('create', (file) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
+                if (!autoIndex || !(file instanceof TFile) || !isIndexable(file)) return;
                 this.scheduleFileIndex(file.path);
                 if (file.extension === 'md') {
                     this.graphExtractor?.extractFile(file);
                     this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
                     this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                    this.scheduleTopHubBlockRegen();
                 }
             }));
             this.registerEvent(this.app.vault.on('delete', (file) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
+                if (!autoIndex || !(file instanceof TFile)) return;
                 void this.semanticIndex?.removeFile(file.path);
                 this.graphExtractor?.removeFile(file.path);
                 this.ontologyStore?.removeEntriesForPath(file.path);
+                this.scheduleTopHubBlockRegen();
+                // FEAT-03-25 / ADR-109: Cascade -- entferne MemorySourceStore-
+                // Eintrag, abgeleitete Facts bleiben (FEAT-03-22 Forget-Right
+                // ist separater Pfad, kein automatisches Hard-Delete).
+                this.memorySourceStore?.remove(file.path);
             }));
             this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
-                if (!(file instanceof TFile) || !isIndexable(file)) return;
-                void this.semanticIndex?.removeFile(oldPath);
-                this.graphExtractor?.removeFile(oldPath);
-                this.ontologyStore?.removeEntriesForPath(oldPath);
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.graphExtractor?.extractFile(file);
-                    this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
-                    this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
+                if (file instanceof TFolder) {
+                    this.vaultRenameHandler?.cascadeFolderRename(oldPath, file.path);
+                    return;
                 }
-                this.scheduleFileIndex(file.path);
+                if (!(file instanceof TFile)) return;
+                applyFileRename(oldPath, file);
+                // FEAT-03-25: MemorySourceStore mitziehen.
+                this.memorySourceStore?.rename(oldPath, file.path);
             }));
         }
 
@@ -611,6 +1086,53 @@ export default class ObsidianAgentPlugin extends Plugin {
                 console.warn('[Plugin] MemoryDB not available — memory features degraded');
                 this.memoryDB = null;
             }
+        }
+
+        // History DB (FEATURE-0320 Phase 6): per-message keyword + future cosine
+        // search across all conversation transcripts.
+        try {
+            const { HistoryDB } = await import('./core/knowledge/HistoryDB');
+            this.historyDB = new HistoryDB(this.app.vault, pluginDir, this.globalFs.getRoot());
+            await this.historyDB.open();
+            if (!this.historyDB.isOpen()) {
+                console.warn('[Plugin] HistoryDB not available — history search degraded');
+                this.historyDB = null;
+            }
+        } catch (e) {
+            console.warn('[Plugin] HistoryDB open failed (non-fatal):', e);
+            this.historyDB = null;
+        }
+
+        // Daily snapshots (FEATURE-0314, ADR-079): copy live DBs into
+        // .bak/<name>/<YYYY-MM-DD>.db so a 7-day rolling Undo exists on top
+        // of the per-write .bak rotation. Only fires for filesystem-backed
+        // storage modes; obsidian-sync DBs are excluded to avoid duplicating
+        // bytes through the same sync provider.
+        try {
+            this.snapshotJob = new SnapshotJob();
+            const targets: SnapshotTarget[] = [];
+            if (this.knowledgeDB && this.knowledgeDB.getStorageLocation() !== 'obsidian-sync') {
+                targets.push({ name: 'knowledge', sourcePath: this.knowledgeDB.getAbsolutePath() });
+            }
+            if (this.memoryDB && this.memoryDB.getStorageLocation() !== 'obsidian-sync') {
+                targets.push({ name: 'memory', sourcePath: this.memoryDB.getAbsolutePath() });
+            }
+            if (targets.length > 0) {
+                this.snapshotTargets = targets;
+                // Run in background; never block plugin startup on snapshot I/O.
+                void this.snapshotJob.runDailySnapshot(targets)
+                    .then((results) => {
+                        const created = results.filter((r) => r.action === 'created').length;
+                        if (created > 0) console.debug(`[SnapshotJob] Created ${created} snapshot(s)`);
+                    })
+                    .then(() => this.snapshotJob?.cleanupOldSnapshots(targets))
+                    .then((removed) => {
+                        if (removed && removed > 0) console.debug(`[SnapshotJob] Removed ${removed} expired snapshot(s)`);
+                    })
+                    .catch((e) => console.warn('[SnapshotJob] Daily snapshot failed (non-fatal):', e));
+            }
+        } catch (e) {
+            console.warn('[SnapshotJob] Setup failed (non-fatal):', e);
         }
 
         // Agent Skill Mastery — Procedural Recipes (ADR-017)
@@ -662,6 +1184,23 @@ export default class ObsidianAgentPlugin extends Plugin {
             );
         }
 
+        // History indexer (FEATURE-0320 Phase 6): backfill on first run,
+        // incrementally re-index after every conversation save. Indexer
+        // is a no-op when historyDB or conversationStore is unavailable.
+        if (this.historyDB && this.conversationStore) {
+            const { HistoryIndexer } = await import('./core/memory/HistoryIndexer');
+            this.historyIndexer = new HistoryIndexer(this.historyDB, this.conversationStore);
+            const backfillCtl = new AbortController();
+            void this.historyIndexer.backfillAll(backfillCtl.signal).then((report) => {
+                if (report.chunksInserted > 0) {
+                    console.debug(
+                        `[HistoryIndex] backfill: ${report.chunksInserted} new chunks ` +
+                        `(skipped ${report.chunksSkipped}, ${report.conversationsScanned} conversations)`,
+                    );
+                }
+            }).catch((e) => console.warn('[HistoryIndex] backfill failed (non-fatal):', e));
+        }
+
         // Memory service + extraction queue
         if (this.settings.memory.enabled) {
             this.memoryService = new MemoryService(this.globalFs, this.memoryDB);
@@ -673,25 +1212,56 @@ export default class ObsidianAgentPlugin extends Plugin {
                 console.warn('[Plugin] ExtractionQueue load failed (non-fatal):', e)
             );
 
-            // Wire SessionExtractor as the queue processor
-            const sessionExtractor = new SessionExtractor(
-                this.memoryService,
-                () => this.getMemoryModel(),
-                () => this.settings.memory.autoUpdateLongTerm,
-                this.extractionQueue,
-                () => this.semanticIndex,
-            );
-            const longTermExtractor = new LongTermExtractor(
-                this.memoryService,
-                () => this.getMemoryModel(),
-            );
-            this.extractionQueue.setProcessor(async (item) => {
-                if (item.type === 'session') {
-                    await sessionExtractor.process(item);
-                } else if (item.type === 'long-term') {
-                    await longTermExtractor.process(item);
-                }
+            // FEATURE-0318 / PLAN-007 task C.2: telemetry + drift + budget wiring.
+            this.memoryV2Telemetry = new MemoryV2Telemetry((path, line) => this.globalFs.append(path, line));
+            this.driftBus = new DriftEventBus();
+            this.driftBus.subscribe((event) => {
+                void this.memoryV2Telemetry?.drift({
+                    sessionId: event.sessionId,
+                    previousTopic: event.previousTopic ?? '',
+                    newTopic: event.newTopic,
+                    score: event.score,
+                });
             });
+            // IMP-03-18-02: bei Drift den 60s-Throttle fuer diese
+            // conversationId zuruecksetzen, damit die naechste
+            // Auto-Extraction direkt durchgeht statt im Throttle-Window
+            // zu sterben. Wir enqueuen nicht direkt, weil das DriftEvent
+            // keine messages traegt; das naechste normale enqueue laeuft
+            // dann ohne Throttle-Skip.
+            this.driftBus.subscribe((event) => {
+                this.extractionQueue?.clearThrottle(event.sessionId);
+            });
+            this.tokenBudget = new TokenBudgetGuard({
+                loadState: () => this.settings.memory.tokenBudgetState ?? null,
+                saveState: async (state) => {
+                    this.settings.memory.tokenBudgetState = state;
+                    await this.saveSettings();
+                },
+                thresholds: { dailyInputCap: 1_000_000, dailyOutputCap: 200_000 },
+            });
+
+            // FEATURE-0318 / PLAN-007 task C.1: Single-Call replaces both
+            // SessionExtractor and LongTermExtractor. One tool-calling LLM
+            // round produces session summary + atomic facts + mentions +
+            // delta-window summary in a single pass.
+            const memoryService = this.memoryService;
+            const memoryDB = this.memoryDB;
+            if (!memoryDB) {
+                console.warn('[Plugin] memoryDB unavailable -- extraction queue will skip items.');
+                this.extractionQueue.setProcessor(() => Promise.resolve());
+            } else {
+                const singleCallProcessor = new SingleCallProcessor({
+                    memoryService,
+                    memoryDB,
+                    embeddingService: this.embeddingService,
+                    getMemoryModel: () => this.getMemoryModel(),
+                    getSemanticIndex: () => this.semanticIndex,
+                    tokenBudget: this.tokenBudget,
+                    telemetry: this.memoryV2Telemetry,
+                });
+                this.extractionQueue.setProcessor((item) => singleCallProcessor.process(item));
+            }
 
             // Process any pending extractions from a previous session
             if (!this.extractionQueue.isEmpty()) {
@@ -700,6 +1270,31 @@ export default class ObsidianAgentPlugin extends Plugin {
                     console.warn('[Plugin] Queue processing failed (non-fatal):', e)
                 );
             }
+
+            // FEATURE-0319b / PLAN-008 task C.7: sync CapabilityManifest into
+            // Memory v2 under profile_id='_obsilo'. Detects manifest changes
+            // via djb2 hash and replaces the snapshot atomically.
+            this.syncCapabilitySnapshot().catch((e) =>
+                console.warn('[Plugin] Capability snapshot sync failed (non-fatal):', e),
+            );
+
+            // FEATURE-0319 Phase 5: aging sweep on plugin onload.
+            // AgingService short-circuits when lastAgingRunAt is < 24h old.
+            this.runAgingSweep().catch((e) =>
+                console.warn('[Plugin] Aging sweep failed (non-fatal):', e),
+            );
+
+            // IMP-03-18-01: 6h-Tick damit Aging auch laufen kann, wenn Obsidian
+            // tagelang nicht neu gestartet wird. AgingService 24h-Cooldown
+            // bleibt aktiv, der Tick prueft nur ob gerade etwas zu tun ist.
+            this.agingSchedulerHandle = setInterval(() => {
+                this.runAgingSweep().catch((e) =>
+                    console.debug('[Plugin] Aging tick failed:', e),
+                );
+            }, 6 * 60 * 60 * 1000);
+
+            // FEATURE-0319 Phase 5: configure re-extraction throttle from settings.
+            this.extractionQueue.setThrottleMs(this.settings.memory.reExtractThrottleMs ?? 60_000);
         }
 
         // LLM provider (null if no API key configured)
@@ -743,6 +1338,12 @@ export default class ObsidianAgentPlugin extends Plugin {
                 if (stale.length === 0) {
                     await this.activateView();
                 }
+                // Memory v2 upgrade prompt -- BUG-031 follow-up. Fires only
+                // when the detector finds legacy v1 MDs and no v2 facts yet.
+                // Fresh installs are silent.
+                this.detectAndPromptMemoryV2Upgrade().catch(e =>
+                    console.warn('[Plugin] Memory v2 upgrade detection failed (non-fatal):', e),
+                );
             })();
         });
 
@@ -753,11 +1354,69 @@ export default class ObsidianAgentPlugin extends Plugin {
             callback: () => this.activateView()
         });
 
+        // FEATURE-0319 Phase 5: Save active conversation to memory.
+        // No default hotkey -- user assigns via Settings -> Hotkeys.
+        this.addCommand({
+            id: 'save-conversation-to-memory',
+            name: 'Save conversation to memory',
+            callback: () => { void this.saveActiveConversationToMemory(); },
+        });
+
+        // FEATURE-0319 Phase 6/7 soak: daily health snapshot. User runs once a
+        // day, copies JSON to chat for trend analysis. Plain navigator.clipboard
+        // -- Notice fallback if the API is unavailable (rare in Electron).
+        this.addCommand({
+            id: 'generate-memory-soak-report',
+            name: 'Generate memory soak report',
+            callback: () => { void this.generateAndCopySoakReport(); },
+        });
+
         // Development: Test tool execution
         this.addCommand({
             id: 'test-tool-execution',
             name: 'Test tool execution',
             callback: () => this.testToolExecution()
+        });
+
+        // BA-25 FEAT-19-10: Frontmatter-Backfill-Job Command
+        this.addCommand({
+            id: 'ba25-run-frontmatter-backfill',
+            name: 'BA-25: Frontmatter-Backfill-Job ausfuehren',
+            callback: () => { void this.runFrontmatterBackfill(); },
+        });
+
+        // BA-25 FEAT-19-15: Inbox-Workflow Triage-Pass
+        this.addCommand({
+            id: 'ba25-run-inbox-triage',
+            name: 'BA-25: Inbox-Triage ausfuehren (auf konfigurierte Auto-Trigger-Property)',
+            callback: () => { void this.runInboxTriage(); },
+        });
+
+        // BA-25 FEAT-19-11: MOC-Auto-Pflege manuell triggern
+        this.addCommand({
+            id: 'ba25-refresh-moc-pages',
+            name: 'BA-25: MOC-Pflege jetzt aktualisieren (Marker-Block)',
+            callback: () => { void this.refreshAllMOCs(); },
+        });
+
+        // BA-25 FEAT-19-11: Initial-Marker-Injection in MOC-Kandidaten.
+        this.addCommand({
+            id: 'ba25-inject-moc-markers',
+            name: 'BA-25: MOC-Marker initial einfuegen (Cluster-Kandidaten)',
+            callback: () => { void this.injectInitialMOCMarkers(); },
+        });
+
+        // BA-25 FEAT-03-26: Top-Hub-Block manueller Refresh
+        this.addCommand({
+            id: 'ba25-refresh-top-hub-block',
+            name: 'BA-25: Top-Hub-Block jetzt regenerieren',
+            callback: () => {
+                if (!this.topHubBlockGenerator) { new Notice('Top-Hub-Generator nicht verfuegbar.'); return; }
+                const r = this.topHubBlockGenerator.generate();
+                this.topHubBlockState = r.state;
+                this.topHubBlockMarkdown = r.block;
+                new Notice(`Top-Hub-Block regeneriert: ${r.hubs.length} Hubs.`);
+            },
         });
 
         // 5. Register settings tab
@@ -774,6 +1433,26 @@ export default class ObsidianAgentPlugin extends Plugin {
         // MCP Server (EPIC-014): Expose Obsilo as MCP Server for Claude Desktop/Code
         if (this.settings.enableMcpServer) {
             const { McpBridge } = await import('./mcp/McpBridge');
+            // FIX-23-01-01: Living-Document state for save_conversation.
+            const { ActiveMcpSessions } = await import('./core/memory/ActiveMcpSessions');
+            this.activeMcpSessions = new ActiveMcpSessions();
+            // Eviction-Tick alle 5 Minuten -- entfernt abgelaufene
+            // Sessions auch wenn keine MCP-Calls reinkommen.
+            this.activeMcpSessionsEvictHandle = setInterval(() => {
+                const removed = this.activeMcpSessions?.evictExpired() ?? 0;
+                if (removed > 0) {
+                    console.debug(`[ActiveMcpSessions] evicted ${removed} expired session(s)`);
+                }
+            }, 5 * 60 * 1000);
+
+            // AUDIT-015 M-1: MCP Rate-Limiter, sliding window pro
+            // (token, source_interface, rate-class). Cleanup alle 5 min.
+            const { McpRateLimiter } = await import('./mcp/McpRateLimiter');
+            this.mcpRateLimiter = new McpRateLimiter();
+            this.mcpRateLimiterCleanupHandle = setInterval(() => {
+                this.mcpRateLimiter?.cleanup();
+            }, 5 * 60 * 1000);
+
             this.mcpBridge = new McpBridge(this);
             await this.mcpBridge.start().catch((e: unknown) =>
                 console.warn('[Plugin] MCP Server start failed (non-fatal):', e)
@@ -812,6 +1491,21 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.semanticIndex?.cancelEnrichment();
             this.implicitConnectionService?.cancel();
             this.vaultHealthService?.cancel();
+            // BA-25 listener cleanup
+            this.autoTriggerObserver?.stop();
+            this.stufe2ActivityTrigger?.stop();
+            for (const off of this.frontmatterIndexerListeners) {
+                try { off(); } catch { /* noop */ }
+            }
+            this.frontmatterIndexerListeners = [];
+            if (this.stufe3IntervalHandle) {
+                clearInterval(this.stufe3IntervalHandle);
+                this.stufe3IntervalHandle = null;
+            }
+            if (this.topHubBlockRegenTimer) {
+                clearTimeout(this.topHubBlockRegenTimer);
+                this.topHubBlockRegenTimer = null;
+            }
             this.rerankerService?.unload();
             this.mcpBridge?.stop();
             // Close databases (final save + cleanup)
@@ -827,6 +1521,18 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.vaultDNAScanner?.destroy();
         for (const timer of this.autoIndexDebounceTimers.values()) clearTimeout(timer);
         this.autoIndexDebounceTimers.clear();
+        if (this.agingSchedulerHandle) {
+            clearInterval(this.agingSchedulerHandle);
+            this.agingSchedulerHandle = null;
+        }
+        if (this.activeMcpSessionsEvictHandle) {
+            clearInterval(this.activeMcpSessionsEvictHandle);
+            this.activeMcpSessionsEvictHandle = null;
+        }
+        if (this.mcpRateLimiterCleanupHandle) {
+            clearInterval(this.mcpRateLimiterCleanupHandle);
+            this.mcpRateLimiterCleanupHandle = null;
+        }
         this.sandboxExecutor?.destroy();
         this.ringBuffer?.uninstall();
         console.debug('Obsilo Agent plugin unloaded');
@@ -837,7 +1543,19 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     async loadSettings() {
         const saved = (await this.loadData()) ?? {};
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+        // FIX (Live-Bug 2026-05-04): deep-merge fuer Settings damit
+        // neue Sub-Objekte (vaultIngest.topHubBlock, vaultIngest.stufe2Hint,
+        // memory.crossSurface.strictSourceIsolation, etc.) bei Upgrade
+        // aus aelteren Plugin-Versionen automatisch mit Defaults
+        // gefuellt werden. Vorher: shallow Object.assign machte Sub-
+        // Toggles wie "Enable top-hub block" nicht-funktional, weil
+        // .topHubBlock im persistenten data.json fehlte und der UI-
+        // Click `cfg.topHubBlock.privacyAcknowledged = v` mit
+        // TypeError stillschweigend abbrach.
+        this.settings = deepMergeSettings(
+            DEFAULT_SETTINGS as unknown as Record<string, unknown>,
+            saved as Record<string, unknown>,
+        ) as unknown as ObsidianAgentSettings;
 
         // One-time migration: copy per-vault data to global storage (ADR-020)
         if (!saved._globalStorageMigrated && this.globalFs) {
@@ -894,6 +1612,14 @@ export default class ObsidianAgentPlugin extends Plugin {
             await this.saveData(this.encryptSettingsForSave(this.settings));
         });
 
+        // Initialize ChatGPT OAuth service with persisted tokens (ADR-088, ADR-089)
+        const chatgptAuth = ChatGptOAuthService.getInstance();
+        chatgptAuth.loadFromSettings(this.settings);
+        chatgptAuth.setSaveCallback(async () => {
+            chatgptAuth.saveToSettings(this.settings);
+            await this.saveData(this.encryptSettingsForSave(this.settings));
+        });
+
         // Migrate old mode slugs to new built-in mode slugs (Phase 3.1)
         const OLD_MODE_MAP: Record<string, string> = { librarian: 'ask', writer: 'agent', orchestrator: 'agent', researcher: 'ask', curator: 'agent', architect: 'agent' };
         if (OLD_MODE_MAP[this.settings.currentMode]) {
@@ -942,7 +1668,6 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.settings.memory = this.settings.memory ?? memDefaults;
         this.settings.memory.enabled = this.settings.memory.enabled ?? memDefaults.enabled;
         this.settings.memory.autoExtractSessions = this.settings.memory.autoExtractSessions ?? memDefaults.autoExtractSessions;
-        this.settings.memory.autoUpdateLongTerm = this.settings.memory.autoUpdateLongTerm ?? memDefaults.autoUpdateLongTerm;
         this.settings.memory.memoryModelKey = this.settings.memory.memoryModelKey ?? memDefaults.memoryModelKey;
         this.settings.memory.extractionThreshold = this.settings.memory.extractionThreshold ?? memDefaults.extractionThreshold;
 
@@ -1145,6 +1870,16 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (settings.kiloToken) {
             settings.kiloToken = this.safeStorage.decrypt(settings.kiloToken);
         }
+        // ChatGPT OAuth tokens (ADR-088)
+        if (settings.chatgptOAuthAccessToken) {
+            settings.chatgptOAuthAccessToken = this.safeStorage.decrypt(settings.chatgptOAuthAccessToken);
+        }
+        if (settings.chatgptOAuthRefreshToken) {
+            settings.chatgptOAuthRefreshToken = this.safeStorage.decrypt(settings.chatgptOAuthRefreshToken);
+        }
+        if (settings.chatgptOAuthIdToken) {
+            settings.chatgptOAuthIdToken = this.safeStorage.decrypt(settings.chatgptOAuthIdToken);
+        }
         // Remote relay tokens (AUDIT-005 M-2)
         if (settings.cloudflareApiToken) {
             settings.cloudflareApiToken = this.safeStorage.decrypt(settings.cloudflareApiToken);
@@ -1197,6 +1932,16 @@ export default class ObsidianAgentPlugin extends Plugin {
         // Kilo Gateway token (ADR-041)
         if (copy.kiloToken && !this.safeStorage.isEncrypted(copy.kiloToken)) {
             copy.kiloToken = this.safeStorage.encrypt(copy.kiloToken);
+        }
+        // ChatGPT OAuth tokens (ADR-088)
+        if (copy.chatgptOAuthAccessToken && !this.safeStorage.isEncrypted(copy.chatgptOAuthAccessToken)) {
+            copy.chatgptOAuthAccessToken = this.safeStorage.encrypt(copy.chatgptOAuthAccessToken);
+        }
+        if (copy.chatgptOAuthRefreshToken && !this.safeStorage.isEncrypted(copy.chatgptOAuthRefreshToken)) {
+            copy.chatgptOAuthRefreshToken = this.safeStorage.encrypt(copy.chatgptOAuthRefreshToken);
+        }
+        if (copy.chatgptOAuthIdToken && !this.safeStorage.isEncrypted(copy.chatgptOAuthIdToken)) {
+            copy.chatgptOAuthIdToken = this.safeStorage.encrypt(copy.chatgptOAuthIdToken);
         }
         // Remote relay tokens (AUDIT-005 M-2)
         if (copy.cloudflareApiToken && !this.safeStorage.isEncrypted(copy.cloudflareApiToken)) {
@@ -1344,6 +2089,447 @@ export default class ObsidianAgentPlugin extends Plugin {
     }
 
     /**
+     * Snapshot the active sidebar conversation for the memory pipeline.
+     * Manual extraction paths (mark_for_memory tool, Star button) call this
+     * to find out what to enqueue. Returns null when no sidebar leaf exists
+     * or the active conversation has no messages.
+     */
+    snapshotActiveConversationForMemory(): ReturnType<AgentSidebarView['snapshotForMemory']> | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
+        if (leaves.length === 0) return null;
+        const view = leaves[0].view as AgentSidebarView;
+        return view.snapshotForMemory?.() ?? null;
+    }
+
+    /**
+     * Command-palette / hotkey entry for the manual save-to-memory flow.
+     * Same pipeline as the Star button + chat input "..." menu, just
+     * reachable via Cmd+Shift+M (when the user binds it).
+     */
+    async saveActiveConversationToMemory(): Promise<void> {
+        if (!this.settings.memory.enabled) {
+            new Notice('Memory is disabled. Enable it in settings.');
+            return;
+        }
+        const queue = this.extractionQueue;
+        const snapshot = this.snapshotActiveConversationForMemory();
+        if (!queue || !snapshot) {
+            new Notice('No active conversation to save.');
+            return;
+        }
+        try {
+            await queue.enqueueImmediate(snapshot);
+            new Notice('Conversation queued for memory extraction.');
+        } catch (e) {
+            console.warn('[Memory] Hotkey save failed:', e);
+            new Notice('Saving the conversation failed. See console for details.');
+        }
+    }
+
+    /**
+     * Daily aging sweep (FEATURE-0319 Phase 5). Idempotent within 24h
+     * via settings.memory.lastAgingRunAt. Records a telemetry event on
+     * each non-skipped run.
+     */
+    async runAgingSweep(force = false): Promise<void> {
+        if (!this.memoryDB?.isOpen()) return;
+        const { AgingService } = await import('./core/memory/AgingService');
+        const service = new AgingService(this.memoryDB);
+        const report = service.runAgingCycle({
+            force,
+            lastRunAt: this.settings.memory.lastAgingRunAt ?? null,
+        });
+        if (report.skipped) {
+            console.debug(`[Plugin] Aging skipped: ${report.skippedReason}`);
+            return;
+        }
+        this.settings.memory.lastAgingRunAt = report.timestamp;
+        await this.saveSettings();
+        await this.memoryDB.save().catch(() => undefined);
+        console.debug(
+            `[Plugin] Aging sweep: ${report.factsUpdated}/${report.factsProcessed} facts updated ` +
+            `(by kind: identity=${report.byKind.identity}, fact=${report.byKind.fact}, ` +
+            `event=${report.byKind.event}, preference=${report.byKind.preference})`,
+        );
+        await this.memoryV2Telemetry?.aging({
+            factsProcessed: report.factsProcessed,
+            factsUpdated: report.factsUpdated,
+            skipped: false,
+        });
+    }
+
+    /**
+     * Phase 6 -> 7 soak: build a SoakReport and show it in a modal where
+     * the user can copy/save. The previous "copy on command" path failed
+     * silently when the active leaf wasn't focused (clipboard API rejects
+     * but we'd already shown the success Notice). Modal-based copy uses
+     * a real user gesture, with a save-to-vault fallback.
+     */
+    /**
+     * FEAT-19-10: One-Shot Backfill-Job ueber den Vault. Default folder
+     * = ganzer Vault, optional via Settings.vaultIngest.autoTrigger.propertyName
+     * begrenzbar. Progress als Notice alle 50 Notes.
+     */
+    async runFrontmatterBackfill(): Promise<void> {
+        if (!this.noteSummaryStore || !this.frontmatterPropertyStore) {
+            new Notice('BA-25: Stores nicht initialisiert. Plugin reload?');
+            return;
+        }
+        const cfg = this.settings.vaultIngest ?? DEFAULT_VAULT_INGEST_SETTINGS;
+        const summaryGenerator = cfg.autoSummary.enabled
+            ? buildSummaryGenerator({
+                promptTemplate: cfg.summaryPrompt.template,
+                apiHandlerFactory: () => {
+                    const m = this.getMemoryModel();
+                    return m ? buildApiHandlerForModel(m) : null;
+                },
+            })
+            : null;
+        // semanticStorageLocation ist die kanonische Storage-Mode-Setting fuer
+        // knowledge.db (siehe FEATURE-1508). Map fuer FrontmatterWriter.
+        const storageMode = (this.settings.semanticStorageLocation ?? 'global');
+        const job = new FrontmatterBackfillJob(
+            this.app,
+            this.noteSummaryStore,
+            this.frontmatterPropertyStore,
+            { storageMode },
+            summaryGenerator,
+        );
+        new Notice('BA-25: Backfill gestartet. Fortschritt in der Konsole.', 5000);
+        const result = await job.run({}, (progress) => {
+            if (progress.processed % 50 === 0 && progress.processed > 0) {
+                new Notice(`Backfill: ${progress.processed}/${progress.total} (${progress.summariesWritten} Summaries, ${progress.errors} Fehler)`, 4000);
+            }
+        });
+        new Notice(`Backfill fertig: ${result.processed} Notes, ${result.summariesWritten} Summaries, ${result.propertiesWritten} Property-Mirrors, ${result.errors} Fehler.`, 10000);
+    }
+
+    /**
+     * FEAT-19-15: Inbox-Workflow. Iteriert ueber alle Markdown-Dateien
+     * mit konfigurierter Auto-Trigger-Property und ruft das ingest_triage-Tool
+     * fuer jede neu (idempotent ueber Triage-Log).
+     */
+    // eslint-disable-next-line @typescript-eslint/require-await -- async kept for symmetry with future LLM-backed triage decision flow
+    async runInboxTriage(): Promise<void> {
+        const cfg = this.settings.vaultIngest ?? DEFAULT_VAULT_INGEST_SETTINGS;
+        if (!cfg.autoTrigger.propertyName) {
+            new Notice('BA-25 Inbox-Triage: bitte Auto-Trigger-Property in Settings konfigurieren.');
+            return;
+        }
+        const expectedValues = Array.isArray(cfg.autoTrigger.propertyValue)
+            ? cfg.autoTrigger.propertyValue
+            : [cfg.autoTrigger.propertyValue];
+
+        const candidates: TFile[] = [];
+        for (const f of this.app.vault.getMarkdownFiles()) {
+            const cache = this.app.metadataCache.getFileCache(f);
+            const v = cache?.frontmatter?.[cfg.autoTrigger.propertyName];
+            if (v === null || v === undefined) continue;
+            const valueStrs = Array.isArray(v) ? v.map(String) : [String(v)];
+            if (valueStrs.some((vs) => expectedValues.includes(vs))) {
+                candidates.push(f);
+            }
+        }
+        if (candidates.length === 0) {
+            const valueStr = Array.isArray(cfg.autoTrigger.propertyValue) ? cfg.autoTrigger.propertyValue.join(',') : cfg.autoTrigger.propertyValue;
+            new Notice(`Inbox-Triage: keine Notes mit ${cfg.autoTrigger.propertyName}=${valueStr} gefunden.`);
+            return;
+        }
+        new Notice(`Inbox-Triage: ${candidates.length} Kandidaten, log via Konsole.`, 6000);
+        let triaged = 0;
+        for (const file of candidates) {
+            const sourceUri = `vault://${file.path}`;
+            if (this.ingestTriageLogStore?.exists(sourceUri)) continue;
+            this.ingestTriageLogStore?.record(sourceUri, 'pending');
+            triaged++;
+            console.debug(`[BA-25 Inbox-Triage] queued ${file.path}`);
+        }
+        new Notice(`Inbox-Triage: ${triaged} neue Pending-Eintraege erfasst.`);
+    }
+
+    /**
+     * FEAT-19-11: MOC-Auto-Pflege manuell triggern. Ueber alle Notes mit
+     * dem Marker-Block iterieren und Body neu generieren (Hub-Status,
+     * Implicit-Connection-Vorschlaege, Cluster-Statistik). Helper-API
+     * via MOCMaintainer.findAutoBlock/replaceOrInsertAutoBlock.
+     */
+    async refreshAllMOCs(): Promise<void> {
+        const { findAutoBlock, replaceOrInsertAutoBlock } = await import('./core/ingest/MOCMaintainer');
+        const allFiles = this.app.vault.getMarkdownFiles();
+        let touched = 0;
+        let skippedUserModified = 0;
+        for (const file of allFiles) {
+            const content = await this.app.vault.read(file);
+            const block = findAutoBlock(content, 'moc-header');
+            if (!block) continue; // No marker = not a MOC under management
+            const newBody = await this.buildMOCAutoBody(file.path);
+            const result = replaceOrInsertAutoBlock(content, newBody, { blockId: 'moc-header' });
+            if (result.skippedReason === 'user-modified') { skippedUserModified++; continue; }
+            if (result.written && result.newContent) {
+                await this.app.vault.modify(file, result.newContent);
+                touched++;
+            }
+        }
+        new Notice(`MOC-Pflege: ${touched} aktualisiert, ${skippedUserModified} wegen User-Edit uebersprungen.`);
+    }
+
+    /**
+     * FEAT-03-26 Lifecycle: regen Top-Hub-Block nach Ontology-Change.
+     * Debounced auf 60s damit Burst-Edits einen einzigen Regen-Pass
+     * ergeben. generateIfNeeded vergleicht Hash und respektiert
+     * Cooldown (24h Default), neue Hubs schlagen aber sofort durch.
+     */
+    scheduleTopHubBlockRegen(): void {
+        if (!this.settings.vaultIngest?.topHubBlock?.enabled) return;
+        if (!this.topHubBlockGenerator) return;
+        if (this.topHubBlockRegenTimer) clearTimeout(this.topHubBlockRegenTimer);
+        this.topHubBlockRegenTimer = setTimeout(() => {
+            this.topHubBlockRegenTimer = null;
+            if (!this.topHubBlockGenerator) return;
+            const result = this.topHubBlockGenerator.generateIfNeeded(this.topHubBlockState);
+            if (result) {
+                this.topHubBlockState = result.state;
+                this.topHubBlockMarkdown = result.block;
+                console.debug('[BA-25] TopHubBlock regenerated after ontology change');
+            }
+        }, 60_000);
+    }
+
+    /**
+     * FEAT-19-11: Injects the obsilo:auto-start/end Marker into MOC-Kandidaten,
+     * die noch keinen Marker-Block tragen. Kandidat = Markdown-File dessen
+     * Basename als Cluster im ClusterMetadataStore oder in der Ontologie
+     * auftaucht. Idempotent: Files mit bereits vorhandenem Marker werden
+     * uebersprungen.
+     */
+    async injectInitialMOCMarkers(): Promise<void> {
+        const { findAutoBlock, replaceOrInsertAutoBlock } = await import('./core/ingest/MOCMaintainer');
+        if (!this.knowledgeDB?.isOpen()) {
+            new Notice('KnowledgeDB nicht verfuegbar.');
+            return;
+        }
+        const knownClusters = new Set<string>();
+        if (this.clusterMetadataStore) {
+            for (const m of this.clusterMetadataStore.getAll()) knownClusters.add(m.cluster);
+        }
+        try {
+            const db = this.knowledgeDB.getDB();
+            const r = db.exec('SELECT DISTINCT cluster FROM ontology WHERE cluster IS NOT NULL');
+            if (r.length && r[0].values.length) {
+                for (const row of r[0].values) {
+                    const c = row[0] as string | null;
+                    if (c) knownClusters.add(c);
+                }
+            }
+        } catch (e) {
+            console.debug('[BA-25] ontology cluster lookup failed:', e);
+        }
+        if (knownClusters.size === 0) {
+            new Notice('Keine Cluster bekannt -- Ontologie zuerst aufbauen.');
+            return;
+        }
+
+        const allFiles = this.app.vault.getMarkdownFiles();
+        let injected = 0;
+        let skipped = 0;
+        for (const file of allFiles) {
+            const basename = file.basename;
+            if (!knownClusters.has(basename)) continue;
+            const content = await this.app.vault.read(file);
+            if (findAutoBlock(content, 'moc-header')) { skipped++; continue; }
+            const newBody = await this.buildMOCAutoBody(file.path);
+            const result = replaceOrInsertAutoBlock(content, newBody, {
+                blockId: 'moc-header',
+                position: 'after-frontmatter',
+            });
+            if (result.written && result.newContent) {
+                await this.app.vault.modify(file, result.newContent);
+                injected++;
+            }
+        }
+        new Notice(`MOC-Marker-Injection: ${injected} eingefuegt, ${skipped} bereits markiert.`);
+    }
+
+    /** Hilfs-Renderer fuer MOC-Auto-Body (Hub-Status + Cluster-Statistik). */
+    // eslint-disable-next-line @typescript-eslint/require-await -- async kept for future LLM-backed body composition
+    private async buildMOCAutoBody(mocPath: string): Promise<string> {
+        const lines: string[] = [];
+        const meta = this.clusterMetadataStore;
+        const cluster = mocPath.replace(/\.md$/, '').split('/').pop() ?? mocPath;
+        const halfLife = meta?.get(cluster)?.halfLifeDays;
+        const stats = this.clusterSourceStatsStore?.getStatsForCluster(cluster) ?? [];
+        const conc = this.clusterSourceStatsStore?.concentrationScore(cluster) ?? 0;
+        lines.push(`_BA-25 MOC-Pflege ${new Date().toISOString().split('T')[0]}_`);
+        lines.push('');
+        if (halfLife !== undefined && halfLife > 0) lines.push(`- Halbwertszeit: ${halfLife} Tage`);
+        if (stats.length > 0) {
+            lines.push(`- Source-Domains: ${stats.length} distinct, top: ${stats[0].sourceDomain} (${stats[0].noteCount}x)`);
+            lines.push(`- Concentration-Score: ${(conc * 100).toFixed(0)}%${conc >= 0.7 ? ' Bias-Warnung' : ''}`);
+        }
+        return lines.join('\n');
+    }
+
+    async generateAndCopySoakReport(): Promise<void> {
+        try {
+            const report = generateSoakReport({
+                memoryDB: this.memoryDB,
+                historyDB: this.historyDB,
+                conversationStore: this.conversationStore,
+                extractionQueue: this.extractionQueue,
+                settings: { memory: this.settings.memory },
+            });
+            const json = JSON.stringify(report, null, 2);
+            const { SoakReportModal } = await import('./ui/modals/SoakReportModal');
+            const modal = new SoakReportModal(this.app, json, async () => {
+                const day = new Date().toISOString().slice(0, 10);
+                const path = `${this.settings.agentFolderPath}/soak-reports/${day}.json`;
+                const adapter = this.app.vault.adapter;
+                const dir = `${this.settings.agentFolderPath}/soak-reports`;
+                if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
+                await adapter.write(path, json);
+                return path;
+            });
+            modal.open();
+        } catch (e) {
+            console.warn('[Plugin] Soak report generation failed:', e);
+            new Notice('Soak report failed -- check console for details.');
+        }
+    }
+
+    /**
+     * Sync the curated CapabilityManifest into Memory v2 (FEATURE-0319b).
+     * On every plugin onload the live manifest is hashed (djb2 sync). If
+     * the hash differs from settings.memory.lastCapabilityHash, the old
+     * capability snapshot is deprecated and the new one is inserted as
+     * facts under profile_id='_obsilo'. Idempotent on identical runs.
+     */
+    async syncCapabilitySnapshot(): Promise<void> {
+        if (!this.memoryDB?.isOpen()) {
+            console.debug('[Plugin] Capability snapshot sync skipped: memoryDB not open');
+            return;
+        }
+        const { CAPABILITIES, manifestHash } = await import('./core/memory/CapabilityManifest');
+        const { FactStore } = await import('./core/memory/FactStore');
+        const { OBSILO_PROFILE } = await import('./core/memory/SoulView');
+
+        const newHash = manifestHash();
+        if (this.settings.memory.lastCapabilityHash === newHash) {
+            console.debug(`[Plugin] Capability snapshot up-to-date (hash=${newHash}, ${CAPABILITIES.length} entries)`);
+            return;
+        }
+
+        const factStore = new FactStore(this.memoryDB);
+        const existing = factStore.listLatest({ profileId: OBSILO_PROFILE, limit: 500 })
+            .filter(f => f.topics.includes('capability'));
+        for (const fact of existing) {
+            factStore.deprecate(fact.id, 'superseded by new capability snapshot');
+        }
+        for (const cap of CAPABILITIES) {
+            factStore.insert({
+                text: `${cap.summary}${cap.notes ? ' ' + cap.notes : ''}`,
+                topics: ['capability', cap.area, cap.key],
+                kind: 'identity',
+                importance: 0.6,
+                profileId: OBSILO_PROFILE,
+                sourceInterface: 'obsilo-self',
+                metadata: { area: cap.area, key: cap.key },
+            });
+        }
+        await this.memoryDB.save().catch(() => undefined);
+        this.settings.memory.lastCapabilityHash = newHash;
+        await this.saveSettings();
+        console.debug(`[Plugin] Capability snapshot synced: ${CAPABILITIES.length} entries (hash=${newHash}, replaced ${existing.length} stale)`);
+    }
+
+    /**
+     * Returns the count of latest, non-deprecated Memory v2 facts that
+     * came from this conversation. Used by the Star button in HistoryPanel
+     * to render the toggle state (filled = has facts, empty = doesn't).
+     */
+    countMemoryFactsForConversation(conversationId: string): number {
+        if (!this.memoryDB?.isOpen() || !conversationId) return 0;
+        try {
+            const result = this.memoryDB.getDB().exec(
+                `SELECT COUNT(*) FROM facts
+                  WHERE source_session_id = ?
+                    AND is_latest = 1
+                    AND deprecated_at IS NULL`,
+                [conversationId],
+            );
+            if (result.length === 0 || result[0].values.length === 0) return 0;
+            return Number(result[0].values[0][0]);
+        } catch (e) {
+            console.warn('[Memory] Fact count lookup failed:', e);
+            return 0;
+        }
+    }
+
+    /**
+     * Soft-delete all Memory v2 facts that came from this conversation
+     * and reset the thread-delta state so a future Save-to-Memory starts
+     * fresh. Returns the number of facts deprecated.
+     *
+     * Soft-delete (not hard-delete) per ADR-085: the audit trail keeps
+     * the original insert + the deprecate event so we can recover or
+     * inspect later.
+     */
+    /**
+     * Cascade delete: when a conversation is removed from history, also
+     * remove the derived memory artefacts (session summary, thread-delta
+     * state) and deprecate every fact that came from this conversation.
+     *
+     * Returns the number of facts deprecated. Audit trail of those facts
+     * stays in `memory_audit` so the user can see what was removed; a
+     * full nuke is reachable via "Delete all memory".
+     */
+    async deleteMemoryForConversationCascade(conversationId: string): Promise<number> {
+        if (!this.memoryDB?.isOpen() || !conversationId) return 0;
+        const deprecated = await this.unpinMemoryFactsForConversation(conversationId);
+        try {
+            const db = this.memoryDB.getDB();
+            db.run('DELETE FROM sessions WHERE id = ?', [conversationId]);
+            db.run('DELETE FROM conversation_threads WHERE thread_id = ?', [conversationId]);
+            await this.memoryDB.save().catch(() => undefined);
+        } catch (e) {
+            console.warn('[Memory] Cascade delete (sessions/threads) failed:', e);
+        }
+        return deprecated;
+    }
+
+    async unpinMemoryFactsForConversation(conversationId: string): Promise<number> {
+        if (!this.memoryDB?.isOpen() || !conversationId) return 0;
+        try {
+            const { FactStore } = await import('./core/memory/FactStore');
+            const { ThreadDeltaStore } = await import('./core/memory/ThreadDeltaStore');
+            const factStore = new FactStore(this.memoryDB);
+            const result = this.memoryDB.getDB().exec(
+                `SELECT id FROM facts
+                  WHERE source_session_id = ?
+                    AND is_latest = 1
+                    AND deprecated_at IS NULL`,
+                [conversationId],
+            );
+            const ids = result.length > 0
+                ? result[0].values.map(r => r[0] as number)
+                : [];
+            for (const id of ids) {
+                factStore.deprecate(id, 'unpinned by user', conversationId);
+            }
+            // Reset thread delta so a re-Star starts from message 0 again.
+            const deltas = new ThreadDeltaStore(this.memoryDB);
+            const existing = deltas.get(conversationId);
+            if (existing) {
+                deltas.save({ threadId: conversationId, lastExtractedMessageIndex: null, deltaSummary: null });
+            }
+            await this.memoryDB.save().catch(() => undefined);
+            return ids.length;
+        } catch (e) {
+            console.warn('[Memory] Unpin failed:', e);
+            return 0;
+        }
+    }
+
+    /**
      * Open a conversation by ID via deep-link (ADR-022, FEATURE-300).
      * Activates the sidebar and loads the conversation if it exists.
      */
@@ -1367,6 +2553,71 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Open Obsidian settings and navigate to a specific tab/subtab.
      * Used by protocol handler and agent deep-links.
      */
+    /**
+     * Memory v2 upgrade detection (FEATURE-0316 / BUG-031 follow-up).
+     *
+     * Fresh installs ship with `v2MigrationStatus = 'not-applicable'` so this
+     * method is a no-op for them (the v1 MD files never existed). Existing
+     * users from earlier obsilo releases land here on first plugin load
+     * after the update -- if they have the legacy memory MDs but no v2
+     * facts yet, status flips to 'pending' and the upgrade modal opens.
+     *
+     * Idempotent: status stays 'completed'/'skipped' once decided.
+     */
+    async detectAndPromptMemoryV2Upgrade(): Promise<void> {
+        if (!this.memoryDB?.isOpen() || !this.globalFs) return;
+        const mem = this.settings.memory;
+
+        // First detection pass: bump 'not-applicable' to a real verdict for
+        // existing users. Fresh installs without v1 MDs stay 'not-applicable'.
+        if (mem.v2MigrationStatus === 'not-applicable') {
+            const hasV1 = await this.hasLegacyMemoryFiles();
+            if (!hasV1) return; // truly fresh, nothing to migrate
+            const factsCount = this.countV2Facts();
+            mem.v2MigrationStatus = factsCount === 0 ? 'pending' : 'completed';
+            await this.saveSettings();
+        }
+
+        if (mem.v2MigrationStatus !== 'pending') return;
+
+        const { memoryV2UpgradeModal } = await import('./ui/modals/MemoryV2UpgradeModal');
+        const choice = await memoryV2UpgradeModal(this.app, { reason: 'auto-on-load' });
+        if (choice === 'migrate') {
+            this.openSettingsAt('agent', 'memory');
+        } else {
+            mem.v2MigrationStatus = 'skipped';
+            await this.saveSettings();
+        }
+    }
+
+    private async hasLegacyMemoryFiles(): Promise<boolean> {
+        if (!this.globalFs) return false;
+        const candidates = [
+            'memory/user-profile.md', 'memory/projects.md', 'memory/patterns.md',
+            'memory/errors.md', 'memory/custom-tools.md', 'memory/soul.md',
+        ];
+        for (const path of candidates) {
+            try {
+                if (await this.globalFs.exists(path)) {
+                    const content = await this.globalFs.read(path).catch(() => '');
+                    // Non-empty content = real legacy data, not just the auto-created template
+                    if (content.trim().length > 50) return true;
+                }
+            } catch { /* try next */ }
+        }
+        return false;
+    }
+
+    private countV2Facts(): number {
+        if (!this.memoryDB?.isOpen()) return 0;
+        try {
+            const result = this.memoryDB.getDB().exec('SELECT COUNT(*) FROM facts');
+            return (result[0]?.values?.[0]?.[0] as number) ?? 0;
+        } catch {
+            return 0;
+        }
+    }
+
     openSettingsAt(tab: string, subTab?: string): void {
         // Open the Obsidian settings modal
         const setting = this.app.setting;
@@ -1489,7 +2740,7 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Migrate knowledge.db to vault-local
         const oldKnowledgeDb = path.join(oldRoot, 'knowledge.db');
-        const newKnowledgeDb = path.join(vaultBasePath, '.obsidian-agent', 'knowledge.db');
+        const newKnowledgeDb = path.join(vaultBasePath, '.obsilo-vault', 'knowledge.db');
         try {
             await fs.promises.access(oldKnowledgeDb);
             await fs.promises.mkdir(path.dirname(newKnowledgeDb), { recursive: true });
@@ -1500,8 +2751,10 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
         } catch { /* skip */ }
 
-        // Migrate memory.db to new global root
+        // Migrate memory.db to new global root (legacy vault-local name was '.obsidian-agent')
         const oldMemoryDb = path.join(vaultBasePath, '.obsidian-agent', 'memory.db');
+        // (Note: my pre-init migration may have already renamed this to 'obsilo-vault'.
+        //  We fall through with whichever path actually exists.)
         const newMemoryDb = path.join(newRoot, 'memory.db');
         try {
             await fs.promises.access(oldMemoryDb);
@@ -1640,4 +2893,37 @@ function isGeminiApiUrl(url: string | undefined): boolean {
     } catch {
         return false;
     }
+}
+
+/**
+ * FIX 2026-05-04: deep-merge fuer Settings. Sub-Objekte (z.B.
+ * vaultIngest.topHubBlock, memory.crossSurface) werden aus den
+ * Defaults rekursiv gefuellt wenn sie im persistenten data.json
+ * fehlen. Arrays + null-Werte aus saved werden nicht gemergt
+ * sondern uebernommen wie sie sind. Plain-Objects werden rekursiv
+ * gemergt. Vermeidet die "neuer Toggle reagiert nicht"-Falle bei
+ * Plugin-Upgrades.
+ */
+function deepMergeSettings<T extends Record<string, unknown>>(defaults: T, saved: Partial<T>): T {
+    if (!saved || typeof saved !== 'object') return { ...defaults };
+    const merged = { ...defaults } as Record<string, unknown>;
+    for (const [key, savedValue] of Object.entries(saved)) {
+        const defaultValue = (defaults as Record<string, unknown>)[key];
+        if (
+            savedValue !== null
+            && typeof savedValue === 'object'
+            && !Array.isArray(savedValue)
+            && defaultValue !== null
+            && typeof defaultValue === 'object'
+            && !Array.isArray(defaultValue)
+        ) {
+            merged[key] = deepMergeSettings(
+                defaultValue as Record<string, unknown>,
+                savedValue as Record<string, unknown>,
+            );
+        } else {
+            merged[key] = savedValue;
+        }
+    }
+    return merged as T;
 }

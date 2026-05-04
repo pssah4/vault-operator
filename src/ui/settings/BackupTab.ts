@@ -1,4 +1,5 @@
-import { App, Notice, setIcon } from 'obsidian';
+import { App, Notice, Setting, setIcon, type ButtonComponent } from 'obsidian';
+import JSZip from 'jszip';
 import type ObsidianAgentPlugin from '../../main';
 import { DEFAULT_SETTINGS } from '../../types/settings';
 import type { ObsidianAgentSettings } from '../../types/settings';
@@ -21,11 +22,19 @@ interface BackupCategory {
     dir: string | null;
     recursive: boolean;
     description: string;
+    /**
+     * Additional individual files to include, relative to root, even when
+     * they live outside `dir`. Used for the SQLite databases that sit at
+     * the agent-folder root (memory.db) or under a different subfolder
+     * (knowledge.db). Saved into the ZIP under the same path so a restore
+     * lands them back where they came from.
+     */
+    extraFiles?: string[];
 }
 
 /** Category IDs (stable, used for toggles and manifest keys) */
 const CATEGORY_IDS = [
-    'settings', 'memory', 'history', 'workflows', 'rules',
+    'settings', 'memory', 'memory-v1-backup', 'history', 'workflows', 'rules',
     'skills', 'recipes', 'episodes', 'patterns', 'logs',
     'plugin-skills', 'vault-dna', 'semantic-index',
 ] as const;
@@ -51,6 +60,26 @@ function getCategories(plugin: ObsidianAgentPlugin): BackupCategory[] {
             dir: 'memory',
             recursive: true,
             description: t('settings.backup.catMemoryDesc'),
+            // memory.db lives at the agent-folder root (vault-parent/.obsidian-agent/memory.db)
+            // -- pick it up explicitly so the SQLite Memory v2 store survives a roundtrip.
+            extraFiles: ['memory.db'],
+        },
+        {
+            id: 'memory-v1-backup',
+            // Untranslated for now -- this is a one-shot artefact that
+            // existing v1 users will see once after the migration. Adding
+            // it to all i18n bundles for that single window is overkill.
+            label: 'Memory v1 backup (post-migration)',
+            root: 'global',
+            dir: 'memory-v1-backup',
+            recursive: true,
+            description:
+                'Snapshots of your legacy v1 memory MD files (user-profile, projects, ' +
+                'patterns, errors, custom-tools, soul) created automatically by the ' +
+                'Memory v2 migration. Each run lands under a {timestamp}/ folder. ' +
+                'Memory v2 is not backwards-compatible with v1 storage, so a "restore" ' +
+                'is a manual file-copy back into the memory/ folder if you ever need to ' +
+                'roll back. Safe to delete once you are confident with v2.',
         },
         {
             id: 'history',
@@ -135,27 +164,38 @@ function getCategories(plugin: ObsidianAgentPlugin): BackupCategory[] {
         {
             id: 'semantic-index',
             label: t('settings.backup.catSemanticIndex'),
-            root: 'global',
-            dir: 'semantic-index',
+            // FEATURE-1508: knowledge.db is vault-local under the agent folder.
+            root: 'vault',
+            dir: null,
             recursive: false,
             description: t('settings.backup.catSemanticIndexDesc'),
+            extraFiles: [`${getAgentFolderPath(plugin)}/knowledge.db`],
         },
     ];
 }
 
 // ── Backup manifest types ────────────────────────────────────────────────────
 
+/**
+ * v3 manifest (FEATURE-0319b): files live as separate entries inside the
+ * surrounding ZIP, manifest only carries metadata. Old v1/v2 manifests
+ * embedded file contents inline (string-only) and broke for binary
+ * payloads like memory.db / knowledge.db. v3 stores everything binary
+ * via JSZip so SQLite databases survive a roundtrip.
+ */
 interface BackupManifest {
     format: 'obsilo-backup';
     version: number;
     exportedAt: string;
-    categories: Record<string, { files: Record<string, { content: string }> }>;
+    categories: Record<string, { files: Array<{ path: string; size: number }> }>;
 }
 
-const BACKUP_VERSION = 2;
+const BACKUP_VERSION = 3;
+const MANIFEST_NAME = 'manifest.json';
+const FILES_PREFIX = 'files';
 
 // Module-level state that survives tab rerenders (new BackupTab instances).
-let _pendingImport: BackupManifest | null = null;
+let _pendingImport: { manifest: BackupManifest; zip: JSZip } | null = null;
 let _importToggles: Record<string, boolean> = {};
 const _exportToggles: Record<string, boolean> = (() => {
     const toggles: Record<string, boolean> = {};
@@ -194,6 +234,77 @@ export class BackupTab {
 
         this.buildExportSection(containerEl);
         this.buildImportSection(containerEl);
+        this.buildLegacyMigrationsSection(containerEl);
+    }
+
+    /**
+     * One-time imports from legacy data formats. Lives here so the rest
+     * of Memory settings stays focused on day-to-day operations.
+     */
+    private buildLegacyMigrationsSection(container: HTMLElement): void {
+        const section = container.createDiv('agent-backup-section');
+        section.createEl('h4', { text: 'Legacy migrations' });
+        section.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'One-time pulls from older data formats. Safe to run repeatedly, no duplicates are created.',
+        });
+
+        new Setting(section)
+            .setName('Import legacy soul.md')
+            .setDesc('Reads memory/soul.md and adds each bullet under Identity / Values / Anti-Patterns / Communication into Obsilo’s soul. Idempotent.')
+            .addButton((b: ButtonComponent) => b
+                .setButtonText('Import')
+                .onClick(() => { void this.importLegacySoulMd(); }));
+    }
+
+    private async importLegacySoulMd(): Promise<void> {
+        const memSvc = this.plugin.memoryService;
+        const memDB = this.plugin.memoryDB;
+        if (!memSvc || !memDB?.isOpen()) {
+            new Notice('Memory not initialised.');
+            return;
+        }
+        const content = await memSvc.readFile('soul.md').catch(() => '');
+        if (!content || content.trim().length === 0) {
+            new Notice('No soul.md found.');
+            return;
+        }
+        const { parseSoulSections } = await import('../../core/memory/soulMdParser');
+        const sections = parseSoulSections(content);
+        const { OBSILO_PROFILE, SoulView } = await import('../../core/memory/SoulView');
+        const { FactStore } = await import('../../core/memory/FactStore');
+        const view = new SoulView(memDB);
+        const factStore = new FactStore(memDB);
+        const existingTexts = new Set<string>();
+        const snap = view.snapshot();
+        for (const f of snap.identity) existingTexts.add(f.text);
+        for (const f of snap.values) existingTexts.add(f.text);
+        for (const f of snap.antiPatterns) existingTexts.add(f.text);
+        for (const f of snap.communication) existingTexts.add(f.text);
+
+        let inserted = 0;
+        const insertCategory = (cat: 'identity' | 'value' | 'anti_pattern' | 'communication', items: string[]) => {
+            for (const item of items) {
+                if (!item.trim() || existingTexts.has(item.trim())) continue;
+                factStore.insert({
+                    text: item.trim(),
+                    topics: ['soul', cat],
+                    kind: 'identity',
+                    importance: 0.7,
+                    profileId: OBSILO_PROFILE,
+                    sourceInterface: 'obsilo-self',
+                    metadata: { migratedFrom: 'soul.md' },
+                });
+                inserted += 1;
+            }
+        };
+        insertCategory('identity', sections.identity);
+        insertCategory('value', sections.values);
+        insertCategory('anti_pattern', sections.antiPatterns);
+        insertCategory('communication', sections.communication);
+
+        await memDB.save().catch(() => undefined);
+        new Notice(`Imported ${inserted} soul entries from soul.md`);
     }
 
     // ── Export ────────────────────────────────────────────────────────────────
@@ -240,15 +351,35 @@ export class BackupTab {
                 const path = getVaultDnaPath(this.plugin);
                 const exists = await this.app.vault.adapter.exists(path);
                 if (!exists) return '0 files';
-                const content = await this.app.vault.adapter.read(path);
-                return `1 file, ${this.formatSize(content.length)}`;
+                const stat = await this.app.vault.adapter.stat(path);
+                return `1 file, ${this.formatSize(stat?.size ?? 0)}`;
             }
 
-            const adapter = this.adapterFor(cat);
-            const dir = cat.dir!;
-            const exists = await adapter.exists(dir);
-            if (!exists) return '0 files';
-            const { count, size } = await this.countAndSizeFromAdapter(adapter, dir, cat.recursive);
+            let count = 0;
+            let size = 0;
+
+            if (cat.dir) {
+                const adapter = this.adapterFor(cat);
+                if (await adapter.exists(cat.dir)) {
+                    const stats = await this.countAndSizeFromAdapter(adapter, cat.dir, cat.recursive);
+                    count += stats.count;
+                    size += stats.size;
+                }
+            }
+
+            for (const filePath of cat.extraFiles ?? []) {
+                const adapter = this.adapterFor(cat);
+                if (!(await adapter.exists(filePath))) continue;
+                count += 1;
+                if (cat.root === 'global') {
+                    const data = await this.globalFs.readBinary(filePath);
+                    size += data.byteLength;
+                } else {
+                    const stat = await this.app.vault.adapter.stat(filePath);
+                    size += stat?.size ?? 0;
+                }
+            }
+
             return `${count} file${count !== 1 ? 's' : ''}, ${this.formatSize(size)}`;
         } catch {
             return '0 files';
@@ -260,6 +391,7 @@ export class BackupTab {
         btn.setText(t('settings.backup.exporting'));
 
         try {
+            const zip = new JSZip();
             const manifest: BackupManifest = {
                 format: 'obsilo-backup',
                 version: BACKUP_VERSION,
@@ -274,52 +406,110 @@ export class BackupTab {
                 if (!_exportToggles[cat.id]) continue;
                 selectedCount++;
 
-                const files: Record<string, { content: string }> = {};
+                const fileEntries: Array<{ path: string; size: number }> = [];
+                const addToZip = (relPath: string, data: Uint8Array): void => {
+                    zip.file(`${FILES_PREFIX}/${cat.id}/${relPath}`, data);
+                    fileEntries.push({ path: relPath, size: data.byteLength });
+                };
 
                 if (cat.id === 'settings') {
-                    files['data.json'] = {
-                        content: JSON.stringify(this.stripSensitiveFields(this.plugin.settings), null, 2),
-                    };
+                    const json = JSON.stringify(this.stripSensitiveFields(this.plugin.settings), null, 2);
+                    addToZip('data.json', new TextEncoder().encode(json));
                 } else if (cat.id === 'vault-dna') {
                     const path = getVaultDnaPath(this.plugin);
-                    const exists = await this.app.vault.adapter.exists(path);
-                    if (exists) {
-                        files['vault-dna.json'] = {
-                            content: await this.app.vault.adapter.read(path),
-                        };
+                    if (await this.app.vault.adapter.exists(path)) {
+                        const buf = await this.app.vault.adapter.readBinary(path);
+                        addToZip('vault-dna.json', new Uint8Array(buf));
                     }
                 } else if (cat.dir) {
-                    const adapter = this.adapterFor(cat);
-                    const exists = await adapter.exists(cat.dir);
+                    const exists = cat.root === 'global'
+                        ? await this.globalFs.exists(cat.dir)
+                        : await this.app.vault.adapter.exists(cat.dir);
                     if (exists) {
-                        const collected = await this.collectFilesFromAdapter(adapter, cat.dir, cat.dir, cat.recursive);
-                        for (const [path, content] of Object.entries(collected)) {
-                            files[path] = { content };
+                        const files = await this.collectBinaryFiles(cat, cat.dir, cat.dir, cat.recursive);
+                        for (const [relPath, data] of files) {
+                            addToZip(relPath, data);
                         }
                     }
                 }
 
-                manifest.categories[cat.id] = { files };
-                totalFiles += Object.keys(files).length;
+                // Individual files outside the main dir (e.g. SQLite DBs).
+                if (cat.extraFiles) {
+                    for (const filePath of cat.extraFiles) {
+                        try {
+                            const exists = cat.root === 'global'
+                                ? await this.globalFs.exists(filePath)
+                                : await this.app.vault.adapter.exists(filePath);
+                            if (!exists) continue;
+                            const data = cat.root === 'global'
+                                ? await this.globalFs.readBinary(filePath)
+                                : new Uint8Array(await this.app.vault.adapter.readBinary(filePath));
+                            addToZip(filePath, data);
+                        } catch (e) {
+                            console.warn(`[BackupTab] extraFile skipped: ${filePath}`, e);
+                        }
+                    }
+                }
+
+                manifest.categories[cat.id] = { files: fileEntries };
+                totalFiles += fileEntries.length;
             }
 
-            const json = JSON.stringify(manifest, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
+            zip.file(MANIFEST_NAME, JSON.stringify(manifest, null, 2));
+
+            const blob = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 },
+            });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             const date = new Date().toISOString().split('T')[0];
-            a.download = `obsilo-backup-${date}.json`;
+            a.download = `obsilo-backup-${date}.zip`;
             a.click();
             URL.revokeObjectURL(url);
 
-            new Notice(t('settings.backup.exported', { files: totalFiles, categories: selectedCount, size: this.formatSize(json.length) }));
+            new Notice(t('settings.backup.exported', { files: totalFiles, categories: selectedCount, size: this.formatSize(blob.size) }));
         } catch (e) {
             new Notice(t('settings.backup.exportFailed', { error: (e as Error).message }));
         } finally {
             btn.removeClass('is-loading');
             btn.setText(t('settings.backup.export'));
         }
+    }
+
+    /**
+     * Walk a category directory and return [relativePath, bytes] pairs.
+     * Adapter-agnostic helper that reads via readBinary for SQLite-safety.
+     */
+    private async collectBinaryFiles(
+        cat: BackupCategory, dir: string, baseDir: string, recursive: boolean,
+    ): Promise<Array<[string, Uint8Array]>> {
+        const out: Array<[string, Uint8Array]> = [];
+        try {
+            const listed = cat.root === 'global'
+                ? await this.globalFs.list(dir)
+                : await this.app.vault.adapter.list(dir);
+            for (const filePath of listed.files) {
+                try {
+                    const data = cat.root === 'global'
+                        ? await this.globalFs.readBinary(filePath)
+                        : new Uint8Array(await this.app.vault.adapter.readBinary(filePath));
+                    const relative = filePath.startsWith(baseDir)
+                        ? filePath.slice(baseDir.length + 1)
+                        : filePath;
+                    out.push([relative, data]);
+                } catch { /* skip unreadable */ }
+            }
+            if (recursive) {
+                for (const subDir of listed.folders) {
+                    const subFiles = await this.collectBinaryFiles(cat, subDir, baseDir, true);
+                    out.push(...subFiles);
+                }
+            }
+        } catch { /* directory missing */ }
+        return out;
     }
 
     // ── Import ───────────────────────────────────────────────────────────────
@@ -340,46 +530,33 @@ export class BackupTab {
     private pickImportFile(): void {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json,application/json';
+        input.accept = '.zip,application/zip';
         input.addEventListener('change', () => { void (async () => {
             const file = input.files?.[0];
             if (!file) return;
             try {
-                const text = await file.text();
-                const parsed: unknown = JSON.parse(text);
-
+                const buf = await file.arrayBuffer();
+                const zip = await JSZip.loadAsync(buf);
+                const manifestEntry = zip.file(MANIFEST_NAME);
+                if (!manifestEntry) {
+                    new Notice(t('settings.backup.invalidFile'));
+                    return;
+                }
+                const manifestText = await manifestEntry.async('string');
+                const parsed: unknown = JSON.parse(manifestText);
                 if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
                     new Notice(t('settings.backup.invalidFile'));
                     return;
                 }
-
                 const obj = parsed as Record<string, unknown>;
-
                 if (obj.format !== 'obsilo-backup' || typeof obj.version !== 'number') {
-                    // Fallback: try legacy settings-only format
-                    if ('activeModels' in obj || 'customModes' in obj || 'autoApproval' in obj) {
-                        _pendingImport = {
-                            format: 'obsilo-backup',
-                            version: 1,
-                            exportedAt: '',
-                            categories: {
-                                settings: {
-                                    files: {
-                                        'data.json': { content: JSON.stringify(parsed, null, 2) },
-                                    },
-                                },
-                            },
-                        };
-                    } else {
-                        new Notice(t('settings.backup.invalidFile'));
-                        return;
-                    }
-                } else {
-                    _pendingImport = obj as unknown as BackupManifest;
+                    new Notice(t('settings.backup.invalidFile'));
+                    return;
                 }
 
+                _pendingImport = { manifest: obj as unknown as BackupManifest, zip };
                 _importToggles = {};
-                for (const catId of Object.keys(_pendingImport.categories)) {
+                for (const catId of Object.keys(_pendingImport.manifest.categories)) {
                     _importToggles[catId] = true;
                 }
 
@@ -392,7 +569,7 @@ export class BackupTab {
     }
 
     private buildImportConfirmation(container: HTMLElement): void {
-        const data = _pendingImport!;
+        const data = _pendingImport!.manifest;
         const dateStr = data.exportedAt
             ? new Date(data.exportedAt).toLocaleDateString('de-DE', {
                 year: 'numeric', month: 'short', day: 'numeric',
@@ -409,9 +586,8 @@ export class BackupTab {
         const list = container.createDiv('agent-backup-category-list');
         for (const [catId, catData] of Object.entries(data.categories)) {
             const catDef = categories.find((c) => c.id === catId);
-            const fileCount = Object.keys(catData.files).length;
-            const totalSize = Object.values(catData.files)
-                .reduce((sum, f) => sum + f.content.length, 0);
+            const fileCount = catData.files.length;
+            const totalSize = catData.files.reduce((sum, f) => sum + f.size, 0);
 
             const row = list.createDiv('agent-backup-category-row');
             const label = row.createEl('label', { cls: 'agent-backup-label' });
@@ -459,15 +635,23 @@ export class BackupTab {
         try {
             let totalFiles = 0;
             let selectedCount = 0;
+            const { manifest, zip } = _pendingImport;
 
-            for (const [catId, catData] of Object.entries(_pendingImport.categories)) {
+            for (const [catId, catData] of Object.entries(manifest.categories)) {
                 if (!_importToggles[catId]) continue;
                 selectedCount++;
 
+                const readEntry = async (relPath: string): Promise<Uint8Array | null> => {
+                    const entry = zip.file(`${FILES_PREFIX}/${catId}/${relPath}`);
+                    if (!entry) return null;
+                    return entry.async('uint8array');
+                };
+
                 if (catId === 'settings') {
-                    const settingsFile = catData.files['data.json'];
-                    if (settingsFile) {
-                        const raw: unknown = JSON.parse(settingsFile.content);
+                    const data = await readEntry('data.json');
+                    if (data) {
+                        const text = new TextDecoder().decode(data);
+                        const raw: unknown = JSON.parse(text);
                         if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
                             console.warn('[BackupTab] Settings import: not a valid object, skipping');
                             continue;
@@ -478,25 +662,38 @@ export class BackupTab {
                         totalFiles++;
                     }
                 } else if (catId === 'vault-dna') {
-                    const vdnFile = catData.files['vault-dna.json'];
-                    if (vdnFile) {
+                    const data = await readEntry('vault-dna.json');
+                    if (data) {
                         const dir = getAgentFolderPath(this.plugin);
-                        const exists = await this.app.vault.adapter.exists(dir);
-                        if (!exists) await this.app.vault.adapter.mkdir(dir);
-                        await this.app.vault.adapter.write(getVaultDnaPath(this.plugin), vdnFile.content);
+                        if (!(await this.app.vault.adapter.exists(dir))) {
+                            await this.app.vault.adapter.mkdir(dir);
+                        }
+                        await this.app.vault.adapter.writeBinary(getVaultDnaPath(this.plugin), data.buffer as ArrayBuffer);
                         totalFiles++;
                     }
                 } else {
                     const catDef = getCategories(this.plugin).find((c) => c.id === catId);
-                    if (!catDef || !catDef.dir) continue;
-
-                    const flat: Record<string, string> = {};
-                    for (const [path, entry] of Object.entries(catData.files)) {
-                        flat[path] = entry.content;
+                    if (!catDef) continue;
+                    const extraFileSet = new Set(catDef.extraFiles ?? []);
+                    for (const fileEntry of catData.files) {
+                        const data = await readEntry(fileEntry.path);
+                        if (!data) continue;
+                        // extraFiles store the full path verbatim; dir-walked
+                        // files are relative to catDef.dir and need re-prefixing.
+                        const fullPath = extraFileSet.has(fileEntry.path)
+                            ? fileEntry.path
+                            : (catDef.dir ? `${catDef.dir}/${fileEntry.path}` : fileEntry.path);
+                        if (catDef.root === 'global') {
+                            await this.globalFs.writeBinary(fullPath, data);
+                        } else {
+                            const dirPath = fullPath.includes('/') ? fullPath.slice(0, fullPath.lastIndexOf('/')) : '';
+                            if (dirPath && !(await this.app.vault.adapter.exists(dirPath))) {
+                                await this.app.vault.adapter.mkdir(dirPath);
+                            }
+                            await this.app.vault.adapter.writeBinary(fullPath, data.buffer as ArrayBuffer);
+                        }
+                        totalFiles++;
                     }
-
-                    const adapter = this.adapterFor(catDef);
-                    totalFiles += await this.restoreFilesToAdapter(adapter, flat, catDef.dir);
                 }
             }
 
@@ -516,54 +713,6 @@ export class BackupTab {
 
     private adapterFor(cat: BackupCategory): { list(p: string): Promise<{files: string[], folders: string[]}>; read(p: string): Promise<string>; write(p: string, d: string): Promise<void>; exists(p: string): Promise<boolean>; mkdir(p: string): Promise<void> } {
         return cat.root === 'global' ? this.globalFs : this.app.vault.adapter;
-    }
-
-    private async collectFilesFromAdapter(
-        adapter: { list(p: string): Promise<{files: string[], folders: string[]}>; read(p: string): Promise<string> },
-        dir: string, baseDir: string, recursive: boolean,
-    ): Promise<Record<string, string>> {
-        const result: Record<string, string> = {};
-        try {
-            const listed = await adapter.list(dir);
-            for (const filePath of listed.files) {
-                try {
-                    const content = await adapter.read(filePath);
-                    const relative = filePath.startsWith(baseDir)
-                        ? filePath.slice(baseDir.length + 1)
-                        : filePath;
-                    result[relative] = content;
-                } catch { /* skip unreadable files */ }
-            }
-            if (recursive) {
-                for (const subDir of listed.folders) {
-                    const subFiles = await this.collectFilesFromAdapter(adapter, subDir, baseDir, true);
-                    Object.assign(result, subFiles);
-                }
-            }
-        } catch { /* directory doesn't exist */ }
-        return result;
-    }
-
-    private async restoreFilesToAdapter(
-        adapter: { write(p: string, d: string): Promise<void>; exists(p: string): Promise<boolean>; mkdir(p: string): Promise<void> },
-        files: Record<string, string>, baseDir: string,
-    ): Promise<number> {
-        let count = 0;
-        const createdDirs = new Set<string>();
-        for (const [relativePath, content] of Object.entries(files)) {
-            const fullPath = `${baseDir}/${relativePath}`;
-            const dirPath = fullPath.includes('/')
-                ? fullPath.split('/').slice(0, -1).join('/')
-                : null;
-            if (dirPath && !createdDirs.has(dirPath)) {
-                const exists = await adapter.exists(dirPath);
-                if (!exists) await adapter.mkdir(dirPath);
-                createdDirs.add(dirPath);
-            }
-            await adapter.write(fullPath, content);
-            count++;
-        }
-        return count;
     }
 
     private async countAndSizeFromAdapter(

@@ -10,28 +10,26 @@
  * into the system prompt and updated automatically via the extraction pipeline.
  */
 
+/** Cap on injected memory chars. ADR-080 Lever 8: was unbounded (~16k chars / 4k tokens). */
+const MAX_MEMORY_CHARS = 4000;
+
 export function getMemorySection(memoryContext?: string): string {
     if (!memoryContext?.trim()) return '';
+
+    // Truncate to keep the per-call memory budget under ~1k tokens. The
+    // extraction pipeline can store more, but the prompt only carries the
+    // most relevant slice (the MemoryRetriever is responsible for ranking).
+    let body = memoryContext.trim();
+    if (body.length > MAX_MEMORY_CHARS) {
+        body = body.slice(0, MAX_MEMORY_CHARS) + `\n\n[Memory truncated to ${MAX_MEMORY_CHARS} chars. Use recall_memory to query specific facts.]`;
+    }
 
     return [
         '',
         '====',
         '',
-        'YOUR PERSISTENT MEMORY',
+        'PERSISTENT MEMORY (top relevant slice; full memory via recall_memory)',
         '',
-        'Your memory is loaded automatically into every conversation and persists across sessions.',
-        'Memory is updated after each conversation via the extraction pipeline.',
-        '',
-        'Memory categories:',
-        '  - Agent Identity — Your name, communication style, values',
-        '  - User Profile — User identity, preferences, communication style',
-        '  - Active Projects — Current projects and goals',
-        '  - Behavioral Patterns — Workflow rules, learned procedures',
-        '  - Known Errors — Error patterns and their resolutions',
-        '',
-        'When the user asks you to remember something, acknowledge it.',
-        'The memory extraction pipeline will automatically save it after the conversation.',
-        '',
-        memoryContext.trim(),
+        body,
     ].join('\n');
 }

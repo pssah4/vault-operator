@@ -1,91 +1,169 @@
 ---
 title: Memory
-description: How Obsilo remembers things across conversations with three tiers of memory.
+description: Memory v2 and the Three-Layer Memory Architecture (3LMA) that lets Obsilo remember facts, retrieve them in context, and keep them fresh.
 ---
 
 # Memory
 
-Without memory, every conversation starts from zero. You would re-explain your preferences, your projects, your writing style. Obsilo persists information across conversations in three tiers, each with a different lifespan and purpose.
+Without memory, every conversation starts from zero. You re-explain your preferences, your projects, your writing style. Obsilo's memory keeps those things across conversations and surfaces them at the moment they matter.
 
-## Three tiers
+The current memory subsystem is **Memory v2**. It replaces the older five-file Markdown memory (a fixed set of `user-profile.md`, `projects.md`, `patterns.md`, `soul.md`, `knowledge.md`) with a single fact-oriented store, dynamic retrieval per conversation, and an update pipeline that ages facts gracefully instead of overwriting them.
 
-Session memory is automatic. When a conversation ends, the system extracts a summary of what was discussed, what decisions were made, and which tools were used. These summaries live in the `sessions` table inside `memory.db` (SQLite, same engine as the knowledge layer). You never need to manage session memory. It accumulates on its own. Over hundreds of conversations, the archive becomes a searchable log of everything you've worked on with the agent.
+## Why Memory v2
 
-Long-term memory stores durable facts about you and your work. The `MemoryService` (`src/core/memory/MemoryService.ts`) manages five Markdown files in `~/.obsidian-agent/memory/`:
+The legacy system had five fixed Markdown files with hard character caps. That structure had three problems.
 
-| File | What it holds | Token budget |
-|------|--------------|--------------|
-| `user-profile.md` | Your name, role, communication preferences | ~200 tokens |
-| `projects.md` | Active projects and their context | ~300 tokens |
-| `patterns.md` | Behavioral patterns the agent has learned | ~200 tokens |
-| `soul.md` | Agent identity and personality | ~200 tokens |
-| `knowledge.md` | Domain knowledge (on-demand only, not in system prompt) | none |
+- **Categories did not match reality.** A note like "Sebastian prefers concise PRs" is part user preference, part workflow pattern, part project context. It went into one bucket and lost the others.
+- **No temporal dimension.** Facts had no creation date, no last-confirmed timestamp, no use count. Old preferences sat next to current ones with equal weight.
+- **No conflict resolution.** Re-extracting the same fact from a new conversation would either duplicate it or silently overwrite the previous version.
 
-Each file has a hard cap of 800 characters when injected into the system prompt, with a combined maximum of 4,000 characters across all files. This keeps memory useful without eating the context window.
+Memory v2 keeps facts as atomic statements with metadata. It retrieves them dynamically based on what the conversation is about. It ages them organically based on how often they get used and confirmed.
 
-The character budget is enforced at extraction time, not just at injection. The `LongTermExtractor` receives the budget as a hard constraint: "This file may have a maximum of 800 characters. If adding new information would exceed the budget, remove or condense the least relevant existing entries." Each entry carries a `[YYYY-MM]` recency tag so the extractor can decide what to cut. Without budget enforcement, memory files grow indefinitely. After a year, the visible 800 characters would be full of stale entries while newer, more relevant information sits below the cutoff.
+## The Three-Layer Memory Architecture (3LMA)
 
-Soul is a special case. It defines how the agent communicates: language, tone, values, anti-patterns. The default soul speaks German, avoids filler phrases, and prioritizes usefulness over politeness. You can edit `soul.md` directly to reshape the agent's personality.
+3LMA is the internal structure of Memory v2. One storage backend, three responsibilities.
 
-Two utility files sit next to these. `errors.md` tracks known error patterns the agent has encountered, and `custom-tools.md` records dynamic tools and skills the agent has created. Both load on demand instead of appearing in every system prompt.
+```mermaid
+flowchart TD
+    L1["Layer 1: Facts<br/>FactStore, EdgeStore, StyleStore"]
+    L2["Layer 2: Retrieval<br/>ContextComposer, TopicInference, RRF"]
+    L3["Layer 3: Updates<br/>SingleCallExtractor, FactIntegrator, AgingService"]
 
-## How memory flows
+    Conversation --> L2
+    L2 --> SystemPrompt
+    Conversation --> L3
+    L3 --> L1
+    L1 --> L2
+```
+
+The layers do not map to separate databases or services. They are responsibilities inside the `src/core/memory/` directory, with clear boundaries so storage, retrieval, and updates can evolve independently.
+
+### Layer 1: Facts
+
+Layer 1 stores knowledge atomically. The unit is a **fact**: a single short statement like "Sebastian prefers TypeScript over JavaScript for new projects" or "Default deploy path is the iCloud plugins folder".
+
+Each fact in `FactStore` carries metadata that the legacy markdown files never had:
+
+| Field | Purpose |
+|-------|---------|
+| `text` | The atomic statement itself |
+| `embedding` | Vector for semantic retrieval |
+| `topics` | LLM-assigned labels like `coding`, `obsilo-project`, `personal` |
+| `importance` | A 0.0 to 1.0 score that decays over time |
+| `confirmation_count` | How often this fact was re-stated in later conversations |
+| `last_confirmed_at` / `last_used_at` | Timestamps for aging |
+| `source_interface` | Which AI tool the fact came from (`obsilo`, `claude-code`, `chatgpt`, ...) |
+| `superseded_by` | Pointer to the fact that replaced this one |
+
+Three sibling stores complete Layer 1:
+
+- **`EdgeStore`** holds typed relations between facts (`update`, `extend`, `derive`, `contradict`). When a fact is replaced, the old version is kept and an edge points to the new one. You see history, not just the latest snapshot.
+- **`CommunicationStyleStore`** replaces the legacy `soul.md`. Multiple styles can coexist: a coding-context style, a personal-context style, a quick-notes style. The `ContextComposer` picks the right one for the current conversation.
+- **Topic registry** tracks every topic that has ever been used, with a centroid embedding so future conversations can be matched against known topics in milliseconds without an LLM call.
+
+### Layer 2: Retrieval
+
+Layer 2 decides what goes into the system prompt for the current conversation. It runs at the start of every conversation and on demand via the `recall_memory` tool.
 
 ```mermaid
 flowchart LR
-    C[Conversation ends] --> E[Extract summary]
-    E --> S[Store in MemoryDB]
-    S --> P[Load into system prompt]
-    P --> N[Next conversation]
+    Msg[First user message] --> TI[TopicInference]
+    TI --> CC[ContextComposer]
+    CC --> RRF[RRF Hybrid Retrieval]
+    RRF --> SP[System Prompt]
 ```
 
-At the start of each conversation, the system loads `user-profile.md`, `projects.md`, `patterns.md`, and `soul.md` into the system prompt. `knowledge.md` is excluded from automatic loading and only retrieved on demand via semantic search, to avoid wasting context on potentially irrelevant information.
+**Topic inference** runs locally. The first user message is embedded once, then compared by cosine similarity against every centroid in the topic registry. Topics above a threshold form a per-conversation **soft topic-lock**: facts tagged with those topics get a retrieval boost. No LLM call, sub-50ms.
 
-The `MemoryRetriever` (`src/core/memory/MemoryRetriever.ts`) reads each file, truncates to the character budget, and assembles the combined memory block. If a file doesn't exist yet, the system creates it from a template on first access. The templates are minimal: headings and placeholder fields that the agent fills in as it learns about you.
+**Hybrid retrieval (RRF)** combines three signals when picking which facts to surface:
 
-## MemoryDB
+| Signal | What it scores |
+|--------|----------------|
+| Semantic | Cosine similarity between the query embedding and each fact's embedding |
+| Keyword (FTS) | SQLite full-text search on the fact text |
+| Graph | One-hop walk over `fact_edges` from already-matched facts |
 
-The `MemoryDB` (`src/core/knowledge/MemoryDB.ts`) is a SQLite database separate from the knowledge layer. It stores structured data across four tables:
+Reciprocal Rank Fusion merges the three rankings into one ordered list. The composer fills the memory section of the system prompt up to a token budget, with importance and recency as tie-breakers.
+
+The legacy "five files, 800 chars each" cap is gone. The composer now allocates the same overall budget but distributes it where the conversation needs it. A coding conversation sees more `coding`-tagged facts; a personal conversation sees more identity facts.
+
+### Layer 3: Updates
+
+Layer 3 keeps the store fresh. It runs after a conversation ends (if the conversation is memory-eligible).
+
+The pipeline has three steps.
+
+1. **Single-call extraction.** One LLM call to `SingleCallExtractor` produces a list of atomic fact candidates with topics, importance, kind (`fact`, `preference`, `identity`, `event`), and an edge relation (`new`, `update`, `extend`, `derive`). The legacy version used two separate LLM calls and cost roughly twice as much per conversation.
+
+2. **Lazy conflict resolution.** `FactIntegrator` only runs an LLM-based conflict check when an incoming fact has both high cosine similarity and topic overlap with an existing fact. About ten percent of inserts trigger a check, instead of all of them. Conflicts produce an edge of kind `update` or `contradict` and a new version of the fact, never an in-place overwrite.
+
+3. **Organic aging.** `AgingService` runs in the background. Each fact's importance decays on a half-life that depends on its kind:
+
+| Kind | Half-life |
+|------|-----------|
+| `identity` | 180 days |
+| `fact` | 90 days |
+| `preference` | 90 days |
+| `event` | 14 days |
+
+Confirming a fact (re-extracting it, or hitting it during retrieval) refreshes `last_used_at` and adds a small importance boost. Facts that no one references for months sink slowly to the bottom of retrieval, but are never deleted.
+
+## How memory flows in a conversation
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant CC as ContextComposer
+    participant FS as FactStore
+    participant SP as System Prompt
+    participant Ext as SingleCallExtractor
+
+    U->>CC: First message
+    CC->>FS: Topic inference + RRF
+    FS-->>CC: Ranked facts
+    CC->>SP: Memory section
+    Note over U,SP: Conversation runs
+    U->>Ext: Conversation ends
+    Ext->>FS: Atomic facts + edges
+    FS->>FS: Aging tick
+```
+
+Two writes happen for every memory-eligible conversation: one when the conversation starts (retrieval), one when it ends (extraction). Everything else, the embedding model, the SQLite store, the topic registry, runs locally inside the plugin. No fact ever leaves your machine except as part of the prompt sent to your configured AI provider.
+
+## Where it lives
+
+Memory v2 stores everything in `memory.db`, a SQLite database in the plugin folder. The schema includes:
 
 | Table | Purpose |
 |-------|---------|
-| `sessions` | Conversation summaries with title, source, timestamp |
-| `episodes` | Individual task executions: user message, tools used, success/failure |
-| `recipes` | Learned and static procedural recipes (promoted from episodes via intent matching) |
-| `patterns` | Legacy table from earlier sequence-based matching (no longer written to) |
+| `facts` | Atomic statements with metadata |
+| `fact_edges` | Typed relations between facts (`update`, `extend`, `derive`, `contradict`) |
+| `communication_styles` | Context-matched style descriptors that replace the single soul |
+| `known_topics` | Topic labels with centroid embeddings for fast inference |
+| `memory_audit` | Append-only log of every state change for debuggability |
+| `conversation_threads` | Threads that span multiple sessions, with a memory-eligible flag |
+| `memory_source_notes` | Vault notes that the user marked as memory sources (FEAT-03-25) |
 
-The database lives at `{vault-parent}/.obsidian-agent/memory.db` and is shared across vaults. The agent remembers you regardless of which vault you open.
+The history of conversations lives in a sibling database, `history.db`. It powers the [history sidebar](../guides/chat-interface) and the `search_history` tool.
 
-Episodes are the most granular unit. Each episode records a single user request, the active mode, the exact sequence of tools called, a ledger of tool outcomes, and whether the task succeeded. This data powers both the recipe system and the analytics in the Debug settings tab.
+## What the user sees
 
-## Memory updates
+The settings tab still calls memory by its tier names (Session, Long-term, Soul) so the UI stays familiar. Underneath, the model is unified: every "remembered thing" is a fact in the same store. The "Memory" tab now also exposes a fact viewer, a soul viewer, and a soft-delete option for individual facts.
 
-The agent updates memory through two paths. Automatic extraction happens at conversation end, when the system pulls out key facts and stores them as sessions and episodes. Explicit updates happen when the agent (or you) writes directly to a memory file using the `update_memory` tool.
+You can mark vault notes as memory sources. Obsilo extracts facts from them through the same single-call pipeline, with `source_uri='vault://...'`. Edits to the note re-trigger extraction in the background. This turns long-form documents like `personal-profile.md` or `project-roadmap.md` into structured facts without losing the original document as the canonical source.
 
-Both the `update_memory` tool and the MCP server's `update_memory` endpoint write to the same files. If you use Obsilo through Claude Desktop via MCP, your memory still accumulates in the same place.
+## Across AI tools
 
-You can also edit the memory files directly in a text editor. They are plain Markdown. If the agent has learned something incorrect about you, open `user-profile.md` and fix it. The corrected version takes effect on the next conversation.
-
-## Recipes and intent matching
-
-Over time, the `episodes` table reveals patterns. When three or more similar episodes all succeeded, the system promotes them into a recipe, a generalized, reusable procedure that the agent can follow without reasoning from scratch. This is the foundation for fast path execution (see [agent loop](./agent-loop)), which cuts token costs by up to 90% for known task types.
-
-Recipe promotion uses semantic intent matching, not tool sequence matching. An earlier version tried to detect recurring tasks by comparing the exact sequence of tools the agent used (for example `search_files` -> `read_file` -> `create_note`). This never worked in practice because LLMs don't choose tools deterministically. Three functionally identical tasks would produce three different tool sequences, and each one ended up as its own pattern that never reached the promotion threshold. This was a mistake we later fixed.
-
-The current system compares user messages by cosine similarity using the same embedding model as the knowledge layer. "Search my notes on Kant and summarize" and "Find everything on Hegel and create an overview" score high on similarity regardless of which tools the agent happened to use. After three similar successful episodes, the `RecipePromotionService` generates a recipe via a single LLM call that abstracts the concrete examples into a generalized step sequence.
-
-The system ships eight static recipes for common vault operations (creating canvases, reorganizing notes by tag, linking related documents, and so on). Learned recipes are generated automatically and capped at 50 to prevent unbounded growth.
-
-Recipe matching at query time uses a two-phase approach. Phase 1 is keyword scoring against the recipe's trigger field, which is fast and requires no API call. Phase 2, used as a fallback, checks recipe names and descriptions for token overlap. The combined budget is capped at three recipes and 2,000 characters to avoid bloating the system prompt.
-
-Recipes include a `success_count` that tracks how often they've worked. Only recipes with at least three successful uses qualify for fast path execution. Recipes are versioned with a `schema_version` field so old recipes can be migrated when the format changes. Each recipe records which modes it applies to, so a recipe learned in "agent" mode won't be suggested in "ask" mode.
+Every fact carries a `source_interface` tag (`obsilo`, `claude-ai`, `claude-code`, `chatgpt`, `perplexity`, `unknown`). The same MCP server that exposes Obsilo's tools to other AI clients also writes their conversations and facts into the same store. This is the foundation for **Unified Chat Memory (UCM)**, which is documented separately in [Unified Chat Memory](./unified-chat-memory).
 
 ## Onboarding
 
-New users start with empty memory files. The `OnboardingService` (`src/core/memory/OnboardingService.ts`) detects this and triggers a first-run flow that asks a few questions: your name, your preferred language, what you use Obsidian for. The answers populate `user-profile.md` and `soul.md`, which gives the agent a baseline. You can skip onboarding and let memory build up organically through conversations.
+New users start with an empty fact store. The `OnboardingService` runs a short conversation that captures name, language, and primary use case, then writes the answers as identity-kind facts with a high initial importance and a long half-life. From there the store grows organically.
+
+You can skip onboarding. The 3LMA pipeline does not require any seed facts to function; retrieval just returns an empty memory section until the first real conversation gets extracted.
 
 ## Token economics
 
-Memory competes for space in the system prompt alongside rules, tool descriptions, and skills. The 4,000-character budget translates to roughly 1,000-1,200 tokens depending on content. This is a deliberate trade-off. Enough to be useful without crowding out other context. You can increase the per-file and total character limits in the source code, but you will lose space for other system prompt sections.
+The memory section of the system prompt has a soft token budget (configurable). The composer fills it greedily by RRF score until the budget is exhausted, then truncates. The legacy cap of "4000 characters across five files" is gone, replaced by a budget that the composer can reallocate per conversation.
 
-The `knowledge.md` file sits outside this budget because it is only loaded when the agent calls semantic search. It can grow as large as you like without affecting the system prompt size.
+Cold memory, accessible through the `recall_memory` tool, sits outside this budget. The agent only loads it when it explicitly searches for something. This is how facts you have not touched in months stay reachable without paying a token cost on every conversation.

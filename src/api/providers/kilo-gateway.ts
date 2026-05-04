@@ -166,9 +166,12 @@ export class KiloGatewayProvider implements ApiHandler {
                     try {
                         input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
                     } catch (e) {
+                        // BUG-032: tool_error increments AgentTask mistake counter.
                         yield {
-                            type: 'text',
-                            text: `[Tool input parse error for "${acc.name}": ${(e as Error).message}]`,
+                            type: 'tool_error',
+                            id: acc.id,
+                            name: acc.name,
+                            error: `Tool input parse error: ${(e as Error).message}. The tool arguments were truncated or malformed -- try a smaller payload or split the work into multiple tool calls.`,
                         } satisfies ApiStreamChunk;
                         continue;
                     }

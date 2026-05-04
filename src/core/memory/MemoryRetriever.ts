@@ -47,7 +47,7 @@ export class MemoryRetriever {
             try {
                 const results = await semanticIndex.searchSessions(firstMessage, topK);
                 excerpts = results.map((r) => ({
-                    id: r.path.replace('session:', ''),
+                    id: r.path.replace(/^session:(\/\/)?/, ''),
                     excerpt: r.excerpt,
                 }));
             } catch (e) {
@@ -69,7 +69,7 @@ export class MemoryRetriever {
             try {
                 const episodeResults = await semanticIndex.searchEpisodes(firstMessage, 3);
                 episodeExcerpts = episodeResults.map((r) => ({
-                    id: r.path.replace('episode:', ''),
+                    id: r.path.replace(/^episode:(\/\/)?/, ''),
                     excerpt: r.excerpt,
                 }));
             } catch (e) {

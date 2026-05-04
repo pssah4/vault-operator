@@ -64,9 +64,9 @@ interface ToolCallAccumulator {
 /**
  * Creates a fetch-compatible function using Node.js https module.
  * Used for providers where Electron's CORS enforcement blocks globalThis.fetch
- * (e.g. Google's generativelanguage.googleapis.com).
+ * (e.g. Google's generativelanguage.googleapis.com, chatgpt.com/backend-api).
  */
-function createNodeFetch(): typeof globalThis.fetch {
+export function createNodeFetch(): typeof globalThis.fetch {
     return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         const parsed = new URL(url);
@@ -349,9 +349,14 @@ export class OpenAiProvider implements ApiHandler {
             try {
                 input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
             } catch (e) {
+                // BUG-032: Emit tool_error so AgentTask increments the mistake
+                // counter and breaks after consecutiveMistakeLimit. Text chunks
+                // hide the failure from the loop, causing infinite retries.
                 yield {
-                    type: 'text',
-                    text: `[Tool input parse error for "${acc.name}": ${(e as Error).message}]`,
+                    type: 'tool_error',
+                    id: acc.id,
+                    name: acc.name,
+                    error: `Tool input parse error: ${(e as Error).message}. The tool arguments were truncated or malformed -- try a smaller payload (e.g. write_file or append_to_file with a shorter content block) or split the work into multiple tool calls.`,
                 } satisfies ApiStreamChunk;
                 continue;
             }

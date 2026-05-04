@@ -7,13 +7,13 @@ describe('GlobalFileService', () => {
         it('should use vault parent directory when vaultBasePath provided', () => {
             const service = new GlobalFileService('/Users/test/Documents/MyVault');
             expect(service.getRoot()).toBe(
-                pathModule.join('/Users/test/Documents', '.obsidian-agent'),
+                pathModule.join('/Users/test/Documents', 'obsilo-shared'),
             );
         });
 
         it('should use home directory when no vaultBasePath', () => {
             const service = new GlobalFileService();
-            expect(service.getRoot()).toContain('.obsidian-agent');
+            expect(service.getRoot()).toContain('obsilo-shared');
         });
     });
 
@@ -22,7 +22,7 @@ describe('GlobalFileService', () => {
             const service = new GlobalFileService('/Users/test/Vault');
             const resolved = service.resolvePath('memory/user-profile.md');
             expect(resolved).toBe(
-                pathModule.join('/Users/test', '.obsidian-agent', 'memory', 'user-profile.md'),
+                pathModule.join('/Users/test', 'obsilo-shared', 'memory', 'user-profile.md'),
             );
         });
 
@@ -42,7 +42,7 @@ describe('GlobalFileService', () => {
             // Empty path resolves to root — but path.join('root', '') = 'root'
             // which equals this.root, so it should NOT throw
             const resolved = service.resolvePath('');
-            expect(resolved).toBe(pathModule.join('/Users/test', '.obsidian-agent'));
+            expect(resolved).toBe(pathModule.join('/Users/test', 'obsilo-shared'));
         });
     });
 

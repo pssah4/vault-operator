@@ -14,6 +14,10 @@ interface WriteOp {
     content?: string;
 }
 
+/** AUDIT-016 M-1: per-content + aggregate caps to close the disk-fill DoS vector. */
+const MAX_CONTENT_BYTES_PER_OP = 4 * 1024 * 1024;       // 4 MB per file write
+const MAX_AGGREGATE_BYTES_PER_BATCH = 16 * 1024 * 1024; // 16 MB per write_vault call
+
 export async function handleWriteVault(
     plugin: ObsidianAgentPlugin,
     args: Record<string, unknown>,
@@ -25,6 +29,21 @@ export async function handleWriteVault(
 
     if (operations.length > 20) {
         return { content: [{ type: 'text', text: 'Error: max 20 operations per call' }], isError: true };
+    }
+
+    // AUDIT-016 M-1: pre-flight content-cap check before any disk write.
+    let aggregate = 0;
+    for (const op of operations) {
+        if (typeof op?.content === 'string') {
+            const size = Buffer.byteLength(op.content, 'utf8');
+            if (size > MAX_CONTENT_BYTES_PER_OP) {
+                return { content: [{ type: 'text', text: `Error: ${op.path}: content exceeds per-op cap (${MAX_CONTENT_BYTES_PER_OP} bytes)` }], isError: true };
+            }
+            aggregate += size;
+        }
+    }
+    if (aggregate > MAX_AGGREGATE_BYTES_PER_BATCH) {
+        return { content: [{ type: 'text', text: `Error: aggregate content size exceeds batch cap (${MAX_AGGREGATE_BYTES_PER_BATCH} bytes)` }], isError: true };
     }
 
     const results: string[] = [];
@@ -41,7 +60,9 @@ export async function handleWriteVault(
 
             switch (op.type) {
                 case 'create': {
-                    if (!op.content) { results.push(`${op.path}: Error -- content required for create`); break; }
+                    // Codex finding (2026-04-29): allow empty string as legitimate content.
+                    // Previous `!op.content` rejected `""` which is a valid empty-file case.
+                    if (op.content === undefined) { results.push(`${op.path}: Error -- content required for create`); break; }
                     // Ensure parent folder exists
                     const dir = op.path.substring(0, op.path.lastIndexOf('/'));
                     if (dir) {
@@ -53,7 +74,7 @@ export async function handleWriteVault(
                     break;
                 }
                 case 'edit': {
-                    if (!op.content) { results.push(`${op.path}: Error -- content required for edit`); break; }
+                    if (op.content === undefined) { results.push(`${op.path}: Error -- content required for edit`); break; }
                     const file = vault.getAbstractFileByPath(op.path);
                     if (!(file instanceof TFile)) { results.push(`${op.path}: Error -- file not found`); break; }
                     await vault.modify(file, op.content);
@@ -61,7 +82,7 @@ export async function handleWriteVault(
                     break;
                 }
                 case 'append': {
-                    if (!op.content) { results.push(`${op.path}: Error -- content required for append`); break; }
+                    if (op.content === undefined) { results.push(`${op.path}: Error -- content required for append`); break; }
                     const appendFile = vault.getAbstractFileByPath(op.path);
                     if (!(appendFile instanceof TFile)) { results.push(`${op.path}: Error -- file not found`); break; }
                     await vault.append(appendFile, op.content);

@@ -1,0 +1,25 @@
+{
+    "name": "capability-inquiry",
+    "description": "User asks how to save a chat -- agent answers from capability snapshot, not from invented UI",
+    "messages": [
+        { "role": "user", "text": "Wie speichere ich einen Chat ins Memory?" },
+        {
+            "role": "assistant",
+            "text": "Du hast drei Wege: das Star-Icon pro Chat in der History (klick = pin/unpin), \"Save conversation to memory\" im \"...\" Menu des Chat-Inputs, oder du sagst \"merk dir das\" und ich rufe mark_for_memory."
+        }
+    ],
+    "extractorOutput": {
+        "session_summary": "Sebastian asked how to save a conversation to memory; Obsilo answered correctly using the documented capability surface.",
+        "episode_outcome": { "success": true, "result_summary": "Correct answer, no UI hallucination." },
+        "facts": [],
+        "mentions": [],
+        "conversation_so_far": "User informed about save-to-memory paths.",
+        "topic_drift_detected": false
+    },
+    "expected": {
+        "factCount": 0,
+        "rejectedCount": 0,
+        "topicDriftDetected": false,
+        "facts": []
+    }
+}

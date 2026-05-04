@@ -765,6 +765,44 @@
     height: 16px;
 }
 
+/* Browser-style chat nav arrows: bare icons, no chrome, set apart from
+ * the rest of the header controls. Modifier-only, additive on top of
+ * .header-button so the existing layout stays untouched. */
+.header-button.header-button--nav {
+    padding: 0;
+    background: none;
+    border-radius: 0;
+}
+
+.header-button.header-button--nav:hover:not(:disabled) {
+    background: none;
+}
+
+.header-button.header-button--nav:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+/* Spacing: separate the nav cluster (now sitting at the far right of
+ * the header) from the primary controls to its left. Targets the FIRST
+ * nav arrow that immediately follows a non-nav header button. */
+.header-button:not(.header-button--nav) + .header-button.header-button--nav {
+    margin-left: 10px;
+}
+
+/* SoakReportModal: a wide read-only textarea shows the JSON snapshot
+ * so the user can manually copy or save to vault. Modal owns focus
+ * which makes clipboard.writeText reliable. */
+.obsilo-soak-report-modal .obsilo-soak-report-textarea {
+    width: 100%;
+    min-height: 360px;
+    font-family: var(--font-monospace);
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre;
+    resize: vertical;
+}
+
 /* Tool call — borderless, subtle rows (Kilo Code style) */
 .tool-call-details {
     margin: 1px 0;
@@ -2711,6 +2749,329 @@
 }
 
 .agent-settings-section:first-child { margin-top: 2px; }
+
+/* Pinned-to-memory star: always visible (status indicator), accent
+   colour, no fill -- the regular `star` icon stays as outline. */
+.history-row-action.history-row-action-pinned {
+    color: var(--text-accent);
+    opacity: 1;
+}
+
+.agent-settings-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 4px 0 12px 0;
+    padding: 8px 12px;
+    background: var(--background-secondary);
+    border-left: 3px solid var(--interactive-accent);
+    border-radius: 4px;
+}
+
+.agent-settings-soul-intro {
+    margin: 4px 0 16px 0;
+    padding: 10px 14px;
+    background: var(--background-secondary);
+    border-left: 3px solid var(--interactive-accent);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.agent-settings-soul-intro p {
+    margin: 0;
+}
+.agent-settings-soul-intro p + p {
+    margin-top: 6px;
+}
+
+.agent-settings-soul-block {
+    margin: 10px 0;
+    padding: 10px 12px;
+    background: var(--background-secondary);
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
+}
+.agent-settings-soul-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.agent-settings-soul-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+.agent-settings-soul-desc {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+.agent-settings-soul-desc-example {
+    color: var(--text-faint);
+    font-style: italic;
+}
+.agent-settings-soul-header button {
+    width: 22px;
+    height: 22px;
+    line-height: 1;
+    padding: 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.agent-settings-soul-empty {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-faint);
+    font-style: italic;
+}
+.agent-settings-soul-list {
+    margin: 8px 0 0 0;
+    padding: 0;
+    list-style: none;
+}
+.agent-settings-soul-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.agent-settings-soul-list li:last-child {
+    border-bottom: none;
+}
+.agent-settings-soul-text {
+    flex: 1 1 auto;
+    color: var(--text-normal);
+}
+.agent-settings-soul-remove {
+    background: none;
+    border: 1px solid var(--background-modifier-border);
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.agent-settings-soul-remove:hover {
+    color: var(--text-error);
+}
+/* Memory viewer modal (FEATURE-0319b) */
+.modal:has(.memory-viewer-modal) {
+    width: min(900px, 92vw);
+    max-width: none;
+}
+.memory-viewer-modal {
+    width: 100%;
+}
+.memory-viewer-intro {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 6px 0;
+}
+.memory-viewer-stats {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin: 0 0 12px 0;
+}
+.memory-viewer-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 10px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.memory-viewer-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+}
+.memory-viewer-tab:hover {
+    color: var(--text-normal);
+}
+.memory-viewer-tab-active {
+    color: var(--text-accent);
+    border-bottom-color: var(--text-accent);
+}
+.memory-viewer-filter {
+    margin-bottom: 12px;
+}
+.memory-viewer-filter input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    font-size: 13px;
+}
+.memory-viewer-section {
+    margin: 18px 0;
+}
+.memory-viewer-section-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-normal);
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding-bottom: 4px;
+}
+.memory-viewer-section-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 4px 0 8px 0;
+}
+.memory-viewer-empty {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-style: italic;
+    padding: 4px 0;
+}
+.memory-viewer-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.memory-viewer-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.memory-viewer-item:last-child {
+    border-bottom: none;
+}
+.memory-viewer-item-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.memory-viewer-item-text {
+    font-size: 13px;
+    color: var(--text-normal);
+    line-height: 1.4;
+    word-break: break-word;
+}
+.memory-viewer-item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+.memory-viewer-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--background-modifier-border);
+    color: var(--text-muted);
+    text-transform: lowercase;
+}
+.memory-viewer-tag-primary {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    font-weight: 500;
+}
+.memory-viewer-item-meta {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 4px;
+}
+.memory-viewer-item-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 2px;
+    align-self: flex-start;
+}
+.memory-viewer-item-edit,
+.memory-viewer-item-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+}
+.memory-viewer-item-edit:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+.memory-viewer-item-delete:hover {
+    color: var(--text-error);
+    background: var(--background-modifier-hover);
+}
+.memory-viewer-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--background-modifier-border);
+}
+.memory-viewer-wipe {
+    background: var(--background-modifier-error);
+    color: var(--text-on-accent, #fff);
+    border: 1px solid var(--background-modifier-error);
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+}
+.memory-viewer-wipe:hover {
+    background: var(--text-error);
+    border-color: var(--text-error);
+}
+.memory-viewer-footer-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    flex: 1;
+}
+
+.agent-settings-soul-import {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 8px 0;
+    padding-top: 8px;
+    border-top: 1px dashed var(--background-modifier-border);
+}
+.agent-settings-soul-import button {
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.agent-settings-soul-import-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+}
+.agent-settings-soul-caps {
+    margin: 16px 0;
+}
+.agent-settings-soul-caps summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.agent-settings-soul-cap-list {
+    margin: 4px 0 0 16px;
+    padding: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Plain paragraph -- neutral, no background. */
+.agent-settings-paragraph {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 8px 0 16px;
+}
 
 /* Tab intro infobox */
 .agent-settings-desc {
@@ -5152,11 +5513,160 @@
 
 .history-panel-filter {
     padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
 }
 
+/* BA-26 / FEAT-23-03: Source-Tabs */
+.history-panel-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 16px 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    flex-shrink: 0;
+}
+.history-panel-tab {
+    background: none;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.78em;
+    line-height: 1.4;
+}
+.history-panel-tab:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+.history-panel-tab-active {
+    color: var(--text-on-accent);
+    background: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+}
+
+/* BA-26 / FEAT-23-03: Source-Pill on conversation rows */
+.history-row-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.history-row-source-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: 500;
+    background: var(--background-modifier-border);
+    color: var(--text-muted);
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.history-row-source-pill-claude-ai,
+.history-row-source-pill-claude-code {
+    background: rgba(204, 120, 92, 0.18);
+    color: rgb(204, 120, 92);
+}
+.history-row-source-pill-chatgpt {
+    background: rgba(16, 163, 127, 0.18);
+    color: rgb(16, 163, 127);
+}
+.history-row-source-pill-perplexity {
+    background: rgba(82, 82, 199, 0.18);
+    color: rgb(82, 82, 199);
+}
+
+/* BA-26 / FEAT-23-04: Pending-Marker */
+.history-row-pending-marker {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: 500;
+    background: rgba(217, 161, 32, 0.18);
+    color: rgb(217, 161, 32);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* FIX-23-01-01: Thread-Pill (klickbarer Filter-Button) auf Listeneintraegen.
+   Style matched .history-row-source-pill 1:1, plus button-resets damit der
+   Browser-Default fuer <button> nicht reinkommt. */
+.history-row-thread-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: 500;
+    background: rgba(120, 80, 200, 0.16);
+    color: rgb(120, 80, 200);
+    line-height: 1.4;
+    white-space: nowrap;
+    border: none;
+    margin: 0;
+    box-shadow: none;
+    cursor: pointer;
+    font-family: inherit;
+    height: auto;
+    min-height: 0;
+}
+.history-row-thread-pill:hover {
+    background: rgba(120, 80, 200, 0.28);
+    box-shadow: none;
+}
+
+/* FIX-23-01-01: Thread-Filter-Chip (oben in der Sidebar wenn Filter aktiv) */
+.history-panel-thread-chip-row {
+    padding: 6px 16px 0;
+    flex-shrink: 0;
+}
+.history-panel-thread-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 4px 4px 10px;
+    background: rgba(120, 80, 200, 0.18);
+    color: rgb(120, 80, 200);
+    border-radius: 999px;
+    font-size: 0.78em;
+    font-weight: 500;
+}
+.history-panel-thread-chip-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    color: rgb(120, 80, 200);
+    line-height: 0;
+}
+.history-panel-thread-chip-close:hover {
+    color: rgb(80, 50, 160);
+}
+
+.history-panel-memory-toggle {
+    background: none;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    cursor: pointer;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.history-panel-memory-toggle:hover {
+    color: var(--text-normal);
+}
+.history-panel-memory-toggle-active {
+    color: var(--text-accent);
+    border-color: var(--text-accent);
+    background: var(--background-secondary);
+}
+
 .history-panel-filter-input {
-    width: 100%;
+    flex: 1 1 auto;
     padding: 6px 10px;
     font-size: 12px;
     border: 1px solid var(--background-modifier-border);
@@ -5226,20 +5736,28 @@
 .history-row-actions {
     display: flex;
     gap: 2px;
-    opacity: 0;
     flex-shrink: 0;
 }
 
-.history-row:hover .history-row-actions {
-    opacity: 1;
-}
-
+/* Hide hover-only buttons by default; reveal the whole bar on row hover. */
 .history-row-action {
     background: none;
     border: none;
     cursor: pointer;
     color: var(--text-muted);
     padding: 4px;
+    opacity: 0;
+}
+
+.history-row:hover .history-row-action {
+    opacity: 1;
+}
+
+/* Memory-pinned star: always visible (status indicator), accent
+   colour, outline-only star icon. */
+.history-row-action.history-row-action-pinned {
+    opacity: 1;
+    color: var(--text-accent);
 }
 
 .history-row-action:hover {

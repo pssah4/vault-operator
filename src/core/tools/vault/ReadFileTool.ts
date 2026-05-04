@@ -13,8 +13,12 @@ import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import { getInternalAgentFolderPath } from '../../utils/agentFolder';
 
-/** Maximum characters to return. ~5000 tokens at 4 chars/token. */
-const MAX_CONTENT_CHARS = 20_000;
+/**
+ * Maximum characters to return. ~12500 tokens at 4 chars/token.
+ * Aligned with Claude Code's read budget; covers a typical 60-90 min
+ * meeting transcript or a long article without truncation.
+ */
+const MAX_CONTENT_CHARS = 50_000;
 
 /**
  * BUG-020: Agents sometimes call `read_file("tmp/task-<id>/result.md")`
@@ -138,8 +142,12 @@ export class ReadFileTool extends BaseTool<'read_file'> {
             });
 
             if (originalLength > MAX_CONTENT_CHARS) {
+                const overflowRatio = (originalLength - MAX_CONTENT_CHARS) / originalLength;
+                const hint = overflowRatio > 0.1
+                    ? ' Use search_files for specific content.'
+                    : '';
                 callbacks.pushToolResult(
-                    result + `\n[Truncated: showing ${MAX_CONTENT_CHARS} of ${originalLength} chars. Use search_files for specific content.]`,
+                    result + `\n[Truncated: showing ${MAX_CONTENT_CHARS} of ${originalLength} chars.${hint}]`,
                 );
             } else {
                 callbacks.pushToolResult(result);
