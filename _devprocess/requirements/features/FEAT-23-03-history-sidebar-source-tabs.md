@@ -2,7 +2,6 @@
 id: FEAT-23-03
 title: History-Sidebar Source-Tabs + Read-Only-View
 epic: EPIC-23
-status: Active
 priority: P0
 date: 2026-05-03
 related-bas: BA-26

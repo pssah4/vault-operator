@@ -329,12 +329,16 @@ describe('SingleCallProcessor (PLAN-007 task C.1)', () => {
             integration: () => Promise.resolve(),
             budget: () => { events.push({ kind: 'budget' }); return Promise.resolve(); },
         };
-        const today = new Date().toISOString().slice(0, 10);
+        // FIX-03-18-01: pin the day key via the today seam so the guard's
+        // snapshot() returns the loaded state (instead of falling back to a
+        // zero bucket when local-date and UTC-date differ around midnight).
+        const today = '2026-05-03';
         const { TokenBudgetGuard } = await import('../TokenBudgetGuard');
         const budget = new TokenBudgetGuard({
             loadState: () => ({ day: today, inputTokens: 5_000_000, outputTokens: 0 }),
             saveState: () => Promise.resolve(),
             thresholds: { dailyInputCap: 1_000_000, dailyOutputCap: 200_000 },
+            today: () => today,
         });
 
         const proc = new SingleCallProcessor({

@@ -2,7 +2,6 @@
 id: FEAT-23-01
 title: save_to_memory + save_conversation MCP-Tools (Schreibpfad)
 epic: EPIC-23
-status: Active
 priority: P0
 date: 2026-05-03
 related-bas: BA-26

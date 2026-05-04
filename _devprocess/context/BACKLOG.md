@@ -6,7 +6,7 @@
 > /architecture, /coding, /testing, /security-audit, /release,
 > /consistency-check.
 
-Last update: 2026-05-03 by /coding (PLAN-10 BA-25 Phase 1 Foundation: Schema v10 + 4 Stores + 32 Tests)
+Last update: 2026-05-03 by /coding (Release-Prep Bug-Sweep: 8 FIXes auf Done -- 7 bereits in fruehren Commits gefixt, FIX-03-18-01 SingleCallProcessor Test heute korrigiert)
 
 ---
 
@@ -16,10 +16,10 @@ Last update: 2026-05-03 by /coding (PLAN-10 BA-25 Phase 1 Foundation: Schema v10
 |-------------|-------|-|------------|-------|-|--------------|-------|
 | Planned     |    43 | Released   |   259 | Epic         |    22 |
 | Active      |     7 | Building   |    96 | Feature      |   195 |
-| Done        |   185 | Planned    |     0 | Fix          |    24 |
+| Done        |   193 | Planned    |     0 | Fix          |    24 |
 | Wont Fix    |     1 |            |        | Improvement  |     0 |
 | Superseded  |     2 |            |        | ADR          |   106 |
-| Deprecated  |     1 |            |        | Plan         |     7 |
+| Deprecated  |     1 |            |        | Plan         |    12 |
 | Accepted    |    88 |            |        |              |        |
 | Proposed    |    16 |            |        |              |        |
 
@@ -74,7 +74,7 @@ Phase: Released | Status: Done
 | FEAT-01-11 | Feature | Diff Stats Badge | Done | Released | EPIC-01 | BA |  |  | 2026-04-30 |  |
 | FEAT-01-12 | Feature | Attachments, Clipboard, and Images | Done | Released | EPIC-01 | BA |  |  | 2026-04-30 |  |
 | FIX-01-01-01 | Fix | Anthropic API rejects history with orphaned tool_use blocks | Done | Released | FEAT-01-01, EPIC-01 | BUG |  |  | 2026-04-30 | P0 |
-| FIX-01-12-01 | Fix | Drag-and-drop from Obsidian file explorer opens tab instead of attaching | Open | Building | FEAT-01-12, EPIC-01 | BUG |  |  | 2026-04-30 | P1 |
+| FIX-01-12-01 | Fix | Drag-and-drop from Obsidian file explorer opens tab instead of attaching | Done | Released | FEAT-01-12, EPIC-01 | BUG | 6278069 |  | 2026-05-03 | P1 |
 
 ### EPIC-02: Rules, Workflows & Intelligence
 
@@ -120,7 +120,7 @@ Phase: Released | Status: Done
 | FEAT-03-16 | Feature | Memory-Migration und Vault-RRF-Quick-Win | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-17 | Feature | Dynamic Context Composition | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-18 | Feature | Single-Call Update Pipeline und Combined Note-Index-Pass | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
-| FIX-03-18-01 | Fix | SingleCallProcessor budget-exhausted Test-Setup-Bug (nextMockApi) | Open | Building | FEAT-03-18, EPIC-03, PLAN-07 | BUG | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
+| FIX-03-18-01 | Fix | SingleCallProcessor budget-exhausted Test-Setup-Bug (nextMockApi) | Done | Building | FEAT-03-18, EPIC-03, PLAN-07 | BUG | (release-prep) | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P2 |
 | FEAT-03-19 | Feature | Living Document UX | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-20 | Feature | History Search ueber alle Konversationen | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
 | FEAT-03-21 | Feature | Engine-Extract zu @obsilo/memory-engine | Planned | Building | EPIC-03 | BA |  |  | 2026-04-30 |  |
@@ -159,7 +159,7 @@ Phase: Released | Status: Done
 | FEAT-04-07 | Feature | Agent Skill Mastery | Done | Released | EPIC-04 | BA |  |  | 2026-04-30 |  |
 | FEAT-04-08 | Feature | Ollama Provider Management | Done | Released | EPIC-04 | BA |  |  | 2026-04-30 |  |
 | FEAT-04-09 | Feature | OpenAI-kompatible Streaming Tool-Call Robustheit | Done | Released | EPIC-04 | BA |  |  | 2026-04-30 |  |
-| FIX-04-09-01 | Fix | OpenAI Provider verschluckt Tool-Calls bei finish_reason="stop" | Open | Building | FEAT-04-09, EPIC-04 | BUG |  |  | 2026-04-30 | P1 |
+| FIX-04-09-01 | Fix | OpenAI Provider verschluckt Tool-Calls bei finish_reason="stop" | Done | Released | FEAT-04-09, EPIC-04 | BUG | 6c11f72 |  | 2026-05-03 | P1 |
 
 ### EPIC-05: Self-Development & Sandbox
 
@@ -177,7 +177,7 @@ Phase: Released | Status: Done
 | FEAT-05-07 | Feature | Konfigurierbarer Agent-Folder | Done | Released | EPIC-05 | BA |  |  | 2026-04-30 |  |
 | FEAT-05-08 | Feature | Agent Folder Change Handling (P0/P1/P2) | Done | Released | EPIC-05 | BA |  |  | 2026-04-30 |  |
 | FIX-05-02-01 | Fix | Sandbox esbuild integrity hashes stale + vaultList('/') throws | Done | Released | FEAT-05-02, EPIC-05 | BUG |  |  | 2026-04-30 | P1 |
-| FIX-05-02-02 | Fix | SandboxBridge circuit-breaker stays open, permanently blocks evaluate_expression | Open | Building | FEAT-05-02, EPIC-05 | BUG |  |  | 2026-04-30 | P1 |
+| FIX-05-02-02 | Fix | SandboxBridge circuit-breaker stays open, permanently blocks evaluate_expression | Done | Released | FEAT-05-02, EPIC-05 | BUG | 56d1036 |  | 2026-05-03 | P1 |
 | FIX-05-02-03 | Fix | SandboxBridge vault paths with trailing slash return null | Done | Released | FEAT-05-02, EPIC-05 | BUG |  |  | 2026-04-30 | P1 |
 
 ### EPIC-06: Files-to-Chat (Office-Format-Support)
@@ -327,7 +327,7 @@ Phase: Released | Status: Done
 | FEAT-15-10 | Feature | Frontmatter-Property Mirror (frontmatter_properties + SQL-Taxonomie-Lookup) | Done | Released | EPIC-15, BA-25, ADR-92 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
 | FEAT-15-11 | Feature | Cluster-Source-Stats fuer Source-Diversity-Tracking | Done | Released | EPIC-15, BA-25, ADR-92, ADR-93 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
 | FEAT-15-12 | Feature | Cluster-Metadata mit Halbwertszeit-Konfiguration | Done | Released | EPIC-15, BA-25, ADR-92, ADR-94 | BA | | sebastian-opus-4.7 @ 2026-05-03 | 2026-05-03 | P0 |
-| FIX-15-00-01 | Fix | KnowledgeDB Korruption durch nicht-atomare Writes + Cloud Sync | Open | Building | FEAT-15-00, EPIC-15 | BUG |  |  | 2026-04-30 | P1 |
+| FIX-15-00-01 | Fix | KnowledgeDB Korruption durch nicht-atomare Writes + Cloud Sync | Done | Released | FEAT-15-00, EPIC-15 | BUG | PLAN-003 |  | 2026-05-03 | P1 |
 | FIX-15-03-01 | Fix | ImplicitConnections "Statement closed" Race Condition | Done | Released | FEAT-15-03, EPIC-15 | BUG |  |  | 2026-04-30 | P2 |
 | FIX-15-04-01 | Fix | Reranker ONNX-Runtime Fehler in Electron | Done | Released | FEAT-15-04, EPIC-15 | BUG |  |  | 2026-04-30 | P2 |
 
@@ -369,10 +369,10 @@ Phase: Released | Status: Done
 | FEAT-18-03 | Feature | Cross-Platform TMP-Pfade fuer Context Externalization | Done | Released | EPIC-18 | BA |  |  | 2026-04-30 |  |
 | FEAT-18-04 | Feature | Cost-Aware Agent Heuristics | Done | Released | EPIC-18 | BA |  |  | 2026-04-30 |  |
 | FIX-18-03-01 | Fix | TMP-Files nicht lesbar auf Windows (Pfad-Trennzeichen) | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  | 2026-04-30 | P1 |
-| FIX-18-03-02 | Fix | read_file cannot open externalised tool results under tmp/ | Open | Building | FEAT-18-03, EPIC-18 | BUG |  |  | 2026-04-30 | P1 |
+| FIX-18-03-02 | Fix | read_file cannot open externalised tool results under tmp/ | Done | Released | FEAT-18-03, EPIC-18 | BUG | cc74b22 |  | 2026-05-03 | P1 |
 | FIX-18-03-03 | Fix | Externalise cleanup fails with EPERM on iCloud-synced vaults | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  | 2026-04-30 | P2 |
 | FIX-18-03-04 | Fix | FastPath planner JSON parse fails -- recipe aborts mid-task | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  | 2026-04-30 | P2 |
-| FIX-18-04-01 | Fix | Streaming Tool-Error verschluckt + edit_file-Schleife bei grossen Diffs | Open | Building | FEAT-18-04, EPIC-18 | BUG |  |  | 2026-04-30 | P1 |
+| FIX-18-04-01 | Fix | Streaming Tool-Error verschluckt + edit_file-Schleife bei grossen Diffs | Done | Released | FEAT-18-04, EPIC-18 | BUG | (4 providers, EditFileTool) |  | 2026-05-03 | P1 |
 
 ### EPIC-19: Knowledge Maintenance
 
@@ -458,7 +458,7 @@ Phase: Building | Status: Active
 | FEAT-22-05 | Feature | Slash Skill Autocomplete | Done | Released | EPIC-22 | BA |  |  | 2026-04-30 |  |
 | FEAT-22-06 | Feature | Inline @-Reference | Done | Released | EPIC-22 | BA |  |  | 2026-04-30 |  |
 | FEAT-22-07 | Feature | Prefix Split + `+` Menu Integration | Done | Released | EPIC-22 | BA |  |  | 2026-04-30 |  |
-| FIX-22-07-01 | Fix | Sidebar view crashes during BRAT hot-reload (opens before doLoad) | Open | Building | FEAT-22-07, EPIC-22 | BUG |  |  | 2026-04-30 | P0 |
+| FIX-22-07-01 | Fix | Sidebar view crashes during BRAT hot-reload (opens before doLoad) | Done | Released | FEAT-22-07, EPIC-22 | BUG | b504cd6 |  | 2026-05-03 | P0 |
 
 ### EPIC-23: Cross-Surface AI Workflow
 
@@ -615,6 +615,11 @@ ADRs and PLANs that span multiple epics.
 | PLAN-07 | Plan | - Memory v2 Phase 4 Single-Call Update | Draft | Building | FEAT-03-18, ADR-76, ADR-77, ADR-83 | ARCH |  |  | 2026-04-30 |  |
 | PLAN-08 | Plan | - Memory v2 Phase 4.5 Agent-Self Layer | Draft | Building | FEAT-03-19, ADR-77, ADR-85 | ARCH |  |  | 2026-04-30 |  |
 | PLAN-09 | Plan | - ChatGPT OAuth Provider (EPIC-21) | Active | Building | FEAT-00-21, ADR-88, ADR-89 | ARCH |  |  | 2026-04-30 |  |
+| PLAN-10 | Plan | - BA-25 Phase 1 Foundation (Schema-Bundle + Auto-Summary) | Active | Building | BA-25, EPIC-03 | ARCH |  |  | 2026-05-03 |  |
+| PLAN-11 | Plan | - BA-25 Phase 2 Lint-Foundation | Done | Released | BA-25, EPIC-03 | ARCH |  |  | 2026-05-03 |  |
+| PLAN-12 | Plan | - BA-25 Phase 3 Ingest-Foundation | Active | Building | BA-25, EPIC-03 | ARCH |  |  | 2026-05-03 |  |
+| PLAN-13 | Plan | - BA-25 Phase 4 Power-User-Erweiterungen (Backend) | Active | Building | BA-25, EPIC-03 | ARCH |  |  | 2026-05-03 |  |
+| PLAN-14 | Plan | - BA-25 Phase 5 Erweiterte Schichten (Stufe-3 + Top-Hub-Block) | Active | Building | BA-25, EPIC-03 | ARCH |  |  | 2026-05-03 |  |
 
 ---
 

@@ -2,7 +2,6 @@
 id: FEAT-23-05
 title: update_memory V1-Deprecation + Migrations-Helper
 epic: EPIC-23
-status: Active
 priority: P0
 date: 2026-05-03
 related-bas: BA-26
