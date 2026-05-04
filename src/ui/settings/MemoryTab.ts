@@ -346,7 +346,6 @@ export class MemoryTab {
 
         containerEl.createEl('p', {
             cls: 'agent-settings-paragraph',
-            // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Obsilo" is the product brand name
             text: 'See what Obsilo remembers about you and how it knows itself. To add an entry, just say it in chat (for example: remember, I do not like emojis). This view is for checking what is stored and removing entries you do not want.',
         });
 
@@ -364,7 +363,6 @@ export class MemoryTab {
         // Right-to-be-forgotten -- always available, two-step confirmation
         new Setting(containerEl)
             .setName('Delete all memory')
-            // eslint-disable-next-line obsidianmd/ui/sentence-case -- "DELETE" is the literal confirmation phrase the user types
             .setDesc('Permanently removes every entry across user memory, agent soul, sessions, and the audit log. Requires typing the literal word DELETE to confirm.')
             .addButton((b) => b
                 .setButtonText('Delete all')
@@ -412,7 +410,6 @@ export class MemoryTab {
                 'Defaults to your Memory Model.',
             )
             .addDropdown(d => {
-                // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Memory Model" references the literal setting label above
                 d.addOption('', 'Use the configured memory model');
                 for (const m of activeModels) {
                     d.addOption(getModelKey(m), `${m.displayName ?? m.name} (${m.provider})`);
@@ -439,7 +436,6 @@ export class MemoryTab {
         const fs = this.plugin.globalFs;
         const embeddingService = this.plugin.embeddingService;
         if (!memDB?.isOpen() || !fs || !embeddingService) {
-            // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Obsilo" is the product brand name
             new Notice('Obsilo upgrade: memory DB, file adapter, or embedding service not ready');
             return;
         }

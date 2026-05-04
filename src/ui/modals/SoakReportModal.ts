@@ -51,14 +51,12 @@ export class SoakReportModal extends Modal {
                         await navigator.clipboard.writeText(this.json);
                         new Notice('Soak report copied. Paste into chat.');
                     } catch {
-                        // Fall back to legacy execCommand; works inside an
-                        // active modal because the document has focus.
-                        ta.select();
-                        const ok = document.execCommand('copy');
-                        new Notice(ok
-                            ? 'Soak report copied. Paste into chat.'
-                            : 'Copy failed -- select the text manually and copy.',
-                        );
+                        // Clipboard rejected (no focus, permission denied).
+                        // The textarea is auto-selected on focus, so the
+                        // user can still copy manually with Cmd/Ctrl+C, or
+                        // use "Save to vault" instead.
+                        ta.focus();
+                        new Notice('Copy blocked -- select the text and press Cmd/Ctrl+C, or use Save to vault.');
                     }
                 }))
             .addButton((btn) => btn

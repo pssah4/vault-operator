@@ -1409,25 +1409,18 @@ export const en: Translations = {
     'copilot.signedOut': 'Signed out from GitHub copilot.',
 
     // ChatGPT OAuth (EPIC-021). Brand names (ChatGPT, Plus, Pro) and acronyms
-    // (OS) appear inside several strings here. The obsidianmd sentence-case
-    // rule does not recognise these as proper nouns, so each flagged entry
-    // gets an eslint-disable with the brand-name justification.
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
+    // (OS) are recognised as proper nouns by the obsidianmd sentence-case rule,
+    // so no disables are needed.
     'chatgpt.auth': 'ChatGPT account',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT", "Plus", "Pro" are brand and product names
     'chatgpt.authDesc': 'Use your ChatGPT Plus or Pro subscription. This uses unofficial codex endpoints; the schema can change without notice.',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
     'chatgpt.signIn': 'Sign in with ChatGPT',
     'chatgpt.signOut': 'Disconnect',
     'chatgpt.notConnected': 'Not connected',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "OS" is an acronym
     'chatgpt.unsupportedPlatform': 'Desktop only (OS keychain required)',
     'chatgpt.polling': 'Waiting for browser...',
     'chatgpt.openedBrowser': 'Browser opened. Complete sign-in there, then return to Obsidian.',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
     'chatgpt.authSuccess': 'Successfully connected to ChatGPT.',
     'chatgpt.authFailed': 'Sign-in failed: {error}',
-    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- "ChatGPT" is a brand name
     'chatgpt.signedOut': 'Disconnected from ChatGPT.',
 
     // Kilo gateway
