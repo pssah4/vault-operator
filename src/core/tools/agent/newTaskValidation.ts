@@ -33,10 +33,10 @@ export type ValidationResult =
  * error string ready to push as tool result.
  */
 export function validateNewTaskInput(raw: Record<string, unknown>): ValidationResult {
-    const mode = String(raw.mode ?? '').trim();
-    const message = String(raw.message ?? '').trim();
-    const justificationCategory = String(raw.justification_category ?? '').trim().toUpperCase();
-    const justificationReason = String(raw.justification_reason ?? '').trim();
+    const mode = (typeof raw.mode === 'string' ? raw.mode : '').trim();
+    const message = (typeof raw.message === 'string' ? raw.message : '').trim();
+    const justificationCategory = (typeof raw.justification_category === 'string' ? raw.justification_category : '').trim().toUpperCase();
+    const justificationReason = (typeof raw.justification_reason === 'string' ? raw.justification_reason : '').trim();
 
     if (!mode) return { ok: false, error: 'mode parameter is required' };
     if (!message) return { ok: false, error: 'message parameter is required' };

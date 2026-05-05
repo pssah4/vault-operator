@@ -701,7 +701,8 @@ export class SemanticIndexService {
             const hitsByPath = new Map<string, Set<string>>();
             for (const row of result[0].values) {
                 const path = row[0] as string;
-                const tag = String(row[1] ?? '').toLowerCase();
+                const tagRaw = row[1];
+                const tag = (typeof tagRaw === 'string' ? tagRaw : '').toLowerCase();
                 if (!tag) continue;
                 const tagTokens = SemanticIndexService.tokenize(tag);
                 for (const tt of tagTokens) {

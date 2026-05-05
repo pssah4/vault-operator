@@ -77,7 +77,7 @@ class MemoryV2UpgradeModalImpl extends Modal {
 
         const later = contentEl.createEl('p');
         later.appendText('You can run this upgrade later from ');
-        later.createEl('em', { text: 'Settings → memory → Obsilo upgrade' });
+        later.createEl('em', { text: 'Settings → memory → run upgrade' });
         later.appendText('. The dialog only appears once per release.');
 
         new Setting(contentEl)

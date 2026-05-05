@@ -99,7 +99,7 @@ export async function handleExecuteVaultOp(
         result = await pipeline.executeTool(
             toolCall,
             {
-                pushToolResult(content: string | unknown): void {
+                pushToolResult(content: unknown): void {
                     if (typeof content === 'string') {
                         resultParts.push(content);
                     } else if (Array.isArray(content)) {
@@ -146,7 +146,7 @@ export async function handleExecuteVaultOp(
     };
 }
 
-function extractPipelineText(content: string | unknown): string {
+function extractPipelineText(content: unknown): string {
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) {
         return content

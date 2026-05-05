@@ -924,8 +924,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                         // Klick-Handler fuer dezenten Trigger; nur wenn Notice-API verfuegbar.
                         const el = notice.messageEl;
                         if (el) {
-                            // eslint-disable-next-line obsidianmd/no-static-styles-assignment -- transient inline cursor on a Notice toast (no theme involvement)
-                            el.style.setProperty('cursor', 'pointer');
+                            el.classList.add('agent-u-cursor-pointer');
                             el.addEventListener('click', () => {
                                 notice.hide();
                                 new Notice(
@@ -1381,37 +1380,37 @@ export default class ObsidianAgentPlugin extends Plugin {
         // BA-25 FEAT-19-10: Frontmatter-Backfill-Job Command
         this.addCommand({
             id: 'ba25-run-frontmatter-backfill',
-            name: 'BA-25: Frontmatter-Backfill-Job ausfuehren',
+            name: 'Run frontmatter backfill job',
             callback: () => { void this.runFrontmatterBackfill(); },
         });
 
         // BA-25 FEAT-19-15: Inbox-Workflow Triage-Pass
         this.addCommand({
             id: 'ba25-run-inbox-triage',
-            name: 'BA-25: Inbox-Triage ausfuehren (auf konfigurierte Auto-Trigger-Property)',
+            name: 'Run inbox triage on the configured auto-trigger property',
             callback: () => { void this.runInboxTriage(); },
         });
 
         // BA-25 FEAT-19-11: MOC-Auto-Pflege manuell triggern
         this.addCommand({
             id: 'ba25-refresh-moc-pages',
-            name: 'BA-25: MOC-Pflege jetzt aktualisieren (Marker-Block)',
+            name: 'Refresh map-of-content pages now (marker block)',
             callback: () => { void this.refreshAllMOCs(); },
         });
 
         // BA-25 FEAT-19-11: Initial-Marker-Injection in MOC-Kandidaten.
         this.addCommand({
             id: 'ba25-inject-moc-markers',
-            name: 'BA-25: MOC-Marker initial einfuegen (Cluster-Kandidaten)',
+            name: 'Inject initial map-of-content markers into cluster candidates',
             callback: () => { void this.injectInitialMOCMarkers(); },
         });
 
         // BA-25 FEAT-03-26: Top-Hub-Block manueller Refresh
         this.addCommand({
             id: 'ba25-refresh-top-hub-block',
-            name: 'BA-25: Top-Hub-Block jetzt regenerieren',
+            name: 'Regenerate top-hub block now',
             callback: () => {
-                if (!this.topHubBlockGenerator) { new Notice('Top-Hub-Generator nicht verfuegbar.'); return; }
+                if (!this.topHubBlockGenerator) { new Notice('Top-hub generator not available.'); return; }
                 const r = this.topHubBlockGenerator.generate();
                 this.topHubBlockState = r.state;
                 this.topHubBlockMarkdown = r.block;
@@ -2172,7 +2171,7 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     async runFrontmatterBackfill(): Promise<void> {
         if (!this.noteSummaryStore || !this.frontmatterPropertyStore) {
-            new Notice('BA-25: Stores nicht initialisiert. Plugin reload?');
+            new Notice('Stores not initialized. Reload the plugin?');
             return;
         }
         const cfg = this.settings.vaultIngest ?? DEFAULT_VAULT_INGEST_SETTINGS;
@@ -2195,7 +2194,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             { storageMode },
             summaryGenerator,
         );
-        new Notice('BA-25: Backfill gestartet. Fortschritt in der Konsole.', 5000);
+        new Notice('Backfill started. See progress in the console.', 5000);
         const result = await job.run({}, (progress) => {
             if (progress.processed % 50 === 0 && progress.processed > 0) {
                 new Notice(`Backfill: ${progress.processed}/${progress.total} (${progress.summariesWritten} Summaries, ${progress.errors} Fehler)`, 4000);
@@ -2213,7 +2212,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     async runInboxTriage(): Promise<void> {
         const cfg = this.settings.vaultIngest ?? DEFAULT_VAULT_INGEST_SETTINGS;
         if (!cfg.autoTrigger.propertyName) {
-            new Notice('BA-25 Inbox-Triage: bitte Auto-Trigger-Property in Settings konfigurieren.');
+            new Notice('Inbox triage: configure an auto-trigger property in settings first.');
             return;
         }
         const expectedValues = Array.isArray(cfg.autoTrigger.propertyValue)
@@ -2305,7 +2304,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     async injectInitialMOCMarkers(): Promise<void> {
         const { findAutoBlock, replaceOrInsertAutoBlock } = await import('./core/ingest/MOCMaintainer');
         if (!this.knowledgeDB?.isOpen()) {
-            new Notice('KnowledgeDB nicht verfuegbar.');
+            new Notice('Knowledge database not available.');
             return;
         }
         const knownClusters = new Set<string>();
@@ -2325,7 +2324,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             console.debug('[BA-25] ontology cluster lookup failed:', e);
         }
         if (knownClusters.size === 0) {
-            new Notice('Keine Cluster bekannt -- Ontologie zuerst aufbauen.');
+            new Notice('No clusters known. Build the ontology first.');
             return;
         }
 

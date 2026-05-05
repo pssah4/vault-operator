@@ -46,7 +46,7 @@ export async function handleUpdateMemory(
     // Telemetry: count legacy invocations so we know when to remove
     // the tool entirely. Best-effort.
     try {
-        plugin.memoryV2Telemetry?.legacyUpdateMemory?.({
+        void plugin.memoryV2Telemetry?.legacyUpdateMemory?.({
             category,
             sourceInterface: typeof args.source_interface === 'string' ? args.source_interface : 'unknown',
         });

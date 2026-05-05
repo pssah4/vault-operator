@@ -6,6 +6,51 @@ All notable changes to Obsilo Agent are documented here. Format follows
 
 ---
 
+## [2.7.1] -- 2026-05-05
+
+### Fixed
+
+- **FIX-14-03-01 (P1).** Relay poll interval raised from 2 s to 10 s. Cloudflare
+  Workers Free Plan caps requests at 100k/day per account; the 2 s polling
+  alone produced 43.200 requests/day per open Obsidian instance, independent of
+  actual MCP usage. With BRAT hot reloads and multi-device setups the cap was
+  hit even on idle days, surfacing as HTTP 429 + worker code 1027 (quota
+  exhausted). Poll interval and reconnect delays moved into named constants in
+  `src/mcp/RelayClient.ts` so the cost story is explicit. (FEAT-14-03,
+  EPIC-14, ADR-55.)
+- **FIX-14-03-02 (P2).** Relay `pollLoop` bare `catch {}` hid HTTP status,
+  body, and stack. Replaced with a `describeRequestError` helper that builds a
+  one-line diagnostic and a `redactToken` helper that strips the relay token
+  before logging. After 3 consecutive failures a single Notice surfaces the
+  outage without devtools. AUDIT-005 H-2 / H-3 still hold: every logged string
+  runs through token redaction. (FEAT-14-03, EPIC-14, ADR-55, AUDIT-005.)
+
+### Compliance
+
+- **Review-bot pass on PR #11394.** 29 findings flagged on the public mirror
+  commit `c17f37d` cleared. Mix of TypeScript hygiene rules and the
+  `obsidianmd/ui/sentence-case*` family.
+  - Stringification (`@typescript-eslint/no-base-to-string`): type guards
+    instead of `String(unknown)` in `AutoTriggerObserver.matchesValue`,
+    `SemanticIndexService` tag lookup, and `validateNewTaskInput` (4 fields).
+  - Unbound method: `DeepIngestPipeline` wraps `TensionDetector.markerWorthy`
+    in an arrow function so `this` stays bound.
+  - Floating promise: `updateMemory` legacy telemetry call prefixed with
+    `void`.
+  - Redundant union: `string | unknown` -> `unknown` in `executeVaultOp`
+    (`string` is already a subtype).
+  - `obsidianmd/no-static-styles-assignment` disable in `main.ts` line 927
+    replaced by a new `.agent-u-cursor-pointer` utility CSS class.
+  - Sentence case (29 strings): `Obsilo` brand removed from settings, error
+    and onboarding copy ("the agent" instead). ChatGPT account block reworded
+    to avoid `ChatGPT` / `OS` / `Plus` / `Pro` tokens. Eleven BA-25 commands
+    and notices in `main.ts` translated from German to English. `MOC` replaced
+    with `map-of-content` / `hub` in vault settings.
+- **Plugin store submission ready.** Local ESLint with bot-style rules
+  reports 0 errors on the entire codebase.
+
+---
+
 ## [2.7.0] -- 2026-05-04
 
 ### Added

@@ -22,19 +22,66 @@
  * FEATURE-1403: Remote Transport
  */
 
-import { requestUrl } from 'obsidian';
+import { Notice, requestUrl } from 'obsidian';
 import type ObsidianAgentPlugin from '../main';
 import { handleToolCall } from './tools/index';
+
+// FIX-14-03-01: 10s default. Workers Free Plan has 100k requests/day per
+// account. At 2s the plugin alone burns 43.200/day per open Obsidian instance,
+// independent of actual MCP usage. 10s drops that to ~8.640/day, leaving
+// headroom for external clients and multi-device setups.
+const POLL_INTERVAL_MS = 10_000;
+const INITIAL_RECONNECT_DELAY_MS = 5_000;
+const MAX_RECONNECT_DELAY_MS = 60_000;
+
+// FIX-14-03-02: Diagnostic notice after this many consecutive poll failures.
+// Plugin reload would reset the counter; the goal is to surface persistent
+// outages (Worker quota, expired token, network) without spamming every retry.
+const POLL_FAILURE_NOTICE_THRESHOLD = 3;
+const ERROR_BODY_MAX_CHARS = 200;
+
+/**
+ * FIX-14-03-02: Build a one-line diagnostic from a thrown requestUrl error.
+ * Obsidian's requestUrl rejects with `{ status, headers, text? }`-shaped
+ * objects on non-2xx responses, but network failures throw plain Errors.
+ * We extract status and a short body slice, then run the result through
+ * redactToken() so AUDIT-005 H-2/H-3 (no token material in logs) holds.
+ */
+export function describeRequestError(err: unknown, token: string): string {
+    const e = err as { status?: number; text?: string; message?: string; name?: string };
+    const status = typeof e?.status === 'number' ? `HTTP ${e.status}` : null;
+    const body = typeof e?.text === 'string' ? e.text : (e?.message ?? '');
+    const trimmed = body.length > ERROR_BODY_MAX_CHARS
+        ? `${body.slice(0, ERROR_BODY_MAX_CHARS)}...`
+        : body;
+    const sanitized = redactToken(trimmed.replace(/\s+/g, ' ').trim(), token);
+    if (status && sanitized) return `${status}: ${sanitized}`;
+    if (status) return status;
+    if (sanitized) return sanitized;
+    return e?.name ?? 'unknown error';
+}
+
+export function redactToken(text: string, token: string): string {
+    if (!text) return text;
+    let out = text;
+    if (token && token.length > 0) {
+        out = out.split(token).join('<redacted>');
+    }
+    // Generic Bearer header pattern, in case some other path leaked the token.
+    return out.replace(/Bearer\s+[A-Za-z0-9._\-+/=]+/gi, 'Bearer <redacted>');
+}
 
 export class RelayClient {
     private polling = false;
     private _connected = false;
     private _connecting = false;
     private shouldReconnect = true;
-    private reconnectDelay = 1000;
-    private maxReconnectDelay = 30000;
+    private reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+    private maxReconnectDelay = MAX_RECONNECT_DELAY_MS;
     private relayUrl = '';
     private token = '';
+    private consecutivePollFailures = 0;
+    private noticeShownForCurrentOutage = false;
 
     constructor(private plugin: ObsidianAgentPlugin) {}
 
@@ -53,7 +100,7 @@ export class RelayClient {
         this.relayUrl = cleanUrl;
         this.token = token;
         this.shouldReconnect = true;
-        this.reconnectDelay = 1000;
+        this.reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
         this.startPolling();
     }
 
@@ -85,9 +132,11 @@ export class RelayClient {
                 if (!this._connected) {
                     this._connected = true;
                     this._connecting = false;
-                    this.reconnectDelay = 1000;
+                    this.reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
                     console.debug('[RelayClient] Connected to relay');
                 }
+                this.consecutivePollFailures = 0;
+                this.noticeShownForCurrentOutage = false;
 
                 // M-1: Runtime validation of relay response
                 const data = response.json as { requests?: unknown[] };
@@ -99,15 +148,34 @@ export class RelayClient {
                     }
                 }
 
-                // Short-poll interval: wait 2s before next poll
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            } catch {
+                // Short-poll interval: see POLL_INTERVAL_MS (FIX-14-03-01)
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+            } catch (err) {
                 if (!this.shouldReconnect) break;
 
                 this._connected = false;
                 this._connecting = true;
-                // H-2: No token material in logs
-                console.warn('[RelayClient] Poll failed, retrying in', this.reconnectDelay, 'ms');
+                this.consecutivePollFailures += 1;
+
+                // FIX-14-03-02: Log status + sanitized body so an outage is
+                // diagnosable without devtools. H-2 / H-3 (AUDIT-005) still
+                // require zero token material in logs, so the message is
+                // run through redactToken() before printing.
+                const detail = describeRequestError(err, this.token);
+                console.warn(
+                    `[RelayClient] Poll failed (${detail}), retrying in ${this.reconnectDelay} ms`,
+                );
+
+                if (
+                    this.consecutivePollFailures >= POLL_FAILURE_NOTICE_THRESHOLD &&
+                    !this.noticeShownForCurrentOutage
+                ) {
+                    new Notice(
+                        `Obsilo MCP relay nicht erreichbar (${detail}). Details in der Konsole.`,
+                        8000,
+                    );
+                    this.noticeShownForCurrentOutage = true;
+                }
 
                 await new Promise(resolve => setTimeout(resolve, this.reconnectDelay));
                 this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);

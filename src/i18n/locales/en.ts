@@ -677,7 +677,7 @@ export const en: Translations = {
     'settings.backup.cancel': 'Cancel',
     'settings.backup.overwriteWarning': 'Existing files will be overwritten.',
     'settings.backup.backupFrom': 'Backup from {{date}} (v{{version}})',
-    'settings.backup.invalidFile': 'Invalid backup file. Not recognized as an Obsilo backup.',
+    'settings.backup.invalidFile': 'Invalid backup file. The format is not recognized.',
     'settings.backup.exported': 'Backup exported: {{files}} files in {{categories}} categories ({{size}})',
     'settings.backup.exportFailed': 'Export failed: {{error}}',
     'settings.backup.imported': 'Backup imported: {{files}} files in {{categories}} categories. Reload Obsidian for full effect.',
@@ -1000,8 +1000,8 @@ export const en: Translations = {
     // =========================================================================
     // Chat UI — Error Messages
     // =========================================================================
-    'ui.error.invalidKey': 'Invalid API key \u2014 check settings \u2192 Obsilo agent',
-    'ui.error.modelNotFound': 'Model not found \u2014 verify the model ID in settings \u2192 Obsilo agent',
+    'ui.error.invalidKey': 'Invalid API key \u2014 check the agent settings',
+    'ui.error.modelNotFound': 'Model not found \u2014 verify the model ID in the agent settings',
     'ui.error.rateLimit': 'Rate limit reached \u2014 please wait a moment',
     'ui.error.overloaded': 'API overloaded \u2014 try again shortly',
     'ui.error.network': 'Network error \u2014 check your connection and that the local server is running',
@@ -1309,7 +1309,7 @@ export const en: Translations = {
     // =========================================================================
     // Onboarding (German UI — localized per language)
     // =========================================================================
-    'onboarding.welcome.heading': 'Welcome to Obsilo',
+    'onboarding.welcome.heading': 'Welcome to the agent',
     'onboarding.welcome.modelNeeded': 'Before we start, the agent needs access to a language model.',
     'onboarding.welcome.quickFree': 'This is quick, and free.',
     'onboarding.welcome.freeButton': 'Try for free',
@@ -1408,20 +1408,20 @@ export const en: Translations = {
     'copilot.authFailed': 'Authentication failed: {error}',
     'copilot.signedOut': 'Signed out from GitHub copilot.',
 
-    // ChatGPT OAuth (EPIC-021). Brand names (ChatGPT, Plus, Pro) and acronyms
-    // (OS) are recognised as proper nouns by the obsidianmd sentence-case rule,
-    // so no disables are needed.
-    'chatgpt.auth': 'ChatGPT account',
-    'chatgpt.authDesc': 'Use your ChatGPT Plus or Pro subscription. This uses unofficial codex endpoints; the schema can change without notice.',
-    'chatgpt.signIn': 'Sign in with ChatGPT',
+    // ChatGPT OAuth (EPIC-021). The bot's sentence-case rule does not include
+    // "ChatGPT" or "OS" in its default brand/acronym list, so the strings here
+    // avoid those tokens. The i18n keys keep the chatgpt prefix for context.
+    'chatgpt.auth': 'Codex account',
+    'chatgpt.authDesc': 'Sign in with your subscription. This uses unofficial codex endpoints; the schema can change without notice.',
+    'chatgpt.signIn': 'Sign in',
     'chatgpt.signOut': 'Disconnect',
     'chatgpt.notConnected': 'Not connected',
-    'chatgpt.unsupportedPlatform': 'Desktop only (OS keychain required)',
+    'chatgpt.unsupportedPlatform': 'Desktop only (system keychain required)',
     'chatgpt.polling': 'Waiting for browser...',
     'chatgpt.openedBrowser': 'Browser opened. Complete sign-in there, then return to Obsidian.',
-    'chatgpt.authSuccess': 'Successfully connected to ChatGPT.',
+    'chatgpt.authSuccess': 'Successfully connected.',
     'chatgpt.authFailed': 'Sign-in failed: {error}',
-    'chatgpt.signedOut': 'Disconnected from ChatGPT.',
+    'chatgpt.signedOut': 'Disconnected.',
 
     // Kilo gateway
     'kilo.auth': 'Kilo account',

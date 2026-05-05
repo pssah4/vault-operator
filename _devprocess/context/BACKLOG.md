@@ -307,6 +307,9 @@ Phase: Released | Status: Done
 | FEAT-14-09 | Feature | Connectors Directory Submission | Done | Released | EPIC-14 | BA |  |  | 2026-04-30 |  |
 | FEAT-14-10 | Feature | Sandbox Exposure via MCP | Done | Released | EPIC-14 | BA |  |  | 2026-04-30 |  |
 | FEAT-14-11 | Feature | Memory Transparency (Agent vs. Human) | Done | Released | EPIC-14 | BA |  |  | 2026-04-30 |  |
+| FIX-14-03-01 | Fix | Relay-Poll laeuft endlos in Backoff weil Cloudflare Worker mit HTTP 429 + 1027 antwortet | Done | Released v2.7.1 | FEAT-14-03, EPIC-14, ADR-55 | BUG | 3be9eca |  | 2026-05-05 | P1 |
+| FIX-14-03-02 | Fix | RelayClient verschluckt Poll-Fehler, Diagnose nur ueber DevTools moeglich | Done | Released v2.7.1 | FEAT-14-03, EPIC-14, ADR-55, AUDIT-005 | BUG | d2d2bec |  | 2026-05-05 | P2 |
+| FIX-PR11394 | Fix | ReviewBot PR #11394 findings auf c17f37d (29x stringification, unbound, floating-promise, redundant-union, sentence-case, no-static-styles disable) | Done | Released v2.7.1 | EPIC-25 | BUG | f1a4ba0 |  | 2026-05-05 | P1 |
 
 ### EPIC-15: Unified Knowledge Layer
 

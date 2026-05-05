@@ -5851,6 +5851,7 @@
     pointer-events: none !important;
 }
 .agent-u-height-auto   { height: auto !important; }
+.agent-u-cursor-pointer { cursor: pointer; }
 
 /* Copy button spacing (SystemPromptPreviewModal) */
 .agent-u-mb-12 { margin-bottom: 12px; }

@@ -239,7 +239,7 @@ export class MemoryTab {
     private buildCrossSurfaceSection(containerEl: HTMLElement): void {
         containerEl.createEl('h3', {
             cls: 'agent-settings-section',
-            text: 'Cross-surface sync (MCP)',
+            text: 'Cross-surface sync',
         });
         containerEl.createEl('p', {
             cls: 'agent-settings-desc',
@@ -282,7 +282,7 @@ export class MemoryTab {
 
         // FIX-23-01-01: Living-Document default
         new Setting(containerEl)
-            .setName('Living-Document by default')
+            .setName('Living-document by default')
             .setDesc(
                 'When on (default), save_conversation calls within 30 minutes from the same source append to the existing conversation '
                 + 'instead of creating a new one. Memory-extraction runs incrementally on the new turns. Turn off if you want every '
@@ -346,7 +346,7 @@ export class MemoryTab {
 
         containerEl.createEl('p', {
             cls: 'agent-settings-paragraph',
-            text: 'See what Obsilo remembers about you and how it knows itself. To add an entry, just say it in chat (for example: remember, I do not like emojis). This view is for checking what is stored and removing entries you do not want.',
+            text: 'See what the agent remembers about you and how it knows itself. To add an entry, just say it in chat (for example: remember that emojis are unwanted). This view is for checking what is stored and removing entries you do not want.',
         });
 
         new Setting(containerEl)
@@ -363,7 +363,7 @@ export class MemoryTab {
         // Right-to-be-forgotten -- always available, two-step confirmation
         new Setting(containerEl)
             .setName('Delete all memory')
-            .setDesc('Permanently removes every entry across user memory, agent soul, sessions, and the audit log. Requires typing the literal word DELETE to confirm.')
+            .setDesc('Permanently removes every entry across user memory, agent soul, sessions, and the audit log. Requires a typed confirmation word.')
             .addButton((b) => b
                 .setButtonText('Delete all')
                 .setWarning()
@@ -436,7 +436,7 @@ export class MemoryTab {
         const fs = this.plugin.globalFs;
         const embeddingService = this.plugin.embeddingService;
         if (!memDB?.isOpen() || !fs || !embeddingService) {
-            new Notice('Obsilo upgrade: memory DB, file adapter, or embedding service not ready');
+            new Notice('Memory upgrade: memory database, file adapter, or embedding service not ready');
             return;
         }
 

@@ -95,7 +95,7 @@ export class DeepIngestPipeline {
 
         // 3. Markdown-Body anreichern mit Tension-Markern (Inline-Callouts)
         const tensionFooter = tensionMarkers
-            .filter(TensionDetector.markerWorthy)
+            .filter((t) => TensionDetector.markerWorthy(t))
             .map((t) => TensionDetector.renderMarker(t))
             .filter(Boolean)
             .join('\n\n');

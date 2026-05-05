@@ -142,7 +142,12 @@ export class AutoTriggerObserver {
         if (value === null || value === undefined) return false;
         const expected = this.options.propertyValue;
         const expectedArr = Array.isArray(expected) ? expected : [expected];
-        const valueStrs = Array.isArray(value) ? value.map(String) : [String(value)];
+        const toScalar = (v: unknown): string => {
+            if (typeof v === 'string') return v;
+            if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+            return '';
+        };
+        const valueStrs = Array.isArray(value) ? value.map(toScalar) : [toScalar(value)];
         for (const v of valueStrs) {
             if (expectedArr.includes(v)) return true;
         }

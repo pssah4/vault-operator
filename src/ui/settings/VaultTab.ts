@@ -552,13 +552,13 @@ export class VaultTab {
             .setDesc('Scans all notes that match the auto-trigger property and queues them as pending in the triage log.')
             .addButton((btn) => btn.setButtonText('Triage inbox').onClick(() => { void this.plugin.runInboxTriage(); }));
         new Setting(containerEl)
-            .setName('Insert MOC markers')
-            .setDesc('A MOC (map-of-content) is a hub note that lists related notes. This action inserts the auto-generated marker block into all MOC candidate notes whose name matches a known cluster. Idempotent (safe to re-run).')
+            .setName('Insert map-of-content markers')
+            .setDesc('A map-of-content is a hub note that lists related notes. This action inserts the auto-generated marker block into all hub-candidate notes whose name matches a known cluster. Idempotent (safe to re-run).')
             .addButton((btn) => btn.setButtonText('Insert markers').onClick(() => { void this.plugin.injectInitialMOCMarkers(); }));
         new Setting(containerEl)
-            .setName('Refresh MOC pages')
-            .setDesc('Updates the auto-generated marker blocks inside MOC pages. User-edited blocks are skipped.')
-            .addButton((btn) => btn.setButtonText('Refresh MOC pages').onClick(() => { void this.plugin.refreshAllMOCs(); }));
+            .setName('Refresh map-of-content pages')
+            .setDesc('Updates the auto-generated marker blocks inside hub pages. User-edited blocks are skipped.')
+            .addButton((btn) => btn.setButtonText('Refresh hub pages').onClick(() => { void this.plugin.refreshAllMOCs(); }));
         new Setting(containerEl)
             .setName('Regenerate top-hub block')
             .setDesc('Manually rebuild the cached system-prompt block listing your top hubs. Otherwise it only refreshes when hub membership changes (with a 24h cooldown).')
