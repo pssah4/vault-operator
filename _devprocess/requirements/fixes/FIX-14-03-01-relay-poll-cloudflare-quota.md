@@ -6,6 +6,9 @@ adr-refs: [ADR-55]
 plan-refs: []
 depends-on: []
 created: 2026-05-04
+status: Resolved in v2.7.1
+resolved: 2026-05-05
+commit: 3be9eca
 ---
 
 # FIX-14-03-01: Relay-Poll laeuft endlos in Backoff weil Cloudflare Worker mit HTTP 429 + Errorcode 1027 antwortet

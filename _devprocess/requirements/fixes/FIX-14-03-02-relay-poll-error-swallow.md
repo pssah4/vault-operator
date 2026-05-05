@@ -6,6 +6,9 @@ adr-refs: [ADR-55]
 plan-refs: []
 depends-on: []
 created: 2026-05-04
+status: Resolved in v2.7.1
+resolved: 2026-05-05
+commit: d2d2bec
 ---
 
 # FIX-14-03-02: RelayClient verschluckt Poll-Fehler komplett, Diagnose nur ueber Browser-DevTools moeglich
