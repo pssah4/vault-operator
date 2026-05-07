@@ -1,6 +1,6 @@
 ---
 name: meeting-summary
-description: Erstellt eine kompakte, in 1 Minute erfassbare Zusammenfassung einer Transkript-Note. Strikt am Transkript, keine Interpretationen. Setzt Block-IDs an Schluesselpassagen, verlinkt jede Aussage in der Zusammenfassung dezent via ↗-Symbol auf die Quellpassage. Single-Note-Layout (Summary oben, Transkript unten).
+description: Compact summary of a transcript note that stays digestible in under a minute. Strictly on the transcript, no interpretations. Sets block-IDs at key passages and links each statement in the summary discreetly via ↗ symbol to the source passage. Single-note layout (summary on top, transcript below).
 trigger: meeting.*summary|meeting.*zusammenfassung|protokoll|transkript.*zusammenfassung|gespraechsprotokoll|besprechung.*notiz
 source: bundled
 requiredTools: [read_file]

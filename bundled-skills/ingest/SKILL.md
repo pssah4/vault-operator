@@ -1,6 +1,6 @@
 ---
 name: ingest
-description: Schneller Single-Pass-Ingest einer Quelle (PDF/Markdown/URL/DOCX/PPTX/XLSX) in eine Single-Note (Frontmatter + Overview + Kernaussagen + Originaltext). PDFs bleiben page-refs (kein Mirror-Zwang). Block-Refs zur Source als dezentes ↗-Symbol pro Kernaussage. Kein Multi-Turn-Dialog.
+description: Quick single-pass ingest of a source (PDF/Markdown/URL/DOCX/PPTX/XLSX) into one note (frontmatter + overview + key points + original text). PDFs stay page-refs (no mirror enforcement). Block-refs to the source rendered as a discreet ↗ symbol per key point. No multi-turn dialog.
 trigger: schneller.*ingest|quick.*ingest|inbox.*aufnahme|webclip.*ingest|aufnehmen.*note|integriere.note
 source: bundled
 requiredTools: [ingest_document, read_file, read_document]
