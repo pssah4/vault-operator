@@ -31,6 +31,50 @@ Karpathy-Multi-Turn ist teuer. Halte den Token-Verbrauch klein:
 - **Kein `list_files` als Workaround.** Wenn der Pfad unklar ist,
   frag den User.
 
+## Step 0a: Template lesen (Pflicht, vor dem ersten Tool-Call)
+
+Das Frontmatter-Template kommt aus den Settings:
+`vaultIngest.templates.ingestDeepNoteTemplate` (vault-relativer Pfad).
+
+Vorgehen:
+
+1. Setting-Wert pruefen. Wenn nicht-leer:
+   - `read_file path="<setting-wert>"` -> extrahiere den Frontmatter-
+     Block (zwischen den `---`-Zeilen).
+   - Diese Felder bilden die Frontmatter-Basis fuer die neue Note.
+   - Werte aus der Quelle (Autor, Jahr, URL etc.) einfuellen,
+     leere Felder leer lassen.
+2. Wenn Setting leer: nutze den Inline-Default unten.
+
+**Inline-Default (Fallback wenn Setting leer):**
+
+```yaml
+---
+Zusammenfassung:
+Autor:
+Jahr:
+ISBN:
+URL:
+Notizen:
+Themen:
+Konzepte:
+Meeting-Notizen:
+Kategorie:
+  - Quelle
+Typ:
+tags:
+Permanent: false
+---
+```
+
+Pflicht-Felder die der Skill aus der Quelle ableitet und einfuellt:
+`Zusammenfassung`, `Autor`, `Jahr`, `URL`, `Themen`, `Konzepte`,
+`Typ`, `tags`. `Kategorie: [Quelle]` bleibt fix (siehe FEAT-19-27
+Auto-Trigger-Konvention).
+
+Bei Konflikt zwischen Template-Feldern und Quellen-Daten: Template
+gewinnt fuer die Struktur, Quellen-Daten gewinnen fuer die Werte.
+
 ## Step 0: Source-Typ erkennen (Pflicht, vor allem anderen)
 
 Quelle kommt entweder als **Chat-Attachment** (User hat eine Datei in

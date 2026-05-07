@@ -45,6 +45,43 @@ Pro Thema ein Gliederungspunkt:
 - Am Ende Todo-Liste mit Aufgaben aus dem Termin (sofern klar besprochen).
 - Neutraler, informativer Stil.
 
+## Frontmatter-Template (Pflicht, vor dem Schreiben)
+
+Das Frontmatter der Meeting-Note kommt aus den Settings:
+`vaultIngest.templates.meetingSummaryTemplate` (vault-relativer Pfad).
+
+Vorgehen:
+
+1. Setting-Wert pruefen. Wenn nicht-leer:
+   - `read_file path="<setting-wert>"` -> extrahiere den Frontmatter-
+     Block.
+   - Felder einfuellen: `Zusammenfassung`, `Datum`, `Personen`,
+     `Themen`, `Konzepte`, `Projekt`, `Quellen`, `tags`.
+2. Wenn Setting leer: nutze den Inline-Default unten.
+
+**Inline-Default (Fallback wenn Setting leer):**
+
+```yaml
+---
+Zusammenfassung:
+Datum:
+Personen:
+Themen:
+Konzepte:
+Notizen:
+Meeting-Notizen:
+Projekt:
+Quellen:
+Kategorie:
+  - Meeting-Notiz
+tags:
+Permanent: false
+---
+```
+
+Wenn die Active-Note bereits Frontmatter hat: nicht ueberschreiben,
+sondern fehlende Felder ergaenzen. Bestehende Werte bleiben.
+
 ## Block-Ref-Konvention
 
 Pro Aussage in der Zusammenfassung muss ein Quell-Verweis auf die

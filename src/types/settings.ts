@@ -874,6 +874,22 @@ export interface VaultIngestSettings {
         /** Default 5: globale Hints pro Tag (Cap). */
         maxHintsPerDay: number;
     };
+    /**
+     * FEAT-19-31 / IMP-19-31-01: vom User konfigurierbare Frontmatter-
+     * Templates pro Ingest-Skill. Skill liest das angegebene File aus
+     * dem Vault und nutzt das Frontmatter als Basis fuer die generierte
+     * Quellen-Note. Bei leerem Pfad faellt der Skill auf die mit dem
+     * Plugin gebuendelten Defaults zurueck (siehe
+     * `bundled-templates/notes/`).
+     */
+    templates: {
+        /** Vault-relativer Pfad. Default leer -> bundled `quelle-template.md`. Genutzt von /ingest. */
+        ingestNoteTemplate: string;
+        /** Vault-relativer Pfad. Default leer -> bundled `quelle-template.md`. Genutzt von /ingest-deep. */
+        ingestDeepNoteTemplate: string;
+        /** Vault-relativer Pfad. Default leer -> bundled `meeting-notiz-template.md`. Genutzt von /meeting-summary. */
+        meetingSummaryTemplate: string;
+    };
 }
 
 /**
@@ -907,6 +923,11 @@ export const DEFAULT_VAULT_INGEST_SETTINGS: VaultIngestSettings = {
     topHubBlock: {
         enabled: false,
         privacyAcknowledged: false,
+    },
+    templates: {
+        ingestNoteTemplate: '',
+        ingestDeepNoteTemplate: '',
+        meetingSummaryTemplate: '',
     },
     stufe2Hint: {
         enabled: false,

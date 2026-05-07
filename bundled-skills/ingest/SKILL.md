@@ -23,6 +23,46 @@ Meeting-Transkripte (-> /meeting-summary).
   keine list_files-Erkundung.
 - **STOP-on-Error.** Bei Tool-Fehler: User informieren, fertig.
 
+## Step 0a: Template lesen (Pflicht, vor dem ingest_document-Aufruf)
+
+Das Frontmatter-Template kommt aus den Settings:
+`vaultIngest.templates.ingestNoteTemplate` (vault-relativer Pfad).
+
+Vorgehen:
+
+1. Setting-Wert pruefen. Wenn nicht-leer:
+   - `read_file path="<setting-wert>"` -> extrahiere den Frontmatter-
+     Block (zwischen den `---`-Zeilen).
+   - Diese Felder bilden die Frontmatter-Basis fuer den
+     `header_content`.
+   - Werte aus der Quelle (Autor, Jahr, URL etc.) einfuellen.
+2. Wenn Setting leer: nutze den Inline-Default unten.
+
+**Inline-Default (Fallback wenn Setting leer):**
+
+```yaml
+---
+Zusammenfassung:
+Autor:
+Jahr:
+ISBN:
+URL:
+Notizen:
+Themen:
+Konzepte:
+Meeting-Notizen:
+Kategorie:
+  - Quelle
+Typ:
+tags:
+Permanent: false
+---
+```
+
+Pflicht-Felder die der Skill aus der Quelle ableitet und einfuellt:
+`Zusammenfassung`, `Autor`, `Jahr`, `URL`, `Themen`, `Konzepte`,
+`Typ`, `tags`. `Kategorie: [Quelle]` bleibt fix.
+
 ## Step 0: Source-Typ und Tool-Wahl
 
 Schau in deinen Kontext:

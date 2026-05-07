@@ -12,13 +12,13 @@ Last update: by /dia-migration
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
 | Planned | 15 | Released | 358 | Epic | 23 |
-| Active | 24 | Building | 45 | Feature | 203 |
-| Done | 250 | Planned | 9 | Fix | 50 |
-| Accepted | 110 | Candidates | 0 | Improvement | 13 |
+| Active | 24 | Building | 46 | Feature | 203 |
+| Done | 251 | Planned | 9 | Fix | 50 |
+| Accepted | 110 | Candidates | 0 | Improvement | 14 |
 | Draft | 12 |  |  | ADR | 110 |
 | Proposed | 0 |  |  | Plan | 13 |
 
-Total artifacts: 412
+Total artifacts: 413
 
 ---
 
@@ -392,7 +392,8 @@ Phase: Building | Status: Active
 | FIX-19-12-02 | Fix | 12-02: URL-Sanitizer in IngestTriageLogStore (Query-Params strippen) | Done | Released | FEAT-19-12, EPIC-19 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/45 |
 | FIX-19-27-01 | Fix | 27-01: Rate-Limit fuer AutoTriggerObserver gegen vault.on-Storm | Done | Released | FEAT-19-27, EPIC-19 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/46 |
 | FIX-19-28-01 | Fix | 28-01: Sense-Making-Note enthaelt keine Source-Position-Marker (Page-Refs / Block-Refs fehlen im Default-Pfad) | Done | Building | FEAT-19-28, EPIC-19 | BUG |  |  | | P0 Issue#11 PLAN-15 (1307 tests pass, build clean, awaiting merge to dev for Released)  Issue: https://github.com/pssah4/obsilo-dev/issues/47 |
-| FIX-19-28-02 | Fix | 28-02: Chat-Attachments leben nur 1 Turn -- ingest_document attachment_index schlaegt ab Turn 2 fehl, Skill rutscht in Retry-Loop (~12 EUR Token-Cost) | Active | Building | FEAT-19-28, FEAT-19-31, EPIC-19 | BUG |  |  | 2026-05-07 | P1 Live-Test 2026-05-07 (Skill v2 + Tool-Errormsg landed, persistent-attachment-state als IMP separat) |
+| FIX-19-28-02 | Fix | 28-02: Chat-Attachments leben nur 1 Turn -- ingest_document attachment_index schlaegt ab Turn 2 fehl, Skill rutscht in Retry-Loop (~12 EUR Token-Cost) | Active | Building | FEAT-19-28, FEAT-19-31, EPIC-19 | BUG |  |  | 2026-05-07 | P1 Live-Test 2026-05-07 (Skill v2 + Tool-Errormsg landed, persistent-attachment-state als IMP separat)  Issue: https://github.com/pssah4/obsilo-dev/issues/57 |
+| IMP-19-31-01 | Improvement | 31-01: User-konfigurierbare Note-Templates fuer /ingest, /ingest-deep, /meeting-summary (Settings-UI + bundled defaults) | Done | Building | FEAT-19-31, EPIC-19 | AUDIT |  |  | 2026-05-07 | P1 Live-Test 2026-05-07 |
 | FEAT-19-31 | Feature | Ingest- und Synthese-Skill-Suite (/ingest-deep, /ingest, /meeting-summary) | Done | Building | EPIC-19, ADR-103, FIX-19-28-01 | BA |  |  | | Issue#11 (3 SKILL.md in bundled-skills/, embed-assets 9->12, vault-deploy ok)  Issue: https://github.com/pssah4/obsilo-dev/issues/49 |
 | IMP-19-08-01 | Improvement | 08-01: Strukturierter Output-Parser fuer Summary-Prompt (Keywords/Themen/Konzepte) | Planned | Planned | FEAT-19-08, EPIC-19 | AUDIT |  |  | 2026-05-07 | P2 Audit2026-05-07  Issue: https://github.com/pssah4/obsilo-dev/issues/50 |
 | IMP-19-13-01 | Improvement | 13-01: TensionDetector default-instanziiert im IngestDeepTool-Produktpfad | Planned | Planned | FEAT-19-13, EPIC-19 | AUDIT |  |  | 2026-05-07 | P2 Audit2026-05-07  Issue: https://github.com/pssah4/obsilo-dev/issues/51 |
