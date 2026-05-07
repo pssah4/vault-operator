@@ -1023,7 +1023,7 @@ knowledge.db wurde von Schema v9 auf v10 migriert (ADR-92). 11 neue ADRs fuer de
 
 Cross-Referenzen:
 - HANDOFFS.md Eintrag BA-25 Vollstaendige Implementierung 2026-05-03
-- AUDIT-014 Report: `_devprocess/analysis/security/AUDIT-014-obsilo-2026-04-29.md`
+- AUDIT-014 Report: `_devprocess/analysis/AUDIT-014-obsilo-2026-04-29.md`
 - Wiring-Pass-Commits: 8a68a19, 3e55bc9, 80cb540
 
 Critical Hypotheses (H-01..H-15) sind in der KPI-Section adressiert und durch die Implementation testbar geworden. Live-Validation laeuft mit dem Release v2.7.0.
