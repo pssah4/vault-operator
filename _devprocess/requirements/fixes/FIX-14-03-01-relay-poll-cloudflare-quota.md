@@ -6,7 +6,6 @@ adr-refs: [ADR-55]
 plan-refs: []
 depends-on: []
 created: 2026-05-04
-status: Resolved in v2.7.1
 resolved: 2026-05-05
 commit: 3be9eca
 ---

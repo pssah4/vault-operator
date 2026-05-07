@@ -1,7 +1,6 @@
 ---
 id: ADR-92
 title: Schema-Migration knowledge.db v9 -> v10 (4-Tabellen-Bundle)
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:

@@ -1,7 +1,6 @@
 ---
 id: ADR-96
 title: MOC-Marker-Konvention (HTML-Comment-Marker)
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:

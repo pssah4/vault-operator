@@ -2,7 +2,6 @@
 id: PLAN-14
 title: BA-25 Phase 5 Erweiterte Schichten (Stufe-3 + Top-Hub-Block)
 date: 2026-05-03
-status: Active
 feature-refs: [FEAT-19-11, FEAT-19-15, FEAT-19-20, FEAT-03-26]
 adr-refs: [ADR-96, ADR-97, ADR-105]
 pair-id: sebastian-opus-4.7

@@ -1,7 +1,6 @@
 ---
 id: ADR-99
 title: Tension-Detection-Algorithmus (Hybrid Cosine + LLM)
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:

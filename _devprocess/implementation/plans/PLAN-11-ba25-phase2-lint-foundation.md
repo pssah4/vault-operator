@@ -2,7 +2,6 @@
 id: PLAN-11
 title: BA-25 Phase 2 Lint-Foundation
 date: 2026-05-03
-status: Done
 feature-refs: [FEAT-19-16, FEAT-19-17, FEAT-19-18]
 adr-refs: [ADR-94, ADR-106]
 pair-id: sebastian-opus-4.7

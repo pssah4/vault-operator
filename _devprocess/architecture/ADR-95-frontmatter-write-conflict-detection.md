@@ -1,7 +1,6 @@
 ---
 id: ADR-95
 title: Frontmatter-Write Conflict-Detection
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:

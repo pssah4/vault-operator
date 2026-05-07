@@ -1,7 +1,6 @@
 ---
 id: ADR-94
 title: Cluster-Halbwertszeit-Modell (statische Defaults editierbar)
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:
