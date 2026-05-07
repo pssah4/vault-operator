@@ -90,7 +90,7 @@ unterwegs Ideen erfasst.
 
 ### 2.2 Current State ("As-Is")
 
-Der `/dia-orchestrator`-Orchestrator hat den `Explore`-Subagent mit
+Der `/dia-guide`-Orchestrator hat den `Explore`-Subagent mit
 einer umfangreichen Codebase-Analyse beauftragt. Die wichtigsten
 Befunde:
 
@@ -802,7 +802,7 @@ in Phase 3 zusaetzliche Discovery-Runden erfordert.
 ### D. References
 
 - Explore-Subagent-Report "As-Is Mobile-Blocker-Report (Obsilo
-  v2.6.0)", 2026-04-22. Inline im /dia-orchestrator-Transcript.
+  v2.6.0)", 2026-04-22. Inline im /dia-guide-Transcript.
 - Obsidian Platform API (`Platform.isDesktop`, `Platform.isMobile`).
 - MEMORY.md Community-Wave-1 + Wave-4 Eintraege (Community-
   Signale).
