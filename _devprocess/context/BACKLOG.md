@@ -32,18 +32,18 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-01-01 | Feature | Agent Core Loop | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-02 | Feature | Core Agent Interaction & Modes | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-03 | Feature | Vault Operations (Full CRUD) | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-04 | Feature | Vault Tools (Read, Write, Intelligence) | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-05 | Feature | Controlled Content Editing | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-06 | Feature | Permissions & Approval | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-07 | Feature | Checkpoints (Undo / Restore) | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-08 | Feature | Operation Logging & Audit Trail | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-09 | Feature | Tool Execution Pipeline | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-10 | Feature | Parallel Tool Execution | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-11 | Feature | Diff Stats Badge | Done | Released | EPIC-01 | BA |  |  |  |  |
-| FEAT-01-12 | Feature | Attachments, Clipboard, and Images | Done | Released | EPIC-01 | BA |  |  |  |  |
+| FEAT-01-01 | Feature | Agent Core Loop | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/137 |
+| FEAT-01-02 | Feature | Core Agent Interaction & Modes | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/138 |
+| FEAT-01-03 | Feature | Vault Operations (Full CRUD) | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/139 |
+| FEAT-01-04 | Feature | Vault Tools (Read, Write, Intelligence) | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/140 |
+| FEAT-01-05 | Feature | Controlled Content Editing | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/141 |
+| FEAT-01-06 | Feature | Permissions & Approval | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/142 |
+| FEAT-01-07 | Feature | Checkpoints (Undo / Restore) | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/143 |
+| FEAT-01-08 | Feature | Operation Logging & Audit Trail | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/144 |
+| FEAT-01-09 | Feature | Tool Execution Pipeline | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/145 |
+| FEAT-01-10 | Feature | Parallel Tool Execution | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/146 |
+| FEAT-01-11 | Feature | Diff Stats Badge | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/147 |
+| FEAT-01-12 | Feature | Attachments, Clipboard, and Images | Done | Released | EPIC-01 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/148 |
 | FIX-01-01-01 | Fix | Anthropic API rejects history with orphaned tool_use blocks | Done | Released | FEAT-01-01, EPIC-01 | BUG |  |  |  | P0  Issue: https://github.com/pssah4/obsilo-dev/issues/68 |
 | FIX-01-12-01 | Fix | Drag-and-drop from Obsidian file explorer opens tab instead of attaching | Done | Released | FEAT-01-12, EPIC-01 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/69 |
 | FIX-01-07-01 | Fix | 07-01: Checkpoint-Snapshot legt neue Dateien nicht ab -- 'No files staged' trotz newFiles=1 | Open | Building | FEAT-01-07, EPIC-01 | BUG |  |  | 2026-05-08 | P2 Live-Test 2026-05-08 (Logging vs. echter Snapshot-Bug zu validieren)  Issue: https://github.com/pssah4/obsilo-dev/issues/63 |
@@ -55,16 +55,16 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-02-01 | Feature | Rules | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-02 | Feature | Workflows & Slash Commands | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-03 | Feature | Skills | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-04 | Feature | PAS-1 – Local Skills | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-05 | Feature | VaultDNA — Automatic Plugin Discovery | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-06 | Feature | Autocomplete | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-07 | Feature | Custom Prompts (Slash Command Templates) | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-08 | Feature | Chat History | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-09 | Feature | Modes | Done | Released | EPIC-02 | BA |  |  |  |  |
-| FEAT-02-10 | Feature | Custom Instructions, Custom Modes, and Rules | Done | Released | EPIC-02 | BA |  |  |  |  |
+| FEAT-02-01 | Feature | Rules | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/149 |
+| FEAT-02-02 | Feature | Workflows & Slash Commands | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/150 |
+| FEAT-02-03 | Feature | Skills | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/151 |
+| FEAT-02-04 | Feature | PAS-1 – Local Skills | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/152 |
+| FEAT-02-05 | Feature | VaultDNA — Automatic Plugin Discovery | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/153 |
+| FEAT-02-06 | Feature | Autocomplete | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/154 |
+| FEAT-02-07 | Feature | Custom Prompts (Slash Command Templates) | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/155 |
+| FEAT-02-08 | Feature | Chat History | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/156 |
+| FEAT-02-09 | Feature | Modes | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/157 |
+| FEAT-02-10 | Feature | Custom Instructions, Custom Modes, and Rules | Done | Released | EPIC-02 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/158 |
 | FIX-02-04-01 | Fix | Agent nutzt built-in `create_excalidraw` statt Excalidraw-Plugin (Plugin-Routing | Done | Released | FEAT-02-04, EPIC-02 | BUG |  |  |  | P0  Issue: https://github.com/pssah4/obsilo-dev/issues/70 |
 
 ### EPIC-03: Context, Memory & Scaling
@@ -74,33 +74,33 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-03-01 | Feature | Semantic Search & Index | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-02 | Feature | Keyword Search Upgrade — Stemming + TF-IDF + Word Boundaries | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-03 | Feature | Context Management (Active Files & Tabs) | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-04 | Feature | Memory, Chat History & Personalization | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-05 | Feature | Multi-Agent (new_task) | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-06 | Feature | Context Condensing & Power Steering | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-07 | Feature | Power Steering | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-08 | Feature | Tool Repetition Detection | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-09 | Feature | Canvas & Bases Tools | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-10 | Feature | Global Storage Architecture | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-11 | Feature | Safe Storage (Encrypted API Keys) | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-12 | Feature | Modular System Prompt Architecture | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-13 | Feature | Import Models from Code Snippet | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-14 | Feature | Knowledge-DB-Haertung | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-15 | Feature | Memory-Engine-Foundation | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-16 | Feature | Memory-Migration und Vault-RRF-Quick-Win | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-17 | Feature | Dynamic Context Composition | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-18 | Feature | Single-Call Update Pipeline und Combined Note-Index-Pass | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-19 | Feature | Living Document UX | Done | Released | EPIC-03 | BA |  |  |  |  |
+| FEAT-03-01 | Feature | Semantic Search & Index | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/159 |
+| FEAT-03-02 | Feature | Keyword Search Upgrade — Stemming + TF-IDF + Word Boundaries | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/160 |
+| FEAT-03-03 | Feature | Context Management (Active Files & Tabs) | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/161 |
+| FEAT-03-04 | Feature | Memory, Chat History & Personalization | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/162 |
+| FEAT-03-05 | Feature | Multi-Agent (new_task) | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/163 |
+| FEAT-03-06 | Feature | Context Condensing & Power Steering | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/164 |
+| FEAT-03-07 | Feature | Power Steering | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/165 |
+| FEAT-03-08 | Feature | Tool Repetition Detection | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/166 |
+| FEAT-03-09 | Feature | Canvas & Bases Tools | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/167 |
+| FEAT-03-10 | Feature | Global Storage Architecture | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/168 |
+| FEAT-03-11 | Feature | Safe Storage (Encrypted API Keys) | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/169 |
+| FEAT-03-12 | Feature | Modular System Prompt Architecture | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/170 |
+| FEAT-03-13 | Feature | Import Models from Code Snippet | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/171 |
+| FEAT-03-14 | Feature | Knowledge-DB-Haertung | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/172 |
+| FEAT-03-15 | Feature | Memory-Engine-Foundation | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/173 |
+| FEAT-03-16 | Feature | Memory-Migration und Vault-RRF-Quick-Win | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/174 |
+| FEAT-03-17 | Feature | Dynamic Context Composition | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/175 |
+| FEAT-03-18 | Feature | Single-Call Update Pipeline und Combined Note-Index-Pass | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/176 |
+| FEAT-03-19 | Feature | Living Document UX | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/177 |
 | FEAT-03-19b | Feature | Agent-Self Layer (Soul, Capabilities, Self-Awareness) | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-20 | Feature | History Search ueber alle Konversationen | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-21 | Feature | Engine-Extract zu @obsilo/memory-engine | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-22 | Feature | Privacy und Forget-Right | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-23 | Feature | Memory-UX, Onboarding und Settings-Migration | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-24 | Feature | Inference-Pass fuer Derives | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-25 | Feature | Vault-Note-zu-Fact-Extraction | Done | Released | EPIC-03 | BA |  |  |  |  |
-| FEAT-03-26 | Feature | Selektiver Top-Hub-Block im KV-Cache | Done | Released | EPIC-03 | BA |  |  |  |  |
+| FEAT-03-20 | Feature | History Search ueber alle Konversationen | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/178 |
+| FEAT-03-21 | Feature | Engine-Extract zu @obsilo/memory-engine | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/179 |
+| FEAT-03-22 | Feature | Privacy und Forget-Right | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/180 |
+| FEAT-03-23 | Feature | Memory-UX, Onboarding und Settings-Migration | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/181 |
+| FEAT-03-24 | Feature | Inference-Pass fuer Derives | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/182 |
+| FEAT-03-25 | Feature | Vault-Note-zu-Fact-Extraction | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/183 |
+| FEAT-03-26 | Feature | Selektiver Top-Hub-Block im KV-Cache | Done | Released | EPIC-03 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/184 |
 | FIX-03-06-01 | Fix | Session-Summary .md-Dateien werden nicht geschrieben | Done | Released | FEAT-03-06, EPIC-03 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/71 |
 | FIX-03-06-02 | Fix | Memory-Extractor und Context-Prefix-Generator retry-spammen bei permanenten Prov | Done | Released | FEAT-03-06, EPIC-03 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/72 |
 | FIX-03-14-01 | Fix | - WriterLock nicht verdrahtet | Done | Released | FEAT-03-14, EPIC-03 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/73 |
@@ -110,9 +110,9 @@ Phase: Building | Status: Active
 | FIX-03-25-01 | Fix | 25-01: FEAT-03-25 falsch auf Done -- VaultMemorySourceService fehlt komplett | Done | Released | FEAT-03-25, EPIC-03 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/77 |
 | FIX-03-26-01 | Fix | 26-01: Settings-UI-Hinweis fuer Top-Hub-Block Privacy-Trade-Off | Done | Released | FEAT-03-26, EPIC-03 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/78 |
 | FIX-03-26-02 | Fix | 26-02: Top-Hub-Block + andere Settings-Toggles reagieren nach Privacy-Ack nicht  | Done | Released | FEAT-03-26, EPIC-03 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/79 |
-| IMP-03-17-01 | Improvement | IMP-03-17-01: recall_memory queryFacts auf Cosine ueber fact_embeddings | Planned | Building | FEAT-03-17, EPIC-03 | USER |  |  |  |  |
+| IMP-03-17-01 | Improvement | IMP-03-17-01: recall_memory queryFacts auf Cosine ueber fact_embeddings | Planned | Building | FEAT-03-17, EPIC-03 | USER |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/185 |
 | IMP-03-18-01 | Improvement | IMP-03-18-01: AgingService Daily-Scheduler | Planned | Building | FEAT-03-18, EPIC-03 | USER |  |  |  |  |
-| IMP-03-18-02 | Improvement | IMP-03-18-02: DriftEventBus Subscriber in ExtractionQueue | Planned | Building | FEAT-03-18, EPIC-03 | USER |  |  |  |  |
+| IMP-03-18-02 | Improvement | IMP-03-18-02: DriftEventBus Subscriber in ExtractionQueue | Planned | Building | FEAT-03-18, EPIC-03 | USER |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/186 |
 
 ### EPIC-04: Providers, Web & Localization
 
@@ -121,19 +121,19 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-04-00 | Feature | create_pptx Tool | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-01 | Feature | create_docx Tool | Done | Released | EPIC-04 | BA |  |  |  |  |
+| FEAT-04-00 | Feature | create_pptx Tool | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/187 |
+| FEAT-04-01 | Feature | create_docx Tool | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/188  Issue: https://github.com/pssah4/obsilo-dev/issues/189 |
 | FEAT-04-01 | Feature | MCP Client & Tools | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-02 | Feature | create_xlsx Tool | Done | Released | EPIC-04 | BA |  |  |  |  |
+| FEAT-04-02 | Feature | create_xlsx Tool | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/190  Issue: https://github.com/pssah4/obsilo-dev/issues/191 |
 | FEAT-04-02 | Feature | Web Tools | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-03 | Feature | Providers & Models | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-04 | Feature | Agent Prompt & Skill Update | Done | Released | EPIC-04 | BA |  |  |  |  |
+| FEAT-04-03 | Feature | Providers & Models | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/192 |
+| FEAT-04-04 | Feature | Agent Prompt & Skill Update | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/193  Issue: https://github.com/pssah4/obsilo-dev/issues/194 |
 | FEAT-04-04 | Feature | Localization (i18n) | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-05 | Feature | Conversational Onboarding & Settings-Skill | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-06 | Feature | Notifications | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-07 | Feature | Agent Skill Mastery | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-08 | Feature | Ollama Provider Management | Done | Released | EPIC-04 | BA |  |  |  |  |
-| FEAT-04-09 | Feature | OpenAI-kompatible Streaming Tool-Call Robustheit | Done | Released | EPIC-04 | BA |  |  |  |  |
+| FEAT-04-05 | Feature | Conversational Onboarding & Settings-Skill | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/195 |
+| FEAT-04-06 | Feature | Notifications | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/196 |
+| FEAT-04-07 | Feature | Agent Skill Mastery | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/197 |
+| FEAT-04-08 | Feature | Ollama Provider Management | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/198 |
+| FEAT-04-09 | Feature | OpenAI-kompatible Streaming Tool-Call Robustheit | Done | Released | EPIC-04 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/199 |
 | FIX-04-09-01 | Fix | OpenAI Provider verschluckt Tool-Calls bei finish_reason="stop" | Done | Released | FEAT-04-09, EPIC-04 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/80 |
 | FIX-04-03-01 | Fix | 03-01: SummaryGenerator umgeht konfigurierten Provider, Anthropic 400 trotz OpenRouter-Setup | Open | Building | FEAT-04-03, EPIC-04, IMP-04-03-01 | BUG |  |  | 2026-05-08 | P1 Live-Test 2026-05-08, Pattern-Wiederkehr von BUG-016, Sub-Issue von IMP-04-03-01  Issue: https://github.com/pssah4/obsilo-dev/issues/60 |
 | IMP-04-03-01 | Improvement | 03-01: Provider-Bypass-Audit -- alle direkten LLM-Client-Instanziierungen auf ProviderResolver umstellen | Planned | Building | FEAT-04-03, EPIC-04, FIX-04-03-01 | AUDIT |  |  | 2026-05-08 | P2 Pattern-Audit, Parent von FIX-04-03-01 (#60)  Issue: https://github.com/pssah4/obsilo-dev/issues/65 |
@@ -145,14 +145,14 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-05-01 | Feature | Spezifikation: Agent Self-Development (Meta-Agent) | Done | Released | EPIC-05 | BA |  |  |  |  |
-| FEAT-05-02 | Feature | Spezifikation: Sandbox OS-Level Process Isolation | Done | Released | EPIC-05 | BA |  |  |  |  |
-| FEAT-05-03 | Feature | Agent Control Tools | Done | Released | EPIC-05 | BA |  |  |  |  |
-| FEAT-05-04 | Feature | Agent Self-Configuration Tools | Done | Released | EPIC-05 | BA |  |  |  |  |
-| FEAT-05-05 | Feature | Plugin API Bridge & Recipe System | Done | Released | EPIC-05 | BA |  |  |  |  |
-| FEAT-05-06 | Feature | Tool Metadata Registry | Done | Released | EPIC-05 | BA |  |  |  |  |
-| FEAT-05-07 | Feature | Konfigurierbarer Agent-Folder | Done | Released | EPIC-05 | BA |  |  |  |  |
-| FEAT-05-08 | Feature | Agent Folder Change Handling (P0/P1/P2) | Done | Released | EPIC-05 | BA |  |  |  |  |
+| FEAT-05-01 | Feature | Spezifikation: Agent Self-Development (Meta-Agent) | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/200 |
+| FEAT-05-02 | Feature | Spezifikation: Sandbox OS-Level Process Isolation | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/201 |
+| FEAT-05-03 | Feature | Agent Control Tools | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/202 |
+| FEAT-05-04 | Feature | Agent Self-Configuration Tools | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/203 |
+| FEAT-05-05 | Feature | Plugin API Bridge & Recipe System | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/204 |
+| FEAT-05-06 | Feature | Tool Metadata Registry | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/205 |
+| FEAT-05-07 | Feature | Konfigurierbarer Agent-Folder | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/206 |
+| FEAT-05-08 | Feature | Agent Folder Change Handling (P0/P1/P2) | Done | Released | EPIC-05 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/207 |
 | FIX-05-02-01 | Fix | Sandbox esbuild integrity hashes stale + vaultList('/') throws | Done | Released | FEAT-05-02, EPIC-05 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/81 |
 | FIX-05-02-02 | Fix | SandboxBridge circuit-breaker stays open, permanently blocks evaluate_expression | Done | Released | FEAT-05-02, EPIC-05 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/82 |
 | FIX-05-02-03 | Fix | SandboxBridge vault paths with trailing slash return null | Done | Released | FEAT-05-02, EPIC-05 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/83 |
@@ -164,11 +164,11 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-06-01 | Feature | Document Parsing Pipeline | Done | Released | EPIC-06 | BA |  |  |  |  |
-| FEAT-06-02 | Feature | File Picker Erweiterung | Done | Released | EPIC-06 | BA |  |  |  |  |
-| FEAT-06-03 | Feature | Token-Budget-Management | Done | Released | EPIC-06 | BA |  |  |  |  |
-| FEAT-06-04 | Feature | On-Demand Bild-Extraktion | Done | Released | EPIC-06 | BA |  |  |  |  |
-| FEAT-06-05 | Feature | Modell-Kompatibilitäts-Check | Done | Released | EPIC-06 | BA |  |  |  |  |
+| FEAT-06-01 | Feature | Document Parsing Pipeline | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/208 |
+| FEAT-06-02 | Feature | File Picker Erweiterung | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/209 |
+| FEAT-06-03 | Feature | Token-Budget-Management | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/210 |
+| FEAT-06-04 | Feature | On-Demand Bild-Extraktion | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/211 |
+| FEAT-06-05 | Feature | Modell-Kompatibilitäts-Check | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/212 |
 
 ### EPIC-07: Chat-Linking (Provenienz & Nachvollziehbarkeit)
 
@@ -177,11 +177,11 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-07-01 | Feature | Chat-Linking | Done | Released | EPIC-07 | BA |  |  |  |  |
-| FEAT-07-02 | Feature | Protocol Handler (Deep-Links) | Done | Released | EPIC-07 | BA |  |  |  |  |
-| FEAT-07-03 | Feature | Auto-Frontmatter-Linking | Done | Released | EPIC-07 | BA |  |  |  |  |
-| FEAT-07-04 | Feature | Semantisches Chat-Titling | Done | Released | EPIC-07 | BA |  |  |  |  |
-| FEAT-07-05 | Feature | Chat-Linking Setting | Done | Released | EPIC-07 | BA |  |  |  |  |
+| FEAT-07-01 | Feature | Chat-Linking | Done | Released | EPIC-07 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/213 |
+| FEAT-07-02 | Feature | Protocol Handler (Deep-Links) | Done | Released | EPIC-07 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/214 |
+| FEAT-07-03 | Feature | Auto-Frontmatter-Linking | Done | Released | EPIC-07 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/215 |
+| FEAT-07-04 | Feature | Semantisches Chat-Titling | Done | Released | EPIC-07 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/216 |
+| FEAT-07-05 | Feature | Chat-Linking Setting | Done | Released | EPIC-07 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/217 |
 | FIX-07-03-01 | Fix | ChatLink stampt ungueltiges Frontmatter (YAMLParseError) | Done | Released | FEAT-07-03, EPIC-07 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/84 |
 
 ### EPIC-08: Task Management
@@ -191,7 +191,7 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-08-01 | Feature | Task Extraction & Management | Done | Released | EPIC-08 | BA |  |  |  |  |
+| FEAT-08-01 | Feature | Task Extraction & Management | Done | Released | EPIC-08 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/218 |
 
 ### EPIC-09: Monetarisierung
 
@@ -200,8 +200,8 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-09-01 | Feature | Obsilo Gateway | Done | Released | EPIC-09 | BA |  |  |  |  |
-| FEAT-09-02 | Feature | AgentSidebarView Refactoring | Done | Released | EPIC-09 | BA |  |  |  |  |
+| FEAT-09-01 | Feature | Obsilo Gateway | Done | Released | EPIC-09 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/219 |
+| FEAT-09-02 | Feature | AgentSidebarView Refactoring | Done | Released | EPIC-09 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/220 |
 
 ### EPIC-10: Office Document Creation
 
@@ -219,21 +219,21 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-11-00 | Feature | PPTX Template-Engine (JSZip + OOXML) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-01 | Feature | Default PPTX Templates | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-02 | Feature | Pre-Creation Dialog & Template-Upload | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-03 | Feature | Theme-Extraktion (vereinfacht) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-05 | Feature | Universelle Design-Prinzipien (Skill-Erweiterung) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-08 | Feature | In-Plugin Template-Analyzer (Spatial Analysis + Skill-Generierung) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-10 | Feature | Shape-Name-Matching (Strategy S0) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-11 | Feature | Visual Design Language Document (Skill-Format) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-12 | Feature | Multimodaler Template-Analyzer (Cloud Run Backend) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-13 | Feature | Template-Analyzer Web-Frontend (obsilo.ai) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-14 | Feature | Template Gallery (Community) | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-15 | Feature | Visual Intelligence | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-16 | Feature | Schema-Constrained Slide Generation | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-17 | Feature | plan_presentation Tool | Done | Released | EPIC-11 | BA |  |  |  |  |
-| FEAT-11-18 | Feature | Catalog-Enrichment (special_role, group_id, vollstaendige Beispiele) | Done | Released | EPIC-11 | BA |  |  |  |  |
+| FEAT-11-00 | Feature | PPTX Template-Engine (JSZip + OOXML) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/221 |
+| FEAT-11-01 | Feature | Default PPTX Templates | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/222 |
+| FEAT-11-02 | Feature | Pre-Creation Dialog & Template-Upload | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/223 |
+| FEAT-11-03 | Feature | Theme-Extraktion (vereinfacht) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/224 |
+| FEAT-11-05 | Feature | Universelle Design-Prinzipien (Skill-Erweiterung) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/225 |
+| FEAT-11-08 | Feature | In-Plugin Template-Analyzer (Spatial Analysis + Skill-Generierung) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/226 |
+| FEAT-11-10 | Feature | Shape-Name-Matching (Strategy S0) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/227 |
+| FEAT-11-11 | Feature | Visual Design Language Document (Skill-Format) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/228 |
+| FEAT-11-12 | Feature | Multimodaler Template-Analyzer (Cloud Run Backend) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/229 |
+| FEAT-11-13 | Feature | Template-Analyzer Web-Frontend (obsilo.ai) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/230 |
+| FEAT-11-14 | Feature | Template Gallery (Community) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/231 |
+| FEAT-11-15 | Feature | Visual Intelligence | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/232 |
+| FEAT-11-16 | Feature | Schema-Constrained Slide Generation | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/233 |
+| FEAT-11-17 | Feature | plan_presentation Tool | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/234 |
+| FEAT-11-18 | Feature | Catalog-Enrichment (special_role, group_id, vollstaendige Beispiele) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/235 |
 
 ### EPIC-12: GitHub Copilot LLM Provider Integration
 
@@ -242,12 +242,12 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-12-01 | Feature | GitHub Copilot Auth & Token Management | Done | Released | EPIC-12 | BA |  |  |  |  |
-| FEAT-12-02 | Feature | Copilot Chat Completions Provider | Done | Released | EPIC-12 | BA |  |  |  |  |
-| FEAT-12-03 | Feature | Copilot Settings UI Integration | Done | Released | EPIC-12 | BA |  |  |  |  |
-| FEAT-12-04 | Feature | Copilot Embedding Support | Done | Released | EPIC-12 | BA |  |  |  |  |
-| FEAT-12-05 | Feature | Dynamic Copilot Model Listing | Done | Released | EPIC-12 | BA |  |  |  |  |
-| FEAT-12-06 | Feature | GitHub Copilot Modern Model Compatibility (max_completion_tokens) | Done | Released | EPIC-12 | BA |  |  |  |  |
+| FEAT-12-01 | Feature | GitHub Copilot Auth & Token Management | Done | Released | EPIC-12 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/236 |
+| FEAT-12-02 | Feature | Copilot Chat Completions Provider | Done | Released | EPIC-12 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/237 |
+| FEAT-12-03 | Feature | Copilot Settings UI Integration | Done | Released | EPIC-12 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/238 |
+| FEAT-12-04 | Feature | Copilot Embedding Support | Done | Released | EPIC-12 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/239 |
+| FEAT-12-05 | Feature | Dynamic Copilot Model Listing | Done | Released | EPIC-12 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/240 |
+| FEAT-12-06 | Feature | GitHub Copilot Modern Model Compatibility (max_completion_tokens) | Done | Released | EPIC-12 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/241 |
 | FIX-12-06-01 | Fix | GitHub Copilot Provider lehnt max_tokens fuer neuere Modelle ab | Done | Released | FEAT-12-06, EPIC-12 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/85 |
 
 ### EPIC-13: Kilo Gateway LLM Provider Integration
@@ -257,13 +257,13 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-13-01 | Feature | Kilo Auth & Session Management | Done | Released | EPIC-13 | BA |  |  |  |  |
-| FEAT-13-02 | Feature | Kilo Gateway Chat Provider | Done | Released | EPIC-13 | BA |  |  |  |  |
-| FEAT-13-03 | Feature | Kilo Settings UI Integration | Done | Released | EPIC-13 | BA |  |  |  |  |
-| FEAT-13-04 | Feature | Kilo Dynamic Model Listing | Done | Released | EPIC-13 | BA |  |  |  |  |
-| FEAT-13-05 | Feature | Kilo Organization Context | Done | Released | EPIC-13 | BA |  |  |  |  |
-| FEAT-13-06 | Feature | Kilo Embedding Support | Done | Released | EPIC-13 | BA |  |  |  |  |
-| FEAT-13-07 | Feature | Kilo Manual Token Mode | Done | Released | EPIC-13 | BA |  |  |  |  |
+| FEAT-13-01 | Feature | Kilo Auth & Session Management | Done | Released | EPIC-13 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/242 |
+| FEAT-13-02 | Feature | Kilo Gateway Chat Provider | Done | Released | EPIC-13 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/243 |
+| FEAT-13-03 | Feature | Kilo Settings UI Integration | Done | Released | EPIC-13 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/244 |
+| FEAT-13-04 | Feature | Kilo Dynamic Model Listing | Done | Released | EPIC-13 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/245 |
+| FEAT-13-05 | Feature | Kilo Organization Context | Done | Released | EPIC-13 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/246 |
+| FEAT-13-06 | Feature | Kilo Embedding Support | Done | Released | EPIC-13 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/247 |
+| FEAT-13-07 | Feature | Kilo Manual Token Mode | Done | Released | EPIC-13 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/248 |
 
 ### EPIC-14: MCP Connector
 
@@ -272,18 +272,18 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-14-00 | Feature | MCP Server Core (stdio) | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-01 | Feature | Tool-Tier-Mapping | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-02 | Feature | MCP Server Settings UI | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-03 | Feature | Remote Transport (Cloudflare Relay) | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-04 | Feature | Remote Authentication | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-05 | Feature | MCP Resources | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-06 | Feature | MCP Prompts (System-Prompt-Ersatz) | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-07 | Feature | Plugin Skill Discovery | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-08 | Feature | Remote Approval Pipeline | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-09 | Feature | Connectors Directory Submission | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-10 | Feature | Sandbox Exposure via MCP | Done | Released | EPIC-14 | BA |  |  |  |  |
-| FEAT-14-11 | Feature | Memory Transparency (Agent vs. Human) | Done | Released | EPIC-14 | BA |  |  |  |  |
+| FEAT-14-00 | Feature | MCP Server Core (stdio) | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/249 |
+| FEAT-14-01 | Feature | Tool-Tier-Mapping | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/250 |
+| FEAT-14-02 | Feature | MCP Server Settings UI | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/251 |
+| FEAT-14-03 | Feature | Remote Transport (Cloudflare Relay) | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/252 |
+| FEAT-14-04 | Feature | Remote Authentication | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/253 |
+| FEAT-14-05 | Feature | MCP Resources | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/254 |
+| FEAT-14-06 | Feature | MCP Prompts (System-Prompt-Ersatz) | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/255 |
+| FEAT-14-07 | Feature | Plugin Skill Discovery | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/256 |
+| FEAT-14-08 | Feature | Remote Approval Pipeline | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/257 |
+| FEAT-14-09 | Feature | Connectors Directory Submission | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/258 |
+| FEAT-14-10 | Feature | Sandbox Exposure via MCP | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/259 |
+| FEAT-14-11 | Feature | Memory Transparency (Agent vs. Human) | Done | Released | EPIC-14 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/260 |
 | FIX-14-03-01 | Fix | 03-01: Relay-Poll laeuft endlos in Backoff weil Cloudflare Worker mit HTTP 429 + | Done | Released | FEAT-14-03, EPIC-14 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/86 |
 | FIX-14-03-02 | Fix | 03-02: RelayClient verschluckt Poll-Fehler komplett, Diagnose nur ueber Browser- | Done | Released | FEAT-14-03, EPIC-14 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/87 |
 | FIX-14-03-03 | Fix | 03-03: MCP Cloudflare-Worker-Connect schlaegt aus Settings UI fehl | Open | Building | FEAT-14-03, EPIC-14 | BUG |  |  | 2026-05-08 | P1 Live-Test 2026-05-08, Fehlermeldung wird im Issue nachgereicht  Issue: https://github.com/pssah4/obsilo-dev/issues/64 |
@@ -295,18 +295,18 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-15-00 | Feature | SQLite Knowledge DB | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-01 | Feature | Enhanced Vector Retrieval | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-02 | Feature | Graph Data Extraction & Expansion | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-03 | Feature | Implicit Connection Discovery | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-04 | Feature | Local Reranking | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-05 | Feature | Knowledge Data Consolidation | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-06 | Feature | Implicit Connection UI | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-08 | Feature | Storage Consolidation | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-09 | Feature | Note-Summary Storage | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-10 | Feature | Frontmatter-Property Mirror | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-11 | Feature | Cluster-Source-Stats fuer Source-Diversity-Tracking | Done | Released | EPIC-15 | BA |  |  |  |  |
-| FEAT-15-12 | Feature | Cluster-Metadata mit Halbwertszeit-Konfiguration | Done | Released | EPIC-15 | BA |  |  |  |  |
+| FEAT-15-00 | Feature | SQLite Knowledge DB | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/261 |
+| FEAT-15-01 | Feature | Enhanced Vector Retrieval | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/262 |
+| FEAT-15-02 | Feature | Graph Data Extraction & Expansion | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/263 |
+| FEAT-15-03 | Feature | Implicit Connection Discovery | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/264 |
+| FEAT-15-04 | Feature | Local Reranking | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/265 |
+| FEAT-15-05 | Feature | Knowledge Data Consolidation | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/266 |
+| FEAT-15-06 | Feature | Implicit Connection UI | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/267 |
+| FEAT-15-08 | Feature | Storage Consolidation | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/268 |
+| FEAT-15-09 | Feature | Note-Summary Storage | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/269 |
+| FEAT-15-10 | Feature | Frontmatter-Property Mirror | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/270 |
+| FEAT-15-11 | Feature | Cluster-Source-Stats fuer Source-Diversity-Tracking | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/271 |
+| FEAT-15-12 | Feature | Cluster-Metadata mit Halbwertszeit-Konfiguration | Done | Released | EPIC-15 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/272 |
 | FIX-15-00-01 | Fix | KnowledgeDB Korruption durch nicht-atomare Writes + Cloud Sync | Done | Released | FEAT-15-00, EPIC-15 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/88 |
 | FIX-15-03-01 | Fix | ImplicitConnections "Statement closed" Race Condition | Done | Released | FEAT-15-03, EPIC-15 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/89 |
 | FIX-15-04-01 | Fix | Reranker ONNX-Runtime Fehler in Electron | Done | Released | FEAT-15-04, EPIC-15 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/90 |
@@ -319,7 +319,7 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-16-00 | Feature | Deferred Tool Loading | Done | Released | EPIC-16 | BA |  |  |  |  |
+| FEAT-16-00 | Feature | Deferred Tool Loading | Done | Released | EPIC-16 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/273 |
 
 ### EPIC-17: Website-Dokumentation & Roadmap
 
@@ -328,14 +328,14 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-17-00 | Feature | SSG-Migration & Grundgeruest | Done | Released | EPIC-17 | BA |  |  |  |  |
-| FEAT-17-01 | Feature | User Guide -- Informationsarchitektur & Content | Done | Released | EPIC-17 | BA |  |  |  |  |
-| FEAT-17-02 | Feature | Obsilo Doku-Skill | Done | Released | EPIC-17 | BA |  |  |  |  |
-| FEAT-17-03 | Feature | Developer Docs -- Update & Erweiterung | Done | Released | EPIC-17 | BA |  |  |  |  |
-| FEAT-17-04 | Feature | Homepage -- Roadmap & Versions-Log | Done | Released | EPIC-17 | BA |  |  |  |  |
-| FEAT-17-05 | Feature | Homepage -- Hero & Messaging Update | Done | Released | EPIC-17 | BA |  |  |  |  |
-| FEAT-17-06 | Feature | Design-Ueberarbeitung (Best-in-Class) | Done | Released | EPIC-17 | BA |  |  |  |  |
-| FEAT-17-07 | Feature | DE Uebersetzung | Done | Released | EPIC-17 | BA |  |  |  |  |
+| FEAT-17-00 | Feature | SSG-Migration & Grundgeruest | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/274 |
+| FEAT-17-01 | Feature | User Guide -- Informationsarchitektur & Content | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/275 |
+| FEAT-17-02 | Feature | Obsilo Doku-Skill | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/276 |
+| FEAT-17-03 | Feature | Developer Docs -- Update & Erweiterung | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/277 |
+| FEAT-17-04 | Feature | Homepage -- Roadmap & Versions-Log | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/278 |
+| FEAT-17-05 | Feature | Homepage -- Hero & Messaging Update | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/279 |
+| FEAT-17-06 | Feature | Design-Ueberarbeitung (Best-in-Class) | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/280 |
+| FEAT-17-07 | Feature | DE Uebersetzung | Done | Released | EPIC-17 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/281 |
 
 ### EPIC-18: Token-Kostenreduktion
 
@@ -344,11 +344,11 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-18-00 | Feature | Fast Path Execution | Done | Released | EPIC-18 | BA |  |  |  |  |
-| FEAT-18-01 | Feature | Prompt Caching (Provider-agnostisch) | Done | Released | EPIC-18 | BA |  |  |  |  |
-| FEAT-18-02 | Feature | Context Externalization (Dateisystem als Kontext) | Done | Released | EPIC-18 | BA |  |  |  |  |
-| FEAT-18-03 | Feature | Cross-Platform TMP-Pfade fuer Context Externalization | Done | Released | EPIC-18 | BA |  |  |  |  |
-| FEAT-18-04 | Feature | Cost-Aware Agent Heuristics | Done | Released | EPIC-18 | BA |  |  |  |  |
+| FEAT-18-00 | Feature | Fast Path Execution | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/282 |
+| FEAT-18-01 | Feature | Prompt Caching (Provider-agnostisch) | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/283 |
+| FEAT-18-02 | Feature | Context Externalization (Dateisystem als Kontext) | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/284 |
+| FEAT-18-03 | Feature | Cross-Platform TMP-Pfade fuer Context Externalization | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/285 |
+| FEAT-18-04 | Feature | Cost-Aware Agent Heuristics | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/286 |
 | FIX-18-03-01 | Fix | TMP-Files nicht lesbar auf Windows (Pfad-Trennzeichen) | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/91 |
 | FIX-18-03-02 | Fix | read_file cannot open externalised tool results under tmp/ | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/92 |
 | FIX-18-03-03 | Fix | Externalise cleanup fails with EPERM on iCloud-synced vaults | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/93 |
@@ -421,12 +421,12 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-20-01 | Feature | Confidence Scoring | Done | Released | EPIC-20 | BA |  |  |  |  |
-| FEAT-20-02 | Feature | Community Detection (Louvain) | Done | Released | EPIC-20 | BA |  |  |  |  |
-| FEAT-20-03 | Feature | God-Node Analysis | Done | Released | EPIC-20 | BA |  |  |  |  |
-| FEAT-20-04 | Feature | Retrieval Quality Improvements | Done | Released | EPIC-20 | BA |  |  |  |  |
-| FEAT-20-05 | Feature | Batch Ingest | Done | Released | EPIC-20 | BA |  |  |  |  |
-| FEAT-20-06 | Feature | Knowledge Freshness | Done | Released | EPIC-20 | BA |  |  |  |  |
+| FEAT-20-01 | Feature | Confidence Scoring | Done | Released | EPIC-20 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/287 |
+| FEAT-20-02 | Feature | Community Detection (Louvain) | Done | Released | EPIC-20 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/288 |
+| FEAT-20-03 | Feature | God-Node Analysis | Done | Released | EPIC-20 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/289 |
+| FEAT-20-04 | Feature | Retrieval Quality Improvements | Done | Released | EPIC-20 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/290 |
+| FEAT-20-05 | Feature | Batch Ingest | Done | Released | EPIC-20 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/291 |
+| FEAT-20-06 | Feature | Knowledge Freshness | Done | Released | EPIC-20 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/292 |
 
 ### EPIC-21: ChatGPT OAuth Provider
 
@@ -435,9 +435,9 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-21-01 | Feature | ChatGPT OAuth Lifecycle (PKCE, Loopback, Refresh) | Done | Released | EPIC-21 | BA |  |  |  |  |
-| FEAT-21-02 | Feature | Codex Responses-API Handler | Done | Released | EPIC-21 | BA |  |  |  |  |
-| FEAT-21-03 | Feature | Settings-UI mit "Mit ChatGPT anmelden" | Done | Released | EPIC-21 | BA |  |  |  |  |
+| FEAT-21-01 | Feature | ChatGPT OAuth Lifecycle (PKCE, Loopback, Refresh) | Done | Released | EPIC-21 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/293 |
+| FEAT-21-02 | Feature | Codex Responses-API Handler | Done | Released | EPIC-21 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/294 |
+| FEAT-21-03 | Feature | Settings-UI mit "Mit ChatGPT anmelden" | Done | Released | EPIC-21 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/295 |
 
 ### EPIC-22: Skill-Package Ecosystem (Anthropic-kompatibel)
 
@@ -446,13 +446,13 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-22-01 | Feature | Skill-Folder-Struktur (SKILL.md + Subfolders) | Done | Released | EPIC-22 | BA |  |  |  |  |
-| FEAT-22-02 | Feature | Universal Skill-Import (.md / Folder / .skill-Zip) | Done | Released | EPIC-22 | BA |  |  |  |  |
-| FEAT-22-03 | Feature | Scripts-im-Skill (Sandbox-Aufruf) | Done | Released | EPIC-22 | BA |  |  |  |  |
-| FEAT-22-04 | Feature | Coordinator-Skill (Multi-Rolle in einem Ordner) | Done | Released | EPIC-22 | BA |  |  |  |  |
-| FEAT-22-05 | Feature | Slash Skill Autocomplete | Done | Released | EPIC-22 | BA |  |  |  |  |
-| FEAT-22-06 | Feature | Inline @-Reference | Done | Released | EPIC-22 | BA |  |  |  |  |
-| FEAT-22-07 | Feature | Prefix Split + `+` Menu Integration | Done | Released | EPIC-22 | BA |  |  |  |  |
+| FEAT-22-01 | Feature | Skill-Folder-Struktur (SKILL.md + Subfolders) | Done | Released | EPIC-22 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/296 |
+| FEAT-22-02 | Feature | Universal Skill-Import (.md / Folder / .skill-Zip) | Done | Released | EPIC-22 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/297 |
+| FEAT-22-03 | Feature | Scripts-im-Skill (Sandbox-Aufruf) | Done | Released | EPIC-22 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/298 |
+| FEAT-22-04 | Feature | Coordinator-Skill (Multi-Rolle in einem Ordner) | Done | Released | EPIC-22 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/299 |
+| FEAT-22-05 | Feature | Slash Skill Autocomplete | Done | Released | EPIC-22 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/300 |
+| FEAT-22-06 | Feature | Inline @-Reference | Done | Released | EPIC-22 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/301 |
+| FEAT-22-07 | Feature | Prefix Split + `+` Menu Integration | Done | Released | EPIC-22 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/302 |
 | FIX-22-07-01 | Fix | Sidebar view crashes during BRAT hot-reload (opens before doLoad) | Done | Released | FEAT-22-07, EPIC-22 | BUG |  |  |  | P0  Issue: https://github.com/pssah4/obsilo-dev/issues/99 |
 
 ### EPIC-23: Cross-Surface AI Workflow
@@ -462,15 +462,15 @@ Phase: Building | Status: Active
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-23-01 | Feature | save_to_memory + save_conversation MCP-Tools | Done | Released | EPIC-23 | BA |  |  |  |  |
-| FEAT-23-02 | Feature | recall_memory + search_history MCP-Tools | Done | Released | EPIC-23 | BA |  |  |  |  |
-| FEAT-23-03 | Feature | History-Sidebar Source-Tabs + Read-Only-View | Done | Released | EPIC-23 | BA |  |  |  |  |
-| FEAT-23-04 | Feature | Source-Interface-Tagging + Settings Cross-Surface-Sync | Done | Released | EPIC-23 | BA |  |  |  |  |
-| FEAT-23-05 | Feature | update_memory V1-Deprecation + Migrations-Helper | Done | Released | EPIC-23 | BA |  |  |  |  |
-| FEAT-23-06 | Feature | Memory-Profile-System (Wiedervorlage) | Done | Released | EPIC-23 | BA |  |  |  |  |
+| FEAT-23-01 | Feature | save_to_memory + save_conversation MCP-Tools | Done | Released | EPIC-23 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/303 |
+| FEAT-23-02 | Feature | recall_memory + search_history MCP-Tools | Done | Released | EPIC-23 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/304 |
+| FEAT-23-03 | Feature | History-Sidebar Source-Tabs + Read-Only-View | Done | Released | EPIC-23 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/305 |
+| FEAT-23-04 | Feature | Source-Interface-Tagging + Settings Cross-Surface-Sync | Done | Released | EPIC-23 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/306 |
+| FEAT-23-05 | Feature | update_memory V1-Deprecation + Migrations-Helper | Done | Released | EPIC-23 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/307 |
+| FEAT-23-06 | Feature | Memory-Profile-System (Wiedervorlage) | Done | Released | EPIC-23 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/308 |
 | FIX-23-01-01 | Fix | 01-01: save_conversation Living-Document-Semantik + Cross-Interface-Thread-Klamm | Done | Released | FEAT-23-01, EPIC-23 | BUG |  |  |  | P0  Issue: https://github.com/pssah4/obsilo-dev/issues/100 |
 | FIX-23-01-02 | Fix | 01-02: sync_session ohne source_interface landet im falschen Tab | Done | Released | FEAT-23-01, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/101 |
-| FIX-23-01-03 | Fix | 01-03: Auto-Session-Tracking erzeugt Duplikat-Eintrag bei EPIC-23 Tools | Done | Released | FEAT-23-01, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/102 |
+| FIX-23-01-03 | Fix | 01-03: Auto-Session-Tracking erzeugt Duplikat-Eintrag bei EPIC-23 Tools | Done | Released | FEAT-23-01, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/102  Issue: https://github.com/pssah4/obsilo-dev/issues/311 |
 | FIX-23-01-04 | Fix | 01-04: ensureSession erzeugt leere ConversationStore-Row bei jedem MCP-Call -> l | Done | Released | FEAT-23-01, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/103 |
 | FIX-23-01-05 | Fix | 01-05: save_conversation per-message-size-cap (DoS-Vektor, AUDIT-015 H-1) | Done | Released | FEAT-23-01, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/104 |
 | FIX-23-04-01 | Fix | 04-01: Perplexity MCP-Connect schlaegt mit "Unexpected content type" fehl | Done | Released | FEAT-23-04, EPIC-23 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/105 |
@@ -483,8 +483,8 @@ Phase: Building | Status: Active
 | FIX-23-04-08 | Fix | 04-08: get_context strictSourceIsolation gating (AUDIT-016 M-3) | Done | Released | FEAT-23-04, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/112 |
 | FIX-23-04-09 | Fix | 04-09: ConversationStore.generateId crypto.randomUUID (AUDIT-016 M-4) | Done | Released | FEAT-23-04, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/113 |
 | FIX-23-04-10 | Fix | 04-10: ActiveMcpSessions ohne Hash + cosine NaN-Guard + OutputModeGenerator inst | Done | Released | FEAT-23-04, EPIC-23 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/114 |
-| IMP-23-01-01 | Improvement | IMP-23-01-01: Eval-Coverage Pass: MCP-Tool-Handlers + Vault-Tools + FrontmatterI | Planned | Building | FEAT-23-01, EPIC-23 | USER |  |  |  |  |
-| IMP-23-04-05 | Improvement | IMP-23-04-05: relay /poll partitioniert pro Plugin-Session (AUDIT-016 L-4, defer | Planned | Building | FEAT-23-04, EPIC-23 | USER |  |  |  |  |
+| IMP-23-01-01 | Improvement | IMP-23-01-01: Eval-Coverage Pass: MCP-Tool-Handlers + Vault-Tools + FrontmatterI | Planned | Building | FEAT-23-01, EPIC-23 | USER |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/309 |
+| IMP-23-04-05 | Improvement | IMP-23-04-05: relay /poll partitioniert pro Plugin-Session (AUDIT-016 L-4, defer | Planned | Building | FEAT-23-04, EPIC-23 | USER |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/310 |
 
 ## Cross-cutting (ADRs, Plans, no Epic)
 
