@@ -95,3 +95,56 @@ URL-Sources (Anchor-Strategie):
 - Sonst: Inline-Quote-Block mit Original-Wortlaut plus Wikilink zur Source-Note.
 
 Mobile-Plattform-Pruefung steht in Coding-Phase, ggf als FIX-Eintrag wenn Android-Probleme zeigt.
+
+---
+
+## Amendment 2026-05-07: Marker-Form und Skill-Layer-Ownership
+
+Im Rahmen der Issue-#11-Bearbeitung (FIX-19-28-01) hat sich gezeigt:
+die in FEAT-19-28 Story 2 spezifizierte Perplexity-Stil-Renderung
+("[1]", "[2]" mit Hover-Excerpt) ist fuer User nicht der gewuenschte
+visuelle Stil. Die Marker-Form ist eine User-Experience-Entscheidung,
+keine reine Persistenz-Entscheidung.
+
+### Aenderung
+
+Die **Marker-Form** wird vom Skill-Layer entschieden, nicht im
+Tool-Layer. Tools (`ingest_document`, `ingest_deep`) emittieren
+weiterhin Wikilinks im Obsidian-Native-Format
+(`[[file#^block-N]]` bzw `[[file.pdf#page=N]]`); die Renderung als
+sichtbarer Marker wird durch die Skill-Anleitung gesteuert.
+
+**Default-Marker-Form (gemaess FEAT-19-31 Skill-Suite):**
+
+```
+... letzter Satz der Aussage. [[source#^block-N|↗]]
+```
+
+- `↗` als reines Symbol ist Display-Text, kein "Quelle:", kein "[1]".
+- Inline am Satzende, ein Leerzeichen vor dem Link.
+- Eine Block-Ref pro Kernaussage, nicht pro Satz.
+
+Skill-Drafts der Suite spezifizieren die Marker-Form als verbindliche
+Output-Konvention.
+
+### Was bleibt
+
+- **Block-IDs** weiterhin System-generated `^block-N` (idempotent,
+  Token-frei). User-Skill-Anleitungen koennen die Form `^kebab-id`
+  nicht erzwingen, weil sie nicht-idempotent waeren -- Re-Ingest
+  derselben Source wuerde unterschiedliche IDs produzieren.
+- **PDF-Strategie** B1 (`page-refs` Default, `markdown-mirror`
+  opt-in) bleibt im Tool-Layer.
+- **Skill-Layer-Override:** das `/ingest-deep` Skill setzt
+  `pdfStrategy: 'markdown-mirror'` als Pflicht-Override fuer den
+  Karpathy-Pfad. Das ist eine Skill-Konvention und revidiert nicht
+  den Default des Tool-Layers fuer andere Caller.
+
+### Konsequenzen
+
+- FEAT-19-28 Story 2 ("[1]"-Marker-Renderung) gilt als **abgeloest**
+  durch FEAT-19-31 Skill-Suite.
+- FIX-19-28-01 muss die `↗`-Marker-Form als Akzeptanzkriterium tragen
+  (AC-08), nicht den Perplexity-Stil.
+- Der Tool-Output bleibt strukturierter Wikilink, das Skill rendert
+  daraus den `↗`-Display.

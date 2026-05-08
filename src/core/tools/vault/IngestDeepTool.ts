@@ -21,6 +21,7 @@ import { TensionDetector } from '../../ingest/TensionDetector';
 import type { OutputMode } from '../../ingest/OutputModeGenerator';
 import { normalizeDomain } from '../../knowledge/ClusterSourceStatsStore';
 import { PdfMarkdownMirror } from '../../ingest/PdfMarkdownMirror';
+import { readSourceAsMarkdown } from '../../ingest/SourceReader';
 
 interface IngestDeepInput {
     /** Vault-relative path of the source note (or PDF). */
@@ -115,16 +116,37 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
         const sourceDomain = typeof fmSource === 'string' ? normalizeDomain(fmSource) : undefined;
 
         // PlanGenerator: minimaler Default. Liefert die ersten 5 nicht-leeren
-        // Absaetze als Take-Aways plus einen kurzen Summary-Body. Power-User
-        // koennen den Hook spaeter via Plugin-Settings durch echten LLM-Call
-        // austauschen (PlanGeneratorRegistry-Pattern als Erweiterung).
+        // Absaetze als Take-Aways mit block-anchor-Position (FIX-19-28-01
+        // PLAN-15: vorher hat der Stub `cachedRead(f)` aufgerufen, was bei
+        // PDFs binaeren Garbage liefert. SourceReader liest jetzt einheitlich
+        // ueber parseDocument bei Office/PDF-Formaten. Take-Aways tragen
+        // kind='block-anchor' mit dem Anchor-Text aus dem Source-Markdown,
+        // damit die Pipeline via BlockIdSetter Block-IDs setzen und im
+        // Sense-Making-Body inline ↗-Marker rendern kann (ADR-103 Amendment
+        // 2026-05-07). summaryBody bewusst nicht gesetzt: die Pipeline
+        // generiert ihn ueber SummaryPositionAnnotator mit Markern.)
+        // Power-User koennen den Hook spaeter via Plugin-Settings durch
+        // echten LLM-Call austauschen (PlanGeneratorRegistry, IMP-19-22-01).
         const planGenerator = async (f: TFile, _m: IngestMode, om: OutputMode): Promise<DeepIngestPlan> => {
-            const text = await this.plugin.app.vault.cachedRead(f);
-            const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p.length > 20).slice(0, 5);
-            const summary = `Auto-Sense-Making zu [[${f.basename}]]:\n\n` + paragraphs.map((p) => `- ${p.slice(0, 200)}${p.length > 200 ? '...' : ''}`).join('\n');
+            let sourceMd = '';
+            try {
+                sourceMd = await readSourceAsMarkdown(this.plugin.app, f);
+            } catch (err) {
+                console.warn(`[IngestDeepTool] readSourceAsMarkdown failed for ${f.path}:`, err);
+            }
+            const paragraphs = sourceMd
+                .split(/\n{2,}/)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 20)
+                .filter((p) => !/^#{1,6}\s/.test(p)) // skip heading-only paragraphs
+                .slice(0, 5);
+            const takeAways = paragraphs.map((p) => ({
+                text: p.length > 200 ? `${p.slice(0, 200)}...` : p,
+                position: { kind: 'block-anchor' as const, anchorText: p },
+            }));
             if (om === 'source-plus-multi-zettel') {
                 return {
-                    takeAways: paragraphs,
+                    takeAways,
                     multiZettel: {
                         bibliographyTitle: f.basename + ' - Bibliografie',
                         bibliographyBody: `Bibliografie zu [[${f.basename}]].\n\nAbstract:\n${paragraphs[0] ?? ''}`,
@@ -141,10 +163,9 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
                     },
                 };
             }
-            return {
-                takeAways: paragraphs,
-                summaryBody: summary,
-            };
+            // summaryBody NICHT setzen: Pipeline annotiert die Take-Aways
+            // mit ↗-Markern via SummaryPositionAnnotator.
+            return { takeAways };
         };
 
         // TensionDetector mit Cosine-Pre-Filter via Vault-Search wuerde echten
