@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: by /dia-migration
+Last update: 2026-05-08 by /coding (chore/bug-capture-2026-05-08)
 
 ---
 
@@ -11,14 +11,15 @@ Last update: by /dia-migration
 
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
-| Planned | 15 | Released | 358 | Epic | 23 |
-| Active | 24 | Building | 46 | Feature | 203 |
-| Done | 251 | Planned | 9 | Fix | 50 |
-| Accepted | 110 | Candidates | 0 | Improvement | 14 |
+| Planned | 16 | Released | 358 | Epic | 23 |
+| Active | 24 | Building | 52 | Feature | 203 |
+| Done | 251 | Planned | 9 | Fix | 55 |
+| Accepted | 110 | Candidates | 0 | Improvement | 15 |
 | Draft | 12 |  |  | ADR | 110 |
-| Proposed | 0 |  |  | Plan | 13 |
+| Open | 5 |  |  | Plan | 13 |
+| Proposed | 0 |  |  |  |  |
 
-Total artifacts: 413
+Total artifacts: 419
 
 ---
 
@@ -45,6 +46,7 @@ Phase: Building | Status: Active
 | FEAT-01-12 | Feature | Attachments, Clipboard, and Images | Done | Released | EPIC-01 | BA |  |  |  |  |
 | FIX-01-01-01 | Fix | Anthropic API rejects history with orphaned tool_use blocks | Done | Released | FEAT-01-01, EPIC-01 | BUG |  |  |  | P0 |
 | FIX-01-12-01 | Fix | Drag-and-drop from Obsidian file explorer opens tab instead of attaching | Done | Released | FEAT-01-12, EPIC-01 | BUG |  |  |  | P1 |
+| FIX-01-07-01 | Fix | 07-01: Checkpoint-Snapshot legt neue Dateien nicht ab -- 'No files staged' trotz newFiles=1 | Open | Building | FEAT-01-07, EPIC-01 | BUG |  |  | 2026-05-08 | P2 Live-Test 2026-05-08 (Logging vs. echter Snapshot-Bug zu validieren)  Issue: https://github.com/pssah4/obsilo-dev/issues/63 |
 
 ### EPIC-02: Rules, Workflows & Intelligence
 
@@ -133,6 +135,8 @@ Phase: Building | Status: Active
 | FEAT-04-08 | Feature | Ollama Provider Management | Done | Released | EPIC-04 | BA |  |  |  |  |
 | FEAT-04-09 | Feature | OpenAI-kompatible Streaming Tool-Call Robustheit | Done | Released | EPIC-04 | BA |  |  |  |  |
 | FIX-04-09-01 | Fix | OpenAI Provider verschluckt Tool-Calls bei finish_reason="stop" | Done | Released | FEAT-04-09, EPIC-04 | BUG |  |  |  | P1 |
+| FIX-04-03-01 | Fix | 03-01: SummaryGenerator umgeht konfigurierten Provider, Anthropic 400 trotz OpenRouter-Setup | Open | Building | FEAT-04-03, EPIC-04, IMP-04-03-01 | BUG |  |  | 2026-05-08 | P1 Live-Test 2026-05-08, Pattern-Wiederkehr von BUG-016, Sub-Issue von IMP-04-03-01  Issue: https://github.com/pssah4/obsilo-dev/issues/60 |
+| IMP-04-03-01 | Improvement | 03-01: Provider-Bypass-Audit -- alle direkten LLM-Client-Instanziierungen auf ProviderResolver umstellen | Planned | Building | FEAT-04-03, EPIC-04, FIX-04-03-01 | AUDIT |  |  | 2026-05-08 | P2 Pattern-Audit, Parent von FIX-04-03-01 (#60)  Issue: https://github.com/pssah4/obsilo-dev/issues/65 |
 
 ### EPIC-05: Self-Development & Sandbox
 
@@ -282,6 +286,7 @@ Phase: Building | Status: Active
 | FEAT-14-11 | Feature | Memory Transparency (Agent vs. Human) | Done | Released | EPIC-14 | BA |  |  |  |  |
 | FIX-14-03-01 | Fix | 03-01: Relay-Poll laeuft endlos in Backoff weil Cloudflare Worker mit HTTP 429 + | Done | Released | FEAT-14-03, EPIC-14 | BUG |  |  |  | P2 |
 | FIX-14-03-02 | Fix | 03-02: RelayClient verschluckt Poll-Fehler komplett, Diagnose nur ueber Browser- | Done | Released | FEAT-14-03, EPIC-14 | BUG |  |  |  | P2 |
+| FIX-14-03-03 | Fix | 03-03: MCP Cloudflare-Worker-Connect schlaegt aus Settings UI fehl | Open | Building | FEAT-14-03, EPIC-14 | BUG |  |  | 2026-05-08 | P1 Live-Test 2026-05-08, Fehlermeldung wird im Issue nachgereicht  Issue: https://github.com/pssah4/obsilo-dev/issues/64 |
 
 ### EPIC-15: Unified Knowledge Layer
 
@@ -305,6 +310,7 @@ Phase: Building | Status: Active
 | FIX-15-00-01 | Fix | KnowledgeDB Korruption durch nicht-atomare Writes + Cloud Sync | Done | Released | FEAT-15-00, EPIC-15 | BUG |  |  |  | P1 |
 | FIX-15-03-01 | Fix | ImplicitConnections "Statement closed" Race Condition | Done | Released | FEAT-15-03, EPIC-15 | BUG |  |  |  | P2 |
 | FIX-15-04-01 | Fix | Reranker ONNX-Runtime Fehler in Electron | Done | Released | FEAT-15-04, EPIC-15 | BUG |  |  |  | P2 |
+| FIX-15-01-01 | Fix | 01-01: SemanticIndex sendet pro Chunk einen texts=1 Embedding-Call statt Batches | Open | Building | FEAT-15-01, EPIC-15 | BUG |  |  | 2026-05-08 | P1 Live-Test 2026-05-08, 500+ Single-Embed-Calls pro Note, Performance/Kosten  Issue: https://github.com/pssah4/obsilo-dev/issues/61 |
 
 ### EPIC-16: Claude Code Pattern Adoption
 
@@ -348,6 +354,7 @@ Phase: Building | Status: Active
 | FIX-18-03-03 | Fix | Externalise cleanup fails with EPERM on iCloud-synced vaults | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P2 |
 | FIX-18-03-04 | Fix | FastPath planner JSON parse fails -- recipe aborts mid-task | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P2 |
 | FIX-18-04-01 | Fix | Streaming Tool-Error verschluckt + edit_file-Schleife bei grossen Diffs | Done | Released | FEAT-18-04, EPIC-18 | BUG |  |  |  | P1 |
+| FIX-18-02-01 | Fix | 02-01: PDF tool_result mehrfach im Hauptkontext, Context Externalization (ADR-063) greift bei PDF-Attachments nicht | Open | Building | FEAT-18-02, EPIC-18, ADR-063 | BUG |  |  | 2026-05-08 | P1 Live-Test 2026-05-08, ~114k Tokens fuer ein PDF in 3 Messages parallel  Issue: https://github.com/pssah4/obsilo-dev/issues/62 |
 
 ### EPIC-19: Knowledge Maintenance
 
