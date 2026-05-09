@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-08 by /coding (chore/bug-capture-2026-05-08)
+Last update: 2026-05-09 by /business-analysis (chore/imp-18-01-prompt-cache-settings)
 
 ---
 
@@ -12,14 +12,14 @@ Last update: 2026-05-08 by /coding (chore/bug-capture-2026-05-08)
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
 | Planned | 16 | Released | 358 | Epic | 23 |
-| Active | 24 | Building | 52 | Feature | 203 |
-| Done | 251 | Planned | 9 | Fix | 55 |
-| Accepted | 110 | Candidates | 0 | Improvement | 15 |
+| Active | 26 | Building | 52 | Feature | 203 |
+| Done | 251 | Planned | 11 | Fix | 55 |
+| Accepted | 110 | Candidates | 0 | Improvement | 17 |
 | Draft | 12 |  |  | ADR | 110 |
 | Open | 5 |  |  | Plan | 13 |
 | Proposed | 0 |  |  |  |  |
 
-Total artifacts: 419
+Total artifacts: 421
 
 ---
 
@@ -349,6 +349,8 @@ Phase: Building | Status: Active
 | FEAT-18-02 | Feature | Context Externalization (Dateisystem als Kontext) | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/284 |
 | FEAT-18-03 | Feature | Cross-Platform TMP-Pfade fuer Context Externalization | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/285 |
 | FEAT-18-04 | Feature | Cost-Aware Agent Heuristics | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/286 |
+| IMP-18-01-01 | Improvement | Prompt Cache Settings UI: Default-on + provider-agnostische Toggle-Visibility | Active | Planned | FEAT-18-01, EPIC-18, ADR-62 | BA-12 |  | 2026-05-09 | 2026-05-09 | P1 Issue #313 Phase 1 (Settings & Default). Default `promptCachingEnabled` auf true (undefined === true), neues `ModelInfo.supportsPromptCache` Capability-Flag, Toggle-Visibility provider-agnostisch  Issue: https://github.com/pssah4/obsilo-dev/issues/313 |
+| IMP-18-01-02 | Improvement | Prompt Caching Provider-Coverage: Bedrock cachePoints + OpenAI cached_tokens + Kilo Gateway/OpenRouter Passthrough | Active | Planned | FEAT-18-01, EPIC-18, ADR-62 | BA-12 |  | 2026-05-09 | 2026-05-09 | P1 Issue #313 Phase 2 (Provider-Implementierungen). Bedrock setzt cachePoint-Marker, OpenAI trackt cached_tokens in Usage, Kilo Gateway/OpenRouter reichen cache_control durch  Issue: https://github.com/pssah4/obsilo-dev/issues/313 |
 | FIX-18-03-01 | Fix | TMP-Files nicht lesbar auf Windows (Pfad-Trennzeichen) | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/91 |
 | FIX-18-03-02 | Fix | read_file cannot open externalised tool results under tmp/ | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/92 |
 | FIX-18-03-03 | Fix | Externalise cleanup fails with EPERM on iCloud-synced vaults | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/93 |

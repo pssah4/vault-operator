@@ -1568,3 +1568,53 @@ Plan-15 vollstaendig durchlaufen, alle 8 Akzeptanzkriterien gruen.
 `/testing` -- Unit-Tests sind drin, aber Integration-Tests gegen die
 echte Vault-API + Live-Verifikation am Beispiel-PDF stehen aus.
 Anschliessend Phase-2 (FEAT-19-31 Skill-Suite-Deployment).
+
+---
+
+## 2026-05-09 -- BA Update fuer Issue #313 (Prompt Caching Settings)
+
+**Phase:** Business Analysis (Update-Modus auf BA-12)
+**Branch:** chore/imp-18-01-prompt-cache-settings
+**Items:** IMP-18-01-01 (Settings & Default), IMP-18-01-02 (Provider-Implementierungen)
+**Bezug:** [Issue #313](https://github.com/pssah4/obsilo-dev/issues/313), FEAT-18-01 (Done/Released), ADR-62 (Accepted)
+**Scope:** IMP (Improvement) auf bestehende Feature, kein Greenfield
+
+### Was diese Phase produziert hat
+
+- `_devprocess/analysis/BA-12-token-cost-reduction.md`: neuer Update-Block (Section 11) mit aktualisiertem Gap, drei Hypothesen, neuen KPIs, Scope-Split Phase 1 / Phase 2, drei verworfenen Alternativen.
+- `_devprocess/context/BACKLOG.md`: zwei neue IMP-Rows unter EPIC-18, Dashboard-Counter aktualisiert.
+
+### Personas
+
+- Bleiben unveraendert (Knowledge Worker, Power User aus BA-12 Section 4.1).
+- Sub-Beobachtung neu in 11.3: Bedrock-User (Enterprise-Compliance) und OpenAI-User (impliziter Cache nicht sichtbar).
+
+### How-Might-We
+
+Wie schalten wir Prompt Caching fuer alle Provider ein, die es unterstuetzen, ohne dass User aktiv konfigurieren muessen, und ohne dass die UI provider-spezifisch hardcoded bleibt?
+
+### Critical Hypotheses (zur Validierung in RE/Coding/Live-Test)
+
+- **H-313-1:** Default-Switch von off auf on ist sicher (Cache-Write-Aufpreis +25% wird durch ersten Cache-Read amortisiert). Falsifikation: >5% User berichten Kostensteigerung in 14 Tagen.
+- **H-313-2:** Ein einziges `ModelInfo.supportsPromptCache: boolean` reicht als Capability-Flag. Falsifikation: enum oder discriminated union noetig.
+- **H-313-3:** Bedrock cachePoint-Marker liefern messbar `cacheReadInputTokens > 0`. Falsifikation: Bedrock meldet trotz Marker 0.
+
+### Assumptions (zu pruefen)
+
+- OpenAI Usage-Feld `prompt_tokens_details.cached_tokens` ist bei den relevanten Modellen (gpt-4o, 4.1, o1) verfuegbar (laut OpenAI-Doku, nicht im Code verifiziert).
+- Bedrock-cachePoint-API ist im aktuellen `@aws-sdk/client-bedrock-runtime` verfuegbar (zu pruefen in RE/Architecture).
+- Kilo Gateway leitet Anthropic-Request-Felder unveraendert durch (zu pruefen anhand Gateway-Doku oder Live-Test).
+
+### Open Questions fuer RE/Architecture
+
+- Soll der Tooltip im UI eine konkrete Cost-Schaetzung anzeigen (provider-spezifisch) oder nur einen generischen Hinweis?
+- Wo sitzt das `supportsPromptCache`-Flag: in `ModelInfo` (pro Modell) oder in `LLMProvider` (pro Provider-Typ)? RE-Entscheidung.
+- Phase 3 (Cache-TTL-Konfiguration via UI, OpenAI `prompt_cache_retention: "24h"`) bleibt deferred. Wann triggern wir das?
+
+### Naechster Schritt
+
+`/requirements-engineering` -- erzeugt zwei IMP-Specs:
+- `_devprocess/requirements/improvements/IMP-18-01-01-prompt-cache-settings.md`
+- `_devprocess/requirements/improvements/IMP-18-01-02-prompt-cache-providers.md`
+
+Anschliessend `/architecture` fuer eine ADR zum Capability-Flag-Pattern (Erweiterung zu ADR-62), dann `/coding` Phase 1, danach `/coding` Phase 2.
