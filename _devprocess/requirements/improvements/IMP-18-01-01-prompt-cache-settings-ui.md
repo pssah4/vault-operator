@@ -2,7 +2,7 @@
 id: IMP-18-01-01
 feature: FEAT-18-01
 epic: EPIC-18
-adr-refs: [ADR-62]
+adr-refs: [ADR-62, ADR-111]
 plan-refs: []
 depends-on: []
 created: 2026-05-09

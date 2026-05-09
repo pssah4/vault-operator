@@ -1664,3 +1664,59 @@ IMPs erlauben technische Begriffe in Loesung und Akzeptanzkriterien (anders als 
 ### Naechster Schritt
 
 `/architecture` -- klaert ASR-1 (Capability-Flag-Standort) und ggf. ASR-2 (Adapter vs. direkter Provider-Code). Output: ADR-Update oder neuer ADR, plan-context.md fuer beide IMPs. Anschliessend `/coding` IMP-18-01-01, dann `/coding` IMP-18-01-02.
+
+---
+
+## 2026-05-09 -- ARCH fuer Issue #313 (ADR-111 + plan-context-imp-18-01)
+
+**Phase:** Architecture
+**Branch:** chore/imp-18-01-prompt-cache-settings
+**Items:** IMP-18-01-01, IMP-18-01-02, ADR-111
+**Bezug:** ADR-62 (Update 2026-05-09), BA-12 Section 11
+
+### Was diese Phase produziert hat
+
+- `_devprocess/architecture/ADR-111-provider-capability-flag-und-bedrock-cachepoint.md`: neuer ADR (Status Proposed). Vier Optionen geprueft, Option C (statische Capability-Tabelle) plus direkte Provider-Implementierungen gewaehlt. Konsistent mit ADR-62-Praemisse "kein separater Adapter".
+- `_devprocess/architecture/ADR-62-kv-cache-optimized-prompt.md`: dated Note "Update 2026-05-09" angefuegt, korrigiert zwei implizite Annahmen (Bedrock automatisch, UI-Visibility hardcoded). ADR bleibt Accepted, nicht superseded.
+- `_devprocess/requirements/handoff/plan-context-imp-18-01.md`: Tech-Stack, ADR-Summary, Capability-Tabellen-Initialbestand (~17 Eintraege), Tooltip-Text, Implementierungsreihenfolge, Live-Test-Protokoll fuer H-313-3.
+- `src/ARCHITECTURE.map`: vier Wayfinder-Zeilen aktualisiert (anthropic, openai, bedrock + neuer Eintrag `cache-capability`).
+- `_devprocess/context/BACKLOG.md`: neue Row ADR-111 (Proposed/Building), Refs in IMP-18-01-01/02 um ADR-111 ergaenzt, Dashboard-Counter aktualisiert.
+- IMP-Spec-Frontmatter: `adr-refs: [ADR-62, ADR-111]` in beiden IMPs.
+
+### Tech-Stack-Begruendung
+
+Bestehender Stack bleibt unveraendert. Drei Provider werden im bestehenden Adapter-Pattern (ADR-11) erweitert, eine neue Datenstruktur (Capability-Tabelle) ergaenzt das Modell-Capability-Konzept. Keine neuen externen Dependencies. Kein Refactoring auf eine neue Adapter-Schicht. AWS-SDK ist bereits in passender Version installiert (v3.1031, cachePoint ab 3.1030 verfuegbar).
+
+### Verworfene Alternativen
+
+- **Option A (Capability-Flag in `ModelInfo` direkt):** Drift-Risiko zwischen Provider-`getModel()` und UI-Lookup-Tabelle ist real. Issue #313 wurde genau wegen dieses Drifts geoeffnet.
+- **Option B (Pro Provider-Typ statt Modell):** Zu grob fuer heutige Heterogenitaet (Copilot/Claude vs. Copilot/GPT, OpenAI 3.5 vs. 4o).
+- **Option D (PromptCacheAdapter-Interface aus FEAT-18-01-Spec):** Widerspricht ADR-62, ohne neuen Grund. Drei Provider-Eingriffe sind nicht teurer als eine Adapter-Schicht plus drei Adapter-Implementierungen.
+
+### Bekannte Risiken (zur Beobachtung in /coding)
+
+- **R-1 Bedrock cachePoint-Verfuegbarkeit:** AWS-Doku andeutet regional/modellabhaengige Einschraenkungen. Live-Test in IMP-18-01-02 ist H-313-3-Falsifikator.
+- **R-2 Kilo Gateway laesst cache_control fallen:** unverifiziert. Live-Test, Capability-Eintrag bei Bedarf zuruecknehmen.
+- **R-3 OpenAI cached_tokens-Cost ist Approximation:** Tier-Rabatte und Batch-Pricing nicht abgedeckt. Tooltip erklaert das.
+
+### Open Items fuer /coding
+
+Diese Punkte loest /coding gegen den realen Codebase-Stand:
+
+1. Finale Pfad-Wahl fuer das Capability-Modul (vorgeschlagen: `src/api/capabilities.ts`).
+2. Pattern-Match-Implementierung: eigenes simples Wildcard-Matching (~10 Zeilen) bevorzugt vor neuer Dependency.
+3. Token-Display-Komponente fuer cached_tokens-Anzeige: Pfad ermitteln, ob die Aenderung im Display oder im Token-Counter-Service noetig ist.
+4. Cost-Calc-Modul: existiert bereits eines? Wenn ja, dort 50%-Cached-Rate-Logik einbauen, sonst pragmatische Inline-Loesung.
+5. Tooltip-Mechanik: bestehende Konvention im Modal nutzt DOM-Attribut `title` plus i18n-Key (Pattern `modal.modelConfig.*`).
+
+### Konsistenz-Check
+
+- ADR-62 + ADR-111 widersprechen sich nicht. ADR-111 ergaenzt additiv.
+- Capability-Tabelle und IMP-18-01-01/02 sprechen dieselbe Sprache (`cacheStyle`-Werte).
+- plan-context-imp-18-01.md zitiert beide IMPs und beide ADRs konsistent.
+- Wayfinder-Zeilen (`anthropic`, `openai`, `bedrock`, neu: `cache-capability`) verweisen alle auf ADR-111.
+- Bekanntes Tool-Quirk: consistency-check meldet ADR-111 als orphan-backlog-row, obwohl die Datei existiert (gleicher false positive wie bei ADR-100, ADR-110). Pre-existing.
+
+### Naechster Schritt
+
+`/coding` mit IMP-18-01-01 (Phase 1, Settings & Default). Implementiert die Capability-Tabelle, Default-Switch, UI-Visibility, Tooltip. Anschliessend `/testing` fuer Phase 1, dann `/coding` IMP-18-01-02 (Phase 2, Provider-Coverage), `/testing`, `/security-audit`.

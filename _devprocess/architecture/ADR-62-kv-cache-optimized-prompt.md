@@ -220,14 +220,35 @@ getDateTimeSection(includeTime),  // -> Position 16 (LETZTE Section)
 
 Implemented as designed. Section order in systemPrompt.ts changed to stable-first.
 DateTime moved from position 1 to position 17 (last). Plugin Skills moved to dynamic block.
-No separate PromptCacheAdapter needed — provider-internal logic suffices.
+No separate PromptCacheAdapter needed -- provider-internal logic suffices.
 
 Test results:
-- Simple task: 634k → 60k tokens (90.5% reduction)  
+- Simple task: 634k -> 60k tokens (90.5% reduction)
 - GitHub Copilot (168k limit): was crashing, now works at 60k
 
 Key files:
 - `src/core/systemPrompt.ts` (section reordering)
+
+## Update 2026-05-09: Korrektur zwei impliziter Annahmen
+
+Issue #313 und der Code-Audit von 2026-05-09 zeigen, dass zwei Annahmen
+dieser ADR ergaenzungsbeduerftig waren:
+
+1. **"Andere Provider profitieren automatisch vom stabilen Prefix":**
+   trifft fuer OpenAI und DeepSeek zu, fuer Bedrock NICHT. Bedrock
+   benoetigt explizite `cachePoint`-ContentBlocks im Request, sonst
+   meldet die Response `cacheReadInputTokens: 0`. Anthropic-Modelle
+   ueber Bedrock zahlen ohne diesen Marker die volle Rate.
+
+2. **UI-Visibility provider-spezifisch:** der Toggle in
+   `ModelConfigModal` war an Provider-Strings gekoppelt, nicht an
+   Provider-Capabilities. Neue cache-faehige Provider (Bedrock,
+   Kilo Gateway, OpenRouter) hatten keinen Schalter.
+
+Beide Punkte werden in ADR-111 (Provider Capability-Flag und Bedrock
+cachePoint) adressiert. Diese ADR bleibt in ihrer Kern-Entscheidung
+gueltig (Section-Reordering, kein separater Adapter), wird nicht
+superseded. ADR-111 ergaenzt sie additiv.
 
 ## References
 

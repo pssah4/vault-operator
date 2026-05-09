@@ -12,14 +12,14 @@ Last update: 2026-05-09 by /business-analysis (chore/imp-18-01-prompt-cache-sett
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
 | Planned | 16 | Released | 358 | Epic | 23 |
-| Active | 26 | Building | 52 | Feature | 203 |
+| Active | 26 | Building | 53 | Feature | 203 |
 | Done | 251 | Planned | 11 | Fix | 55 |
 | Accepted | 110 | Candidates | 0 | Improvement | 17 |
-| Draft | 12 |  |  | ADR | 110 |
+| Draft | 12 |  |  | ADR | 111 |
 | Open | 5 |  |  | Plan | 13 |
-| Proposed | 0 |  |  |  |  |
+| Proposed | 1 |  |  |  |  |
 
-Total artifacts: 421
+Total artifacts: 422
 
 ---
 
@@ -349,8 +349,8 @@ Phase: Building | Status: Active
 | FEAT-18-02 | Feature | Context Externalization (Dateisystem als Kontext) | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/284 |
 | FEAT-18-03 | Feature | Cross-Platform TMP-Pfade fuer Context Externalization | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/285 |
 | FEAT-18-04 | Feature | Cost-Aware Agent Heuristics | Done | Released | EPIC-18 | BA |  |  |  |   Issue: https://github.com/pssah4/obsilo-dev/issues/286 |
-| IMP-18-01-01 | Improvement | Prompt Cache Settings UI: Default-on + provider-agnostische Toggle-Visibility | Active | Planned | FEAT-18-01, EPIC-18, ADR-62 | BA-12 |  | 2026-05-09 | 2026-05-09 | P1 Issue #313 Phase 1 (Settings & Default). Default `promptCachingEnabled` auf true (undefined === true), neues `ModelInfo.supportsPromptCache` Capability-Flag, Toggle-Visibility provider-agnostisch  Issue: https://github.com/pssah4/obsilo-dev/issues/313 |
-| IMP-18-01-02 | Improvement | Prompt Caching Provider-Coverage: Bedrock cachePoints + OpenAI cached_tokens + Kilo Gateway/OpenRouter Passthrough | Active | Planned | FEAT-18-01, EPIC-18, ADR-62 | BA-12 |  | 2026-05-09 | 2026-05-09 | P1 Issue #313 Phase 2 (Provider-Implementierungen). Bedrock setzt cachePoint-Marker, OpenAI trackt cached_tokens in Usage, Kilo Gateway/OpenRouter reichen cache_control durch  Issue: https://github.com/pssah4/obsilo-dev/issues/313 |
+| IMP-18-01-01 | Improvement | Prompt Cache Settings UI: Default-on + provider-agnostische Toggle-Visibility | Active | Planned | FEAT-18-01, EPIC-18, ADR-62, ADR-111 | BA-12 |  | 2026-05-09 | 2026-05-09 | P1 Issue #313 Phase 1 (Settings & Default). Default `promptCachingEnabled` auf true (undefined === true), neues Capability-Flag, Toggle-Visibility provider-agnostisch  Issue: https://github.com/pssah4/obsilo-dev/issues/313 |
+| IMP-18-01-02 | Improvement | Prompt Caching Provider-Coverage: Bedrock cachePoints + OpenAI cached_tokens + Kilo Gateway/OpenRouter Passthrough | Active | Planned | FEAT-18-01, EPIC-18, ADR-62, ADR-111 | BA-12 |  | 2026-05-09 | 2026-05-09 | P1 Issue #313 Phase 2 (Provider-Implementierungen). Bedrock setzt cachePoint-Marker, OpenAI trackt cached_tokens in Usage, Kilo Gateway/OpenRouter reichen cache_control durch  Issue: https://github.com/pssah4/obsilo-dev/issues/313 |
 | FIX-18-03-01 | Fix | TMP-Files nicht lesbar auf Windows (Pfad-Trennzeichen) | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/91 |
 | FIX-18-03-02 | Fix | read_file cannot open externalised tool results under tmp/ | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/obsilo-dev/issues/92 |
 | FIX-18-03-03 | Fix | Externalise cleanup fails with EPERM on iCloud-synced vaults | Done | Released | FEAT-18-03, EPIC-18 | BUG |  |  |  | P2  Issue: https://github.com/pssah4/obsilo-dev/issues/93 |
@@ -514,6 +514,7 @@ Phase: Building | Status: Active
 | ADR-109 | ADR | Vault-zu-Memory-Bruecke via Single-Listener-Pattern | Accepted | Released |  | ARCH |  |  |  |  |
 | ADR-11 | ADR | Multi-Provider API Architecture (Adapter Pattern) | Accepted | Released |  | ARCH |  |  |  |  |
 | ADR-110 | ADR | Living-Document-Semantik + Cross-Interface-Thread-Klammer | Accepted | Released |  | ARCH |  |  |  |  |
+| ADR-111 | ADR | Provider Capability-Flag und Bedrock cachePoint (Erweiterung zu ADR-62) | Proposed | Building | IMP-18-01-01, IMP-18-01-02, FEAT-18-01, ADR-62 | ARCH |  | 2026-05-09 | 2026-05-09 |  |
 | ADR-12 | ADR | Context Condensing Strategy (Keep-First-Last) | Accepted | Released |  | ARCH |  |  |  |  |
 | ADR-13 | ADR | 3-Tier Memory Architecture (Chat -> Session -> Long-Term) | Accepted | Released |  | ARCH |  |  |  |  |
 | ADR-14 | ADR | VaultDNA — Automatische Plugin-Erkennung als Skills | Accepted | Released |  | ARCH |  |  |  |  |
