@@ -103,9 +103,26 @@ export class ReadDocumentTool extends BaseTool<'read_document'> {
             } else if (attachment_index !== undefined && attachment_index >= 0) {
                 // Read from stored attachment text
                 if (attachment_index >= this.attachmentTexts.length) {
+                    // BUG-029 (Issue #312): Chat-Attachments leben nur einen Turn.
+                    // Bei attachmentTexts.length === 0 ist die Datei garantiert
+                    // weg -- der Agent darf NICHT auf gleichnamige Vault-Files
+                    // ausweichen oder den Inhalt aus dem Kontext rekonstruieren.
+                    // Wir geben eine actionable Meldung analog zu IngestDocumentTool.
+                    if (this.attachmentTexts.length === 0) {
+                        throw new Error(
+                            'No chat attachments available on this turn. The chat-attachment lifetime is one turn -- ' +
+                            'the document the user uploaded earlier is no longer accessible via attachment_index. ' +
+                            'STOP. Do NOT fall back to similarly-named vault files (e.g. an existing mirror) or ' +
+                            'reconstruct content from the <attached_document> block in your context as if it were a verified read. ' +
+                            'Action: ask the user to save the file to the vault (e.g. drag into Attachements/), then re-run ' +
+                            'with path="Attachements/<filename>". If you only need a single page-range and the original ' +
+                            '<attached_document> text is still in your context, extract from there explicitly and tell the ' +
+                            'user you are doing so -- never silently substitute another source.'
+                        );
+                    }
                     throw new Error(
                         `Attachment index ${attachment_index} out of range. ` +
-                        `${this.attachmentTexts.length} attachment(s) available.`
+                        `${this.attachmentTexts.length} attachment(s) available (use index 0..${this.attachmentTexts.length - 1}).`
                     );
                 }
                 fullText = this.attachmentTexts[attachment_index];

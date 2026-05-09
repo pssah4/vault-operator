@@ -124,6 +124,19 @@ ingest_triage source_uri="vault://<path>"
 **Voraussetzung:** Source ist ein Vault-File. Bei Chat-Attachments
 hat Step 0a die Datei bereits in den Vault gespeichert.
 
+**URI-Format strikt:**
+
+| Quelle | Korrekte URI | Falsch (wird abgelehnt) |
+|---|---|---|
+| Vault-File | `vault://Attachements/foo.pdf` | `file:///foo.pdf` |
+| Vault-Note | `vault://Notes/foo.md` | `foo.md` |
+| Webclip | `https://example.com/x` | `example.com/x` |
+
+`file://`-URIs werden vom Tool abgelehnt: Chat-Attachments leben nur
+einen Turn, jeder spaetere Read schlaegt zwingend fehl. Wenn die
+Datei nicht im Vault liegt -> erst Step 0a (in Vault speichern), nicht
+mit `file://` triagen.
+
 Output ist eine Triage-Karte:
 
 - Cluster-Match aus der Ontologie
@@ -203,6 +216,18 @@ Pflicht-Form:
   bereits als `<attached_document>` oder Vault-File vor.
 - **Kein `list_files` zur Pfad-Suche.** User fragen ist billiger.
 - Bestehende User-Edits in MOC-Files nicht ueberschreiben.
+- **Kein Stale-Mirror-Workaround (BUG-029, Issue #312):** Wenn die
+  konkrete Source nicht lesbar ist (Attachment ist weg, Vault-Pfad nicht
+  gefunden, Parser-Fehler), NICHT auf eine gleichnamige Vault-Datei
+  ausweichen (`Sources/<basename>-Mirror.md`, `Notes/<basename>.md`,
+  etc.). Eine alte Mirror-Datei ist NICHT die aktuelle Source --
+  Inhalte koennen veraltet, gekuerzt oder editiert sein. STOP, dem
+  User die genaue Tool-Fehlermeldung zeigen, klaeren wo die Datei
+  liegen soll. Auch nicht den Inhalt aus dem `<attached_document>`-
+  Block im eigenen Kontext "rekonstruieren" und so tun, als sei das
+  ein verifizierter Read -- entweder das Originaltext-Block explizit
+  als Quelle nennen ODER die Datei in den Vault speichern und neu
+  triagen.
 
 ## Notfall-Pfad: write_file
 

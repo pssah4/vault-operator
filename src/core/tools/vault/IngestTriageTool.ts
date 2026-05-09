@@ -100,6 +100,27 @@ export class IngestTriageTool extends BaseTool<'ingest_triage'> {
             return;
         }
 
+        // BUG-029 (Issue #312): file:// URIs sind nicht triagebar.
+        // Chat-Attachments leben nur einen Turn -- jeder nachgelagerte
+        // read_document/ingest_deep-Call schlaegt zwingend fehl. Wenn die
+        // Triage hier "Erfolg" zurueckgibt, baut der Agent darauf auf und
+        // weicht bei Read-Fehlern auf gleichnamige Vault-Files aus
+        // (Stale-Mirror-Workaround). Wir blocken den Loop am Ursprung und
+        // verweisen auf den Skill-Workflow (Step 0a: erst in Vault speichern).
+        if (source_uri.startsWith('file://')) {
+            ctx.callbacks.pushToolResult(
+                this.formatError(
+                    `IngestTriage akzeptiert keine file://-URIs (erhalten: "${source_uri}"). ` +
+                    'Chat-Attachments leben nur einen Turn und sind ab dem naechsten Tool-Call nicht mehr erreichbar. ' +
+                    'Aktion: Speichere die Datei zuerst in den Vault (z.B. via ingest_document mit attachment_index=0 ' +
+                    'auf Turn 1, Ziel "Attachements/<dateiname>"), dann ingest_triage erneut mit ' +
+                    '"vault://Attachements/<dateiname>" aufrufen. Nicht auf gleichnamige Vault-Files ausweichen ' +
+                    'oder Inhalt aus dem Kontext rekonstruieren -- STOP und User informieren wenn unklar wo die Datei liegt.',
+                ),
+            );
+            return;
+        }
+
         // Cluster-Match: bei vault://-URI aus ontology lookup, sonst nur cluster_hint nutzen
         let clusterMatch = cluster_hint ?? null;
         let domain: string | null = null;
