@@ -28,7 +28,7 @@ const MUST_BE_REACHABLE: ToolName[] = [
     'write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file',
     'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw',
     'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx',
-    'plan_presentation', 'ingest_document',
+    'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage',
     // Web
     'web_fetch', 'web_search',
     // Agent control
@@ -66,6 +66,11 @@ describe('TOOL_GROUP_MAP coverage', () => {
 
     it('assigns ingest_document to the edit group (BUG-021)', () => {
         expect(TOOL_GROUP_MAP.edit).toContain('ingest_document');
+    });
+
+    it('assigns ingest_deep + ingest_triage to the edit group (FIX-19-28)', () => {
+        expect(TOOL_GROUP_MAP.edit).toContain('ingest_deep');
+        expect(TOOL_GROUP_MAP.edit).toContain('ingest_triage');
     });
 
     it('lists every must-reachable tool in at least one group', () => {

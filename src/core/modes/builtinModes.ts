@@ -19,12 +19,13 @@ import type { ToolName } from '../tools/types';
 
 export const TOOL_GROUP_MAP: Readonly<Record<ToolGroup, readonly ToolName[]>> = {
     read:  ['read_file', 'read_document', 'list_files', 'search_files'],
-    // BUG-021: vault_health_check (FEATURE-1901) and ingest_document (EPIC-019)
-    // shipped but were never wired into the default tool groups. Adding the
-    // two missing tools here; a group-coverage test guards against future
-    // drift (see builtinModes.coverage.test.ts).
+    // BUG-021 / FIX-19-28: vault_health_check (FEATURE-1901), ingest_document
+    // (EPIC-019), ingest_deep + ingest_triage (FEAT-19-22 / FEAT-19-12)
+    // shipped but were never wired into the default tool groups. The
+    // coverage test (builtinModes.coverage.test.ts) guards against future
+    // drift -- new user-facing tools must be added there as well.
     vault: ['get_frontmatter', 'search_by_tag', 'get_vault_stats', 'get_linked_notes', 'get_daily_note', 'open_note', 'semantic_search', 'query_base', 'vault_health_check', 'recall_memory', 'mark_for_memory', 'update_soul', 'search_history'],
-    edit:  ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw', 'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx', 'plan_presentation', 'ingest_document'],
+    edit:  ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw', 'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx', 'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage'],
     web:   ['web_fetch', 'web_search'],
     agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'switch_mode', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'manage_skill', 'evaluate_expression', 'manage_source', 'inspect_self'],
     mcp:   ['use_mcp_tool'],

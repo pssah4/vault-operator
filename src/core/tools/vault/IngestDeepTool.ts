@@ -28,7 +28,7 @@ interface IngestDeepInput {
     source_path: string;
     /** Default 'dialog'. Auto = no user-interaction. */
     mode?: IngestMode;
-    /** Default 'source-plus-summary'. */
+    /** Default 'source-only' (FIX-19-28, 2026-05-08). */
     output_mode?: OutputMode;
     /** Optional cluster hint. */
     cluster?: string;
@@ -65,7 +65,11 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
                     output_mode: {
                         type: 'string',
                         enum: ['source-only', 'source-plus-summary', 'source-plus-multi-zettel'],
-                        description: 'Default source-plus-summary (Karpathy-Default).',
+                        description: 'Default source-only: Source-Mirror plus Block-Anchors, '
+                            + 'Take-Aways nur im Chat-Dialog. Detail-Notes pro Aspekt entstehen '
+                            + 'on-demand im Dialog. source-plus-summary (Karpathy) und '
+                            + 'source-plus-multi-zettel sind opt-in fuer User die eine '
+                            + 'aggregierte Sense-Making-Note bzw. Multi-Zettel wollen.',
                     },
                     cluster: { type: 'string', description: 'Optional: Cluster-Hint, sonst aus Ontologie.' },
                 },
@@ -75,7 +79,10 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
     }
 
     async execute(input: Record<string, unknown>, ctx: ToolExecutionContext): Promise<void> {
-        const { source_path, mode = 'dialog', output_mode = 'source-plus-summary', cluster: clusterHint }
+        // FIX-19-28: Default auf 'source-only' umgestellt. User-Praeferenz
+        // 2026-05-08: keine aggregierte Sense-Making-Note, Take-Aways nur im
+        // Chat-Dialog, Detail-Notes pro Aspekt on-demand im Dialog.
+        const { source_path, mode = 'dialog', output_mode = 'source-only', cluster: clusterHint }
             = input as unknown as IngestDeepInput;
 
         const safePath = validateVaultPath(source_path);
