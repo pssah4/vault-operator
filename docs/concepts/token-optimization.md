@@ -13,7 +13,7 @@ Obsilo uses three complementary strategies that brought this down to 60,000 toke
 
 Without optimization:
 
-1. The system prompt includes 49 tool definitions (each with input schemas, descriptions, examples).
+1. The system prompt includes 60+ tool definitions (each with input schemas, descriptions, examples).
 2. Every tool result stays in the conversation history.
 3. The LLM re-reads everything on every turn, even parts that haven't changed.
 4. A task that could be done in 2 tool calls takes 8 because the agent plans one step at a time.
@@ -38,7 +38,7 @@ If the fast path fails or no recipe matches, Obsilo falls back to the normal age
 
 LLM providers cache the key-value pairs computed from the prompt prefix. If the same prefix appears again, those computations are reused and you pay less.
 
-Obsilo arranges the system prompt so stable content comes first and volatile content comes last. Stable sections (positions 1-4) are the role definition, tool definitions, rules and skills, and mode instructions. These rarely change. Volatile sections (positions 5-7) are active file context, memory, and the current date and time, which change every turn.
+Obsilo arranges the system prompt so stable content comes first and volatile content comes last. The stable prefix (positions 1-8) covers the role definition, tool definitions, rules, capabilities, mode instructions, and shared safety language. These rarely change inside a session. The volatile tail (positions 9-16) is active file context, retrieved memory, recipes, soul snippets, and the current date and time, which change every turn.
 
 Because tools, rules, and mode definitions don't change between turns, the LLM can cache them. This is provider-agnostic: Anthropic uses explicit cache markers, while OpenAI and Gemini do implicit prefix caching.
 

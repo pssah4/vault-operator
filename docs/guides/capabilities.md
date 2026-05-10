@@ -67,15 +67,25 @@ You can bring your own PPTX templates. The agent reads the slide layouts and fil
 
 [Office documents guide](/guides/office-documents) | [How the office pipeline works](/concepts/office-pipeline)
 
-## It connects to everything
+## It works across your AI tools
 
-Obsilo includes an MCP server. That means Claude Desktop, Claude Code, and any MCP-compatible tool can search your vault, read your notes, and create content through your vault's intelligence layer.
+Obsilo includes an MCP server. That means Claude Desktop, ChatGPT, Perplexity, Claude Code, and any MCP-compatible tool can read your vault, retrieve facts from your memory layer, and append to your conversation history.
+
+Every external call carries a `source_interface` tag, so memory and history stay separable per surface. Strict source isolation is on by default for non-Obsilo callers; you decide which surfaces share the full memory layer.
 
 You can also point Obsilo at external MCP servers for extra capabilities.
 
-> **Example prompt:** In Claude Desktop: "Search my Obsidian vault for notes about the product launch."
+> **Example prompt:** In ChatGPT: "Recall what my Obsilo memory says about pricing strategy."
 
-[Connectors guide](/guides/connectors) | [MCP architecture](/concepts/mcp-architecture)
+[Connectors guide](/guides/connectors) | [Unified Chat Memory](/concepts/unified-chat-memory) | [MCP architecture](/concepts/mcp-architecture)
+
+## It ingests sources with provenance
+
+Drop a PDF, web clip, or Office file into the chat and Obsilo runs a 10-second triage against your vault's ontology before any deep reading. If it survives triage, the agent runs a multi-turn dialog and produces a sense-making note where every claim ends with a `↗` link to the exact paragraph in the source. No more "I have a note about this somewhere" without a path back to where the claim came from.
+
+> **Example prompt:** "Deep-ingest this research paper. Focus on the methodology section."
+
+[Knowledge ingest guide](/guides/knowledge-ingest)
 
 ## It delegates complex work
 

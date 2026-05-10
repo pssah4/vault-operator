@@ -1,11 +1,11 @@
 ---
 title: Connectors
-description: MCP client for external tools, MCP server for Claude Desktop, and remote access.
+description: MCP client for external tools, MCP server for Claude Desktop and ChatGPT, and remote access via Cloudflare relay.
 ---
 
 # Connectors
 
-Obsilo can connect to external tools, expose your vault to other AI applications, and let you reach it remotely. It does this through the Model Context Protocol (MCP) and a Cloudflare relay.
+Obsilo can connect to external tools, expose your vault and memory layer to other AI applications, and let you reach it remotely. It does this through the Model Context Protocol (MCP) and a Cloudflare relay.
 
 ## MCP client: connect external tools
 
@@ -28,8 +28,8 @@ Any MCP-compatible server works. A few common examples:
 | Transport | When to use |
 |-----------|------------|
 | stdio | Local servers running as command-line processes |
-| SSE | Remote servers using Server-Sent Events (legacy) |
-| Streamable HTTP | Modern remote servers (recommended for remote) |
+| Streamable HTTP | Modern remote servers (recommended) |
+| SSE | Older remote servers using Server-Sent Events (fallback) |
 
 4. Enter the server command or URL
 5. Save. The agent picks up available tools automatically.
@@ -40,35 +40,66 @@ Once connected, the agent calls external tools with `use_mcp_tool` and manages s
 You don't need to tell the agent which tools are available. It reads the tool list from each connected MCP server and uses them when they fit your request.
 :::
 
-## MCP server: expose your vault to Claude Desktop
+## MCP server: expose Obsilo to other AI clients
 
-You can turn Obsilo into an MCP server so Claude Desktop (or any MCP client) can read and write your Obsidian vault.
+You can turn Obsilo into an MCP server so Claude Desktop, ChatGPT, Perplexity, or any other MCP client can read and write your vault, memory, and history layers.
 
 ### Why this matters
 
-Claude Desktop cannot access your Obsidian notes on its own. With Obsilo's MCP server enabled, it gets structured access to your vault: searching, reading, and writing notes through a controlled interface.
+Most external AI clients cannot access your Obsidian notes on their own. With Obsilo's MCP server enabled, they get structured access to:
 
-### Available tools (3 tiers)
+- The vault: search and read notes, run vault operations
+- Persistent memory: cross-surface facts and preferences
+- Conversation history: search past chats across surfaces
+
+Each external call carries a `source_interface` tag (`claude`, `chatgpt`, `perplexity`, `obsilo`, `other`) so memory and history stay separable per surface. See [Unified Chat Memory](/concepts/unified-chat-memory) for the cross-surface UX.
+
+### Available tools (four tiers)
 
 | Tier | Tools | What they do |
 |------|-------|-------------|
-| Read | `read_notes`, `search_vault`, `get_context` | Search and read vault content |
-| Session | `sync_session`, `update_memory` | Synchronize conversation context and memory |
-| Write | `write_vault`, `execute_vault_op` | Create and modify notes; run vault operations |
+| Read | `get_context`, `search_vault`, `read_notes`, `get_vault_note_metadata`, `get_vault_implicit_edges` | Vault, ontology, structural information |
+| Memory | `recall_memory`, `save_to_memory`, `update_memory` (deprecated) | Persistent facts and preferences across surfaces |
+| History | `save_conversation`, `close_conversation`, `search_history`, `sync_session` | Conversations as living documents, plus full-text search |
+| Write | `write_vault`, `execute_vault_op` | Create, edit, delete files; run any of ~60 vault operations |
 
-`execute_vault_op` is the gateway to all vault operations. It lists about 33 available tools at runtime, including `vault_health_check`, `semantic_search`, `create_pptx`, and others. The list is generated from the plugin's tool registry, so new tools show up automatically without any config changes.
+`execute_vault_op` is the gateway to all vault operations. It lists about 60 available tools at runtime, including `vault_health_check`, `semantic_search`, `create_pptx`, and others. The list is generated from the plugin's tool registry, so new tools show up automatically without any config changes.
 
-### Setup
+`get_context` is meant to be called first in every conversation. It returns user profile, memory, behavioral patterns, vault statistics, available skills, and rules.
+
+### Strict source isolation
+
+Sharing all of your memory layer with every external client is rarely what you want. **Settings > Memory > Cross-Surface Sync** has two switches:
+
+- **Strict source isolation** (default for non-Obsilo callers): under strict mode, `get_context`, `recall_memory`, and `search_history` only return memory and history items tagged `source_interface = obsilo`. External clients see vault stats and structural info, but not your personal memory.
+- **Per-surface sync mode**: opt specific surfaces into shared memory if you want unified behaviour across them.
+
+The default is conservative. Loosen it deliberately, per surface, when the trade-off is worth it.
+
+### Setup for Claude Desktop
 
 1. Open **Settings > Obsilo Agent > MCP > Server** tab
 2. Enable the MCP server
-3. Click **"Configure Claude Desktop"**. This adds the configuration to Claude Desktop's config file for you.
+3. Click **"Configure Claude Desktop"**. This writes the configuration into Claude Desktop's config file for you.
 4. Restart Claude Desktop
 
-That's it. Claude Desktop now sees your vault as an available tool source.
+Claude Desktop now sees the vault, memory, and history as available tool sources.
+
+### Setup for ChatGPT (custom connector)
+
+1. In Obsilo, open **Settings > MCP > Remote** and copy the relay URL (see Remote access below).
+2. In ChatGPT, open **Settings > Connectors > Create custom connector**.
+3. Use the relay URL as the MCP server endpoint.
+4. Authorize. ChatGPT now has the same four tiers available, gated by your strict-source-isolation setting.
+
+### Setup for Perplexity
+
+1. Same relay URL as ChatGPT.
+2. Add it as an MCP server in Perplexity's connector settings.
+3. Authorize.
 
 :::warning Write access
-The write tier lets Claude Desktop modify your vault. Enable it only if you trust the prompts you send through Claude Desktop. The read and session tiers are safe for everyday use.
+The write tier lets external clients modify your vault. Enable per-surface write access only for clients you trust with file-level access. The read and history tiers are safe for everyday use.
 :::
 
 ## Remote access via Cloudflare relay
@@ -77,7 +108,7 @@ Remote access lets you talk to your vault from anywhere, as long as Obsidian is 
 
 ### How it works
 
-A Cloudflare Workers relay acts as a bridge between your local Obsilo instance and remote clients. The RelayClient in Obsilo holds a persistent connection to the deployed worker.
+A Cloudflare Workers relay acts as a bridge between your local Obsilo instance and remote clients. The RelayClient in Obsilo holds a persistent connection to the deployed worker. The relay uses HTTP long-polling. The client polls for incoming requests, processes them locally, and sends responses back. Authentication uses a token embedded in the URL. No data is stored on the relay. It is a passthrough.
 
 ### Setup
 
@@ -90,15 +121,24 @@ A Cloudflare Workers relay acts as a bridge between your local Obsilo instance a
 Remote access requires Obsidian to be running on your machine. The relay forwards requests to your local instance. It does not store your vault data in the cloud.
 :::
 
+## Living documents and source-interface tagging
+
+When you use Obsilo through Claude Desktop, ChatGPT, or Perplexity, every persisted message carries a `source_interface` tag. The history sidebar in Obsidian groups conversations by source so you can see what came in from which surface.
+
+Multiple `save_conversation` calls within 30 minutes from the same source interface append to a single thread instead of creating new conversations. This is the living-document model. Memory extraction runs incrementally on the new turns rather than re-processing the whole thread.
+
+`sync_session` is the legacy bulk path: an external client sends an entire transcript at the end of a conversation. It is kept for clients that do not yet support per-turn `save_conversation`.
+
 ## Provider overview
 
-Obsilo supports 10+ AI providers. Most use a plain API key. Two of them use a different auth flow:
+Obsilo supports 10+ AI providers. Most use a plain API key. A few use different auth flows.
 
 | Provider | Auth method | Notes |
 |----------|------------|-------|
-| GitHub Copilot | OAuth device flow | Uses your existing GitHub Copilot subscription. No separate API key needed. You sign in with your GitHub account. |
-| Kilo Gateway | Device auth + manual token | Community gateway with shared rate limits. Device authentication or paste a token manually. |
-| Anthropic, OpenAI, Google, etc. | API key | Paste your key in Settings > Models. |
+| GitHub Copilot | OAuth device flow | Uses your existing GitHub Copilot subscription. No separate API key needed. |
+| Kilo Gateway | Device auth + manual token | Community gateway with shared rate limits. |
+| AWS Bedrock | AWS credential providers | Region-aware, supports Claude on Bedrock. Cache-points enabled per ADR-061. |
+| Anthropic, OpenAI, Google, OpenRouter, etc. | API key | Paste your key in Settings > Models. |
 
 ### Setting up GitHub Copilot
 
@@ -121,6 +161,7 @@ GitHub Copilot works if you already have a Copilot subscription. Kilo Gateway of
 
 ## Next steps
 
-- [Skills, Rules & Workflows](/guides/skills-rules-workflows): Customize the agent's behavior
-- [Office Documents](/guides/office-documents): Create presentations and documents
-- [Multi-Agent & Tasks](/guides/multi-agent): Hand work off to sub-agents
+- [Unified Chat Memory](/concepts/unified-chat-memory): How memory and history flow across surfaces.
+- [MCP architecture](/concepts/mcp-architecture): The protocol details behind the connectors.
+- [Skills, Rules & Workflows](/guides/skills-rules-workflows): Customize the agent's behavior.
+- [Office Documents](/guides/office-documents): Create presentations and documents.

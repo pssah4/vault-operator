@@ -50,10 +50,14 @@ The plugin is a platform. You can extend it with MCP servers for external tools,
 | Directory | What's in it |
 |-----------|-------------|
 | `src/core/` | AgentTask, pipeline, system prompt, modes, governance, checkpoints |
-| `src/core/tools/` | 49 tool implementations (vault, web, agent, MCP, dynamic) |
+| `src/core/tools/` | 62 tool implementations (vault, web, agent, memory, MCP, dynamic) |
 | `src/core/tool-execution/` | Execution pipeline, repetition detector, operation logger |
 | `src/core/prompts/sections/` | 16 modular prompt section builders |
-| `src/api/` | AI provider abstraction (Anthropic, OpenAI) |
+| `src/core/memory/` | Memory v2 layer (FactStore, RecipeStore, soul, source-interface tagging) |
+| `src/core/knowledge/` | Knowledge graph, ontology, BA-25 auto-summary and tension detection |
+| `src/core/ingest/` | Karpathy-style deep ingest pipeline, triage, block-id mirror, source-position annotator |
+| `src/mcp/` | MCP server (cross-surface read/write to memory, history, vault) and Cloudflare relay |
+| `src/api/` | AI provider abstraction (Anthropic, OpenAI, Bedrock, Gemini, Copilot, Kilo Gateway, OpenRouter) |
 | `src/ui/` | Sidebar, settings, modals, onboarding |
 | `src/i18n/` | Internationalization (EN, DE) |
 | `src/types/` | Shared TypeScript types and settings |

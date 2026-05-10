@@ -36,19 +36,19 @@ The registry has one job beyond storage: `getToolDefinitions(mode)` filters tool
 
 ## Tool groups
 
-Tools are organized into six groups. Each group maps to a permission category.
+Tools are organized into seven groups. Each group maps to a permission category.
 
 | Group | What it contains | Effect on vault |
 |-------|-----------------|-----------------|
 | `read` | read_file, read_document, list_files, search_files | Never changes anything |
-| `vault` | get_frontmatter, search_by_tag, get_vault_stats, semantic_search, query_base, ... | Read-only metadata and search |
-| `edit` | write_file, edit_file, delete_file, move_file, create_pptx, generate_canvas, ... | Modifies or creates files |
+| `vault` | get_frontmatter, search_by_tag, get_vault_stats, semantic_search, query_base, anti_echo_search, ... | Read-only metadata, search, and ontology checks |
+| `edit` | write_file, edit_file, delete_file, move_file, create_pptx, generate_canvas, ingest_document, ingest_deep, ingest_triage, ... | Modifies or creates files. Ingest tools live here because they write source notes. |
 | `web` | web_fetch, web_search | External network access |
-| `agent` | attempt_completion, switch_mode, new_task, evaluate_expression, manage_skill, ... | Controls the agent's own behavior |
+| `agent` | attempt_completion, switch_mode, new_task, evaluate_expression, manage_skill, find_tool, inspect_self, ... | Controls the agent's own behavior |
 | `mcp` | use_mcp_tool | Calls external MCP servers |
-| `skill` | execute_command, call_plugin_api, execute_recipe, ... | Runs Obsidian commands and plugin APIs |
+| `skill` | execute_command, call_plugin_api, execute_recipe, enable_plugin, resolve_capability_gap | Runs Obsidian commands and plugin APIs |
 
-When you create a [custom mode](/concepts/mode-system), you pick which groups it gets. An "Ask" mode with only `read` and `vault` is physically unable to write files.
+When you create a [custom mode](/concepts/mode-system), you pick which groups it gets. An "Ask" mode with only `read` and `vault` is physically unable to write files. The ingest tools (`ingest_triage`, `ingest_document`, `ingest_deep`) sit in the `edit` group rather than a separate ingest group, because they all produce vault writes; this keeps the permission model simple.
 
 ## Execution pipeline
 

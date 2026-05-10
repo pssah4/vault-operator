@@ -11,7 +11,7 @@ The orchestrator is `buildSystemPromptForMode()` in `src/core/systemPrompt.ts`. 
 
 ## Why modular?
 
-A monolithic prompt becomes unworkable past a few hundred lines. Obsilo's prompt routinely exceeds 5,000 tokens because the agent needs to understand 49 tools, safety rules, vault conventions, and user-specific context. Modules solve two real problems. First, different modes need different prompts: a read-only mode shouldn't include write-tool descriptions, and subtasks should skip skills and memory to stay lean. With modules, you toggle sections on or off. Second, adding a skill or a new tool group shouldn't require editing a monolithic template. Each concern lives in its own file.
+A monolithic prompt becomes unworkable past a few hundred lines. Obsilo's prompt routinely exceeds 5,000 tokens because the agent needs to understand 60+ tools, safety rules, vault conventions, and user-specific context. Modules solve two real problems. First, different modes need different prompts: a read-only mode shouldn't include write-tool descriptions, and subtasks should skip skills and memory to stay lean. With modules, you toggle sections on or off. Second, adding a skill or a new tool group shouldn't require editing a monolithic template. Each concern lives in its own file.
 
 ## Assembly order
 

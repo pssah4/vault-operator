@@ -49,13 +49,14 @@ Every tool is classified into an approval group. The group determines whether th
 | `read` | read_file, search_files, semantic_search | Auto-approved |
 | `note-edit` | write_file, edit_file, append_to_file | Requires approval |
 | `vault-change` | create_folder, delete_file, move_file | Requires approval |
+| `ingest` | ingest_triage, ingest_document, ingest_deep | Triage is auto-approved (read-only). Document and deep ingest write source notes and require approval. |
 | `web` | web_fetch, web_search | Auto-approved when web tools are enabled |
-| `agent` | attempt_completion, switch_mode, update_todo_list | Always auto-approved |
+| `agent` | attempt_completion, switch_mode, update_todo_list, find_tool, inspect_self | Always auto-approved |
 | `subtask` | new_task | Configurable |
 | `mcp` | use_mcp_tool | Configurable |
 | `skill` | execute_command, call_plugin_api | Configurable |
 | `sandbox` | evaluate_expression | Requires explicit opt-in |
-| `self-modify` | manage_skill, manage_source | Always requires human approval, no bypass |
+| `self-modify` | manage_skill, manage_source, update_soul | Always requires human approval, no bypass |
 
 Self-modification tools are the strictest category. The agent can create and edit its own skills and source code, but a human must approve every change. There is no auto-approve setting for this group.
 

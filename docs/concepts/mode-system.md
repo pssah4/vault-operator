@@ -7,6 +7,10 @@ description: How modes control the agent's personality, available tools, and beh
 
 A mode defines what the agent can do and how it talks. Each mode has a name, a role definition, a set of tool groups, and optional custom instructions. Switch modes, and the agent's capabilities change immediately.
 
+:::info Skills do most of what modes used to
+In practice, [skills](/guides/skills-rules-workflows) have absorbed most of the day-to-day "switch into a different working style" use case. Skills are scoped to a task type, can be triggered by a slash command, and do not require a global mode switch. The mode system below is still in place and still useful for hard permission boundaries (Ask vs Agent), but custom modes have become rare. If you find yourself reaching for a custom mode, check whether a skill solves it first.
+:::
+
 ## Two built-in modes
 
 Ask is read-only. Tool groups: `read`, `vault`, `agent`. The agent can search, read files, answer questions, and explore the vault. It cannot create, edit, move, or delete anything. When the user asks for a write operation, the agent calls `switch_mode` to escalate to Agent mode.

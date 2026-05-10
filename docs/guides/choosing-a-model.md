@@ -11,7 +11,7 @@ Obsilo works with many providers and models. Not all of them are equally good at
 
 Obsilo is an agent, not a chat assistant. The model needs to:
 
-- Support tool use (function calling). It has to call Obsilo's 49 tools.
+- Support tool use (function calling). It has to call Obsilo's 60+ tools.
 - Follow instructions precisely. The system prompt is dense with rules, skills, and mode definitions.
 - Reason about multi-step tasks. Reading files, searching, editing, and verifying takes planning.
 
