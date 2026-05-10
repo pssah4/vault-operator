@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { checkPositionMarkers, countPageHeadings } from '../IngestDocumentTool';
+import { checkPositionMarkers, countPageHeadings, findDeadPageRefs, basenameOf } from '../IngestDocumentTool';
 
 describe('IngestDocumentTool helpers', () => {
     describe('countPageHeadings', () => {
@@ -61,6 +61,75 @@ describe('IngestDocumentTool helpers', () => {
             const r = checkPositionMarkers(header);
             expect(r.kernaussagen).toBe(2);
             expect(r.withMarker).toBe(2);
+        });
+
+        // FIX-19-28-06: Karpathy-Pattern setzt Block-Anchor `^slug` als
+        // Eigen-Anchor an jeden Bullet. Vor dem Fix matched die Regex
+        // `\s*$` nach `]]` nicht und der Bullet zaehlte als ohne-Marker.
+        it('zaehlt Marker auch wenn ein Block-Anchor folgt (Karpathy-Pattern)', () => {
+            const header = `## Kernaussagen\n\n`
+                + `- Aussage A. [[X#Page 1|↗]] ^seg-a\n`
+                + `- Aussage B. [[X#Page 2|↗]] ^seg-b\n`
+                + `- Aussage C. [[X#Page 3|↗]]\n`;
+            const r = checkPositionMarkers(header);
+            expect(r.kernaussagen).toBe(3);
+            expect(r.withMarker).toBe(3);
+        });
+    });
+
+    describe('basenameOf', () => {
+        it('extrahiert Basename ohne .md', () => {
+            expect(basenameOf('Notes/Webb-2026.md')).toBe('Webb-2026');
+            expect(basenameOf('Webb-2026.md')).toBe('Webb-2026');
+        });
+        it('liefert den Stem auch ohne Ordner', () => {
+            expect(basenameOf('EnBW Geschaeftsbericht 2025.md')).toBe('EnBW Geschaeftsbericht 2025');
+        });
+    });
+
+    describe('findDeadPageRefs', () => {
+        it('erkennt Page-Number > pageCount als dead', () => {
+            const header = `## Kernaussagen\n\n- A. [[Webb-2026#Page 87|↗]]\n`;
+            const dead = findDeadPageRefs(header, 'Webb-2026', 60);
+            expect(dead).toHaveLength(1);
+            expect(dead[0].reason).toContain('exceeds source pageCount 60');
+        });
+
+        it('erkennt Basename-Mismatch als dead', () => {
+            const header = `## Kernaussagen\n\n- A. [[Wrong Basename#Page 5|↗]]\n`;
+            const dead = findDeadPageRefs(header, 'Webb-2026', 100);
+            expect(dead).toHaveLength(1);
+            expect(dead[0].reason).toContain('does not match output basename');
+        });
+
+        it('akzeptiert valide Refs (Basename matcht, Page in Range)', () => {
+            const header = `## Kernaussagen\n\n`
+                + `- A. [[Webb-2026#Page 5|↗]]\n`
+                + `- B. [[Webb-2026#Page 87|↗]] ^seg-b\n`;
+            const dead = findDeadPageRefs(header, 'Webb-2026', 100);
+            expect(dead).toHaveLength(0);
+        });
+
+        it('ignoriert Refs ausserhalb der Kernaussagen-Section', () => {
+            const header = `## Overview\n\n- See [[Wrong#Page 999|↗]]\n\n## Kernaussagen\n\n- A. [[OK#Page 1|↗]]\n`;
+            const dead = findDeadPageRefs(header, 'OK', 5);
+            expect(dead).toHaveLength(0);
+        });
+
+        it('listet alle dead Refs auf, nicht nur den ersten', () => {
+            const header = `## Kernaussagen\n\n`
+                + `- A. [[Wrong#Page 87|↗]]\n`
+                + `- B. [[Webb-2026#Page 999|↗]]\n`;
+            const dead = findDeadPageRefs(header, 'Webb-2026', 60);
+            expect(dead).toHaveLength(2);
+        });
+
+        it('skippt Block-Anchor-Refs (#^block-N) und URL-Anchor-Refs', () => {
+            const header = `## Kernaussagen\n\n`
+                + `- A. [[X#^block-1|↗]]\n`
+                + `- B. [[X#anchor|↗]]\n`;
+            const dead = findDeadPageRefs(header, 'X', 5);
+            expect(dead).toHaveLength(0);
         });
     });
 });
