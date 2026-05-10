@@ -196,8 +196,8 @@ onMounted(() => {
 
     <p class="landing-sub">Learns your vault and your workflows.</p>
     <p class="landing-detail">
-      49 tools. Hybrid semantic search, a real knowledge graph, persistent memory.<br>
-      Multi-agent workflows, plugin discovery, office document creation, checkpoint-backed safety.<br>
+      60+ tools. Block-level provenance from sense-making notes back to source paragraphs.<br>
+      Hybrid semantic search, persistent memory, cross-surface MCP, multi-agent workflows.<br>
       Local-first. Open source. Free to use.
     </p>
 

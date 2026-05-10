@@ -120,7 +120,7 @@ export default withMermaid(
     description: 'An AI agent for your Obsidian vault',
     head: [
       ['meta', { property: 'og:title', content: 'Obsilo, an AI agent for your Obsidian vault' }],
-      ['meta', { property: 'og:description', content: 'An autonomous AI agent for Obsidian with 49 tools, semantic search, multi-agent workflows, and full safety controls.' }],
+      ['meta', { property: 'og:description', content: 'An autonomous AI agent for Obsidian with 60+ tools, block-level provenance, cross-surface MCP, semantic search, persistent memory, and full safety controls.' }],
     ],
 
     appearance: 'dark',

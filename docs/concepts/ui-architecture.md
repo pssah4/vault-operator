@@ -24,9 +24,9 @@ flowchart TD
 
 | Main tab | Sub-tabs |
 |----------|----------|
-| Providers | Models, Embeddings, Web Search, MCP Servers |
-| Agent Behaviour | Modes, Permissions, Loop, Memory, Rules, Workflows, Skills, Prompts |
-| Vault | (single tab) |
+| Providers | Models, Embeddings, Web Search, MCP Servers (client + server + remote relay) |
+| Agent Behaviour | Modes, Permissions, Loop, Memory (incl. Cross-Surface Sync), Rules, Workflows, Skills, Prompts |
+| Vault | Ingest templates, Knowledge properties, source folder, knowledge folder |
 | Advanced | Interface, Shell, Visual Intelligence, Log, Debug, Backup |
 | Language | (single tab) |
 
@@ -42,7 +42,7 @@ The sidebar started as a single large file. As features accumulated, components 
 | `AutocompleteHandler` | Slash commands and @-mentions in the input |
 | `ToolPickerPopover` | Tool selection popup when the agent needs to choose |
 | `VaultFilePicker` | File selection from the vault |
-| `HistoryPanel` | Conversation history browser |
+| `HistoryPanel` | Conversation history browser, grouped by source-interface tab (Obsilo, Claude, ChatGPT, Perplexity, All). Living documents render as one entry with a turn count. |
 | `ContextDisplay` | Token usage and context window visualization |
 | `CondensationFeedback` | Notification when context condensing occurs |
 | `SuggestionBanner` | Proactive suggestions from the agent |

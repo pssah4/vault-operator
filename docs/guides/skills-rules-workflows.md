@@ -41,6 +41,10 @@ Rules work best for global constraints that should always apply: tone of voice, 
 
 Skills go further than rules. They are only injected when the agent detects that a conversation is relevant to the skill's domain, which keeps the system prompt lean.
 
+:::tip Bundled skills
+Obsilo ships with a set of bundled skills you can use right away: `/ingest` (single-pass capture), `/ingest-deep` (multi-turn Karpathy-style sense-making), `/meeting-summary`, `/office-workflow`, `/presentation-design`, `/sandbox-environment`, `/vault-health-batch`, plus a few more. Bundled skills live inside the plugin and update with new releases. They sit alongside any skills you author yourself in your vault.
+:::
+
 To create one:
 1. Create a folder under `.obsidian-agent/skills/` (e.g., `meeting-notes/`)
 2. Add a `SKILL.md` file with frontmatter:

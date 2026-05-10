@@ -92,7 +92,13 @@ Obsilo saves every conversation automatically. To access your history:
 2. Browse past conversations, each showing a title, date, and preview
 3. Click a conversation to restore it and continue where you left off
 
+The history sidebar groups conversations by source tab: Obsilo, Claude Desktop, ChatGPT, Perplexity, plus an "All" view. Each conversation carries the `source_interface` tag of where it came from, so you can see what came in via which surface without mixing it all together. Living documents (multiple turns within 30 minutes from the same source) appear as one entry with a turn count rather than separate conversations.
+
 Conversations are titled automatically based on their content. You can also jump to linked conversations directly from your notes. See [Memory & Personalization](/guides/memory-personalization) for chat-linking.
+
+:::info Attachments live for one turn
+Files you drop into the chat are parsed once and made available for the same turn the user sent. From the next turn on, the parsed text is gone. Skills that need to operate on an attachment across multiple turns (like `/ingest-deep`) save the file to the vault first, then work against the vault path.
+:::
 
 ## Context display and condensation
 
