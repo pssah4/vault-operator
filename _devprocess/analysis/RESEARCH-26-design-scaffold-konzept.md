@@ -490,7 +490,7 @@ Phase 4: Implementation (Claude Code)
 
 Phase 5: Security (Claude Code, periodisch)
   -> _devprocess/prompts/security-scan.md
-  -> _devprocess/analysis/security/SCAN-*.md
+  -> _devprocess/analysis/SCAN-*.md
 ```
 
 ### 9.2 Vereinfachter Ablauf (Simple Test)
@@ -662,7 +662,7 @@ Feste Defaults (nicht abgefragt):
 | ADRs | `_devprocess/architecture/ADR-*.md` |
 | Feature-Specs | `_devprocess/requirements/features/FEATURE-*.md` |
 | Backlog | `_devprocess/context/BACKLOG.md` |
-| Security-Scan-Reports | `_devprocess/analysis/security/SCAN-*.md` |
+| Security-Scan-Reports | `_devprocess/analysis/SCAN-*.md` |
 | **Agent-Artefakte** | |
 | Business Analysis | `_devprocess/analysis/BA-*.md` |
 | Epics | `_devprocess/requirements/epics/EPIC-*.md` |

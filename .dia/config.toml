@@ -1,0 +1,7 @@
+mode = "github-sync"
+source_branch = "dev"
+
+[github]
+# project_number = <set to the GitHub Project number for auto-add>
+# status_field = "Status"
+# project_owner = "pssah4"

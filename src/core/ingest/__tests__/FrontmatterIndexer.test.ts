@@ -45,7 +45,7 @@ async function freshStores() {
     const SQL = await initSqlJs();
     const db = new SQL.Database();
     db.exec(SCHEMA);
-    const knowledgeDB = makeMockKnowledgeDB(db as unknown as SqlJsDb);
+    const knowledgeDB = makeMockKnowledgeDB(db);
     return {
         knowledgeDB,
         noteSummaryStore: new NoteSummaryStore(knowledgeDB),

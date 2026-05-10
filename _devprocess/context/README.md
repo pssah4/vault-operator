@@ -50,7 +50,7 @@ Transition-Counts, Cross-phase-Trigger-Counts.
 Codebase-Reconciliation, Mid-course-Trigger).
 
 **Wer schreibt:** `/coding` (Cycle-Time, Drift-Count),
-`/business-analysis` (Hypothesis-Validierung), `/dia-orchestrator`
+`/business-analysis` (Hypothesis-Validierung), `/dia-guide`
 (Phase-Transitions), jede Phase-skill (Mid-course-Trigger-Counts).
 
 ## Was hier NICHT hingehoert

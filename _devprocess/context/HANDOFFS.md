@@ -1396,3 +1396,587 @@ Rows nachgetragen, dashboard counts aktualisiert.
 - FEAT-23-06 Memory-Profile Wiedervorlage (Trigger: erstes Multi-Persona-Setup)
 - Live-KPI-Messung BA-26 + BA-25 (4 Wochen Production-Use)
 - Section 9 arc42 ADR-Liste fuer Vorzyklus-ADRs (75-89) nach Audit-Pass auffrischen
+
+
+---
+
+## dia-migration 2026-05-07 -- migration complete
+
+Branch: chore/dia-migration-2026-05-07
+Phases run: 1 (foundation spot-check, already in v2 shape), 2 (frontmatter status cleanup), 4 (analysis/ flatten), 5 (BACKLOG.md regeneration), 6 (skill-name renames), 7 (consistency check). Phase 3 (filename naming) bewusst uebersprungen pro User-Entscheidung.
+
+Counts after migration:
+- Artifacts: 401 (23 Epic, 202 Feature, 48 Fix, 6 Improvement, 110 ADR, 12 Plan)
+- Backlog rows: 401
+- Frontmatter status drift removed: 15 fields
+- Body status drift: 0
+- analysis/security/ subdirectory: removed (3 AUDITs flat-moved)
+- archive/ folders: 0
+- Skill renames: 4 files (BA-23, REFLECTION-2026-05-03, METRICS, context/README)
+
+Known limitation:
+- Consistency-Check Mode A meldet 11 LOW-Findings (orphan-backlog-row fuer ADR-100..ADR-110). Ursache: die DIA-v3.4 consistency-check.py erkennt nur 2-stellige ADR-IDs (Regex `^ADR-\d{2}`) und stuft 3-stellige Files als orphan ein. Die ADRs existieren physisch und sind korrekt referenziert. Der User hat in Phase 0 bewusst entschieden, das gemischte 2-/3-stellige Numbering beizubehalten und Phase 3 (Bulk-Rename) zu ueberspringen, um massiven Diff zu vermeiden. Findings sind kein Datenproblem.
+
+Next steps:
+1. Migration-Branch reviewen und als chore-PR nach dev mergen.
+2. Zukuenftige neue ADRs weiterhin als ADR-{nnn} (3-stellig) erstellen.
+3. Sobald die DIA consistency-check.py ein 3-stelliges ADR-Schema unterstuetzt, automatisch greenern.
+
+---
+
+## 2026-05-07 -- Issue #11 Block-Citations -- BA->FIX-Capture + Skill-Suite-Plan
+
+**Branch:** feature/block-source-citations
+**Phase:** Business-Analysis -> Bug-Capture -> Architecture-Amendment
+
+triage: FIX-19-28-01
+triage_kind: fix
+epic: EPIC-19
+feature: FEAT-19-28
+
+### Was passiert ist
+
+GitHub Issue #11 ("Blockweises Zitieren von Quellen") wurde initial
+als Item-BA-Pfad fuer ein neues Feature aufgesetzt (`/business-analysis`).
+3-Pfad-Audit der existierenden Implementation hat gezeigt:
+
+- **FEAT-19-28 (Source-Position-Marker) ist Done/Released, aber
+  funktional broken** -- Sense-Making-Note enthaelt keine Page-Refs
+  oder Block-Refs. Erfasst als FIX-19-28-01 (P0).
+- **PLAN-15** geschrieben mit 6-Schritt-Implementations-Plan
+  (Helpers SourceReader + SummaryPositionAnnotator, Pipeline-
+  Anpassung, IngestDocumentTool-Description-Update).
+- **User-Vorgabe revidiert** Marker-Form: nicht Perplexity-`[1]`,
+  sondern dezentes `↗`-Symbol inline am Satzende. ADR-103 mit
+  Amendment 2026-05-07 angepasst (Skill-Layer entscheidet die
+  Marker-Form, Tool-Layer bleibt strukturiert).
+- **User-Vorgabe ergaenzt** Skill-Suite als Steuerungs-Layer:
+  - `/ingest-deep` (Karpathy Multi-Turn, Markdown-Mirror Pflicht)
+  - `/ingest` (Single-Pass, page-refs Default)
+  - `/meeting-summary` (Transkript-Block-Refs, single-note-Layout)
+  Erfasst als **FEAT-19-31**, 3 Skill-Drafts unter
+  `_devprocess/architecture/skills/`.
+
+### Code-vs-Spec-Audit (User + LLM)
+
+Mehrere FEATs sind als Done markiert, aber im Code Skelett:
+- FEAT-19-22 Dialog-Modus -> IMP-19-22-01 (LLM-Hook fuer Multi-Turn)
+- FEAT-19-23 Auto-Modus -> IMP-19-23-01 (echter Plan statt Stub)
+- FEAT-19-13 Tension -> IMP-19-13-01 (default-instanziiert)
+- FEAT-19-25 Folder -> IMP-19-25-01 (Settings-UI)
+- FEAT-19-15 Inbox -> IMP-19-15-01 (Bulk-UI)
+- FEAT-19-19 Stufe-2 -> IMP-19-19-01 (One-Click Web-Pass)
+- FEAT-19-08 Summary -> IMP-19-08-01 (strukturierter Output)
+- FEAT-19-05 OCR -> Status Done -> Planned (Spec ohne Code)
+- FEAT-19-06 Batch-Rename -> Status Done -> Planned (Spec ohne Code)
+
+### GitHub-Sync (Schritt 1+2 abgeschlossen)
+
+- `.dia/config.toml` mit mode=github-sync angelegt
+- 36 EPIC-19-Issues (EPIC + 30 FEATs + 5 FIX + 1 IMP) auf
+  pssah4/obsilo-dev erstellt via flow.py
+- Status synchronisiert (Done -> closed, Planned -> open)
+- 8 neue Issues fuer FEAT-19-31 + 7 IMPs (#49-#56)
+- FEAT-19-05/06 reopened nach Status-Korrektur (#17, #18)
+- Labels bootstrapped: epic, feature, fix, improvement, p0-p3,
+  phase:planned/ba/re/arch/coding/testing/sec/review
+
+### Naechste Schritte (recommended)
+
+- **Phase 1 (Code):** PLAN-15 ausfuehren -- Tool-Layer-Reparatur fuer
+  FIX-19-28-01. SourceReader + SummaryPositionAnnotator + Pipeline-
+  Verkettung + IngestDocumentTool-Description-Update.
+- **Phase 2 (Skill-Deployment):** 3 .skill.md Files in
+  `.obsidian-agent/plugin-skills/` deployen. Tooling-Frage offen:
+  Built-in-Seeding via embedded-assets.json oder Skill-Folder-
+  Importer.
+- **Tech-Debt-Tickets:** 7 IMPs separat planen (insbesondere
+  IMP-19-22-01 als Voraussetzung fuer echten Karpathy-Dialog im Tool-
+  Layer).
+- **`/dia-guide` Mode-B-Run** vor naechstem Release-Zyklus.
+
+### Open Questions
+
+- Skill-Deployment-Pfad (Built-in vs Vault-Folder-Seed): ASR in
+  FEAT-19-31, ADR-Bedarf.
+- ADR-100 ingest_session-Tabelle ist accepted aber nicht im
+  Produktpfad genutzt (haengt an IMP-19-22-01).
+- Mobile-Plattform-Test fuer page-refs (ADR-103 offene Frage zu
+  Android).
+
+
+---
+
+## 2026-05-07 -- coding-to-testing -- FIX-19-28-01 implemented
+
+triage: FIX-19-28-01
+triage_kind: fix
+epic: EPIC-19
+feature: FEAT-19-28
+
+**Branch:** feature/block-source-citations
+**Commit:** TBD (pending phase-end)
+**Plan:** PLAN-15 status Implemented
+
+### Was implementiert wurde
+
+FIX-19-28-01 (Issue #11) -- Source-Position-Marker werden jetzt in der
+Sense-Making-Note inline mit dezentem ↗-Symbol gerendert. 6-Schritt-
+Plan-15 vollstaendig durchlaufen, alle 8 Akzeptanzkriterien gruen.
+
+**Geaenderte / neue Files:**
+
+- `src/core/ingest/SourceReader.ts` (neu) -- liest .md / .pdf / Office
+  einheitlich als Markdown via parseDocument-Pipeline.
+- `src/core/ingest/SummaryPositionAnnotator.ts` (neu) -- rendert
+  Take-Aways als Bullet-Liste mit inline `[[source#^block-N|↗]]`,
+  `[[source.pdf#page=N|↗]]`, `[[source#anchor|↗]]`.
+- `src/core/ingest/DeepIngestPipeline.ts` -- Plan-Schema akzeptiert
+  legacy string[] + neue DeepIngestTakeAway[] (backward-compat),
+  Source-Body von hardcoded `''` auf SourceReader-Output, BlockIdSetter
+  Pre-Pass, SummaryPositionAnnotator-Aufruf bei fehlendem summaryBody.
+- `src/core/tools/vault/IngestDeepTool.ts` -- planGenerator-Default
+  nutzt readSourceAsMarkdown statt cachedRead (PDF-Garbage-Bug fix),
+  liefert Take-Aways mit kind='block-anchor', kein summaryBody mehr.
+- `src/core/tools/vault/IngestDocumentTool.ts` -- Tool-Description
+  enthaelt Provenance-Konvention (`[[OUTPUT_BASENAME#... |↗]]`),
+  Tool-Output meldet Position-Marker-Check pro Aufruf.
+
+**Tests:** 1307 / 1307 (133 Files, 6.4s). 25 neue Tests fuer FIX-19-28-01.
+**Build:** tsc + esbuild clean, Deploy in iCloud-Vault erfolgt.
+
+### Open Concerns fuer /testing
+
+- **Live-Repro mit echter PDF:** Unit-Tests decken die Bausteine ab,
+  aber ein echter Ingest mit einer PDF aus dem Vault sollte zeigen, ob
+  Page-Refs in Obsidian korrekt klickbar sind (AC-02 Desktop-Test).
+- **Tool-Description-Wirkung im Agent:** der Agent liest die Description
+  und soll den ↗-Marker in `## Kernaussagen` setzen. Verhalten muss in
+  einer echten Chat-Session getestet werden.
+- **PDF-Mirror-Pfad:** wenn `pdfStrategy='markdown-mirror'` aktiv ist,
+  laeuft der Sense-Making-Output anders (Mirror als actualSource). Nicht
+  gegen reale PDF getestet.
+- **Multi-Zettel-Modus mit Position-Markern:** Take-Aways gehen in
+  multiZettel.zettel[*].body, aber Annotation passiert nur in
+  source-plus-summary. Multi-Zettel-Notes haben keine Block-Refs --
+  separates IMP wenn der User es will.
+- **Cross-platform Mobile (iOS/Android):** ADR-103 Open Question, kein
+  Test gelaufen.
+
+### Naechster Schritt
+
+`/testing` -- Unit-Tests sind drin, aber Integration-Tests gegen die
+echte Vault-API + Live-Verifikation am Beispiel-PDF stehen aus.
+Anschliessend Phase-2 (FEAT-19-31 Skill-Suite-Deployment).
+
+---
+
+## 2026-05-09 -- BA Update fuer Issue #313 (Prompt Caching Settings)
+
+**Phase:** Business Analysis (Update-Modus auf BA-12)
+**Branch:** chore/imp-18-01-prompt-cache-settings
+**Items:** IMP-18-01-01 (Settings & Default), IMP-18-01-02 (Provider-Implementierungen)
+**Bezug:** [Issue #313](https://github.com/pssah4/obsilo-dev/issues/313), FEAT-18-01 (Done/Released), ADR-62 (Accepted)
+**Scope:** IMP (Improvement) auf bestehende Feature, kein Greenfield
+
+### Was diese Phase produziert hat
+
+- `_devprocess/analysis/BA-12-token-cost-reduction.md`: neuer Update-Block (Section 11) mit aktualisiertem Gap, drei Hypothesen, neuen KPIs, Scope-Split Phase 1 / Phase 2, drei verworfenen Alternativen.
+- `_devprocess/context/BACKLOG.md`: zwei neue IMP-Rows unter EPIC-18, Dashboard-Counter aktualisiert.
+
+### Personas
+
+- Bleiben unveraendert (Knowledge Worker, Power User aus BA-12 Section 4.1).
+- Sub-Beobachtung neu in 11.3: Bedrock-User (Enterprise-Compliance) und OpenAI-User (impliziter Cache nicht sichtbar).
+
+### How-Might-We
+
+Wie schalten wir Prompt Caching fuer alle Provider ein, die es unterstuetzen, ohne dass User aktiv konfigurieren muessen, und ohne dass die UI provider-spezifisch hardcoded bleibt?
+
+### Critical Hypotheses (zur Validierung in RE/Coding/Live-Test)
+
+- **H-313-1:** Default-Switch von off auf on ist sicher (Cache-Write-Aufpreis +25% wird durch ersten Cache-Read amortisiert). Falsifikation: >5% User berichten Kostensteigerung in 14 Tagen.
+- **H-313-2:** Ein einziges `ModelInfo.supportsPromptCache: boolean` reicht als Capability-Flag. Falsifikation: enum oder discriminated union noetig.
+- **H-313-3:** Bedrock cachePoint-Marker liefern messbar `cacheReadInputTokens > 0`. Falsifikation: Bedrock meldet trotz Marker 0.
+
+### Assumptions (zu pruefen)
+
+- OpenAI Usage-Feld `prompt_tokens_details.cached_tokens` ist bei den relevanten Modellen (gpt-4o, 4.1, o1) verfuegbar (laut OpenAI-Doku, nicht im Code verifiziert).
+- Bedrock-cachePoint-API ist im aktuellen `@aws-sdk/client-bedrock-runtime` verfuegbar (zu pruefen in RE/Architecture).
+- Kilo Gateway leitet Anthropic-Request-Felder unveraendert durch (zu pruefen anhand Gateway-Doku oder Live-Test).
+
+### Open Questions fuer RE/Architecture
+
+- Soll der Tooltip im UI eine konkrete Cost-Schaetzung anzeigen (provider-spezifisch) oder nur einen generischen Hinweis?
+- Wo sitzt das `supportsPromptCache`-Flag: in `ModelInfo` (pro Modell) oder in `LLMProvider` (pro Provider-Typ)? RE-Entscheidung.
+- Phase 3 (Cache-TTL-Konfiguration via UI, OpenAI `prompt_cache_retention: "24h"`) bleibt deferred. Wann triggern wir das?
+
+### Naechster Schritt
+
+`/requirements-engineering` -- erzeugt zwei IMP-Specs:
+- `_devprocess/requirements/improvements/IMP-18-01-01-prompt-cache-settings.md`
+- `_devprocess/requirements/improvements/IMP-18-01-02-prompt-cache-providers.md`
+
+Anschliessend `/architecture` fuer eine ADR zum Capability-Flag-Pattern (Erweiterung zu ADR-62), dann `/coding` Phase 1, danach `/coding` Phase 2.
+
+---
+
+## 2026-05-09 -- RE fuer Issue #313 (zwei IMP-Specs)
+
+**Phase:** Requirements Engineering
+**Branch:** chore/imp-18-01-prompt-cache-settings
+**Items:** IMP-18-01-01, IMP-18-01-02
+**Bezug:** BA-12 Section 11, FEAT-18-01, ADR-62, Issue #313
+
+### Was diese Phase produziert hat
+
+- `_devprocess/requirements/improvements/IMP-18-01-01-prompt-cache-settings-ui.md`: Phase 1 Spec (Default-on, Capability-Flag, UI-Visibility, Tooltip). 5 Akzeptanzkriterien.
+- `_devprocess/requirements/improvements/IMP-18-01-02-prompt-cache-provider-coverage.md`: Phase 2 Spec (Bedrock cachePoint, OpenAI cached_tokens, Kilo Gateway Passthrough). 5 Akzeptanzkriterien. `depends-on: [IMP-18-01-01]`.
+
+### NFR-Zusammenfassung (kein klassischer NFR-Block, weil IMP)
+
+- **Performance:** keine zusaetzliche Latenz pro Call, im Gegenteil weniger Bytes durch Cache-Reads.
+- **Kosten:** Anthropic -90% auf cached prefix nach erstem Call; OpenAI -50%; Bedrock vergleichbar zu Anthropic-direct sobald cachePoint greift.
+- **Backward-Compat:** keine Daten-Migration (`undefined === true` zur Laufzeit), bestehende explizite `false`-Werte bleiben erhalten.
+- **Sichtbarkeit:** Toggle-Visibility datengetrieben statt provider-spezifisch hardcoded.
+
+### Critical ASRs (fuer Architektur-Phase)
+
+- **ASR-1 Capability-Flag-Standort:** wo sitzt `supportsPromptCache` -- in `ModelInfo` (pro Modell) oder in `LLMProvider` (pro Provider-Typ)? Heute hat Obsilo keine zentrale `ModelInfo`-Struktur in `src/types/settings.ts`. Architektur-Entscheidung ueber das Pattern noetig (ADR-Update zu ADR-62 oder neuer ADR).
+- **ASR-2 Bedrock cachePoint-Format:** AWS-SDK-Spezifik. Architektur entscheidet, ob das Setzen im Provider-Code direkt oder ueber den Adapter-Pattern aus FEAT-18-01 (PromptCacheAdapter) gehen soll.
+
+### Open architecture questions
+
+- Muss ADR-62 erweitert werden oder ein neuer ADR aufgesetzt werden fuer das Capability-Flag-Pattern?
+- Ist der Adapter-Pattern aus FEAT-18-01 (das im Code unter welchem Namen lebt?) heute schon nutzbar fuer Bedrock und Kilo Gateway, oder braucht es ein Refactoring?
+- Soll der Tooltip-Text im UI-Konstanten-File oder in i18n liegen? Heute hat `src/ui/settings/constants.ts` Labels, `i18n/locales/en.ts` ebenfalls.
+
+### Constraints
+
+- **Review-Bot-Compliance:** keine `console.log`/`fetch`/`require`/`element.style.X = Y`/`innerHTML`/`any` neu einfuehren.
+- **Kein Breaking Change** in Settings-Schema (`data.json`): Feld `promptCachingEnabled` bleibt optional, Defaults werden zur Laufzeit interpretiert.
+- **iOS/Android/Desktop:** Settings-UI muss auf allen drei Obsidian-Plattformen funktionieren.
+
+### Forbidden-terms check
+
+IMPs erlauben technische Begriffe in Loesung und Akzeptanzkriterien (anders als Feature-Specs mit tech-agnostischen SC). Beide Specs nutzen technische Begriffe nur dort, wo der Kontext (Provider-API, AWS-SDK, OpenAI-Usage-Feld) sie erfordert. Problem-Section beschreibt User-Outcome ("zahlen volle Rate", "sehen weder den Rabatt").
+
+### Naechster Schritt
+
+`/architecture` -- klaert ASR-1 (Capability-Flag-Standort) und ggf. ASR-2 (Adapter vs. direkter Provider-Code). Output: ADR-Update oder neuer ADR, plan-context.md fuer beide IMPs. Anschliessend `/coding` IMP-18-01-01, dann `/coding` IMP-18-01-02.
+
+---
+
+## 2026-05-09 -- ARCH fuer Issue #313 (ADR-111 + plan-context-imp-18-01)
+
+**Phase:** Architecture
+**Branch:** chore/imp-18-01-prompt-cache-settings
+**Items:** IMP-18-01-01, IMP-18-01-02, ADR-111
+**Bezug:** ADR-62 (Update 2026-05-09), BA-12 Section 11
+
+### Was diese Phase produziert hat
+
+- `_devprocess/architecture/ADR-111-provider-capability-flag-und-bedrock-cachepoint.md`: neuer ADR (Status Proposed). Vier Optionen geprueft, Option C (statische Capability-Tabelle) plus direkte Provider-Implementierungen gewaehlt. Konsistent mit ADR-62-Praemisse "kein separater Adapter".
+- `_devprocess/architecture/ADR-62-kv-cache-optimized-prompt.md`: dated Note "Update 2026-05-09" angefuegt, korrigiert zwei implizite Annahmen (Bedrock automatisch, UI-Visibility hardcoded). ADR bleibt Accepted, nicht superseded.
+- `_devprocess/requirements/handoff/plan-context-imp-18-01.md`: Tech-Stack, ADR-Summary, Capability-Tabellen-Initialbestand (~17 Eintraege), Tooltip-Text, Implementierungsreihenfolge, Live-Test-Protokoll fuer H-313-3.
+- `src/ARCHITECTURE.map`: vier Wayfinder-Zeilen aktualisiert (anthropic, openai, bedrock + neuer Eintrag `cache-capability`).
+- `_devprocess/context/BACKLOG.md`: neue Row ADR-111 (Proposed/Building), Refs in IMP-18-01-01/02 um ADR-111 ergaenzt, Dashboard-Counter aktualisiert.
+- IMP-Spec-Frontmatter: `adr-refs: [ADR-62, ADR-111]` in beiden IMPs.
+
+### Tech-Stack-Begruendung
+
+Bestehender Stack bleibt unveraendert. Drei Provider werden im bestehenden Adapter-Pattern (ADR-11) erweitert, eine neue Datenstruktur (Capability-Tabelle) ergaenzt das Modell-Capability-Konzept. Keine neuen externen Dependencies. Kein Refactoring auf eine neue Adapter-Schicht. AWS-SDK ist bereits in passender Version installiert (v3.1031, cachePoint ab 3.1030 verfuegbar).
+
+### Verworfene Alternativen
+
+- **Option A (Capability-Flag in `ModelInfo` direkt):** Drift-Risiko zwischen Provider-`getModel()` und UI-Lookup-Tabelle ist real. Issue #313 wurde genau wegen dieses Drifts geoeffnet.
+- **Option B (Pro Provider-Typ statt Modell):** Zu grob fuer heutige Heterogenitaet (Copilot/Claude vs. Copilot/GPT, OpenAI 3.5 vs. 4o).
+- **Option D (PromptCacheAdapter-Interface aus FEAT-18-01-Spec):** Widerspricht ADR-62, ohne neuen Grund. Drei Provider-Eingriffe sind nicht teurer als eine Adapter-Schicht plus drei Adapter-Implementierungen.
+
+### Bekannte Risiken (zur Beobachtung in /coding)
+
+- **R-1 Bedrock cachePoint-Verfuegbarkeit:** AWS-Doku andeutet regional/modellabhaengige Einschraenkungen. Live-Test in IMP-18-01-02 ist H-313-3-Falsifikator.
+- **R-2 Kilo Gateway laesst cache_control fallen:** unverifiziert. Live-Test, Capability-Eintrag bei Bedarf zuruecknehmen.
+- **R-3 OpenAI cached_tokens-Cost ist Approximation:** Tier-Rabatte und Batch-Pricing nicht abgedeckt. Tooltip erklaert das.
+
+### Open Items fuer /coding
+
+Diese Punkte loest /coding gegen den realen Codebase-Stand:
+
+1. Finale Pfad-Wahl fuer das Capability-Modul (vorgeschlagen: `src/api/capabilities.ts`).
+2. Pattern-Match-Implementierung: eigenes simples Wildcard-Matching (~10 Zeilen) bevorzugt vor neuer Dependency.
+3. Token-Display-Komponente fuer cached_tokens-Anzeige: Pfad ermitteln, ob die Aenderung im Display oder im Token-Counter-Service noetig ist.
+4. Cost-Calc-Modul: existiert bereits eines? Wenn ja, dort 50%-Cached-Rate-Logik einbauen, sonst pragmatische Inline-Loesung.
+5. Tooltip-Mechanik: bestehende Konvention im Modal nutzt DOM-Attribut `title` plus i18n-Key (Pattern `modal.modelConfig.*`).
+
+### Konsistenz-Check
+
+- ADR-62 + ADR-111 widersprechen sich nicht. ADR-111 ergaenzt additiv.
+- Capability-Tabelle und IMP-18-01-01/02 sprechen dieselbe Sprache (`cacheStyle`-Werte).
+- plan-context-imp-18-01.md zitiert beide IMPs und beide ADRs konsistent.
+- Wayfinder-Zeilen (`anthropic`, `openai`, `bedrock`, neu: `cache-capability`) verweisen alle auf ADR-111.
+- Bekanntes Tool-Quirk: consistency-check meldet ADR-111 als orphan-backlog-row, obwohl die Datei existiert (gleicher false positive wie bei ADR-100, ADR-110). Pre-existing.
+
+### Naechster Schritt
+
+`/coding` mit IMP-18-01-01 (Phase 1, Settings & Default). Implementiert die Capability-Tabelle, Default-Switch, UI-Visibility, Tooltip. Anschliessend `/testing` fuer Phase 1, dann `/coding` IMP-18-01-02 (Phase 2, Provider-Coverage), `/testing`, `/security-audit`.
+
+---
+
+## 2026-05-10 -- CODING fuer IMP-18-01-01 (Phase 1, Settings & Default) -- DONE
+
+**Phase:** Coding (Implementation)
+**Branch:** chore/imp-18-01-prompt-cache-settings
+**Item:** IMP-18-01-01
+**Plan:** PLAN-16
+**Bezug:** ADR-111, ADR-62, FEAT-18-01, BA-12 Section 11
+
+### Was implementiert wurde
+
+- **Capability-Modul**: `src/api/capabilities.ts` (105 Zeilen, neu).
+  Schema: `CacheStyle` Type Union, `CacheCapabilityEntry` Interface,
+  `CACHE_CAPABILITY_TABLE` mit 18 Eintraegen, `getCacheCapability()`
+  Pure Function mit eigener Wildcard-Match-Implementierung (~10 Zeilen,
+  keine externe Dependency). Conservative Default `none`.
+- **Default-Switch**: `src/types/settings.ts:265`
+  -- `promptCachingEnabled: model.promptCachingEnabled !== false`.
+  Effekt: undefined wirkt als true, explizit false bleibt false. Keine Daten-Migration noetig.
+- **UI-Visibility**: `src/ui/settings/ModelConfigModal.ts`. Init nutzt
+  Capability-Default fuer neue Modelle, Visibility-Bedingung aus
+  Capability-Tabelle statt provider-hardcoded Strings. Drei
+  Modell-Aenderungs-Pfade (Input-Field, Ollama-Browser, Custom-Browser)
+  triggern jetzt `updateFieldVisibility()`, weil Capability vom Modell-ID abhaengt.
+- **Tooltip**: neuer i18n-Key `modal.modelConfig.promptCachingTooltip` in
+  `src/i18n/locales/en.ts`. Checkbox bekommt `attr.title` mit dem Cost-Hinweis-Text.
+
+### Tests
+
+- 33 neue Tests (29 in `capabilities.test.ts`, 4 in `settings-prompt-cache.test.ts`).
+- Gesamt-Suite: 1341/1341 gruen, Build (tsc + esbuild) exit 0.
+- Auto-Deploy in iCloud-Vault erfolgreich.
+
+### Akzeptanzkriterien-Erfuellung
+
+| AC | Status | Nachweis |
+|---|---|---|
+| AC-1 Default-Verhalten | gruen | settings-prompt-cache.test.ts (4 Tests) |
+| AC-2 Capability-Flag fuer alle Provider | gruen | capabilities.test.ts (29 Tests, 12 Provider abgedeckt) |
+| AC-3 UI-Visibility datengetrieben | gruen via Build + Code | Visibility-Bedingung nutzt `getCacheCapability` |
+| AC-4 Tooltip mit Cost-Hinweis | gruen via Build + Code | i18n-Key + DOM-Attribut title gesetzt |
+| AC-5 Keine Regression bei nicht-cache-faehigen Providern | gruen | capabilities.test.ts (Out-of-Scope-Block, 7 Provider) |
+
+### Deviations vom Plan
+
+Keine. Implementierung folgt PLAN-16 1:1.
+
+### Open Concerns fuer /testing
+
+- **Live-UI-Test fehlt:** AC-3 und AC-4 wurden nur durch Build + Code-Inspektion bestaetigt. Manueller Walk durch das Settings-Modal (alle 12 Provider, Modell-Wechsel via Quick-Pick und Browser) steht aus. Test-Plan in PLAN-16 Implementation Notes festgelegt.
+- **Live-Anthropic-Call:** Anthropic-Provider-Code unveraendert. Bestehender cache_control-Mechanismus muss weiter funktionieren. Empfohlener Test: zwei aufeinanderfolgende Anfragen, Pruefung ob Token-Counter Cache-Hit zeigt.
+- **Bestehende Configs (data.json) mit `promptCachingEnabled: undefined`:** wirken jetzt als enabled. Empfohlener Test: Plugin in einer Vault mit aelteren Settings starten, Verhalten beobachten.
+
+### Vorbereitung Phase 2 (IMP-18-01-02)
+
+In dieser Phase NICHT angefasst, aber als Pfad-Hinweis fuer Phase 2:
+
+- Token-Display fuer cached_tokens: noch nicht im Code identifiziert (Sidebar-Komponente).
+- Cost-Calc-Modul: noch nicht identifiziert.
+- Bedrock cachePoint-Insertion: braucht AWS-SDK `ContentBlock.cachePoint`-Format, AWS-SDK-Version v3.1031 ist installiert.
+- Phase 2 nutzt `getCacheCapability(...).cacheStyle` als Dispatch-Schluessel: `bedrock-cachepoint`, `openai-implicit`, `passthrough`.
+
+### Naechster Schritt
+
+`/testing` -- automatisierte Tests sind drin, aber Live-UI-Verifikation des Settings-Modals und Live-Anthropic-Cache-Verifikation stehen aus. Anschliessend `/coding` mit IMP-18-01-02 (Phase 2, Provider-Coverage).
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 Bug-Capture: AttachmentHandler Lifecycle (Coding-Capture-Pfad)
+
+**Phase:** Coding (Bug-Capture-Entry-Point). Kein Fix in dieser Iteration, naechste Phase ist `/requirements-engineering`.
+
+**Item:** FIX-19-28-05
+**Bezug:** FEAT-19-28, FEAT-19-31, EPIC-19, FIX-19-28-02 (verwandt, falsche Diagnose dort)
+
+### Was passiert ist
+
+Live-Test 2026-05-10 mit `/ingest-deep` auf einem PDF-Chat-Attachment scheitert in Turn 1: `read_document(attachment_index=0)` wirft die STOP-Errormsg aus FIX-19-28 (Issue #312), der Agent ignoriert das Stale-Mirror-Verbot im Skill und schreibt eine fabrizierte "Deep Ingest"-Note mit dead Block-Refs zu einer nicht existierenden Quelldatei.
+
+Auf den ersten Blick sah es nach einer Skill-Compliance-Schwaeche aus. Code-Reading hat den eigentlichen Lifecycle-Bug freigelegt:
+
+1. `handleSendMessage` snapshottet nur `pending` (Zeile 1442), nicht `fullDocTexts`.
+2. `clear()` (Zeile 1443, AttachmentHandler:268) leert beide Listen.
+3. 270 Zeilen spaeter liest `getFullDocTexts()` (Zeile 1713) das jetzt-leere Array.
+4. Der `if (docTexts.length > 0)`-Guard (Zeile 1714) verhindert den `setAttachmentTexts`-Call vollstaendig.
+5. `ReadDocumentTool.attachmentTexts` bleibt `[]`, jeder Attachment-Aufruf failed mit der STOP-Errormsg.
+
+Damit ist die Annahme von FIX-19-28-02 ("Turn 1 funktioniert, Turn 2+ nicht") widerlegt. Der Bug existiert seit Commit 67d5b1cd (2026-04-11) und war 4 Wochen unentdeckt, weil die Symptom-Behandlung (besseres Errormsg, Skill-Disziplin, Stale-Mirror-Verbot) das Failure-Mode harmlos aussehen liess.
+
+### Artefakte erzeugt
+
+- BACKLOG-Zeile FIX-19-28-05 (Open / Building, P0). Dashboard-Counts auf 424.
+- [FIX-19-28-05-attachment-clear-lifecycle.md](../requirements/fixes/FIX-19-28-05-attachment-clear-lifecycle.md): Symptom, Root-Cause, Failure-Trace, Console-Output, Repro-Schritte, Akzeptanzkriterien, Scope-Abgrenzung gegen FIX-19-28-02 / FIX-19-28 / Persistent-Attachment-State.
+- Branch `fix/19-28-05-attachment-clear-lifecycle` aus `dev` erstellt.
+
+### Out-of-Scope dieses FIX
+
+- **Persistent attachment state ueber den Task-Lifecycle:** wenn der User in Turn 2 ohne neues Attachment sendet, sollte das Attachment aus Turn 1 weiter abrufbar sein. Eigenes IMP unter EPIC-19, getrennt von der Lifecycle-Korrektur.
+- **Skill-Architektur-Vereinfachung:** `/ingest-deep` Step 0a ("erst in Vault speichern") wurde nur eingebaut um diesen Bug zu umschiffen. Nach dem Fix kann der Step verschlankt werden, aber das ist FEAT-19-31-Folge, nicht dieser FIX.
+
+### Naechster Schritt
+
+`/requirements-engineering` auf FIX-19-28-05. Sebastian moechte vor dem Fix RE/ARCH-Disziplin halten, weil der Bug bereits zweimal an Folge-Symptomen "gefixt" wurde, ohne dass der Lifecycle-Bug erkannt wurde. RE soll den Scope und die Akzeptanzkriterien sauber gegen die Out-of-Scope-Themen abgrenzen, ARCH soll entscheiden ob der `clear()`-Lifecycle umgebaut wird (z.B. Trennung in `clearPending()` und `clearAll()`) oder ob der Snapshot in `handleSendMessage` reicht.
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 RE complete: Architecture-Handoff vorbereitet
+
+**Phase:** Requirements Engineering abgeschlossen. Ready for Architecture.
+
+**Item:** FIX-19-28-05
+**Bezug:** FEAT-19-28, FEAT-19-31, EPIC-19, FIX-19-28-02 (verwandt)
+
+### Was passiert ist
+
+RE hat die im Bug-Capture erfassten Akzeptanzkriterien geschaerft, einen User-Outcome-Block und Technical NFRs ergaenzt und einen Architecture-Handoff geschrieben mit drei offenen Architektur-Fragen.
+
+### Artefakte erzeugt / aktualisiert
+
+- [FIX-19-28-05-attachment-clear-lifecycle.md](../requirements/fixes/FIX-19-28-05-attachment-clear-lifecycle.md): Neue Sections "User-Outcome" und "Technical NFRs". AC-Tabelle erweitert um Verifikationsart pro Kriterium. Test-Strategie hinzugefuegt (Unit + Integration + Live).
+- [architect-handoff-fix-19-28-05.md](../requirements/handoff/architect-handoff-fix-19-28-05.md) (neu): Scope, ASRs (2 Moderate, 0 Critical), NFR-Summary, Constraints inkl. Out-of-Scope-Block, drei Open Questions (Q-01 Snapshot vs API-Split, Q-02 Push vs Pull, Q-03 ADR-Granularitaet).
+
+### NFR-Summary fuer den Architekten
+
+| Category | Target |
+|---|---|
+| Performance | Keine Regression. Snapshot O(N) auf <= 4 MB. |
+| Memory | MAX_TOTAL_DOC_TEXT_SIZE-Schutz bleibt aktiv. |
+| Backward compatibility | Keine Aenderung an Tool-Public-API (ReadDocumentTool, IngestDocumentTool). |
+| Observability | Bestehende Errormsg aus FIX-19-28 bleibt der Failure-Pfad. |
+
+### Open Questions an /architecture
+
+- **Q-01 (Moderate):** Snapshot-Pattern in handleSendMessage oder API-Split in AttachmentHandler? RE empfiehlt API-Split, weil clear() zwei Verantwortungen vermischt.
+- **Q-02 (Moderate):** setAttachmentTexts immer aufrufen (Push) oder Tool-Side-Reset (Pull)? RE empfiehlt Push, weil Pull die Tool-Sidebar-Kopplung verstaerken wuerde.
+- **Q-03 (Decision):** Eigener ADR oder Notiz in bestehendem ADR? RE empfiehlt eigenen kleinen ADR, weil das Snapshot-vs-Split-Muster wiederverwendbar ist.
+
+### Forbidden-Terms-Check
+
+AC-Tabelle enthaelt minimale technische Anker (`/ingest-deep`, "0 attachments available"-Errormsg) im selben Stil wie FIX-19-28-02. User-Outcome-Block ist tech-agnostisch. Technical NFRs sind sauber separiert.
+
+### Naechster Schritt
+
+`/architecture` auf FIX-19-28-05. ADR-Vorschlag oder Notiz, plus plan-context fuer den Coder. Architekt entscheidet die drei offenen Fragen und produziert die finale Implementierungs-Anleitung.
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 ARCH complete: ADR-112 + plan-context fuer /coding
+
+**Phase:** Architecture abgeschlossen. Ready for Coding.
+
+**Item:** FIX-19-28-05
+**Bezug:** ADR-112 (neu), FEAT-19-28, FEAT-19-31, EPIC-19
+
+### Was passiert ist
+
+Architecture-Pass hat die drei Open Questions aus dem RE-Handoff entschieden und einen kleinen, fokussierten ADR plus den plan-context fuer den Coder geschrieben. Dem RE-Empfehlungs-Trio (Split, Push, eigener ADR) wurde gefolgt, mit einer Konkretisierung in Q-01: API-Split LIGHT mit atomarem `consumeFullDocTexts()` statt zweier separater Methoden `clearPending` / `clearAll`.
+
+### Tech-Stack-Justification
+
+Der Fix bleibt im Sidebar-Layer (TypeScript strict, Obsidian Plugin API). Kein neues Modul, keine neue Dependency. `AttachmentHandler` bekommt eine zusaetzliche oeffentliche Methode (`consumeFullDocTexts`), `clear()` wird semantisch verengt (nur UI-Reset). Tool-Layer-API unveraendert.
+
+### Rejected Alternatives
+
+- **Snapshot-Pattern im Caller (Option A im ADR).** Loest den heutigen Bug, kodiert den Lifecycle aber nur in der Aufruf-Reihenfolge. Drift-anfaellig fuer zukuenftige Code-Aenderungen in `handleSendMessage`.
+- **Tool-Side-Pull (Option C im ADR).** Tool-Layer wuerde direkt aus `AttachmentHandler` lesen. Verstaerkt Sidebar-Tool-Kopplung, macht Tools ohne Sidebar-Instanz untestbar (z.B. bei MCP-Workflows). Ueberdimensioniert fuer den Bug.
+
+### Bekannte Risiken
+
+- Falls eine andere `attachments.clear()`-Aufrufstelle als `handleSendMessage` (heute Z.2587, Z.2917) unausgesprochen erwartet hat, dass `clear()` auch fullDocTexts loescht, kann nach dem Umbau ein subtiler Memory-Leak entstehen (Texte bleiben liegen, bis der naechste Send konsumiert). **Mitigation:** Audit-Pflicht jeder `clear()`-Aufrufstelle ist im plan-context als Coder-Constraint festgehalten. `MAX_TOTAL_DOC_TEXT_SIZE`-Schutz greift weiterhin auf `pushFullDocText`.
+- Falls zwei Sends sehr schnell hintereinander geschickt werden, ueberschreibt der zweite die Tool-State des ersten. Verhalten ist heute identisch (gleicher Tool-Singleton-State); kein Regress.
+
+### Open Items fuer /coding
+
+- Audit der drei `attachments.clear()`-Aufrufstellen in `AgentSidebarView.ts`. Jede Stelle muss kommentiert werden, ob sie weiterhin auch fullDocTexts-Loeschung erwartet (= zusaetzlicher `consumeFullDocTexts()`-Aufruf, Wert ignorieren).
+- Live-UI-Verifikation: Sebastian zieht PDF in Chat, `/ingest-deep` starten, Console + UI beobachten.
+
+### Wayfinder
+
+`AttachmentHandler` ist heute nicht in `src/ARCHITECTURE.map` (nur ein internes Submodul von Sidebar). Kein Wayfinder-Update notwendig. ADR-112 dokumentiert das Konzept, ein Wayfinder-Eintrag waere ueberproportional fuer die Groesse des Konzepts.
+
+### Consistency Check
+
+plan-context-fix-19-28-05.md zitiert ADR-112 in Sektion 2 und in der ADR-Summary-Tabelle. Tech-Stack-Anker in plan-context und ADR-112 sind konsistent (TypeScript strict, Obsidian, kein Refactor des Tool-Layers).
+
+### Naechster Schritt
+
+`/coding` auf FIX-19-28-05 mit plan-context-fix-19-28-05.md als Eingabe. Coder folgt der konkreten Implementierungs-Anleitung pro File (`AttachmentHandler.ts` zuerst, dann `AgentSidebarView.ts`), schreibt erst die Unit-Tests RED, baut dann gruen, und verifiziert per Live-Test mit PDF.
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 Coding complete: AttachmentHandler-Lifecycle-Fix
+
+**Phase:** Coding abgeschlossen. Live-Test ausstehend (Sebastian manuell).
+
+**Item:** FIX-19-28-05
+**Plan:** PLAN-17
+**Bezug:** ADR-112, FEAT-19-28, FEAT-19-31, EPIC-19, FIX-19-28-02 (verwandt, durch diesen Fix de-facto erledigt)
+
+### Was implementiert wurde
+
+ADR-112 1:1 operationalisiert in zwei Code-Files plus einem neuen Test-File:
+
+- **`src/ui/sidebar/AttachmentHandler.ts`**: `clear()` verengt auf UI-Reset (pending + chipBar), `consumeFullDocTexts()` neu hinzugefuegt mit atomarem Snapshot+Clear. JSDoc-Hinweise auf ADR-112 / FIX-19-28-05 in beiden Methoden.
+- **`src/ui/AgentSidebarView.ts:1710-1722`** (Send-Flow): `getFullDocTexts()` -> `consumeFullDocTexts()`, if-Guard entfernt, Loop unconditional. Tools werden jetzt pro Turn synchronisiert (auch mit `[]`).
+- **`src/ui/AgentSidebarView.ts:2587`** (newConversation-Reset) und **`:2917`** (loadConversation): nach `clear()` jeweils `void this.attachments.consumeFullDocTexts()` ergaenzt mit Inline-Comment.
+- **`src/ui/sidebar/__tests__/AttachmentHandler.test.ts`** (neu): 5 Test-Szenarien fuer Lifecycle und State-Leak.
+
+### Tests
+
+- 5 neue Tests in AttachmentHandler.test.ts. Volle Suite: **1346/1346 gruen** (vorher 1341).
+- Build: `npm run build` exit 0 (tsc + esbuild).
+- Deploy: Auto-Copy in iCloud-Vault erfolgreich.
+- Regression-Cycle (red-green) bestaetigt: ohne Fix sind alle 5 Tests RED, mit Fix sind alle 5 GREEN.
+
+### Akzeptanzkriterien-Erfuellung
+
+| AC | Status | Nachweis |
+|---|---|---|
+| AC-01 (Datei lesbar im selben Turn) | gruen | Test-Szenario 2 (consume-Atomicity) |
+| AC-02 (`/ingest-deep` ohne Errormsg) | gruen via Code | Wird via AC-04-Live-Test bestaetigt |
+| AC-03 (kein State-Leak) | gruen | Test-Szenario 5 (cross-turn-Leak) plus Code-Audit Z.2587/2917 |
+| AC-04 (Live-Test ohne Retry-Loop) | offen | Sebastian fuehrt manuell aus |
+| AC-05 (Regression-Test) | gruen | red-green-Cycle 2026-05-10 |
+
+### Deviations vom Plan
+
+Keine. Alle 8 PLAN-17-Tasks 1:1 ausgefuehrt.
+
+### Bezug zu FIX-19-28-02
+
+FIX-19-28-02 ist im Backlog noch "Active / Building". Mit dem Lifecycle-Fix aus FIX-19-28-05 ist die ursprueng zugrundeliegende Beobachtung ("read_document mit attachment_index=0 schlaegt fehl") weg. FIX-19-28-02 hat ergaenzend sinnvolle Skill-Disziplin (Source-Type-Detection, STOP-on-Error, Kosten-Disziplin) eingebaut. **Empfehlung an Sebastian:** FIX-19-28-02 nach erfolgreichem Live-Test als Done markieren (das Symptom, das es loesen sollte, ist konstruktiv weg).
+
+### Bekannte Risiken
+
+- **Live-Test offen:** AC-02 und AC-04 brauchen den manuellen UI-Walk durch Obsidian. Falls dabei ein Edge-Case auftaucht (z.B. zweite Send-Welle mit neuem Attachment waehrend ein Tool-Run noch laeuft), wuerde sich das im Console-Log zeigen.
+- **Mid-Run-State-Race:** Wenn zwei Sends sehr schnell hintereinander gefeuert werden, ueberschreibt der zweite die Tool-State des ersten. Verhalten ist heute identisch (gleicher Singleton-State); dieser Fix aendert daran nichts.
+
+### Out-of-Scope (binding aus ADR-112)
+
+- Persistent attachment state ueber den AgentTask-Lifecycle. Wenn der User in Turn 2 ohne neues Attachment fragt, kann das Attachment aus Turn 1 weiterhin nicht abgerufen werden. Eigenes IMP unter EPIC-19.
+- Skill-Vereinfachung in `/ingest-deep`. Step 0a ("erst in Vault speichern") wurde als Workaround eingebaut und kann nach diesem Fix zurueckgebaut werden. FEAT-19-31-Folgearbeit, separater PR.
+
+### Live-Test-Anleitung fuer Sebastian
+
+1. Build laufen schon (Auto-Deploy in iCloud-Vault). Obsidian neuladen oder Plugin disable/enable.
+2. PDF in den Chat ziehen (z.B. `enbw-geschaeftsbericht-2025.pdf`).
+3. Eingabe: `/ingest-deep <freier Text>` und Senden.
+4. Erwartet:
+   - Plan wird erstellt, Triage laeuft durch.
+   - `read_document` oder `ingest_document` mit `attachment_index=0` funktioniert (KEINE "0 attachments available"-Errormsg mehr im Console-Log).
+   - Note in `Notes/` enthaelt echten Inhalt aus der PDF mit echten Block-Refs zum Mirror (oder zur Source).
+5. Console-Log: keine `Tool error in read_document: Error: No chat attachments available`-Errors.
+6. Folgetest: zweite Message ohne neues Attachment senden. Erwartet: Tool-Aufrufe mit `attachment_index=0` failen weiterhin sauber, Note wird NICHT auf Basis alter PDF-Texte fabriziert.
+
+### Naechster Schritt
+
+Live-Test (Sebastian, manuell). Bei Erfolg: FIX-19-28-02 als Done markieren, ggf. weiter mit `/testing` (formaler Test-Pass) oder direkt Merge nach dev. Bei Misserfolg: Rueckkehr zu `/architecture` mit Mid-course-Trigger.

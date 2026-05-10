@@ -79,7 +79,7 @@
     "uuid": "^9.0.1"
   },
   "overrides": {
-    "hono": ">=4.12.14",
+    "hono": ">=4.12.18",
     "@hono/node-server": ">=1.19.10",
     "express-rate-limit": ">=8.2.2",
     "undici": ">=7.24.0",
@@ -89,9 +89,11 @@
     "brace-expansion": ">=2.0.3",
     "vite": "^6.4.2",
     "protobufjs": ">=7.5.5",
-    "dompurify": ">=3.4.0"
+    "dompurify": ">=3.4.0",
+    "fast-uri": ">=3.1.2",
+    "fast-xml-builder": ">=1.1.7"
   },
   "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.60.1"
+    "@rollup/rollup-darwin-arm64": "^4.60.3"
   }
 }

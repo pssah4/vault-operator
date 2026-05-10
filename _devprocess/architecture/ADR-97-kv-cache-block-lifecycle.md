@@ -1,7 +1,6 @@
 ---
 id: ADR-97
 title: KV-Cache-Block-Lifecycle (Top-Hub)
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:

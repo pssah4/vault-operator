@@ -50,12 +50,13 @@ embedding-service         | src/core/memory/EmbeddingService.ts                 
 
 # AI PROVIDERS
 api-handler               | src/api/index.ts                                      | ADR-11          | new provider: implement ApiHandler, register in resolveProvider()
-anthropic                 | src/api/providers/anthropic.ts                        | ADR-11, ADR-62 | extend cache_control or model preset
-openai                    | src/api/providers/openai.ts                           | ADR-11          | extend streaming, tool-call, embedding flow
+anthropic                 | src/api/providers/anthropic.ts                        | ADR-11, ADR-62, ADR-111 | extend cache_control or model preset
+openai                    | src/api/providers/openai.ts                           | ADR-11, ADR-111 | extend streaming, tool-call, embedding flow; cached_tokens via cache-capability lookup
 chatgpt-oauth             | src/api/providers/chatgpt-oauth.ts                    | ADR-88, ADR-89 | extend OAuth lifecycle in ChatGptOAuthService
 github-copilot            | src/api/providers/github-copilot.ts                   | ADR-37, ADR-43 | extend Copilot completion or model resolution
-bedrock                   | src/api/providers/bedrock.ts                          | ADR-11          | extend region or model resolver
+bedrock                   | src/api/providers/bedrock.ts                          | ADR-11, ADR-111 | extend region or model resolver; set cachePoint ContentBlock when cache-capability says bedrock-cachepoint
 openrouter                | src/api/providers/openrouter.ts                       | ADR-11          | extend route fallback or pricing
+cache-capability          | src/api/capabilities.ts                               | ADR-111         | new provider/model entry: extend table; UI and provider read via getCacheCapability()
 
 # AUTH
 chatgpt-oauth-auth        | src/core/auth/ChatGptOAuthService.ts                  | ADR-88, ADR-89 | extend PKCE or token-refresh flow

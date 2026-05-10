@@ -247,7 +247,7 @@ function getToolGroupMeta(): Record<string, { label: string; desc: string; tools
  * Usage sites that previously used PROVIDER_LABELS directly should use PROVIDER_LABELS instead.
  * The getter is wrapped in a Proxy for backward compatibility.
  */
-const PROVIDER_LABELS: Record<string, string> = new Proxy({} as Record<string, string>, {
+const PROVIDER_LABELS: Record<string, string> = new Proxy({}, {
     get(_target, prop: string) { return getProviderLabels()[prop]; },
     has(_target, prop: string) { return prop in getProviderLabels(); },
     ownKeys() { return Object.keys(getProviderLabels()); },
@@ -258,7 +258,7 @@ const PROVIDER_LABELS: Record<string, string> = new Proxy({} as Record<string, s
     },
 });
 
-const TOOL_LABEL_MAP: Record<string, { label: string; desc: string }> = new Proxy({} as Record<string, { label: string; desc: string }>, {
+const TOOL_LABEL_MAP: Record<string, { label: string; desc: string }> = new Proxy({}, {
     get(_target, prop: string) { return getToolLabelMap()[prop]; },
     has(_target, prop: string) { return prop in getToolLabelMap(); },
     ownKeys() { return Object.keys(getToolLabelMap()); },
@@ -269,7 +269,7 @@ const TOOL_LABEL_MAP: Record<string, { label: string; desc: string }> = new Prox
     },
 });
 
-const TOOL_GROUP_META: Record<string, { label: string; desc: string; tools: string[] }> = new Proxy({} as Record<string, { label: string; desc: string; tools: string[] }>, {
+const TOOL_GROUP_META: Record<string, { label: string; desc: string; tools: string[] }> = new Proxy({}, {
     get(_target, prop: string) { return getToolGroupMeta()[prop]; },
     has(_target, prop: string) { return prop in getToolGroupMeta(); },
     ownKeys() { return Object.keys(getToolGroupMeta()); },

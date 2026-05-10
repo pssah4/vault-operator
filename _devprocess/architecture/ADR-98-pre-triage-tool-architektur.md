@@ -1,7 +1,6 @@
 ---
 id: ADR-98
 title: Pre-Triage-Tool-Architektur (eigenes ingest_triage)
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:

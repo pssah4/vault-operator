@@ -80,7 +80,7 @@ describe('NoteSummaryStore', () => {
     let db: SqlJsDatabase;
 
     beforeEach(async () => {
-        db = (await freshDB()) as unknown as SqlJsDatabase;
+        db = await freshDB();
         store = new NoteSummaryStore(makeMockKnowledgeDB(db));
     });
 
@@ -125,7 +125,7 @@ describe('FrontmatterPropertyStore', () => {
     let db: SqlJsDatabase;
 
     beforeEach(async () => {
-        db = (await freshDB()) as unknown as SqlJsDatabase;
+        db = await freshDB();
         store = new FrontmatterPropertyStore(makeMockKnowledgeDB(db));
     });
 
@@ -175,7 +175,7 @@ describe('ClusterMetadataStore plus detectCategory', () => {
     let db: SqlJsDatabase;
 
     beforeEach(async () => {
-        db = (await freshDB()) as unknown as SqlJsDatabase;
+        db = await freshDB();
         store = new ClusterMetadataStore(makeMockKnowledgeDB(db));
     });
 
@@ -245,7 +245,7 @@ describe('ClusterSourceStatsStore plus normalizeDomain', () => {
     let db: SqlJsDatabase;
 
     beforeEach(async () => {
-        db = (await freshDB()) as unknown as SqlJsDatabase;
+        db = await freshDB();
         store = new ClusterSourceStatsStore(makeMockKnowledgeDB(db));
     });
 

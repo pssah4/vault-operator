@@ -374,6 +374,62 @@ export class VaultTab {
                     }),
             );
 
+        // ── Note templates for ingest skills (IMP-19-31-01) ──
+        containerEl.createEl('h4', { cls: 'agent-settings-section', text: 'Note templates for ingest skills' });
+        containerEl.createEl('p', {
+            cls: 'agent-settings-desc',
+            text:
+                'Vault-relative path to a Markdown file whose YAML frontmatter is used as the basis '
+                + 'for newly ingested source notes. Leave empty to fall back to the bundled defaults '
+                + '(plugin folder: note-templates/quelle-template.md or meeting-notiz-template.md). '
+                + 'Example value: "Tools & Settings/Templates/Quelle Template.md".',
+        });
+
+        new Setting(containerEl)
+            .setName('Template for /ingest')
+            .setDesc('Frontmatter template used by the quick single-pass ingest skill.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('Tools & Settings/Templates/Quelle Template.md')
+                    .setValue(cfg.templates?.ingestNoteTemplate ?? '')
+                    .onChange(async (v) => {
+                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates.ingestNoteTemplate = v.trim();
+                        this.plugin.settings.vaultIngest = cfg;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        new Setting(containerEl)
+            .setName('Template for /ingest-deep')
+            .setDesc('Frontmatter template used by the multi-turn deep-ingest skill.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('Tools & Settings/Templates/Quelle Template.md')
+                    .setValue(cfg.templates?.ingestDeepNoteTemplate ?? '')
+                    .onChange(async (v) => {
+                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates.ingestDeepNoteTemplate = v.trim();
+                        this.plugin.settings.vaultIngest = cfg;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        new Setting(containerEl)
+            .setName('Template for /meeting-summary')
+            .setDesc('Frontmatter template used by the meeting-transcript summary skill.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('Tools & Settings/Templates/Meeting-Notiz Template.md')
+                    .setValue(cfg.templates?.meetingSummaryTemplate ?? '')
+                    .onChange(async (v) => {
+                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates.meetingSummaryTemplate = v.trim();
+                        this.plugin.settings.vaultIngest = cfg;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
         // ── Top-Hub-Block (FEAT-03-26 + FIX-03-26-01 Privacy-Hint, AUDIT-014 M-2) ──
         containerEl.createEl('h4', { cls: 'agent-settings-section', text: 'Top-hub block in system prompt' });
         containerEl.createEl('p', {

@@ -57,6 +57,16 @@ function generateEmbeddedAssets() {
         }
     }
 
+    // Note templates (text -- IMP-19-31-01) used by /ingest, /ingest-deep, /meeting-summary
+    const noteTemplatesSrc = join(__dirname, "bundled-templates/notes");
+    let noteTemplateCount = 0;
+    if (existsSync(noteTemplatesSrc)) {
+        for (const f of readdirSync(noteTemplatesSrc).filter(f => f.endsWith(".md"))) {
+            assets[`note-templates/${f}`] = readFileSync(join(noteTemplatesSrc, f), "utf-8");
+            noteTemplateCount++;
+        }
+    }
+
     // WASM runtime binaries -- FIX-22: full self-contained install for BRAT.
     // Without these, BRAT users hit ENOENT on KnowledgeDB.open() and reranker
     // falls through to unreliable HF CDN (cas-bridge.xethub.hf.co ERR_CONTENT_LENGTH_MISMATCH).
@@ -100,7 +110,7 @@ function generateEmbeddedAssets() {
     }
 
     writeFileSync(join(outDir, "embedded-assets.json"), json);
-    console.log(`[embed-assets] Embedded ${workerCount} workers, ${skillCount} skills, ${templateCount} templates, ${wasmCount} WASM (${(json.length / 1024 / 1024).toFixed(1)}MB)`);
+    console.log(`[embed-assets] Embedded ${workerCount} workers, ${skillCount} skills, ${templateCount} PPTX templates, ${noteTemplateCount} note templates, ${wasmCount} WASM (${(json.length / 1024 / 1024).toFixed(1)}MB)`);
 }
 
 // Path to the Obsidian vault plugin folder (auto-deploy on build)
@@ -319,6 +329,19 @@ const context = await esbuild.context({
                                 }
                                 if (templateFiles.length > 0) {
                                     console.log(`[vault-deploy] Copied ${templateFiles.length} PPTX template(s)`);
+                                }
+                            }
+                            // Copy default note templates (IMP-19-31-01)
+                            const noteTemplatesSrc = join(__dirname, "bundled-templates/notes");
+                            if (existsSync(noteTemplatesSrc)) {
+                                const noteTemplatesDir = `${VAULT_PLUGIN_DIR}/note-templates`;
+                                if (!existsSync(noteTemplatesDir)) mkdirSync(noteTemplatesDir, { recursive: true });
+                                const noteTemplateFiles = readdirSync(noteTemplatesSrc).filter(f => f.endsWith('.md'));
+                                for (const f of noteTemplateFiles) {
+                                    copyFileSync(join(noteTemplatesSrc, f), join(noteTemplatesDir, f));
+                                }
+                                if (noteTemplateFiles.length > 0) {
+                                    console.log(`[vault-deploy] Copied ${noteTemplateFiles.length} note template(s)`);
                                 }
                             }
                             console.log(`[vault-deploy] → ${VAULT_PLUGIN_DIR}`);

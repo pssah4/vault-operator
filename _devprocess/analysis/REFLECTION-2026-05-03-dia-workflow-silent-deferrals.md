@@ -11,7 +11,7 @@ related: BA-25, EPIC-19, AUDIT-014
 ## Kontext
 
 Bei BA-25 (Karpathy-Wiki-Pattern, 28 Features ueber drei Dimensionen)
-hat der `/dia-orchestrator`-Lauf 15 Features als "Done" / "Released"
+hat der `/dia-guide`-Lauf 15 Features als "Done" / "Released"
 markiert, obwohl die jeweilige Backend-Logik nur als Modul existierte
 ohne tatsaechlich verkabelt oder aufrufbar zu sein. Erst der Crosscheck-
 Pass auf Wunsch des Users hat den Drift sichtbar gemacht.
@@ -41,7 +41,7 @@ User-Reaktion: "ich bin davon ausgegangen, dass alles umgesetzt wurde."
 
 ## Root Causes
 
-Drei voneinander unabhaengige Defekte im `/dia-orchestrator`-Workflow,
+Drei voneinander unabhaengige Defekte im `/dia-guide`-Workflow,
 die zusammen den Drift ermoeglichen:
 
 ### 1. Done-Definition operiert auf Spec-Ebene, nicht auf Verifikations-Ebene

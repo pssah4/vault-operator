@@ -199,6 +199,21 @@ describe('IngestTriageTool', () => {
         expect(results[0]).not.toContain('ungueltiger vault-path');
     });
 
+    it('BUG-029 (Issue #312): rejects file:// URIs with skill-workflow hint', async () => {
+        const plugin = makeMockPlugin(stores);
+        tool = new IngestTriageTool(plugin);
+        const { ctx, results } = makeMockCtx();
+
+        await tool.execute({ source_uri: 'file:///enbw-geschaeftsbericht-2025.pdf' }, ctx);
+
+        expect(results[0]).toContain('akzeptiert keine file://-URIs');
+        expect(results[0]).toContain('Chat-Attachments leben nur einen Turn');
+        expect(results[0]).toContain('vault://Attachements/');
+        // Decision-Log darf NICHT geschrieben werden -- sonst denkt der Agent
+        // beim naechsten Trigger, die Source sei bereits triaged.
+        expect(stores.triageStore.exists('file:///enbw-geschaeftsbericht-2025.pdf')).toBe(false);
+    });
+
     it('returns error when knowledgeDB unavailable', async () => {
         const plugin = {
             knowledgeDB: null,

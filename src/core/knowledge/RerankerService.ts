@@ -99,7 +99,7 @@ export class RerankerService {
             this.model = await AutoModelForSequenceClassification.from_pretrained(MODEL_ID, {
                 dtype: 'q8',
                 device: 'wasm',
-            }) as unknown as ModelFn;
+            });
 
             this._loaded = true;
             console.debug(`[Reranker] Model loaded in ${Date.now() - startTime}ms`);

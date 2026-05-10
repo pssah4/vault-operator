@@ -261,7 +261,7 @@ Die Sandbox-Architektur von Obsilo bietet eine isolierte Ausfuehrungsumgebung fu
 
 - `_devprocess/architecture/GLOSSAR-begriffe.md` -- Begriffsabgrenzung Tools/Skills/Sandbox
 - `_devprocess/architecture/ADR-21-sandbox-os-isolation.md` -- Sandbox-Architektur-Entscheidung
-- `_devprocess/analysis/security/ANALYSE-electron-browserwindow-sandbox-2026-03-02.md` -- Sandbox-Limitierungen
+- `_devprocess/analysis/ANALYSE-electron-browserwindow-sandbox-2026-03-02.md` -- Sandbox-Limitierungen
 - `_devprocess/requirements/epics/EPIC-06-files-to-chat.md` -- Explizit: "Datei-Erzeugung separates Feature"
 - `src/core/prompts/sections/toolDecisionGuidelines.ts` -- Regel 9: Built-in Tools First
 - `src/core/modes/builtinModes.ts` -- Agent-Mode Sandbox-Guidance

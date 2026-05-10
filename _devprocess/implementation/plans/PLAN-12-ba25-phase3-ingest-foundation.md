@@ -2,7 +2,6 @@
 id: PLAN-12
 title: BA-25 Phase 3 Ingest-Foundation
 date: 2026-05-03
-status: Active
 feature-refs: [FEAT-19-12, FEAT-19-22, FEAT-19-24, FEAT-19-25, FEAT-19-27, FEAT-19-28]
 adr-refs: [ADR-93, ADR-98, ADR-100, ADR-101, ADR-102, ADR-103]
 pair-id: sebastian-opus-4.7

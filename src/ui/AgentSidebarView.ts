@@ -1708,15 +1708,14 @@ export class AgentSidebarView extends ItemView {
         }
 
         // Pass full (un-truncated) document texts to IngestDocumentTool and ReadDocumentTool
-        // so they can access complete content even when the context version is truncated.
+        // and synchronize the tool state every send pass (also with []), so attachments
+        // from a prior turn cannot leak into a new turn that has none. ADR-112 / FIX-19-28-05.
         try {
-            const docTexts = this.attachments.getFullDocTexts();
-            if (docTexts.length > 0) {
-                for (const toolName of ['ingest_document', 'read_document'] as const) {
-                    const tool = this.plugin.toolRegistry.getTool(toolName);
-                    if (tool && typeof (tool as unknown as Record<string, unknown>).setAttachmentTexts === 'function') {
-                        (tool as unknown as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
-                    }
+            const docTexts = this.attachments.consumeFullDocTexts();
+            for (const toolName of ['ingest_document', 'read_document'] as const) {
+                const tool = this.plugin.toolRegistry.getTool(toolName);
+                if (tool && typeof (tool as unknown as Record<string, unknown>).setAttachmentTexts === 'function') {
+                    (tool as unknown as { setAttachmentTexts(t: string[]): void }).setAttachmentTexts(docTexts);
                 }
             }
         } catch { /* non-critical -- tools will fall back to source_path */ }
@@ -2585,6 +2584,8 @@ export class AgentSidebarView extends ItemView {
         this.plugin.sessionFlags.clear();
         this.onboarding?.reset();
         this.attachments.clear();
+        // Conversation reset drops any pending fullDocTexts too (FIX-19-28-05 audit).
+        void this.attachments.consumeFullDocTexts();
         if (this.chatContainer) {
             this.chatContainer.empty();
         }
@@ -2915,6 +2916,8 @@ export class AgentSidebarView extends ItemView {
         this.activeConversationId = id;
         this.userDismissedContext = false;
         this.attachments.clear();
+        // Conversation switch drops any pending fullDocTexts too (FIX-19-28-05 audit).
+        void this.attachments.consumeFullDocTexts();
 
         // Re-render chat
         if (this.chatContainer) {

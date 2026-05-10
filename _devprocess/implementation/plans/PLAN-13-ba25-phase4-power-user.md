@@ -2,7 +2,6 @@
 id: PLAN-13
 title: BA-25 Phase 4 Power-User-Erweiterungen (Backend)
 date: 2026-05-03
-status: Active
 feature-refs: [FEAT-19-10, FEAT-19-11, FEAT-19-13, FEAT-19-14, FEAT-19-19, FEAT-19-21, FEAT-19-23, FEAT-19-26, FEAT-19-29, FEAT-19-30]
 adr-refs: [ADR-95, ADR-96, ADR-99, ADR-104, ADR-106]
 pair-id: sebastian-opus-4.7

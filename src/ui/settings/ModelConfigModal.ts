@@ -1,6 +1,7 @@
 import { App, Modal, Notice, setIcon } from 'obsidian';
 import type { CustomModel, ProviderType } from '../../types/settings';
 import { getDefaultBaseUrlForProvider } from '../../types/settings';
+import { getCacheCapability } from '../../api/capabilities';
 import { PROVIDER_LABELS, MODEL_SUGGESTIONS, EMBEDDING_PROVIDERS, EMBEDDING_SUGGESTIONS } from './constants';
 import { testModelConnection, testEmbeddingConnection, fetchProviderModels, fetchOllamaModels, fetchEmbeddingModels, isTemperatureFixed, maxTemperature } from './testModelConnection';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
@@ -149,7 +150,9 @@ export class ModelConfigModal extends Modal {
         this.formMaxTokens = this.model.maxTokens ?? 8192;
         this.formTemperatureEnabled = this.model.temperature !== undefined;
         this.formTemperatureValue = this.model.temperature ?? 0.7;
-        this.formPromptCachingEnabled = this.model.promptCachingEnabled ?? false;
+        // IMP-18-01-01: default-on for cache-capable models, preserve explicit user value otherwise.
+        this.formPromptCachingEnabled = this.model.promptCachingEnabled
+            ?? getCacheCapability(this.model.provider, this.model.name).supportsPromptCache;
         this.formThinkingEnabled = this.model.thinkingEnabled ?? false;
         this.formThinkingBudgetTokens = this.model.thinkingBudgetTokens ?? 10000;
         this.formAwsRegion = this.model.awsRegion ?? 'eu-central-1';
@@ -313,8 +316,9 @@ export class ModelConfigModal extends Modal {
         this.nameInputEl.value = this.formName;
         this.nameInputEl.addEventListener('input', () => {
             this.formName = this.nameInputEl!.value.trim();
-            // Re-evaluate thinking visibility when model name changes (Copilot Claude detection)
-            if (this.formProvider === 'github-copilot') this.updateFieldVisibility();
+            // IMP-18-01-01: model id drives cache + thinking visibility (e.g. Bedrock Claude vs Nova,
+            // Copilot Claude vs GPT). Always re-evaluate, not only for Copilot.
+            this.updateFieldVisibility();
         });
         if (!this.isNew && this.model.isBuiltIn) this.nameInputEl.disabled = true;
 
@@ -453,13 +457,18 @@ export class ModelConfigModal extends Modal {
             });
         }
 
-        // -- Prompt Caching (Anthropic only) --
+        // -- Prompt Caching (visibility data-driven via capability table, IMP-18-01-01) --
         if (!this.forEmbedding) {
             this.promptCachingRow = form.createDiv('mcm-row');
             const cacheLabel = this.promptCachingRow.createDiv('mcm-label');
             cacheLabel.createSpan({ text: t('modal.modelConfig.promptCaching') });
             cacheLabel.createSpan({ text: t('modal.modelConfig.promptCachingDesc'), cls: 'mcm-desc' });
-            const cacheChk = this.promptCachingRow.createEl('input', { attr: { type: 'checkbox' } });
+            const cacheChk = this.promptCachingRow.createEl('input', {
+                attr: {
+                    type: 'checkbox',
+                    title: t('modal.modelConfig.promptCachingTooltip'),
+                },
+            });
             cacheChk.checked = this.formPromptCachingEnabled;
             cacheChk.addEventListener('change', () => {
                 this.formPromptCachingEnabled = cacheChk.checked;
@@ -558,7 +567,9 @@ export class ModelConfigModal extends Modal {
         if (this.customBrowserRow) this.customBrowserRow.classList.toggle('agent-u-hidden', p !== 'custom' && p !== 'lmstudio');
         // Max Tokens slider always visible (not provider-specific)
         const isCopilotClaude = isCopilot && /^claude/i.test(this.formName);
-        if (this.promptCachingRow) this.promptCachingRow.classList.toggle('agent-u-hidden', p !== 'anthropic' && !isCopilotClaude);
+        // IMP-18-01-01: prompt-caching toggle visibility is data-driven via the capability table.
+        const cacheCap = getCacheCapability(p, this.formName);
+        if (this.promptCachingRow) this.promptCachingRow.classList.toggle('agent-u-hidden', !cacheCap.supportsPromptCache);
         const supportsThinking = p === 'anthropic' || p === 'openrouter' || isCopilotClaude;
         if (this.thinkingRow) this.thinkingRow.classList.toggle('agent-u-hidden', !supportsThinking);
         if (this.thinkingBudgetRow) this.thinkingBudgetRow.classList.toggle('agent-u-hidden', !supportsThinking || !this.formThinkingEnabled);
@@ -849,6 +860,8 @@ export class ModelConfigModal extends Modal {
                         item.addEventListener('click', () => {
                             this.formName = name;
                             if (this.nameInputEl) this.nameInputEl.value = name;
+                            // IMP-18-01-01: capability lookup is model-id sensitive.
+                            this.updateFieldVisibility();
                             item.addClass('mcm-model-item-selected');
                             listEl.querySelectorAll('.mcm-model-item').forEach((el: Element) => {
                                 if (el !== item) el.removeClass('mcm-model-item-selected');
@@ -892,6 +905,8 @@ export class ModelConfigModal extends Modal {
                         item.addEventListener('click', () => {
                             this.formName = id;
                             if (this.nameInputEl) this.nameInputEl.value = id;
+                            // IMP-18-01-01: capability lookup is model-id sensitive.
+                            this.updateFieldVisibility();
                             item.addClass('mcm-model-item-selected');
                             listEl.querySelectorAll('.mcm-model-item').forEach((el: Element) => {
                                 if (el !== item) el.removeClass('mcm-model-item-selected');

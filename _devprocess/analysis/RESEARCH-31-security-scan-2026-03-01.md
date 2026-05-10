@@ -8,7 +8,7 @@
 | **Scan Scope** | Full — All phases active |
 | **Risk Rating** | Medium |
 | **Languages** | TypeScript (Obsidian Plugin running in Electron/Node.js) |
-| **Previous Scan** | 2026-03-01 (analysis/security/) |
+| **Previous Scan** | 2026-03-01 (analysis/) |
 
 ---
 

@@ -50,7 +50,7 @@ function isFilesDraggable(x: unknown): x is FilesDraggable {
 function getDragManager(app: App): DragManagerLike | null {
     const candidate = (app as unknown as { dragManager?: unknown }).dragManager;
     if (typeof candidate !== 'object' || candidate === null) return null;
-    return candidate as DragManagerLike;
+    return candidate;
 }
 
 /**

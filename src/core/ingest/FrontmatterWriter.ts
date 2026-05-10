@@ -99,11 +99,11 @@ export class FrontmatterWriter {
                     }
                     const exists = name in fm && fm[name] !== null && fm[name] !== undefined;
                     if (!exists) {
-                        fm[name] = field.value as never;
+                        fm[name] = field.value;
                         fieldsAdded.push(name);
                         written = true;
                     } else if (field.replace) {
-                        fm[name] = field.value as never;
+                        fm[name] = field.value;
                         fieldsReplaced.push(name);
                         written = true;
                     }

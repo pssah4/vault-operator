@@ -135,7 +135,7 @@ Die direkt Review-Bot-relevanten Treffer sitzen aktuell vor allem hier:
 
 ### 4.3 Delta zur frueheren sauberen Lage
 
-Die historische Aussage in [AUDIT-003-obsilo-2026-03-06.md](_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md), dass Review-Bot-Compliance vollstaendig bestanden sei, ist fuer die heutige Codebasis nicht mehr belastbar. Seitdem sind neue Office-, PPTX-, UI-, Security- und Provider-Aenderungen hinzugekommen. Der aktuelle Lint-Lauf zeigt klar, dass die Codebase wieder neu geprueft werden muss.
+Die historische Aussage in [AUDIT-003-obsilo-2026-03-06.md](_devprocess/analysis/AUDIT-003-obsilo-2026-03-06.md), dass Review-Bot-Compliance vollstaendig bestanden sei, ist fuer die heutige Codebasis nicht mehr belastbar. Seitdem sind neue Office-, PPTX-, UI-, Security- und Provider-Aenderungen hinzugekommen. Der aktuelle Lint-Lauf zeigt klar, dass die Codebase wieder neu geprueft werden muss.
 
 ---
 
@@ -339,5 +339,5 @@ Ergebnis:
 - [TECH-011-review-bot-compliance.md](_devprocess/implementation/TECH-011-review-bot-compliance.md)
 - [IMPL-001-review-bot-fixes.md](_devprocess/implementation/IMPL-001-review-bot-fixes.md)
 - [REVIEW-001-bot-skip-list.md](_devprocess/analysis/REVIEW-001-bot-skip-list.md)
-- [AUDIT-003-obsilo-2026-03-06.md](_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md)
+- [AUDIT-003-obsilo-2026-03-06.md](_devprocess/analysis/AUDIT-003-obsilo-2026-03-06.md)
 - PR: `https://github.com/obsidianmd/obsidian-releases/pull/10565`

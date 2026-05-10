@@ -2,7 +2,6 @@
 id: PLAN-10
 title: BA-25 Phase 1 Foundation (Schema-Bundle + Auto-Summary)
 date: 2026-05-03
-status: Active
 feature-refs: [FEAT-15-09, FEAT-15-10, FEAT-15-11, FEAT-15-12, FEAT-19-08, FEAT-19-09]
 adr-refs: [ADR-92, ADR-93, ADR-94, ADR-95]
 bug-refs: []

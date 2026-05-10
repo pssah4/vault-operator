@@ -222,7 +222,7 @@ export class OpenAiProvider implements ApiHandler {
         const requestBody: OpenAI.ChatCompletionCreateParamsStreaming = {
             model: this.config.type !== 'azure' ? this.config.model : this.config.model,
             messages: openAiMessages as OpenAI.ChatCompletionMessageParam[],
-            tools: openAiTools as OpenAI.ChatCompletionTool[] | undefined,
+            tools: openAiTools,
             temperature: temperature !== undefined ? Math.min(temperature, 2.0) : undefined,
             // OpenAI and Azure require max_completion_tokens (max_tokens deprecated / rejected by newer models)
             // Other providers (ollama, lmstudio, custom) still need max_tokens

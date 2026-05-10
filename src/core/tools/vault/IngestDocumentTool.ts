@@ -50,11 +50,21 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
                 'Create a Markdown source note from a PDF or Office document. ' +
                 'You provide the frontmatter + overview (header_content), and the tool automatically appends ' +
                 'the full original document text as Markdown. This bypasses output token limits for long documents. ' +
-                'IMPORTANT: This tool works even for very large files (100+ MB) because it uses the already-parsed ' +
-                'attachment text, not the raw file. Always use this tool for document ingestion — never fall back to write_file. ' +
+                'Used by the /ingest skill (quick single-pass ingest). For Karpathy-style multi-turn deep-ingest with ' +
+                'block-refs and dialog, use ingest_deep instead. ' +
+                'Works even for very large files (100+ MB) because it uses the already-parsed ' +
+                'attachment text, not the raw file. ' +
                 'Use either source_path (for vault files) or attachment_index (for chat attachments, 0-based). ' +
                 'For chat attachments, prefer attachment_index. If source_path fails due to file size, ' +
-                'the tool automatically falls back to the pre-parsed attachment text.',
+                'the tool automatically falls back to the pre-parsed attachment text. ' +
+                'PROVENANCE CONVENTION (per ADR-103 Amendment 2026-05-07, FEAT-19-28): in your header_content, ' +
+                'for every Kernaussage / take-away in the summary section, append an inline source-position ' +
+                'marker at the END of the statement, separated by a single space, using the form ' +
+                '`[[OUTPUT_BASENAME#Page N|↗]]` for PDFs (where N matches a "## Page N" heading in the appended ' +
+                '## Originaltext section), `[[OUTPUT_BASENAME#Slide N|↗]]` for PPTX, ' +
+                '`[[OUTPUT_BASENAME#^block-N|↗]]` for Markdown sources. Display text is always just the ↗ symbol, ' +
+                'no "Quelle:", no "[1]"-style. The tool reports back how many Kernaussagen carry a marker so ' +
+                'you can fill any that are missing in a follow-up edit.',
             input_schema: {
                 type: 'object',
                 properties: {
@@ -114,9 +124,24 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
             } else if (attachment_index !== undefined && attachment_index >= 0) {
                 // Get from chat attachment
                 if (attachment_index >= this.attachmentTexts.length) {
+                    // Attachments are populated only on the turn the user uploaded them;
+                    // a Multi-Turn-Dialog skill that calls ingest_document on a later
+                    // turn will see attachmentTexts === [] (FIX-19-28-02 follow-up).
+                    // Give the agent an actionable error instead of a number.
+                    if (this.attachmentTexts.length === 0) {
+                        throw new Error(
+                            'No chat attachments available on this turn. The chat-attachment lifetime is one turn -- ' +
+                            'the PDF/Office document the user uploaded earlier is no longer accessible via attachment_index. ' +
+                            'Action: ask the user to save the file to the vault (e.g. drag into Attachments/), then re-run with source_path. ' +
+                            'Alternative: if the parsed document text is still visible in your context as <attached_document> block, ' +
+                            'extract the page-structured text from there and call write_file directly with the full Markdown body ' +
+                            '(including the ## Page N headings and ## Originaltext section) and add the [[basename#Page N|↗]] markers ' +
+                            'to your Kernaussagen manually.'
+                        );
+                    }
                     throw new Error(
                         `Attachment index ${attachment_index} out of range. ` +
-                        `${this.attachmentTexts.length} attachment(s) available.`
+                        `${this.attachmentTexts.length} attachment(s) available (use index 0..${this.attachmentTexts.length - 1}).`
                     );
                 }
                 documentText = this.attachmentTexts[attachment_index];
@@ -158,12 +183,35 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
 
             const textLength = cleanedText.length;
             const totalLength = fullContent.length;
+
+            // FIX-19-28-01 PLAN-15 Step 5: Position-Marker-Check.
+            // FIX-19-28-06: Plus Dead-Page-Ref-Detection -- zaehle nicht
+            // nur Anwesenheit, sondern verifiziere dass die referenzierten
+            // Pages im Originaltext existieren und der Basename matcht.
+            const markerCheck = checkPositionMarkers(header_content);
+            const pageCount = countPageHeadings(cleanedText);
+            const outputBasename = basenameOf(output_path);
+            const deadRefs = findDeadPageRefs(header_content, outputBasename, pageCount);
+            const markerLine = markerCheck.kernaussagen === 0
+                ? 'Kernaussagen-Section nicht erkannt -- bitte ## Kernaussagen Heading nutzen.'
+                : `Position-Marker check: ${markerCheck.withMarker} of ${markerCheck.kernaussagen} Kernaussagen carry [[basename#...|↗]] refs.`
+                  + (markerCheck.withMarker < markerCheck.kernaussagen
+                    ? ` ${markerCheck.kernaussagen - markerCheck.withMarker} ohne Marker -- bitte ergaenzen.`
+                    : '');
+            const deadLine = deadRefs.length === 0
+                ? ''
+                : `\nDead refs detected: ${deadRefs.length} ref(s) point to non-existent positions.\n`
+                  + deadRefs.map((d) => `  - ${d.reason}: ${d.line}`).join('\n')
+                  + `\nACTION: remove the dead refs from the Kernaussagen-Section (do not add additional refs next to them).`
+                  + ` Replace with a valid Page-Ref where pageCount=${pageCount} and basename="${outputBasename}", or drop the ref entirely.`;
+
             callbacks.pushToolResult(
                 this.formatSuccess(
                     `Created source note: ${output_path}\n` +
                     `Header: ${header_content.length} chars (frontmatter + overview)\n` +
-                    `Original text: ${textLength} chars (appended automatically)\n` +
-                    `Total: ${totalLength} chars`
+                    `Original text: ${textLength} chars (${pageCount} pages, structured by ## Page N)\n` +
+                    `Total: ${totalLength} chars\n` +
+                    `${markerLine}${deadLine}`
                 )
             );
 
@@ -215,4 +263,132 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
             // Remove leading/trailing whitespace
             .trim();
     }
+}
+
+/**
+ * Zaehlt `## Page N`-Headings im geparsten Originaltext (FIX-19-28-01).
+ * Wird im Tool-Result an den Agent zurueckgegeben.
+ */
+export function countPageHeadings(text: string): number {
+    const matches = text.match(/^##\s+Page\s+\d+/gm);
+    return matches?.length ?? 0;
+}
+
+/**
+ * Position-Marker-Check (FIX-19-28-01 PLAN-15 Step 5,
+ * FIX-19-28-06 Regex-Erweiterung): zaehlt im `## Kernaussagen`-
+ * Section, wie viele Bullet-Items einen Wikilink-Marker `[[...|↗]]`
+ * am Ende tragen.
+ *
+ * Erwartet: Section beginnt mit `## Kernaussagen` (oder `## Key
+ * Take-aways` oder `## Take-Aways`), Items sind `- ...`-Bullets.
+ * Section endet beim naechsten `## `-Heading oder am Ende des Strings.
+ *
+ * Block-Anchor-Suffix `^slug` nach dem Ref ist erlaubt: Karpathy-
+ * Pattern setzt Eigen-Anchor auf jeden Bullet, damit andere Notes
+ * ihn referenzieren koennen. Ohne diese Tolerierung wuerde der
+ * Check `0 of N` zurueckgeben und der Agent dupliziert Refs in
+ * einem Folge-Edit (FIX-19-28-06).
+ *
+ * Ergebnis-Felder:
+ * - kernaussagen: gezaehlte Bullet-Items in der Section
+ * - withMarker:   davon mit `↗`-Wikilink am Ende (Anchor-Suffix erlaubt)
+ */
+export function checkPositionMarkers(headerContent: string): { kernaussagen: number; withMarker: number } {
+    // Section-Erkennung: ## Kernaussagen / ## Key Take-aways / ## Take-Aways
+    const sectionRe = /^##\s+(Kernaussagen|Key\s+Take[-\s]?aways|Take[-\s]?Aways)\b[^\n]*$/im;
+    const lines = headerContent.split(/\r?\n/);
+    let inSection = false;
+    let kernaussagen = 0;
+    let withMarker = 0;
+    for (const line of lines) {
+        if (sectionRe.test(line)) {
+            inSection = true;
+            continue;
+        }
+        if (inSection && /^##\s+\S/.test(line)) {
+            // Naechste Section trifft -> Ende
+            inSection = false;
+            continue;
+        }
+        if (!inSection) continue;
+        const m = line.match(/^\s*[-*]\s+(.+)$/);
+        if (!m) continue;
+        kernaussagen++;
+        if (/\[\[[^\]]+\|↗\]\](?:\s+\^[A-Za-z0-9_-]+)?\s*$/.test(line)) {
+            withMarker++;
+        }
+    }
+    return { kernaussagen, withMarker };
+}
+
+/**
+ * Dead-Page-Ref-Detection (FIX-19-28-06): scannt die `## Kernaussagen`-
+ * Section nach `[[BASENAME#Page N|↗]]`-Refs und meldet jene, die ins
+ * Leere zeigen. Zwei Failure-Modi werden erkannt:
+ *
+ * 1. Page-Number ueber pageCount (z.B. Ref auf `#Page 87` bei nur
+ *    60 geparsten Pages). Tritt auf, wenn der Agent Page-Numbers aus
+ *    dem PDF-Footer halluziniert statt aus den `## Page N`-Headings
+ *    abzuleiten.
+ * 2. Basename matched nicht das Output-File (z.B. Output ist
+ *    "Notes/Webb-2026.md", aber Refs zeigen auf `[[Anderer Title]]`).
+ *    Tritt auf, wenn der Agent den Pdf-Quell-Title als Wikilink-Target
+ *    nutzt statt den Output-Basename.
+ *
+ * Refs auf `#Slide N`, `#^block-N`, `#anchor` werden nicht geprueft --
+ * dieser Check ist explizit fuer den PDF-Pfad mit Heading-Anchors.
+ *
+ * Ergebnis: Liste der dead Refs mit der zeilenexakten Beobachtung.
+ * Bei leerer Liste sind alle Refs konsistent zur Source.
+ */
+export function findDeadPageRefs(
+    headerContent: string,
+    outputBasename: string,
+    pageCount: number,
+): { line: string; reason: string }[] {
+    const sectionRe = /^##\s+(Kernaussagen|Key\s+Take[-\s]?aways|Take[-\s]?Aways)\b[^\n]*$/im;
+    const lines = headerContent.split(/\r?\n/);
+    const dead: { line: string; reason: string }[] = [];
+    let inSection = false;
+    // Capture: target-name (without #), page-number
+    const refRe = /\[\[([^#\]|]+)#Page\s+(\d+)\|↗\]\]/g;
+    for (const line of lines) {
+        if (sectionRe.test(line)) {
+            inSection = true;
+            continue;
+        }
+        if (inSection && /^##\s+\S/.test(line)) {
+            inSection = false;
+            continue;
+        }
+        if (!inSection) continue;
+        for (const match of line.matchAll(refRe)) {
+            const target = match[1].trim();
+            const page = Number.parseInt(match[2], 10);
+            if (target !== outputBasename) {
+                dead.push({
+                    line: line.trim(),
+                    reason: `target "${target}" does not match output basename "${outputBasename}"`,
+                });
+                continue;
+            }
+            if (pageCount > 0 && page > pageCount) {
+                dead.push({
+                    line: line.trim(),
+                    reason: `Page ${page} exceeds source pageCount ${pageCount}`,
+                });
+            }
+        }
+    }
+    return dead;
+}
+
+/**
+ * Extrahiert den Output-Basename aus dem `output_path` (ohne `.md`).
+ * Fuer Refs der Form `[[BASENAME#...|↗]]` ist BASENAME der File-Stem.
+ */
+export function basenameOf(outputPath: string): string {
+    const file = outputPath.split('/').pop() ?? outputPath;
+    return file.replace(/\.md$/i, '');
 }

@@ -1,7 +1,6 @@
 ---
 id: ADR-93
 title: Source-Identitaet-Modell (Domain-only fuer MVP)
-status: Proposed
 deciders: Architecture
 date: 2026-05-03
 related:

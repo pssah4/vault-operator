@@ -1012,7 +1012,7 @@ Alle bekannten Bugs (FIX-01 bis FIX-12) resolved:
 - FIX-11: ChatLink YAML-Parse-Fehler -- concise geloggt, Note uebersprungen
 - FIX-12: Token Overflow -- geloest durch EPIC-18 (ADR-61/062/063)
 
-Security Audits: `_devprocess/analysis/security/AUDIT-003-obsilo-2026-03-06.md` bis `AUDIT-006-obsilo-2026-04-02.md`
+Security Audits: `_devprocess/analysis/AUDIT-003-obsilo-2026-03-06.md` bis `AUDIT-006-obsilo-2026-04-02.md`
 
 ---
 

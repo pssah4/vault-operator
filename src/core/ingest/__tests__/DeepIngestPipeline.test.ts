@@ -17,7 +17,7 @@ function makeFile(path: string): TFile {
     return f;
 }
 
-function makeMockApp(): { app: App; created: Array<{ path: string; content: string }>; folders: Set<string> } {
+function makeMockApp(sourceMd?: string): { app: App; created: Array<{ path: string; content: string }>; folders: Set<string> } {
     const created: Array<{ path: string; content: string }> = [];
     const folders = new Set<string>();
     return {
@@ -31,6 +31,7 @@ function makeMockApp(): { app: App; created: Array<{ path: string; content: stri
                     created.push({ path: p, content });
                     return makeFile(p);
                 },
+                cachedRead: async () => sourceMd ?? '',
             },
         } as unknown as App,
     };
@@ -152,6 +153,86 @@ describe('DeepIngestPipeline', () => {
             cluster: 'TopicCluster',
         });
         expect(mocHook).toHaveBeenCalledWith('TopicCluster');
+    });
+
+    it('FIX-19-28-01: injects ↗-markers in sense-making body when no summaryBody is provided', async () => {
+        // Source-Note enthaelt zwei Anker-Texte, die als Take-Aways
+        // gepickt werden. Pipeline soll Block-IDs setzen und im
+        // Sense-Making-Body inline ↗-Marker rendern.
+        const sourceMd = `# Test\n\nWichtige Aussage A ueber AI.\n\nAndere Aussage B mit Detail.\n`;
+        const m = makeMockApp(sourceMd);
+        const planGenerator = vi.fn(async (): Promise<DeepIngestPlan> => ({
+            takeAways: [
+                { text: 'A: kurzer Take-Away.', position: { kind: 'block-anchor', anchorText: 'Wichtige Aussage A ueber AI.' } },
+                { text: 'B: zweiter Take-Away.', position: { kind: 'block-anchor', anchorText: 'Andere Aussage B mit Detail.' } },
+            ],
+            // summaryBody bewusst weggelassen -- Pipeline muss
+            // SummaryPositionAnnotator nutzen.
+        }));
+        const pipeline = new DeepIngestPipeline(m.app, {
+            folderConfig: { sourceFolder: 'Sources' },
+            planGenerator,
+        });
+        await pipeline.run({
+            sourceFile: makeFile('Inbox/test.md'),
+            mode: 'dialog',
+            outputMode: 'source-plus-summary',
+            cluster: 'Tech',
+        });
+        const senseMakingNote = m.created.find((c) => c.path.includes('Sense-Making'));
+        expect(senseMakingNote).toBeDefined();
+        // Beide Take-Aways tragen den ↗-Marker mit Block-Ref auf den
+        // Sources-Pfad (test.md.md, weil Pipeline basename + '.md' addiert).
+        expect(senseMakingNote?.content).toContain('A: kurzer Take-Away. [[test#^block-1|↗]]');
+        expect(senseMakingNote?.content).toContain('B: zweiter Take-Away. [[test#^block-2|↗]]');
+    });
+
+    it('FIX-19-28-01: source-note body is no longer empty -- contains source markdown with block-IDs', async () => {
+        const sourceMd = `Aussage X.\n\nAussage Y.\n`;
+        const m = makeMockApp(sourceMd);
+        const planGenerator = vi.fn(async (): Promise<DeepIngestPlan> => ({
+            takeAways: [
+                { text: 'Take-Away X.', position: { kind: 'block-anchor', anchorText: 'Aussage X.' } },
+            ],
+        }));
+        const pipeline = new DeepIngestPipeline(m.app, {
+            folderConfig: { sourceFolder: 'Sources' },
+            planGenerator,
+        });
+        await pipeline.run({
+            sourceFile: makeFile('Inbox/source.md'),
+            mode: 'dialog',
+            outputMode: 'source-plus-summary',
+            cluster: 'Tech',
+        });
+        const sourceNote = m.created.find((c) => c.path.includes('Sources/'));
+        expect(sourceNote).toBeDefined();
+        expect(sourceNote?.content).toContain('Aussage X. ^block-1');
+        // Body ist nicht leer (vorher war hardcoded body: '').
+        expect(sourceNote?.content).toContain('Aussage Y.');
+    });
+
+    it('FIX-19-28-01: legacy string[] take-aways still work (backward-compat)', async () => {
+        const sourceMd = `claim-1\n\nclaim-2\n`;
+        const m = makeMockApp(sourceMd);
+        const planGenerator = vi.fn(async (): Promise<DeepIngestPlan> => ({
+            takeAways: ['claim-1', 'claim-2'],
+            summaryBody: 'Sense-Making body provided',
+        }));
+        const pipeline = new DeepIngestPipeline(m.app, {
+            folderConfig: { sourceFolder: 'Sources' },
+            planGenerator,
+        });
+        await pipeline.run({
+            sourceFile: makeFile('Inbox/x.md'),
+            mode: 'dialog',
+            outputMode: 'source-plus-summary',
+            cluster: 'Tech',
+        });
+        const senseMakingNote = m.created.find((c) => c.path.includes('Sense-Making'));
+        // Caller gab summaryBody mit -- der wird verwendet, wir generieren
+        // nicht aus take-aways.
+        expect(senseMakingNote?.content).toContain('Sense-Making body provided');
     });
 
     it('increments source-diversity-counter when sourceDomain provided', async () => {

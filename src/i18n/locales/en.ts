@@ -1161,6 +1161,7 @@ export const en: Translations = {
     'modal.modelConfig.temperatureFixed': 'This model only accepts temperature = 1.0 (enforced by the API).',
     'modal.modelConfig.promptCaching': 'Prompt caching',
     'modal.modelConfig.promptCachingDesc': 'Cache system prompt and recent messages to reduce API costs (supported providers only)',
+    'modal.modelConfig.promptCachingTooltip': 'Prompt caching reduces input cost on repeated requests. Anthropic charges +25% on the first cache write, then -90% on every cache read. Net win after 2 iterations. Recommended on for typical agent sessions.',
     'modal.modelConfig.thinking': 'Extended thinking',
     'modal.modelConfig.thinkingDesc': 'Let the model reason before answering. Improves quality on hard tasks (supported models only)',
     'modal.modelConfig.thinkingNote': 'When enabled, temperature is forced to 1 by the API.',

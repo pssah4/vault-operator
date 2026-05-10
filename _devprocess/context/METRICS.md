@@ -1,7 +1,7 @@
 # Project Metrics (Memory v2 + UCM)
 
 > Append-additive Signal-Layer fuer V-Model-Workflow.
-> Schreibende Skills: /coding, /business-analysis, /dia-orchestrator, /architecture, /testing.
+> Schreibende Skills: /coding, /business-analysis, /dia-guide, /architecture, /testing.
 
 ## Drift count (plan-context.md vs. real code)
 

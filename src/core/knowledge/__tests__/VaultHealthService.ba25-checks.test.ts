@@ -45,7 +45,7 @@ async function freshDB(): Promise<SqlJsDb> {
     const SQL = await initSqlJs();
     const db = new SQL.Database();
     db.exec(SCHEMA);
-    return db as unknown as SqlJsDb;
+    return db;
 }
 
 describe('VaultHealthService BA-25 Checks', () => {
