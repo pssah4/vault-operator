@@ -1787,3 +1787,196 @@ In dieser Phase NICHT angefasst, aber als Pfad-Hinweis fuer Phase 2:
 ### Naechster Schritt
 
 `/testing` -- automatisierte Tests sind drin, aber Live-UI-Verifikation des Settings-Modals und Live-Anthropic-Cache-Verifikation stehen aus. Anschliessend `/coding` mit IMP-18-01-02 (Phase 2, Provider-Coverage).
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 Bug-Capture: AttachmentHandler Lifecycle (Coding-Capture-Pfad)
+
+**Phase:** Coding (Bug-Capture-Entry-Point). Kein Fix in dieser Iteration, naechste Phase ist `/requirements-engineering`.
+
+**Item:** FIX-19-28-05
+**Bezug:** FEAT-19-28, FEAT-19-31, EPIC-19, FIX-19-28-02 (verwandt, falsche Diagnose dort)
+
+### Was passiert ist
+
+Live-Test 2026-05-10 mit `/ingest-deep` auf einem PDF-Chat-Attachment scheitert in Turn 1: `read_document(attachment_index=0)` wirft die STOP-Errormsg aus FIX-19-28 (Issue #312), der Agent ignoriert das Stale-Mirror-Verbot im Skill und schreibt eine fabrizierte "Deep Ingest"-Note mit dead Block-Refs zu einer nicht existierenden Quelldatei.
+
+Auf den ersten Blick sah es nach einer Skill-Compliance-Schwaeche aus. Code-Reading hat den eigentlichen Lifecycle-Bug freigelegt:
+
+1. `handleSendMessage` snapshottet nur `pending` (Zeile 1442), nicht `fullDocTexts`.
+2. `clear()` (Zeile 1443, AttachmentHandler:268) leert beide Listen.
+3. 270 Zeilen spaeter liest `getFullDocTexts()` (Zeile 1713) das jetzt-leere Array.
+4. Der `if (docTexts.length > 0)`-Guard (Zeile 1714) verhindert den `setAttachmentTexts`-Call vollstaendig.
+5. `ReadDocumentTool.attachmentTexts` bleibt `[]`, jeder Attachment-Aufruf failed mit der STOP-Errormsg.
+
+Damit ist die Annahme von FIX-19-28-02 ("Turn 1 funktioniert, Turn 2+ nicht") widerlegt. Der Bug existiert seit Commit 67d5b1cd (2026-04-11) und war 4 Wochen unentdeckt, weil die Symptom-Behandlung (besseres Errormsg, Skill-Disziplin, Stale-Mirror-Verbot) das Failure-Mode harmlos aussehen liess.
+
+### Artefakte erzeugt
+
+- BACKLOG-Zeile FIX-19-28-05 (Open / Building, P0). Dashboard-Counts auf 424.
+- [FIX-19-28-05-attachment-clear-lifecycle.md](../requirements/fixes/FIX-19-28-05-attachment-clear-lifecycle.md): Symptom, Root-Cause, Failure-Trace, Console-Output, Repro-Schritte, Akzeptanzkriterien, Scope-Abgrenzung gegen FIX-19-28-02 / FIX-19-28 / Persistent-Attachment-State.
+- Branch `fix/19-28-05-attachment-clear-lifecycle` aus `dev` erstellt.
+
+### Out-of-Scope dieses FIX
+
+- **Persistent attachment state ueber den Task-Lifecycle:** wenn der User in Turn 2 ohne neues Attachment sendet, sollte das Attachment aus Turn 1 weiter abrufbar sein. Eigenes IMP unter EPIC-19, getrennt von der Lifecycle-Korrektur.
+- **Skill-Architektur-Vereinfachung:** `/ingest-deep` Step 0a ("erst in Vault speichern") wurde nur eingebaut um diesen Bug zu umschiffen. Nach dem Fix kann der Step verschlankt werden, aber das ist FEAT-19-31-Folge, nicht dieser FIX.
+
+### Naechster Schritt
+
+`/requirements-engineering` auf FIX-19-28-05. Sebastian moechte vor dem Fix RE/ARCH-Disziplin halten, weil der Bug bereits zweimal an Folge-Symptomen "gefixt" wurde, ohne dass der Lifecycle-Bug erkannt wurde. RE soll den Scope und die Akzeptanzkriterien sauber gegen die Out-of-Scope-Themen abgrenzen, ARCH soll entscheiden ob der `clear()`-Lifecycle umgebaut wird (z.B. Trennung in `clearPending()` und `clearAll()`) oder ob der Snapshot in `handleSendMessage` reicht.
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 RE complete: Architecture-Handoff vorbereitet
+
+**Phase:** Requirements Engineering abgeschlossen. Ready for Architecture.
+
+**Item:** FIX-19-28-05
+**Bezug:** FEAT-19-28, FEAT-19-31, EPIC-19, FIX-19-28-02 (verwandt)
+
+### Was passiert ist
+
+RE hat die im Bug-Capture erfassten Akzeptanzkriterien geschaerft, einen User-Outcome-Block und Technical NFRs ergaenzt und einen Architecture-Handoff geschrieben mit drei offenen Architektur-Fragen.
+
+### Artefakte erzeugt / aktualisiert
+
+- [FIX-19-28-05-attachment-clear-lifecycle.md](../requirements/fixes/FIX-19-28-05-attachment-clear-lifecycle.md): Neue Sections "User-Outcome" und "Technical NFRs". AC-Tabelle erweitert um Verifikationsart pro Kriterium. Test-Strategie hinzugefuegt (Unit + Integration + Live).
+- [architect-handoff-fix-19-28-05.md](../requirements/handoff/architect-handoff-fix-19-28-05.md) (neu): Scope, ASRs (2 Moderate, 0 Critical), NFR-Summary, Constraints inkl. Out-of-Scope-Block, drei Open Questions (Q-01 Snapshot vs API-Split, Q-02 Push vs Pull, Q-03 ADR-Granularitaet).
+
+### NFR-Summary fuer den Architekten
+
+| Category | Target |
+|---|---|
+| Performance | Keine Regression. Snapshot O(N) auf <= 4 MB. |
+| Memory | MAX_TOTAL_DOC_TEXT_SIZE-Schutz bleibt aktiv. |
+| Backward compatibility | Keine Aenderung an Tool-Public-API (ReadDocumentTool, IngestDocumentTool). |
+| Observability | Bestehende Errormsg aus FIX-19-28 bleibt der Failure-Pfad. |
+
+### Open Questions an /architecture
+
+- **Q-01 (Moderate):** Snapshot-Pattern in handleSendMessage oder API-Split in AttachmentHandler? RE empfiehlt API-Split, weil clear() zwei Verantwortungen vermischt.
+- **Q-02 (Moderate):** setAttachmentTexts immer aufrufen (Push) oder Tool-Side-Reset (Pull)? RE empfiehlt Push, weil Pull die Tool-Sidebar-Kopplung verstaerken wuerde.
+- **Q-03 (Decision):** Eigener ADR oder Notiz in bestehendem ADR? RE empfiehlt eigenen kleinen ADR, weil das Snapshot-vs-Split-Muster wiederverwendbar ist.
+
+### Forbidden-Terms-Check
+
+AC-Tabelle enthaelt minimale technische Anker (`/ingest-deep`, "0 attachments available"-Errormsg) im selben Stil wie FIX-19-28-02. User-Outcome-Block ist tech-agnostisch. Technical NFRs sind sauber separiert.
+
+### Naechster Schritt
+
+`/architecture` auf FIX-19-28-05. ADR-Vorschlag oder Notiz, plus plan-context fuer den Coder. Architekt entscheidet die drei offenen Fragen und produziert die finale Implementierungs-Anleitung.
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 ARCH complete: ADR-112 + plan-context fuer /coding
+
+**Phase:** Architecture abgeschlossen. Ready for Coding.
+
+**Item:** FIX-19-28-05
+**Bezug:** ADR-112 (neu), FEAT-19-28, FEAT-19-31, EPIC-19
+
+### Was passiert ist
+
+Architecture-Pass hat die drei Open Questions aus dem RE-Handoff entschieden und einen kleinen, fokussierten ADR plus den plan-context fuer den Coder geschrieben. Dem RE-Empfehlungs-Trio (Split, Push, eigener ADR) wurde gefolgt, mit einer Konkretisierung in Q-01: API-Split LIGHT mit atomarem `consumeFullDocTexts()` statt zweier separater Methoden `clearPending` / `clearAll`.
+
+### Tech-Stack-Justification
+
+Der Fix bleibt im Sidebar-Layer (TypeScript strict, Obsidian Plugin API). Kein neues Modul, keine neue Dependency. `AttachmentHandler` bekommt eine zusaetzliche oeffentliche Methode (`consumeFullDocTexts`), `clear()` wird semantisch verengt (nur UI-Reset). Tool-Layer-API unveraendert.
+
+### Rejected Alternatives
+
+- **Snapshot-Pattern im Caller (Option A im ADR).** Loest den heutigen Bug, kodiert den Lifecycle aber nur in der Aufruf-Reihenfolge. Drift-anfaellig fuer zukuenftige Code-Aenderungen in `handleSendMessage`.
+- **Tool-Side-Pull (Option C im ADR).** Tool-Layer wuerde direkt aus `AttachmentHandler` lesen. Verstaerkt Sidebar-Tool-Kopplung, macht Tools ohne Sidebar-Instanz untestbar (z.B. bei MCP-Workflows). Ueberdimensioniert fuer den Bug.
+
+### Bekannte Risiken
+
+- Falls eine andere `attachments.clear()`-Aufrufstelle als `handleSendMessage` (heute Z.2587, Z.2917) unausgesprochen erwartet hat, dass `clear()` auch fullDocTexts loescht, kann nach dem Umbau ein subtiler Memory-Leak entstehen (Texte bleiben liegen, bis der naechste Send konsumiert). **Mitigation:** Audit-Pflicht jeder `clear()`-Aufrufstelle ist im plan-context als Coder-Constraint festgehalten. `MAX_TOTAL_DOC_TEXT_SIZE`-Schutz greift weiterhin auf `pushFullDocText`.
+- Falls zwei Sends sehr schnell hintereinander geschickt werden, ueberschreibt der zweite die Tool-State des ersten. Verhalten ist heute identisch (gleicher Tool-Singleton-State); kein Regress.
+
+### Open Items fuer /coding
+
+- Audit der drei `attachments.clear()`-Aufrufstellen in `AgentSidebarView.ts`. Jede Stelle muss kommentiert werden, ob sie weiterhin auch fullDocTexts-Loeschung erwartet (= zusaetzlicher `consumeFullDocTexts()`-Aufruf, Wert ignorieren).
+- Live-UI-Verifikation: Sebastian zieht PDF in Chat, `/ingest-deep` starten, Console + UI beobachten.
+
+### Wayfinder
+
+`AttachmentHandler` ist heute nicht in `src/ARCHITECTURE.map` (nur ein internes Submodul von Sidebar). Kein Wayfinder-Update notwendig. ADR-112 dokumentiert das Konzept, ein Wayfinder-Eintrag waere ueberproportional fuer die Groesse des Konzepts.
+
+### Consistency Check
+
+plan-context-fix-19-28-05.md zitiert ADR-112 in Sektion 2 und in der ADR-Summary-Tabelle. Tech-Stack-Anker in plan-context und ADR-112 sind konsistent (TypeScript strict, Obsidian, kein Refactor des Tool-Layers).
+
+### Naechster Schritt
+
+`/coding` auf FIX-19-28-05 mit plan-context-fix-19-28-05.md als Eingabe. Coder folgt der konkreten Implementierungs-Anleitung pro File (`AttachmentHandler.ts` zuerst, dann `AgentSidebarView.ts`), schreibt erst die Unit-Tests RED, baut dann gruen, und verifiziert per Live-Test mit PDF.
+
+---
+
+## 2026-05-10 -- FIX-19-28-05 Coding complete: AttachmentHandler-Lifecycle-Fix
+
+**Phase:** Coding abgeschlossen. Live-Test ausstehend (Sebastian manuell).
+
+**Item:** FIX-19-28-05
+**Plan:** PLAN-17
+**Bezug:** ADR-112, FEAT-19-28, FEAT-19-31, EPIC-19, FIX-19-28-02 (verwandt, durch diesen Fix de-facto erledigt)
+
+### Was implementiert wurde
+
+ADR-112 1:1 operationalisiert in zwei Code-Files plus einem neuen Test-File:
+
+- **`src/ui/sidebar/AttachmentHandler.ts`**: `clear()` verengt auf UI-Reset (pending + chipBar), `consumeFullDocTexts()` neu hinzugefuegt mit atomarem Snapshot+Clear. JSDoc-Hinweise auf ADR-112 / FIX-19-28-05 in beiden Methoden.
+- **`src/ui/AgentSidebarView.ts:1710-1722`** (Send-Flow): `getFullDocTexts()` -> `consumeFullDocTexts()`, if-Guard entfernt, Loop unconditional. Tools werden jetzt pro Turn synchronisiert (auch mit `[]`).
+- **`src/ui/AgentSidebarView.ts:2587`** (newConversation-Reset) und **`:2917`** (loadConversation): nach `clear()` jeweils `void this.attachments.consumeFullDocTexts()` ergaenzt mit Inline-Comment.
+- **`src/ui/sidebar/__tests__/AttachmentHandler.test.ts`** (neu): 5 Test-Szenarien fuer Lifecycle und State-Leak.
+
+### Tests
+
+- 5 neue Tests in AttachmentHandler.test.ts. Volle Suite: **1346/1346 gruen** (vorher 1341).
+- Build: `npm run build` exit 0 (tsc + esbuild).
+- Deploy: Auto-Copy in iCloud-Vault erfolgreich.
+- Regression-Cycle (red-green) bestaetigt: ohne Fix sind alle 5 Tests RED, mit Fix sind alle 5 GREEN.
+
+### Akzeptanzkriterien-Erfuellung
+
+| AC | Status | Nachweis |
+|---|---|---|
+| AC-01 (Datei lesbar im selben Turn) | gruen | Test-Szenario 2 (consume-Atomicity) |
+| AC-02 (`/ingest-deep` ohne Errormsg) | gruen via Code | Wird via AC-04-Live-Test bestaetigt |
+| AC-03 (kein State-Leak) | gruen | Test-Szenario 5 (cross-turn-Leak) plus Code-Audit Z.2587/2917 |
+| AC-04 (Live-Test ohne Retry-Loop) | offen | Sebastian fuehrt manuell aus |
+| AC-05 (Regression-Test) | gruen | red-green-Cycle 2026-05-10 |
+
+### Deviations vom Plan
+
+Keine. Alle 8 PLAN-17-Tasks 1:1 ausgefuehrt.
+
+### Bezug zu FIX-19-28-02
+
+FIX-19-28-02 ist im Backlog noch "Active / Building". Mit dem Lifecycle-Fix aus FIX-19-28-05 ist die ursprueng zugrundeliegende Beobachtung ("read_document mit attachment_index=0 schlaegt fehl") weg. FIX-19-28-02 hat ergaenzend sinnvolle Skill-Disziplin (Source-Type-Detection, STOP-on-Error, Kosten-Disziplin) eingebaut. **Empfehlung an Sebastian:** FIX-19-28-02 nach erfolgreichem Live-Test als Done markieren (das Symptom, das es loesen sollte, ist konstruktiv weg).
+
+### Bekannte Risiken
+
+- **Live-Test offen:** AC-02 und AC-04 brauchen den manuellen UI-Walk durch Obsidian. Falls dabei ein Edge-Case auftaucht (z.B. zweite Send-Welle mit neuem Attachment waehrend ein Tool-Run noch laeuft), wuerde sich das im Console-Log zeigen.
+- **Mid-Run-State-Race:** Wenn zwei Sends sehr schnell hintereinander gefeuert werden, ueberschreibt der zweite die Tool-State des ersten. Verhalten ist heute identisch (gleicher Singleton-State); dieser Fix aendert daran nichts.
+
+### Out-of-Scope (binding aus ADR-112)
+
+- Persistent attachment state ueber den AgentTask-Lifecycle. Wenn der User in Turn 2 ohne neues Attachment fragt, kann das Attachment aus Turn 1 weiterhin nicht abgerufen werden. Eigenes IMP unter EPIC-19.
+- Skill-Vereinfachung in `/ingest-deep`. Step 0a ("erst in Vault speichern") wurde als Workaround eingebaut und kann nach diesem Fix zurueckgebaut werden. FEAT-19-31-Folgearbeit, separater PR.
+
+### Live-Test-Anleitung fuer Sebastian
+
+1. Build laufen schon (Auto-Deploy in iCloud-Vault). Obsidian neuladen oder Plugin disable/enable.
+2. PDF in den Chat ziehen (z.B. `enbw-geschaeftsbericht-2025.pdf`).
+3. Eingabe: `/ingest-deep <freier Text>` und Senden.
+4. Erwartet:
+   - Plan wird erstellt, Triage laeuft durch.
+   - `read_document` oder `ingest_document` mit `attachment_index=0` funktioniert (KEINE "0 attachments available"-Errormsg mehr im Console-Log).
+   - Note in `Notes/` enthaelt echten Inhalt aus der PDF mit echten Block-Refs zum Mirror (oder zur Source).
+5. Console-Log: keine `Tool error in read_document: Error: No chat attachments available`-Errors.
+6. Folgetest: zweite Message ohne neues Attachment senden. Erwartet: Tool-Aufrufe mit `attachment_index=0` failen weiterhin sauber, Note wird NICHT auf Basis alter PDF-Texte fabriziert.
+
+### Naechster Schritt
+
+Live-Test (Sebastian, manuell). Bei Erfolg: FIX-19-28-02 als Done markieren, ggf. weiter mit `/testing` (formaler Test-Pass) oder direkt Merge nach dev. Bei Misserfolg: Rueckkehr zu `/architecture` mit Mid-course-Trigger.

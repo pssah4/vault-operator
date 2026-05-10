@@ -260,18 +260,36 @@ export class AttachmentHandler {
         });
     }
 
+    /**
+     * Clears the chip-bar UI: revokes object URLs, empties the pending list,
+     * and empties the chipBar element. Does NOT touch fullDocTexts.
+     * fullDocTexts have a different lifecycle (one tool-handoff per send pass)
+     * and are managed via consumeFullDocTexts(). See ADR-112 / FIX-19-28-05.
+     */
     clear(): void {
         for (const att of this.pending) {
             if (att.objectUrl) URL.revokeObjectURL(att.objectUrl);
         }
         this.pending.length = 0;
-        this.fullDocTexts.length = 0;
         this.chipBar.empty();
     }
 
     /** Returns the full (un-truncated) document texts for IngestDocumentTool and ReadDocumentTool. */
     getFullDocTexts(): string[] {
         return this.fullDocTexts;
+    }
+
+    /**
+     * Atomically returns and clears the full document texts. Used by
+     * AgentSidebarView at tool-handoff to pass texts to IngestDocumentTool /
+     * ReadDocumentTool while resetting the internal buffer for the next turn.
+     * Always returns a fresh array (caller mutations do not leak into state).
+     * See ADR-112 / FIX-19-28-05.
+     */
+    consumeFullDocTexts(): string[] {
+        const snapshot = [...this.fullDocTexts];
+        this.fullDocTexts.length = 0;
+        return snapshot;
     }
 
     /** Push a full document text with cumulative size guard to prevent OOM. */
