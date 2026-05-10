@@ -283,7 +283,7 @@ async function appendToActive(
             const allMessages = [...data.uiMessages, ...deltaUi].map((m) => ({ role: m.role, text: m.text }));
             await plugin.extractionQueue.enqueue({
                 conversationId: activeSession.conversationId,
-                messages: allMessages as { role: 'user' | 'assistant'; text: string }[],
+                messages: allMessages,
                 title,
                 queuedAt: new Date().toISOString(),
             });

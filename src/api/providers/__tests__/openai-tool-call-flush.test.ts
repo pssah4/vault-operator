@@ -36,7 +36,7 @@ function makeStream(chunks: ChunkLike[]): AsyncIterable<ChunkLike> {
     // Plain async generator over a sync source. The generator function uses
     // `async *` so it satisfies AsyncIterable, but it never `await`s — so we
     // disable require-await here to avoid a meaningless wait or a fake await.
-    // eslint-disable-next-line @typescript-eslint/require-await -- mock stream wraps a sync source; await would be a no-op
+     
     return (async function* () {
         for (const chunk of chunks) yield chunk;
     })();

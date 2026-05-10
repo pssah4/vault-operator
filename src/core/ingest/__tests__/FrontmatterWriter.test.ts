@@ -86,7 +86,7 @@ describe('FrontmatterWriter', () => {
         const writer = new FrontmatterWriter(mock.app, { storageMode: 'global' });
 
         const result = await writer.write({} as never, {
-            __proto__: { value: { polluted: true } } as never,
+            __proto__: { value: { polluted: true } },
             normalProp: { value: 'ok' },
         });
         expect(result.fieldsAdded).toEqual(['normalProp']);

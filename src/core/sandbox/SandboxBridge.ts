@@ -172,7 +172,7 @@ export class SandboxBridge {
      */
     hasPollutionKeys(obj: unknown): boolean {
         if (typeof obj !== 'object' || obj === null) return false;
-        const keys = Object.keys(obj as Record<string, unknown>);
+        const keys = Object.keys(obj);
         if (keys.some(k => k === '__proto__' || k === 'constructor' || k === 'prototype')) {
             return true;
         }

@@ -180,7 +180,7 @@ export class CreateXlsxTool extends BaseTool<'create_xlsx'> {
                 if (sheetInput.formulas) {
                     for (const [cellRef, formula] of Object.entries(sheetInput.formulas)) {
                         const cell = worksheet.getCell(cellRef);
-                        cell.value = { formula: formula } as ExcelJS.CellFormulaValue;
+                        cell.value = { formula: formula };
                     }
                 }
 
@@ -195,8 +195,8 @@ export class CreateXlsxTool extends BaseTool<'create_xlsx'> {
 
             // Generate buffer
             const buffer = await workbook.xlsx.writeBuffer();
-            const arrayBuffer = (buffer as ArrayBuffer).byteLength !== undefined
-                ? buffer as ArrayBuffer
+            const arrayBuffer = (buffer).byteLength !== undefined
+                ? buffer
                 : (buffer as Buffer).buffer.slice(
                     (buffer as Buffer).byteOffset,
                     (buffer as Buffer).byteOffset + (buffer as Buffer).byteLength,

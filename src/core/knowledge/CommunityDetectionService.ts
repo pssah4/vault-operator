@@ -159,7 +159,7 @@ export class CommunityDetectionService {
                     cluster: clusterId,
                     role: 'member',
                     confidence: 1.0,
-                    source: 'louvain' as OntologySource,
+                    source: 'louvain',
                 });
             }
         }

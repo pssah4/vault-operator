@@ -76,7 +76,7 @@ describe('rrf (PLAN-005 task 1)', () => {
     });
 
     it('skips empty/non-string ids', () => {
-        const result = rrf([{ items: ['a', '', 'b'] as unknown as string[] }]);
+        const result = rrf([{ items: ['a', '', 'b'] }]);
         expect(result.map(r => r.id)).toEqual(['a', 'b']);
     });
 

@@ -668,7 +668,7 @@ export class BackupTab {
                         if (!(await this.app.vault.adapter.exists(dir))) {
                             await this.app.vault.adapter.mkdir(dir);
                         }
-                        await this.app.vault.adapter.writeBinary(getVaultDnaPath(this.plugin), data.buffer as ArrayBuffer);
+                        await this.app.vault.adapter.writeBinary(getVaultDnaPath(this.plugin), data.buffer);
                         totalFiles++;
                     }
                 } else {
@@ -690,7 +690,7 @@ export class BackupTab {
                             if (dirPath && !(await this.app.vault.adapter.exists(dirPath))) {
                                 await this.app.vault.adapter.mkdir(dirPath);
                             }
-                            await this.app.vault.adapter.writeBinary(fullPath, data.buffer as ArrayBuffer);
+                            await this.app.vault.adapter.writeBinary(fullPath, data.buffer);
                         }
                         totalFiles++;
                     }

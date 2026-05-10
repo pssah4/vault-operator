@@ -122,7 +122,7 @@ export class CloudflareDeployer {
             },
             body,
             throw: false,
-        } as unknown as Parameters<typeof requestUrl>[0]);
+        });
 
         if (response.status >= 400) {
             let detail = `HTTP ${response.status}`;
@@ -219,7 +219,7 @@ export class CloudflareDeployer {
             },
             body,
             throw: false,
-        } as unknown as Parameters<typeof requestUrl>[0]);
+        });
 
         if (response.status >= 400) {
             let detail = `HTTP ${response.status}`;

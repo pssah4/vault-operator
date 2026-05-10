@@ -93,7 +93,7 @@ export function validateToolInput(
         const typeMatch =
             (expectedType === 'string' && actualType === 'string') ||
             (expectedType === 'number' && actualType === 'number') ||
-            (expectedType === 'integer' && actualType === 'number' && Number.isInteger(value as number)) ||
+            (expectedType === 'integer' && actualType === 'number' && Number.isInteger(value)) ||
             (expectedType === 'boolean' && actualType === 'boolean') ||
             (expectedType === 'array' && actualType === 'array') ||
             (expectedType === 'object' && actualType === 'object');

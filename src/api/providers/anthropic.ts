@@ -54,7 +54,7 @@ export class AnthropicProvider implements ApiHandler {
         const anthropicTools: Anthropic.Tool[] = tools.map((tool) => ({
             name: tool.name,
             description: tool.description,
-            input_schema: tool.input_schema as Anthropic.Tool.InputSchema,
+            input_schema: tool.input_schema,
         }));
 
         // Prompt caching: mark the last user message with cache_control
@@ -266,7 +266,7 @@ export class AnthropicProvider implements ApiHandler {
                 throw new Error(`Unknown content block type: ${(block as ContentBlock).type}`);
             });
 
-            return { role: msg.role, content } as Anthropic.MessageParam;
+            return { role: msg.role, content };
         });
     }
 

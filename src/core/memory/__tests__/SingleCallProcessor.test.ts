@@ -263,7 +263,7 @@ describe('SingleCallProcessor (PLAN-007 task C.1)', () => {
         // Force the mock api to surface usage
         const apiWithUsage: ApiHandler = {
             createMessage: (): ApiStream => (async function*() {
-                yield { type: 'usage', inputTokens: 100, outputTokens: 30 } as ApiStreamChunk;
+                yield { type: 'usage', inputTokens: 100, outputTokens: 30 };
                 yield {
                     type: 'tool_use', id: 'tu', name: '_memory_single_call',
                     input: {
@@ -276,7 +276,7 @@ describe('SingleCallProcessor (PLAN-007 task C.1)', () => {
                         mentions: [], conversation_so_far: 'so far',
                         topic_drift_detected: false,
                     },
-                } as ApiStreamChunk;
+                };
             })(),
             getModel: () => ({ id: 'mock', info: { contextWindow: 100000, supportsTools: true, supportsStreaming: true } }),
         };

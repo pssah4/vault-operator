@@ -207,7 +207,7 @@ export class DeepIngestPipeline {
                     ? `${rawPlan.multiZettel.bibliographyBody}\n\n## Tension-Marker\n\n${tensionFooter}`
                     : rawPlan.multiZettel.bibliographyBody,
                 zettel: rawPlan.multiZettel.zettel,
-            } as MultiZettelContent;
+            };
         }
 
         // 8. OutputModeGenerator schreibt Notes

@@ -34,6 +34,7 @@ vi.mock('../../document-parsers/parseDocument', () => ({
 import { readSourceAsMarkdown } from '../SourceReader';
 
 function makeFile(name: string, ext: string): TFile {
+    // eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast -- Test mock: Object.create(TFile.prototype) needs explicit cast since instanceof is not applicable to a freshly created prototype-clone
     const file = Object.create(TFile.prototype) as TFile;
     Object.assign(file, {
         name,

@@ -104,7 +104,7 @@ export class McpClient {
             conn.tools = (toolsResult.tools ?? []).map((t) => ({
                 name: t.name,
                 description: t.description,
-                inputSchema: t.inputSchema as Record<string, unknown> | undefined,
+                inputSchema: t.inputSchema,
             }));
             conn.status = 'connected';
         } catch (e) {

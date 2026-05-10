@@ -402,7 +402,7 @@ export class VaultTab {
 
         new Setting(containerEl)
             .setName('Template for /ingest-deep')
-            .setDesc('Frontmatter template used by the Karpathy multi-turn deep-ingest skill.')
+            .setDesc('Frontmatter template used by the multi-turn deep-ingest skill.')
             .addText((text) =>
                 text
                     .setPlaceholder('Tools & Settings/Templates/Quelle Template.md')

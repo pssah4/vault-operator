@@ -143,7 +143,7 @@ describe('Stufe3PeriodicJob', () => {
         const SQL = await initSqlJs();
         const sqlDb = new SQL.Database();
         sqlDb.exec(SCHEMA);
-        const knowledgeDB = makeMockKnowledgeDB(sqlDb as unknown as SqlJsDb);
+        const knowledgeDB = makeMockKnowledgeDB(sqlDb);
         const persistence = new ClusterMetadataStatePersistence(knowledgeDB);
 
         // Initially empty
@@ -182,7 +182,7 @@ describe('TopHubBlockGenerator', () => {
         const SQL = await initSqlJs();
         const sqlDb = new SQL.Database();
         sqlDb.exec(SCHEMA);
-        db = sqlDb as unknown as SqlJsDb;
+        db = sqlDb;
         knowledgeDB = makeMockKnowledgeDB(db);
         summaryStore = new NoteSummaryStore(knowledgeDB);
         generator = new TopHubBlockGenerator(knowledgeDB, summaryStore, { topN: 5, cooldownMs: 60_000 });
