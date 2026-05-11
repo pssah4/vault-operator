@@ -78,15 +78,9 @@ How to use it:
 
 The agent uses the `read_document` tool to parse the file, then works with the extracted content like any other note.
 
-## Visual QA with LibreOffice
+## Self-check after generation
 
-If you have LibreOffice installed on your system, Obsilo can render generated presentations as images for a visual quality check.
-
-The `render_presentation` tool converts each slide to an image so the agent can review layouts, text overflow, and visual consistency before you open the file yourself.
-
-:::warning LibreOffice required
-Visual QA only works if LibreOffice is installed and accessible from the command line. Without it, the agent skips the visual check and relies on structural validation only.
-:::
+After `create_pptx`, `create_docx`, or `create_xlsx` writes a file, the tool runs a structural validation pass: required shapes filled, no leftover placeholders, group consistency, no empty slides. The result comes back in the tool output so the agent can fix gaps in a follow-up edit before you open the file. This is a structural check, not a visual render.
 
 ## Tips for better documents
 
