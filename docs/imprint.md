@@ -1,6 +1,6 @@
 ---
 title: Imprint
-description: Legal notice -- Impressum pursuant to German TMG.
+description: Legal notice. Impressum pursuant to German TMG.
 ---
 
 # Imprint
@@ -36,7 +36,7 @@ The source code of Obsilo Agent is published under the [Apache 2.0 License](http
 
 ---
 
-## Privacy -- Hosting
+## Privacy: Hosting
 
 This website is hosted via **GitHub Pages** (GitHub, Inc., 88 Colin P Kelly Jr St, San Francisco, CA 94107, USA). When you visit this site, GitHub may collect technical data (including IP addresses) for security and operational purposes. For details, please refer to [GitHub's Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 

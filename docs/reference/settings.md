@@ -15,9 +15,9 @@ Configure AI models and providers. You can add multiple models and switch betwee
 |---------|-------------|---------|----------------|
 | Model list | All configured models with provider, name, and status | Empty | Add at least one model to start |
 | Active model | The model used for conversations | First added | Use a strong model (Claude Sonnet, GPT-4o) |
-| + add model | Opens the model configuration dialog | -- | Start with one cloud + one local model |
-| Import from code | Import model configurations shared as code snippets | -- | Useful for team setups |
-| Test connection | Verify that a model's API key and endpoint work | -- | Always test after adding a new model |
+| + add model | Opens the model configuration dialog | n/a | Start with one cloud + one local model |
+| Import from code | Import model configurations shared as code snippets | n/a | Useful for team setups |
+| Test connection | Verify that a model's API key and endpoint work | n/a | Always test after adding a new model |
 
 :::tip Multiple models
 Add several models and assign them to different modes. Use a fast, cheap model for Ask mode and a stronger one for Agent mode.
@@ -32,7 +32,7 @@ Configure the semantic index for meaning-based vault search.
 | Embedding model | The model used to generate text embeddings | None | OpenAI `text-embedding-3-small` (cheapest) |
 | API key | Separate key for the embedding provider | None | Can share the OpenAI key from Models |
 | Auto-index | Automatically index notes when they change | Off | Enable for vaults under 5,000 notes |
-| Rebuild index | Re-index the entire vault from scratch | -- | Run after first setup or major vault changes |
+| Rebuild index | Re-index the entire vault from scratch | n/a | Run after first setup or major vault changes |
 | Reranking | Re-rank semantic search results for better relevance | Off | Enable if search results feel imprecise |
 | Implicit connections | Discover hidden relationships between notes | Off | Enable for knowledge discovery use cases |
 | Graph enrichment | Add semantic similarity data to the Obsidian graph | Off | Enable if you use the graph view heavily |
@@ -50,9 +50,9 @@ Vault conventions used by the [knowledge ingest](/guides/knowledge-ingest) workf
 
 | Setting | What it does | Default | Recommendation |
 |---------|-------------|---------|----------------|
-| Category property | Frontmatter key that holds the note's type or category | `Kategorie` | Match whatever you already use (`Category`, `type`, etc.) |
-| Summary property | Frontmatter key for the short note summary | `Zusammenfassung` | Match your existing convention (`Summary`, `abstract`) |
-| Source naming convention | Filename pattern for source notes created by ingest | `Autor-Jahr_Titel` | Keep short and sortable. Ingest uses this for PDFs |
+| Category property | Frontmatter key that holds the note's type or category | `Category` | Match whatever you already use (`type`, `kind`, etc.) |
+| Summary property | Frontmatter key for the short note summary | `Summary` | Match your existing convention (`abstract`, `tldr`) |
+| Source naming convention | Filename pattern for source notes created by ingest | `Author-Year_Title` | Keep short and sortable. Ingest uses this for PDFs |
 | MOC properties | Extra frontmatter keys that participate in Maps of Content | Empty | Add `related`, `parent`, or whatever you link through |
 
 ### Vault health check
@@ -82,8 +82,8 @@ Connect external tool servers and expose Obsilo as a server.
 | Setting | What it does | Default | Recommendation |
 |---------|-------------|---------|----------------|
 | Client servers | List of MCP servers the agent can call tools on | Empty | Add servers for external integrations |
-| + add server | Configure a new MCP server connection (SSE or streamable-http) | -- | Only SSE and streamable-http transports work |
-| Test server | Verify connectivity to a configured server | -- | Test after adding |
+| + add server | Configure a new MCP server connection (SSE or streamable-http) | n/a | Only SSE and streamable-http transports work |
+| Test server | Verify connectivity to a configured server | n/a | Test after adding |
 | Obsilo as MCP server | Expose Obsilo's tools to external clients like Claude Desktop | Off | Enable to use Obsilo from Claude Desktop |
 
 :::info Transport limitation
@@ -158,8 +158,8 @@ Persistent instructions that guide the agent in every conversation.
 | Setting | What it does | Default | Recommendation |
 |---------|-------------|---------|----------------|
 | Rule list | All active rules injected into the system prompt | Empty | Add rules for your writing style, vault conventions |
-| + add rule | Create a new rule (plain text or Markdown) | -- | Keep rules concise and specific |
-| Import | Import rules from a file | -- | Share rules across vaults |
+| + add rule | Create a new rule (plain text or Markdown) | n/a | Keep rules concise and specific |
+| Import | Import rules from a file | n/a | Share rules across vaults |
 
 ## Workflows & prompts
 
@@ -177,7 +177,7 @@ Persistent instruction sets matched by keywords. Like mini-manuals the agent fol
 | Setting | What it does | Default | Recommendation |
 |---------|-------------|---------|----------------|
 | Skill list | All skills with name, trigger pattern, and body | Built-in defaults | Add skills for domain-specific tasks |
-| + add skill | Create a new skill | -- | Include a clear trigger pattern and step-by-step instructions |
+| + add skill | Create a new skill | n/a | Include a clear trigger pattern and step-by-step instructions |
 
 ## Interface
 
@@ -216,7 +216,7 @@ Checkpoint and snapshot settings for the undo system.
 
 Vault-relative folder where Obsilo keeps its own files: plugin skills, the vault-dna snapshot, externalised tmp results, and the local knowledge database. Default is `.obsidian-agent`.
 
-Use the **Pick folder...** button to choose an existing folder from a fuzzy picker (works the same on Windows, macOS, and Linux), or type a new path that will be created on next use. Existing files are not auto-migrated when you change this path — move them manually if needed.
+Use the **Pick folder...** button to choose an existing folder from a fuzzy picker (works the same on Windows, macOS, and Linux), or type a new path that will be created on next use. Existing files are not auto-migrated when you change this path. Move them manually if needed.
 
 ## Other tabs
 

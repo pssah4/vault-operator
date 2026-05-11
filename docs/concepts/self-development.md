@@ -25,10 +25,10 @@ Tier 5 is proactive improvement. The agent observes usage patterns across conver
 
 Alongside the five tiers, four tools let the agent reason about its own state and capabilities at runtime:
 
-- `inspect_self` -- read the agent's own configuration, tool list, active modes, skills, and rules. Used when the user asks "what can you do?" or when the agent needs to plan against its current capabilities.
-- `find_tool` -- search the registry (built-in, dynamic, plugin) for a tool that fits a task description. Useful when the agent is unsure which tool to call.
-- `update_soul` -- update the user's long-term identity layer (values, working style). Slow-changing, deliberate, and gated.
-- `anti_echo_search` -- find sources that contradict or extend the current note instead of confirming it. A small lever against confirmation bias when researching a topic.
+- `inspect_self`: read the agent's own configuration, tool list, active modes, skills, and rules. Used when the user asks "what can you do?" or when the agent needs to plan against its current capabilities.
+- `find_tool`: search the registry (built-in, dynamic, plugin) for a tool that fits a task description. Useful when the agent is unsure which tool to call.
+- `update_soul`: update the user's long-term identity layer (values, working style). Slow-changing, deliberate, and gated.
+- `anti_echo_search`: find sources that contradict or extend the current note instead of confirming it. A small lever against confirmation bias when researching a topic.
 
 These tools sit in the `agent` and `vault` groups, depending on what they touch. They are not a separate tier; they support tier 1 (skill self-authoring) and tier 5 (pattern detection) by giving the agent a way to look in the mirror without a user prompt asking it to.
 

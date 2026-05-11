@@ -27,7 +27,7 @@ To create one:
 
 ```markdown
 Always respond in a friendly, concise tone.
-Never use bullet points -- use numbered lists instead.
+Never use bullet points. Use numbered lists instead.
 When summarizing notes, always include the creation date.
 ```
 

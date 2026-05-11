@@ -122,7 +122,7 @@ Setup:
 6. In Obsilo, select **Amazon Bedrock** as provider, pick your region, and paste the credentials. Use the quick pick dropdown to select a model
 
 :::tip Cross-region inference profiles
-Model IDs prefixed with `eu.` or `us.` are cross-region inference profiles. They route requests across the regions in that geography for higher availability. In Europe, `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` is the recommended default — it works from any EU region and keeps data inside the EU.
+Model IDs prefixed with `eu.` or `us.` are cross-region inference profiles. They route requests across the regions in that geography for higher availability. In Europe, `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` is the recommended default. It works from any EU region and keeps data inside the EU.
 
 Direct regional model IDs (without a prefix) only work in the specific region that hosts the model. Frankfurt supports a smaller direct model list than the EU inference profiles do.
 :::

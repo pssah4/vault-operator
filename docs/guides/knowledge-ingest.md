@@ -21,14 +21,14 @@ Before any deep reading, the skill calls `ingest_triage` against the vault's own
 
 Triage returns four things:
 
-- **Cluster match** -- does this source belong to a topic hub I already maintain, or is it new?
-- **Tension hint** -- does it confirm what I have, extend it, or contradict it?
-- **Source diversity** -- am I overloading one domain (echo-chamber warning)?
-- **Recommendation** -- ingest, later, or discard.
+- **Cluster match**: does this source belong to a topic hub I already maintain, or is it new?
+- **Tension hint**: does it confirm what I have, extend it, or contradict it?
+- **Source diversity**: am I overloading one domain (echo-chamber warning)?
+- **Recommendation**: ingest, later, or discard.
 
 If the recommendation is *discard* or *later*, the workflow stops there. The decision is logged so the same source never triggers triage twice. This is the cheapest possible filter against vault bloat.
 
-## /ingest -- quick single-pass
+## /ingest: quick single-pass
 
 For an inbox PDF, a webclip, or a meeting export. Drop the file into the chat or point the agent at a vault path:
 
@@ -38,8 +38,8 @@ The skill calls `ingest_document` once. The result is a single Markdown note con
 
 - Frontmatter: source path, source type, ingest date, cluster, plus the fields your templates require (author, year, summary, tags).
 - An overview section with two or three sentences capturing the core message.
-- A `## Kernaussagen` section with key statements, each ending with a position marker:
-  - PDFs: `[[basename#Page N|↗]]` -- N matches a `## Page N` heading in the appended original text
+- A `## Key Take-Aways` section with key statements, each ending with a position marker:
+  - PDFs: `[[basename#Page N|↗]]`, where N matches a `## Page N` heading in the appended original text
   - Markdown / web clips: `[[basename#^block-N|↗]]`
   - PPTX: `[[basename#Slide N|↗]]`
   - XLSX: `[[basename#Sheet name|↗]]`
@@ -49,9 +49,9 @@ Click the `↗` and you land at the paragraph that produced the claim. The displ
 
 Use `/ingest` when you want the source captured in the vault for later, but do not need a structured sense-making session right now.
 
-## /ingest-deep -- multi-turn sense-making
+## /ingest-deep: multi-turn sense-making
 
-For research papers, long reports, fachliche DOCX/PPTX, anything that wants a real reading session. Five to fifteen minutes of dialog with the model.
+For research papers, long reports, domain-specific DOCX/PPTX, anything that wants a real reading session. Five to fifteen minutes of dialog with the model.
 
 The skill runs three steps:
 
@@ -85,17 +85,17 @@ Ingest reads its frontmatter templates and entity properties from settings.
 
 In **Settings > Vault > Ingest**:
 
-- `ingestNoteTemplate` -- vault-relative path to the Markdown template used by `/ingest`. The skill reads the frontmatter block and fills it from the source.
-- `ingestDeepNoteTemplate` -- same idea for `/ingest-deep`.
-- `meetingSummaryNoteTemplate` -- same idea for `/meeting-summary`.
-- `pdfStrategy` -- `page-refs` (default for `/ingest`) or `markdown-mirror` (forced for `/ingest-deep`).
+- `ingestNoteTemplate`: vault-relative path to the Markdown template used by `/ingest`. The skill reads the frontmatter block and fills it from the source.
+- `ingestDeepNoteTemplate`: same idea for `/ingest-deep`.
+- `meetingSummaryNoteTemplate`: same idea for `/meeting-summary`.
+- `pdfStrategy`: `page-refs` (default for `/ingest`) or `markdown-mirror` (forced for `/ingest-deep`).
 
 In **Settings > Embeddings > Knowledge Properties**:
 
-- **Entity properties** -- which frontmatter keys hold wikilinks to other notes (`Themen`, `Konzepte`, `Personen`, `Projekte`, `Quellen`).
-- **Category property** -- which key defines the note type. Default `Kategorie`.
-- **Summary property** -- which key holds the short summary. Default `Zusammenfassung`.
-- **Source naming convention** -- the filename pattern for sources. Default `Autor-Jahr_Titel`.
+- **Entity properties**: which frontmatter keys hold wikilinks to other notes (`Topics`, `Concepts`, `People`, `Projects`, `Sources`).
+- **Category property**: which key defines the note type. Default `Category`.
+- **Summary property**: which key holds the short summary. Default `Summary`.
+- **Source naming convention**: the filename pattern for sources. Default `Author-Year_Title`.
 
 Set these once to match what your vault already does. The agent uses them for every ingest run after that. See [Settings reference](/reference/settings) for the full list.
 
@@ -119,7 +119,7 @@ Ingest is the write-path side of the same story that [Vault Health](/guides/vaul
 
 ## Related
 
-- [Knowledge discovery](/guides/knowledge-discovery) -- the semantic index and graph that ingest uses to find existing entities.
-- [Vault health check](/guides/vault-health) -- repair work for entries that drifted.
-- [Memory and personalization](/guides/memory-personalization) -- how Obsilo remembers your preferred categories and conventions over time.
-- [Tools reference](/reference/tools#knowledge-ingest-tools) -- the underlying `ingest_triage`, `ingest_document`, and `ingest_deep` tools.
+- [Knowledge discovery](/guides/knowledge-discovery): the semantic index and graph that ingest uses to find existing entities.
+- [Vault health check](/guides/vault-health): repair work for entries that drifted.
+- [Memory and personalization](/guides/memory-personalization): how Obsilo remembers your preferred categories and conventions over time.
+- [Tools reference](/reference/tools#knowledge-ingest-tools): the underlying `ingest_triage`, `ingest_document`, and `ingest_deep` tools.

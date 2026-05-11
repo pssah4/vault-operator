@@ -80,6 +80,6 @@ The MCP server only runs while Obsidian is open. If you close Obsidian, external
 
 ## Related
 
-- [Unified Chat Memory](./unified-chat-memory.md) -- how cross-surface memory shows up in the UI.
-- [Connectors guide](/guides/connectors) -- step-by-step setup for Claude Desktop, ChatGPT, and Perplexity.
-- [Memory system](./memory-system.md) -- the memory and soul layers behind `recall_memory` and `save_to_memory`.
+- [Unified Chat Memory](./unified-chat-memory.md): how cross-surface memory shows up in the UI.
+- [Connectors guide](/guides/connectors): step-by-step setup for Claude Desktop, ChatGPT, and Perplexity.
+- [Memory system](./memory-system.md): the memory and soul layers behind `recall_memory` and `save_to_memory`.

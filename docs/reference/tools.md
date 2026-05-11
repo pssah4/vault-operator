@@ -160,18 +160,18 @@ Each mode (Ask, Agent, or your custom modes) can enable or disable specific tool
 
 Obsilo also exposes a small surface to external AI clients (Claude Desktop, ChatGPT, Perplexity) via its own MCP server. These are not built-in tools the agent calls; they are entry points other AIs use to read and write Obsilo's memory and history layers. See [MCP architecture](/concepts/mcp-architecture).
 
-- `get_context` -- pull the user's memory, soul, skills, and rules (gated by strict source isolation setting).
-- `recall_memory` -- cross-source memory retrieval.
-- `save_to_memory` -- fact persistence with source tagging.
-- `save_conversation` -- persist a conversation as a living document.
-- `search_history` -- cross-source history search.
-- `execute_vault_op` -- run vault operations (read, list, write) with the user's permission boundaries.
-- `read_notes` -- bulk-read notes by path.
-- `search_vault` -- search across the vault.
-- `update_memory` -- legacy memory write, deprecated in favor of `save_to_memory`.
-- `sync_session` -- legacy session sync from external clients.
-- `close_conversation` -- close a living document explicitly.
-- `get_vault_implicit_edges` / `get_vault_note_metadata` -- structural vault queries.
+- `get_context`: pull the user's memory, soul, skills, and rules (gated by strict source isolation setting).
+- `recall_memory`: cross-source memory retrieval.
+- `save_to_memory`: fact persistence with source tagging.
+- `save_conversation`: persist a conversation as a living document.
+- `search_history`: cross-source history search.
+- `execute_vault_op`: run vault operations (read, list, write) with the user's permission boundaries.
+- `read_notes`: bulk-read notes by path.
+- `search_vault`: search across the vault.
+- `update_memory`: legacy memory write, deprecated in favor of `save_to_memory`.
+- `sync_session`: legacy session sync from external clients.
+- `close_conversation`: close a living document explicitly.
+- `get_vault_implicit_edges` / `get_vault_note_metadata`: structural vault queries.
 
 ## Quick-pick guide
 
