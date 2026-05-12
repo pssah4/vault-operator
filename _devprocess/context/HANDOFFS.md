@@ -2048,3 +2048,27 @@ Review-Frage Sebastians: ist die Hebel-Liste A-L aus RESEARCH-36 vollstaendig in
 **Lazy-Loading Tool-Schemas (Hebel B, Tool-Schema-Teil) -- Reconsideration 2026-05-12 (Sebastian: unsicher, vor allem MCP):** Code-Check ergab, dass MCP-Tools beim Server-Connect als regulaere Tools registriert werden (`ToolRegistry.registerMcpTool`), d.h. ihre vollen Schemas landen bei *jedem* API-Call im `tools`-Feld -- ohne Deferral (FEATURE-1600 deckt nur Built-ins). Bei zwei bis drei verbundenen MCP-Servern (je oft 10-30 Tools mit teils verbosen Schemas) dominiert der MCP-Anteil das `tools`-Feld potenziell deutlich, ist instabil (Server connect/disconnect, Tool-Listen-Aenderungen invalidieren den `tools`-Cache) und per Cold-Call/Cache-Write teuer. -> **doch ein realer Hebel; ADR-117 (neu), FEAT-24-06 von Welle 4 auf Welle 2 hochgestuft.** Entscheidung: MCP-Tools defaultseitig deferred (per-Server-Katalog im stabilen System-Prompt statt voller Schemas; volles Schema on-demand via `find_tool`/`enable_mcp_tool`, gleicher `activateDeferredTool`-Pfad wie deferred Built-ins; Opt-out pro Server). Built-in-Default-Satz weiter slimmen ist der kleinere, separate Teil (~10-20k Tokens, FEATURE-1600 deckt die schweren schon, nach Caching-Fix grossteils gecacht). Vor /coding: eine `tools`-Feld-Token-Zeile in `logInputBreakdown`, um den realen Umfang *mit verbundenen MCP-Servern* zu messen und die finale Prio zu schaerfen. Hinweis: fuer FEATURE-1600 (Deferred Tool Loading) gibt es keinen eigenen ADR -- ADR-117 ist der erste, der das Lazy-Loading-Konzept dokumentiert (FEATURE-1600-Spec bleibt die Quelle der Built-in-Mechanik).
 
 Damit ist die Hebel-Liste A-L vollstaendig in Architektur abgebildet, ausser dem bewusst Out-of-Scope-Teil (F Plan-Modus, J Output-Knappheit, K Retrieval-Tuning, Hooks, Multi-Agent-Coordinator).
+
+---
+
+## EPIC-24 Welle 1 -- /testing (2026-05-12)
+
+Implementierung (PLAN-18, Commits `c61ecb3`..`917aff1` + Test-Pass) auf `feature/epic-24-agent-loop-effizienz`.
+
+### Testlage
+- `npm test`: 1378 -> 1405 gruen (+27 ueber alle Welle-1-Commits + den /testing-Gap-Pass; 0 Failures). Build + Deploy nach jedem Schritt gruen.
+- Coverage-Tooling ist im Projekt nicht installiert (`@vitest/coverage-v8` fehlt, kein `coverage`-npm-Script) -- es gibt keinen Coverage-Gate; gemessen wird ueber Test-Anzahl + gezielte Gap-Tests. Kein neues Coverage-Tooling eingefuehrt (Projekt-Konvention respektiert).
+- /testing-Gap-Pass: zwei Stellen ohne Unit-Test nachgezogen -- (a) der ToolExecutionPipeline-Per-Tool-Output-Cap wurde in `capOversizedToolOutput` (exportiert) extrahiert + 7 Tests; (b) `markLastBlock`/`markRollingHistoryBreakpoints` aus `anthropic.ts` exportiert + 9 Tests (Stringkonvertierung, tool_result-Marker, Bild-Block-Fallback, kurze vs. lange History, STABLE_BACKOFF=6).
+
+### Bewusst NICHT unit-getestet (Begruendung)
+- **Cache-Hit-Rate / Token-Reduktion (SC der FEAT-24-01/02/03, alle `[AWAITING RE]`):** das sind Laufzeit-/Integrationsmetriken gegen echte Provider, kein Unit-Verhalten. Verifikation = manueller Messlauf im Vault: `[CacheStat:anthropic]` hitRate > 50 % ab Call 2 (statt `cacheCreate`-Reload), `[CacheStat:bedrock]` `cacheRead > 0`, `[Cost] cacheR > 0` bei OpenAI/Copilot, `[InputBreakdown]` zeigt einen 4-Datei-Read-Turn ~48k -> Folge-Turn unter ~20k. Steht aus (keine echten Provider-Credentials in dieser Session).
+- **Provider-Wiring End-to-End** (Anthropic 2-Block-systemParam, Bedrock `cachePoint`-Bloecke, openai-Familie `cached_tokens` -> usage-Chunk): braucht SDK-Mocking eines ganzen Streams; die *Logik-Bausteine* darunter (`splitSystemPromptAtCacheBreakpoint`, `markRollingHistoryBreakpoints`, `capabilities.getCacheCapability`) sind einzeln getestet. End-to-End-Bestaetigung = der Messlauf oben.
+- **ADR-111 R-1 (Bedrock cachePoint regional/Modell-abhaengig) + R-2 (Kilo-Gateway `cache_control`-Passthrough):** nur live verifizierbar; bei `cacheReadInputTokens: 0` ueber 3 Iterationen -> Modell-Pattern in `src/api/capabilities.ts` auf `false` setzen.
+
+### Fuer /security-audit
+- Neue tmp-Datei-Lese-/Cap-Pfade in `ResultExternalizer` (`isExternalizedPath`, `formatReReadCap`) -- Path-Praefix-Match gegen `this.tmpDir`; pruefen, dass kein Traversal/Spoofing den Re-Read-Cap umgeht (z.B. `../`-Pfade, die trotzdem auf eine tmp-Datei zeigen).
+- `AttachmentHandler` externalisiert grosse Anhaenge jetzt NICHT (kein Externalizer im Sidebar-Kontext), kappt sie nur -- externe/gepastete Dateien verlieren den abgeschnittenen Teil ersatzlos; das ist by design, aber im Audit als "Datenverlust ohne Warnung an den User?" gegenchecken (es gibt einen Notice-Hinweis im gekappten Text).
+- `microcompactToolResults` mutiert die History rueckwirkend -- pruefen, dass das Skelett keine sensiblen Daten *neu* exponiert (es kuerzt nur) und das Pairing nie bricht (Tests decken das ab).
+
+### Naechster Schritt
+`/security-audit` fuer EPIC-24 Welle 1. Danach (separat, vor Release): der manuelle Cache-/Token-Messlauf gegen echte Provider als Abnahme der `[AWAITING RE]`-SC.

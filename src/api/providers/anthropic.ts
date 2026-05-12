@@ -18,7 +18,7 @@ import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
 
 /** Put an ephemeral cache_control marker on the last content block of a message. */
-function markLastBlock(msg: Anthropic.MessageParam): void {
+export function markLastBlock(msg: Anthropic.MessageParam): void {
     if (typeof msg.content === 'string') {
         msg.content = [{ type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }];
         return;
@@ -41,7 +41,7 @@ function markLastBlock(msg: Anthropic.MessageParam): void {
  * stable cache prefix across turns). Keeps the conversation part of long sessions
  * mostly cache reads instead of full re-sends.
  */
-function markRollingHistoryBreakpoints(messages: Anthropic.MessageParam[]): void {
+export function markRollingHistoryBreakpoints(messages: Anthropic.MessageParam[]): void {
     let lastUser = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].role === 'user') { lastUser = i; break; }
