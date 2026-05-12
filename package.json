@@ -1,7 +1,7 @@
 {
-  "name": "obsilo-agent",
+  "name": "vault-operator",
   "version": "1.0.0",
-  "description": "Transform your Obsidian vault with an AI agent that reads, writes, searches, and connects notes using 30+ tools, semantic search, and full safety controls.",
+  "description": "An autonomous AI agent for your Obsidian vault that reads, writes, searches, and connects notes using 30+ tools, semantic search, and full safety controls.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

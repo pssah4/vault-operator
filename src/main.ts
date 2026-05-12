@@ -310,7 +310,29 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.ringBuffer = new ConsoleRingBuffer(500);
         this.ringBuffer.install();
 
-        console.debug('Loading Obsilo Agent plugin');
+        console.debug('Loading Vault Operator plugin');
+
+        // 0-pre. Rebrand migration: the plugin id changed from `obsilo-agent` to
+        // `vault-operator` (the Obsidian community-plugin review bot rejects any
+        // name that starts with "Obsi"). Obsidian loads the plugin from the new
+        // `<configDir>/plugins/vault-operator/` folder, which has no data.json on
+        // the first launch after the rename, so all settings/credentials would
+        // reset. Copy the legacy data.json over once, before anything reads it.
+        // The agent-data folder (`.obsilo-vault`, vault-parent `obsilo-shared`)
+        // keeps its name — it is internal plumbing the user never sees and a
+        // folder move carries real risk for no visible benefit.
+        try {
+            const cfg = this.app.vault.configDir;
+            const adapter = this.app.vault.adapter;
+            const newDataPath = `${this.manifest.dir ?? `${cfg}/plugins/${this.manifest.id}`}/data.json`;
+            const legacyDataPath = `${cfg}/plugins/obsilo-agent/data.json`;
+            if (!(await adapter.exists(newDataPath)) && (await adapter.exists(legacyDataPath))) {
+                await adapter.write(newDataPath, await adapter.read(legacyDataPath));
+                console.debug(`[Plugin] Rebrand migration: copied data.json from legacy plugin folder obsilo-agent -> ${this.manifest.id}`);
+            }
+        } catch (e) {
+            console.warn('[Plugin] Rebrand data.json migration failed (non-fatal):', e);
+        }
 
         // 0a. Initialize SafeStorageService (must happen before loadSettings)
         this.safeStorage = new SafeStorageService();

@@ -1,9 +1,9 @@
 {
-  "id": "obsilo-agent",
-  "name": "Obsilo Agent",
+  "id": "vault-operator",
+  "name": "Vault Operator",
   "version": "2.7.2",
   "minAppVersion": "1.4.0",
-  "description": "A native AI operating layer for your vault. Discovers and uses installed plugins, spawns autonomous sub-agents, maintains persistent memory, and adapts to your workflows, skills and tools with full safety controls.",
+  "description": "An autonomous AI agent for your vault. It discovers and uses installed plugins, spawns sub-agents, maintains persistent memory, and adapts to your workflows, skills and tools with full safety controls.",
   "author": "Sebastian Hanke",
   "authorUrl": "https://github.com/pssah4",
   "isDesktopOnly": true
