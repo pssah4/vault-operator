@@ -44,6 +44,8 @@ import type {
 import type { ToolDefinition } from '../../core/tools/types';
 import { truncatedToolInputError } from '../types';
 import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { getCacheCapability } from '../capabilities';
+import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
 
 // Default context window for Claude models on Bedrock.
@@ -127,19 +129,49 @@ export class BedrockProvider implements ApiHandler {
         abortSignal?: AbortSignal,
     ): ApiStream {
         const bedrockMessages = this.convertMessages(messages);
-        const system: SystemContentBlock[] = [{ text: systemPrompt }];
+
+        // IMP-18-01-02 / ADR-111: Bedrock caches nothing without explicit cachePoint
+        // markers. When the model supports it (Anthropic Claude on Bedrock) and the
+        // toggle is on, split the system prompt at the cache breakpoint and place a
+        // cachePoint after the stable prefix, after the tool list, and after the last
+        // user message — the same shape as the Anthropic-direct provider.
+        const cacheStyle = getCacheCapability(this.config.type, this.config.model).cacheStyle;
+        const useCachePoint = (this.config.promptCachingEnabled ?? false) && cacheStyle === 'bedrock-cachepoint';
+
+        let system: SystemContentBlock[];
+        if (useCachePoint) {
+            const { stable, volatile } = splitSystemPromptAtCacheBreakpoint(systemPrompt);
+            system = volatile.trim().length > 0
+                ? [{ text: stable }, { cachePoint: { type: 'default' } }, { text: volatile }]
+                : [{ text: stable }, { cachePoint: { type: 'default' } }];
+        } else {
+            system = [{ text: systemPrompt }];
+        }
+
+        if (useCachePoint) {
+            for (let i = bedrockMessages.length - 1; i >= 0; i--) {
+                const m = bedrockMessages[i];
+                if (m.role === 'user' && Array.isArray(m.content)) {
+                    m.content.push({ cachePoint: { type: 'default' } } as BedrockContentBlock);
+                    break;
+                }
+            }
+        }
 
         const toolConfig: ConverseStreamCommandInput['toolConfig'] = tools.length > 0
             ? {
-                tools: tools.map<BedrockTool>((t) => ({
-                    toolSpec: {
-                        name: t.name,
-                        description: t.description,
-                        // AWS DocumentType is a JSON-compatible recursive union; JSON Schema
-                        // objects are valid DocumentType at runtime, but TS can't prove it.
-                        inputSchema: { json: t.input_schema as unknown as DocumentType },
-                    },
-                })),
+                tools: [
+                    ...tools.map<BedrockTool>((t) => ({
+                        toolSpec: {
+                            name: t.name,
+                            description: t.description,
+                            // AWS DocumentType is a JSON-compatible recursive union; JSON Schema
+                            // objects are valid DocumentType at runtime, but TS can't prove it.
+                            inputSchema: { json: t.input_schema as unknown as DocumentType },
+                        },
+                    })),
+                    ...(useCachePoint ? [{ cachePoint: { type: 'default' } } as BedrockTool] : []),
+                ],
                 toolChoice: { auto: {} },
             }
             : undefined;

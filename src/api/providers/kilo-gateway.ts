@@ -150,8 +150,11 @@ export class KiloGatewayProvider implements ApiHandler {
                 });
                 yield {
                     type: 'usage',
-                    inputTokens: chunk.usage.prompt_tokens,
+                    // IMP-18-01-02: prompt_tokens is the total; report non-cached as
+                    // inputTokens + cached separately so cost bills the cached prefix cheap.
+                    inputTokens: Math.max(0, chunk.usage.prompt_tokens - cachedIn),
                     outputTokens: chunk.usage.completion_tokens,
+                    cacheReadTokens: cachedIn > 0 ? cachedIn : undefined,
                 } satisfies ApiStreamChunk;
             }
 

@@ -295,8 +295,13 @@ export class OpenAiProvider implements ApiHandler {
                 });
                 yield {
                     type: 'usage',
-                    inputTokens: chunk.usage.prompt_tokens,
+                    // IMP-18-01-02: prompt_tokens is the TOTAL (cached + non-cached).
+                    // Report the non-cached part as inputTokens and the cached part
+                    // separately, matching the Anthropic convention, so the cost calc
+                    // bills the cached prefix at the cache-read rate instead of full price.
+                    inputTokens: Math.max(0, chunk.usage.prompt_tokens - cachedIn),
                     outputTokens: chunk.usage.completion_tokens,
+                    cacheReadTokens: cachedIn > 0 ? cachedIn : undefined,
                 } satisfies ApiStreamChunk;
             }
 
