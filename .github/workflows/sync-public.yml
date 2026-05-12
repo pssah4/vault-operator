@@ -1,4 +1,4 @@
-name: Sync to obsilo (public)
+name: Sync to vault-operator (public)
 
 on:
   push:
@@ -47,9 +47,9 @@ jobs:
             git commit -m "chore: strip internal files for public mirror [skip ci]"
           fi
 
-      - name: Push to obsilo
+      - name: Push to vault-operator
         env:
           TOKEN: ${{ secrets.OBSILO_PUBLIC_TOKEN }}
         run: |
-          git remote add obsilo "https://x-access-token:${TOKEN}@github.com/pssah4/obsilo.git"
-          git push obsilo HEAD:main --force
+          git remote add vault-operator "https://x-access-token:${TOKEN}@github.com/pssah4/vault-operator.git"
+          git push vault-operator HEAD:main --force

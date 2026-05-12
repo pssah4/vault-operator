@@ -1,4 +1,4 @@
-# Obsilo Agent v2.2.8 -- Release Notes
+# Vault Operator v2.2.8 -- Release Notes
 
 ## Highlights
 
@@ -9,12 +9,12 @@ This release adds the **MCP Connector** for Claude Desktop and remote AI assista
 ## New Features
 
 ### MCP Server -- Connect Claude Desktop & Remote AI (EPIC-014)
-Obsilo now acts as an MCP (Model Context Protocol) server, letting external AI assistants like Claude Desktop interact with your vault.
+Vault Operator now acts as an MCP (Model Context Protocol) server, letting external AI assistants like Claude Desktop interact with your vault.
 
 - **Local connector:** HTTP server on localhost for Claude Desktop integration via stdio proxy
 - **Remote relay:** Cloudflare Workers-based relay for claude.ai, ChatGPT, and other remote clients
 - **6 MCP tools:** `get_context`, `search_vault`, `read_notes`, `write_vault`, `sync_session`, `update_memory`
-- **Auto session tracking:** MCP conversations appear in Obsilo's chat history automatically
+- **Auto session tracking:** MCP conversations appear in Vault Operator's chat history automatically
 - **Relay setup wizard:** One-click deployment of your personal relay worker
 - **Bearer token authentication:** Auto-generated token for local server security
 - **Cloudflare tunnel support:** Optional public endpoint via `cloudflared`
@@ -32,7 +32,7 @@ The semantic search system has been rebuilt on a SQLite foundation for better pe
 ### Storage Consolidation (FEATURE-1508)
 All plugin data is now stored in a single, well-organized location.
 
-- **Unified storage:** Global data in `~/.obsidian-agent/`, vault-specific data in `.obsidian/plugins/obsilo-agent/`
+- **Unified storage:** Global data in `~/.obsidian-agent/`, vault-specific data in `.obsidian/plugins/vault-operator/`
 - **Automatic migration:** Legacy storage locations (`.obsilo-sync`, `.obsilo`, scattered JSON files) are migrated on first load
 - **MemoryDB:** Episodes, recipes, and patterns migrated from individual JSON files to SQLite
 
