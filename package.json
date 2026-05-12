@@ -1,7 +1,7 @@
 {
   "name": "vault-operator",
   "version": "1.0.0",
-  "description": "An autonomous AI agent for your Obsidian vault that reads, writes, searches, and connects notes using 30+ tools, semantic search, and full safety controls.",
+  "description": "Agentic AI operating layer for your Obsidian vault. Discovers and uses installed plugins, maintains persistent unified memory, and adapts to your workflows, skills and tools with full safety controls.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
