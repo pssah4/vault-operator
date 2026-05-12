@@ -438,6 +438,19 @@ export interface AdvancedApiSettings {
     /** Maximum sub-agent nesting depth (1 = no grandchildren, 2 = one level of grandchildren) */
     maxSubtaskDepth: number;
     /**
+     * FEAT-24-02 (ADR-12 amendment): prune old tool_result contents to skeletons
+     * at turn boundaries. Stops the dominant history-growth driver (accumulating
+     * read/search results). Additive to condensing. Default true.
+     */
+    microcompactionEnabled?: boolean;
+    /**
+     * FEAT-24-02: fold the oldest part of the conversation into a running summary
+     * once estimated tokens exceed this % of the context window — earlier and
+     * gentler than full condensing (`condensingThreshold`). Effective only below
+     * `condensingThreshold`. Generous default (50) so short sessions are untouched.
+     */
+    rollingSummaryThreshold?: number;
+    /**
      * Telemetry opt-in: persist a 200-char preview of the user's message
      * with each task's telemetry entry (.obsidian-agent/telemetry/tasks.jsonl).
      * AUDIT-013 M-2: defaults to false because the telemetry file lives
@@ -1063,6 +1076,8 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         powerSteeringFrequency: 0,
         maxIterations: 25,
         maxSubtaskDepth: 2,
+        microcompactionEnabled: true,       // FEAT-24-02
+        rollingSummaryThreshold: 50,        // FEAT-24-02
         telemetryRecordPromptPreview: false, // AUDIT-013 M-2: opt-in
     },
 

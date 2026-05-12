@@ -27,7 +27,8 @@ tool-registry             | src/core/tools/ToolRegistry.ts                      
 fast-path                 | src/core/FastPathExecutor.ts                          | ADR-61          | new recipe pattern: extend planner heuristics in FastPathExecutor
 mode-service              | src/core/modes/ModeService.ts                         | ADR-04          | new mode: add to builtinModes.ts plus tool-group map
 modes-builtin             | src/core/modes/builtinModes.ts                        | ADR-04          | new tool group: add entry to TOOL_GROUP_MAP
-context-condensing        | src/core/context/ContextCondenser.ts                  | ADR-12          | new strategy: implement CondenseStrategy and register
+context-condensing        | src/core/AgentTask.ts                                 | ADR-12          | condenseHistory(): keep-first-last + LLM-summarize-middle; tune via condensingThreshold setting
+microcompaction           | src/core/context/MicroCompactor.ts                    | ADR-12          | prune old tool_result contents to skeletons at turn boundaries; called from AgentTask.microcompact()
 power-steering            | src/core/AgentTask.ts                                 | ADR-06          | new injection point: extend powerSteeringFrequency switch
 checkpoint                | src/core/checkpoints/GitCheckpointService.ts          | ADR-02          | new checkpoint trigger: extend Pipeline step 4 hooks
 

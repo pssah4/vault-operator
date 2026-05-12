@@ -2329,6 +2329,8 @@ export class AgentSidebarView extends ItemView {
             this.plugin.settings.advancedApi.maxIterations ?? 25,
             0,  // depth: root task starts at 0
             this.plugin.settings.advancedApi.maxSubtaskDepth ?? 2,
+            this.plugin.settings.advancedApi.microcompactionEnabled ?? true,
+            this.plugin.settings.advancedApi.rollingSummaryThreshold ?? 50,
         );
 
         // Load enabled rules for this task (Sprint 3.2)
