@@ -65,6 +65,7 @@ manuell Kontext-Hygiene betreiben muss?
 | FEAT-24-04 | Subagent-Delegation fuer context-heavy Teilaufgaben (mit Per-Call-Token-Budget) | Recherche/Exploration bleibt aus dem Hauptkontext | ADR-113 |
 | FEAT-24-05 | Sichtbarkeit: Sidebar-Kosten-/Token-/Cache-Hit-Anzeige | Verhaltenseffekt + Diagnose | (UI, kein ADR) |
 | FEAT-24-09 | Active Skills: model-getriebenes On-demand-Laden statt Klassifikator-Inject | spart den Klassifikator-Roundtrip, macht den System-Prompt cache-stabil | ADR-116 |
+| FEAT-24-06 | Lazy-Loading der Tool-Schemas: Built-in (FEATURE-1600 erweitern) + **MCP-Tools deferred** (per-Server-Katalog im stabilen Prompt statt voller Schemas, Schema on-demand via find_tool) | der MCP-Anteil ist der eigentliche Hebel -- volle MCP-Tool-Schemas heute bei jedem Call, kein Deferral; mit verbundenen Servern potenziell der groesste, am wenigsten cachebare `tools`-Feld-Posten | ADR-117 |
 
 ### P2 (Welle 3 -- "Governance + Routing")
 
@@ -72,7 +73,6 @@ manuell Kontext-Hygiene betreiben muss?
 |----|-------|---------------|
 | FEAT-24-07 | Internes Hilfs-Modell-Routing fuer Agent-interne LLM-Calls (Condensing, Fast-Path-Planner/Presenter, plan_presentation, Recipe-Planner, ggf. Skill-Klassifikator) | ADR-115 |
 | FEAT-24-08 | Autonomie-Governance: Token-/Kosten-Budget pro Task mit Pause+Rueckfrage, Steering-Hook zwischen Iterationen, Exploration-Limit | ADR-114 (das Subtask-Per-Call-Budget bleibt in ADR-113) |
-| FEAT-24-06 | Lazy-Loading der Tool-Schemas (`tools`-API-Feld) weiter slimmen | niedrige Prio; Spike-Ergebnis 2026-05-12: ~10-20k Tokens fuer die ~35 Default-Tools, FEATURE-1600 deckt die schweren spezialisierten Tools schon ab, nach dem Caching-Fix (ADR-62-Amendment, tools-Marker) grossteils gecacht -> kein grosser Hebel, ggf. Welle 4 |
 
 ## Out-of-Scope (Epic)
 
@@ -110,8 +110,9 @@ manuell Kontext-Hygiene betreiben muss?
   ADR-12-Amendment (Microcompaction + Rolling-Summary), ADR-63-Amendment
   (Externalization-im-Hauptloop + Re-Read-Cap + Per-Tool-Caps), ADR-113
   (Subagent-Delegation+Budget), ADR-114 (Autonomie-Governance), ADR-115
-  (Hilfs-Modell-Routing), ADR-116 (Active-Skills on-demand). Plus IMP-18-01-02
-  (Bedrock cachePoint + OpenAI cached_tokens-Wiring, vorbestehend, Status Active).
+  (Hilfs-Modell-Routing), ADR-116 (Active-Skills on-demand), ADR-117 (Lazy-Loading
+  Tool-Schemas, Built-in + MCP). Plus IMP-18-01-02 (Bedrock cachePoint + OpenAI
+  cached_tokens-Wiring, vorbestehend, Status Active).
 - Diagnose-Logging (`src/api/logCacheStat.ts`) committed bzw. in den Welle-1-Code
   ueberfuehrt.
 - `/testing` + `/security-audit` nach jedem `/coding`-Durchlauf durchlaufen.

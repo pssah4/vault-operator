@@ -12,14 +12,14 @@ Last update: 2026-05-12 by agent-loop-cost-refactoring (EPIC-24 Agent-Loop Effiz
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
 | Planned | 29 | Released | 358 | Epic | 24 |
-| Active | 26 | Building | 61 | Feature | 212 |
+| Active | 26 | Building | 62 | Feature | 212 |
 | Done | 255 | Planned | 25 | Fix | 59 |
 | Accepted | 110 | Candidates | 0 | Improvement | 18 |
-| Draft | 12 |  |  | ADR | 116 |
+| Draft | 12 |  |  | ADR | 117 |
 | Open | 5 |  |  | Plan | 15 |
-| Proposed | 6 |  |  |  |  |
+| Proposed | 7 |  |  |  |  |
 
-Total artifacts: 444
+Total artifacts: 445
 
 ---
 
@@ -521,7 +521,7 @@ Verwandt: RESEARCH-36 (Diagnose + 3-Wege-Vergleich Claude Code / EnBW Cowork), N
 | FEAT-24-03 | Feature | Tool-Output- & Kontext-Disziplin: ADR-63-Externalizer im allgemeinen Hauptloop, Re-Read-Cap externalisierter tmp-Dateien, grosse Paste-/@-Mention-User-Messages kappen | Planned | Planned | EPIC-24, ADR-63 | RESEARCH-36 |  |  | 2026-05-12 | P0 Welle 1; Amendment zu ADR-63; verallgemeinert FIX-18-02-01 |
 | FEAT-24-04 | Feature | Subagent-Delegation fuer context-heavy Teilaufgaben (mit Per-Call-Token-Budget + Steering) | Planned | Planned | EPIC-24 | RESEARCH-36 |  |  | 2026-05-12 | P1 Welle 2; model-getrieben (new_task prominent + Profile + Prompt-Leitplanke), kein harter Router; ADR neu |
 | FEAT-24-05 | Feature | Sichtbarkeit: Sidebar-Kosten-/Token-/Cache-Hit-Anzeige | Planned | Planned | EPIC-24 | RESEARCH-36 |  |  | 2026-05-12 | P1 Welle 2; Cowork extractCacheStats als Vorlage; haengt von IMP-18-01-02 (cached_tokens-Wiring) ab |
-| FEAT-24-06 | Feature | Lazy-Loading der Tool-Schemas (`tools`-API-Feld) weiter slimmen | Planned | Planned | EPIC-24 | RESEARCH-36 |  |  | 2026-05-12 | P2/Welle 4; Spike 2026-05-12: ~10-20k Tokens fuer ~35 Default-Tools, FEATURE-1600 deckt die schweren Tools schon, nach Caching-Fix grossteils gecacht -> kein grosser Hebel; kein eigener ADR |
+| FEAT-24-06 | Feature | Lazy-Loading der Tool-Schemas: Built-in (FEATURE-1600 erweitern) + MCP-Tools deferred (per-Server-Katalog im stabilen Prompt statt voller Schemas, Schema on-demand via find_tool) | Planned | Planned | EPIC-24, ADR-117, FEATURE-1600 | RESEARCH-36 |  |  | 2026-05-12 | P1 Welle 2; ADR-117; MCP-Anteil ist der eigentliche Hebel (volle MCP-Schemas heute bei jedem Call, kein Deferral, instabil bei Server-Aenderungen); hochgestuft 2026-05-12. Built-in-Spike: ~10-20k Tokens, FEATURE-1600 deckt die schweren schon. Vor /coding: tools-Feld-Token-Log in logInputBreakdown |
 | FEAT-24-07 | Feature | Internes Hilfs-Modell-Routing fuer Agent-interne LLM-Calls (Condensing, Fast-Path-Planner/Presenter, plan_presentation, Recipe-Planner, ggf. Skill-Klassifikator) | Planned | Planned | EPIC-24, ADR-115, ADR-11 | RESEARCH-36 |  |  | 2026-05-12 | P2 Welle 3; ADR-115 |
 | FEAT-24-08 | Feature | Autonomie-Governance: Token-/Kosten-Budget pro Task mit Pause+Rueckfrage, Steering-Hook zwischen Iterationen, weiches Exploration-Limit | Planned | Planned | EPIC-24, ADR-114, ADR-113 | RESEARCH-36 |  |  | 2026-05-12 | P2 Welle 3; ADR-114 (Subtask-Per-Call-Budget bleibt in ADR-113) |
 | FEAT-24-09 | Feature | Active Skills: model-getriebenes On-demand-Laden statt Klassifikator-Inject | Planned | Planned | EPIC-24, ADR-116, ADR-62, ADR-09 | RESEARCH-36 |  |  | 2026-05-12 | P1 Welle 2; ADR-116; spart Klassifikator-Roundtrip + macht System-Prompt cache-stabil (ergaenzt ADR-62-Amendment) |
@@ -562,6 +562,7 @@ Verwandt: RESEARCH-36 (Diagnose + 3-Wege-Vergleich Claude Code / EnBW Cowork), N
 | ADR-114 | ADR | Autonomie-Governance -- Token-/Kosten-Budget pro Task, Steering-Hook, Exploration-Limits | Proposed | Building | FEAT-24-08, EPIC-24, ADR-01, ADR-06, ADR-12, ADR-113 | ARCH |  | 2026-05-12 | 2026-05-12 | EPIC-24 Welle 3; RESEARCH-36 §8 Hebel G |
 | ADR-115 | ADR | Internes Hilfs-Modell-Routing fuer Agent-interne LLM-Calls | Proposed | Building | FEAT-24-07, EPIC-24, ADR-11, ADR-12, ADR-17, ADR-61 | ARCH |  | 2026-05-12 | 2026-05-12 | EPIC-24 Welle 3; RESEARCH-36 §8 Hebel H |
 | ADR-116 | ADR | Active Skills -- model-getriebenes On-demand-Laden statt Klassifikator-Inject | Proposed | Building | FEAT-24-09, EPIC-24, ADR-09, ADR-62, ADR-08 | ARCH |  | 2026-05-12 | 2026-05-12 | EPIC-24 Welle 2; RESEARCH-36 §8 Hebel B-Teil + §3 |
+| ADR-117 | ADR | Lazy-Loading von Tool-Schemas -- Built-in und MCP (per-Server-Katalog, Schema on-demand via find_tool, FEATURE-1600-Pattern auf MCP ausgeweitet) | Proposed | Building | FEAT-24-06, EPIC-24, ADR-08, ADR-11, ADR-53, ADR-62, ADR-116 | ARCH |  | 2026-05-12 | 2026-05-12 | EPIC-24 Welle 2; RESEARCH-36 §8 Hebel B; MCP-Anteil ist der eigentliche Hebel |
 | ADR-12 | ADR | Context Condensing Strategy (Keep-First-Last) + Microcompaction & Rolling-Summary (Amendment 2026-05-12) | Accepted | Released | FEAT-24-02, EPIC-24 | ARCH |  |  | 2026-05-12 | Amendment 2026-05-12 (EPIC-24/FEAT-24-02): Microcompaction der Tool-Results an Turn-Grenzen + Rolling-Summary alter Turn-Bloecke, additiv zur Keep-First-Last-Voll-Compaction |
 | ADR-13 | ADR | 3-Tier Memory Architecture (Chat -> Session -> Long-Term) | Accepted | Released |  | ARCH |  |  |  |  |
 | ADR-14 | ADR | VaultDNA — Automatische Plugin-Erkennung als Skills | Accepted | Released |  | ARCH |  |  |  |  |

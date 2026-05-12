@@ -449,7 +449,8 @@ Stand Code (`src/core/AgentTask.ts`, `src/core/FastPathExecutor.ts`, `src/core/p
 | K Rolling-Summary für alte User-Messages/History | hoch (~75 % in langen Chats) | mittel (Ausprägung von D) | Condensing-Mechanik existiert | **P1** |
 | E Subagent-Delegation für context-heavy Teilaufgaben (Recherche/Exploration/Multi-Read), mit Per-Call-Budget | mittel-hoch | mittel (`spawnSubtask` da, prominent machen + Profile + Budget + Prompt-Leitplanke nötig) | `spawnSubtask`/`new_task` vorhanden | **P1** |
 | I Kosten-/Token-Anzeige in Sidebar + Cache-Hit-Rate | mittel (Verhaltenseffekt; Diagnose-Werkzeug) | niedrig (UI); der Wiring-Teil ist in A | Token-Counts geloggt; Cowork `extractCacheStats` als Vorlage | **P1** |
-| B Lazy-Loading Tool-Schemas (`tools`-Feld) + Active-Skills on-demand | mittel (~30k/Iter., aber gecacht günstig wenn A umgesetzt) | hoch (Tool-Registry-Refactor) bzw. mittel (Active-Skills-Umstellung) | Plugin-Skills haben Verzeichnis-Konzept | **P2** |
+| B-Teil Active-Skills on-demand | mittel (spart Klassifikator-Roundtrip + Cache-Stabilitaet) | mittel | Plugin-Skills haben Verzeichnis-Konzept | **P1** (ADR-116, FEAT-24-09, Welle 2) |
+| B-Teil Lazy-Loading Tool-Schemas (Built-in + **MCP**) | hoch bei verbundenen MCP-Servern (volle MCP-Tool-Schemas heute bei jedem Call, kein Deferral, instabil bei Server-Aenderungen); Built-in-Anteil ~10-20k, FEATURE-1600 deckt die schweren schon | mittel-hoch (MCP-Tools deferred machen + per-Server-Katalog; nutzt FEATURE-1600-Mechanik `find_tool`) | FEATURE-1600 (deferred Built-ins) vorhanden | **P1** (ADR-117, FEAT-24-06, Welle 2) -- hochgestuft 2026-05-12 wegen MCP-Anteil |
 | G Token-/Kosten-Budget pro Task + Steering | mittel (Runaway-Schutz, nicht Durchschnitt) | niedrig-mittel | `maxIterations` da | **P2** |
 | H Internes Model-Routing für Hilfs-Calls | mittel | mittel (zweites Modell konfigurierbar) | Multi-Provider-Infra da | **P2** |
 | F Analyse/Implementierung trennen mit Kontext-Reset (Plan-Modus) | -- | -- | -- | **out-of-scope** (Entscheidung 2026-05-12, s. §4.4) |
@@ -549,13 +550,20 @@ Diagnose-Phase abgeschlossen (5-Provider-Messlauf 2026-05-12, Diagnose-Log `logC
   braucht.)
 - **I — Sidebar-Anzeige:** Live-Kosten-/Token-Anzeige (Input/Output getrennt, kumulativ,
   Cache-Hit-Rate, Warnschwelle). Cowork `extractCacheStats` als Vorlage.
+- **B-Teil Active Skills** (ADR-116, FEAT-24-09): Klassifikator-Inject raus → model-getriebenes
+  On-demand-Laden (Skill-Verzeichnis im stabilen System-Prompt, Body als Tool-Result, dann
+  Microcompaction). Spart den per-Message-Klassifikator-Roundtrip und macht den System-Prompt
+  cache-stabil (ergänzt ADR-62-Amendment).
+- **B-Teil Lazy-Loading Tool-Schemas, MCP-Fokus** (ADR-117, FEAT-24-06): MCP-Tool-Schemas
+  defaultseitig deferred — per-Server-Katalog im stabilen System-Prompt statt voller Schemas im
+  `tools`-Feld; volles Schema on-demand via `find_tool` (nutzt FEATURE-1600-Mechanik); Opt-out
+  pro Server. Der MCP-Anteil ist der eigentliche Hebel (heute volle MCP-Schemas bei jedem Call,
+  kein Deferral, instabil bei Server-Aenderungen). Built-in-Default-Satz weiter slimmen ist der
+  kleinere, separate Teil. Vor /coding: eine `tools`-Feld-Token-Zeile in `logInputBreakdown`, um
+  den realen Umfang *mit verbundenen MCP-Servern* zu messen.
 
-### Welle 3 -- "Governance + Routing + Lazy-Loading" (P2)
+### Welle 3 -- "Governance + Routing" (P2)
 
-- **B — Lazy-Loading-Spike:** Tool-Schemas in "Kern" (immer) + "on demand" splitten; Active-Skills
-  vom Klassifikator-Inject auf model-getriebenes On-demand-Laden umstellen (Skill-Tool lädt SKILL.md
-  als Tool-Result — spart den Klassifikator-Call, macht den Präfix stabiler). Erst Spike, dann
-  Entscheidung ob voller Refactor.
 - **G** (ADR-114, FEAT-24-08): Autonomie-Governance -- kumulatives Token-/Kosten-Budget pro Task mit
   Pause + Rückfrage; Steering-Hook zwischen Iterationen; weiches Exploration-Limit.
 - **H** (ADR-115, FEAT-24-07): optionales "Hilfs-Modell" in den Settings (billiges Modell für die
