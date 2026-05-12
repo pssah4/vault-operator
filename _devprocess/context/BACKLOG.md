@@ -23,20 +23,18 @@ Total artifacts: 445
 
 ---
 
-## Graph-Health (letzter Check: 2026-05-12 Re-Run nach ARCH-Refinement, Modus: A)
+## Graph-Health (letzter Check: 2026-05-12, Modus: A -- nach EPIC-24-Stubs + Checker-Fix)
 
-101 Findings. **Kein einziges durch EPIC-24 als echtes Graph-Problem verursacht** (0 Dead-Links, 0 Broken-Refs, 0 ADR-Abstraktionsverstoesse).
+**Kein einziges Finding durch EPIC-24 verursacht.** Verlauf: 101 (erster Run nach ARCH-Refinement) -> 88 (nach Stubs) -> **70** (nach Checker-Regex-Fix).
 
 | Invariante | Status | Count | Anmerkung |
 |---|---|---|---|
-| Dead links | ok | 0 | |
-| Broken Refs / spec references | ok | 0 | |
-| ADR abstraction violations | ok | 0 | |
-| duplicate-backlog-id | fail | 3 | FEAT-04-01/02/04 doppelt (EPIC-04 vs EPIC-10 ID-Kollision) -- vorbestehend |
-| orphan-backlog-row (Detail-File fehlt) | fail | 31 | davon 13 = EPIC-24-Skeletons (FEAT-24-01..09, FIX-24-01-01/03-01/03-02, IMP-24-05-01) -- erwartet, Detail-Files folgen in /requirements-engineering bzw. /coding; ~18 = ADR-Rows mit 3-stelliger ID (Checker-Matching-Quirk: ADR-114/115/116/117 + ADR-100..112 HABEN Dateien, der Checker matcht 3-stellige IDs nicht; einzig ADR-100 ggf. wirklich pruefen) |
-| status-drift detail-vs-backlog | fail | 67 | vorbestehend -- Feature-Beschreibungen in den EPIC-*-Files ("Geplant"/"Not Started"/"Implementiert vX") vs. BACKLOG "Done/Released". Nicht durch EPIC-24 verursacht. |
+| Dead links / Broken Refs / ADR abstraction | ok | 0 | |
+| orphan-backlog-row | ok | 0 | gefixt: 13 EPIC-24-Detail-File-Stubs angelegt (FEAT-24-01..09, FIX-24-01-01/03-01/03-02, IMP-24-05-01); 18 ADR-Rows mit 3-stelliger ID waren ein Checker-Bug (`ADR-\d{2}`-Regex) -- behoben in `$DIA_PLUGIN_ROOT/tools/consistency-check.py` + `.git/hooks-data/consistency-check.py` (2-3-stellige IDs); **muss upstream zum DIA-Plugin** (sonst verloren bei Plugin-Update) |
+| duplicate-backlog-id | fail | 3 | **vorbestehend** -- FEAT-04-01/02/04 doppelt im EPIC-04-Backlog-Abschnitt (Office-Features create_docx/create_xlsx + "Agent Prompt & Skill Update" kollidieren mit MCP/Web/i18n; Altlast aus der EPIC-NNN->EPIC-NN-Migration). Fix = Renumbering released Features (FEAT-04-00/01/02 Office -> FEAT-10-XX, ggf. FEAT-04-04) -- braucht das DIA `apply-renumber`-Tooling + eigenen PR (kaskadiert: Detail-Files, FIX/IMP-IDs, GH-Issue-Links, ADR-104-Ref). NICHT ad-hoc fixen. |
+| status-drift detail-vs-backlog | fail | 67 | **vorbestehend** -- historische EPIC-*-Files (EPIC-04..22) haben in ihren `## Features`-Tabellen Status-Spalten ("Geplant"/"Not Started"/"Implementiert vX"/"Ersetzt durch X"/...), die nicht zum BACKLOG-Status passen. Korrekter Fix per N-15: Status-Spalte aus den historischen EPIC-Tabellen entfernen (neuere EPICs haben sie nicht) bzw. an den BACKLOG angleichen -- mechanischer Pass ueber ~14 Files. Nicht durch EPIC-24 verursacht. |
 
-- **DEBT-CC-2026-05-12** (Source: CONSISTENCY-CHECK, P3): Backlog-Graph-Hygiene-Pass faellig -- (a) 3x duplicate-backlog-id (FEAT-04-01/02/04, EPIC-04 vs EPIC-10 ID-Kollision -> EPIC-10-Features umnummerieren oder Aliase aufloesen); (b) Checker-Matching-Quirk bei 3-stelligen ADR-IDs (`consistency-check.py` matcht `ADR-1xx`-Rows nicht auf `ADR-1xx-*.md` -> Checker fixen oder ADR-Dateinamen pruefen; ADR-100 ggf. wirklich fehlend); (c) 67x status-drift detail-vs-backlog (Feature-Beschreibungstexte in den EPIC-*-Files vs. BACKLOG-Status synchronisieren). Eigener Cleanup-Task, nicht Teil von EPIC-24. Run-Datei: `.git/consistency-check.last-run.json`.
+- **DEBT-CC-2026-05-12** (Source: CONSISTENCY-CHECK, P3): Backlog-Graph-Hygiene-Pass, getrennt von EPIC-24 -- (a) 3x duplicate-backlog-id FEAT-04-01/02/04: Renumbering via `/dia-migration` / `apply-renumber`, eigener PR; (b) 67x status-drift detail-vs-backlog: Status-Spalten aus den historischen EPIC-*-`## Features`-Tabellen entfernen oder synchronisieren; (c) Checker-Regex-Fix (2-3-stellige IDs) lokal bereits angewandt -> upstream zum DIA-Plugin melden. Run-Datei: `.git/consistency-check.last-run.json`.
 
 ---
 
