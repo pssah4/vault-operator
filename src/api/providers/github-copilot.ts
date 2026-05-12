@@ -14,8 +14,11 @@
 import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
+import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
+import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { logCacheStat } from '../logCacheStat';
 
 // ---------------------------------------------------------------------------
 // OpenAI REST API types (subset — mirrors openai.ts)
@@ -142,7 +145,15 @@ export class GitHubCopilotProvider implements ApiHandler {
         // Extended thinking for Claude models via Copilot
         const isClaude = /^claude/i.test(this.config.model);
         const thinkingEnabled = isClaude && (this.config.thinkingEnabled ?? false);
-        const budgetTokens = this.config.thinkingBudgetTokens ?? 10000;
+        const { maxTokens: effectiveMaxTokens, thinkingBudgetTokens: budgetTokens } = resolveOutputBudget(
+            this.config.model,
+            this.config.maxTokens,
+            {
+                enabled: thinkingEnabled,
+                budgetTokens: this.config.thinkingBudgetTokens,
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
+            },
+        );
 
         // Temperature: o-series omit, thinking forces 1, otherwise respect config or use 0.2 default
         const isOSeries = /^o[1-9]/.test(this.config.model);
@@ -156,11 +167,6 @@ export class GitHubCopilotProvider implements ApiHandler {
         } else {
             temperature = 0.2;
         }
-
-        // Ensure maxTokens >= budgetTokens when thinking is enabled
-        const effectiveMaxTokens = thinkingEnabled
-            ? Math.max(this.config.maxTokens ?? 8192, budgetTokens)
-            : (this.config.maxTokens ?? 8192);
 
         // BUG-015 / FEATURE-1206: GitHub Copilot routes through models that
         // require max_completion_tokens instead of max_tokens (gpt-5,
@@ -211,6 +217,16 @@ export class GitHubCopilotProvider implements ApiHandler {
         for await (const chunk of stream) {
             // Usage (sent at end with stream_options)
             if (chunk.usage) {
+                const cachedIn = (chunk.usage as { prompt_tokens_details?: { cached_tokens?: number } })
+                    .prompt_tokens_details?.cached_tokens ?? 0;
+                logCacheStat({
+                    provider: 'github-copilot',
+                    model: this.config.model,
+                    caching: 'auto',
+                    nonCachedInputTokens: Math.max(0, chunk.usage.prompt_tokens - cachedIn),
+                    cacheReadTokens: cachedIn,
+                    outputTokens: chunk.usage.completion_tokens,
+                });
                 yield {
                     type: 'usage',
                     inputTokens: chunk.usage.prompt_tokens,
@@ -286,7 +302,7 @@ export class GitHubCopilotProvider implements ApiHandler {
                     type: 'tool_error',
                     id: acc.id,
                     name: acc.name,
-                    error: `Tool input parse error: ${(e as Error).message}. The tool arguments were truncated or malformed -- try a smaller payload (e.g. write_file or append_to_file with a shorter content block) or split the work into multiple tool calls.`,
+                    error: truncatedToolInputError(acc.name, (e as Error).message),
                 } satisfies ApiStreamChunk;
                 continue;
             }

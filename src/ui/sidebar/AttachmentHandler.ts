@@ -163,10 +163,13 @@ export class AttachmentHandler {
             }
         } else if (TEXT_EXTENSIONS.some(te => file.name.toLowerCase().endsWith(te)) || file.type.startsWith('text/')) {
             const text = await file.text();
+            // Only cap when the file lives in the vault — without a path the model
+            // cannot read the omitted part back, so an external file is kept whole.
+            const contextText = vaultPath ? this.truncateTextFileForContext(text, vaultPath) : text;
             this.pending.push({
                 name: displayName,
                 vaultPath,
-                block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(displayName)}">\n${text}\n</attached_file>` },
+                block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(displayName)}">\n${contextText}\n</attached_file>` },
             });
         } else {
             new Notice(t('ui.attachment.unsupported', { name: file.name }));
@@ -222,12 +225,15 @@ export class AttachmentHandler {
                     },
                 });
             } else {
-                // Text file — read as text
+                // Text file — read as text. Large source files (a long note, an XML
+                // dump) would otherwise be injected in full and dominate the context
+                // window; cap it and point the model at read_file for the rest.
                 const content = await this.vault.read(file);
+                const contextText = this.truncateTextFileForContext(content, file.path);
                 this.pending.push({
                     name: file.path,
                     extension: ext,
-                    block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(file.path)}">\n${content}\n</attached_file>` },
+                    block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(file.path)}">\n${contextText}\n</attached_file>` },
                 });
             }
             this.renderChips();
@@ -343,6 +349,24 @@ export class AttachmentHandler {
             'The full text is pre-parsed and available to tools. ' +
             'Use ingest_document (with attachment_index) to create a note with the COMPLETE original text appended automatically — this works regardless of file size. ' +
             'Use read_document with start_page/end_page to read specific page ranges.]';
+    }
+
+    /**
+     * Cap a plain text / markdown attachment for the LLM context window. A long
+     * note or an XML/JSON dump attached via @-mention would otherwise be injected
+     * in full and crowd out everything else (and the model's own output budget).
+     * The full file stays on disk; the model reads the rest with read_file.
+     */
+    private truncateTextFileForContext(text: string, vaultPath: string): string {
+        if (text.length <= CONTEXT_DOCUMENT_CHAR_LIMIT) return text;
+        // Cut on a line boundary near the limit when one is reasonably close.
+        const nl = text.lastIndexOf('\n', CONTEXT_DOCUMENT_CHAR_LIMIT);
+        const cut = nl > CONTEXT_DOCUMENT_CHAR_LIMIT / 2 ? nl : CONTEXT_DOCUMENT_CHAR_LIMIT;
+        const pct = Math.round((cut / text.length) * 100);
+        return text.slice(0, cut) +
+            `\n\n[Attachment truncated for the context window: showing the first ~${pct}% ` +
+            `(${cut.toLocaleString()} of ${text.length.toLocaleString()} characters). ` +
+            `Read the omitted part with read_file path="${vaultPath}" — do not assume it is empty or unimportant.]`;
     }
 
     /**

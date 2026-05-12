@@ -589,14 +589,17 @@ export class AgentTask {
 
                 const toolUses: ContentBlock[] = [];
                 const textParts: string[] = [];
-                const toolErrorIds = new Set<string>();
+                // id -> actionable error message (from the provider). Kept as a Map
+                // so the model receives the real "split the write / don't double-emit"
+                // guidance as the tool_result, not a generic "retry with valid JSON".
+                const toolErrors = new Map<string, string>();
 
                 // Stream the LLM response (pass abort signal for cancellation)
                 // BUG-017: drop orphan tool_use / tool_result blocks before send.
                 // Anthropic returns 400 if any tool_use has no matching tool_result
                 // and Claude-via-Copilot inherits the same constraint.
                 const safeHistory = sanitizeAndLog(history, 'main-loop');
-                logInputBreakdown('main-loop', systemPrompt, safeHistory, tools.length);
+                logInputBreakdown('main-loop', systemPrompt, safeHistory, tools);
                 for await (const chunk of this.api.createMessage(systemPrompt, safeHistory, tools, abortSignal)) {
                     if (chunk.type === 'thinking') {
                         this.taskCallbacks.onThinking?.(chunk.text);
@@ -614,11 +617,15 @@ export class AgentTask {
                         // Notify UI that a tool is starting
                         this.taskCallbacks.onToolStart(chunk.name, chunk.input);
                     } else if (chunk.type === 'tool_error') {
-                        // BUG-3: unparseable tool JSON — record in history but skip execution
-                        toolErrorIds.add(chunk.id);
+                        // BUG-3 / BUG-032: unparseable or truncated tool JSON — record
+                        // in history, skip execution, and count it as a mistake so a
+                        // repeated broken write trips consecutiveMistakeLimit instead
+                        // of looping until the context overflows.
+                        toolErrors.set(chunk.id, chunk.error);
                         toolUses.push({ type: 'tool_use', id: chunk.id, name: chunk.name, input: {} });
                         this.taskCallbacks.onToolStart(chunk.name, {});
                         this.taskCallbacks.onToolResult(chunk.name, chunk.error, true);
+                        consecutiveMistakes++;
                     } else if (chunk.type === 'usage') {
                         // Feature 6: Accumulate tokens across all agentic iterations
                         totalInputTokens += chunk.inputTokens;
@@ -706,7 +713,7 @@ export class AgentTask {
 
                 const validToolUses = toolUses.filter(
                     (t): t is ContentBlock & { type: 'tool_use' } =>
-                        t.type === 'tool_use' && !toolErrorIds.has(t.id)
+                        t.type === 'tool_use' && !toolErrors.has(t.id)
                 );
 
                 // Helper: extract display text from a tool result (string or multimodal array).
@@ -792,12 +799,14 @@ export class AgentTask {
 
                 const toolResultBlocks: ContentBlock[] = [];
 
-                // BUG-3: add error results for tools with unparseable JSON input
-                for (const errId of toolErrorIds) {
+                // BUG-3 / BUG-032: error results for tools with unparseable/truncated
+                // JSON input — forward the provider's actionable message verbatim so
+                // the model knows to split the write instead of retrying it.
+                for (const [errId, errMsg] of toolErrors) {
                     toolResultBlocks.push({
                         type: 'tool_result',
                         tool_use_id: errId,
-                        content: 'Tool input could not be parsed. Please retry with valid JSON.',
+                        content: errMsg,
                         is_error: true,
                     });
                 }
@@ -863,6 +872,22 @@ export class AgentTask {
                 // IMPORTANT: condensing runs AFTER this push so history is always consistent
                 // (every assistant tool_call has a matching tool_result before condensing)
                 history.push({ role: 'user', content: toolResultBlocks });
+
+                // Circuit breaker for malformed/truncated tool calls. The result
+                // loops above only check the limit for tools that actually ran; a
+                // turn whose only output was a broken tool call (the classic
+                // "write_file cut off mid-JSON" loop) never reaches that check, so
+                // do it here. consecutiveMistakes was already bumped per tool_error
+                // in the streaming loop; it is reset by the first successful tool.
+                if (toolErrors.size > 0 && this.consecutiveMistakeLimit > 0
+                    && consecutiveMistakes >= this.consecutiveMistakeLimit) {
+                    throw new Error(
+                        `Agent stopped after ${consecutiveMistakes} consecutive errors -- the last was a malformed or truncated tool call. `
+                        + `The model's tool call kept getting cut off before it finished. `
+                        + `Fix: have the model split a large write into write_file (header + first section) then append_to_file for the rest, `
+                        + `reduce the attached input, or raise Max output tokens in Settings -> Models.`,
+                    );
+                }
 
                 // Context Condensing: check only after history is fully consistent
                 // (assistant tool_calls + tool_results both present, no orphaned calls)
@@ -935,7 +960,7 @@ export class AgentTask {
                     try {
                         // BUG-017: same orphan-cleanup as the main loop.
                         const safeHistoryHardLimit = sanitizeAndLog(history, 'hard-limit-recovery');
-                        logInputBreakdown('hard-limit-recovery', cachedSystemPrompt, safeHistoryHardLimit, 0);
+                        logInputBreakdown('hard-limit-recovery', cachedSystemPrompt, safeHistoryHardLimit, []);
                         for await (const chunk of this.api.createMessage(cachedSystemPrompt, safeHistoryHardLimit, [], abortSignal)) {
                             if (chunk.type === 'text') {
                                 hasStreamedText = true;
@@ -1317,7 +1342,7 @@ export class AgentTask {
             // BUG-017: condensing has its own pairing-fix higher up, but apply
             // the generic sanitize as well so any new edge case is caught.
             const safeCondensingMessages = sanitizeAndLog(condensingMessages, 'condensing');
-            logInputBreakdown('condensing', systemPrompt, safeCondensingMessages, 0);
+            logInputBreakdown('condensing', systemPrompt, safeCondensingMessages, []);
             for await (const chunk of this.api.createMessage(
                 systemPrompt,
                 safeCondensingMessages,

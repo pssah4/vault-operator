@@ -15,6 +15,7 @@
 import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
+import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { ChatGptOAuthService } from '../../core/auth/ChatGptOAuthService';
 
@@ -520,7 +521,7 @@ function* finalizeToolCall(state: ToolCallState): Generator<ApiStreamChunk> {
             type: 'tool_error',
             id: state.callId,
             name: state.name,
-            error: `Tool input parse error: ${(e as Error).message}. The tool arguments were truncated or malformed -- try a smaller payload or split the work into multiple tool calls.`,
+            error: truncatedToolInputError(state.name, (e as Error).message),
         };
         return;
     }

@@ -91,7 +91,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         baseUrl: getDefaultBaseUrlForProvider('anthropic'),
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
         thinkingEnabled: true,
         thinkingBudgetTokens: 10000,
     },
@@ -102,7 +101,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         baseUrl: getDefaultBaseUrlForProvider('anthropic'),
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
         thinkingEnabled: true,
         thinkingBudgetTokens: 10000,
     },
@@ -113,7 +111,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         baseUrl: getDefaultBaseUrlForProvider('anthropic'),
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
         thinkingEnabled: true,
         thinkingBudgetTokens: 5000,
     },
@@ -124,7 +121,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'gpt-4o-mini',
@@ -132,7 +128,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o mini',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'gpt-4.1',
@@ -140,7 +135,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4.1',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     // Ollama (local)
     {
@@ -166,7 +160,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Claude 3.5 Sonnet',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
     },
     {
         name: 'openai/gpt-4o',
@@ -174,7 +167,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'meta-llama/llama-3.2-3b-instruct:free',
@@ -190,7 +182,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Gemini 2.5 Flash',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
     },
     {
         name: 'gemini-2.5-pro',
@@ -198,7 +189,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Gemini 2.5 Pro',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
     },
     // GitHub Copilot (unofficial API — requires active Copilot subscription)
     {
@@ -207,7 +197,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o (Copilot)',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'claude-sonnet-4',
@@ -215,7 +204,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Claude Sonnet 4 (Copilot)',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 64000,
     },
 ];
 

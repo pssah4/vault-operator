@@ -42,11 +42,13 @@ import type {
     ModelInfo,
 } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
+import { truncatedToolInputError } from '../types';
+import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { logCacheStat } from '../logCacheStat';
 
 // Default context window for Claude models on Bedrock.
 // Can be refined per model in the model-registry later.
 const BEDROCK_DEFAULT_CONTEXT_WINDOW = 200_000;
-const BEDROCK_DEFAULT_MAX_TOKENS = 8192;
 
 /**
  * Pull the region out of a Bedrock endpoint URL, e.g.
@@ -142,7 +144,13 @@ export class BedrockProvider implements ApiHandler {
             }
             : undefined;
 
-        const maxTokens = this.config.maxTokens ?? BEDROCK_DEFAULT_MAX_TOKENS;
+        // Auto by default: undefined -> model-scaled budget; clamped to the
+        // model's output ceiling and to the room left in the context window.
+        const { maxTokens } = resolveOutputBudget(
+            this.config.model,
+            this.config.maxTokens,
+            { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages) },
+        );
         const temperature = this.config.temperature ?? 0.2;
 
         const command = new ConverseStreamCommand({
@@ -170,8 +178,16 @@ export class BedrockProvider implements ApiHandler {
         let outputTokens = 0;
         let cacheReadTokens = 0;
         let cacheCreationTokens = 0;
+        // stopReason arrives in messageStop, after the content blocks — hold parse
+        // failures until then so the model gets a truncation-aware error.
+        let stopReason: string | undefined;
+        const failedToolParses: Array<{ id: string; name: string; rawError: string }> = [];
 
         for await (const event of response.stream) {
+            if (event.messageStop?.stopReason) {
+                stopReason = event.messageStop.stopReason;
+                continue;
+            }
             if (event.contentBlockStart) {
                 const idx = event.contentBlockStart.contentBlockIndex ?? 0;
                 currentBlockIndex = idx;
@@ -209,25 +225,20 @@ export class BedrockProvider implements ApiHandler {
                 const idx = event.contentBlockStop.contentBlockIndex ?? currentBlockIndex ?? 0;
                 const tool = toolAccumulator.get(idx);
                 if (tool) {
-                    let parsedInput: Record<string, unknown> = {};
+                    let parsedInput: Record<string, unknown> | undefined;
                     try {
                         parsedInput = tool.inputJson ? JSON.parse(tool.inputJson) as Record<string, unknown> : {};
                     } catch (e) {
+                        failedToolParses.push({ id: tool.id, name: tool.name, rawError: (e as Error).message });
+                    }
+                    if (parsedInput !== undefined) {
                         yield {
-                            type: 'tool_error',
+                            type: 'tool_use',
                             id: tool.id,
                             name: tool.name,
-                            error: `Tool input parse error: ${(e as Error).message}`,
+                            input: parsedInput,
                         } satisfies ApiStreamChunk;
-                        toolAccumulator.delete(idx);
-                        continue;
                     }
-                    yield {
-                        type: 'tool_use',
-                        id: tool.id,
-                        name: tool.name,
-                        input: parsedInput,
-                    } satisfies ApiStreamChunk;
                     toolAccumulator.delete(idx);
                 }
                 continue;
@@ -242,7 +253,31 @@ export class BedrockProvider implements ApiHandler {
             }
         }
 
+        // Tools still accumulating means the stream ended mid-tool-call.
+        for (const tool of toolAccumulator.values()) {
+            failedToolParses.push({ id: tool.id, name: tool.name, rawError: 'the stream ended before the tool call completed' });
+        }
+        toolAccumulator.clear();
+        const wasMaxTokens = stopReason === 'max_tokens';
+        for (const ft of failedToolParses) {
+            yield {
+                type: 'tool_error',
+                id: ft.id,
+                name: ft.name,
+                error: truncatedToolInputError(ft.name, ft.rawError, wasMaxTokens),
+            } satisfies ApiStreamChunk;
+        }
+
         if (inputTokens > 0 || outputTokens > 0) {
+            logCacheStat({
+                provider: 'bedrock',
+                model: this.config.model,
+                caching: this.config.promptCachingEnabled ? 'on' : 'OFF',
+                nonCachedInputTokens: inputTokens,
+                cacheReadTokens,
+                cacheCreationTokens,
+                outputTokens,
+            });
             yield {
                 type: 'usage',
                 inputTokens,

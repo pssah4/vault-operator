@@ -11,8 +11,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, ContentBlock, MessageParam, ModelInfo } from '../types';
+import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
-import { getModelContextWindow } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { logCacheStat } from '../logCacheStat';
 
 export class AnthropicProvider implements ApiHandler {
     private client: Anthropic;
@@ -89,15 +91,24 @@ export class AnthropicProvider implements ApiHandler {
             ? [{ type: 'text' as const, text: systemPrompt, cache_control: { type: 'ephemeral' as const } }]
             : systemPrompt;
 
-        // Extended thinking: when enabled, temperature MUST be 1, max_tokens >= budget_tokens
+        // Extended thinking: when enabled, temperature MUST be 1.
+        // resolveOutputBudget adds the thinking budget on top of the visible-output
+        // budget and clamps both to the model's real output ceiling — prevents a
+        // near-empty answer (truncated tool calls) and prevents 400s from an
+        // over-eager Settings value.
         const thinkingEnabled = this.config.thinkingEnabled ?? false;
-        const budgetTokens = this.config.thinkingBudgetTokens ?? 10000;
+        const { maxTokens: effectiveMaxTokens, thinkingBudgetTokens: budgetTokens } = resolveOutputBudget(
+            this.config.model,
+            this.config.maxTokens,
+            {
+                enabled: thinkingEnabled,
+                budgetTokens: this.config.thinkingBudgetTokens,
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
+            },
+        );
         const effectiveTemperature = thinkingEnabled
             ? 1
             : Math.min(this.config.temperature ?? 0.2, 1.0);
-        const effectiveMaxTokens = thinkingEnabled
-            ? Math.max(this.config.maxTokens ?? 16384, budgetTokens)
-            : (this.config.maxTokens ?? 8192);
 
         // Create streaming request (pass abort signal for cancellation support)
         const stream = this.client.messages.stream(
@@ -129,6 +140,11 @@ export class AnthropicProvider implements ApiHandler {
         let outputTokens = 0;
         let cacheReadTokens = 0;
         let cacheCreationTokens = 0;
+        // stop_reason arrives in message_delta, AFTER every content_block_stop, so
+        // parse failures are held and resolved once we know whether the response
+        // was cut off by max_tokens.
+        let stopReason: string | null = null;
+        const failedToolParses: Array<{ id: string; name: string; rawError: string }> = [];
 
         for await (const event of stream) {
             if (event.type === 'message_start') {
@@ -139,6 +155,7 @@ export class AnthropicProvider implements ApiHandler {
 
             if (event.type === 'message_delta') {
                 outputTokens = event.usage.output_tokens;
+                if (event.delta.stop_reason) stopReason = event.delta.stop_reason;
             }
 
             if (event.type === 'content_block_start') {
@@ -180,34 +197,55 @@ export class AnthropicProvider implements ApiHandler {
                 // If this was a tool_use block, yield the complete tool call
                 const tool = toolAccumulator.get(event.index);
                 if (tool) {
-                    let parsedInput: Record<string, unknown> = {};
+                    let parsedInput: Record<string, unknown> | undefined;
                     try {
                         parsedInput = tool.inputJson ? JSON.parse(tool.inputJson) : {};
                     } catch (e) {
+                        // Hold it — the actionable message depends on the stop_reason,
+                        // which only arrives in the upcoming message_delta event.
+                        failedToolParses.push({ id: tool.id, name: tool.name, rawError: (e as Error).message });
+                    }
+                    if (parsedInput !== undefined) {
                         yield {
-                            type: 'tool_error',
+                            type: 'tool_use',
                             id: tool.id,
                             name: tool.name,
-                            error: `Tool input parse error: ${(e as Error).message}`,
+                            input: parsedInput,
                         } satisfies ApiStreamChunk;
-                        toolAccumulator.delete(event.index);
-                        continue;
                     }
-
-                    yield {
-                        type: 'tool_use',
-                        id: tool.id,
-                        name: tool.name,
-                        input: parsedInput,
-                    } satisfies ApiStreamChunk;
-
                     toolAccumulator.delete(event.index);
                 }
             }
         }
 
+        // A tool still in the accumulator means the stream ended without a
+        // content_block_stop for it (abrupt cutoff) — treat as a parse failure.
+        for (const tool of toolAccumulator.values()) {
+            failedToolParses.push({ id: tool.id, name: tool.name, rawError: 'the stream ended before the tool call completed' });
+        }
+        toolAccumulator.clear();
+
+        const wasMaxTokens = stopReason === 'max_tokens';
+        for (const ft of failedToolParses) {
+            yield {
+                type: 'tool_error',
+                id: ft.id,
+                name: ft.name,
+                error: truncatedToolInputError(ft.name, ft.rawError, wasMaxTokens),
+            } satisfies ApiStreamChunk;
+        }
+
         // Yield token usage at the end
         if (inputTokens > 0 || outputTokens > 0) {
+            logCacheStat({
+                provider: 'anthropic',
+                model: this.config.model,
+                caching: this.config.promptCachingEnabled ? 'on' : 'OFF',
+                nonCachedInputTokens: inputTokens, // message_start.usage.input_tokens excludes cached
+                cacheReadTokens,
+                cacheCreationTokens,
+                outputTokens,
+            });
             yield {
                 type: 'usage',
                 inputTokens,

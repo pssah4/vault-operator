@@ -13,8 +13,11 @@
 import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
+import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { KiloAuthService } from '../../core/security/KiloAuthService';
+import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { logCacheStat } from '../logCacheStat';
 
 // ---------------------------------------------------------------------------
 // OpenAI REST API types (subset — mirrors github-copilot.ts)
@@ -101,12 +104,17 @@ export class KiloGatewayProvider implements ApiHandler {
             ? undefined
             : (this.config.temperature ?? 0.2);
 
+        const { maxTokens: effectiveMaxTokens } = resolveOutputBudget(
+            this.config.model,
+            this.config.maxTokens,
+            { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages) },
+        );
         const requestBody: Record<string, unknown> = {
             model: this.config.model,
             messages: openAiMessages,
             tools: openAiTools,
             temperature: temperature !== undefined ? Math.min(temperature, 2.0) : undefined,
-            max_tokens: this.config.maxTokens ?? 8192,
+            max_tokens: effectiveMaxTokens,
             stream: true,
             stream_options: { include_usage: true },
         };
@@ -130,6 +138,16 @@ export class KiloGatewayProvider implements ApiHandler {
 
         for await (const chunk of stream) {
             if (chunk.usage) {
+                const cachedIn = (chunk.usage as { prompt_tokens_details?: { cached_tokens?: number } })
+                    .prompt_tokens_details?.cached_tokens ?? 0;
+                logCacheStat({
+                    provider: 'kilo-gateway',
+                    model: this.config.model,
+                    caching: 'auto',
+                    nonCachedInputTokens: Math.max(0, chunk.usage.prompt_tokens - cachedIn),
+                    cacheReadTokens: cachedIn,
+                    outputTokens: chunk.usage.completion_tokens,
+                });
                 yield {
                     type: 'usage',
                     inputTokens: chunk.usage.prompt_tokens,
@@ -171,7 +189,7 @@ export class KiloGatewayProvider implements ApiHandler {
                             type: 'tool_error',
                             id: acc.id,
                             name: acc.name,
-                            error: `Tool input parse error: ${(e as Error).message}. The tool arguments were truncated or malformed -- try a smaller payload or split the work into multiple tool calls.`,
+                            error: truncatedToolInputError(acc.name, (e as Error).message),
                         } satisfies ApiStreamChunk;
                         continue;
                     }

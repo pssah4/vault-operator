@@ -9,9 +9,11 @@
 import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
+import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import type { IncomingMessage } from 'http';
-import { getModelContextWindow } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { logCacheStat } from '../logCacheStat';
 
 // ---------------------------------------------------------------------------
 // OpenAI REST API types (subset we need)
@@ -213,10 +215,22 @@ export class OpenAiProvider implements ApiHandler {
         // force temperature to 1 and pass reasoning parameter
         const openRouterThinking = this.config.type === 'openrouter'
             && (this.config.thinkingEnabled ?? false);
-        const budgetTokens = this.config.thinkingBudgetTokens ?? 10000;
         if (openRouterThinking) {
             temperature = 1;
         }
+        // Clamp the output budget to the model's real ceiling and (for thinking)
+        // add the reasoning budget on top of the visible-output budget. budgetTokens
+        // is only used in the reasoning passthrough below, which is gated on
+        // openRouterThinking, so the 0 returned when thinking is off is harmless.
+        const { maxTokens: effectiveMaxTokens, thinkingBudgetTokens: budgetTokens } = resolveOutputBudget(
+            this.config.model,
+            this.config.maxTokens,
+            {
+                enabled: openRouterThinking,
+                budgetTokens: this.config.thinkingBudgetTokens,
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
+            },
+        );
 
         // Build request body
         const requestBody: OpenAI.ChatCompletionCreateParamsStreaming = {
@@ -227,9 +241,7 @@ export class OpenAiProvider implements ApiHandler {
             // OpenAI and Azure require max_completion_tokens (max_tokens deprecated / rejected by newer models)
             // Other providers (ollama, lmstudio, custom) still need max_tokens
             max_tokens: (this.config.type !== 'azure' && this.config.type !== 'openai')
-                ? (openRouterThinking
-                    ? Math.max(this.config.maxTokens ?? 16384, budgetTokens)
-                    : (this.config.maxTokens ?? 8192))
+                ? effectiveMaxTokens
                 : undefined,
             stream: true,
             stream_options: (this.config.type === 'openai' || this.config.type === 'openrouter')
@@ -249,10 +261,7 @@ export class OpenAiProvider implements ApiHandler {
 
         // OpenAI and Azure use max_completion_tokens (newer models reject max_tokens with 400)
         if (this.config.type === 'openai' || this.config.type === 'azure') {
-            const maxCompletionTokens = openRouterThinking
-                ? Math.max(this.config.maxTokens ?? 16384, budgetTokens)
-                : (this.config.maxTokens ?? 8192);
-            (requestBody as unknown as Record<string, unknown>).max_completion_tokens = maxCompletionTokens;
+            (requestBody as unknown as Record<string, unknown>).max_completion_tokens = effectiveMaxTokens;
         }
 
         if (openAiTools && openAiTools.length > 0) {
@@ -274,6 +283,16 @@ export class OpenAiProvider implements ApiHandler {
         for await (const chunk of stream) {
             // Usage (sent at end with stream_options)
             if (chunk.usage) {
+                const cachedIn = (chunk.usage as { prompt_tokens_details?: { cached_tokens?: number } })
+                    .prompt_tokens_details?.cached_tokens ?? 0;
+                logCacheStat({
+                    provider: 'openai',
+                    model: this.config.model,
+                    caching: 'auto', // OpenAI-compatible APIs cache automatically, no toggle
+                    nonCachedInputTokens: Math.max(0, chunk.usage.prompt_tokens - cachedIn),
+                    cacheReadTokens: cachedIn,
+                    outputTokens: chunk.usage.completion_tokens,
+                });
                 yield {
                     type: 'usage',
                     inputTokens: chunk.usage.prompt_tokens,
@@ -356,7 +375,7 @@ export class OpenAiProvider implements ApiHandler {
                     type: 'tool_error',
                     id: acc.id,
                     name: acc.name,
-                    error: `Tool input parse error: ${(e as Error).message}. The tool arguments were truncated or malformed -- try a smaller payload (e.g. write_file or append_to_file with a shorter content block) or split the work into multiple tool calls.`,
+                    error: truncatedToolInputError(acc.name, (e as Error).message),
                 } satisfies ApiStreamChunk;
                 continue;
             }

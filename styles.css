@@ -1713,6 +1713,31 @@
     width: 13px;
     height: 13px;
 }
+.mcm-recommend-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0 4px;
+    color: var(--text-accent);
+    cursor: pointer;
+    font-size: var(--font-ui-smaller);
+    white-space: nowrap;
+}
+.mcm-recommend-btn:hover {
+    text-decoration: underline;
+}
+.mcm-checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+}
+.mcm-checkbox-line input[type="checkbox"] {
+    flex-shrink: 0;
+}
 
 .mcm-actions {
     display: flex;
