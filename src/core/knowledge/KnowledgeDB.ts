@@ -239,6 +239,8 @@ export class KnowledgeDB {
     private saving = false;
     /** ADR-079 Cloud-Sync-Abwehr: only set in obsidian-sync setup. */
     private writerLock: WriterLock | null = null;
+    /** Vault-relative plugin folder (e.g. `.obsidian/plugins/vault-operator`) — used to locate the sql.js WASM bundle. */
+    private pluginDir: string;
 
     constructor(
         vault: Vault,
@@ -255,6 +257,7 @@ export class KnowledgeDB {
         vaultRelativeDir = '.obsidian-agent',
     ) {
         this.vault = vault;
+        this.pluginDir = pluginDir;
         this.storageLocation = storageLocation;
 
         const basePath = (vault.adapter as unknown as { getBasePath?(): string }).getBasePath?.() ?? '';
@@ -292,10 +295,11 @@ export class KnowledgeDB {
         const initSqlJs = require('sql.js') as (config?: { wasmBinary?: ArrayBuffer }) => Promise<SqlJsStatic>;
 
         // Obsidian's app:// protocol can't serve WASM files via fetch().
-        // Load the binary directly from disk and pass it to sql.js.
+        // Load the binary directly from disk and pass it to sql.js. Use the
+        // plugin dir that was passed in (e.g. `.obsidian/plugins/vault-operator`)
+        // rather than a hardcoded plugin id, so a plugin rename never breaks this.
         const pluginBasePath = (this.vault.adapter as unknown as { getBasePath?(): string }).getBasePath?.() ?? '';
-        const configDir = this.vault.configDir;
-        const pluginMainDir = path.join(pluginBasePath, configDir, 'plugins', 'obsilo-agent');
+        const pluginMainDir = path.join(pluginBasePath, this.pluginDir);
 
         const wasmBinary = await this.loadWasmBinary(pluginMainDir);
         this.SQL = await initSqlJs({ wasmBinary: wasmBinary.buffer });
