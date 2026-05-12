@@ -35,6 +35,7 @@ Total artifacts: 445
 | status-drift detail-vs-backlog | fail | 67 | **vorbestehend** -- historische EPIC-*-Files (EPIC-04..22) haben in ihren `## Features`-Tabellen Status-Spalten ("Geplant"/"Not Started"/"Implementiert vX"/"Ersetzt durch X"/...), die nicht zum BACKLOG-Status passen. Korrekter Fix per N-15: Status-Spalte aus den historischen EPIC-Tabellen entfernen (neuere EPICs haben sie nicht) bzw. an den BACKLOG angleichen -- mechanischer Pass ueber ~14 Files. Nicht durch EPIC-24 verursacht. |
 
 - **DEBT-CC-2026-05-12** (Source: CONSISTENCY-CHECK, P3): Backlog-Graph-Hygiene-Pass, getrennt von EPIC-24 -- (a) 3x duplicate-backlog-id FEAT-04-01/02/04: Renumbering via `/dia-migration` / `apply-renumber`, eigener PR; (b) 67x status-drift detail-vs-backlog: Status-Spalten aus den historischen EPIC-*-`## Features`-Tabellen entfernen oder synchronisieren; (c) Checker-Regex-Fix (2-3-stellige IDs) lokal bereits angewandt -> upstream zum DIA-Plugin melden. Run-Datei: `.git/consistency-check.last-run.json`.
+- **DEBT-SCA-2026-05-12** (Typ: Security, Source: SEC, P2): `npm audit` meldet 1 Moderate fuer `mermaid` (transitiv): GHSA-6m6c-36f7-fhxh (Gantt Infinite-Loop-DoS) + drei classDef/Config CSS-/HTML-Injection-Advisories. Vorbestehend (nach AUDIT-017 publiziert), NICHT durch EPIC-24 verursacht. Fix: `npm audit fix` bzw. Overrides-Bump im naechsten Dependency-Housekeeping-Pass. Reale Exponierung niedrig (lokales Plugin, Nutzer rendert eigene Diagramme). Evidence: `node_modules/mermaid`. Ref: AUDIT-018 SCA-M-1.
 
 ---
 

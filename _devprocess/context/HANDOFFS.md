@@ -2072,3 +2072,15 @@ Implementierung (PLAN-18, Commits `c61ecb3`..`917aff1` + Test-Pass) auf `feature
 
 ### Naechster Schritt
 `/security-audit` fuer EPIC-24 Welle 1. Danach (separat, vor Release): der manuelle Cache-/Token-Messlauf gegen echte Provider als Abnahme der `[AWAITING RE]`-SC.
+
+---
+
+## EPIC-24 Welle 1 -- /security-audit (2026-05-12)
+
+Bericht: `_devprocess/analysis/AUDIT-018-epic-24-welle-1-2026-05-12.md` (Per-Item-Audit, Branch `feature/epic-24-agent-loop-effizienz`, Commits `c61ecb3`..`4ccfe98`).
+
+- **Gesamtrisiko: Low.** 0 Critical, 0 High, 0 Medium Code-Findings. 2 Low/Info (CACHE_BREAKPOINT_MARKER-Kollisionsrisiko bei custom-Modi -> nur Cache-Degradation, kein Sicherheitsimpact; Zero-Width-Space-Platzhalter in `markLastBlock` -> Stil). Beide Confirmed/akzeptiert.
+- **SCA:** keine neuen Runtime-Dependencies durch Welle 1. 1 vorbestehender Moderate (`mermaid` Gantt-/classDef-Advisories, transitiv, nach AUDIT-017 publiziert) -> als `DEBT-SCA-2026-05-12` (Typ Security, Source SEC, P2) in der Graph-Health-Sektion erfasst, Fix via `npm audit fix` im Dependency-Housekeeping-Pass. NICHT durch EPIC-24 verursacht.
+- **Positiv:** Re-Read-Cap faellt sicher aus (kuerzt im Zweifel mehr, nie weniger); `microcompactToolResults` kuerzt nur, exponiert nichts neu, Pairing bleibt invariant; `capOversizedToolOutput` ist eine reine getestete Bodenplatte; AttachmentHandler-Gesamtbudget verhindert Kontextfenster-Sprengung durch Riesen-Mentions, mit sichtbarem Hinweis im gekappten Text; bestehende Path-Traversal-Saeuberung des Externalizers (`safeName`-Regex) intakt. Kein neuer `fetch`/`require`/`console.log`, keine neuen Secrets, keine Race-Conditions.
+- **Release-Empfehlung (Welle-1-Code): Green.** Vor Public-Release noch noetig: manueller Provider-Messlauf zur Abnahme der `[AWAITING RE]`-SC (Cache-Hit-Rate, Token-Reduktion) -- Funktions-, keine Sicherheitsfrage.
+- **Architektonische Folgepunkte:** keine -- additive Aenderungen im bestehenden Loop, kein Vertrauensgrenzen-Redesign.
