@@ -172,7 +172,7 @@ Statisches Mini-HTML mit `data-i18n` fuer DE/EN-Switch:
 
 ```html
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Obsilo</title></head>
+<html><head><meta charset="utf-8"><title>Vault Operator</title></head>
 <body style="font-family: system-ui; padding: 2rem; text-align: center;">
 <h1>Anmeldung abgeschlossen</h1>
 <p>Du kannst dieses Fenster schliessen und zu Obsidian zurueckkehren.</p>

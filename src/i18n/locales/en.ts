@@ -567,8 +567,8 @@ export const en: Translations = {
     'settings.interface.autoAddActiveNoteDesc': 'Automatically attach the note you have open in the editor to every message you send. The agent can see and reference its content.',
     'settings.interface.sendWithEnter': 'Send with enter',
     'settings.interface.sendWithEnterDesc': 'Press Enter to send a message (Shift+Enter for a line break). When off, use Ctrl+Enter (or Cmd+Enter on Mac) to send.',
-    'settings.interface.includeTime': 'Include current date and time in context',
-    'settings.interface.includeTimeDesc': 'Tell the agent what day and time it is. Useful for tasks involving dates, schedules, or time-sensitive notes.',
+    'settings.interface.includeTime': 'Include the current time of day in context',
+    'settings.interface.includeTimeDesc': 'The current date is always given to the agent. Turn this on to also include the exact time of day. Off by default: the time changes on every request and defeats prompt caching, which raises cost on long conversations.',
     'settings.interface.historyFolder': 'Chat history folder',
     'settings.interface.historyFolderDesc': 'Save each conversation as a JSON file in this vault folder. Leave empty to disable. Access saved conversations via the ellipsis menu in the chat. Example: agent/history',
     'settings.interface.restartSetup': 'Restart setup',
@@ -839,7 +839,7 @@ export const en: Translations = {
     // =========================================================================
     // Chat UI — Sidebar
     // =========================================================================
-    'ui.sidebar.title': 'Obsilo',
+    'ui.sidebar.title': 'Vault Operator',
     'ui.sidebar.settings': 'Settings',
     'ui.sidebar.vaultHealth': 'Vault health findings available',
     'ui.sidebar.chatHistory': 'Chat history',
@@ -1006,7 +1006,7 @@ export const en: Translations = {
     'ui.error.overloaded': 'API overloaded \u2014 try again shortly',
     'ui.error.network': 'Network error \u2014 check your connection and that the local server is running',
     'ui.error.generic': 'Error',
-    'ui.error.ollamaNotRunning': '{{model}} could not start. Make sure Ollama is running (`ollama serve`) and the model name is correct. Open settings -> Obsilo agent -> configure to verify.',
+    'ui.error.ollamaNotRunning': '{{model}} could not start. Make sure Ollama is running (`ollama serve`) and the model name is correct. Open settings -> Vault Operator -> configure to verify.',
 
     // =========================================================================
     // Notices
@@ -1152,9 +1152,12 @@ export const en: Translations = {
     'modal.modelConfig.apiVersionDesc': 'Required for cloud deployments (e.g. 2024-10-21)',
     'modal.modelConfig.apiVersionPlaceholder': '2024-10-21',
     'modal.modelConfig.maxTokens': 'Max output tokens',
-    'modal.modelConfig.maxTokensDesc': 'Limits how many tokens the model can generate per response',
-    'modal.modelConfig.maxTokensNote': 'Higher values allow longer, more detailed answers but use more API credits. Tip: select a model from the quick pick above to auto-set the recommended value for that model.',
-    'modal.modelConfig.maxTokensPlaceholder': '8192',
+    'modal.modelConfig.maxTokensDesc': 'Cap on tokens generated per response (answer plus tool calls; with extended thinking the reasoning budget is added on top)',
+    'modal.modelConfig.maxTokensAuto': 'Automatic (recommended) — sized per model, automatically reduced when the prompt is large',
+    'modal.modelConfig.maxTokensNote': 'Manual override. This is an upper bound, not a cost lever — you are billed for the tokens actually generated, not for the limit. Set it low only to bound latency; too low truncates long answers and tool calls and triggers retry loops. The slider is capped at the model\'s real output ceiling.',
+    'modal.modelConfig.maxTokensUseRecommended': 'Use recommended ({{value}})',
+    'modal.modelConfig.maxTokensUseRecommendedTitle': 'Use the recommended max output tokens for this model',
+    'modal.modelConfig.maxTokensPlaceholder': '32000',
     'modal.modelConfig.temperature': 'Temperature',
     'modal.modelConfig.temperatureDesc': 'Randomness of responses (0 = deterministic, higher = creative)',
     'modal.modelConfig.customTemperature': 'Custom temperature',
@@ -1304,7 +1307,7 @@ export const en: Translations = {
     // =========================================================================
     // Main Plugin
     // =========================================================================
-    'plugin.ribbonTooltip': 'Obsilo agent',
+    'plugin.ribbonTooltip': 'Vault Operator',
     'plugin.commandOpen': 'Open agent sidebar',
 
     // =========================================================================

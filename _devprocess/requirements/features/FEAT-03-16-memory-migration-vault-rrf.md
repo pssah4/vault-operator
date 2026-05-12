@@ -46,13 +46,13 @@ Bestehende Session-Summaries in `memory.db.sessions` (DB-first seit ADR-60) werd
 
 ### Story 1: Bestehende Memory wandert ohne Datenverlust mit (Functional Job)
 
-**As a** Sebastian (existierender Obsilo-User)
+**As a** Sebastian (existierender Vault Operator-User)
 **I want to** dass meine seit Monaten kuratierten Memory-Inhalte in das neue System migriert werden
 **so that** ich nicht alles neu erfassen muss
 
 ### Story 2: Vault-Search wird sichtbar besser (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass `semantic_search` auch unscharfe Queries gut beantwortet
 **so that** ich seltener manuell nachsuchen muss
 

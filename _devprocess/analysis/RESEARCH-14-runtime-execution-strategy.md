@@ -12,7 +12,7 @@
 
 Die Anthropic-Standard-Skills, die Cowork aus deren offiziellem Skill-Repo uebernommen hat,
 sind durchgehend **Python-basiert** (python-pptx, python-docx, openpyxl, pdfplumber).
-Obsilo's Sandbox kann heute nur JavaScript ausfuehren. Damit koennen wir diese Skills nicht
+Vault Operator's Sandbox kann heute nur JavaScript ausfuehren. Damit koennen wir diese Skills nicht
 uebernehmen und haben einen Content-Gap gegenueber Cowork + kuenftigen Anthropic-Skill-Releases.
 
 ### 1.2 Die realen Constraints
@@ -28,12 +28,12 @@ Im Lauf der Diskussion haben sich vier harte Randbedingungen herauskristallisier
    Eingriffe, keine "installier dir mal eben Docker"-Aufgaben. Der Agent muss alles
    handhaben, der User gibt nur frei.
 
-3. **Sicherheit bleibt Pflicht.** Obsilo hat historisch Code-Ausfuehrung auf dem Host
+3. **Sicherheit bleibt Pflicht.** Vault Operator hat historisch Code-Ausfuehrung auf dem Host
    vermieden und deshalb die JS-in-Electron-Sandbox gebaut. Neue Ausfuehrungspfade
    duerfen diese Grundhaltung nicht aufweichen — weder gegen Bugs noch gegen kompromittierte
    Skills/Dependencies.
 
-4. **Offline-Faehigkeit und Privacy** sind Obsilo-Kernversprechen. Der Vault-Content
+4. **Offline-Faehigkeit und Privacy** sind Vault Operator-Kernversprechen. Der Vault-Content
    darf nicht ohne expliziten User-Consent ins Internet.
 
 ### 1.3 Warum das kein reines Feature-Problem ist
@@ -68,7 +68,7 @@ Das ist eine **Architektur-Entscheidung**, keine Tool-Implementierung. Sie wirkt
 
 ### 2.2 Pfad B — Externer Python-Sidecar via `uvx` (User installiert)
 
-**Idee:** User fuehrt einmalig `uvx obsilo-python-runtime` im Terminal aus, Obsilo verbindet
+**Idee:** User fuehrt einmalig `uvx obsilo-python-runtime` im Terminal aus, Vault Operator verbindet
 sich via MCP-Protokoll mit dem lokalen Sidecar.
 
 **Pro:**
@@ -112,7 +112,7 @@ werden. Keine Schweige-Bullets.
 
 ### 2.4 Pfad D — VM/Container-Setup via Script (Lima/WSL2/Docker)
 
-**Idee:** Obsilo liefert ein Setup-Script mit, das Lima (macOS) / WSL2 (Windows) /
+**Idee:** Vault Operator liefert ein Setup-Script mit, das Lima (macOS) / WSL2 (Windows) /
 Docker automatisch installiert und konfiguriert.
 
 **Pro:**
@@ -136,7 +136,7 @@ fuer Power-User bleiben, aber kein Setup-Script-Automatismus.
 
 ### 2.5 Pfad E — Anthropic Managed Agents (`/v1/agents`)
 
-**Idee:** Code-Execution komplett auslagern an Anthropic's gehostete Agent-API. Obsilo
+**Idee:** Code-Execution komplett auslagern an Anthropic's gehostete Agent-API. Vault Operator
 schickt Sub-Requests raus, bekommt Ergebnisse zurueck. Kein Code auf dem User-Rechner
 ausser der lokalen Vault-Tools.
 
@@ -149,7 +149,7 @@ ausser der lokalen Vault-Tools.
 - **Plattformunabhaengig** (macOS, Windows, Linux, Mobile)
 
 **Contra (die ehrlichen Kosten):**
-- **Vendor Lock-in auf Anthropic** — bricht Obsilo's Multi-Provider-Versprechen fuer
+- **Vendor Lock-in auf Anthropic** — bricht Vault Operator's Multi-Provider-Versprechen fuer
   Code-Execution-Features. Gemini/Ollama/Bedrock-User bekommen keine Python-Skills.
 - **Privacy-Bruch**: Vault-Content geht in die Cloud. Fuer sensible Domains
   (legal/medical/research) und DSGVO-kritische Corporate-User nicht akzeptabel.
@@ -250,7 +250,7 @@ unabhaengig vom Tier.
 
 ### 5.2 Offene Fragen, die wir beim Wiederaufnehmen klaeren muessen
 
-1. **Welches Segment dominiert bei Obsilo's User-Base?** Corporate-Non-Tech (favorisiert
+1. **Welches Segment dominiert bei Vault Operator's User-Base?** Corporate-Non-Tech (favorisiert
    Tier 2) oder Privacy-sensitive Power-User (favorisiert Tier 3)? Das bestimmt, welches
    Tier zuerst gebaut wird.
 
@@ -328,10 +328,10 @@ unabhaengig vom Tier.
 - Diskussion: Chat-Session 2026-04-14, beginnend mit Cowork-Skills-Analyse
 - Cowork-Codebase: `/Users/sebastianhanke/projects/enbw-cowork/`
 - Anthropic Skills Repo: Cowork's `.claude/skills/` (docx, xlsx, pptx, pdf, skill-creator)
-- Bestehende Obsilo Sandbox: `src/core/sandbox/ProcessSandboxExecutor.ts`,
+- Bestehende Vault Operator Sandbox: `src/core/sandbox/ProcessSandboxExecutor.ts`,
   `IframeSandboxExecutor.ts`
 - Bestehende MCP-Infrastruktur: EPIC-14, FEAT-14-00 ff.
-- Obsilo Security-Historie: AUDIT-003, AUDIT-010, AUDIT-011
+- Vault Operator Security-Historie: AUDIT-003, AUDIT-010, AUDIT-011
 - Aktueller Plugin-Footprint: main.js 32 MB (v2.4.7)
 
 ---

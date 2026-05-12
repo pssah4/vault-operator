@@ -1,15 +1,15 @@
 ---
 title: Your First Conversation
-description: Learn the basics of chatting with Obsilo, including modes, context, and how the agent thinks.
+description: Learn the basics of chatting with Vault Operator, including modes, context, and how the agent thinks.
 ---
 
 # Your first conversation
 
-Obsilo is an agent that reads, writes, and searches your vault. A few concepts help before you start.
+Vault Operator is an agent that reads, writes, and searches your vault. A few concepts help before you start.
 
 ## Modes
 
-Obsilo has two built-in modes:
+Vault Operator has two built-in modes:
 
 | Mode | What it does | When to use it |
 |------|-------------|----------------|
@@ -19,7 +19,7 @@ Obsilo has two built-in modes:
 Switch modes using the dropdown in the chat toolbar, or let the agent switch automatically.
 
 :::tip Start with Ask mode
-If you are new to Obsilo, start in **Ask** mode. It cannot change anything, so you can explore safely. Switch to **Agent** mode when you are ready to let it work.
+If you are new to Vault Operator, start in **Ask** mode. It cannot change anything, so you can explore safely. Switch to **Agent** mode when you are ready to let it work.
 :::
 
 ## Context: what the agent knows

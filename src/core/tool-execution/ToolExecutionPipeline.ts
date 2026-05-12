@@ -30,6 +30,44 @@ import { findAllowedMethod } from '../tools/agent/pluginApiAllowlist';
 import { scanUnreadSources } from '../quality-gates';
 
 /**
+ * FEAT-24-03 (ADR-63 amendment): hard ceiling on the characters of any single
+ * tool result that reaches the conversation history. The externalizer is the
+ * primary mechanism (large results -> tmp file + reference); this cap is the
+ * floor for results the externalizer skips (read_file/read_document,
+ * search_history, recall_memory, MCP tools) or where externalization failed.
+ * Generous enough that normal results pass untouched (read_file is already
+ * capped at 50000 chars by ReadFileTool).
+ */
+export const HARD_TOOL_OUTPUT_CAP_CHARS = 60_000;
+
+/**
+ * Cap an oversized tool-result string at {@link HARD_TOOL_OUTPUT_CAP_CHARS},
+ * cutting on a line boundary when one is reasonably close, and append a notice
+ * telling the agent how to fetch the rest. Returns the input unchanged when it
+ * is within budget, is an error result, or is not a plain string (multimodal).
+ */
+export function capOversizedToolOutput(
+    content: string | import('../../api/types').ToolResultContentBlock[],
+    hadError: boolean,
+    capChars: number = HARD_TOOL_OUTPUT_CAP_CHARS,
+): { content: string | import('../../api/types').ToolResultContentBlock[]; capped: boolean; originalLength: number } {
+    if (hadError || typeof content !== 'string' || content.length <= capChars) {
+        return { content, capped: false, originalLength: typeof content === 'string' ? content.length : 0 };
+    }
+    const orig = content.length;
+    const head = content.slice(0, capChars);
+    const nl = head.lastIndexOf('\n');
+    const kept = nl > capChars / 2 ? head.slice(0, nl) : head;
+    return {
+        content: kept +
+            `\n\n[Output truncated: ${kept.length} of ${orig} chars shown. ` +
+            `Narrow the request (a more specific query, a page/line range, fewer results) to see the rest — do not assume the omitted part is empty.]`,
+        capped: true,
+        originalLength: orig,
+    };
+}
+
+/**
  * Approval group classification — determines how a tool call gets approved.
  *
  * NOT the same as the mode-level ToolGroup in settings.ts (which controls
@@ -168,6 +206,7 @@ export class ToolExecutionPipeline {
         'get_linked_notes', 'search_by_tag', 'get_vault_stats',
         'semantic_search', 'query_base',
     ]);
+
 
     constructor(
         plugin: ObsidianAgentPlugin,
@@ -391,6 +430,17 @@ export class ToolExecutionPipeline {
                 );
                 if (ref !== null) {
                     finalContent = ref;
+                }
+            }
+
+            // 6c. FEAT-24-03 (ADR-63 amendment): hard per-tool output cap — the
+            // floor that catches anything the externalizer skipped or that slipped
+            // through (e.g. an MCP tool with a huge response).
+            {
+                const capResult = capOversizedToolOutput(finalContent, executionHadError);
+                if (capResult.capped) {
+                    finalContent = capResult.content;
+                    console.debug(`[Pipeline] Capped ${toolCall.name} output ${capResult.originalLength} -> ${(finalContent as string).length} chars`);
                 }
             }
 

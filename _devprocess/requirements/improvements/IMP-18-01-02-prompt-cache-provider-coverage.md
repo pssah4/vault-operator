@@ -12,7 +12,7 @@ created: 2026-05-09
 
 **Prioritaet:** P1 (folgt Phase 1, ohne Provider-Implementierung wirkt der UI-Toggle bei den neuen Providern nicht)
 **Feature-Bezug:** FEAT-18-01 (Prompt Caching, Provider-agnostisch), EPIC-18 (Token-Kostenreduktion)
-**Quelle:** [Issue #313](https://github.com/pssah4/obsilo-dev/issues/313), BA-12 Section 11
+**Quelle:** [Issue #313](https://github.com/pssah4/vault-operator-dev/issues/313), BA-12 Section 11
 **Hypothese aus BA:** H-313-3 (Bedrock cachePoint-Marker liefern messbar `cacheReadInputTokens > 0`)
 **Depends-On:** IMP-18-01-01 (`supportsPromptCache`-Flag muss existieren, damit der Toggle UI-seitig erscheint)
 
@@ -38,7 +38,7 @@ Caching fuer Claude-Modelle anbietet.
 [src/api/providers/openai.ts](../../../src/api/providers/openai.ts)
 hat heute keinerlei Cache-Logik. OpenAI cached implizit ab >1024
 Tokens fuer gpt-4o, gpt-4.1, o1-Familie und liefert
-`usage.prompt_tokens_details.cached_tokens` in der Response. Obsilo
+`usage.prompt_tokens_details.cached_tokens` in der Response. Vault Operator
 ignoriert dieses Feld komplett. User sehen weder den Rabatt im
 Token-Counter noch in der Cost-Schaetzung. Fehlende Sichtbarkeit
 verstaerkt den Eindruck "Caching funktioniert nur bei Anthropic".

@@ -24,6 +24,7 @@ import { BUILT_IN_MODES } from './modes/builtinModes';
 import { QUALITY_GATES } from './tools/qualityGates';
 import { sanitizeAndLog } from './utils/sanitizeHistoryForApi';
 import { logInputBreakdown } from './utils/logInputBreakdown';
+import { microcompactToolResults } from './context/MicroCompactor';
 import { filterShadowedBuiltins } from './tools/shadowedByPlugin';
 import { isDeferredTool } from './tools/toolMetadata';
 
@@ -132,6 +133,19 @@ export class AgentTask {
     private depth: number;
     /** Maximum allowed sub-agent nesting depth. Children at this depth cannot spawn further. */
     private maxSubtaskDepth: number;
+    /**
+     * FEAT-24-02 (ADR-12 amendment): prune old tool_result contents to skeletons
+     * at turn boundaries. Additive to the keep-first-last full condensing.
+     */
+    private microcompactionEnabled: boolean;
+    /**
+     * FEAT-24-02: fold the oldest part of the conversation into a running summary
+     * once the estimated tokens exceed this % of the context window — earlier and
+     * gentler than the keep-first-last full condensing (`condensingThreshold`).
+     * Effective only when below `condensingThreshold`. Generous default so short
+     * sessions are never touched.
+     */
+    private rollingSummaryThreshold: number;
 
     constructor(
         api: ApiHandler,
@@ -146,6 +160,8 @@ export class AgentTask {
         maxIterations = 25,
         depth = 0,
         maxSubtaskDepth = 2,
+        microcompactionEnabled = true,
+        rollingSummaryThreshold = 50,
     ) {
         this.api = api;
         this.toolRegistry = toolRegistry;
@@ -159,6 +175,49 @@ export class AgentTask {
         this.maxIterations = maxIterations;
         this.depth = depth;
         this.maxSubtaskDepth = maxSubtaskDepth;
+        this.microcompactionEnabled = microcompactionEnabled;
+        this.rollingSummaryThreshold = rollingSummaryThreshold;
+    }
+
+    /**
+     * FEAT-24-02: at a turn boundary, prune old tool_result contents to skeletons.
+     * Idempotent and cheap (no LLM call). Logs when it actually freed something.
+     */
+    private microcompact(history: MessageParam[]): void {
+        if (!this.microcompactionEnabled) return;
+        const { prunedBlocks, freedCharsApprox } = microcompactToolResults(history);
+        if (prunedBlocks > 0) {
+            console.debug(
+                `[Microcompact] pruned ${prunedBlocks} tool_result block(s), ` +
+                `freed ~${Math.round(freedCharsApprox / 4)} tokens`,
+            );
+        }
+    }
+
+    /**
+     * FEAT-24-02 second stage: when the history sits between the rolling-summary
+     * mark and the full-condensing threshold, fold the oldest part into a summary
+     * once (no retry loop — that's the keep-first-last path's job). Returns true
+     * if a rolling summary ran.
+     */
+    private async maybeRollingSummary(
+        history: MessageParam[],
+        systemPrompt: string,
+        estimatedTokens: number,
+        threshold: number,
+        contextWindow: number,
+        abortSignal: AbortSignal | undefined,
+        toolCallLedger: string | undefined,
+    ): Promise<boolean> {
+        if (!this.microcompactionEnabled || history.length < 7) return false;
+        const rollingMark = Math.floor(contextWindow * (Math.min(this.rollingSummaryThreshold, this.condensingThreshold) / 100));
+        if (estimatedTokens <= rollingMark || estimatedTokens > threshold) return false;
+        await this.taskCallbacks.onPreCompactionFlush?.(history).catch((e) =>
+            console.warn('[AgentTask] Pre-compaction flush (rolling) failed (non-fatal):', e)
+        );
+        console.debug(`[AgentTask] Rolling summary at ~${estimatedTokens}t (mark ${rollingMark}t, full threshold ${threshold}t)`);
+        await this.condenseHistory(history, systemPrompt, abortSignal, toolCallLedger);
+        return true;
     }
 
     /**
@@ -387,6 +446,8 @@ export class AgentTask {
                 false, 80, 0, this.maxIterations,
                 childDepth,             // propagate nesting depth
                 this.maxSubtaskDepth,   // propagate limit
+                this.microcompactionEnabled, // FEAT-24-02: cheap tool_result pruning still applies
+                this.rollingSummaryThreshold, // unused while condensing is off, kept for completeness
             );
 
             await childTask.run({
@@ -589,14 +650,17 @@ export class AgentTask {
 
                 const toolUses: ContentBlock[] = [];
                 const textParts: string[] = [];
-                const toolErrorIds = new Set<string>();
+                // id -> actionable error message (from the provider). Kept as a Map
+                // so the model receives the real "split the write / don't double-emit"
+                // guidance as the tool_result, not a generic "retry with valid JSON".
+                const toolErrors = new Map<string, string>();
 
                 // Stream the LLM response (pass abort signal for cancellation)
                 // BUG-017: drop orphan tool_use / tool_result blocks before send.
                 // Anthropic returns 400 if any tool_use has no matching tool_result
                 // and Claude-via-Copilot inherits the same constraint.
                 const safeHistory = sanitizeAndLog(history, 'main-loop');
-                logInputBreakdown('main-loop', systemPrompt, safeHistory, tools.length);
+                logInputBreakdown('main-loop', systemPrompt, safeHistory, tools);
                 for await (const chunk of this.api.createMessage(systemPrompt, safeHistory, tools, abortSignal)) {
                     if (chunk.type === 'thinking') {
                         this.taskCallbacks.onThinking?.(chunk.text);
@@ -614,11 +678,15 @@ export class AgentTask {
                         // Notify UI that a tool is starting
                         this.taskCallbacks.onToolStart(chunk.name, chunk.input);
                     } else if (chunk.type === 'tool_error') {
-                        // BUG-3: unparseable tool JSON — record in history but skip execution
-                        toolErrorIds.add(chunk.id);
+                        // BUG-3 / BUG-032: unparseable or truncated tool JSON — record
+                        // in history, skip execution, and count it as a mistake so a
+                        // repeated broken write trips consecutiveMistakeLimit instead
+                        // of looping until the context overflows.
+                        toolErrors.set(chunk.id, chunk.error);
                         toolUses.push({ type: 'tool_use', id: chunk.id, name: chunk.name, input: {} });
                         this.taskCallbacks.onToolStart(chunk.name, {});
                         this.taskCallbacks.onToolResult(chunk.name, chunk.error, true);
+                        consecutiveMistakes++;
                     } else if (chunk.type === 'usage') {
                         // Feature 6: Accumulate tokens across all agentic iterations
                         totalInputTokens += chunk.inputTokens;
@@ -661,6 +729,9 @@ export class AgentTask {
                         });
                         continue;
                     }
+                    // FEAT-24-02: prune old tool_result contents before the task ends
+                    // so the persisted conversation does not carry verbatim bulk.
+                    this.microcompact(history);
                     if (iteration > 0 && this.condensingEnabled) {
                         const estimatedTokens = this.estimateTokens(history);
                         const contextWindow = this.getModelContextWindow();
@@ -706,7 +777,7 @@ export class AgentTask {
 
                 const validToolUses = toolUses.filter(
                     (t): t is ContentBlock & { type: 'tool_use' } =>
-                        t.type === 'tool_use' && !toolErrorIds.has(t.id)
+                        t.type === 'tool_use' && !toolErrors.has(t.id)
                 );
 
                 // Helper: extract display text from a tool result (string or multimodal array).
@@ -792,12 +863,14 @@ export class AgentTask {
 
                 const toolResultBlocks: ContentBlock[] = [];
 
-                // BUG-3: add error results for tools with unparseable JSON input
-                for (const errId of toolErrorIds) {
+                // BUG-3 / BUG-032: error results for tools with unparseable/truncated
+                // JSON input — forward the provider's actionable message verbatim so
+                // the model knows to split the write instead of retrying it.
+                for (const [errId, errMsg] of toolErrors) {
                     toolResultBlocks.push({
                         type: 'tool_result',
                         tool_use_id: errId,
-                        content: 'Tool input could not be parsed. Please retry with valid JSON.',
+                        content: errMsg,
                         is_error: true,
                     });
                 }
@@ -864,6 +937,28 @@ export class AgentTask {
                 // (every assistant tool_call has a matching tool_result before condensing)
                 history.push({ role: 'user', content: toolResultBlocks });
 
+                // Circuit breaker for malformed/truncated tool calls. The result
+                // loops above only check the limit for tools that actually ran; a
+                // turn whose only output was a broken tool call (the classic
+                // "write_file cut off mid-JSON" loop) never reaches that check, so
+                // do it here. consecutiveMistakes was already bumped per tool_error
+                // in the streaming loop; it is reset by the first successful tool.
+                if (toolErrors.size > 0 && this.consecutiveMistakeLimit > 0
+                    && consecutiveMistakes >= this.consecutiveMistakeLimit) {
+                    throw new Error(
+                        `Agent stopped after ${consecutiveMistakes} consecutive errors -- the last was a malformed or truncated tool call. `
+                        + `The model's tool call kept getting cut off before it finished. `
+                        + `Fix: have the model split a large write into write_file (header + first section) then append_to_file for the rest, `
+                        + `reduce the attached input, or raise Max output tokens in Settings -> Models.`,
+                    );
+                }
+
+                // FEAT-24-02 (ADR-12 amendment): prune old tool_result contents to
+                // skeletons now that the turn is closed and the history is consistent.
+                // Cheap, idempotent, no LLM call — runs before the condensing checks
+                // so their token estimate reflects the pruned state.
+                this.microcompact(history);
+
                 // Context Condensing: check only after history is fully consistent
                 // (assistant tool_calls + tool_results both present, no orphaned calls)
                 if (iteration > 0 && this.condensingEnabled && completionResult === null) {
@@ -899,6 +994,12 @@ export class AgentTask {
                         if (condensingRetries > 0) {
                             console.debug(`[AgentTask] Required ${condensingRetries + 1} condensing passes to stay under threshold`);
                         }
+                    } else {
+                        // FEAT-24-02 second stage: earlier, gentler rolling summary.
+                        await this.maybeRollingSummary(
+                            history, systemPrompt, estimatedTokens, threshold, contextWindow,
+                            abortSignal, repetitionDetector.getLedger(),
+                        );
                     }
                 }
 
@@ -935,7 +1036,7 @@ export class AgentTask {
                     try {
                         // BUG-017: same orphan-cleanup as the main loop.
                         const safeHistoryHardLimit = sanitizeAndLog(history, 'hard-limit-recovery');
-                        logInputBreakdown('hard-limit-recovery', cachedSystemPrompt, safeHistoryHardLimit, 0);
+                        logInputBreakdown('hard-limit-recovery', cachedSystemPrompt, safeHistoryHardLimit, []);
                         for await (const chunk of this.api.createMessage(cachedSystemPrompt, safeHistoryHardLimit, [], abortSignal)) {
                             if (chunk.type === 'text') {
                                 hasStreamedText = true;
@@ -1317,7 +1418,7 @@ export class AgentTask {
             // BUG-017: condensing has its own pairing-fix higher up, but apply
             // the generic sanitize as well so any new edge case is caught.
             const safeCondensingMessages = sanitizeAndLog(condensingMessages, 'condensing');
-            logInputBreakdown('condensing', systemPrompt, safeCondensingMessages, 0);
+            logInputBreakdown('condensing', systemPrompt, safeCondensingMessages, []);
             for await (const chunk of this.api.createMessage(
                 systemPrompt,
                 safeCondensingMessages,

@@ -194,7 +194,7 @@ Zusaetzlich fehlt Struktur-Intelligenz: das LLM entscheidet ad-hoc ueber die Fol
 - Design-Persistenz ueber Agent-Memory (Vault-weit, ueberschreibbar)
 
 **Schicht 2 -- Storyline-Frameworks (P0: PPTX + DOCX)**
-- 6 Storyline-Frameworks als Obsilo-Skills (lazy loaded):
+- 6 Storyline-Frameworks als Vault Operator-Skills (lazy loaded):
   - SCQA (McKinsey) -- Strategy/Executive
   - Pyramid Principle (Minto) -- Analytische Reports
   - Problem-Solution -- Pitches

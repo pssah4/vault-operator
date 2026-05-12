@@ -7,7 +7,7 @@
 
 ## Summary
 
-Persistent memory system that gives Obsilo awareness across sessions. Three pillars:
+Persistent memory system that gives Vault Operator awareness across sessions. Three pillars:
 1. **Chat History** — stored conversations with compact history browser
 2. **Memory** — short-term (session summaries) and long-term (user knowledge, patterns, preferences)
 3. **Onboarding** — frictionless first-contact flow to bootstrap the user profile
@@ -205,7 +205,7 @@ Processing: One item at a time, delay between items, retry on failure at next st
 
 ## Identity
 - Name: Sebastian
-- Agent name: Obsilo (or custom)
+- Agent name: Vault Operator (or custom)
 - Role: Software developer
 - Location: Germany
 
@@ -223,7 +223,7 @@ Processing: One item at a time, delay between items, retry on failure at next st
 ```markdown
 # Active Projects
 
-## Obsilo (Obsidian Agent Plugin)
+## Vault Operator (Obsidian Agent Plugin)
 - Kilo Code clone as Obsidian plugin
 - Tech: TypeScript, Obsidian API, esbuild
 - Current phase: Memory system
@@ -256,7 +256,7 @@ On plugin load, check if `memory/user-profile.md` exists. If not, trigger onboar
 The agent starts with a friendly greeting and asks 3-5 questions progressively:
 
 1. **Name**: "Hi! I'm your vault assistant. What should I call you?"
-2. **Agent name**: "And what would you like to call me? (Default: Obsilo)"
+2. **Agent name**: "And what would you like to call me? (Default: Vault Operator)"
 3. **Role/Context**: "What do you mainly use your vault for?"
 4. **Style**: "How should I communicate? (concise vs. detailed, formal vs. casual)"
 5. **Anything else**: "Anything else I should know about how you like to work?"

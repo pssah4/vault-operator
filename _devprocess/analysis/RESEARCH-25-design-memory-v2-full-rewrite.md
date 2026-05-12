@@ -1,6 +1,6 @@
 ---
 id: OBSILO-MEMORY-V2-FULL-REWRITE
-title: Obsilo Memory v2 -- Full Architecture Rewrite (Source Spec)
+title: Vault Operator Memory v2 -- Full Architecture Rewrite (Source Spec)
 status: Source Reference
 created: 2026-04-25
 imported: 2026-04-26
@@ -17,23 +17,23 @@ note: |
   Realitaetspruefungen siehe PLAN-01 Sektion "Doc-Annahmen vs Codebase".
 ---
 
-# Obsilo Memory v2 -- Full Architecture Rewrite
+# Vault Operator Memory v2 -- Full Architecture Rewrite
 
 > **Audience:** Claude Code (Implementation)
 > **Context Owner:** Sebastian Hanke
 > **Created:** 2026-04-25
 > **Status:** Ready for Implementation (Source-Spec, vor Codebase-Validierung)
-> **Repository:** `github.com/pssah4/obsilo`
-> **Branch Strategy:** `feature/memory-redesign` (in Obsilo-Repo, vorher `feature/memory-v2` im Source-Doc)
+> **Repository:** `github.com/pssah4/vault-operator`
+> **Branch Strategy:** `feature/memory-redesign` (in Vault Operator-Repo, vorher `feature/memory-v2` im Source-Doc)
 > **Path Decision:** This is **Path 2**, full rewrite of the memory subsystem. Previous incremental plan (`OBSILO-MEMORY-OPTIMIZATION.md`) is kept as reference and fallback option.
 
 ---
 
 ## 1. Executive Summary
 
-This document specifies a complete redesign of Obsilo's memory subsystem. The current system (six fixed Markdown files with hard 800-character limits, binary hot/cold split, no temporal dimension, no conflict resolution) is replaced with a unified facts-table model that supports dynamic context composition, organic fact aging, semantic conflict resolution, and topic-driven retrieval.
+This document specifies a complete redesign of Vault Operator's memory subsystem. The current system (six fixed Markdown files with hard 800-character limits, binary hot/cold split, no temporal dimension, no conflict resolution) is replaced with a unified facts-table model that supports dynamic context composition, organic fact aging, semantic conflict resolution, and topic-driven retrieval.
 
-The new architecture serves two goals simultaneously: it makes Obsilo's memory significantly more capable, and it provides the proper foundation for UCM (Unified Chat Memory) which will reuse this engine.
+The new architecture serves two goals simultaneously: it makes Vault Operator's memory significantly more capable, and it provides the proper foundation for UCM (Unified Chat Memory) which will reuse this engine.
 
 **Key shifts:**
 
@@ -72,7 +72,7 @@ The new architecture serves two goals simultaneously: it makes Obsilo's memory s
 - Conflicts are detected and resolved with explicit rationale
 - Aging is organic, unconfirmed facts gradually lose importance, never abruptly disappear
 - Communication style adapts to topic
-- The same engine drives Obsilo standalone and UCM (when built)
+- The same engine drives Vault Operator standalone and UCM (when built)
 
 ### 2.3 Trade-offs Accepted
 
@@ -293,7 +293,7 @@ Rollback-Pfad explizit definiert.
 
 ### ADR-06: Branch and Release Strategy
 
-Decision: All work happens on `feature/memory-redesign` branch (Obsilo-Repo). Sub-branches per phase merge into the parent.
+Decision: All work happens on `feature/memory-redesign` branch (Vault Operator-Repo). Sub-branches per phase merge into the parent.
 
 ### ADR-07: User Experience for Conflict Resolution
 
@@ -490,7 +490,7 @@ main
 - BA: `_devprocess/analysis/BA-UNIFIED-CHAT-MEMORY-V2.md`
 - Master-Plan (validiert): `_devprocess/implementation/plans/PLAN-01-memory-v2-master.md`
 - Existing Memory Architecture: `src/core/memory/`, `src/core/history/`, `src/core/semantic/`
-- Anthropic Contextual Retrieval (Obsilo ADR-51)
+- Anthropic Contextual Retrieval (Vault Operator ADR-51)
 - ADR-13, ADR-18, ADR-58, ADR-59, ADR-60 (zu superseden bzw. supplementieren)
 - BUG-012 (zu fixen in Phase 0.5)
 

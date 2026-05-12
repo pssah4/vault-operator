@@ -51,7 +51,7 @@ export interface ComposeInput {
     topicLockOverride?: string;
     /**
      * Multi-profile selector (UCM-readiness). When provided, retrieval
-     * filters facts to this profile only. Obsilo passes nothing today =
+     * filters facts to this profile only. Vault Operator passes nothing today =
      * "all profiles" (effectively just 'default'); UCM hosts pass
      * 'work' / 'personal' / 'coding' to scope the hot-memory block.
      */

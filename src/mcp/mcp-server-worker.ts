@@ -4,14 +4,14 @@
  * Claude Desktop starts this process and communicates via stdio using
  * newline-delimited JSON (one JSON object per line, terminated with \n).
  *
- * This worker forwards all requests to Obsilo's HTTP endpoint (localhost:27182)
+ * This worker forwards all requests to Vault Operator's HTTP endpoint (localhost:27182)
  * where the real MCP server runs inside Obsidian.
  *
  * Architecture:
- *   Claude Desktop  ←stdio (JSON lines)→  this worker  ←HTTP→  Obsilo (:27182)
+ *   Claude Desktop  ←stdio (JSON lines)→  this worker  ←HTTP→  Vault Operator (:27182)
  */
 
-const OBSILO_URL = 'http://127.0.0.1:27182';
+const VAULT_OPERATOR_URL = 'http://127.0.0.1:27182';
 
 // AUDIT-006 H-1: Read auth token from well-known file
 let mcpToken = '';
@@ -44,7 +44,7 @@ process.stdin.on('data', (chunk: string) => {
         try {
             const request = JSON.parse(line) as { id?: unknown; method?: string };
             // Notifications (no id) still forward but we suppress empty HTTP responses
-            void forwardToObsilo(request, request.id !== undefined && request.id !== null);
+            void forwardToVaultOperator(request, request.id !== undefined && request.id !== null);
         } catch {
             process.stderr.write(`[mcp-proxy] Invalid JSON: ${line.slice(0, 100)}\n`);
         }
@@ -52,16 +52,16 @@ process.stdin.on('data', (chunk: string) => {
 });
 
 // ---------------------------------------------------------------------------
-// Forward to Obsilo HTTP and write response as JSON line to stdout
+// Forward to Vault Operator HTTP and write response as JSON line to stdout
 // ---------------------------------------------------------------------------
 
-async function forwardToObsilo(request: unknown, expectResponse = true): Promise<void> {
+async function forwardToVaultOperator(request: unknown, expectResponse = true): Promise<void> {
     try {
         const http = await import('http');
         const body = JSON.stringify(request);
 
         const response = await new Promise<string>((resolve, reject) => {
-            const req = http.request(OBSILO_URL, {
+            const req = http.request(VAULT_OPERATOR_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -90,7 +90,7 @@ async function forwardToObsilo(request: unknown, expectResponse = true): Promise
             id: (request as { id?: number })?.id ?? null,
             error: {
                 code: -32603,
-                message: `Obsilo not reachable. Is Obsidian running with the connector enabled? (${e instanceof Error ? e.message : String(e)})`,
+                message: `Vault Operator not reachable. Is Obsidian running with the connector enabled? (${e instanceof Error ? e.message : String(e)})`,
             },
         });
         process.stdout.write(errorResponse + '\n');
@@ -99,4 +99,4 @@ async function forwardToObsilo(request: unknown, expectResponse = true): Promise
 
 // Keep alive
 process.stdin.resume();
-process.stderr.write('[mcp-proxy] Obsilo MCP proxy started\n');
+process.stderr.write('[mcp-proxy] Vault Operator MCP proxy started\n');

@@ -3,7 +3,7 @@
  *
  * Runs an HTTP server on localhost (default port 27182) that speaks
  * MCP Streamable HTTP protocol. Claude Desktop connects via URL.
- * All tool calls are dispatched directly to Obsilo services (no IPC needed).
+ * All tool calls are dispatched directly to Vault Operator services (no IPC needed).
  *
  * Requires Obsidian to be running (the services live in the Renderer process).
  *
@@ -154,8 +154,8 @@ const TOOLS: McpToolDefinition[] = [
     {
         name: 'save_to_memory',
         description:
-            'Persist a single fact or insight in Obsilo Memory v2. Each call produces one fact entry. ' +
-            'Use for things you want available across all of Sebastian\'s chat tools (Obsilo, ChatGPT, ' +
+            'Persist a single fact or insight in Vault Operator Memory v2. Each call produces one fact entry. ' +
+            'Use for things you want available across all of Sebastian\'s chat tools (Vault Operator, ChatGPT, ' +
             'Claude.ai, Claude Code, Perplexity). Tags are optional. The configured source_interface ' +
             'tag (per connector config) labels the entry so it stays filterable later.',
         inputSchema: {
@@ -191,7 +191,7 @@ const TOOLS: McpToolDefinition[] = [
     {
         name: 'save_conversation',
         description:
-            'Copy a conversation from an external chat tool into Obsilo\'s shared History sidebar. ' +
+            'Copy a conversation from an external chat tool into Vault Operator\'s shared History sidebar. ' +
             'Conversations appear in the matching source-tab.\n\n' +
             'LIVING-DOCUMENT BEHAVIOUR (default ON): when the user asks you to save the current ' +
             'conversation again later in the same session, JUST CALL save_conversation AGAIN with ' +
@@ -204,7 +204,7 @@ const TOOLS: McpToolDefinition[] = [
             'cross_interface_thread_id. When the user continues the same topic in a different ' +
             'tool (e.g. claude-ai -> claude-code), pass that thread_id to link both conversations.\n\n' +
             'SYNC-MODE: per-provider Auto vs Manual is user-configured. Auto triggers memory-' +
-            'extraction immediately with the same thresholds as Obsilo-internal conversations; ' +
+            'extraction immediately with the same thresholds as Vault Operator-internal conversations; ' +
             'Manual parks the conversation as pending until the user confirms. ChatGPT and ' +
             'Perplexity default to Manual to keep family-shared accounts out of personal memory.',
         inputSchema: {
@@ -262,7 +262,7 @@ const TOOLS: McpToolDefinition[] = [
     {
         name: 'recall_memory',
         description:
-            'Search Obsilo Memory v2 facts by meaning. Returns top-K hits ranked by cosine over ' +
+            'Search Vault Operator Memory v2 facts by meaning. Returns top-K hits ranked by cosine over ' +
             'fact_embeddings (with token-overlap fallback). Optional source_interface filter to ' +
             'restrict to facts from a specific tool.',
         inputSchema: {
@@ -287,7 +287,7 @@ const TOOLS: McpToolDefinition[] = [
     {
         name: 'search_history',
         description:
-            'Keyword-search across past conversations from any source (Obsilo, ChatGPT, Claude.ai, ' +
+            'Keyword-search across past conversations from any source (Vault Operator, ChatGPT, Claude.ai, ' +
             'Claude Code, Perplexity). Returns matching messages with clickable obsidian://obsilo-chat ' +
             'links to the source conversation. Optional source_interface filter.',
         inputSchema: {
@@ -608,9 +608,9 @@ export class McpBridge {
                 return {
                     protocolVersion: negotiated,
                     capabilities: { tools: {}, prompts: {}, resources: {} },
-                    serverInfo: { name: 'Obsilo', version: '1.0.0' },
-                    instructions: 'You are connected to Obsilo, an intelligence backend for an Obsidian vault. '
-                        + 'Your role: You think, plan, and decide. Obsilo searches, reads, writes, and remembers.\n\n'
+                    serverInfo: { name: 'Vault Operator', version: '1.0.0' },
+                    instructions: 'You are connected to Vault Operator, an intelligence backend for an Obsidian vault. '
+                        + 'Your role: You think, plan, and decide. Vault Operator searches, reads, writes, and remembers.\n\n'
                         + 'WORKFLOW (mandatory order):\n'
                         + '1. ALWAYS call get_context FIRST to load user profile, memory, preferences, and vault context.\n'
                         + '2. Use search_vault, read_notes, write_vault, execute_vault_op as needed.\n'
@@ -742,7 +742,7 @@ export class McpBridge {
     buildResourceList() {
         // AUDIT-013 H-3: never expose ignored notes via the MCP resource list.
         // Without this filter, the user's ignored notes show up in Claude
-        // Desktop's "Add from Obsilo" picker.
+        // Desktop's "Add from Vault Operator" picker.
         const vault = this.plugin.app.vault;
         const ignoreService = this.plugin.ignoreService;
         const files = vault.getMarkdownFiles();

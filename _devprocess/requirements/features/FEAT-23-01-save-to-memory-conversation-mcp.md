@@ -15,12 +15,12 @@ depends-on: []
 ## Description
 
 Zwei neue MCP-Tools, die externe Chat-UIs (ChatGPT, Claude.ai, Claude
-Code, Perplexity) ueber Obsilo Remote MCP nutzen koennen, um
-Insights in Obsilo's v2-Memory und History zu schreiben.
+Code, Perplexity) ueber Vault Operator Remote MCP nutzen koennen, um
+Insights in Vault Operator's v2-Memory und History zu schreiben.
 
 ## Benefits Hypothesis
 
-Wenn Sebastian aus jedem Chat-Tool Insights direkt in Obsilo
+Wenn Sebastian aus jedem Chat-Tool Insights direkt in Vault Operator
 festhalten kann, dann sinkt die Reibung beim Tool-Wechsel und kein
 Insight geht verloren.
 
@@ -29,7 +29,7 @@ Insight geht verloren.
 **US-01** -- Functional Job (Save-Memory):
 - **As** Sebastian, der gerade in ChatGPT ueber das EnBW-Coworking-
   Konzept arbeitet,
-- **I want to** ein wichtiges Detail in Obsilo's Memory schreiben
+- **I want to** ein wichtiges Detail in Vault Operator's Memory schreiben
   ("save_to_memory"-Tool-Aufruf),
 - **so that** ich es spaeter in Claude Code beim Architektur-
   Review wiederfinde.
@@ -37,7 +37,7 @@ Insight geht verloren.
 **US-02** -- Functional Job (Save-Conversation):
 - **As** Sebastian, der eine ergiebige Brainstorming-Session in
   Claude.ai gefuehrt hat,
-- **I want to** die ganze Conversation in Obsilo speichern,
+- **I want to** die ganze Conversation in Vault Operator speichern,
 - **so that** sie in der History-Sidebar verfuegbar ist und
   optional Memory-Extraction triggert.
 
@@ -45,13 +45,13 @@ Insight geht verloren.
 - **As** Sebastian
 - **I want to** sicher sein, dass save_to_memory in v2 landet und
   nicht in Legacy-MD-Files,
-- **so that** ich Vertrauen in Obsilo als Memory-Hub habe.
+- **so that** ich Vertrauen in Vault Operator als Memory-Hub habe.
 
 ## Success Criteria (Tech-Agnostic)
 
 | ID | Criterion | Measurement | Method |
 |----|-----------|-------------|--------|
-| SC-01 | save_to_memory schreibt einen Fact, der in Obsilo recall_memory wiedergefunden wird | Cross-Tool-UAT | Manuell |
+| SC-01 | save_to_memory schreibt einen Fact, der in Vault Operator recall_memory wiedergefunden wird | Cross-Tool-UAT | Manuell |
 | SC-02 | save_conversation legt eine Conversation an, die in der History-Sidebar erscheint | UI-Sicht | Manuell |
 | SC-03 | Beide Tools tragen das source_interface in jedem geschriebenen Eintrag | DB-Audit | SQL |
 | SC-04 | Auto-Sync-Mode triggert Memory-Extraction mit denselben Thresholds wie interne Conversations | Eval | Test |

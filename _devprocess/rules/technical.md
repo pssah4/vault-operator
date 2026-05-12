@@ -1,4 +1,4 @@
-# Technische Regeln Obsilo
+# Technische Regeln Vault Operator
 
 > Max 150 Zeilen. Stabile Wahrheiten. Aenderungen passieren waehrend
 > /architecture und /coding, wenn eine Regel ihre Bedeutung aendert.
@@ -80,7 +80,7 @@ Vollstaendige Referenz: `memory/review-bot-compliance.md`.
 
 - Plugin-Bundle: `main.js` im Repo-Root
 - Deploy-Pfad ueber `.env` (`PLUGIN_DIR`), aktuell iCloud:
-  `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/NexusOS/.obsidian/plugins/obsilo-agent/`
+  `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/NexusOS/.obsidian/plugins/vault-operator/`
 
 ## Wegweiser
 

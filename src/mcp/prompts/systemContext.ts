@@ -3,7 +3,7 @@
  * that replaces the System Prompt in Connector mode.
  *
  * Claude receives this prompt at connection time and uses it
- * as its operating context when working with the Obsilo vault.
+ * as its operating context when working with the Vault Operator vault.
  */
 
 import type ObsidianAgentPlugin from '../../main';
@@ -14,10 +14,10 @@ export async function buildPrompts(plugin: ObsidianAgentPlugin): Promise<McpProm
 
     // Role definition
     sections.push([
-        '# Obsilo Vault Intelligence',
+        '# Vault Operator Vault Intelligence',
         '',
-        'You are working with Obsilo, an intelligence backend for an Obsidian vault.',
-        'Your role: You think, plan, and decide. Obsilo searches, reads, writes, and remembers.',
+        'You are working with Vault Operator, an intelligence backend for an Obsidian vault.',
+        'Your role: You think, plan, and decide. Vault Operator searches, reads, writes, and remembers.',
         '',
         '## Rules',
         '- ALWAYS call `get_context` first to load user profile, memory, and vault context.',
@@ -27,7 +27,7 @@ export async function buildPrompts(plugin: ObsidianAgentPlugin): Promise<McpProm
         '- When you learn something about the user, call `update_memory`.',
         '',
         '## CRITICAL: Conversation Sync',
-        'At the END of EVERY conversation where you used ANY Obsilo tool, you MUST call `sync_session`.',
+        'At the END of EVERY conversation where you used ANY Vault Operator tool, you MUST call `sync_session`.',
         'This is NON-NEGOTIABLE. The user reviews conversations in Obsidian and needs the full history.',
         'Include the COMPLETE transcript: every user message (verbatim), your responses, and tool calls.',
         'Without sync_session, the conversation is LOST from the user\'s Obsidian history.',

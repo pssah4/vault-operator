@@ -8,7 +8,7 @@
 
 ## Problem-Kontext
 
-Mit der oeffentlichen Submission an die Obsidian Community Plugin Liste (PR #11394) und dem Wechsel auf das Public-Repo `pssah4/obsilo` ist Obsilo erstmals fuer externe Tester sichtbar. Innerhalb weniger Tage sind vier Community-Issues entstanden, der Review-Bot meldet noch offene Findings, und die GitHub Security-Pipeline hat drei transitive Dependency-Vulnerabilities markiert (eine davon Critical).
+Mit der oeffentlichen Submission an die Obsidian Community Plugin Liste (PR #11394) und dem Wechsel auf das Public-Repo `pssah4/vault-operator` ist Vault Operator erstmals fuer externe Tester sichtbar. Innerhalb weniger Tage sind vier Community-Issues entstanden, der Review-Bot meldet noch offene Findings, und die GitHub Security-Pipeline hat drei transitive Dependency-Vulnerabilities markiert (eine davon Critical).
 
 Der Plugin-Approval-Prozess der Obsidian Community blockiert solange weitere Findings offen sind. Solange der Bot rote Findings hat, wird das Plugin nicht in den Public-Katalog aufgenommen, also bleibt die Reichweite auf BRAT-Nutzer beschraenkt.
 

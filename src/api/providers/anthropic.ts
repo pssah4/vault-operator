@@ -11,8 +11,50 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, ContentBlock, MessageParam, ModelInfo } from '../types';
+import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
-import { getModelContextWindow } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
+import { logCacheStat } from '../logCacheStat';
+
+/** Put an ephemeral cache_control marker on the last content block of a message. */
+export function markLastBlock(msg: Anthropic.MessageParam): void {
+    if (typeof msg.content === 'string') {
+        msg.content = [{ type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }];
+        return;
+    }
+    if (Array.isArray(msg.content) && msg.content.length > 0) {
+        const blocks = msg.content;
+        const last = blocks[blocks.length - 1] as Anthropic.Messages.ContentBlockParam & { cache_control?: { type: 'ephemeral' } };
+        // text and tool_result blocks accept cache_control; for anything else, append a tiny text block.
+        if ('type' in last && (last.type === 'text' || last.type === 'tool_result')) {
+            last.cache_control = { type: 'ephemeral' };
+        } else {
+            blocks.push({ type: 'text', text: '​', cache_control: { type: 'ephemeral' } });
+        }
+    }
+}
+
+/**
+ * FEAT-24-01: place two rolling cache breakpoints in the message history — one on
+ * the last user message (advances each turn) and one a few turns earlier (stays a
+ * stable cache prefix across turns). Keeps the conversation part of long sessions
+ * mostly cache reads instead of full re-sends.
+ */
+export function markRollingHistoryBreakpoints(messages: Anthropic.MessageParam[]): void {
+    let lastUser = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') { lastUser = i; break; }
+    }
+    if (lastUser < 0) return;
+    markLastBlock(messages[lastUser]);
+    // Second marker at least ~6 messages further back, so it stays a stable cache
+    // prefix across several turns instead of advancing with the conversation.
+    const STABLE_BACKOFF = 6;
+    for (let i = lastUser - STABLE_BACKOFF; i >= 0; i--) {
+        if (messages[i].role === 'user') { markLastBlock(messages[i]); break; }
+    }
+}
 
 export class AnthropicProvider implements ApiHandler {
     private client: Anthropic;
@@ -57,47 +99,53 @@ export class AnthropicProvider implements ApiHandler {
             input_schema: tool.input_schema,
         }));
 
-        // Prompt caching: mark the last user message with cache_control
-        if (this.config.promptCachingEnabled && anthropicMessages.length > 0) {
-            for (let i = anthropicMessages.length - 1; i >= 0; i--) {
-                if (anthropicMessages[i].role === 'user') {
-                    const lastUser = anthropicMessages[i];
-                    if (typeof lastUser.content === 'string') {
-                        anthropicMessages[i] = {
-                            role: 'user',
-                            content: [{
-                                type: 'text' as const,
-                                text: lastUser.content,
-                                cache_control: { type: 'ephemeral' as const },
-                            }],
-                        };
-                    } else if (Array.isArray(lastUser.content) && lastUser.content.length > 0) {
-                        const blocks = [...lastUser.content] as Anthropic.Messages.ContentBlockParam[];
-                        const lastBlock = blocks[blocks.length - 1];
-                        if ('type' in lastBlock && lastBlock.type === 'text') {
-                            blocks[blocks.length - 1] = { ...lastBlock, cache_control: { type: 'ephemeral' as const } };
-                            anthropicMessages[i] = { role: 'user', content: blocks };
-                        }
-                    }
-                    break;
-                }
+        // Prompt caching (ADR-62 amendment / FEAT-24-01):
+        //  1) split the system prompt at the cache breakpoint — only the stable
+        //     prefix gets cache_control, the volatile tail (date/memory/skills/
+        //     vault context) gets none, so the prefix stays a cache hit per turn;
+        //  2) one cache_control on the last tool entry (~30k tokens, stable);
+        //  3) two rolling markers in the message history — one on the last user
+        //     message (moves each turn), one a few turns back (stays warm). That
+        //     is 1 + 1 + 2 = 4 breakpoints, the Anthropic maximum.
+        if (this.config.promptCachingEnabled) {
+            markRollingHistoryBreakpoints(anthropicMessages);
+            if (anthropicTools.length > 0) {
+                const last = anthropicTools[anthropicTools.length - 1] as Anthropic.Tool & { cache_control?: { type: 'ephemeral' } };
+                last.cache_control = { type: 'ephemeral' };
             }
         }
 
-        // Build system prompt: use array form with cache_control when caching is enabled
-        const systemParam: string | Anthropic.Messages.TextBlockParam[] = this.config.promptCachingEnabled
-            ? [{ type: 'text' as const, text: systemPrompt, cache_control: { type: 'ephemeral' as const } }]
-            : systemPrompt;
+        let systemParam: string | Anthropic.Messages.TextBlockParam[];
+        if (this.config.promptCachingEnabled) {
+            const { stable, volatile } = splitSystemPromptAtCacheBreakpoint(systemPrompt);
+            systemParam = volatile.trim().length > 0
+                ? [
+                    { type: 'text' as const, text: stable, cache_control: { type: 'ephemeral' as const } },
+                    { type: 'text' as const, text: volatile },
+                  ]
+                : [{ type: 'text' as const, text: stable, cache_control: { type: 'ephemeral' as const } }];
+        } else {
+            systemParam = systemPrompt;
+        }
 
-        // Extended thinking: when enabled, temperature MUST be 1, max_tokens >= budget_tokens
+        // Extended thinking: when enabled, temperature MUST be 1.
+        // resolveOutputBudget adds the thinking budget on top of the visible-output
+        // budget and clamps both to the model's real output ceiling — prevents a
+        // near-empty answer (truncated tool calls) and prevents 400s from an
+        // over-eager Settings value.
         const thinkingEnabled = this.config.thinkingEnabled ?? false;
-        const budgetTokens = this.config.thinkingBudgetTokens ?? 10000;
+        const { maxTokens: effectiveMaxTokens, thinkingBudgetTokens: budgetTokens } = resolveOutputBudget(
+            this.config.model,
+            this.config.maxTokens,
+            {
+                enabled: thinkingEnabled,
+                budgetTokens: this.config.thinkingBudgetTokens,
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
+            },
+        );
         const effectiveTemperature = thinkingEnabled
             ? 1
             : Math.min(this.config.temperature ?? 0.2, 1.0);
-        const effectiveMaxTokens = thinkingEnabled
-            ? Math.max(this.config.maxTokens ?? 16384, budgetTokens)
-            : (this.config.maxTokens ?? 8192);
 
         // Create streaming request (pass abort signal for cancellation support)
         const stream = this.client.messages.stream(
@@ -129,6 +177,11 @@ export class AnthropicProvider implements ApiHandler {
         let outputTokens = 0;
         let cacheReadTokens = 0;
         let cacheCreationTokens = 0;
+        // stop_reason arrives in message_delta, AFTER every content_block_stop, so
+        // parse failures are held and resolved once we know whether the response
+        // was cut off by max_tokens.
+        let stopReason: string | null = null;
+        const failedToolParses: Array<{ id: string; name: string; rawError: string }> = [];
 
         for await (const event of stream) {
             if (event.type === 'message_start') {
@@ -139,6 +192,7 @@ export class AnthropicProvider implements ApiHandler {
 
             if (event.type === 'message_delta') {
                 outputTokens = event.usage.output_tokens;
+                if (event.delta.stop_reason) stopReason = event.delta.stop_reason;
             }
 
             if (event.type === 'content_block_start') {
@@ -180,34 +234,55 @@ export class AnthropicProvider implements ApiHandler {
                 // If this was a tool_use block, yield the complete tool call
                 const tool = toolAccumulator.get(event.index);
                 if (tool) {
-                    let parsedInput: Record<string, unknown> = {};
+                    let parsedInput: Record<string, unknown> | undefined;
                     try {
                         parsedInput = tool.inputJson ? JSON.parse(tool.inputJson) : {};
                     } catch (e) {
+                        // Hold it — the actionable message depends on the stop_reason,
+                        // which only arrives in the upcoming message_delta event.
+                        failedToolParses.push({ id: tool.id, name: tool.name, rawError: (e as Error).message });
+                    }
+                    if (parsedInput !== undefined) {
                         yield {
-                            type: 'tool_error',
+                            type: 'tool_use',
                             id: tool.id,
                             name: tool.name,
-                            error: `Tool input parse error: ${(e as Error).message}`,
+                            input: parsedInput,
                         } satisfies ApiStreamChunk;
-                        toolAccumulator.delete(event.index);
-                        continue;
                     }
-
-                    yield {
-                        type: 'tool_use',
-                        id: tool.id,
-                        name: tool.name,
-                        input: parsedInput,
-                    } satisfies ApiStreamChunk;
-
                     toolAccumulator.delete(event.index);
                 }
             }
         }
 
+        // A tool still in the accumulator means the stream ended without a
+        // content_block_stop for it (abrupt cutoff) — treat as a parse failure.
+        for (const tool of toolAccumulator.values()) {
+            failedToolParses.push({ id: tool.id, name: tool.name, rawError: 'the stream ended before the tool call completed' });
+        }
+        toolAccumulator.clear();
+
+        const wasMaxTokens = stopReason === 'max_tokens';
+        for (const ft of failedToolParses) {
+            yield {
+                type: 'tool_error',
+                id: ft.id,
+                name: ft.name,
+                error: truncatedToolInputError(ft.name, ft.rawError, wasMaxTokens),
+            } satisfies ApiStreamChunk;
+        }
+
         // Yield token usage at the end
         if (inputTokens > 0 || outputTokens > 0) {
+            logCacheStat({
+                provider: 'anthropic',
+                model: this.config.model,
+                caching: this.config.promptCachingEnabled ? 'on' : 'OFF',
+                nonCachedInputTokens: inputTokens, // message_start.usage.input_tokens excludes cached
+                cacheReadTokens,
+                cacheCreationTokens,
+                outputTokens,
+            });
             yield {
                 type: 'usage',
                 inputTokens,

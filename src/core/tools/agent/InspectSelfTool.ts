@@ -2,7 +2,7 @@
  * inspect_self -- live introspection of the running plugin (L4).
  *
  * Self-Awareness for the agent: instead of guessing what tools/settings/
- * capabilities Obsilo currently has, the agent calls inspect_self with
+ * capabilities Vault Operator currently has, the agent calls inspect_self with
  * a specific area and gets back a Markdown summary of the live runtime
  * state. Counters the hallucination class observed 2026-04-28 (agent
  * invented a Star button that didn't exist yet).
@@ -39,7 +39,7 @@ export class InspectSelfTool extends BaseTool<'inspect_self'> {
         return {
             name: 'inspect_self',
             description:
-                'Inspect the running Obsilo plugin\'s live state. Use when uncertain about ' +
+                'Inspect the running Vault Operator plugin\'s live state. Use when uncertain about ' +
                 'your own features rather than guessing. Returns a Markdown summary of one area:\n' +
                 '- settings: current configuration values (sensitive keys redacted)\n' +
                 '- tools: all currently registered tools with descriptions\n' +

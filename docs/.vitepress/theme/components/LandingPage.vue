@@ -173,7 +173,7 @@ onMounted(() => {
 
 <template>
   <section class="landing-hero">
-    <a href="https://github.com/pssah4/obsilo/releases" class="landing-badge" target="_blank" rel="noopener">
+    <a href="https://github.com/pssah4/vault-operator/releases" class="landing-badge" target="_blank" rel="noopener">
       <span class="landing-badge-version">v2.7.2</span>
       <span>Source-position provenance, dead-link detection, dependency hardening</span>
     </a>
@@ -183,7 +183,7 @@ onMounted(() => {
     <div class="landing-chat">
       <div class="landing-chat-header">
         <div class="landing-dots"><span /><span /><span /></div>
-        Obsilo Agent
+        Vault Operator
       </div>
       <div class="landing-chat-body">
         <span class="landing-prompt">&gt;</span>
@@ -204,7 +204,7 @@ onMounted(() => {
     <div class="landing-cta">
       <a href="/tutorials/getting-started" class="landing-btn-primary">Get Started</a>
       <a href="/guides/capabilities" class="landing-btn-secondary">
-What Obsilo Can Do
+What Vault Operator Can Do
       </a>
     </div>
   </section>

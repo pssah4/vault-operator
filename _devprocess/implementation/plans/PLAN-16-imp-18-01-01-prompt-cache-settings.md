@@ -7,7 +7,7 @@ refs:
   - ADR-62 (Update 2026-05-09)
   - ADR-111
   - EPIC-18
-  - GitHub Issue #313 pssah4/obsilo-dev
+  - GitHub Issue #313 pssah4/vault-operator-dev
 created: 2026-05-10
 branch: chore/imp-18-01-prompt-cache-settings
 pair-id: sebastian-opus-4.7

@@ -9,7 +9,7 @@
 FUER Obsidian-Nutzer mit bestehendem GitHub Copilot Abonnement
 DIE ihre bezahlten Premium Requests fuer Vault-Management und AI-Aufgaben nutzen moechten
 IST DIE GitHub Copilot Provider Integration
-EIN neuer LLM Provider innerhalb der bestehenden Obsilo Provider-Architektur
+EIN neuer LLM Provider innerhalb der bestehenden Vault Operator Provider-Architektur
 DER Zugang zu allen Copilot-verfuegbaren Modellen (Chat + Embedding) ohne separate API Keys bietet
 IM GEGENSATZ ZU manuell konfigurierten BYOK-Providern mit eigenen API Keys
 UNSERE LOESUNG erfordert nur einen einmaligen GitHub-Login statt separater API Key Beschaffung
@@ -17,7 +17,7 @@ UNSERE LOESUNG erfordert nur einen einmaligen GitHub-Login statt separater API K
 ## Business Outcomes (messbar)
 
 1. **Nutzer-Aktivierung**: Copilot-Auth-Erfolgsrate erreicht >95% innerhalb der ersten 2 Wochen nach Launch
-2. **Modell-Abdeckung**: 100% der vom Copilot API gelisteten Modelle sind in Obsilo nutzbar
+2. **Modell-Abdeckung**: 100% der vom Copilot API gelisteten Modelle sind in Vault Operator nutzbar
 3. **Null-Regression**: 0 neue Bugs in bestehenden Providern (Anthropic, OpenAI, Ollama, etc.)
 
 ## Leading Indicators (Fruehindikatoren)

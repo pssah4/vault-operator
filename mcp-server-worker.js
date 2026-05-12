@@ -22,7 +22,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // src/mcp/mcp-server-worker.ts
-var OBSILO_URL = "http://127.0.0.1:27182";
+var VAULT_OPERATOR_URL = "http://127.0.0.1:27182";
 var mcpToken = "";
 try {
   const fs = require("fs");
@@ -42,19 +42,19 @@ process.stdin.on("data", (chunk) => {
     if (!line.trim()) continue;
     try {
       const request = JSON.parse(line);
-      void forwardToObsilo(request, request.id !== void 0 && request.id !== null);
+      void forwardToVaultOperator(request, request.id !== void 0 && request.id !== null);
     } catch {
       process.stderr.write(`[mcp-proxy] Invalid JSON: ${line.slice(0, 100)}
 `);
     }
   }
 });
-async function forwardToObsilo(request, expectResponse = true) {
+async function forwardToVaultOperator(request, expectResponse = true) {
   try {
     const http = await import("http");
     const body = JSON.stringify(request);
     const response = await new Promise((resolve, reject) => {
-      const req = http.request(OBSILO_URL, {
+      const req = http.request(VAULT_OPERATOR_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -86,11 +86,11 @@ async function forwardToObsilo(request, expectResponse = true) {
       id: request?.id ?? null,
       error: {
         code: -32603,
-        message: `Obsilo not reachable. Is Obsidian running with the connector enabled? (${e instanceof Error ? e.message : String(e)})`
+        message: `Vault Operator not reachable. Is Obsidian running with the connector enabled? (${e instanceof Error ? e.message : String(e)})`
       }
     });
     process.stdout.write(errorResponse + "\n");
   }
 }
 process.stdin.resume();
-process.stderr.write("[mcp-proxy] Obsilo MCP proxy started\n");
+process.stderr.write("[mcp-proxy] Vault Operator MCP proxy started\n");

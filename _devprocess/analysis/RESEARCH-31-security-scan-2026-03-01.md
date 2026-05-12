@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Project** | Obsilo Agent (Obsidian Plugin) |
+| **Project** | Vault Operator (Obsidian Plugin) |
 | **Date** | 2026-03-01 |
 | **Scanner** | Enterprise Security Scanner v1.0 |
 | **Scan Scope** | Full — All phases active |

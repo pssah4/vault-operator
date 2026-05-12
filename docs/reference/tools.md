@@ -1,14 +1,14 @@
 ---
 title: Tools Reference
-description: Complete list of all 62 tools available to the Obsilo agent, organized by group.
+description: Complete list of all 62 tools available to the Vault Operator, organized by group.
 ---
 
 # Tools reference
 
-Obsilo has 62 built-in tools across nine groups. The agent picks the right tool based on your request. You never call tools yourself.
+Vault Operator has 62 built-in tools across nine groups. The agent picks the right tool based on your request. You never call tools yourself.
 
 :::tip How tools work
-When you ask Obsilo to do something, it picks one or more tools, shows its plan in the activity block, and asks for approval before any write operation. See [Safety & Control](/guides/safety-control) for details.
+When you ask Vault Operator to do something, it picks one or more tools, shows its plan in the activity block, and asks for approval before any write operation. See [Safety & Control](/guides/safety-control) for details.
 :::
 
 ## Tool groups at a glance
@@ -131,7 +131,7 @@ Internal tools the agent uses to manage its own workflow and configuration.
 | `manage_source` | Manage context sources: persistent text blocks injected into every conversation. | To always include certain context like project rules. |
 | `manage_mcp_server` | Add, remove, or test MCP server connections. | To connect external tool servers. |
 | `configure_model` | Add, select, or test an LLM model configuration. | To set up a new AI model or switch the active one. |
-| `update_settings` | Change Obsilo plugin settings or apply permission presets. | When you ask the agent to adjust its own configuration. |
+| `update_settings` | Change Vault Operator plugin settings or apply permission presets. | When you ask the agent to adjust its own configuration. |
 | `read_agent_logs` | Read the agent's internal console logs for self-debugging. | To diagnose errors or understand what happened. |
 
 ## Plugin integration tools
@@ -158,7 +158,7 @@ Each mode (Ask, Agent, or your custom modes) can enable or disable specific tool
 
 ## Cross-surface tools (MCP outbound)
 
-Obsilo also exposes a small surface to external AI clients (Claude Desktop, ChatGPT, Perplexity) via its own MCP server. These are not built-in tools the agent calls; they are entry points other AIs use to read and write Obsilo's memory and history layers. See [MCP architecture](/concepts/mcp-architecture).
+Vault Operator also exposes a small surface to external AI clients (Claude Desktop, ChatGPT, Perplexity) via its own MCP server. These are not built-in tools the agent calls; they are entry points other AIs use to read and write Vault Operator's memory and history layers. See [MCP architecture](/concepts/mcp-architecture).
 
 - `get_context`: pull the user's memory, soul, skills, and rules (gated by strict source isolation setting).
 - `recall_memory`: cross-source memory retrieval.
@@ -200,7 +200,7 @@ Common tasks mapped to the right tool.
 
 - **Read tools run in parallel.** When the agent needs to read multiple files, it reads them all at once.
 - **Edit tools run sequentially.** Write operations go one at a time to avoid conflicts.
-- **Checkpoints run automatically.** Before any edit tool modifies a file, Obsilo creates a snapshot so you can undo the change.
+- **Checkpoints run automatically.** Before any edit tool modifies a file, Vault Operator creates a snapshot so you can undo the change.
 - **`evaluate_expression` runs in a sandbox.** No direct file system access, no shell. Vault access goes through a bridge with the user's permission settings.
 - **Office-document tools self-check after output.** `create_pptx`, `create_docx`, `create_xlsx`, `generate_canvas`, and `create_excalidraw` produce real binary files that open in Microsoft Office, Google Docs, or LibreOffice.
 - **Knowledge-ingest tools enforce provenance.** Every key statement in an ingest output carries a `[[source#position\|↗]]` link to the exact block, page, slide, or anchor in the source. See [Knowledge Ingest](/guides/knowledge-ingest).

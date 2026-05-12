@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Obsilo erkennt implizite Verbindungen zwischen Notes: Paare von Notes die semantisch nah sind (hohe Vektor-Aehnlichkeit) aber keinen direkten Wikilink oder gemeinsames MOC-Thema haben. Diese versteckten Zusammenhaenge werden vorberechnet (Background-Job) und in der Suche als "Implicit connections" angezeigt.
+Vault Operator erkennt implizite Verbindungen zwischen Notes: Paare von Notes die semantisch nah sind (hohe Vektor-Aehnlichkeit) aber keinen direkten Wikilink oder gemeinsames MOC-Thema haben. Diese versteckten Zusammenhaenge werden vorberechnet (Background-Job) und in der Suche als "Implicit connections" angezeigt.
 
 Note-Level-Vektoren werden durch Mittelwertbildung aller Chunk-Vektoren berechnet. Paarweiser Cosine-Similarity-Vergleich mit konfigurierbarem Threshold (default 0.7). Paare mit expliziten Edges (Wikilinks/MOC) werden ausgeschlossen.
 
@@ -37,7 +37,7 @@ Note-Level-Vektoren werden durch Mittelwertbildung aller Chunk-Vektoren berechne
 
 ### Story 3: Verbindungsvorschlaege
 **Als** Knowledge Worker
-**moechte ich** aktive Vorschlaege erhalten wenn Obsilo eine potenziell relevante Verbindung erkennt
+**moechte ich** aktive Vorschlaege erhalten wenn Vault Operator eine potenziell relevante Verbindung erkennt
 **um** mein Wissensnetz gezielt erweitern zu koennen
 
 ---

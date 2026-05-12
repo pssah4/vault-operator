@@ -5,7 +5,7 @@
 
 ## Context
 
-GitHub Copilot Chat Completions API (`api.githubcopilot.com/chat/completions`) ist OpenAI-kompatibel und liefert SSE-basierte Streaming-Responses. Obsilo muss diese Responses als `ApiStream` (AsyncIterable) verarbeiten.
+GitHub Copilot Chat Completions API (`api.githubcopilot.com/chat/completions`) ist OpenAI-kompatibel und liefert SSE-basierte Streaming-Responses. Vault Operator muss diese Responses als `ApiStream` (AsyncIterable) verarbeiten.
 
 **Triggering ASR:**
 - requestUrl statt fetch/SDK (Compliance, FEAT-12-01/1202)

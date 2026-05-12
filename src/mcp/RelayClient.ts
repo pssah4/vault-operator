@@ -1,5 +1,5 @@
 /**
- * RelayClient -- HTTP long-polling client connecting to the remote Obsilo Relay.
+ * RelayClient -- HTTP long-polling client connecting to the remote Vault Operator Relay.
  *
  * Uses Obsidian's requestUrl (not WebSocket) to communicate with the relay.
  * This works within Obsidian's renderer CSP which blocks WebSocket to external servers.
@@ -171,7 +171,7 @@ export class RelayClient {
                     !this.noticeShownForCurrentOutage
                 ) {
                     new Notice(
-                        `Obsilo MCP relay nicht erreichbar (${detail}). Details in der Konsole.`,
+                        `Vault Operator MCP relay nicht erreichbar (${detail}). Details in der Konsole.`,
                         8000,
                     );
                     this.noticeShownForCurrentOutage = true;
@@ -214,7 +214,7 @@ export class RelayClient {
                 result = {
                     protocolVersion: '2025-03-26',
                     capabilities: { tools: {}, prompts: {}, resources: {} },
-                    serverInfo: { name: 'Obsilo', version: '1.0.0' },
+                    serverInfo: { name: 'Vault Operator', version: '1.0.0' },
                 };
             } else if (request.method === 'tools/list') {
                 const bridge = this.plugin.mcpBridge as unknown as { getToolsWithContext?: () => unknown[] };

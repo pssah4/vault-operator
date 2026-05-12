@@ -5,11 +5,11 @@ description: MCP client for external tools, MCP server for Claude Desktop and Ch
 
 # Connectors
 
-Obsilo can connect to external tools, expose your vault and memory layer to other AI applications, and let you reach it remotely. It does this through the Model Context Protocol (MCP) and a Cloudflare relay.
+Vault Operator can connect to external tools, expose your vault and memory layer to other AI applications, and let you reach it remotely. It does this through the Model Context Protocol (MCP) and a Cloudflare relay.
 
 ## MCP client: connect external tools
 
-The MCP client lets Obsilo use tools that live in external MCP servers. You can extend what the agent can do without writing a plugin.
+The MCP client lets Vault Operator use tools that live in external MCP servers. You can extend what the agent can do without writing a plugin.
 
 ### What you can connect
 
@@ -21,7 +21,7 @@ Any MCP-compatible server works. A few common examples:
 
 ### Setup
 
-1. Open **Settings > Obsilo Agent > MCP**
+1. Open **Settings > Vault Operator > MCP**
 2. Click **"+ Add Server"**
 3. Choose the transport type:
 
@@ -40,13 +40,13 @@ Once connected, the agent calls external tools with `use_mcp_tool` and manages s
 You don't need to tell the agent which tools are available. It reads the tool list from each connected MCP server and uses them when they fit your request.
 :::
 
-## MCP server: expose Obsilo to other AI clients
+## MCP server: expose Vault Operator to other AI clients
 
-You can turn Obsilo into an MCP server so Claude Desktop, ChatGPT, Perplexity, or any other MCP client can read and write your vault, memory, and history layers.
+You can turn Vault Operator into an MCP server so Claude Desktop, ChatGPT, Perplexity, or any other MCP client can read and write your vault, memory, and history layers.
 
 ### Why this matters
 
-Most external AI clients cannot access your Obsidian notes on their own. With Obsilo's MCP server enabled, they get structured access to:
+Most external AI clients cannot access your Obsidian notes on their own. With Vault Operator's MCP server enabled, they get structured access to:
 
 - The vault: search and read notes, run vault operations
 - Persistent memory: cross-surface facts and preferences
@@ -71,14 +71,14 @@ Each external call carries a `source_interface` tag (`claude`, `chatgpt`, `perpl
 
 Sharing all of your memory layer with every external client is rarely what you want. **Settings > Memory > Cross-Surface Sync** has two switches:
 
-- **Strict source isolation** (default for non-Obsilo callers): under strict mode, `get_context`, `recall_memory`, and `search_history` only return memory and history items tagged `source_interface = obsilo`. External clients see vault stats and structural info, but not your personal memory.
+- **Strict source isolation** (default for non-Vault Operator callers): under strict mode, `get_context`, `recall_memory`, and `search_history` only return memory and history items tagged `source_interface = obsilo`. External clients see vault stats and structural info, but not your personal memory.
 - **Per-surface sync mode**: opt specific surfaces into shared memory if you want unified behaviour across them.
 
 The default is conservative. Loosen it deliberately, per surface, when the trade-off is worth it.
 
 ### Setup for Claude Desktop
 
-1. Open **Settings > Obsilo Agent > MCP > Server** tab
+1. Open **Settings > Vault Operator > MCP > Server** tab
 2. Enable the MCP server
 3. Click **"Configure Claude Desktop"**. This writes the configuration into Claude Desktop's config file for you.
 4. Restart Claude Desktop
@@ -87,7 +87,7 @@ Claude Desktop now sees the vault, memory, and history as available tool sources
 
 ### Setup for ChatGPT (custom connector)
 
-1. In Obsilo, open **Settings > MCP > Remote** and copy the relay URL (see Remote access below).
+1. In Vault Operator, open **Settings > MCP > Remote** and copy the relay URL (see Remote access below).
 2. In ChatGPT, open **Settings > Connectors > Create custom connector**.
 3. Use the relay URL as the MCP server endpoint.
 4. Authorize. ChatGPT now has the same four tiers available, gated by your strict-source-isolation setting.
@@ -108,12 +108,12 @@ Remote access lets you talk to your vault from anywhere, as long as Obsidian is 
 
 ### How it works
 
-A Cloudflare Workers relay acts as a bridge between your local Obsilo instance and remote clients. The RelayClient in Obsilo holds a persistent connection to the deployed worker. The relay uses HTTP long-polling. The client polls for incoming requests, processes them locally, and sends responses back. Authentication uses a token embedded in the URL. No data is stored on the relay. It is a passthrough.
+A Cloudflare Workers relay acts as a bridge between your local Vault Operator instance and remote clients. The RelayClient in Vault Operator holds a persistent connection to the deployed worker. The relay uses HTTP long-polling. The client polls for incoming requests, processes them locally, and sends responses back. Authentication uses a token embedded in the URL. No data is stored on the relay. It is a passthrough.
 
 ### Setup
 
 1. Deploy the Cloudflare Worker (see the relay deployment guide)
-2. In **Settings > Obsilo Agent > MCP > Remote**, enter your worker URL
+2. In **Settings > Vault Operator > MCP > Remote**, enter your worker URL
 3. Authenticate with the provided token
 4. The relay connects automatically when Obsidian is running
 
@@ -123,7 +123,7 @@ Remote access requires Obsidian to be running on your machine. The relay forward
 
 ## Living documents and source-interface tagging
 
-When you use Obsilo through Claude Desktop, ChatGPT, or Perplexity, every persisted message carries a `source_interface` tag. The history sidebar in Obsidian groups conversations by source so you can see what came in from which surface.
+When you use Vault Operator through Claude Desktop, ChatGPT, or Perplexity, every persisted message carries a `source_interface` tag. The history sidebar in Obsidian groups conversations by source so you can see what came in from which surface.
 
 Multiple `save_conversation` calls within 30 minutes from the same source interface append to a single thread instead of creating new conversations. This is the living-document model. Memory extraction runs incrementally on the new turns rather than re-processing the whole thread.
 
@@ -131,7 +131,7 @@ Multiple `save_conversation` calls within 30 minutes from the same source interf
 
 ## Provider overview
 
-Obsilo supports 10+ AI providers. Most use a plain API key. A few use different auth flows.
+Vault Operator supports 10+ AI providers. Most use a plain API key. A few use different auth flows.
 
 | Provider | Auth method | Notes |
 |----------|------------|-------|
@@ -142,7 +142,7 @@ Obsilo supports 10+ AI providers. Most use a plain API key. A few use different 
 
 ### Setting up GitHub Copilot
 
-1. Open **Settings > Obsilo Agent > Models > + Add Model**
+1. Open **Settings > Vault Operator > Models > + Add Model**
 2. Select **GitHub Copilot** as the provider
 3. Click **"Sign in with GitHub"**. A device code appears.
 4. Open the GitHub URL, enter the code, and authorize
@@ -156,7 +156,7 @@ Obsilo supports 10+ AI providers. Most use a plain API key. A few use different 
 4. For manual token: paste your token from the Kilo dashboard
 
 :::tip Free access
-GitHub Copilot works if you already have a Copilot subscription. Kilo Gateway offers community access with shared limits. Both are good ways to try Obsilo without buying a separate API key.
+GitHub Copilot works if you already have a Copilot subscription. Kilo Gateway offers community access with shared limits. Both are good ways to try Vault Operator without buying a separate API key.
 :::
 
 ## Next steps

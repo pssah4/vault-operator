@@ -15,7 +15,7 @@ Obsidian Vaults mit 500+ Notes verlieren strukturelle Uebersicht. Der User erken
 **How might we** help Obsidian PKM users **understand and improve** the structure of their knowledge graph, **despite** growing vault sizes and the need to preserve the user's own thinking in every linking decision?
 
 ### 1.3 Value Proposition (Solution Hypothesis)
-Graph Intelligence erweitert den Obsilo Agent auf zwei Ebenen: (1) User-facing -- Diagnostik-Tools die dem User helfen, die Struktur seines Denkens zu erkennen und zu verbessern (Confidence Scoring, Cluster-Erkennung, God-Node-Analyse, Batch-Ingest). (2) Agent-facing -- smartere Retrieval-Qualitaet durch Confidence-gewichtete Graph-Expansion, Cluster-aware Suche und Hub-Kontext-Anker. Beide Ebenen respektieren das Prinzip: Verlinkungen sind Ausdruck des eigenen Denkens.
+Graph Intelligence erweitert den Vault Operator auf zwei Ebenen: (1) User-facing -- Diagnostik-Tools die dem User helfen, die Struktur seines Denkens zu erkennen und zu verbessern (Confidence Scoring, Cluster-Erkennung, God-Node-Analyse, Batch-Ingest). (2) Agent-facing -- smartere Retrieval-Qualitaet durch Confidence-gewichtete Graph-Expansion, Cluster-aware Suche und Hub-Kontext-Anker. Beide Ebenen respektieren das Prinzip: Verlinkungen sind Ausdruck des eigenen Denkens.
 
 ### 1.4 High-Level Concept
 "IDE Code Analyzer fuer dein Wissensnetz -- findet strukturelle Probleme und schlaegt Verbesserungen vor, ohne deinen Code umzuschreiben."
@@ -38,7 +38,7 @@ Graph Intelligence erweitert den Obsilo Agent auf zwei Ebenen: (1) User-facing -
 ## 2. Business Context
 
 ### 2.1 Background
-Obsilo hat einen vollstaendigen Knowledge Graph (GraphStore, OntologyStore, VaultHealthService) mit 5 Health Checks und einem Ingest-Skill. Die aktuelle Analyse basiert auf manuellen MOC-Properties und mechanischen Pruefungen (broken links, fehlende Backlinks). Graphentheoretische Analyse (Clustering, Hub-Metriken, Confidence) fehlt.
+Vault Operator hat einen vollstaendigen Knowledge Graph (GraphStore, OntologyStore, VaultHealthService) mit 5 Health Checks und einem Ingest-Skill. Die aktuelle Analyse basiert auf manuellen MOC-Properties und mechanischen Pruefungen (broken links, fehlende Backlinks). Graphentheoretische Analyse (Clustering, Hub-Metriken, Confidence) fehlt.
 
 Inspiration: Graphify nutzt Community Detection (Leiden/Louvain) und Confidence Scoring fuer Code-Graphen. Diese Konzepte sind auf PKM-Graphen uebertragbar. Fuer die JS-Implementierung steht Louvain via graphology zur Verfuegung (Leiden hat keine JS-Library).
 
@@ -74,7 +74,7 @@ Inspiration: Graphify nutzt Community Detection (Leiden/Louvain) und Confidence 
 
 | Stakeholder | Role | Interest | Influence | Needs |
 |-------------|------|----------|-----------|-------|
-| Obsilo User (PKM) | Endanwender | H | H | Bessere Graph-Uebersicht, weniger manuelle Arbeit |
+| Vault Operator User (PKM) | Endanwender | H | H | Bessere Graph-Uebersicht, weniger manuelle Arbeit |
 | Obsidian Community | Review / Feedback | M | M | Plugin-Qualitaet, Performance, keine Obsidian-API-Verletzungen |
 | Sebastian (Developer) | Entwickler + Product Owner | H | H | Technische Machbarkeit, Wartbarkeit, Token-Kosten |
 
@@ -332,14 +332,14 @@ PKM Vaults leiden an vier strukturellen Problemen die mit wachsender Groesse zun
 |-----------|-------|-----------|
 | **Activate users** | 8 | PKM-User mit >500 Notes haben ein akutes Problem. Graph Intelligence ist ein starkes Differenzierungsmerkmal. |
 | **Preference vs. substitutes** | 7 | Kein anderes Obsidian-Plugin kombiniert Graph-Analyse mit LLM-Agent. Smart Connections und Graph Analysis sind partiell. |
-| **Willingness to pay** | N/A | Obsilo ist Open Source (Apache-2.0). Kein Pricing. |
+| **Willingness to pay** | N/A | Vault Operator ist Open Source (Apache-2.0). Kein Pricing. |
 | **Referral potential** | 8 | "Zeig mir deinen Graphen" ist ein Community-Meme. Graph Intelligence ist teilbar und visuell ansprechend. |
 
 ### 11.2 Assessment Radar (Scale 0-10)
 
 | Axis | Score | Rationale |
 |------|-------|-----------|
-| **Brand Fit** | 9 | Graph Intelligence passt perfekt zu Obsilo's Positionierung als "AI Operating Layer" |
+| **Brand Fit** | 9 | Graph Intelligence passt perfekt zu Vault Operator's Positionierung als "AI Operating Layer" |
 | **Investment** | 6 | 4 Features, ~2-4 Wochen Implementierung. graphology-Integration ist das groesste Risiko. |
 | **Asset Fit** | 9 | GraphStore, OntologyStore, VaultHealthService existieren. Erweiterung, kein Neubau. |
 | **Viral Potential** | 8 | "Mein Agent hat 5 neue Cluster in meinem Vault entdeckt" ist teilbar. |

@@ -1,6 +1,6 @@
 # Analyse: Agent Self-Development (Meta-Agent)
 
-> Herleitung und Reasoning fuer die Self-Development-Architektur von Obsilo Agent
+> Herleitung und Reasoning fuer die Self-Development-Architektur von Vault Operator
 
 **Datum**: 2026-03-01
 **Revision**: 3 (CDN-Strategie: esm.sh primaer, rekursive Dependency-Aufloesung)

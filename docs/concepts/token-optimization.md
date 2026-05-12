@@ -1,13 +1,13 @@
 ---
 title: Token Optimization
-description: How Obsilo reduces token costs by up to 90% through fast paths, cache alignment, and context externalization.
+description: How Vault Operator reduces token costs by up to 90% through fast paths, cache alignment, and context externalization.
 ---
 
 # Token optimization
 
 A naive agent loop is expensive. The agent sends a system prompt, all tool definitions, the full conversation history, and every tool result to the LLM on every turn. For a simple "find and summarize" task, that can add up to 634,000 input tokens.
 
-Obsilo uses three complementary strategies that brought this down to 60,000 tokens for the same task, a 90% reduction.
+Vault Operator uses three complementary strategies that brought this down to 60,000 tokens for the same task, a 90% reduction.
 
 ## The cost problem
 
@@ -27,18 +27,18 @@ When the agent has seen a similar task before, it skips the iterative loop entir
 1. `FastPathExecutor` checks if any learned recipe matches the current request.
 2. If a match is found, it makes one planning call to the LLM with the recipe and the specific inputs.
 3. The LLM returns a batch of tool calls (all at once, not one at a time).
-4. Obsilo executes them deterministically without further LLM calls.
+4. Vault Operator executes them deterministically without further LLM calls.
 5. One final LLM call formats the result.
 
 That's 2-3 LLM calls instead of 8. The agent learns new recipes automatically from successful task completions.
 
-If the fast path fails or no recipe matches, Obsilo falls back to the normal agent loop. Nothing breaks.
+If the fast path fails or no recipe matches, Vault Operator falls back to the normal agent loop. Nothing breaks.
 
 ## Strategy 2: KV-cache-aligned prompt
 
 LLM providers cache the key-value pairs computed from the prompt prefix. If the same prefix appears again, those computations are reused and you pay less.
 
-Obsilo arranges the system prompt so stable content comes first and volatile content comes last. The stable prefix (positions 1-8) covers the role definition, tool definitions, rules, capabilities, mode instructions, and shared safety language. These rarely change inside a session. The volatile tail (positions 9-16) is active file context, retrieved memory, recipes, soul snippets, and the current date and time, which change every turn.
+Vault Operator arranges the system prompt so stable content comes first and volatile content comes last. The stable prefix (positions 1-8) covers the role definition, tool definitions, rules, capabilities, mode instructions, and shared safety language. These rarely change inside a session. The volatile tail (positions 9-16) is active file context, retrieved memory, recipes, soul snippets, and the current date and time, which change every turn.
 
 Because tools, rules, and mode definitions don't change between turns, the LLM can cache them. This is provider-agnostic: Anthropic uses explicit cache markers, while OpenAI and Gemini do implicit prefix caching.
 

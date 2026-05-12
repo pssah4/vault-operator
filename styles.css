@@ -793,7 +793,7 @@
 /* SoakReportModal: a wide read-only textarea shows the JSON snapshot
  * so the user can manually copy or save to vault. Modal owns focus
  * which makes clipboard.writeText reliable. */
-.obsilo-soak-report-modal .obsilo-soak-report-textarea {
+.vault-operator-soak-report-modal .vault-operator-soak-report-textarea {
     width: 100%;
     min-height: 360px;
     font-family: var(--font-monospace);
@@ -1712,6 +1712,31 @@
 .mcm-fetch-btn svg {
     width: 13px;
     height: 13px;
+}
+.mcm-recommend-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0 4px;
+    color: var(--text-accent);
+    cursor: pointer;
+    font-size: var(--font-ui-smaller);
+    white-space: nowrap;
+}
+.mcm-recommend-btn:hover {
+    text-decoration: underline;
+}
+.mcm-checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+}
+.mcm-checkbox-line input[type="checkbox"] {
+    flex-shrink: 0;
 }
 
 .mcm-actions {

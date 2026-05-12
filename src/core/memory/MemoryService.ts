@@ -62,7 +62,7 @@ const TEMPLATES: Record<string, string> = {
     'soul.md': `# Agent Identity
 
 ## Name
-Obsilo
+Vault Operator
 
 ## Communication
 - Language: Deutsch

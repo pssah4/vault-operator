@@ -1,6 +1,6 @@
 # _devprocess - V-Model Artefakt-Archiv (intern)
 
-> AI-lesbares Wissensarchiv des Obsilo-Projekts. Nicht public.
+> AI-lesbares Wissensarchiv des Vault Operator-Projekts. Nicht public.
 > Der Public-Sync (`sync-public` CI) entfernt diesen Ordner vor jedem
 > Public-Push.
 

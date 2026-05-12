@@ -1,16 +1,16 @@
-# FEATURE: Obsilo Gateway
+# FEATURE: Vault Operator Gateway
 
 **Priorität:** Nach Agent-Stabilisierung (Monetarisierung)
-**Goal:** Managed LLM relay service that allows Obsilo users to access AI models without their own API keys, monetized via credit packs.
+**Goal:** Managed LLM relay service that allows Vault Operator users to access AI models without their own API keys, monetized via credit packs.
 
 ---
 
 ## 1. Overview
 
-Obsilo Gateway is a hosted relay service between the Obsilo Obsidian plugin and upstream LLM providers (via OpenRouter). Users purchase credit packs and authenticate with an Obsilo license key instead of managing their own API keys.
+Vault Operator Gateway is a hosted relay service between the Vault Operator Obsidian plugin and upstream LLM providers (via OpenRouter). Users purchase credit packs and authenticate with an Vault Operator license key instead of managing their own API keys.
 
 ```
-[Obsilo Plugin] → HTTPS → [Obsilo Gateway API] → [OpenRouter] → [Anthropic / OpenAI / ...]
+[Vault Operator Plugin] → HTTPS → [Vault Operator Gateway API] → [OpenRouter] → [Anthropic / OpenAI / ...]
 ```
 
 **User value:** Zero API key setup, one account for all models, predictable costs.
@@ -87,7 +87,7 @@ Keys are generated server-side on purchase completion (Stripe webhook → Supaba
 
 ### 3.3 Key Storage in Plugin
 
-Keys stored in Obsidian plugin settings (encrypted via Obsidian's `saveData` — same as existing API keys). User enters key in Settings → Providers → Obsilo Gateway.
+Keys stored in Obsidian plugin settings (encrypted via Obsidian's `saveData` — same as existing API keys). User enters key in Settings → Providers → Vault Operator Gateway.
 
 ---
 
@@ -155,11 +155,11 @@ $$ LANGUAGE plpgsql;
 When balance drops below 100 credits, Gateway includes a response header:
 
 ```
-X-Obsilo-Credits-Remaining: 87
-X-Obsilo-Credits-Warning: low
+X-Vault Operator-Credits-Remaining: 87
+X-Vault Operator-Credits-Warning: low
 ```
 
-Plugin reads these headers and shows a notice in the chat sidebar: "Obsilo Gateway: 87 credits remaining. [Top up →]"
+Plugin reads these headers and shows a notice in the chat sidebar: "Vault Operator Gateway: 87 credits remaining. [Top up →]"
 
 ---
 
@@ -194,7 +194,7 @@ Add `obsilo-gateway` as a provider type in the plugin alongside existing provide
 // In providers config / settings
 {
   id: 'obsilo-gateway',
-  name: 'Obsilo Gateway',
+  name: 'Vault Operator Gateway',
   type: 'obsilo-gateway',
   baseUrl: 'https://gateway.obsilo.app',
   apiKey: '', // holds the obs_gw_... license key
@@ -204,7 +204,7 @@ Add `obsilo-gateway` as a provider type in the plugin alongside existing provide
 
 ### 6.2 Settings UI
 
-In Settings → Providers → Models, the Obsilo Gateway section shows:
+In Settings → Providers → Models, the Vault Operator Gateway section shows:
 
 - **License Key** text field (masked, with show/hide toggle)
 - **Verify Key** button → calls `/account/balance`, shows "Active — 1,250 credits" or error
@@ -217,8 +217,8 @@ In Settings → Providers → Models, the Obsilo Gateway section shows:
 In `ApiService` or equivalent, after each streaming response, read response headers and emit a balance update event:
 
 ```typescript
-const remaining = response.headers.get('X-Obsilo-Credits-Remaining');
-const warning = response.headers.get('X-Obsilo-Credits-Warning');
+const remaining = response.headers.get('X-Vault Operator-Credits-Remaining');
+const warning = response.headers.get('X-Vault Operator-Credits-Warning');
 
 if (remaining !== null) {
   this.emit('gateway:balance', parseInt(remaining));
@@ -359,7 +359,7 @@ CREATE INDEX idx_usage_log_key ON usage_log(license_key, charged_at DESC);
 
 ---
 
-## 10. Obsilo.app Website (Minimal)
+## 10. Vault Operator.app Website (Minimal)
 
 Required pages for launch:
 
@@ -406,4 +406,4 @@ Static HTML + minimal JS (no framework needed for v1). Can be hosted on Cloudfla
 2. **Subscription tier?** Monthly $X for Y credits/month auto-replenished. More predictable revenue but more Stripe complexity.
 3. **Refund policy?** Unused credits refundable within 30 days? Non-refundable? Needs ToS.
 4. **EU VAT?** If selling to EU customers, need VAT handling (Stripe Tax handles this automatically).
-5. **Obsidian Plugin Store?** Community plugin submission only possible if app is free. Gateway plugin could be a separate "Obsilo Pro" plugin or a premium unlockable within the free plugin.
+5. **Obsidian Plugin Store?** Community plugin submission only possible if app is free. Gateway plugin could be a separate "Vault Operator Pro" plugin or a premium unlockable within the free plugin.

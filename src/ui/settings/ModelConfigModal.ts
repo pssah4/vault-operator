@@ -2,6 +2,7 @@ import { App, Modal, Notice, setIcon } from 'obsidian';
 import type { CustomModel, ProviderType } from '../../types/settings';
 import { getDefaultBaseUrlForProvider } from '../../types/settings';
 import { getCacheCapability } from '../../api/capabilities';
+import { getModelOutputCeiling, normalizeModelId } from '../../types/model-registry';
 import { PROVIDER_LABELS, MODEL_SUGGESTIONS, EMBEDDING_PROVIDERS, EMBEDDING_SUGGESTIONS } from './constants';
 import { testModelConnection, testEmbeddingConnection, fetchProviderModels, fetchOllamaModels, fetchEmbeddingModels, isTemperatureFixed, maxTemperature } from './testModelConnection';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
@@ -24,14 +25,17 @@ function copilotModelVendor(modelId: string): string {
  * Falls back to pattern matching if the exact ID is not listed.
  */
 function recommendedMaxTokens(modelId: string): number {
-    // Strip OpenRouter vendor prefix for matching
-    const bare = modelId.includes('/') ? modelId.split('/').pop()! : modelId;
+    // Reduce OpenRouter / Bedrock / ARN-decorated IDs to the bare model name.
+    const bare = normalizeModelId(modelId);
 
-    // Exact matches first
+    // Exact matches first. Values are generous defaults (output is billed per
+    // generated token, not per limit), bounded well below each model's hard cap.
     const EXACT: Record<string, number> = {
         'claude-opus-4-6': 32_000,
-        'claude-sonnet-4-5': 16_384,
-        'claude-sonnet-4': 16_384,
+        'claude-sonnet-4-6': 32_000,
+        'claude-sonnet-4-5': 32_000,
+        'claude-sonnet-4-5-20250929': 32_000,
+        'claude-sonnet-4': 32_000,
         'claude-haiku-4-5-20251001': 8_192,
         'claude-3-7-sonnet-20250219': 16_384,
         'claude-3-5-sonnet-20241022': 8_192,
@@ -53,17 +57,20 @@ function recommendedMaxTokens(modelId: string): number {
         'gemini-2.0-flash': 8_192,
         'mistral-large-latest': 8_192,
     };
-    if (EXACT[bare]) return EXACT[bare];
-
-    // Pattern-based fallbacks
-    if (/^claude-opus/i.test(bare)) return 32_000;
-    if (/^claude-sonnet-4/i.test(bare)) return 16_384;
-    if (/^claude/i.test(bare)) return 8_192;
-    if (/^o[1-9]/i.test(bare)) return 100_000;
-    if (/^gpt-5/i.test(bare)) return 32_768;
-    if (/^gpt-4/i.test(bare)) return 16_384;
-
-    return 8_192; // safe default
+    const raw = EXACT[bare] ?? (() => {
+        // Pattern-based fallbacks
+        if (/^claude-opus/i.test(bare)) return 32_000;
+        if (/^claude-sonnet-4/i.test(bare)) return 32_000;
+        if (/^claude/i.test(bare)) return 8_192;
+        if (/^o[1-9]/i.test(bare)) return 100_000;
+        if (/^gpt-5/i.test(bare)) return 32_768;
+        if (/^gpt-4\.1/i.test(bare)) return 32_768;
+        if (/^gpt-4/i.test(bare)) return 16_384;
+        return 8_192; // safe default
+    })();
+    // Never recommend more than the model's real output ceiling (when known).
+    const ceiling = getModelOutputCeiling(bare);
+    return ceiling ? Math.min(raw, ceiling) : raw;
 }
 
 export class ModelConfigModal extends Modal {
@@ -78,6 +85,8 @@ export class ModelConfigModal extends Modal {
     private formApiKey: string;
     private formBaseUrl: string;
     private formApiVersion: string;
+    /** When true, max_tokens is left to the runtime (resolveOutputBudget). The slider below is the manual override used only when this is false. */
+    private formAutoMaxTokens: boolean;
     private formMaxTokens: number;
     private formTemperatureEnabled: boolean;
     private formTemperatureValue: number;
@@ -116,8 +125,10 @@ export class ModelConfigModal extends Modal {
     private thinkingBudgetRow: HTMLElement | null = null;
     private thinkingNoteEl: HTMLElement | null = null;
     private maxTokensRow: HTMLElement | null = null;
+    private maxTokensManualWrap: HTMLElement | null = null;
     private maxTokensSliderEl: HTMLInputElement | null = null;
     private maxTokensValueEl: HTMLElement | null = null;
+    private maxTokensRecBtnEl: HTMLButtonElement | null = null;
     private maxTokensNoteEl: HTMLElement | null = null;
     private copilotAuthRow: HTMLElement | null = null;
     private kiloAuthRow: HTMLElement | null = null;
@@ -138,7 +149,6 @@ export class ModelConfigModal extends Modal {
             baseUrl: '',
             enabled: true,
             isBuiltIn: false,
-            maxTokens: 8192,
         };
         this.onSave = onSave;
         this.formName = this.model.name;
@@ -147,7 +157,10 @@ export class ModelConfigModal extends Modal {
         this.formApiKey = this.model.apiKey ?? '';
         this.formBaseUrl = this.model.baseUrl ?? getDefaultBaseUrlForProvider(this.model.provider) ?? '';
         this.formApiVersion = this.model.apiVersion ?? '2024-10-21';
-        this.formMaxTokens = this.model.maxTokens ?? 8192;
+        // Auto by default: an undefined stored value means "let the runtime size
+        // it" (resolveOutputBudget). An explicit value means the user picked a cap.
+        this.formAutoMaxTokens = this.model.maxTokens === undefined;
+        this.formMaxTokens = this.model.maxTokens ?? recommendedMaxTokens(this.model.name);
         this.formTemperatureEnabled = this.model.temperature !== undefined;
         this.formTemperatureValue = this.model.temperature ?? 0.7;
         // IMP-18-01-01: default-on for cache-capable models, preserve explicit user value otherwise.
@@ -316,9 +329,14 @@ export class ModelConfigModal extends Modal {
         this.nameInputEl.value = this.formName;
         this.nameInputEl.addEventListener('input', () => {
             this.formName = this.nameInputEl!.value.trim();
+            // For a brand-new model, keep Max Output Tokens snapped to the value
+            // recommended for whatever model ID has been entered so far. Existing
+            // models keep the user's stored value.
+            if (this.isNew) this.formMaxTokens = recommendedMaxTokens(this.formName);
             // IMP-18-01-01: model id drives cache + thinking visibility (e.g. Bedrock Claude vs Nova,
             // Copilot Claude vs GPT). Always re-evaluate, not only for Copilot.
             this.updateFieldVisibility();
+            this.updateThinkingUI();
         });
         if (!this.isNew && this.model.isBuiltIn) this.nameInputEl.disabled = true;
 
@@ -393,14 +411,28 @@ export class ModelConfigModal extends Modal {
         avInput.value = this.formApiVersion;
         avInput.addEventListener('input', () => (this.formApiVersion = avInput.value.trim()));
 
-        // ── Max Tokens (Slider) ──────────────────────────────────────────
+        // ── Max Output Tokens ────────────────────────────────────────────
         this.maxTokensRow = form.createDiv('mcm-row');
         const mtLabel = this.maxTokensRow.createDiv('mcm-label');
         mtLabel.createSpan({ text: t('modal.modelConfig.maxTokens') });
         mtLabel.createSpan({ text: t('modal.modelConfig.maxTokensDesc'), cls: 'mcm-desc' });
 
         const mtControls = this.maxTokensRow.createDiv('mcm-temperature-controls');
-        const mtSliderWrap = mtControls.createDiv('mcm-temperature-slider-wrap');
+
+        // Auto toggle — when on, the runtime sizes max_tokens per model and
+        // shrinks it when the prompt is large; the slider below is hidden.
+        const mtAutoWrap = mtControls.createDiv('mcm-checkbox-line');
+        const mtAutoChk = mtAutoWrap.createEl('input', { attr: { type: 'checkbox' } });
+        mtAutoChk.checked = this.formAutoMaxTokens;
+        mtAutoWrap.createSpan({ text: t('modal.modelConfig.maxTokensAuto') });
+        mtAutoChk.addEventListener('change', () => {
+            this.formAutoMaxTokens = mtAutoChk.checked;
+            this.updateMaxTokensVisibility();
+        });
+
+        // Manual override (slider) — only used when "auto" is unchecked.
+        this.maxTokensManualWrap = mtControls.createDiv();
+        const mtSliderWrap = this.maxTokensManualWrap.createDiv('mcm-temperature-slider-wrap');
         this.maxTokensSliderEl = mtSliderWrap.createEl('input', {
             attr: { type: 'range', min: '1024', max: '200000', step: '1024' },
             cls: 'mcm-temperature-slider',
@@ -410,14 +442,27 @@ export class ModelConfigModal extends Modal {
             cls: 'mcm-temperature-value',
             text: this.formMaxTokens.toLocaleString(),
         });
+        // One-click jump to the value recommended for the current model — shown
+        // only when the slider is not already at that value.
+        this.maxTokensRecBtnEl = mtSliderWrap.createEl('button', {
+            cls: 'mcm-recommend-btn',
+            attr: { type: 'button', title: t('modal.modelConfig.maxTokensUseRecommendedTitle') },
+        });
+        this.maxTokensRecBtnEl.addEventListener('click', () => {
+            this.formMaxTokens = recommendedMaxTokens(this.formName);
+            this.updateMaxTokensSliderRange();
+            this.updateThinkingUI();
+        });
         this.maxTokensSliderEl.addEventListener('input', () => {
             this.formMaxTokens = parseInt(this.maxTokensSliderEl!.value);
             if (this.maxTokensValueEl) {
                 this.maxTokensValueEl.setText(this.formMaxTokens.toLocaleString());
             }
+            this.refreshMaxTokensRecBtn();
             this.updateThinkingUI();
         });
-        this.maxTokensNoteEl = mtControls.createDiv({ cls: 'mcm-temperature-note', text: t('modal.modelConfig.maxTokensNote') });
+        this.maxTokensNoteEl = this.maxTokensManualWrap.createDiv({ cls: 'mcm-temperature-note', text: t('modal.modelConfig.maxTokensNote') });
+        this.updateMaxTokensVisibility();
 
         // ── Temperature ───────────────────────────────────────────────────
         if (!this.forEmbedding) {
@@ -565,7 +610,9 @@ export class ModelConfigModal extends Modal {
         if (this.apiVersionRow) this.apiVersionRow.classList.toggle('agent-u-hidden', p !== 'azure');
         if (this.ollamaBrowserRow) this.ollamaBrowserRow.classList.toggle('agent-u-hidden', p !== 'ollama');
         if (this.customBrowserRow) this.customBrowserRow.classList.toggle('agent-u-hidden', p !== 'custom' && p !== 'lmstudio');
-        // Max Tokens slider always visible (not provider-specific)
+        // Max Tokens slider always visible (not provider-specific); cap its range
+        // to the model's real output ceiling when we know it.
+        this.updateMaxTokensSliderRange();
         const isCopilotClaude = isCopilot && /^claude/i.test(this.formName);
         // IMP-18-01-01: prompt-caching toggle visibility is data-driven via the capability table.
         const cacheCap = getCacheCapability(p, this.formName);
@@ -705,6 +752,37 @@ export class ModelConfigModal extends Modal {
 
         const sliderWrap = this.temperatureSliderEl.closest<HTMLElement>('.mcm-temperature-slider-wrap');
         if (sliderWrap) sliderWrap.classList.toggle('agent-u-hidden', !this.formTemperatureEnabled);
+    }
+
+    /**
+     * Cap the Max Output Tokens slider to the model's real output ceiling (when
+     * we have a registry entry) so the user cannot pick a value the API rejects.
+     * Unknown models (custom, local, gateway-routed) keep the wide default range
+     * — the provider layer clamps anyway via resolveOutputBudget.
+     */
+    private updateMaxTokensSliderRange(): void {
+        if (!this.maxTokensSliderEl) return;
+        const cap = getModelOutputCeiling(this.formName) ?? 200_000;
+        this.maxTokensSliderEl.max = String(cap);
+        if (this.formMaxTokens > cap) this.formMaxTokens = cap;
+        if (this.formMaxTokens < 1024) this.formMaxTokens = 1024;
+        this.maxTokensSliderEl.value = String(this.formMaxTokens);
+        if (this.maxTokensValueEl) this.maxTokensValueEl.setText(this.formMaxTokens.toLocaleString());
+        this.refreshMaxTokensRecBtn();
+    }
+
+    /** Show/hide the "use recommended" button depending on whether the slider is already there. */
+    private refreshMaxTokensRecBtn(): void {
+        if (!this.maxTokensRecBtnEl) return;
+        const rec = recommendedMaxTokens(this.formName);
+        const show = rec !== this.formMaxTokens && this.formName.length > 0;
+        this.maxTokensRecBtnEl.classList.toggle('agent-u-hidden', !show);
+        this.maxTokensRecBtnEl.setText(show ? t('modal.modelConfig.maxTokensUseRecommended', { value: rec.toLocaleString() }) : '');
+    }
+
+    /** Hide the manual max_tokens slider when "automatic" is selected. */
+    private updateMaxTokensVisibility(): void {
+        this.maxTokensManualWrap?.classList.toggle('agent-u-hidden', this.formAutoMaxTokens);
     }
 
     private updateThinkingUI(): void {
@@ -1447,7 +1525,8 @@ export class ModelConfigModal extends Modal {
                 ? (this.formAwsEndpoint || undefined)
                 : (this.formBaseUrl || undefined),
             apiVersion: this.formApiVersion || undefined,
-            maxTokens: this.formMaxTokens,
+            // Auto -> undefined: resolveOutputBudget sizes it per model at request time.
+            maxTokens: this.formAutoMaxTokens ? undefined : this.formMaxTokens,
             temperature: this.formTemperatureEnabled ? this.formTemperatureValue : undefined,
             promptCachingEnabled: this.formPromptCachingEnabled || undefined,
             thinkingEnabled: this.formThinkingEnabled || undefined,

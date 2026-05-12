@@ -10,7 +10,7 @@
 ## 1. Executive Summary
 
 ### 1.1 Problem Statement
-Obsilo unterstützt beim Dateianhang im Chat aktuell nur Bilder (PNG/JPG/GIF/WebP) und Textdateien. Office- und Datenformate (PowerPoint, Excel, Word, PDF, JSON, XML, CSV), die im beruflichen Alltag den Großteil der Informationsträger ausmachen, sind im OS File Picker ausgegraut und können nicht ausgewählt werden. Der Agent kann dadurch nicht in den vollständigen Arbeitsworkflow integriert werden.
+Vault Operator unterstützt beim Dateianhang im Chat aktuell nur Bilder (PNG/JPG/GIF/WebP) und Textdateien. Office- und Datenformate (PowerPoint, Excel, Word, PDF, JSON, XML, CSV), die im beruflichen Alltag den Großteil der Informationsträger ausmachen, sind im OS File Picker ausgegraut und können nicht ausgewählt werden. Der Agent kann dadurch nicht in den vollständigen Arbeitsworkflow integriert werden.
 
 ### 1.2 Proposed Solution
 Erweiterung des Attachment-Systems um lokales Parsing gängiger Office- und Datenformate. Dateien werden client-seitig in Text und (bei Bedarf) Bilder konvertiert und als strukturierter Kontext an die API übergeben. Der Agent verarbeitet die extrahierten Inhalte wie gewohnt und kann darauf basierend neue Inhalte generieren, zusammenfassen oder analysieren.
@@ -27,7 +27,7 @@ Erweiterung des Attachment-Systems um lokales Parsing gängiger Office- und Date
 ## 2. Business Context
 
 ### 2.1 Background
-Obsilo ist ein Obsidian Plugin mit Agent-Funktionalität (30+ Tools). Der Agent unterstützt Vault-Management, Semantic Search, Canvas-Generierung und Multi-Agent-Orchestrierung. Die Chat-basierte Interaktion ist die primäre Schnittstelle.
+Vault Operator ist ein Obsidian Plugin mit Agent-Funktionalität (30+ Tools). Der Agent unterstützt Vault-Management, Semantic Search, Canvas-Generierung und Multi-Agent-Orchestrierung. Die Chat-basierte Interaktion ist die primäre Schnittstelle.
 
 ### 2.2 Current State ("As-Is")
 - **Büroklammer (AttachmentHandler):** Nativer OS File Picker mit restriktivem `input.accept`-Filter -- Office-Formate sind ausgegraut und nicht auswählbar (src/ui/sidebar/AttachmentHandler.ts:34)
@@ -108,7 +108,7 @@ Obsilo ist ein Obsidian Plugin mit Agent-Funktionalität (30+ Tools). Der Agent 
 ## 5. Problem Analysis
 
 ### 5.1 Problem Statement (Detailed)
-Im beruflichen Umfeld wird überwiegend über PowerPoint kommuniziert, Daten in Excel strukturiert und Dokumente als Word/PDF geteilt. Obsilo kann diese Dateien weder öffnen noch verarbeiten. Der Agent ist damit von einem Großteil des täglichen Informationsflusses abgeschnitten. Der Nutzer muss Inhalte manuell kopieren oder Screenshots erstellen -- ein Workflow-Bruch, der die Produktivität reduziert und den Nutzen des Agents fundamental einschränkt.
+Im beruflichen Umfeld wird überwiegend über PowerPoint kommuniziert, Daten in Excel strukturiert und Dokumente als Word/PDF geteilt. Vault Operator kann diese Dateien weder öffnen noch verarbeiten. Der Agent ist damit von einem Großteil des täglichen Informationsflusses abgeschnitten. Der Nutzer muss Inhalte manuell kopieren oder Screenshots erstellen -- ein Workflow-Bruch, der die Produktivität reduziert und den Nutzen des Agents fundamental einschränkt.
 
 ### 5.2 Root Causes
 1. **AttachmentHandler** hat einen restriktiven `input.accept`-Filter -- Office-Formate sind im Finder ausgegraut
@@ -125,7 +125,7 @@ Im beruflichen Umfeld wird überwiegend über PowerPoint kommuniziert, Daten in 
 ## 6. Goals & Objectives
 
 ### 6.1 Business Goals
-- Obsilo als vollständig in den Office-Workflow integrierbaren AI-Agenten positionieren
+- Vault Operator als vollständig in den Office-Workflow integrierbaren AI-Agenten positionieren
 - Alleinstellungsmerkmal gegenüber anderen Obsidian AI-Plugins schaffen
 - Community-Adoption erhöhen durch praktischen Alltagsnutzen
 

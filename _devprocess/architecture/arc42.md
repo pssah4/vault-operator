@@ -840,7 +840,7 @@ ADRs: [ADR-69](ADR-69-confidence-storage.md), [ADR-70](ADR-70-community-detectio
 
 ### 8.14 MCP Server (EPIC-14)
 
-MCP-Server-Architektur fuer externen Zugriff auf Obsilo-Funktionen:
+MCP-Server-Architektur fuer externen Zugriff auf Vault Operator-Funktionen:
 
 - **McpBridge** (`src/mcp/McpBridge.ts`): Hauptorchestrator, stdio JSON-RPC plus Streamable-HTTP-konformer Worker-Pfad
 - **Vault-Tools (Approval-tiered)**: getContext, searchVault, readNotes, writeVault, executeVaultOp, syncSession
@@ -956,6 +956,13 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-108](ADR-108-source-interface-tagging.md) | Source-Interface-Tagging fuer cross-surface origin tracking (EPIC-23) |
 | [ADR-109](ADR-109-vault-zu-memory-bruecke.md) | Vault-zu-Memory-Bruecke via Single-Listener-Pattern (FEAT-03-25, supersedes ADR-87) |
 | [ADR-110](ADR-110-living-documents-cross-interface-threads.md) | Living-Document-Semantik plus Cross-Interface-Thread-Klammer (EPIC-23) |
+| [ADR-111](ADR-111-provider-capability-flag-und-bedrock-cachepoint.md) | Provider Capability-Flag und Bedrock cachePoint (Erweiterung zu ADR-62) |
+| [ADR-112](ADR-112-attachment-lifecycle-im-sidebar.md) | Attachment-Lifecycle im Sidebar (Snapshot vs API-Split, Push-Sync zum Tool-Layer) |
+| [ADR-113](ADR-113-subagent-delegation.md) | Subagent-Delegation fuer context-heavy Teilaufgaben (model-getrieben, Per-Call-Token-Budget, EPIC-24) |
+| [ADR-114](ADR-114-autonomie-governance.md) | Autonomie-Governance: Token-/Kosten-Budget pro Task, Steering-Hook, Exploration-Limits (EPIC-24) |
+| [ADR-115](ADR-115-helper-model-routing.md) | Internes Hilfs-Modell-Routing fuer Agent-interne LLM-Calls (EPIC-24) |
+| [ADR-116](ADR-116-active-skills-on-demand.md) | Active Skills: model-getriebenes On-demand-Laden statt Klassifikator-Inject (EPIC-24) |
+| [ADR-117](ADR-117-lazy-loading-tool-schemas.md) | Lazy-Loading von Tool-Schemas: Built-in und MCP (per-Server-Katalog, Schema on-demand, EPIC-24) |
 
 ---
 

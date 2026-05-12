@@ -99,7 +99,7 @@ Eigener Dienst mit Subscription-Modell.
 ### Architektur
 
 ```
-obsilo.ai (GitHub Pages)              Google Cloud Run (Free Tier)
+pssah4.github.io/vault-operator (GitHub Pages)              Google Cloud Run (Free Tier)
 Bestehendes Hosting                   Dockerfile + app.py
 ┌────────────────────┐                ┌──────────────────────────┐
 │                    │                │                          │
@@ -212,9 +212,9 @@ Cloud Run ist die einzige Option die alle Entscheidungstreiber gleichzeitig erfu
 
 ## Implementation Notes
 
-- Neues Repository: `pssah4/obsilo-template-analyzer` (Apache 2.0)
+- Neues Repository: `pssah4/vault-operator-template-analyzer` (Apache 2.0)
 - Backend: FastAPI + python-pptx + anthropic SDK + Pillow
-- Frontend: Statische HTML-Seite auf obsilo.ai (FEAT-11-13)
+- Frontend: Statische HTML-Seite auf pssah4.github.io/vault-operator (FEAT-11-13)
 - Output: Visual Design Language Document im Format von ADR-34
 - In-Plugin bleibt als Fallback (FEAT-11-08) fuer Offline-Nutzung
 
@@ -228,5 +228,5 @@ Cloud Run ist die einzige Option die alle Entscheidungstreiber gleichzeitig erfu
 ## References
 
 - FEAT-11-12: Multimodaler Template-Analyzer (Cloud Run Backend)
-- FEAT-11-13: Template-Analyzer Web-Frontend (obsilo.ai)
+- FEAT-11-13: Template-Analyzer Web-Frontend (pssah4.github.io/vault-operator)
 - _devprocess/analysis/TEMPLATE-DESIGN-INTELLIGENCE-ANALYSIS.md (vollstaendige Analyse)

@@ -14,7 +14,7 @@ Laedt die verfuegbaren Kilo-Gateway-Modelle dynamisch ueber die dokumentierten G
 **Wir glauben dass** dynamisches Modell-Listing
 **Folgende messbare Outcomes liefert:**
 - Nutzer sehen immer die aktuelle Kilo-Modellpalette
-- Obsilo muss nicht fuer jede Modellaktualisierung ausgeliefert werden
+- Vault Operator muss nicht fuer jede Modellaktualisierung ausgeliefert werden
 
 **Wir wissen dass wir erfolgreich sind wenn:**
 - Alle vom Gateway zurueckgegebenen Modelle in der Auswahl verfuegbar sind
@@ -98,7 +98,7 @@ MODERATE ASR #1: Asynchrone Modellliste im bestehenden Modal
 
 ## Assumptions
 
-- `GET /api/gateway/models` bleibt stabil und fuer Obsilo nutzbar
+- `GET /api/gateway/models` bleibt stabil und fuer Vault Operator nutzbar
 
 ## Out of Scope
 

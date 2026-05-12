@@ -257,6 +257,6 @@ gegen den Code abgeglichen.
 - IMP-18-01-01: Settings UI (Phase 1)
 - IMP-18-01-02: Provider-Coverage (Phase 2)
 - BA-12 Section 11: Update-Block fuer Issue #313
-- Issue #313: https://github.com/pssah4/obsilo-dev/issues/313
+- Issue #313: https://github.com/pssah4/vault-operator-dev/issues/313
 - AWS Bedrock Prompt Caching: cachePoint ContentBlock in @aws-sdk/client-bedrock-runtime ab v3.1030
 - OpenAI Prompt Caching: usage.prompt_tokens_details.cached_tokens

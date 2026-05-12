@@ -21,7 +21,7 @@ function parse(content: string, filePath = 'foo/bar/SKILL.md'): ParsedSkill | nu
     // parseSkillMd itself is content-only, so a minimal stub is enough.
     const stub = {
         app: { vault: { configDir: 'plugin-config-dir-stub' } },
-        manifest: { id: 'obsilo-agent' },
+        manifest: { id: 'vault-operator' },
         settings: { agentFolderPath: '.obsidian-agent' },
     } as unknown as ConstructorParameters<typeof SelfAuthoredSkillLoader>[0];
     const loader = new SelfAuthoredSkillLoader(stub);
@@ -32,7 +32,7 @@ function parse(content: string, filePath = 'foo/bar/SKILL.md'): ParsedSkill | nu
 }
 
 describe('SelfAuthoredSkillLoader.parseSkillMd', () => {
-    it('parses YAML frontmatter (Obsilo + Anthropic spec)', () => {
+    it('parses YAML frontmatter (Vault Operator + Anthropic spec)', () => {
         const md = '---\nname: my-skill\ndescription: says hi\n---\nHello body';
         const parsed = parse(md);
         expect(parsed?.name).toBe('my-skill');

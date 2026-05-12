@@ -60,7 +60,7 @@ Cons:
 
 **Option C (amended 2026-05-03 nach Codebase-Review):** Hybrid. `app.fileManager.processFrontMatter(file, fn)` wird Standard-Write-Pfad. Im obsidian-sync-Mode zusaetzlich WriterLock vor dem processFrontMatter-Aufruf.
 
-**Korrektur**: Die urspruengliche ADR-Formulierung sprach von `Vault.process`. Codebase-Review zeigt, dass Obsilo bereits `app.fileManager.processFrontMatter` an 8 Stellen nutzt (UpdateFrontmatterTool, VaultHealthService, AgentSidebarView, main.ts). Das ist die korrekte API fuer atomic Frontmatter-Updates. `Vault.process` ist fuer Body-Edits, nicht Frontmatter.
+**Korrektur**: Die urspruengliche ADR-Formulierung sprach von `Vault.process`. Codebase-Review zeigt, dass Vault Operator bereits `app.fileManager.processFrontMatter` an 8 Stellen nutzt (UpdateFrontmatterTool, VaultHealthService, AgentSidebarView, main.ts). Das ist die korrekte API fuer atomic Frontmatter-Updates. `Vault.process` ist fuer Body-Edits, nicht Frontmatter.
 
 Begruendung:
 - `fileManager.processFrontMatter` ist die idiomatische Obsidian-Loesung fuer atomic Frontmatter-Updates und bereits etabliert im Code.

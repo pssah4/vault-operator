@@ -36,7 +36,7 @@ related:
 
 Aufbau der Engine-Foundation als additives Schema neben den bestehenden Tabellen in `memory.db` (sessions, episodes, recipes, patterns). Schaffung der drei Kern-Stores (FactStore, EdgeStore, StyleStore) mit Constructor-Injection, des gemeinsamen EmbeddingService, und Code-Implementierung des KV-Cache-Layouts (ADR-62, bisher nur architektonisch beschrieben). Public API wird ab dem ersten Tag UCM-getrieben designt: `source_interface`-Spalte im Fact-Schema, Adapter-Pattern fuer alle externen Abhaengigkeiten, Konfig-Abstraktion fuer DB-Pfad/Embedding/LLM.
 
-**Source-Adapter-Registry als Engine-Public-API:** Engine exportiert `SourceAdapter`-Interface und `AdapterRegistry`-Service. Hosts (Obsilo, UCM, andere) registrieren Adapter pro URI-Schema (`vault://`, `file://`, `https://`, `cloud://`, beliebig custom). Engine selbst nutzt nur das Interface, kennt keine konkreten Schemata ausser ihren eigenen (`fact:`, `session://`, `episode://`, `entity://`, `thread://`). Ohne registrierten Adapter bleibt ein URI ein Reference-Token, das in Hybrid-Retrieval und fact_edges trotzdem funktioniert (Resolution liefert null, Edge bleibt aussagekraeftig). Siehe ADR-78.
+**Source-Adapter-Registry als Engine-Public-API:** Engine exportiert `SourceAdapter`-Interface und `AdapterRegistry`-Service. Hosts (Vault Operator, UCM, andere) registrieren Adapter pro URI-Schema (`vault://`, `file://`, `https://`, `cloud://`, beliebig custom). Engine selbst nutzt nur das Interface, kennt keine konkreten Schemata ausser ihren eigenen (`fact:`, `session://`, `episode://`, `entity://`, `thread://`). Ohne registrierten Adapter bleibt ein URI ein Reference-Token, das in Hybrid-Retrieval und fact_edges trotzdem funktioniert (Resolution liefert null, Edge bleibt aussagekraeftig). Siehe ADR-78.
 
 Heute funktioniert Memory broken-by-default (`memoryModelKey` ist leer, `getMemoryModel()` returnt null). Die neue Foundation muss Smart-Defaulting oder klares Onboarding bieten, sonst bleibt Memory v2 fuer neue Users unsichtbar.
 
@@ -64,18 +64,18 @@ Keine User-sichtbaren Aenderungen in dieser Phase. Alte Memory-Pipeline laeuft p
 ### Story 1: Engine-Foundation ist UCM-bereit (Functional Job)
 
 **As a** UCM-Builder (Sebastian, spaeter)
-**I want to** die Engine-Stores ohne Obsilo-Spezifika benutzen koennen
+**I want to** die Engine-Stores ohne Vault Operator-Spezifika benutzen koennen
 **so that** UCM die Engine als Library importieren kann ohne Obsidian-Plugin-Kontext
 
 ### Story 2: Memory funktioniert ohne Settings-Konfiguration (Functional Job)
 
-**As a** Erst-Nutzer von Obsilo
+**As a** Erst-Nutzer von Vault Operator
 **I want to** dass Memory v2 out-of-the-box funktioniert oder mich klar onboarded
 **so that** ich nicht eine versteckte Settings-Variable suchen muss
 
 ### Story 3: Cache bleibt warm (Emotional Job)
 
-**As a** taeglicher Nutzer von Obsilo
+**As a** taeglicher Nutzer von Vault Operator
 **I want to** dass meine Conversations schnell starten ohne Memory-Cost-Aufschlag
 **so that** das Plugin sich nicht traege anfuehlt
 

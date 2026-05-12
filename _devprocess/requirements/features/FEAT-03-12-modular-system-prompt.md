@@ -4,7 +4,7 @@
 
 ## Summary
 
-The system prompt is the single most important piece of text in Obsilo — it shapes every agent response. Previously, the entire prompt (~300 lines of inline constants + builder logic) lived in a monolithic `systemPrompt.ts`. This feature decomposes it into 15 independent section modules, each a pure function returning a string. The orchestrator (`buildSystemPromptForMode`) assembles them in a defined order.
+The system prompt is the single most important piece of text in Vault Operator — it shapes every agent response. Previously, the entire prompt (~300 lines of inline constants + builder logic) lived in a monolithic `systemPrompt.ts`. This feature decomposes it into 15 independent section modules, each a pure function returning a string. The orchestrator (`buildSystemPromptForMode`) assembles them in a defined order.
 
 Additionally, two new prompt sections were added that were missing from the original implementation:
 - **Objective** — task decomposition strategy (how the agent breaks down and executes multi-step tasks)
@@ -17,7 +17,7 @@ Both sections are adapted from Kilo Code's equivalent (`src/core/prompts/section
 ### Problem
 1. **Monolithic file**: All prompt content and assembly logic in one 300+ line file made it hard to find, review, or modify individual sections.
 2. **No separation of concerns**: Static content (vault context description), dynamic content (tool listing), and conditional content (memory, skills, rules) were all interleaved.
-3. **Missing prompt engineering**: Kilo Code's prompt has Objective (task decomposition strategy) and Capabilities (self-model) sections. Obsilo's original prompt lacked both, leading to less structured agent behavior on complex tasks.
+3. **Missing prompt engineering**: Kilo Code's prompt has Objective (task decomposition strategy) and Capabilities (self-model) sections. Vault Operator's original prompt lacked both, leading to less structured agent behavior on complex tasks.
 4. **Cross-cutting redundancy**: Tool descriptions were duplicated between the system prompt and the UI's ToolPickerPopover (addressed separately in FEAT-05-06-tool-metadata-registry.md).
 
 ### Solution
@@ -80,7 +80,7 @@ return sections.filter(Boolean).join('\n');
 5. Summarize when done — completion signal only for tool workflows
 6. Incorporate feedback, don't end with unnecessary questions
 
-**Kilo Code comparison:** Kilo has 5 rules. Obsilo adds rule 4 (explicit update_todo_list guidance) and adjusts rule 5 to differentiate tool workflows from Q&A (aligned with ADR-07 event separation).
+**Kilo Code comparison:** Kilo has 5 rules. Vault Operator adds rule 4 (explicit update_todo_list guidance) and adjusts rule 5 to differentiate tool workflows from Q&A (aligned with ADR-07 event separation).
 
 ### Capabilities Section (adapted from Kilo Code)
 8 bullet points describing agent abilities:
@@ -93,7 +93,7 @@ return sections.filter(Boolean).join('\n');
 - Task decomposition with sub-agents
 - Cross-session memory
 
-**Kilo Code comparison:** Kilo's capabilities focus on VS Code editing (code editing, terminal, browser). Obsilo's capabilities are entirely vault- and knowledge-management-focused.
+**Kilo Code comparison:** Kilo's capabilities focus on VS Code editing (code editing, terminal, browser). Vault Operator's capabilities are entirely vault- and knowledge-management-focused.
 
 ## Key Files
 - `src/core/systemPrompt.ts` — orchestrator (imports + assembles sections)

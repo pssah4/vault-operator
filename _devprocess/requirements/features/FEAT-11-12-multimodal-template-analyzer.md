@@ -72,7 +72,7 @@ Externer Web-Service der PPTX-Templates multimodal analysiert: Deterministische 
 - **BYOK**: User API Key wird nur fuer den einen Request verwendet, nie gespeichert
 - **No Persistence**: Kein persistenter Storage, Daten in-memory verarbeitet und verworfen
 - **No Auth**: Kein Account, keine Registrierung, keine User-Daten
-- **CORS**: Nur obsilo.ai Origin erlaubt
+- **CORS**: Nur pssah4.github.io/vault-operator Origin erlaubt
 
 ### Scalability / Cost
 - **Cloud Run Free Tier**: 360.000 GB-Sekunden/Monat (~6.000-12.000 Analysen)
@@ -135,7 +135,7 @@ Erstelle ein Visual Design Language Document mit:
 5. DESIGN-REGELN: Constraints, Textlaengen, nicht-aenderbare Elemente
 6. TECHNISCHES MAPPING: Shape-Namen und Content-Keys fuer den PptxTemplateCloner
 
-Max 16.000 Zeichen. Formatiere als Obsilo-Skill mit YAML-Frontmatter.
+Max 16.000 Zeichen. Formatiere als Vault Operator-Skill mit YAML-Frontmatter.
 ```
 
 ---
@@ -175,7 +175,7 @@ Max 16.000 Zeichen. Formatiere als Obsilo-Skill mit YAML-Frontmatter.
 ## Projekt-Struktur
 
 ```
-pssah4/obsilo-template-analyzer      ← Neues Repo, Apache 2.0
+pssah4/vault-operator-template-analyzer      ← Neues Repo, Apache 2.0
   ├── Dockerfile
   ├── app.py                         ← FastAPI/Flask Analyse-Pipeline
   ├── requirements.txt
@@ -202,7 +202,7 @@ pssah4/obsilo-template-analyzer      ← Neues Repo, Apache 2.0
 ### Quality
 - [ ] BYOK: API Key nie gespeichert, nur fuer einen Request verwendet
 - [ ] No Persistence: Template-Daten nach Response verworfen
-- [ ] CORS: Nur obsilo.ai Origin
+- [ ] CORS: Nur pssah4.github.io/vault-operator Origin
 - [ ] max-instances=5 als Kostenschutz
 - [ ] Error Handling: Korrupte PPTX, ungueltige API Keys, Timeout
 

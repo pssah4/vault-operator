@@ -122,7 +122,7 @@ export class AgentSidebarView extends ItemView {
     }
 
     getIcon(): string {
-        return 'obsilo-agent';
+        return 'vault-operator';
     }
 
     async onOpen(): Promise<void> {
@@ -236,7 +236,7 @@ export class AgentSidebarView extends ItemView {
         settingsBtn.addEventListener('click', () => {
             this.app.setting?.open();
             // Navigate to plugin tab after modal is rendered (200ms is robust for most machines)
-            setTimeout(() => this.app.setting?.openTabById('obsilo-agent'), 200);
+            setTimeout(() => this.app.setting?.openTabById(this.plugin.manifest.id), 200);
         });
 
         // History button — opens conversation history panel
@@ -729,7 +729,7 @@ export class AgentSidebarView extends ItemView {
             menu.addItem((item) =>
                 item.setTitle(t('ui.sidebar.noModelsEnabled')).setIcon('settings').onClick(() => {
                     this.app.setting?.open();
-                    setTimeout(() => this.app.setting?.openTabById('obsilo-agent'), 50);
+                    setTimeout(() => this.app.setting?.openTabById(this.plugin.manifest.id), 50);
                 }),
             );
         } else {
@@ -1284,7 +1284,7 @@ export class AgentSidebarView extends ItemView {
             startOnboardingChat: () => this.startOnboardingChat(),
             openSettings: () => {
                 this.app.setting?.open?.();
-                setTimeout(() => this.app.setting?.openTabById?.('obsilo-agent'), 200);
+                setTimeout(() => this.app.setting?.openTabById?.(this.plugin.manifest.id), 200);
             },
         };
     }
@@ -2329,6 +2329,8 @@ export class AgentSidebarView extends ItemView {
             this.plugin.settings.advancedApi.maxIterations ?? 25,
             0,  // depth: root task starts at 0
             this.plugin.settings.advancedApi.maxSubtaskDepth ?? 2,
+            this.plugin.settings.advancedApi.microcompactionEnabled ?? true,
+            this.plugin.settings.advancedApi.rollingSummaryThreshold ?? 50,
         );
 
         // Load enabled rules for this task (Sprint 3.2)
@@ -2501,7 +2503,7 @@ export class AgentSidebarView extends ItemView {
             history: this.conversationHistory,
             abortSignal: this.currentAbortController.signal,
             globalCustomInstructions: this.plugin.settings.globalCustomInstructions || undefined,
-            includeTime: this.plugin.settings.includeCurrentTimeInContext ?? true,
+            includeTime: this.plugin.settings.includeCurrentTimeInContext ?? false,
             rulesContent: rulesContent || undefined,
             skillsSection: skillsSection || undefined,
             mcpClient: this.plugin.mcpClient,

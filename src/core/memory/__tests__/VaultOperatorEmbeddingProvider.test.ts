@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ObsiloEmbeddingProvider } from '../ObsiloEmbeddingProvider';
+import { VaultOperatorEmbeddingProvider } from '../VaultOperatorEmbeddingProvider';
 import { EmbeddingService } from '../EmbeddingService';
 
-describe('ObsiloEmbeddingProvider (PLAN-005 task 6)', () => {
+describe('VaultOperatorEmbeddingProvider (PLAN-005 task 6)', () => {
     it('delegates embed() to the callback and returns its vectors', async () => {
         const fn = vi.fn().mockResolvedValue([
             Float32Array.from([1, 2, 3]),
             Float32Array.from([4, 5, 6]),
         ]);
-        const provider = new ObsiloEmbeddingProvider(
+        const provider = new VaultOperatorEmbeddingProvider(
             fn,
             () => ({ model: 'qwen3-embedding-8b', provider: 'openrouter', dimensions: 3 }),
         );
@@ -19,14 +19,14 @@ describe('ObsiloEmbeddingProvider (PLAN-005 task 6)', () => {
 
     it('skips the callback for empty input', async () => {
         const fn = vi.fn();
-        const provider = new ObsiloEmbeddingProvider(fn, () => null);
+        const provider = new VaultOperatorEmbeddingProvider(fn, () => null);
         expect(await provider.embed([])).toEqual([]);
         expect(fn).not.toHaveBeenCalled();
     });
 
     it('exposes the live ModelInfo from the supplier (picks up runtime swaps)', () => {
         let liveInfo = { model: 'a', provider: 'p1' };
-        const provider = new ObsiloEmbeddingProvider(
+        const provider = new VaultOperatorEmbeddingProvider(
             async () => [],
             () => liveInfo,
         );
@@ -36,7 +36,7 @@ describe('ObsiloEmbeddingProvider (PLAN-005 task 6)', () => {
     });
 
     it('falls back to fallbackInfo when supplier returns null', () => {
-        const provider = new ObsiloEmbeddingProvider(
+        const provider = new VaultOperatorEmbeddingProvider(
             async () => [],
             () => null,
             { fallbackInfo: { model: 'fb', provider: 'cache' } },
@@ -45,12 +45,12 @@ describe('ObsiloEmbeddingProvider (PLAN-005 task 6)', () => {
     });
 
     it('falls back to "unknown" when no fallback is configured', () => {
-        const provider = new ObsiloEmbeddingProvider(async () => [], () => null);
+        const provider = new VaultOperatorEmbeddingProvider(async () => [], () => null);
         expect(provider.info).toEqual({ model: 'unknown', provider: 'unknown' });
     });
 
     it('plays nicely with EmbeddingService end-to-end', async () => {
-        const provider = new ObsiloEmbeddingProvider(
+        const provider = new VaultOperatorEmbeddingProvider(
             async (texts) => texts.map(t => Float32Array.from([t.length])),
             () => ({ model: 'mock', provider: 'mock', dimensions: 1 }),
         );
@@ -62,7 +62,7 @@ describe('ObsiloEmbeddingProvider (PLAN-005 task 6)', () => {
     });
 
     it('propagates callback errors to the EmbeddingService caller', async () => {
-        const provider = new ObsiloEmbeddingProvider(
+        const provider = new VaultOperatorEmbeddingProvider(
             async () => { throw new Error('upstream-rate-limit'); },
             () => null,
         );

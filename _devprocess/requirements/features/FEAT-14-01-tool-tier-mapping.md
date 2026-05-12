@@ -7,9 +7,9 @@
 
 ## Feature Description
 
-Die 46+ internen Obsilo-Tools werden auf 8 hochstufige MCP Tools + 2 Learning-Tools
+Die 46+ internen Vault Operator-Tools werden auf 8 hochstufige MCP Tools + 2 Learning-Tools
 gemappt. Claude sieht NICHT die einzelnen internen Tools, sondern intelligente
-Operationen die Obsilo's gesamte Pipeline kapseln.
+Operationen die Vault Operator's gesamte Pipeline kapseln.
 
 **Kernprinzip:** Ein `search_vault`-Call loest intern die volle 4-Stufen-Pipeline aus
 (Semantic + Graph + Implicit + Reranking). Claude muss nicht wissen wie die Suche

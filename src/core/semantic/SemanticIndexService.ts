@@ -167,7 +167,7 @@ export class SemanticIndexService {
     /**
      * Public adapter for the Memory v2 EmbeddingService thin-adapter pattern
      * (FEATURE-0316 / PLAN-005 task 6). Other engine modules can route their
-     * embedding requests through ObsiloEmbeddingProvider, which delegates here
+     * embedding requests through VaultOperatorEmbeddingProvider, which delegates here
      * so the entire batch + retry + provider-quirk stack stays in one place.
      *
      * Throws when no embedding model is configured -- callers must pre-check

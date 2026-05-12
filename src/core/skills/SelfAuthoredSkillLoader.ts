@@ -829,7 +829,7 @@ export class SelfAuthoredSkillLoader {
 
     private parseSkillMd(content: string, filePath: string): SelfAuthoredSkill | null {
         // Accept two metadata shapes:
-        //   1) YAML frontmatter at the top (Obsilo + Anthropic standard).
+        //   1) YAML frontmatter at the top (Vault Operator + Anthropic standard).
         //   2) HTML-comment metadata block anywhere in the file (real-world
         //      Anthropic skills sometimes ship this form -- EPIC-022 beta
         //      feedback 2026-04-19).

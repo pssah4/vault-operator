@@ -10,7 +10,7 @@
 
 ### 1.1 Ausgangslage
 
-Obsilo kann Corporate-Praesentationen erstellen, indem es Slides aus einer .pptx-Vorlage klont und Text per Shape-Name-Matching ersetzt (PptxTemplateCloner). Die technische Pipeline funktioniert -- aber die Ergebnis-Qualitaet ist mittelmassig.
+Vault Operator kann Corporate-Praesentationen erstellen, indem es Slides aus einer .pptx-Vorlage klont und Text per Shape-Name-Matching ersetzt (PptxTemplateCloner). Die technische Pipeline funktioniert -- aber die Ergebnis-Qualitaet ist mittelmassig.
 
 ### 1.2 Root Cause
 
@@ -120,7 +120,7 @@ Template.pptx (beliebig)
     Input: Slide-Bilder + strukturierte Daten + Kompositionsmuster + Brand-DNA
     Output: Visual Design Language Document
          │
-    SKILL.md (importierbar in Obsilo)
+    SKILL.md (importierbar in Vault Operator)
 ```
 
 ### 3.2 Warum multimodal (Bilder + Daten)?
@@ -158,7 +158,7 @@ Entscheidung: **Keine Kompromisse bei der Rendering-Qualitaet.** LibreOffice hea
 
 ### 3.4 Output: Visual Design Language Document
 
-Das Ergebnis der Analyse ist ein Markdown-Dokument im Obsilo-Skill-Format mit YAML-Frontmatter. Es enthaelt:
+Das Ergebnis der Analyse ist ein Markdown-Dokument im Vault Operator-Skill-Format mit YAML-Frontmatter. Es enthaelt:
 
 **Teil 1: Brand-DNA**
 Farben, Fonts, Grundstimmung des Templates.
@@ -188,11 +188,11 @@ Was NICHT tun: Slides die nie aufeinander folgen sollten, maximale Textlaengen, 
 
 ### 3.5 Groessenbeschraenkung
 
-Das generierte Skill-Dokument muss unter 16.000 Zeichen bleiben (SkillsManager-Limit in Obsilo). Der LLM-Prompt muss dies als Constraint beinhalten. Bei sehr grossen Templates (100+ Slides) wird der Skill die wichtigsten Kompositionen enthalten und fuer Details auf eine separate Vault-Datei verweisen (gleicher Ansatz wie der aktuelle EnBW-Katalog).
+Das generierte Skill-Dokument muss unter 16.000 Zeichen bleiben (SkillsManager-Limit in Vault Operator). Der LLM-Prompt muss dies als Constraint beinhalten. Bei sehr grossen Templates (100+ Slides) wird der Skill die wichtigsten Kompositionen enthalten und fuer Details auf eine separate Vault-Datei verweisen (gleicher Ansatz wie der aktuelle EnBW-Katalog).
 
 ---
 
-## 4. Architektur: Open-Source-Service auf obsilo.ai
+## 4. Architektur: Open-Source-Service auf pssah4.github.io/vault-operator
 
 ### 4.1 Entscheidung: BYOK-only, Open Source, Zero Cost
 
@@ -237,7 +237,7 @@ gcloud run deploy obsilo-template-analyzer \
 ### 4.3 Gesamtarchitektur
 
 ```
-obsilo.ai (GitHub Pages)              Google Cloud Run (Free Tier)
+pssah4.github.io/vault-operator (GitHub Pages)              Google Cloud Run (Free Tier)
 Bestehendes Hosting                   Dockerfile + app.py
 ┌────────────────────┐                ┌──────────────────────────┐
 │                    │                │                          │
@@ -282,18 +282,18 @@ Kosten: $0
 
 ---
 
-## 5. Integration in Obsilo
+## 5. Integration in Vault Operator
 
 ### 5.1 Primaerer Workflow: Web-Service (BYOK)
 
 ```
-1. User oeffnet obsilo.ai/template-analyzer
+1. User oeffnet pssah4.github.io/vault-operator/template-analyzer
 2. Gibt eigenen Anthropic API Key ein
 3. Zieht .pptx in die Upload-Zone
 4. Klickt "Analysieren"
 5. Sieht Live-Fortschritt (SSE: Parsing → Rendering → Analyse → Fertig)
 6. Downloadt SKILL.md
-7. In Obsidian: Obsilo Settings > Skills > Import > SKILL.md auswaehlen
+7. In Obsidian: Vault Operator Settings > Skills > Import > SKILL.md auswaehlen
 8. Fertig -- Agent versteht das Template
 ```
 
@@ -316,7 +316,7 @@ Qualitaet ist geringer als der Web-Service (kein LibreOffice-Rendering, keine Bi
 ### 5.3 Tertiaerer Workflow: Community Gallery
 
 ```
-obsilo.ai/template-gallery (oder GitHub Repo)
+pssah4.github.io/vault-operator/template-gallery (oder GitHub Repo)
 
 Populaere Templates, bereits analysiert:
   - EnBW Corporate 2026
@@ -324,10 +324,10 @@ Populaere Templates, bereits analysiert:
   - Generic: Modern Light
   - ...
 
-User downloadt SKILL.md → importiert in Obsilo → fertig.
+User downloadt SKILL.md → importiert in Vault Operator → fertig.
 ```
 
-Separates GitHub Repository (z.B. `pssah4/obsilo-template-gallery`). Community kann beitragen. Kein Analyse-Aufwand fuer den User.
+Separates GitHub Repository (z.B. `pssah4/vault-operator-template-gallery`). Community kann beitragen. Kein Analyse-Aufwand fuer den User.
 
 ### 5.4 Erweiterung des presentation-design Skills
 
@@ -348,19 +348,19 @@ Dieses universelle Wissen bildet die Basis, auf der template-spezifische Design 
 ### 6.1 Repositories
 
 ```
-pssah4/obsilo                        ← Open Source, Apache 2.0 (bestehendes Repo)
+pssah4/vault-operator                        ← Open Source, Apache 2.0 (bestehendes Repo)
   - Obsidian Plugin
-  - docs/ (obsilo.ai inkl. template-analyzer Frontend)
+  - docs/ (pssah4.github.io/vault-operator inkl. template-analyzer Frontend)
   - bundled-skills/presentation-design/ (universelle Design-Prinzipien)
 
-pssah4/obsilo-template-analyzer      ← Open Source, Apache 2.0 (neues Repo)
+pssah4/vault-operator-template-analyzer      ← Open Source, Apache 2.0 (neues Repo)
   - Dockerfile (Python + LibreOffice)
   - app.py (Analyse-Pipeline: Flask/FastAPI)
   - requirements.txt
   - README.md (Self-Hosting Anleitung)
   - cloudbuild.yaml (optional, fuer gcloud deploy)
 
-pssah4/obsilo-template-gallery       ← Open Source, Apache 2.0 (neues Repo)
+pssah4/vault-operator-template-gallery       ← Open Source, Apache 2.0 (neues Repo)
   - templates/{name}/SKILL.md
   - CONTRIBUTING.md
 ```
@@ -445,13 +445,13 @@ numpy
 
 ### 7.2 Frontend (template-analyzer.html)
 
-Statische HTML-Seite auf obsilo.ai (GitHub Pages):
+Statische HTML-Seite auf pssah4.github.io/vault-operator (GitHub Pages):
 - Drag-and-Drop Upload-Zone
 - API Key Input (Anthropic Key, wird nur fuer den Request verwendet)
 - Fortschrittsanzeige (Parsing → Rendering → Analyse → Fertig)
 - Markdown-Vorschau des Ergebnisses
 - Download-Button fuer SKILL.md
-- Anleitung zum Import in Obsilo
+- Anleitung zum Import in Vault Operator
 - Hinweis: "Your API key is sent directly to Anthropic and never stored"
 
 ### 7.3 LLM-Prompt (Kern der Analyse)
@@ -474,7 +474,7 @@ Erstelle ein Visual Design Language Document mit:
 5. DESIGN-REGELN: Constraints, Textlaengen, nicht-aenderbare Elemente
 6. TECHNISCHES MAPPING: Shape-Namen und Content-Keys fuer den PptxTemplateCloner
 
-Max 16.000 Zeichen. Formatiere als Obsilo-Skill mit YAML-Frontmatter.
+Max 16.000 Zeichen. Formatiere als Vault Operator-Skill mit YAML-Frontmatter.
 ```
 
 ### 7.4 Bestehendes Plugin: Aenderungen
@@ -493,14 +493,14 @@ Max 16.000 Zeichen. Formatiere als Obsilo-Skill mit YAML-Frontmatter.
 
 ### 8.1 Technisch
 
-- **CORS**: Cloud Run erlaubt CORS-Header in der App (FastAPI CORSMiddleware). Muss konfiguriert werden fuer obsilo.ai Origin.
+- **CORS**: Cloud Run erlaubt CORS-Header in der App (FastAPI CORSMiddleware). Muss konfiguriert werden fuer pssah4.github.io/vault-operator Origin.
 - **File Upload Limit**: Cloud Run Default ist 32MB (ausreichend fuer die meisten PPTX). Konfigurierbar bis 32MB im Free Tier.
 - **Cold Start**: Container mit LibreOffice ist gross (~500MB). Erster Request nach Inaktivitaet dauert 10-30 Sekunden. Danach schnell (Container bleibt warm fuer ~15 Min).
 - **Custom Fonts**: User kann eigene Fonts nicht hochladen. Container enthaelt fonts-liberation (Arial/Times-kompatibel). Fuer Corporate Fonts: Rendering ist nah genug fuer die semantische Analyse, auch wenn nicht pixelperfekt mit Custom Fonts.
 
 ### 8.2 Rechtlich
 
-- **Impressum**: Pflicht auf obsilo.ai (auch fuer nicht-kommerzielle Seiten in DE)
+- **Impressum**: Pflicht auf pssah4.github.io/vault-operator (auch fuer nicht-kommerzielle Seiten in DE)
 - **Datenschutzerklaerung**: Minimal -- "Keine Daten werden gespeichert. API-Calls gehen mit Ihrem Key direkt an Anthropic."
 - **Haftung**: Apache 2.0 Section 9 -- AS IS, keine Gewaehrleistung
 - **Keine Geschaeftsgruendung noetig**: Kein Umsatz, kein kommerzieller Service
@@ -525,13 +525,13 @@ Max 16.000 Zeichen. Formatiere als Obsilo-Skill mit YAML-Frontmatter.
 6. Mit EnBW-Template validieren: generierte SKILL.md vs. manuell erstellte vergleichen
 7. `gcloud run deploy` mit Kostenschutz (`--max-instances=5`)
 
-### Phase 2: Frontend (obsilo.ai)
+### Phase 2: Frontend (pssah4.github.io/vault-operator)
 
 1. template-analyzer.html Seite erstellen
 2. Upload-Zone, API Key Input, Fortschrittsanzeige
 3. Markdown-Vorschau und Download
 4. Responsive Design, Accessibility
-5. Anleitung zum Import in Obsilo
+5. Anleitung zum Import in Vault Operator
 
 ### Phase 3: Plugin-Integration
 
@@ -545,7 +545,7 @@ Max 16.000 Zeichen. Formatiere als Obsilo-Skill mit YAML-Frontmatter.
 1. Template Gallery Repository aufsetzen
 2. EnBW-Template als erstes Beispiel
 3. CONTRIBUTING.md mit Anleitung
-4. Integration in obsilo.ai (Gallery-Seite)
+4. Integration in pssah4.github.io/vault-operator (Gallery-Seite)
 
 ---
 

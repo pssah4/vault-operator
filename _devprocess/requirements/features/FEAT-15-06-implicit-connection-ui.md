@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Implizit erkannte Verbindungen (FEAT-15-03) werden dem User aktiv praesentiert. Wenn Obsilo Notes findet die semantisch nah aber nicht verlinkt sind, zeigt es Vorschlaege an. Der User kann Vorschlaege akzeptieren (Wikilink wird vorgeschlagen), ignorieren, oder als irrelevant markieren (verbessert kuenftige Vorschlaege).
+Implizit erkannte Verbindungen (FEAT-15-03) werden dem User aktiv praesentiert. Wenn Vault Operator Notes findet die semantisch nah aber nicht verlinkt sind, zeigt es Vorschlaege an. Der User kann Vorschlaege akzeptieren (Wikilink wird vorgeschlagen), ignorieren, oder als irrelevant markieren (verbessert kuenftige Vorschlaege).
 
 ## Benefits Hypothesis
 
@@ -24,7 +24,7 @@ Implizit erkannte Verbindungen (FEAT-15-03) werden dem User aktiv praesentiert. 
 
 ### Story 1: Verbindungsvorschlag sehen
 **Als** Knowledge Worker
-**moechte ich** eine unaufdringliche Benachrichtigung wenn Obsilo eine versteckte Verbindung erkennt
+**moechte ich** eine unaufdringliche Benachrichtigung wenn Vault Operator eine versteckte Verbindung erkennt
 **um** entscheiden zu koennen ob ich diese Verbindung in meinem Vault herstellen will
 
 ### Story 2: Vorschlag bewerten
@@ -48,7 +48,7 @@ Implizit erkannte Verbindungen (FEAT-15-03) werden dem User aktiv praesentiert. 
 ## Technical NFRs (fuer Architekt)
 
 ### UX
-- **Platzierung**: In der Obsilo-Sidebar oder als dezente Inline-Anzeige
+- **Platzierung**: In der Vault Operator-Sidebar oder als dezente Inline-Anzeige
 - **Interaktion**: Klick oeffnet beide Notes nebeneinander, Button fuer "Link erstellen"
 - **Frequenz**: Max 3 Vorschlaege pro Session (nicht ueberfluten)
 

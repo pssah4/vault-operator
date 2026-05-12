@@ -88,19 +88,25 @@ export function logInputBreakdown(
     label: string,
     systemPrompt: string,
     history: MessageParam[],
-    toolCount: number,
+    tools: unknown[],
 ): void {
     const sysChars = systemPrompt.length;
+    // Tool schemas (name + description + input_schema) are sent in the API `tools`
+    // field, separate from the system prompt. Estimate via serialized size; this is
+    // where MCP-server tool schemas show up (ADR-117 / FEAT-24-06).
+    let toolsChars = 0;
+    try { toolsChars = JSON.stringify(tools ?? []).length; } catch { toolsChars = 0; }
     const stats: MessageStat[] = history.map((m, i) => {
         const s = messageChars(m);
         return { index: i, role: m.role, chars: s.chars, blockCount: s.blockCount, blockTypes: s.blockTypes, preview: s.preview };
     });
     const historyChars = stats.reduce((acc, s) => acc + s.chars, 0);
-    const totalChars = sysChars + historyChars;
+    const totalChars = sysChars + toolsChars + historyChars;
     if (totalChars < THRESHOLD_CHARS) return;
 
     const totalTok = Math.round(totalChars / 4);
     const sysTok = Math.round(sysChars / 4);
+    const toolsTok = Math.round(toolsChars / 4);
     const historyTok = Math.round(historyChars / 4);
 
     const top = [...stats].sort((a, b) => b.chars - a.chars).slice(0, 3);
@@ -112,7 +118,7 @@ export function logInputBreakdown(
     }).join(' | ');
 
     console.debug(
-        `[InputBreakdown:${label}] total=~${totalTok}t (sys=${sysTok}t hist=${historyTok}t over ${stats.length} msgs, ${toolCount} tools). ` +
+        `[InputBreakdown:${label}] total=~${totalTok}t (sys=${sysTok}t toolSchemas=${toolsTok}t/${(tools ?? []).length} hist=${historyTok}t over ${stats.length} msgs). ` +
         `Top msgs: ${topLine}`,
     );
 }

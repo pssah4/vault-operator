@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Obsilo's MCP Server wird ueber einen selbst-gehosteten Relay-Server von ueberall erreichbar.
+Vault Operator's MCP Server wird ueber einen selbst-gehosteten Relay-Server von ueberall erreichbar.
 Der Relay laeuft auf Cloudflare Workers + Durable Objects ($5/Monat). Das Plugin verbindet
 sich per ausgehender WebSocket-Verbindung zum Relay -- kein Tunnel-Binary, kein Port-Oeffnen.
 
@@ -17,7 +17,7 @@ Funktioniert mit ALLEN MCP-Clients: claude.ai, ChatGPT, Cursor, Windsurf, etc.
 
 ```
 claude.ai  ──┐
-ChatGPT    ──┼──→ HTTPS → Cloudflare Worker → Durable Object ←── WebSocket ←── Obsilo Plugin
+ChatGPT    ──┼──→ HTTPS → Cloudflare Worker → Durable Object ←── WebSocket ←── Vault Operator Plugin
 Cursor     ──┘             (Relay, auf User's Cloudflare)                        (lokal)
                            Auth: Shared Secret
 ```
@@ -25,26 +25,26 @@ Cursor     ──┘             (Relay, auf User's Cloudflare)                 
 ### Wie es funktioniert
 
 1. **User erstellt Cloudflare API Token** (kostenlos, im Browser, vorbefuellter Link)
-2. **User gibt Token in Obsilo ein** (ein Feld)
-3. **User klickt "Deploy relay"** -- Obsilo deployed den Worker per Cloudflare REST API
+2. **User gibt Token in Vault Operator ein** (ein Feld)
+3. **User klickt "Deploy relay"** -- Vault Operator deployed den Worker per Cloudflare REST API
 4. **Plugin verbindet** sich per WebSocket zum Relay (ausgehend, keine Firewall-Probleme)
 5. **MCP-Clients** senden Requests an die Relay-URL (HTTPS)
 6. **Relay forwarded** Request ueber WebSocket an Plugin, wartet auf Response, gibt sie zurueck
 7. **Durable Object Hibernation:** Relay schlaeft wenn keine Requests kommen (keine Kosten im Idle)
 
 **Kein Terminal, kein CLI, kein wrangler.** Alles passiert ueber die Cloudflare REST API
-direkt aus Obsilo heraus (via `requestUrl`, Review-Bot-konform).
+direkt aus Vault Operator heraus (via `requestUrl`, Review-Bot-konform).
 
 ### Zwei Komponenten
 
-**A) Relay-Deployment (in Obsilo, per Cloudflare API)**
+**A) Relay-Deployment (in Vault Operator, per Cloudflare API)**
 - Worker-Code als String im Plugin eingebettet
 - Deployment per REST API: PUT /workers/scripts/{name}
 - Durable Object Bindings + Migration in den Metadata
 - Secret per API setzen: PUT /workers/scripts/{name}/secrets
 - Account ID wird automatisch per API ermittelt
 
-**B) Plugin-Erweiterung (in Obsilo)**
+**B) Plugin-Erweiterung (in Vault Operator)**
 - WebSocket-Client der sich zum Relay verbindet
 - Reconnect-Logik (exponentieller Backoff)
 - Keepalive Pings
@@ -54,12 +54,12 @@ direkt aus Obsilo heraus (via `requestUrl`, Review-Bot-konform).
 
 **Wir glauben dass** ein selbst-gehosteter Relay
 **Folgende messbare Outcomes liefert:**
-- Obsilo von jedem Geraet und jeder AI-Plattform erreichbar
+- Vault Operator von jedem Geraet und jeder AI-Plattform erreichbar
 - Kein Tunnel-Binary auf dem User-Rechner noetig
 - Stabile, persistente URL (ueberlebt Neustarts)
 
 **Wir wissen dass wir erfolgreich sind wenn:**
-- claude.ai kann Obsilo-Tools ueber die Relay-URL nutzen
+- claude.ai kann Vault Operator-Tools ueber die Relay-URL nutzen
 - ChatGPT kann denselben Relay nutzen
 - Verbindung ueberlebt Obsidian-Neustart (automatischer Reconnect)
 
@@ -105,7 +105,7 @@ direkt aus Obsilo heraus (via `requestUrl`, Review-Bot-konform).
 ### Security
 - Shared Secret Token (Bearer Header) fuer alle Requests
 - TLS erzwungen (Cloudflare automatisch)
-- Token in Obsilo via SafeStorageService verschluesselt
+- Token in Vault Operator via SafeStorageService verschluesselt
 - Relay speichert keine Daten (reine Weiterleitung)
 
 ### Reliability
@@ -125,7 +125,7 @@ direkt aus Obsilo heraus (via `requestUrl`, Review-Bot-konform).
 ### ASRs
 
 **CRITICAL ASR #1**: Kein Terminal, kein CLI
-- Deployment per Cloudflare REST API direkt aus Obsilo
+- Deployment per Cloudflare REST API direkt aus Vault Operator
 - User gibt nur API Token ein und klickt "Deploy"
 
 **CRITICAL ASR #2**: Multi-Plattform-kompatibel

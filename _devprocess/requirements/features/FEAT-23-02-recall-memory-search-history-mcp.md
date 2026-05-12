@@ -15,13 +15,13 @@ depends-on: [IMP-03-17-01]
 ## Description
 
 Zwei neue MCP-Tools fuer den Lese-Pfad: externe Chat-UIs koennen
-ueber Obsilo Remote MCP Memory recallen und History durchsuchen.
+ueber Vault Operator Remote MCP Memory recallen und History durchsuchen.
 Das interne `recall_memory`-Tool wird als MCP-Tool exposed; das
 interne `search_history` ebenso.
 
 ## Benefits Hypothesis
 
-Wenn jedes Chat-Tool Obsilo's Memory + History abfragen kann, dann
+Wenn jedes Chat-Tool Vault Operator's Memory + History abfragen kann, dann
 muss Sebastian nichts manuell wiederholen, was er schon einmal
 festgehalten hat.
 

@@ -8,7 +8,7 @@
 
 ## 1. Research Mind Map
 
-**Central Question:** Wie kann der Obsilo Knowledge Graph dem User helfen, die Struktur seines Denkens zu erkennen und zu verbessern -- ohne das Denken selbst zu ersetzen?
+**Central Question:** Wie kann der Vault Operator Knowledge Graph dem User helfen, die Struktur seines Denkens zu erkennen und zu verbessern -- ohne das Denken selbst zu ersetzen?
 
 | Research Field | Guiding Questions | Priority |
 |----------------|-------------------|----------|
@@ -51,7 +51,7 @@
 
 ## 4. Facts & Figures
 
-- Obsilo Vault-Referenz: ~500-1000 Notes, 10-20 neue/Woche, 10.783 Vektoren im Index
+- Vault Operator Vault-Referenz: ~500-1000 Notes, 10-20 neue/Woche, 10.783 Vektoren im Index
 - GraphStore: SQLite, ~2000-5000 Edges typisch bei 500+ Notes
 - Aktueller Health Check: 5 Pruefungen, ~0ms Laufzeit (pure SQL)
 - Knowledge Ingest: ~$0.10-0.30 pro Note (LLM-Kosten), bei 50 PDFs = $5-15

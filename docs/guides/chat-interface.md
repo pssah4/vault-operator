@@ -5,11 +5,11 @@ description: Attachments, @-mentions, tool picker, chat history, and keyboard sh
 
 # Chat Interface
 
-The Obsilo sidebar is where you talk to the agent, attach files, browse past conversations, and watch the agent work as it goes.
+The Vault Operator sidebar is where you talk to the agent, attach files, browse past conversations, and watch the agent work as it goes.
 
 ## The chat panel
 
-Open Obsilo by clicking its icon in the left sidebar. The panel has three areas:
+Open Vault Operator by clicking its icon in the left sidebar. The panel has three areas:
 
 - Toolbar at the top: mode selector, model picker, history button
 - Message area in the center: your conversation, activity blocks, approval cards
@@ -20,7 +20,7 @@ Open Obsilo by clicking its icon in the left sidebar. The panel has three areas:
 Type your message and press **Enter** to send. For multi-line messages, press **Shift+Enter** to add a new line.
 
 :::tip Configurable send key
-In **Settings > Obsilo Agent > Interface** you can change the send shortcut to **Ctrl+Enter** (or **Cmd+Enter** on Mac) if you prefer Enter for new lines.
+In **Settings > Vault Operator > Interface** you can change the send shortcut to **Ctrl+Enter** (or **Cmd+Enter** on Mac) if you prefer Enter for new lines.
 :::
 
 ## Attachments
@@ -86,13 +86,13 @@ The undo bar stays visible until you start a new message or dismiss it.
 
 ## Chat history
 
-Obsilo saves every conversation automatically. To access your history:
+Vault Operator saves every conversation automatically. To access your history:
 
 1. Click the history icon in the toolbar (clock symbol)
 2. Browse past conversations, each showing a title, date, and preview
 3. Click a conversation to restore it and continue where you left off
 
-The history sidebar groups conversations by source tab: Obsilo, Claude Desktop, ChatGPT, Perplexity, plus an "All" view. Each conversation carries the `source_interface` tag of where it came from, so you can see what came in via which surface without mixing it all together. Living documents (multiple turns within 30 minutes from the same source) appear as one entry with a turn count rather than separate conversations.
+The history sidebar groups conversations by source tab: Vault Operator, Claude Desktop, ChatGPT, Perplexity, plus an "All" view. Each conversation carries the `source_interface` tag of where it came from, so you can see what came in via which surface without mixing it all together. Living documents (multiple turns within 30 minutes from the same source) appear as one entry with a turn count rather than separate conversations.
 
 Conversations are titled automatically based on their content. You can also jump to linked conversations directly from your notes. See [Memory & Personalization](/guides/memory-personalization) for chat-linking.
 
@@ -102,7 +102,7 @@ Files you drop into the chat are parsed once and made available for the same tur
 
 ## Context display and condensation
 
-At the top of the message area, a small indicator shows how much of the model's context window is in use. As conversations grow longer, Obsilo may condense earlier messages to stay within limits. When that happens, a brief note appears in the conversation, key facts and decisions are kept, and older tool call details may get summarized. It runs automatically so long conversations keep going.
+At the top of the message area, a small indicator shows how much of the model's context window is in use. As conversations grow longer, Vault Operator may condense earlier messages to stay within limits. When that happens, a brief note appears in the conversation, key facts and decisions are kept, and older tool call details may get summarized. It runs automatically so long conversations keep going.
 
 ## Keyboard shortcuts
 

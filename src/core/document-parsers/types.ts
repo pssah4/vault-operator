@@ -51,5 +51,14 @@ export const MAX_DOCUMENT_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
 /** Text length threshold for large-document warning. */
 export const LARGE_DOCUMENT_CHAR_THRESHOLD = 100_000;
 
-/** Max chars for document text embedded in LLM context. Full text stays available for chunked reading via read_document. */
+/** Max chars for a SINGLE document/text attachment embedded in LLM context. Full text stays available for chunked reading via read_document / read_file. */
 export const CONTEXT_DOCUMENT_CHAR_LIMIT = 80_000;
+
+/**
+ * FEAT-24-03 (ADR-63 amendment): max chars summed over ALL attachments of one
+ * compose turn. A single 80k-char file is fine; five of them is the 138k/181k
+ * disaster. ~64k chars ≈ ~16k tokens — enough material, leaves room for the
+ * conversation and the model's own output budget. Each new attachment is capped
+ * to whatever budget is left (but always at least a small excerpt + pointer).
+ */
+export const TOTAL_ATTACHMENT_CHAR_BUDGET = 64_000;

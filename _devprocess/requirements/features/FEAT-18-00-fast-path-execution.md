@@ -37,7 +37,7 @@ baut direkt auf dem Semantic Recipe Promotion System (ADR-58) auf.
 **um** schnellere Ergebnisse bei geringeren Kosten zu bekommen
 
 ### Story 2: Graceful Degradation
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** dass der Agent bei unbekannten Aufgaben weiterhin normal arbeitet
 **um** mich darauf verlassen zu koennen dass jede Aufgabe bearbeitet wird
 
@@ -47,7 +47,7 @@ baut direkt auf dem Semantic Recipe Promotion System (ADR-58) auf.
 **um** das Verhalten nachvollziehen zu koennen
 
 ### Story 4: Aufgabenfokus bei langen Tasks
-**Als** Obsilo-Nutzer mit komplexen Multi-Step-Aufgaben
+**Als** Vault Operator-Nutzer mit komplexen Multi-Step-Aufgaben
 **moechte ich** dass der Agent sein Ziel nicht aus den Augen verliert
 **um** konsistente Ergebnisse auch nach vielen Schritten zu bekommen
 

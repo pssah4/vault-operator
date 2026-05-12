@@ -7,7 +7,7 @@ description: Set up semantic search, discover hidden connections, and check your
 
 This tutorial walks you through setting up an embedding model, running semantic search, finding connections through the knowledge graph, surfacing unlinked-but-related notes, and running a vault health check.
 
-**Prerequisites:** Obsilo installed and a model configured, plus at least 20-30 notes in your vault. See [Getting Started](/tutorials/getting-started) if you haven't set up yet.
+**Prerequisites:** Vault Operator installed and a model configured, plus at least 20-30 notes in your vault. See [Getting Started](/tutorials/getting-started) if you haven't set up yet.
 
 ## Step 1: Configure an embedding model
 
@@ -23,13 +23,13 @@ Enter your API key if the provider needs one, click **Test Connection** to verif
 
 ## Step 2: Build the index
 
-Still in **Settings > Embeddings**, click **Build Index**. Obsilo processes your notes in batches. A small vault (under 100 notes) finishes in about a minute, 500 notes take a few minutes, and 2000+ notes run for 10-20 minutes.
+Still in **Settings > Embeddings**, click **Build Index**. Vault Operator processes your notes in batches. A small vault (under 100 notes) finishes in about a minute, 500 notes take a few minutes, and 2000+ notes run for 10-20 minutes.
 
 The progress bar shows how many notes have been processed. You can keep working in Obsidian while it runs. When it finishes you get a confirmation with the number of indexed notes.
 
 ## Step 3: Search by meaning
 
-Open the Obsilo sidebar and try a semantic search:
+Open the Vault Operator sidebar and try a semantic search:
 
 > "What do I know about improving my morning routine?"
 
@@ -77,7 +77,7 @@ Open the repair modal from the sidebar badge to work through them. Findings have
 
 ## Step 7: See what was remembered
 
-After this session, Obsilo has learned something about you. Check what it remembers:
+After this session, Vault Operator has learned something about you. Check what it remembers:
 
 > "What do you remember about me?"
 
@@ -99,7 +99,7 @@ See [Knowledge ingest](/guides/knowledge-ingest) for the full workflow.
 
 ## What you learned
 
-You now have semantic search running, which means Obsilo can find notes by meaning rather than just keywords. You also know how to walk the graph, surface missing links, run a health check, and bulk-import new content.
+You now have semantic search running, which means Vault Operator can find notes by meaning rather than just keywords. You also know how to walk the graph, surface missing links, run a health check, and bulk-import new content.
 
 ## Further reading
 

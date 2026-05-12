@@ -166,13 +166,32 @@ describe('ResultExternalizer', () => {
             expect(ref).toContain('read_file');
         });
 
-        it('should format default reference with preview for unknown tools', async () => {
+        it('should format default reference for unknown tools with first lines + saved path', async () => {
             const ext = await createExternalizer(fs);
-            const content = 'x'.repeat(3000);
+            const content = 'first informative line\n'.repeat(20) + 'x'.repeat(3000);
             const ref = await ext.maybeExternalize('some_other_tool', {}, content, false);
 
             expect(ref).toContain('some_other_tool');
-            expect(ref).toContain('Preview:');
+            expect(ref).toContain('First lines:');
+            expect(ref).toContain('first informative line');
+            expect(ref).toContain('Full result saved to:');
+        });
+
+        it('caps a re-read of an externalizer tmp file instead of returning the full text', async () => {
+            const ext = await createExternalizer(fs);
+            // First produce a tmp file via a normal externalization.
+            const big = 'y'.repeat(60_000);
+            const firstRef = await ext.maybeExternalize('web_fetch', {}, big, false);
+            expect(firstRef).not.toBeNull();
+            const tmpPath = firstRef!.match(/saved to: (\S+)/)![1];
+
+            // Now simulate the agent reading that tmp file back.
+            const reRead = await ext.maybeExternalize('read_file', { path: tmpPath }, big, false);
+            expect(reRead).not.toBeNull();
+            expect(reRead!).toContain('capped to');
+            expect(reRead!.length).toBeLessThan(10_000);
+            // A read_file of a NORMAL vault path is still skipped (returns null).
+            expect(await ext.maybeExternalize('read_file', { path: 'Notes/Real.md' }, big, false)).toBeNull();
         });
     });
 

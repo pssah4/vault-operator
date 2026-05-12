@@ -16,20 +16,20 @@ import { DEFAULT_ACRONYMS } from 'eslint-plugin-obsidianmd/dist/lib/rules/ui/acr
 // ignoreWords does not apply to the first token of a sentence (the rule's
 // firstAlpha branch only consults acronyms + brands), so anchor terms that
 // must keep their casing at sentence start go into brands instead.
-const OBSILO_BRANDS = [
+const VAULT_OPERATOR_BRANDS = [
     ...DEFAULT_BRANDS,
-    'Amazon Bedrock', 'Bedrock', 'ChatGPT', 'Obsilo', 'KnowledgeDB', 'Markdown',
+    'Amazon Bedrock', 'Bedrock', 'ChatGPT', 'Vault Operator', 'KnowledgeDB', 'Markdown',
     // Hyphenated nouns that appear at sentence start in German UI strings
     'Living-Document', 'Cross-surface', 'Top-Hub-Block', 'Top-Hub-Generator',
     'Marker-Block', 'Frontmatter-Backfill-Job', 'Inbox-Triage', 'MOC-Pflege',
     'MOC-Marker', 'Auto-Trigger-Property', 'Cluster-Kandidaten',
 ];
-const OBSILO_ACRONYMS = [...DEFAULT_ACRONYMS, 'AWS', 'IAM', 'SSO', 'STS', 'EU', 'US', 'OS', 'VPC', 'ARN', 'MOC', 'MOCs', 'BA-25', 'BA-26', 'MCP', 'DB'];
+const VAULT_OPERATOR_ACRONYMS = [...DEFAULT_ACRONYMS, 'AWS', 'IAM', 'SSO', 'STS', 'EU', 'US', 'OS', 'VPC', 'ARN', 'MOC', 'MOCs', 'BA-25', 'BA-26', 'MCP', 'DB'];
 // Proper nouns that should keep their casing in Bedrock-related UI copy but
 // don't belong in the general brand list (they are not branded products).
 // Includes German technical compound nouns (German grammar capitalises all
 // nouns) so the English-centric sentence-case rule does not flag them.
-const OBSILO_IGNORE_WORDS = [
+const VAULT_OPERATOR_IGNORE_WORDS = [
     'Europe', 'Frankfurt', 'Frontmatter', 'Backfill', 'Inbox', 'Triage',
     'Stores', 'Konsole', 'Cluster', 'Ontologie', 'Settings', 'Plugin',
     'Off', 'On', 'Toggle', 'Refresh', 'Plus', 'Pro',
@@ -79,19 +79,19 @@ export default tseslint.config(
             // Obsidian Community Plugin Review-Bot Rules
             ...obsidianmd.configs.recommended,
             // Bot-matching config: enforceCamelCaseLower plus merged brand/acronym allowlist
-            // for the Bedrock provider. OBSILO_BRANDS/ACRONYMS extend the obsidianmd defaults
+            // for the Bedrock provider. VAULT_OPERATOR_BRANDS/ACRONYMS extend the obsidianmd defaults
             // (not replace them), so existing strings in locale files keep passing.
             'obsidianmd/ui/sentence-case-locale-module': ['error', {
                 enforceCamelCaseLower: true,
-                brands: OBSILO_BRANDS,
-                acronyms: OBSILO_ACRONYMS,
-                ignoreWords: OBSILO_IGNORE_WORDS,
+                brands: VAULT_OPERATOR_BRANDS,
+                acronyms: VAULT_OPERATOR_ACRONYMS,
+                ignoreWords: VAULT_OPERATOR_IGNORE_WORDS,
             }],
             'obsidianmd/ui/sentence-case': ['error', {
                 enforceCamelCaseLower: true,
-                brands: OBSILO_BRANDS,
-                acronyms: OBSILO_ACRONYMS,
-                ignoreWords: OBSILO_IGNORE_WORDS,
+                brands: VAULT_OPERATOR_BRANDS,
+                acronyms: VAULT_OPERATOR_ACRONYMS,
+                ignoreWords: VAULT_OPERATOR_IGNORE_WORDS,
             }],
         },
     },

@@ -1,11 +1,11 @@
 ---
 title: Memory
-description: Memory v2 and the Three-Layer Memory Architecture (3LMA) that lets Obsilo remember facts, retrieve them in context, and keep them fresh.
+description: Memory v2 and the Three-Layer Memory Architecture (3LMA) that lets Vault Operator remember facts, retrieve them in context, and keep them fresh.
 ---
 
 # Memory
 
-Without memory, every conversation starts from zero. You re-explain your preferences, your projects, your writing style. Obsilo's memory keeps those things across conversations and surfaces them at the moment they matter.
+Without memory, every conversation starts from zero. You re-explain your preferences, your projects, your writing style. Vault Operator's memory keeps those things across conversations and surfaces them at the moment they matter.
 
 The current memory subsystem is **Memory v2**. It replaces the older five-file Markdown memory (a fixed set of `user-profile.md`, `projects.md`, `patterns.md`, `soul.md`, `knowledge.md`) with a single fact-oriented store, dynamic retrieval per conversation, and an update pipeline that ages facts gracefully instead of overwriting them.
 
@@ -150,11 +150,11 @@ The history of conversations lives in a sibling database, `history.db`. It power
 
 The settings tab still calls memory by its tier names (Session, Long-term, Soul) so the UI stays familiar. Underneath, the model is unified: every "remembered thing" is a fact in the same store. The "Memory" tab now also exposes a fact viewer, a soul viewer, and a soft-delete option for individual facts.
 
-You can mark vault notes as memory sources. Obsilo extracts facts from them through the same single-call pipeline, with `source_uri='vault://...'`. Edits to the note re-trigger extraction in the background. This turns long-form documents like `personal-profile.md` or `project-roadmap.md` into structured facts without losing the original document as the canonical source.
+You can mark vault notes as memory sources. Vault Operator extracts facts from them through the same single-call pipeline, with `source_uri='vault://...'`. Edits to the note re-trigger extraction in the background. This turns long-form documents like `personal-profile.md` or `project-roadmap.md` into structured facts without losing the original document as the canonical source.
 
 ## Across AI tools
 
-Every fact carries a `source_interface` tag (`obsilo`, `claude-ai`, `claude-code`, `chatgpt`, `perplexity`, `unknown`). The same MCP server that exposes Obsilo's tools to other AI clients also writes their conversations and facts into the same store. This is the foundation for **Unified Chat Memory (UCM)**, which is documented separately in [Unified Chat Memory](./unified-chat-memory).
+Every fact carries a `source_interface` tag (`obsilo`, `claude-ai`, `claude-code`, `chatgpt`, `perplexity`, `unknown`). The same MCP server that exposes Vault Operator's tools to other AI clients also writes their conversations and facts into the same store. This is the foundation for **Unified Chat Memory (UCM)**, which is documented separately in [Unified Chat Memory](./unified-chat-memory).
 
 ## Onboarding
 

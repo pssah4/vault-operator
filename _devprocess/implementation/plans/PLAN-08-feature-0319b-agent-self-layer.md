@@ -58,7 +58,7 @@ Drei Commit-Bloecke nach Risiko:
 
 **Block C -- Wiring + UX (mittel, hot-path)**
 7. plugin.onload Capability-Sync mit Hash-Vergleich + Deprecate/Insert-Cycle
-8. Settings-Tab "Obsilo's soul" mit Soul-Editor + Capability-Inspektor
+8. Settings-Tab "Vault Operator's soul" mit Soul-Editor + Capability-Inspektor
 9. Migrations-Action "Import legacy soul.md"
 10. SystemPrompt-Pointer fuer recall_memory + inspect_self
 
@@ -124,9 +124,9 @@ export class SoulView {
 ContextComposer rendert vor dem Memory-Block:
 
 ```markdown
-## Identity & Soul (Obsilo)
+## Identity & Soul (Vault Operator)
 
-You are Obsilo, an AI agent embedded in Obsidian.
+You are Vault Operator, an AI agent embedded in Obsidian.
 
 **Values:**
 - Nuetzlichkeit vor Hoeflichkeit
@@ -217,7 +217,7 @@ Synchron beim onload, < 200ms. Fehler nicht-fatal (Plugin laed weiter).
 
 ### Aufgabe 8 -- Settings-UI
 
-`src/ui/settings/MemoryTab.ts` neue Section "Obsilo's soul".
+`src/ui/settings/MemoryTab.ts` neue Section "Vault Operator's soul".
 
 Komponenten:
 - Liste pro Kategorie (Werte, Anti-Patterns, Identitaet, Communication).
@@ -305,7 +305,7 @@ available tools.
 2. `npx vitest run` alle gruen, +30-40 neue Tests.
 3. Live-Test:
    - Plugin reload -> Capability-Snapshot in DB persistiert.
-   - Settings -> Memory -> Obsilo's soul -> Eintrag hinzufuegen, sieht Aenderung im naechsten Conversation-Turn.
+   - Settings -> Memory -> Vault Operator's soul -> Eintrag hinzufuegen, sieht Aenderung im naechsten Conversation-Turn.
    - Agent fragen "wie speichere ich einen Chat?" -> erhaelt korrekte Antwort via recall_memory.
    - Agent fragen "merk dir, ich mag keine Emojis" -> ruft update_soul auf.
    - inspect_self({area:'settings'}) -> JSON ohne API-Keys.

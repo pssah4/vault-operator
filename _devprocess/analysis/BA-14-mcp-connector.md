@@ -1,4 +1,4 @@
-# Business Analysis: Obsilo MCP Connector
+# Business Analysis: Vault Operator MCP Connector
 
 > **Scope:** MVP
 > **Erstellt:** 2026-03-25
@@ -10,18 +10,18 @@
 
 ### 1.1 Problem Statement
 
-Obsilo Agent arbeitet ausschliesslich im Standalone-Modus: Der User muss eigene API-Keys konfigurieren, einen LLM-Provider waehlen und traegt die Token-Kosten selbst. Diese Einstiegshuerde schliesst nicht-technische User aus und limitiert die Reichweite auf Obsidian-Power-User.
+Vault Operator arbeitet ausschliesslich im Standalone-Modus: Der User muss eigene API-Keys konfigurieren, einen LLM-Provider waehlen und traegt die Token-Kosten selbst. Diese Einstiegshuerde schliesst nicht-technische User aus und limitiert die Reichweite auf Obsidian-Power-User.
 
 Gleichzeitig waechst das MCP-Oekosystem (50+ Connectors im Anthropic Directory), aber es gibt keinen offiziellen Obsidian-Connector -- obwohl Obsidian eines der populaersten PKM-Systeme ist.
 
 ### 1.2 Proposed Solution
 
-Obsilo exponiert seine Vault-Intelligenz als MCP Server. Claude (claude.ai, Desktop, Cowork) wird zum Frontend, Obsilo zum Backend. Der User arbeitet in Claude und greift transparent auf seinen Vault zu -- ohne eigene API-Keys, ohne zusaetzliche Token-Kosten.
+Vault Operator exponiert seine Vault-Intelligenz als MCP Server. Claude (claude.ai, Desktop, Cowork) wird zum Frontend, Vault Operator zum Backend. Der User arbeitet in Claude und greift transparent auf seinen Vault zu -- ohne eigene API-Keys, ohne zusaetzliche Token-Kosten.
 
 ### 1.3 Expected Outcomes
 
 - Deutlich niedrigere Einstiegshuerde fuer neue User (kein API-Key-Setup)
-- Obsilo als Vault-Intelligence-Schicht fuer das gesamte MCP-Oekosystem positioniert
+- Vault Operator als Vault-Intelligence-Schicht fuer das gesamte MCP-Oekosystem positioniert
 - Potenzielle Aufnahme in das Anthropic Connectors Directory als erster PKM-Agent-Connector
 - Beide Modi (Standalone + Connector) koexistieren parallel
 
@@ -31,7 +31,7 @@ Obsilo exponiert seine Vault-Intelligenz als MCP Server. Claude (claude.ai, Desk
 
 ### 2.1 Background
 
-Obsilo Agent ist ein KI-Agent als Obsidian-Plugin mit 46+ Tools fuer Vault-Operationen, hybrider semantischer Suche, 3-stufigem Memory-System, Dokumenten-Intelligenz (PPTX, DOCX, PDF, XLSX) und einem Plugin-as-Skill-System. Seit v2.2 sind alle Feature-Phasen (A-F) abgeschlossen.
+Vault Operator ist ein KI-Agent als Obsidian-Plugin mit 46+ Tools fuer Vault-Operationen, hybrider semantischer Suche, 3-stufigem Memory-System, Dokumenten-Intelligenz (PPTX, DOCX, PDF, XLSX) und einem Plugin-as-Skill-System. Seit v2.2 sind alle Feature-Phasen (A-F) abgeschlossen.
 
 Anthropic hat 2025/2026 das Connector-System in Claude eingefuehrt. Nutzer mit Pro-, Max-, Team- oder Enterprise-Plan koennen eigene MCP-Server-URLs als Custom Connector hinzufuegen. Das offizielle Connectors Directory umfasst 50+ kuratierte Integrationen (Notion, Slack, Asana, Gmail, Canva, etc.).
 
@@ -43,8 +43,8 @@ Anthropic hat 2025/2026 das Connector-System in Claude eingefuehrt. Nutzer mit P
 | LLM-Inferenz | User konfiguriert eigenen Provider (Anthropic, OpenAI, Gemini, Ollama) |
 | Token-Kosten | User traegt Kosten selbst |
 | Einstiegshuerde | API-Key einrichten, Provider waehlen, Modell konfigurieren |
-| Rollenverteilung | Obsilo plant, entscheidet UND fuehrt aus |
-| MCP-Praesenz | Obsilo hat einen MCP-Client (konsumiert externe MCP-Server), aber keinen MCP-Server |
+| Rollenverteilung | Vault Operator plant, entscheidet UND fuehrt aus |
+| MCP-Praesenz | Vault Operator hat einen MCP-Client (konsumiert externe MCP-Server), aber keinen MCP-Server |
 
 ### 2.3 Desired State ("To-Be")
 
@@ -54,19 +54,19 @@ Anthropic hat 2025/2026 das Connector-System in Claude eingefuehrt. Nutzer mit P
 | LLM-Inferenz | Claude-Abo (Connector-Modus) ODER eigener Provider (Standalone) |
 | Token-Kosten | Im Claude-Abo enthalten (Connector) ODER User-getragen (Standalone) |
 | Einstiegshuerde | Connector aktivieren, fertig (kein API-Key-Setup) |
-| Rollenverteilung | Claude plant + entscheidet, Obsilo fuehrt aus (Connector) |
-| MCP-Praesenz | Obsilo als MCP Server im Anthropic Connectors Directory |
+| Rollenverteilung | Claude plant + entscheidet, Vault Operator fuehrt aus (Connector) |
+| MCP-Praesenz | Vault Operator als MCP Server im Anthropic Connectors Directory |
 
 ### 2.4 Gap Analysis
 
 | Gap | Beschreibung | Komplexitaet |
 |-----|-------------|--------------|
-| **G-1: MCP Server Runtime** | Obsilo hat keinen MCP-Server. Es muss eine Server-Komponente entstehen die Tool Calls empfaengt und an die bestehende Tool-Pipeline weiterleitet. | Hoch |
+| **G-1: MCP Server Runtime** | Vault Operator hat keinen MCP-Server. Es muss eine Server-Komponente entstehen die Tool Calls empfaengt und an die bestehende Tool-Pipeline weiterleitet. | Hoch |
 | **G-2: Transport-Layer** | Fuer lokale Nutzung (Claude Desktop/Code): stdio. Fuer remote Nutzung (claude.ai): Streamable HTTP. Electron/Obsidian hat keinen nativen HTTP-Server. | Hoch |
 | **G-3: Tool-Mapping** | 46+ interne Tools muessen auf eine MCP-taugliche Oberflaeche gemappt werden. Nicht 1:1, sondern kuratierte Tiers (Core, Intelligence, Workflow). | Mittel |
 | **G-4: Approval-Pipeline** | Read-Operationen koennten auto-approved werden. Write-Operationen brauchen User-Bestaetigung -- remote besonders herausfordernd. | Hoch |
 | **G-5: Auth (Remote)** | Fuer Streamable HTTP braucht es OAuth 2.1 + PKCE oder vergleichbare Authentifizierung. | Mittel |
-| **G-6: Skill-Prompt-Adaptation** | Obsilo-Skills sind als System-Prompt-Kontext optimiert. Als MCP Prompts an Claude uebergeben, koennten sie anders performen. | Mittel |
+| **G-6: Skill-Prompt-Adaptation** | Vault Operator-Skills sind als System-Prompt-Kontext optimiert. Als MCP Prompts an Claude uebergeben, koennten sie anders performen. | Mittel |
 | **G-7: Plugin Skill Discovery** | VaultDNA-basierte Plugin-Erkennung muss als MCP-Feature exponiert werden (discover_capabilities). | Niedrig |
 
 ---
@@ -122,19 +122,19 @@ Anthropic hat 2025/2026 das Connector-System in Claude eingefuehrt. Nutzer mit P
 
 **Connector-Modus (Persona Maria):**
 ```
-1. Installiert Obsilo Plugin in Obsidian
-2. Oeffnet Obsilo Settings -> "MCP Server" Abschnitt
+1. Installiert Vault Operator Plugin in Obsidian
+2. Oeffnet Vault Operator Settings -> "MCP Server" Abschnitt
 3. Klickt "Enable MCP Server" (lokal: stdio auto-config)
-4. Oeffnet Claude Desktop -> Settings -> Connectors -> sieht "Obsilo Vault"
+4. Oeffnet Claude Desktop -> Settings -> Connectors -> sieht "Vault Operator Vault"
 5. Stellt eine Frage: "Was steht in meinem Vault zum Thema Governance?"
-6. Claude ruft vault_search auf -> Obsilo antwortet mit Ergebnissen
+6. Claude ruft vault_search auf -> Vault Operator antwortet mit Ergebnissen
 7. Claude fasst zusammen, Maria arbeitet weiter
 ```
 
 **Connector-Modus (Persona Alex, remote):**
 ```
-1. Hat Obsilo bereits installiert, aktiviert "Remote Access" in Settings
-2. Obsilo startet Cloudflare Tunnel (opt-in, klare Datenschutz-Kommunikation)
+1. Hat Vault Operator bereits installiert, aktiviert "Remote Access" in Settings
+2. Vault Operator startet Cloudflare Tunnel (opt-in, klare Datenschutz-Kommunikation)
 3. Alex kopiert die Tunnel-URL, traegt sie als Custom Connector in claude.ai ein
 4. Arbeitet von unterwegs in claude.ai mit vollem Vault-Zugriff
 5. Bei Write-Operationen: [Approval-UX -- Design offen]
@@ -146,19 +146,19 @@ Anthropic hat 2025/2026 das Connector-System in Claude eingefuehrt. Nutzer mit P
 
 ### 5.1 Problem Statement (Detailed)
 
-Obsilo's Standalone-Modus erfordert drei Konfigurationsschritte die nicht-technische User abschrecken: (1) API-Key beschaffen, (2) Provider und Modell waehlen, (3) Token-Budget verwalten. Jeder dieser Schritte ist eine potenzielle Abbruchstelle im Onboarding.
+Vault Operator's Standalone-Modus erfordert drei Konfigurationsschritte die nicht-technische User abschrecken: (1) API-Key beschaffen, (2) Provider und Modell waehlen, (3) Token-Budget verwalten. Jeder dieser Schritte ist eine potenzielle Abbruchstelle im Onboarding.
 
 Gleichzeitig hat Claude als Plattform keinen nativen Zugriff auf Obsidian-Vaults. User die Claude und Obsidian nutzen, muessen Inhalte manuell hin- und herkopieren -- oder einen der Community MCP-Server einrichten (alle ausserhalb des offiziellen Connectors Directory, variierende Qualitaet).
 
 ### 5.2 Root Causes
 
-1. **Architektonische Einbahnstrasse:** Obsilo wurde als Agent designed der selbst denkt UND ausfuehrt. Die Ausfuehrungs-Schicht ist nicht als eigenstaendiger Service exponiert.
-2. **Fehlende MCP-Server-Komponente:** Obsilo konsumiert MCP-Server (als Client), exponiert sich aber nicht als Server.
+1. **Architektonische Einbahnstrasse:** Vault Operator wurde als Agent designed der selbst denkt UND ausfuehrt. Die Ausfuehrungs-Schicht ist nicht als eigenstaendiger Service exponiert.
+2. **Fehlende MCP-Server-Komponente:** Vault Operator konsumiert MCP-Server (als Client), exponiert sich aber nicht als Server.
 3. **Kein offizieller PKM-Connector:** Anthropic's Connectors Directory hat Notion, aber kein Obsidian. Die Community-Loesungen sind fragmentiert.
 
 ### 5.3 Impact
 
-- **Business Impact:** Begrenzte Nutzerbasis durch hohe Einstiegshuerde. Obsilo adressiert nur den "API-Key-affinen" Teil des Obsidian-Markts (geschaetzt <10% der 3M+ Obsidian-User).
+- **Business Impact:** Begrenzte Nutzerbasis durch hohe Einstiegshuerde. Vault Operator adressiert nur den "API-Key-affinen" Teil des Obsidian-Markts (geschaetzt <10% der 3M+ Obsidian-User).
 - **User Impact:** Kontext-Wechsel und manuelles Copy-Paste zwischen Claude und Obsidian. Keine nahtlose Integration der staerksten KI-Plattform mit dem eigenen Wissensmanagement.
 
 ---
@@ -167,8 +167,8 @@ Gleichzeitig hat Claude als Plattform keinen nativen Zugriff auf Obsidian-Vaults
 
 ### 6.1 Business Goals
 
-- Obsilo als die Intelligence-Schicht fuer Obsidian im MCP-Oekosystem positionieren
-- Einstiegshuerde senken: "Installiere Obsilo, verbinde mit Claude, fertig"
+- Vault Operator als die Intelligence-Schicht fuer Obsidian im MCP-Oekosystem positionieren
+- Einstiegshuerde senken: "Installiere Vault Operator, verbinde mit Claude, fertig"
 - Aufnahme in das Anthropic Connectors Directory anstreben
 - Grundlage fuer spaetere Monetarisierung schaffen (MVP erstmal kostenlos)
 
@@ -250,7 +250,7 @@ Gleichzeitig hat Claude als Plattform keinen nativen Zugriff auf Obsidian-Vaults
 | Tana | Community, primaer Input API | Nein |
 | **Obsidian** | 6+ Community-Projekte, fragmentiert | **Nein** |
 
-### 8.3 Obsilo's Differenzierung
+### 8.3 Vault Operator's Differenzierung
 
 Keiner der bestehenden Obsidian MCP-Server bietet:
 - **Agent-Intelligence:** Semantische Suche mit Reranking, 3-stufiges Memory-System, Context Condensing
@@ -259,7 +259,7 @@ Keiner der bestehenden Obsidian MCP-Server bietet:
 - **Kuratierte Tool-Tiers:** Statt 40+ flacher Tools eine intelligente 3-Tier-Struktur (Core, Intelligence, Workflow)
 - **MCP Prompts:** Skill-Prompts als MCP Prompt-Kontext fuer Claude (nicht nur Tools, sondern auch Anleitungen)
 
-Die bestehenden Loesungen sind CRUD-fokussiert. Obsilo waere der erste **Intelligence-Layer** fuer Obsidian im MCP-Oekosystem.
+Die bestehenden Loesungen sind CRUD-fokussiert. Vault Operator waere der erste **Intelligence-Layer** fuer Obsidian im MCP-Oekosystem.
 
 ---
 
@@ -274,7 +274,7 @@ Die bestehenden Loesungen sind CRUD-fokussiert. Obsilo waere der erste **Intelli
 | **R-5: Skill-Prompt-Degradation** -- Skills performen als MCP Prompt schlechter als als System Prompt | M | M | Frueh testen in Phase 1. Ggf. Prompt-Adapter-Schicht. Als PoC-Acceptance-Criterion aufnehmen. |
 | **R-6: Concurrent Access** -- Standalone + Connector gleichzeitig auf Vault | M | L | Beide nutzen gleiche Obsidian Vault API. Design-Frage fuer Architektur-Phase. |
 | **R-7: Datenschutz-Akzeptanz** -- "Local-only"-User lehnen Tunnel-Option ab | L | M | Remote ist explizit opt-in. Klare Kommunikation: E2E-Tunnel, keine Cloud-Speicherung, Default = lokal. |
-| **R-8: Wettbewerber holt auf** -- MCPVault oder Claudesidian baut Intelligence-Features | M | M | First-Mover-Vorteil nutzen. Obsilo's 46+ Tools und Agent-Intelligence sind ein tiefer Moat. |
+| **R-8: Wettbewerber holt auf** -- MCPVault oder Claudesidian baut Intelligence-Features | M | M | First-Mover-Vorteil nutzen. Vault Operator's 46+ Tools und Agent-Intelligence sind ein tiefer Moat. |
 
 ---
 
@@ -282,15 +282,15 @@ Die bestehenden Loesungen sind CRUD-fokussiert. Obsilo waere der erste **Intelli
 
 ### 10.1 Functional Requirements (Summary)
 
-1. **MCP Server Lifecycle:** Starten, Stoppen, Konfigurieren des MCP Servers aus Obsilo heraus
-2. **Tool-Exposition:** Bestehende Obsilo-Tools als MCP Tools exponieren (3 Tiers)
+1. **MCP Server Lifecycle:** Starten, Stoppen, Konfigurieren des MCP Servers aus Vault Operator heraus
+2. **Tool-Exposition:** Bestehende Vault Operator-Tools als MCP Tools exponieren (3 Tiers)
 3. **Transport-Layer:** stdio (lokal) und Streamable HTTP (remote) unterstuetzen
 4. **Auth:** Authless (lokal), OAuth 2.1 + PKCE (remote)
 5. **Approval-Pipeline:** Read-Ops auto, Write-Ops mit Bestaetigung (Design offen)
 6. **MCP Resources:** Vault-Metadaten als MCP Resources exponieren
 7. **MCP Prompts:** Skill-Prompts als MCP Prompts an Claude uebergeben
 8. **Plugin Skill Discovery:** Installierte Obsidian-Plugins dynamisch als MCP Tools anbieten
-9. **Settings-UI:** MCP Server Konfiguration in den Obsilo Settings
+9. **Settings-UI:** MCP Server Konfiguration in den Vault Operator Settings
 
 ### 10.2 Non-Functional Requirements (Summary)
 
@@ -346,7 +346,7 @@ Die bestehenden Loesungen sind CRUD-fokussiert. Obsilo waere der erste **Intelli
 | Connector | MCP-basierte Integration in Claude (claude.ai, Desktop, Cowork) |
 | stdio | Standard Input/Output -- lokaler Transport fuer MCP (JSON-RPC ueber stdin/stdout) |
 | Streamable HTTP | HTTP-basierter MCP-Transport fuer Remote-Zugriff |
-| VaultDNA | Obsilo-Feature zur automatischen Erkennung installierter Obsidian-Plugins |
+| VaultDNA | Vault Operator-Feature zur automatischen Erkennung installierter Obsidian-Plugins |
 | Tool Tier | Gruppierung von Tools nach Funktionalitaet: Core (CRUD), Intelligence (Suche, Memory), Workflow (Dokumente, Canvas) |
 | Approval Pipeline | Sicherheitsmechanismus: Read-Ops auto-approved, Write-Ops erfordern User-Bestaetigung |
 
@@ -364,9 +364,9 @@ Die bestehenden Loesungen sind CRUD-fokussiert. Obsilo waere der erste **Intelli
 
 ### C. References
 
-- Feature Briefing: "Obsilo als MCP Connector fuer Claude" (Sebastian Hanke, 2026-03-25)
+- Feature Briefing: "Vault Operator als MCP Connector fuer Claude" (Sebastian Hanke, 2026-03-25)
 - MCP Specification: https://spec.modelcontextprotocol.io/
 - Anthropic Connectors Directory: https://claude.ai/connectors
 - Wettbewerbs-Recherche: Siehe Abschnitt 8 (6+ Obsidian MCP-Server, kein offizieller Connector)
-- Obsilo Architektur: `_devprocess/architecture/arc42.md`
-- Obsilo Backlog: `_devprocess/context/BACKLOG.md`
+- Vault Operator Architektur: `_devprocess/architecture/arc42.md`
+- Vault Operator Backlog: `_devprocess/context/BACKLOG.md`

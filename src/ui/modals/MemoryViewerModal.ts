@@ -1,13 +1,13 @@
 /**
  * MemoryViewerModal -- read + delete view over all Memory v2 facts.
  *
- * Built for data sovereignty: the user can see exactly what Obsilo
+ * Built for data sovereignty: the user can see exactly what Vault Operator
  * stores and remove anything. Editing/adding lives in the chat
  * (the agent uses update_soul / mark_for_memory), not here.
  *
  * Three sections:
  *   1. User memory      profile_id != '_obsilo' (or 'default')
- *   2. Obsilo's soul    profile_id == '_obsilo', topics contains 'soul'
+ *   2. Vault Operator's soul    profile_id == '_obsilo', topics contains 'soul'
  *   3. Capabilities     profile_id == '_obsilo', topics contains 'capability' (read-only)
  *
  * FEATURE-0319b follow-up: replaces the editor UI in MemoryTab with a
@@ -50,7 +50,7 @@ export class MemoryViewerModal extends Modal {
 
         const intro = this.contentEl.createEl('p', { cls: 'memory-viewer-intro' });
         intro.setText(
-            'Everything Obsilo remembers about you and how it knows itself. ' +
+            'Everything Vault Operator remembers about you and how it knows itself. ' +
             'New entries come from chat (just say it). This view shows what is stored and lets you remove anything.',
         );
 
@@ -78,7 +78,7 @@ export class MemoryViewerModal extends Modal {
         const tabs: Array<{ key: Tab; label: string; count: number }> = [
             { key: 'all', label: 'All', count: all.length },
             { key: 'user', label: 'User memory', count: userFacts.length },
-            { key: 'soul', label: 'Obsilo’s soul', count: soulFacts.length },
+            { key: 'soul', label: 'Vault Operator’s soul', count: soulFacts.length },
             { key: 'capabilities', label: 'Capabilities', count: capabilityFacts.length },
         ];
         for (const tab of tabs) {
@@ -140,16 +140,16 @@ export class MemoryViewerModal extends Modal {
 
         if (this.activeTab === 'all' || this.activeTab === 'user') {
             this.renderSection(container, 'User memory', filterFn(userFacts), true,
-                'Facts Obsilo learned about you across conversations.');
+                'Facts Vault Operator learned about you across conversations.');
         }
         if (this.activeTab === 'all' || this.activeTab === 'soul') {
-            this.renderSection(container, 'Obsilo’s soul', filterFn(soulFacts), true,
-                'How Obsilo behaves: identity, values, anti-patterns, communication style. ' +
+            this.renderSection(container, 'Vault Operator’s soul', filterFn(soulFacts), true,
+                'How Vault Operator behaves: identity, values, anti-patterns, communication style. ' +
                 'Tell the agent in chat to add or change.');
         }
         if (this.activeTab === 'all' || this.activeTab === 'capabilities') {
             this.renderSection(container, 'Capabilities (read-only)', filterFn(capabilityFacts), false,
-                'What Obsilo knows about its own features. Auto-generated from the plugin code.');
+                'What Vault Operator knows about its own features. Auto-generated from the plugin code.');
         }
     }
 

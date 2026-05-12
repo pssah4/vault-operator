@@ -3,7 +3,7 @@
 > **Priority:** P1
 > **Epic:** EPIC-18 (Token-Kostenreduktion, ADR-63 Context Externalisation)
 > **Date:** 2026-04-19
-> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/obsilo/issues/31) / commit [3cbec9d](https://github.com/nicholas-leonard/obsilo/commit/3cbec9d)
+> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/vault-operator/issues/31) / commit [3cbec9d](https://github.com/nicholas-leonard/obsilo/commit/3cbec9d)
 
 ## Problem
 

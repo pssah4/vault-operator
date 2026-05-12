@@ -1,16 +1,16 @@
-# Obsilo Relay -- Setup Guide
+# Vault Operator Relay -- Setup Guide
 
 A lightweight relay server that makes your Obsidian vault accessible from AI assistants like Claude, ChatGPT, Cursor, and any MCP-compatible tool.
 
 ## How it works
 
 ```
-AI Assistant  -->  HTTPS  -->  This Relay (Cloudflare)  <--  WebSocket  <--  Obsilo Plugin
+AI Assistant  -->  HTTPS  -->  This Relay (Cloudflare)  <--  WebSocket  <--  Vault Operator Plugin
 (claude.ai,                    (always reachable)                           (your computer)
  ChatGPT, etc.)
 ```
 
-The relay is a thin proxy. It receives requests from AI assistants and forwards them to your Obsilo plugin via WebSocket. No data is stored on the relay.
+The relay is a thin proxy. It receives requests from AI assistants and forwards them to your Vault Operator plugin via WebSocket. No data is stored on the relay.
 
 ---
 
@@ -51,9 +51,9 @@ This opens a browser window. Click **"Allow"** to authorize.
 ### Step 4: Deploy the relay
 
 ```bash
-# Clone the Obsilo repository
-git clone https://github.com/pssah4/obsilo
-cd obsilo/relay
+# Clone the Vault Operator repository
+git clone https://github.com/pssah4/vault-operator
+cd vault-operator/relay
 
 # Install dependencies
 npm install
@@ -71,7 +71,7 @@ Copy this URL -- you'll need it in Step 6.
 
 ### Step 5: Set the relay token
 
-In Obsidian, go to **Obsilo Settings > Connections > Remote access** and click **"Generate"** to create a token.
+In Obsidian, go to **Vault Operator Settings > Connections > Remote access** and click **"Generate"** to create a token.
 
 Copy the token, then set it in your Cloudflare Worker:
 
@@ -81,9 +81,9 @@ npx wrangler secret put RELAY_TOKEN
 
 Paste the token when prompted and press Enter.
 
-### Step 6: Configure Obsilo
+### Step 6: Configure Vault Operator
 
-In Obsidian, go to **Obsilo Settings > Connections > Remote access**:
+In Obsidian, go to **Vault Operator Settings > Connections > Remote access**:
 
 1. Toggle **"Enable remote access"** on
 2. Paste the **relay URL** from Step 4
@@ -99,7 +99,7 @@ Copy your relay URL and add it as a connector:
 **claude.ai:**
 1. Go to [claude.ai](https://claude.ai) > Settings > Connectors
 2. Click "Add custom connector"
-3. Name: `Obsilo`
+3. Name: `Vault Operator`
 4. URL: paste your relay URL
 5. Click "Add"
 
@@ -123,7 +123,7 @@ Copy your relay URL and add it as a connector:
 
 ## Security
 
-- All requests require a Bearer token (shared secret between Obsilo and the relay)
+- All requests require a Bearer token (shared secret between Vault Operator and the relay)
 - TLS encryption enforced by Cloudflare
 - No data stored on the relay (pure forwarding)
 - You control the relay on your own Cloudflare account
@@ -131,11 +131,11 @@ Copy your relay URL and add it as a connector:
 ## Troubleshooting
 
 **"Plugin not connected" error:**
-- Make sure Obsidian is running with Obsilo's remote access enabled
-- Check that the relay URL and token match in both Obsilo Settings and Cloudflare
+- Make sure Obsidian is running with Vault Operator's remote access enabled
+- Check that the relay URL and token match in both Vault Operator Settings and Cloudflare
 
 **"Unauthorized" error:**
-- The token in Obsilo Settings must exactly match the RELAY_TOKEN in Cloudflare
+- The token in Vault Operator Settings must exactly match the RELAY_TOKEN in Cloudflare
 - Re-run `npx wrangler secret put RELAY_TOKEN` with the correct token
 
 **Relay URL not working:**

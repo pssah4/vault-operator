@@ -21,6 +21,14 @@ import type { FileAdapter } from '../storage/types';
 /** Results larger than this (in chars) are externalized to a temp file. */
 const EXTERNALIZE_THRESHOLD = 2000;
 
+/**
+ * FIX-24-03-01: when the agent re-reads a tmp file the externalizer itself
+ * produced, keep at most this many characters of the head in the conversation.
+ * The full text already lives in that file and was summarized when it was first
+ * produced — a verbatim re-read would just shovel the bulk one message forward.
+ */
+const RE_READ_CAP_CHARS = 2000;
+
 /** Tools that should NEVER be externalized (original file exists in vault). */
 const SKIP_EXTERNALIZATION = new Set([
     'write_file', 'edit_file', 'append_to_file', 'create_folder',
@@ -75,21 +83,41 @@ function formatSemanticSearchRef(content: string, path: string): string {
 
 function formatReadFileRef(content: string, path: string, toolInput: Record<string, unknown>): string {
     const filePath = (toolInput.path as string) ?? 'unknown';
-    // Extract headings for navigation
-    const headings = content.match(/^#{1,3}\s+.+$/gm) ?? [];
-    const headingList = headings.slice(0, 8).map(h => `  ${h}`).join('\n');
-    const preview = content.slice(0, 400).replace(/\n/g, ' ').trim();
-    return `[read_file] Content of ${filePath} (${content.length} chars).\nHeadings:\n${headingList || '  (no headings)'}\nPreview: ${preview}...\n\nUse read_file("${filePath}") to re-read the full content.`;
+    // Extract headings for navigation (richer reference — ADR-63 amendment).
+    const headings = content.match(/^#{1,4}\s+.+$/gm) ?? [];
+    const headingList = headings.slice(0, 16).map(h => `  ${h}`).join('\n');
+    const preview = content.slice(0, 800).replace(/\n+/g, ' ').trim();
+    return `[read_file] Content of ${filePath} (${content.length} chars).\nHeadings:\n${headingList || '  (no headings)'}\nPreview: ${preview}…\n\nFull content saved to: ${path}\nUse read_file("${path}") ONLY if you need a section that is not visible in the headings/preview above.`;
+}
+
+/** Pull the most informative leading lines (skip empties and bare markers) for a richer web/default preview. */
+function topLines(content: string, n: number): string {
+    return content
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0)
+        .slice(0, n)
+        .join('\n');
 }
 
 function formatWebRef(content: string, path: string, toolName: string): string {
-    const preview = content.slice(0, 500).replace(/\n/g, ' ').trim();
-    return `[${toolName}] ${content.length} chars fetched.\nPreview: ${preview}...\n\nFull content saved to: ${path}\nUse read_file("${path}") to see full content.`;
+    const title = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
+    const headings = (content.match(/^#{1,3}\s+.+$/gm) ?? []).slice(0, 12).map(h => `  ${h}`).join('\n');
+    const preview = content.slice(0, 1200).replace(/\n+/g, ' ').trim();
+    return `[${toolName}] ${content.length} chars fetched.${title ? `\nTitle: ${title}` : ''}${headings ? `\nHeadings:\n${headings}` : ''}\nPreview: ${preview}…\n\nFull content saved to: ${path}\nUse read_file("${path}") ONLY if the preview/headings above don't cover what you need.`;
 }
 
 function formatDefaultRef(content: string, path: string, toolName: string): string {
-    const preview = content.slice(0, 500).replace(/\n/g, ' ').trim();
-    return `[${toolName}] Result (${content.length} chars).\nPreview: ${preview}...\n\nFull result saved to: ${path}\nUse read_file("${path}") to see full content.`;
+    const head = topLines(content, 12);
+    return `[${toolName}] Result (${content.length} chars).\nFirst lines:\n${head}\n\nFull result saved to: ${path}\nUse read_file("${path}") ONLY if you need detail beyond the lines above.`;
+}
+
+/** FIX-24-03-01: capped echo of a re-read of a tmp file the externalizer produced. */
+function formatReReadCap(content: string, path: string): string {
+    const headings = content.match(/^#{1,4}\s+.+$/gm) ?? [];
+    const headingList = headings.slice(0, 16).map(h => `  ${h}`).join('\n');
+    const head = content.slice(0, RE_READ_CAP_CHARS).replace(/\n+/g, ' ').trim();
+    return `[re-read of ${path} — capped to ${RE_READ_CAP_CHARS} chars; the file has ${content.length} chars]\nHeadings:\n${headingList || '  (no headings)'}\nHead: ${head}…\n\nThis content was already summarized in the reference when it was first produced. Do not re-read the whole file again — if you need a specific section that is not above, search the file or quote the exact heading you need.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,17 +166,34 @@ export class ResultExternalizer {
      * Check if a tool result should be externalized, and if so, write it
      * to a temp file and return a compact reference. Otherwise return null.
      */
+    /** True when `p` points at a tmp file this externalizer produced. */
+    isExternalizedPath(p: unknown): boolean {
+        if (typeof p !== 'string' || !p) return false;
+        const norm = p.replace(/^\.?\/+/, '');
+        return norm === this.tmpDir || norm.startsWith(this.tmpDir + '/');
+    }
+
     async maybeExternalize(
         toolName: string,
         toolInput: Record<string, unknown>,
         content: string,
         isError: boolean,
     ): Promise<string | null> {
-        // Never externalize errors, disabled state, skipped tools, or small results
+        // Never externalize errors, disabled state, or small results
         if (this._disabled) return null;
         if (isError) return null;
-        if (SKIP_EXTERNALIZATION.has(toolName)) return null;
         if (content.length <= EXTERNALIZE_THRESHOLD) return null;
+
+        // FIX-24-03-01: a re-read of a tmp file the externalizer itself produced
+        // must not put the full text back into history — return a capped echo
+        // instead. read_file/read_document are otherwise in SKIP_EXTERNALIZATION,
+        // so this special case has to come BEFORE that check.
+        if ((toolName === 'read_file' || toolName === 'read_document')
+            && this.isExternalizedPath(toolInput?.path)) {
+            return formatReReadCap(content, String(toolInput.path));
+        }
+
+        if (SKIP_EXTERNALIZATION.has(toolName)) return null;
 
         try {
             // E-4: Skip redundant exists check after first mkdir
@@ -179,11 +224,11 @@ export class ResultExternalizer {
     }
 
     /**
-     * Clean up all temp files for this task. BUG-023 (2026-04-19): macOS
-     * iCloud file providers occasionally hold a transient lock on the
-     * directory and reject `unlink` with EPERM. Retry a few times with
-     * back-off; if the lock persists the orphan sweeper on the next plugin
-     * start will finish the job.
+     * Clean up all temp files for this task. BUG-023 / FIX-24-03-02
+     * (macOS iCloud): the file provider occasionally holds a transient lock
+     * on the directory and rejects `unlink` with EPERM. Retry a few times
+     * with back-off; if the lock persists the orphan sweeper on the next
+     * plugin start (`cleanupOrphaned`) finishes the job. Never fatal.
      */
     async cleanup(): Promise<void> {
         try {

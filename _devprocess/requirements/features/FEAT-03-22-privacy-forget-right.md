@@ -25,7 +25,7 @@ Selective Deletion auf vier Granularitaets-Ebenen plus Memory-Eligible-Konzept f
 **Conversation-Memory-Modell:**
 
 - **Default `searchable`:** Conversation in history.db indiziert (search_history findet sie), aber kein Fact-Extraction.
-- **`memory-eligible`:** zusaetzlich Single-Call-Extraction triggers. Trigger via Star-Button (Obsilo) oder `mark_conversation_for_memory`-Tool. Opt-In aus Cost+Quality-Gruenden, nicht primaer Privacy.
+- **`memory-eligible`:** zusaetzlich Single-Call-Extraction triggers. Trigger via Star-Button (Vault Operator) oder `mark_conversation_for_memory`-Tool. Opt-In aus Cost+Quality-Gruenden, nicht primaer Privacy.
 
 Privacy-Schutz auf Conversation-Ebene ergibt sich aus der **Nutzungsentscheidung selbst:** Wer UCM nutzt, akzeptiert die Datenspeicherung. Wer Privacy will, nutzt UCM nicht. Loesch-Moeglichkeit ist DAS Privacy-Werkzeug, kein dediziertes `private`-Marker noetig (im Local-First-Modell). Fuer eine eventuelle Cloud-Service-Variante (UCM v2) wird das Privacy-Modell separat designed -- BA-Out-of-Scope.
 
@@ -169,7 +169,7 @@ Privacy-Schutz auf Conversation-Ebene ergibt sich aus der **Nutzungsentscheidung
 - [ ] Hard-Delete-Job nach 30 Tagen Soft-Delete-Window (taeglich oder Plugin-Start)
 - [ ] Backup-Sweep-Algorithmus fuer .bak-Files
 - [ ] Audit-Log-Eintraege mit reason, initiator, timestamp
-- [ ] Undo-Toast in Obsilo-UI nach Soft-Delete
+- [ ] Undo-Toast in Vault Operator-UI nach Soft-Delete
 
 ### Quality
 

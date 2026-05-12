@@ -53,6 +53,34 @@ import {
 } from './prompts/sections';
 
 /**
+ * ADR-62 amendment (FEAT-24-01): a real sentinel line that splits the system
+ * prompt into the cacheable prefix (sections 1-8) and the volatile tail
+ * (sections 9-17, e.g. memory / active skills / vault context / date). Providers
+ * with an explicit cache marker (Anthropic `cache_control`, Bedrock `cachePoint`)
+ * put the marker only on the prefix; the tail gets no marker. The line is unique,
+ * appears on its own line, and is stripped before the prompt is sent.
+ *
+ * Until 2026-05-12 the "CACHE BREAKPOINT" was only a code comment in this file
+ * (never in the rendered string), so the marker landed on the whole prompt incl.
+ * the volatile tail -> cache miss + re-write on every call (RESEARCH-36 Befund A).
+ */
+export const CACHE_BREAKPOINT_MARKER = '<<<OBSILO_CACHE_BREAKPOINT>>>';
+
+/**
+ * Split a rendered system prompt at {@link CACHE_BREAKPOINT_MARKER}. Returns the
+ * cacheable prefix and the volatile tail with the marker line removed. If the
+ * marker is absent (legacy prompt, subtask), `stable` is the whole prompt and
+ * `volatile` is empty — callers then fall back to marking the whole thing.
+ */
+export function splitSystemPromptAtCacheBreakpoint(prompt: string): { stable: string; volatile: string } {
+    const idx = prompt.indexOf(CACHE_BREAKPOINT_MARKER);
+    if (idx < 0) return { stable: prompt, volatile: '' };
+    const stable = prompt.slice(0, idx).replace(/\n+$/, '\n');
+    const volatile = prompt.slice(idx + CACHE_BREAKPOINT_MARKER.length).replace(/^\n+/, '\n');
+    return { stable, volatile };
+}
+
+/**
  * Configuration for building the system prompt.
  * Replaces 15+ positional parameters with a structured config object.
  */
@@ -178,9 +206,10 @@ export function buildSystemPromptForMode(
         getSecurityBoundarySection(),
 
         // ── CACHE BREAKPOINT ────────────────────────────────────────────
-        // Everything below can change per message or session.
-        // Anthropic cache_control is set on the system prompt as a whole,
-        // but a stable prefix maximizes KV-cache hits for all providers.
+        // Real sentinel line (ADR-62 amendment / FEAT-24-01). Providers with an
+        // explicit cache marker put it ONLY on everything ABOVE this line; the
+        // volatile tail below gets no marker. The line is stripped before send.
+        CACHE_BREAKPOINT_MARKER,
 
         // 9. Plugin Skills (can change when plugins are enabled/disabled)
         getPluginSkillsSection(pluginSkillsSection),
@@ -218,7 +247,7 @@ export function buildSystemPromptForMode(
     // is small to avoid noise on subtask prompts.
     const labels = [
         'mode', 'cost-heuristics', 'capabilities', 'obsidian-conv', 'tools', 'tool-routing',
-        'objective', 'response-format', 'security',
+        'objective', 'response-format', 'security', 'cache-breakpoint',
         'plugin-skills', 'active-skills', 'memory', 'recipes',
         'self-authored-skills', 'custom-instructions', 'rules',
         'explicit-instructions', 'vault-context', 'datetime',

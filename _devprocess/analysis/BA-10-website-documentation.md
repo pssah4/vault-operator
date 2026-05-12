@@ -10,21 +10,21 @@
 
 ### 1.1 Problem Statement
 
-Obsilo ist von einem Plugin mit ~30 Tools zu einem umfassenden AI Operating Layer mit 49+ Tools, Knowledge Layer, Multi-Provider, MCP Connector und Office Pipeline gewachsen. Die Website-Dokumentation bildet nur einen Bruchteil dieses Funktionsumfangs ab, ist feature-orientiert statt nutzer-orientiert strukturiert, und es gibt keinen Mechanismus damit Obsilo selbst Fragen zur eigenen Bedienung beantworten kann.
+Vault Operator ist von einem Plugin mit ~30 Tools zu einem umfassenden AI Operating Layer mit 49+ Tools, Knowledge Layer, Multi-Provider, MCP Connector und Office Pipeline gewachsen. Die Website-Dokumentation bildet nur einen Bruchteil dieses Funktionsumfangs ab, ist feature-orientiert statt nutzer-orientiert strukturiert, und es gibt keinen Mechanismus damit Vault Operator selbst Fragen zur eigenen Bedienung beantworten kann.
 
 ### 1.2 Proposed Solution
 
 Drei parallele Dokumentations-Streams:
-1. **User Guide** -- praxisnah, Persona-basiert, "Wie arbeite ich mit Obsilo?" statt Feature-Listen
+1. **User Guide** -- praxisnah, Persona-basiert, "Wie arbeite ich mit Vault Operator?" statt Feature-Listen
 2. **Developer/Architect Docs** -- technischer Deep-Dive, Portfolio-tauglich, Contributor-onboarding-faehig
 3. **Roadmap & Versions-Log** -- zeigt Lieferfaehigkeit und Zukunftsvision auf der Homepage
 
-Plus: Doku als Obsilo-Skill, damit der Agent User-Fragen zur Bedienung beantworten kann.
+Plus: Doku als Vault Operator-Skill, damit der Agent User-Fragen zur Bedienung beantworten kann.
 
 ### 1.3 Expected Outcomes
 
-- Neue User koennen Obsilo ohne externe Hilfe installieren, konfigurieren und produktiv nutzen
-- Obsilo beantwortet Fragen zur eigenen Bedienung im Chat
+- Neue User koennen Vault Operator ohne externe Hilfe installieren, konfigurieren und produktiv nutzen
+- Vault Operator beantwortet Fragen zur eigenen Bedienung im Chat
 - Engineers verstehen die Architektur gut genug fuer eine Contribution
 - Roadmap vermittelt ein aktiv gepflegtes, ambitioniertes Projekt
 - Die Doku macht Spass zu lesen (best-in-class Patterns, Stripe/Tailwind/Linear-Niveau)
@@ -35,7 +35,7 @@ Plus: Doku als Obsilo-Skill, damit der Agent User-Fragen zur Bedienung beantwort
 
 ### 2.1 Background
 
-Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. Es ist kein einfaches LLM-UI, sondern ein tief integrierter Assistent der den gesamten Obsidian-Workflow augmentiert und automatisiert -- von Note-Taking und Wissensmanagement ueber Zettelkasten-Methoden bis hin zu Office-Dokument-Erstellung und Plugin-Interaktion.
+Vault Operator ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. Es ist kein einfaches LLM-UI, sondern ein tief integrierter Assistent der den gesamten Obsidian-Workflow augmentiert und automatisiert -- von Note-Taking und Wissensmanagement ueber Zettelkasten-Methoden bis hin zu Office-Dokument-Erstellung und Plugin-Interaktion.
 
 ### 2.2 Current State ("As-Is")
 
@@ -58,18 +58,18 @@ Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. 
 - Grosse Luecken: Knowledge Layer, Copilot/Kilo Provider, MCP Server, Office Creation, Task Extraction, Chat-Linking, Onboarding -- alles nicht dokumentiert
 - Hero-Zahlen veraltet ("49 tools")
 - Kein Roadmap/Versions-Log
-- Obsilo kennt die eigene Doku nicht (kein Skill/Rule)
+- Vault Operator kennt die eigene Doku nicht (kein Skill/Rule)
 - Raw HTML schwer wartbar bei wachsendem Content
 - 6 Sprachen mit hohem Wartungsaufwand
 
 ### 2.3 Desired State ("To-Be")
 
 **User Guide:**
-- Praxisnaher, Persona-basierter Zugang: "Wie arbeite ich mit Obsilo?" statt Feature-Listen
+- Praxisnaher, Persona-basierter Zugang: "Wie arbeite ich mit Vault Operator?" statt Feature-Listen
 - Kein User wird allein gelassen -- vom ersten Start bis zu fortgeschrittenen Workflows
-- Vermittelt was Obsilo kann, ohne zu erschlagen
+- Vermittelt was Vault Operator kann, ohne zu erschlagen
 - Progressive Disclosure: Basics -> Intermediate -> Advanced
-- Obsilo selbst kann Fragen zur Bedienung beantworten (Skill basierend auf der Doku)
+- Vault Operator selbst kann Fragen zur Bedienung beantworten (Skill basierend auf der Doku)
 
 **Developer Docs:**
 - Technischer Deep-Dive fuer "curious engineers"
@@ -86,7 +86,7 @@ Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. 
 - Migration von raw HTML zu Static Site Generator (Markdown-Authoring)
 - Hosting: GitHub Pages (kostenlos)
 - Sprachen: EN + DE
-- Doku-Source in Markdown = direkt als Obsilo-Skill konsumierbar
+- Doku-Source in Markdown = direkt als Vault Operator-Skill konsumierbar
 
 ### 2.4 Gap Analysis
 
@@ -94,7 +94,7 @@ Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. 
 |---------|-------|-------|-----|
 | Content-Abdeckung | ~60% der Features dokumentiert | 100% | 15+ Seiten fehlen (Knowledge Layer, Office, Copilot/Kilo, MCP Server, Task Extraction, Chat-Linking) |
 | Informationsarchitektur | Feature-orientiert (flat list) | Persona-basiert, progressive disclosure | Kompletter Umbau der Navigation + Content-Struktur |
-| Agent-Awareness | Obsilo kennt Doku nicht | Obsilo beantwortet Fragen via Skill | Skill erstellen, Markdown als Source |
+| Agent-Awareness | Vault Operator kennt Doku nicht | Vault Operator beantwortet Fragen via Skill | Skill erstellen, Markdown als Source |
 | Tech Stack | Raw HTML, 6 Sprachen | SSG (Markdown), EN + DE | Migration zu SSG, 4 Sprachen entfernen |
 | Roadmap | Nicht vorhanden | Kategorien + Versions-Log auf Homepage | Neue Sektion + Daten-Pflege |
 | Dev Docs | ~60% abgedeckt | 100% + Portfolio-Charakter | Knowledge Layer, Office Pipeline, Copilot/Kilo, MCP Server fehlen |
@@ -127,7 +127,7 @@ Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. 
 **Persona 1: "Alex" -- der Obsidian Power User**
 - **Rolle:** Knowledge Worker, nutzt Obsidian taeglich fuer Notizen, Projekte, Zettelkasten
 - **Tech-Level:** Kann Plugins installieren, kennt Obsidian Settings, aber kein Entwickler
-- **Ziele:** Obsilo als unsichtbaren Assistenten nutzen der Routinearbeit abnimmt
+- **Ziele:** Vault Operator als unsichtbaren Assistenten nutzen der Routinearbeit abnimmt
 - **Pain Points:** Ueberwaeltigt von Feature-Listen, will wissen "was bringt mir das konkret?", braucht Quick Wins
 - **Nutzungshaeufigkeit:** Daily
 - **Typische Fragen:** "Wie fange ich an?", "Wie suche ich semantisch?", "Wie erstelle ich eine Praesentation aus meinen Notizen?", "Welches Modell soll ich nehmen?"
@@ -135,7 +135,7 @@ Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. 
 **Persona 2: "Jordan" -- der Curious Engineer**
 - **Rolle:** Software-Entwickler oder Architekt, interessiert an AI-Agent-Systemen
 - **Tech-Level:** Liest Code, versteht Architektur-Patterns, kennt LLM-APIs
-- **Ziele:** Verstehen wie Obsilo unter der Haube funktioniert, ggf. eigene Projekte inspirieren
+- **Ziele:** Verstehen wie Vault Operator unter der Haube funktioniert, ggf. eigene Projekte inspirieren
 - **Pain Points:** Oberflaechliche Doku ohne Tiefe, keine Architektur-Entscheidungen erklaert
 - **Nutzungshaeufigkeit:** Einmalig bis gelegentlich (Referenz)
 - **Typische Fragen:** "Wie funktioniert der Agent Loop?", "Warum SQLite statt Vectra?", "Wie ist die Tool Pipeline aufgebaut?"
@@ -148,7 +148,7 @@ Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. 
 2. Grundlagen verstehen (Chat, Modes, Permissions)
 3. Vault-Intelligence entdecken (Semantic Search, Memory, Knowledge Layer)
 4. Fortgeschritten (Skills/Workflows, Office-Erstellung, MCP, Konnektoren)
-5. Bei Fragen: Obsilo im Chat fragen ("Wie richte ich X ein?")
+5. Bei Fragen: Vault Operator im Chat fragen ("Wie richte ich X ein?")
 ```
 
 **Jordan (Dev Docs):**
@@ -168,8 +168,8 @@ Obsilo ist ein Open-Source Obsidian-Plugin das als AI Operating Layer fungiert. 
 Die aktuelle Dokumentation hat drei fundamentale Probleme:
 
 1. **Content-Luecken:** ~40% der implementierten Features sind nicht dokumentiert (Knowledge Layer, Office Pipeline, Copilot/Kilo, MCP Server, Task Extraction, Chat-Linking)
-2. **Falsche Perspektive:** Feature-orientiert ("Was hat Obsilo?") statt nutzer-orientiert ("Wie loese ich mein Problem?"). Ein Non-Tech User muss sich durch 13 technische Seiten arbeiten ohne klaren Einstieg.
-3. **Kein Self-Service:** Obsilo kann keine Fragen zur eigenen Bedienung beantworten. User muessen die Website aufsuchen, obwohl der Agent direkt helfen koennte.
+2. **Falsche Perspektive:** Feature-orientiert ("Was hat Vault Operator?") statt nutzer-orientiert ("Wie loese ich mein Problem?"). Ein Non-Tech User muss sich durch 13 technische Seiten arbeiten ohne klaren Einstieg.
+3. **Kein Self-Service:** Vault Operator kann keine Fragen zur eigenen Bedienung beantworten. User muessen die Website aufsuchen, obwohl der Agent direkt helfen koennte.
 
 ### 5.2 Root Causes
 
@@ -189,16 +189,16 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 
 ### 6.1 Business Goals
 
-- Obsilo als ernstzunehmendes, professionelles Open-Source-Projekt positionieren
+- Vault Operator als ernstzunehmendes, professionelles Open-Source-Projekt positionieren
 - Portfolio-Wert fuer den Autor maximieren (technische Tiefe + Lieferfaehigkeit zeigen)
 - Grundlage fuer Community-Wachstum schaffen (Richtung Community Plugin Release)
 
 ### 6.2 User Goals
 
-- Non-Tech User koennen Obsilo selbststaendig einrichten und produktiv nutzen
+- Non-Tech User koennen Vault Operator selbststaendig einrichten und produktiv nutzen
 - Fortgeschrittene User entdecken Features progressiv ohne ueberwaeltigt zu werden
 - Engineers verstehen Architektur und Entscheidungen in angemessener Tiefe
-- Obsilo beantwortet Bedienungsfragen direkt im Chat
+- Vault Operator beantwortet Bedienungsfragen direkt im Chat
 
 ### 6.3 Success Metrics (KPIs)
 
@@ -207,9 +207,9 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 | Feature-Abdeckung in User Docs | ~60% | 100% | MVP |
 | Feature-Abdeckung in Dev Docs | ~60% | 100% | MVP |
 | Sprachen | 6 (teilweise) | 2 (EN+DE, vollstaendig) | MVP |
-| Obsilo beantwortet Doku-Fragen | 0% | >80% der gaengigen Fragen | MVP |
+| Vault Operator beantwortet Doku-Fragen | 0% | >80% der gaengigen Fragen | MVP |
 | Roadmap auf Homepage | nicht vorhanden | vorhanden mit Versions-Log | MVP |
-| "Kann Obsilo ohne externe Hilfe einrichten" | unklar | Ja (Self-Test) | MVP |
+| "Kann Vault Operator ohne externe Hilfe einrichten" | unklar | Ja (Self-Test) | MVP |
 | Spass beim Lesen (subjektiv) | funktional | best-in-class inspiriert | MVP |
 
 ---
@@ -235,9 +235,9 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 - Versions-Log (Meilensteine pro Version)
 - Hero-Section aktualisieren (Zahlen, Messaging)
 
-**Stream 4: Obsilo Doku-Skill**
+**Stream 4: Vault Operator Doku-Skill**
 - Markdown-Doku als Skill fuer den Agent
-- Obsilo kann Fragen zur eigenen Bedienung beantworten
+- Vault Operator kann Fragen zur eigenen Bedienung beantworten
 
 ### 7.2 Out of Scope
 
@@ -245,7 +245,7 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 - Community-Forum / Discord (erst bei Community-Plugin-Freigabe)
 - Chatbot auf der Website (Token-Kosten ohne Nutzen)
 - Detailliertes Changelog (Commit-Level)
-- API-Dokumentation (Obsilo hat keine externe API)
+- API-Dokumentation (Vault Operator hat keine externe API)
 - Mehr als 2 Sprachen
 
 ### 7.3 Assumptions
@@ -259,7 +259,7 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 
 - Ein-Personen-Projekt: Wartungsaufwand muss minimal bleiben
 - Kein Budget fuer Hosting (GitHub Pages, kostenlos)
-- Doku-Content muss in zwei Formen nutzbar sein: Website + Obsilo-Skill (Markdown als gemeinsame Basis)
+- Doku-Content muss in zwei Formen nutzbar sein: Website + Vault Operator-Skill (Markdown als gemeinsame Basis)
 - Bestehendes URL-Schema sollte soweit moeglich erhalten bleiben (SEO, existierende Links)
 
 ---
@@ -282,7 +282,7 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 
 **User Guide:**
 - Installation & Quick Start (3 Minuten zum ersten Chat)
-- "Wie arbeite ich mit Obsilo?" -- Grundkonzepte erklaert
+- "Wie arbeite ich mit Vault Operator?" -- Grundkonzepte erklaert
 - Feature-Bereiche mit Praxis-Beispielen (nicht Feature-Listen)
 - Troubleshooting / FAQ
 - Durchgaengige Navigation (Previous/Next, Sidebar, Suche)
@@ -298,9 +298,9 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 - Versions-Log mit Meilensteinen
 - Aktualisierte Hero-Section
 
-**Obsilo Doku-Skill:**
+**Vault Operator Doku-Skill:**
 - Skill der die User-Guide-Inhalte als Kontext bereitstellt
-- Obsilo kann "Wie richte ich X ein?" Fragen beantworten
+- Vault Operator kann "Wie richte ich X ein?" Fragen beantworten
 
 ### 9.2 Non-Functional Requirements (Summary)
 
@@ -316,7 +316,7 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 |----------|---------|-------------|
 | P0 | SSG-Migration | Markdown-basiert, GitHub Pages, EN+DE |
 | P0 | User Guide Neustrukturierung | Persona-basiert, Progressive Disclosure, alle Features |
-| P0 | Obsilo Doku-Skill | Agent beantwortet Bedienungsfragen |
+| P0 | Vault Operator Doku-Skill | Agent beantwortet Bedienungsfragen |
 | P1 | Dev Docs Update | Fehlende Bereiche ergaenzen, Portfolio-Charakter |
 | P1 | Homepage Roadmap | Kategorien + Versions-Log |
 | P1 | Hero-Section Update | Aktuelle Zahlen, Messaging |
@@ -341,17 +341,17 @@ Die aktuelle Dokumentation hat drei fundamentale Probleme:
 
 - **SSG:** Static Site Generator -- generiert statische HTML-Seiten aus Markdown
 - **Progressive Disclosure:** Informationen schrittweise enthuellen statt alles auf einmal
-- **Doku-Skill:** Obsilo-interner Skill der Website-Doku-Inhalte als Kontext bereitstellt
+- **Doku-Skill:** Vault Operator-interner Skill der Website-Doku-Inhalte als Kontext bereitstellt
 
 ### B. Interview Notes
 
 - Scope: MVP (drei parallele Streams)
 - Zielgruppen: Non-Tech Obsidian User (primaer), Curious Engineers (sekundaer)
-- Obsilo ist generalistischer Assistent, kein Spezialtool -- Doku muss "Wie arbeite ich mit Obsilo?" vermitteln
+- Vault Operator ist generalistischer Assistent, kein Spezialtool -- Doku muss "Wie arbeite ich mit Vault Operator?" vermitteln
 - Dev Docs als Portfolio + Showcase, nicht als API-Referenz
 - Roadmap: grobe Kategorien, zeigt Lieferfaehigkeit
 - Versions-Log: Meilensteine pro Version
-- Obsilo soll eigene Doku als Skill kennen (Stream 4)
+- Vault Operator soll eigene Doku als Skill kennen (Stream 4)
 - Hosting: GitHub Pages (kostenlos, Pflicht)
 - Sprachen: EN + DE
 - Design: best-in-class (Stripe, Tailwind, Linear als Vorbilder)

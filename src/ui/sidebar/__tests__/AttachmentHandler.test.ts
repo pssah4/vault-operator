@@ -80,4 +80,53 @@ describe('AttachmentHandler lifecycle', () => {
             expect(second).toEqual([]);
         });
     });
+
+    describe('FEAT-24-03 attachment context budget', () => {
+        type Priv = {
+            truncateTextFileForContext(text: string, vaultPath: string): string;
+            contextCharsUsed: number;
+        };
+
+        it('caps a single large attachment to the per-file limit and points at read_file', () => {
+            const h = makeHandler() as unknown as Priv;
+            const big = 'x'.repeat(200_000);
+            const out = h.truncateTextFileForContext(big, 'Notes/Big.md');
+            expect(out.length).toBeLessThan(90_000);
+            expect(out).toContain('read_file path="Notes/Big.md"');
+        });
+
+        it('shrinks later attachments to the remaining per-turn budget', () => {
+            const h = makeHandler() as unknown as Priv;
+            const big = 'x'.repeat(200_000);
+            const first = h.truncateTextFileForContext(big, 'A.md');
+            const second = h.truncateTextFileForContext(big, 'B.md');
+            // Combined attachment text stays near the total budget (~64k chars + notices).
+            expect(first.length + second.length).toBeLessThan(80_000);
+            // The second one is much smaller than the first (budget mostly spent).
+            expect(second.length).toBeLessThan(first.length);
+        });
+
+        it('keeps a small attachment whole and tracks its size', () => {
+            const h = makeHandler() as unknown as Priv;
+            const out = h.truncateTextFileForContext('short content', 'S.md');
+            expect(out).toBe('short content');
+            expect(h.contextCharsUsed).toBe('short content'.length);
+        });
+
+        it('clear() resets the per-turn budget', () => {
+            const h = makeHandler();
+            const priv = h as unknown as Priv;
+            priv.truncateTextFileForContext('x'.repeat(200_000), 'A.md');
+            expect(priv.contextCharsUsed).toBeGreaterThan(0);
+            h.clear();
+            expect(priv.contextCharsUsed).toBe(0);
+        });
+
+        it('tells the user the rest is gone when the attachment has no vault path', () => {
+            const h = makeHandler() as unknown as Priv;
+            const out = h.truncateTextFileForContext('x'.repeat(200_000), '');
+            expect(out).toContain('not available');
+            expect(out).not.toContain('read_file path=""');
+        });
+    });
 });

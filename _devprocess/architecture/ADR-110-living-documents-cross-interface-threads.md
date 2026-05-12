@@ -24,7 +24,7 @@ die Bruecke nicht erfasst und `save_conversation` als one-shot
 Snapshot gebaut.
 
 Folge: externe Chat-UIs (Claude.ai, Claude Code, ChatGPT,
-Perplexity) koennen jeden Save in eine **neue** Obsilo-Conversation
+Perplexity) koennen jeden Save in eine **neue** Vault Operator-Conversation
 schreiben, aber nicht in eine wachsende. Sebastian muesste manuell
 nachhalten, welche Conversation noch aktiv ist, oder externe LLMs
 muessten eine `conversation_id` zwischen Turns festhalten -- beides
@@ -137,7 +137,7 @@ in der HistoryPanel ueber alle source-Tabs hinweg.
 ### `close_conversation(conversation_id)`-Tool
 
 Optionales explizites User-Triggering: entfernt die Active-Session
-aus der Map. Beispiel: User sagt "schliess die Obsilo-Conversation
+aus der Map. Beispiel: User sagt "schliess die Vault Operator-Conversation
 ab, neuer Thread fuer das naechste Thema".
 
 ## Konsequenzen

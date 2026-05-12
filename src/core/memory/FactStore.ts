@@ -36,7 +36,7 @@ export interface NewFactInput {
     sourceUri?: string;
     /**
      * Multi-profile partitioning (UCM-readiness, schema v3). Default 'default'
-     * matches Obsilo's single-user reality; UCM hosts assign per-profile keys
+     * matches Vault Operator's single-user reality; UCM hosts assign per-profile keys
      * like 'work' / 'personal' / 'coding'. The column is indexed.
      */
     profileId?: string;
@@ -74,7 +74,7 @@ export interface ListOptions {
     kind?: FactKind;
     /**
      * Multi-profile filter (UCM-readiness). Defaults to undefined =
-     * "no profile filter" so existing Obsilo callers see everything.
+     * "no profile filter" so existing Vault Operator callers see everything.
      * UCM hosts pass `profileId: 'work'` to scope per partition.
      */
     profileId?: string;

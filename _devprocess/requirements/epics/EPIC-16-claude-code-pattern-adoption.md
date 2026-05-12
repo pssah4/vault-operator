@@ -6,13 +6,13 @@
 
 ## Epic Hypothesis Statement
 
-FUER Obsilo-User mit wachsenden Vaults und komplexen Wissensarbeits-Workflows
+FUER Vault Operator-User mit wachsenden Vaults und komplexen Wissensarbeits-Workflows
 DIE schnellere Antworten, geringere Token-Kosten und bessere Memory-Nutzung benoetigen
 IST DIE Claude Code Pattern Adoption
 EIN Set von 5 inkrementellen Verbesserungen am bestehenden System
 DAS System-Prompt-Groesse reduziert, Memory intelligent filtert, Skills bedarfsgesteuert laedt und parallele Vault-Recherche ermoeglicht
 IM GEGENSATZ ZU einer 1:1-Portierung des Claude Code Coordinator Mode (der fuer Software-Entwicklung designt ist und 900+ Zeilen coding-spezifischen System-Prompt benoetigt)
-UNSERE LOESUNG uebernimmt nur die Patterns die sich auf Wissensarbeit uebertragen lassen und baut auf der bestehenden Obsilo-Architektur auf (ToolRegistry, SkillsManager, MemoryService, NewTaskTool)
+UNSERE LOESUNG uebernimmt nur die Patterns die sich auf Wissensarbeit uebertragen lassen und baut auf der bestehenden Vault Operator-Architektur auf (ToolRegistry, SkillsManager, MemoryService, NewTaskTool)
 
 ## Business Outcomes (messbar)
 
@@ -47,8 +47,8 @@ UNSERE LOESUNG uebernimmt nur die Patterns die sich auf Wissensarbeit uebertrage
 
 Claude Code definiert 6 Built-in Agents (Explore, Plan, Verification, General Purpose, etc.) mit eigenen Tool-Einschraenkungen und guenstigeren Modellen.
 
-**Warum nicht fuer Obsilo:**
-- Obsilo's Skills decken Spezialisierung bereits ab (office-workflow, presentation-design, etc.)
+**Warum nicht fuer Vault Operator:**
+- Vault Operator's Skills decken Spezialisierung bereits ab (office-workflow, presentation-design, etc.)
 - Agent-Spezialisierung loest Coding-Probleme: phasengetrennte Toolsets (kein Edit im Plan-Mode), objektives Verify (Tests bestehen/scheitern), Kostenoptimierung (Haiku fuer Explore)
 - Bei Wissensarbeit gibt es keine klare Phasentrennung -- Lesen und Schreiben passieren im selben Fluss
 - Ein "Vault Explorer" der nur lesen kann muesste erst fertig werden bevor der naechste Agent schreibt -- das verlangsamt statt zu beschleunigen
@@ -59,22 +59,22 @@ Claude Code definiert 6 Built-in Agents (Explore, Plan, Verification, General Pu
 
 Claude Code's Coordinator ist ein reiner Denker ohne eigene Tools (nur Agent, SendMessage, TaskStop). Er orchestriert Worker ueber async Notifications mit einem 900-Zeilen System-Prompt.
 
-**Warum nicht vollstaendig fuer Obsilo:**
+**Warum nicht vollstaendig fuer Vault Operator:**
 - Coordinator als toolloser Denker widerspricht Wissensarbeit wo Lesen+Schreiben im selben Fluss passieren
 - SendMessage/TaskStop als separate Tools: zu viel Komplexitaet fuer seltenen Fan-Out-Use-Case
 - 900-Zeilen Coordinator-Prompt: coding-spezifisch (Research -> Synthesis -> Implementation -> Verification Phasen)
 - Token-Overhead: jeder Worker braucht eigenen System-Prompt + Kontext-Aufbau
-- Typische Obsilo-Anfragen ("fasse Meeting-Notes zusammen", "erstelle PPTX aus Notizen") profitieren nicht von Delegation
+- Typische Vault Operator-Anfragen ("fasse Meeting-Notes zusammen", "erstelle PPTX aus Notizen") profitieren nicht von Delegation
 
 **Was stattdessen:** FEAT-16-03 uebernimmt den einzig relevanten Teil -- parallele read-only SubTasks via Promise.all als inkrementelle Erweiterung des bestehenden new_task-Systems.
 
 ## Explizit Out-of-Scope
 
 - **React/Ink Terminal UI Patterns**: Claude Code nutzt React+Ink fuer Terminal-Rendering -- nicht relevant fuer Obsidian Plugin
-- **Permission Mode System**: Claude Code's allow/deny/ask Regeln pro Tool -- Obsilo hat eigenes Approval-System
+- **Permission Mode System**: Claude Code's allow/deny/ask Regeln pro Tool -- Vault Operator hat eigenes Approval-System
 - **Feature Flags / GrowthBook**: A/B-Testing-Infrastruktur -- nicht relevant fuer Plugin
 - **Bun-spezifische Patterns**: `feature('XYZ')` Compile-Time-Feature-Gates -- nicht uebertragbar
-- **IDE Bridge / LSP Integration**: VS Code / JetBrains Anbindung -- Obsilo laeuft in Obsidian
+- **IDE Bridge / LSP Integration**: VS Code / JetBrains Anbindung -- Vault Operator laeuft in Obsidian
 - **Voice / Vim / Keybindings**: Terminal-UX-Features -- nicht relevant
 
 ## Dependencies & Risks
@@ -116,7 +116,7 @@ FEAT-16-03 Phase 2 (Async SubTasks)    -- nur wenn Phase 1 sich bewaehrt
 
 ## Referenz: Claude Code Quellcode-Mapping
 
-| Obsilo Feature | Claude Code Datei(en) | Pattern |
+| Vault Operator Feature | Claude Code Datei(en) | Pattern |
 |---------------|----------------------|---------|
 | FEAT-16-00 | src/tools/ToolSearchTool/, src/Tool.ts (searchHint, maxResultSizeChars) | Deferred tool schema, keyword matching |
 | FEAT-16-01 | src/memdir/findRelevantMemories.ts, memoryScan.ts, memoryTypes.ts | Frontmatter-basiertes Manifest, Sonnet-Side-Query |

@@ -20,15 +20,15 @@ Proposed.
 
 ## Context
 
-`@obsilo/memory-engine` wird in FEAT-03-21 als wiederverwendbares Package extrahiert. UCM (separates Repo, Q3/Q4 2026) importiert die Engine. Obsilo-Plugin importiert die Engine. Beide muessen auseinanderlaufende Versionen managen koennen, ohne dass eine der beiden bricht.
+`@obsilo/memory-engine` wird in FEAT-03-21 als wiederverwendbares Package extrahiert. UCM (separates Repo, Q3/Q4 2026) importiert die Engine. Vault Operator-Plugin importiert die Engine. Beide muessen auseinanderlaufende Versionen managen koennen, ohne dass eine der beiden bricht.
 
-Ohne Versionierungs-Disziplin: Engine-Update bricht Obsilo, oder Obsilo-Codeaenderung bricht UCM. Bei Persistenz-Service-Setup (Klasse C, ADR-80) kommt zusaetzlich: Plugin und Standalone-Service muessen kompatible Engine-Major-Version haben, sonst RPC-Schema-Drift.
+Ohne Versionierungs-Disziplin: Engine-Update bricht Vault Operator, oder Vault Operator-Codeaenderung bricht UCM. Bei Persistenz-Service-Setup (Klasse C, ADR-80) kommt zusaetzlich: Plugin und Standalone-Service muessen kompatible Engine-Major-Version haben, sonst RPC-Schema-Drift.
 
 Triggernde ASRs: ASR-014 (Public-API stabil), ASR-039 (semver-Disziplin).
 
 ## Decision Drivers
 
-- **DD-1 Konsumenten-Sicherheit:** Obsilo und UCM koennen unterschiedliche Engine-Versionen pinnen
+- **DD-1 Konsumenten-Sicherheit:** Vault Operator und UCM koennen unterschiedliche Engine-Versionen pinnen
 - **DD-2 Schema-Migration sauber:** DB-Schema-Aenderungen erfordern explizite Major-Bumps
 - **DD-3 Deprecation-Pfad:** API-Symbole koennen entfernt werden, aber nicht ohne Vorwarnung
 - **DD-4 RPC-Kompatibilitaet:** Plugin und Service in Klasse C muessen Schema-kompatibel sein
@@ -94,7 +94,7 @@ Engine v2 unterstuetzt v1-Schema via On-Open-Migration. Keine Konsumenten-Breaki
 
 **Konsumenten-Pin-Strategie:**
 
-- Obsilo-Plugin pinnt Engine-Major (z.B. `"@obsilo/memory-engine": "^1.0.0"`)
+- Vault Operator-Plugin pinnt Engine-Major (z.B. `"@obsilo/memory-engine": "^1.0.0"`)
 - UCM-Repo pinnt eigene Engine-Major
 - Beide koennen unterschiedliche MAJOR haben, aber dann nicht im Persistenz-Service-Setup gemischt
 

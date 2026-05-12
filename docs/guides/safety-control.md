@@ -1,6 +1,6 @@
 ---
 title: Safety & Control
-description: Permissions, checkpoints, approvals, and the audit log. How to stay in control of what Obsilo does.
+description: Permissions, checkpoints, approvals, and the audit log. How to stay in control of what Vault Operator does.
 ---
 
 # Safety & Control
@@ -9,11 +9,11 @@ Nothing changes in your vault without your knowledge.
 
 ## The approval system
 
-Obsilo is fail-closed by default. It asks before any action that modifies your vault. Every write, edit, delete, or external call triggers an approval card in the chat.
+Vault Operator is fail-closed by default. It asks before any action that modifies your vault. Every write, edit, delete, or external call triggers an approval card in the chat.
 
 ### What an approval card shows
 
-When Obsilo wants to do something, a card appears showing exactly what:
+When Vault Operator wants to do something, a card appears showing exactly what:
 
 - **Write a file:** the full content that will be written
 - **Edit a file:** a diff with lines added and removed
@@ -24,7 +24,7 @@ You can Allow once (approve this specific action) or Always allow (auto-approve 
 
 ## Permission categories
 
-You can enable auto-approve per category. Go to **Settings > Obsilo Agent > Permissions** to see the full list:
+You can enable auto-approve per category. Go to **Settings > Vault Operator > Permissions** to see the full list:
 
 | Category | What it covers | Risk level |
 |----------|---------------|-----------|
@@ -41,7 +41,7 @@ You can enable auto-approve per category. Go to **Settings > Obsilo Agent > Perm
 | **Sandbox** | Executing code in the isolated sandbox | High (runs generated code) |
 
 :::warning Permissive mode
-If you auto-approve both web operations and note edits (or vault changes), Obsilo shows a security warning. This combination means the agent could fetch content from the internet and write it to your vault without asking.
+If you auto-approve both web operations and note edits (or vault changes), Vault Operator shows a security warning. This combination means the agent could fetch content from the internet and write it to your vault without asking.
 :::
 
 ## Reviewing changes
@@ -63,7 +63,7 @@ This gives you fine-grained control. Keep most of a task's work while reverting 
 
 ## Checkpoints and undo
 
-Obsilo creates a checkpoint before the first modification to any file in a task. Checkpoints live in a shadow repository (via isomorphic-git) that does not touch your own git history.
+Vault Operator creates a checkpoint before the first modification to any file in a task. Checkpoints live in a shadow repository (via isomorphic-git) that does not touch your own git history.
 
 ### The undo bar
 
@@ -78,7 +78,7 @@ Even if you auto-approve everything, the checkpoint system records the state bef
 
 ### How checkpoints work
 
-1. Obsilo snapshots each file before its first modification in a task
+1. Vault Operator snapshots each file before its first modification in a task
 2. The snapshot is stored as a git commit in the shadow repository
 3. If you undo, the original content is restored from the snapshot
 4. Files that were newly created (didn't exist before the task) are deleted on undo
@@ -97,7 +97,7 @@ Each entry records:
 
 **Location:** JSONL files (one per day) in your plugin directory under `logs/`, named by date (e.g. `2026-03-31.jsonl`).
 
-**Retention:** Logs are kept for 30 days, then automatically deleted. Browse recent logs in **Settings > Obsilo Agent > Log**.
+**Retention:** Logs are kept for 30 days, then automatically deleted. Browse recent logs in **Settings > Vault Operator > Log**.
 
 :::info No file content in logs
 The operation log records that a file was read or written, but not the full content. It logs file path and content length, not the actual text.
@@ -127,12 +127,12 @@ templates/
 Both files are protected themselves. The agent cannot modify or delete them.
 
 :::tip Always-blocked paths
-Obsilo never accesses `.git/`, the Obsidian workspace cache, or internal config files, no matter how you configure it.
+Vault Operator never accesses `.git/`, the Obsidian workspace cache, or internal config files, no matter how you configure it.
 :::
 
 ## Best practices
 
-1. Start with approvals on. Leave auto-approve disabled until you are comfortable with how Obsilo works. Watch the approval cards to learn what the agent does.
+1. Start with approvals on. Leave auto-approve disabled until you are comfortable with how Vault Operator works. Watch the approval cards to learn what the agent does.
 
 2. Enable categories gradually. Auto-approve reads first (low risk), then note edits once you trust the agent's judgment. Keep vault changes and sandbox on manual approval longer.
 
@@ -142,6 +142,6 @@ Obsilo never accesses `.git/`, the Obsidian workspace cache, or internal config 
 
 5. Review the operation log now and then. A quick scan of recent logs shows what the agent has been doing and catches anything weird.
 
-6. Back up your vault. Checkpoints give you undo inside Obsilo, but a proper vault backup (Obsidian Sync, git, or a file-system backup) protects against everything else.
+6. Back up your vault. Checkpoints give you undo inside Vault Operator, but a proper vault backup (Obsidian Sync, git, or a file-system backup) protects against everything else.
 
 7. Use Ask mode for exploration. When you just want answers without changes, switch to Ask mode. It is read-only, so nothing in your vault can be modified.

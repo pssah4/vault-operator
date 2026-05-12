@@ -1,5 +1,5 @@
 /**
- * Embedded Cloudflare Worker code for the Obsilo Relay.
+ * Embedded Cloudflare Worker code for the Vault Operator Relay.
  * This is uploaded to Cloudflare via REST API when the user clicks "Deploy".
  *
  * Architecture: HTTP long-polling (NOT WebSocket) for Obsidian compatibility.
@@ -32,7 +32,7 @@
  */
 
 export const RELAY_WORKER_CODE = `
-// Obsilo Relay Worker -- deployed via Obsilo Plugin
+// Vault Operator Relay Worker -- deployed via Vault Operator Plugin
 
 // Constant-time token comparison via SHA-256 digest (H-1)
 async function safeTokenCompare(a, b) {
@@ -263,7 +263,7 @@ export class RelayDO {
             if (!this.pluginConnected) {
                 return new Response(JSON.stringify({
                     jsonrpc: '2.0', id: null,
-                    error: { code: -32603, message: 'Obsilo not connected. Make sure Obsidian is running with remote access enabled.' },
+                    error: { code: -32603, message: 'Vault Operator not connected. Make sure Obsidian is running with remote access enabled.' },
                 }), { status: 502, headers: { 'Content-Type': 'application/json' } });
             }
 

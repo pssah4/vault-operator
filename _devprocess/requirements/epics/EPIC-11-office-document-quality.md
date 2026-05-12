@@ -133,7 +133,7 @@ Template.pptx (beliebig)
 | FEAT-11-08 | In-Plugin Template-Analyzer (Spatial Analysis) | P1 | M | **Ersetzt durch FEAT-11-15** |
 | FEAT-11-15 | Visual Intelligence (Agent-Analyse + LibreOffice Rendering) | P0 | L | **Implementiert** |
 | FEAT-11-12 | Multimodaler Template-Analyzer (Cloud Run Backend) | P2 | L | **Ersetzt durch Agent-Analyse** |
-| FEAT-11-13 | Template-Analyzer Web-Frontend (obsilo.ai) | P2 | M | **Zurueckgestellt** |
+| FEAT-11-13 | Template-Analyzer Web-Frontend (pssah4.github.io/vault-operator) | P2 | M | **Zurueckgestellt** |
 | FEAT-11-14 | Template Gallery (Community) | P2 | S | **Zurueckgestellt** |
 
 **Effort:** S (1-2 Tage), M (3-5 Tage), L (1-2 Wochen)

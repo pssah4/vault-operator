@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Obsilo soll den System Prompt so strukturieren dass Provider-seitiges Prompt Caching
+Vault Operator soll den System Prompt so strukturieren dass Provider-seitiges Prompt Caching
 maximal effektiv ist, und einen generischen Caching-Mechanismus bereitstellen der
 mit jedem Provider funktioniert -- ohne Provider-spezifische Feature-Arbeit bei
 jedem neuen Provider.
@@ -38,12 +38,12 @@ Die Implementierung besteht aus:
 ## User Stories
 
 ### Story 1: Automatische Kostenoptimierung
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** dass das Plugin automatisch Prompt Caching nutzt wenn mein Provider es unterstuetzt
 **um** geringere API-Kosten zu haben ohne etwas konfigurieren zu muessen
 
 ### Story 2: Provider-Unabhaengigkeit
-**Als** Obsilo-Nutzer der den Provider wechselt
+**Als** Vault Operator-Nutzer der den Provider wechselt
 **moechte ich** dass Caching bei jedem unterstuetzten Provider sofort funktioniert
 **um** mich nicht an einen bestimmten Provider binden zu muessen
 

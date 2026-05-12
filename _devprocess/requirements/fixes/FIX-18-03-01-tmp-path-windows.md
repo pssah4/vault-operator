@@ -8,7 +8,7 @@ directly).
 **Datei:** `src/core/tool-execution/ResultExternalizer.ts`, `src/core/storage/VaultFileService.ts` (oder vergleichbarer Adapter)
 **Feature-Bezug:** FEAT-18-03 (Cross-Platform TMP-Pfade) in EPIC-18, ADR-63 (Context Externalization)
 **Entdeckt:** 2026-04-15 (Community Issue #29, Reporter unbekannt)
-**Issue:** https://github.com/pssah4/obsilo/issues/29
+**Issue:** https://github.com/pssah4/vault-operator/issues/29
 
 ---
 

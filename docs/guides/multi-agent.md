@@ -1,11 +1,11 @@
 ---
 title: Multi-Agent & Tasks
-description: Sub-tasks, task extraction, and how Obsilo delegates work to child agents.
+description: Sub-tasks, task extraction, and how Vault Operator delegates work to child agents.
 ---
 
 # Multi-agent & tasks
 
-For complex work, a single agent conversation can get unwieldy. Obsilo handles this with sub-agents: child agents that take on specific parts of a larger task on their own. It also pulls actionable tasks out of conversations and turns them into trackable notes.
+For complex work, a single agent conversation can get unwieldy. Vault Operator handles this with sub-agents: child agents that take on specific parts of a larger task on their own. It also pulls actionable tasks out of conversations and turns them into trackable notes.
 
 ## What are sub-agents?
 
@@ -32,7 +32,7 @@ The agent spawns sub-agents through the `new_task` tool. You don't call this too
 
 ### Depth guard
 
-Sub-agents can spawn their own sub-agents, but Obsilo enforces a maximum depth of 2 levels. This prevents runaway chains:
+Sub-agents can spawn their own sub-agents, but Vault Operator enforces a maximum depth of 2 levels. This prevents runaway chains:
 
 ```
 Main Agent (level 0)
@@ -72,12 +72,12 @@ What happens:
 
 ## Task extraction
 
-Obsilo watches for actionable items in agent responses. When the agent produces a list with unchecked checkboxes (`- [ ]`), the TaskExtractor picks them up automatically.
+Vault Operator watches for actionable items in agent responses. When the agent produces a list with unchecked checkboxes (`- [ ]`), the TaskExtractor picks them up automatically.
 
 ### How it works
 
 1. The agent responds with tasks in its message (a project plan, action items)
-2. Obsilo detects the `- [ ]` items
+2. Vault Operator detects the `- [ ]` items
 3. A TaskSelectionModal pops up so you can pick which tasks to save
 4. Selected tasks become individual notes in your vault
 

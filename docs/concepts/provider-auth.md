@@ -1,11 +1,11 @@
 ---
 title: Provider Auth
-description: How Obsilo connects to 10+ AI providers through a single interface, with encrypted credential storage.
+description: How Vault Operator connects to 10+ AI providers through a single interface, with encrypted credential storage.
 ---
 
 # Provider auth
 
-Obsilo supports Anthropic, OpenAI, GitHub Copilot, Kilo Gateway, Azure, OpenRouter, Ollama, LM Studio, and custom OpenAI-compatible endpoints. Each provider authenticates differently, but the agent talks to a single `ApiHandler` interface.
+Vault Operator supports Anthropic, OpenAI, GitHub Copilot, Kilo Gateway, Azure, OpenRouter, Ollama, LM Studio, and custom OpenAI-compatible endpoints. Each provider authenticates differently, but the agent talks to a single `ApiHandler` interface.
 
 ## The factory
 

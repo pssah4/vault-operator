@@ -17,7 +17,7 @@ Heutige `save_conversation`-Implementierung legt bei jedem MCP-Aufruf
 eine **neue** Conversation an. Wenn Sebastian in Claude.ai weiter
 chattet und Claude `save_conversation` erneut aufruft (oder ein
 folgendes turn-pair speichert), entstehen mehrere getrennte
-Conversations in Obsilo statt einer wachsenden.
+Conversations in Vault Operator statt einer wachsenden.
 
 Das verletzt die in BA-24 verankerte Living-Document-Semantik:
 
@@ -179,7 +179,7 @@ Fluss aus FEAT-03-18 wirkt automatisch.
 ## Out of Scope (Bestaetigt)
 
 - Auto-Detection von Cross-Interface-Threads (UCM-Material)
-- Continue-Pfad (in Obsilo neue Antworten in einen externen Thread
+- Continue-Pfad (in Vault Operator neue Antworten in einen externen Thread
   schreiben, die im externen Tool weiterleben) -- UCM
 - Thread-Memory-Profile-Bindung -- UCM
 - Persistente activeMcpSessions ueber Plugin-Reloads -- in-memory

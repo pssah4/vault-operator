@@ -9,6 +9,7 @@ import {
     MAX_DOCUMENT_FILE_SIZE,
     LARGE_DOCUMENT_CHAR_THRESHOLD,
     CONTEXT_DOCUMENT_CHAR_LIMIT,
+    TOTAL_ATTACHMENT_CHAR_BUDGET,
 } from '../../core/document-parsers/types';
 
 /** Extensions handled by the document parser (binary formats via OS file picker). */
@@ -55,6 +56,12 @@ export class AttachmentHandler {
     readonly pending: AttachmentItem[] = [];
     /** Full (un-truncated) document texts, parallel to pending[]. Used by IngestDocumentTool and ReadDocumentTool. */
     private fullDocTexts: string[] = [];
+    /**
+     * FEAT-24-03: chars of attachment text already injected into the context this
+     * compose turn. New attachments are capped to whatever budget is left. Reset
+     * in clear() (one compose turn = one budget).
+     */
+    private contextCharsUsed = 0;
 
     constructor(
         private vault: Vault,
@@ -163,10 +170,14 @@ export class AttachmentHandler {
             }
         } else if (TEXT_EXTENSIONS.some(te => file.name.toLowerCase().endsWith(te)) || file.type.startsWith('text/')) {
             const text = await file.text();
+            // FEAT-24-03: always cap (per-turn attachment budget). An external file
+            // with no vault path keeps a head excerpt + a notice that the rest is gone —
+            // an uncapped paste of a huge file is exactly the context-bloat we're fixing.
+            const contextText = this.truncateTextFileForContext(text, vaultPath ?? '');
             this.pending.push({
                 name: displayName,
                 vaultPath,
-                block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(displayName)}">\n${text}\n</attached_file>` },
+                block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(displayName)}">\n${contextText}\n</attached_file>` },
             });
         } else {
             new Notice(t('ui.attachment.unsupported', { name: file.name }));
@@ -212,22 +223,26 @@ export class AttachmentHandler {
                 const content = await this.vault.read(file);
                 const data = new TextEncoder().encode(content).buffer;
                 const result = await parseDocument(data, ext);
+                const contextText = this.truncateTextFileForContext(result.text, file.path);
 
                 this.pending.push({
                     name: file.path,
                     extension: ext,
                     block: {
                         type: 'text',
-                        text: `<attached_document name="${escapeXmlAttr(file.path)}" format="${ext}">\n${result.text}\n</attached_document>`,
+                        text: `<attached_document name="${escapeXmlAttr(file.path)}" format="${ext}">\n${contextText}\n</attached_document>`,
                     },
                 });
             } else {
-                // Text file — read as text
+                // Text file — read as text. Large source files (a long note, an XML
+                // dump) would otherwise be injected in full and dominate the context
+                // window; cap it and point the model at read_file for the rest.
                 const content = await this.vault.read(file);
+                const contextText = this.truncateTextFileForContext(content, file.path);
                 this.pending.push({
                     name: file.path,
                     extension: ext,
-                    block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(file.path)}">\n${content}\n</attached_file>` },
+                    block: { type: 'text', text: `<attached_file name="${escapeXmlAttr(file.path)}">\n${contextText}\n</attached_file>` },
                 });
             }
             this.renderChips();
@@ -272,6 +287,7 @@ export class AttachmentHandler {
         }
         this.pending.length = 0;
         this.chipBar.empty();
+        this.contextCharsUsed = 0;
     }
 
     /** Returns the full (un-truncated) document texts for IngestDocumentTool and ReadDocumentTool. */
@@ -307,14 +323,31 @@ export class AttachmentHandler {
     }
 
     /**
+     * FEAT-24-03: chars of attachment text still available for this compose turn.
+     * Always at least 2000 so even an over-budget turn gets a usable excerpt.
+     */
+    private budgetRemaining(): number {
+        return Math.max(2000, TOTAL_ATTACHMENT_CHAR_BUDGET - this.contextCharsUsed);
+    }
+
+    /** Track that `text` chars of context were consumed by an attachment. */
+    private chargeContext(text: string): string {
+        this.contextCharsUsed += text.length;
+        return text;
+    }
+
+    /**
      * Truncate document text for the LLM context window.
      * Cuts at the last `## Page N` boundary before the limit (PDF), or at the last
-     * paragraph break for other formats. Appends a truncation notice.
+     * paragraph break for other formats. Honours the per-turn attachment budget
+     * (FEAT-24-03) — a single doc never exceeds CONTEXT_DOCUMENT_CHAR_LIMIT, and
+     * later attachments shrink to whatever budget is left. Appends a truncation notice.
      */
     private truncateForContext(text: string, pageCount?: number): string {
-        if (text.length <= CONTEXT_DOCUMENT_CHAR_LIMIT) return text;
+        const maxChars = Math.min(CONTEXT_DOCUMENT_CHAR_LIMIT, this.budgetRemaining());
+        if (text.length <= maxChars) return this.chargeContext(text);
 
-        const limitSlice = text.slice(0, CONTEXT_DOCUMENT_CHAR_LIMIT);
+        const limitSlice = text.slice(0, maxChars);
 
         // Try to cut at a ## Page N boundary for clean truncation
         const pageHeaderRegex = /\n## Page \d+\n/g;
@@ -338,11 +371,34 @@ export class AttachmentHandler {
             pagesShown = pageCount ? `partial (${pageCount} total)` : 'partial';
         }
 
-        return truncated +
+        return this.chargeContext(truncated +
             `\n\n[Document truncated for context window. Showing first ${pagesShown} pages. ` +
             'The full text is pre-parsed and available to tools. ' +
             'Use ingest_document (with attachment_index) to create a note with the COMPLETE original text appended automatically — this works regardless of file size. ' +
-            'Use read_document with start_page/end_page to read specific page ranges.]';
+            'Use read_document with start_page/end_page to read specific page ranges.]');
+    }
+
+    /**
+     * Cap a plain text / markdown attachment for the LLM context window. A long
+     * note or an XML/JSON dump attached via @-mention (or several of them) would
+     * otherwise be injected in full and crowd out everything else (and the model's
+     * own output budget). Honours the per-turn attachment budget (FEAT-24-03).
+     * When the file is in the vault the model reads the rest with read_file;
+     * for an external/pasted file the omitted part is gone, so the notice says so.
+     */
+    private truncateTextFileForContext(text: string, vaultPath: string): string {
+        const maxChars = Math.min(CONTEXT_DOCUMENT_CHAR_LIMIT, this.budgetRemaining());
+        if (text.length <= maxChars) return this.chargeContext(text);
+        // Cut on a line boundary near the limit when one is reasonably close.
+        const nl = text.lastIndexOf('\n', maxChars);
+        const cut = nl > maxChars / 2 ? nl : maxChars;
+        const pct = Math.round((cut / text.length) * 100);
+        const tail = vaultPath
+            ? `Read the omitted part with read_file path="${vaultPath}" — do not assume it is empty or unimportant.]`
+            : `The omitted part is not available (external/pasted file, not stored in the vault) — re-attach a smaller excerpt or save it to the vault first if you need it.]`;
+        return this.chargeContext(text.slice(0, cut) +
+            `\n\n[Attachment truncated for the context window: showing the first ~${pct}% ` +
+            `(${cut.toLocaleString()} of ${text.length.toLocaleString()} characters). ${tail}`);
     }
 
     /**

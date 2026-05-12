@@ -114,4 +114,4 @@ Aktualisierung und Erweiterung der Developer/Architect-Dokumentation. Die besteh
 
 ## Out of Scope
 - User-facing Doku (macht FEAT-17-01)
-- API-Dokumentation (Obsilo hat keine externe API)
+- API-Dokumentation (Vault Operator hat keine externe API)

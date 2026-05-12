@@ -109,7 +109,7 @@ Beide Backends implementieren dieses Interface. Konsumenten (EvaluateExpressionT
 ### 3.2 ProcessSandboxExecutor (Desktop)
 
 - **Spawn:** `child_process.fork()` mit `ELECTRON_RUN_AS_NODE=1`, `stdio: ['pipe','pipe','pipe','ipc']`
-- **Worker-Pfad:** `path.join(__dirname, 'sandbox-worker.js')` -- `__dirname` zeigt auf `.obsidian/plugins/obsilo-agent/`
+- **Worker-Pfad:** `path.join(__dirname, 'sandbox-worker.js')` -- `__dirname` zeigt auf `.obsidian/plugins/vault-operator/`
 - **Lazy Init:** Worker wird erst beim ersten Aufruf gestartet (~300-3000ms auf macOS), dann dauerhaft am Leben gehalten
 - **IPC-Protokoll:** Identische Message-Typen wie iframe-Sandbox (execute, result, error, vault-read, vault-write, request-url)
 - **Timeout:** 30s pro Execution, 15s pro Bridge-Call

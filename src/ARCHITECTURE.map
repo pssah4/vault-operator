@@ -27,7 +27,8 @@ tool-registry             | src/core/tools/ToolRegistry.ts                      
 fast-path                 | src/core/FastPathExecutor.ts                          | ADR-61          | new recipe pattern: extend planner heuristics in FastPathExecutor
 mode-service              | src/core/modes/ModeService.ts                         | ADR-04          | new mode: add to builtinModes.ts plus tool-group map
 modes-builtin             | src/core/modes/builtinModes.ts                        | ADR-04          | new tool group: add entry to TOOL_GROUP_MAP
-context-condensing        | src/core/context/ContextCondenser.ts                  | ADR-12          | new strategy: implement CondenseStrategy and register
+context-condensing        | src/core/AgentTask.ts                                 | ADR-12          | condenseHistory(): keep-first-last + LLM-summarize-middle; tune via condensingThreshold setting
+microcompaction           | src/core/context/MicroCompactor.ts                    | ADR-12          | prune old tool_result contents to skeletons at turn boundaries; called from AgentTask.microcompact()
 power-steering            | src/core/AgentTask.ts                                 | ADR-06          | new injection point: extend powerSteeringFrequency switch
 checkpoint                | src/core/checkpoints/GitCheckpointService.ts          | ADR-02          | new checkpoint trigger: extend Pipeline step 4 hooks
 
@@ -57,6 +58,7 @@ github-copilot            | src/api/providers/github-copilot.ts                 
 bedrock                   | src/api/providers/bedrock.ts                          | ADR-11, ADR-111 | extend region or model resolver; set cachePoint ContentBlock when cache-capability says bedrock-cachepoint
 openrouter                | src/api/providers/openrouter.ts                       | ADR-11          | extend route fallback or pricing
 cache-capability          | src/api/capabilities.ts                               | ADR-111         | new provider/model entry: extend table; UI and provider read via getCacheCapability()
+kv-cache-prompt           | src/core/systemPrompt.ts                              | ADR-62          | stable sections before CACHE_BREAKPOINT_MARKER, volatile tail after; providers split via splitSystemPromptAtCacheBreakpoint and mark only the prefix
 
 # AUTH
 chatgpt-oauth-auth        | src/core/auth/ChatGptOAuthService.ts                  | ADR-88, ADR-89 | extend PKCE or token-refresh flow

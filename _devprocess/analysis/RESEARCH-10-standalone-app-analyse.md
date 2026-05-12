@@ -1,4 +1,4 @@
-# Obsilo Standalone App -- Machbarkeitsanalyse
+# Vault Operator Standalone App -- Machbarkeitsanalyse
 
 > Analyse zur Entkopplung von Obsidian und Aufbau einer eigenstaendigen Electron-App.
 > Erstellt: 2026-03-07
@@ -7,7 +7,7 @@
 
 ## 1. Ausgangslage
 
-Obsilo ist ein Obsidian-Plugin mit 46+ Tools, Multi-Provider AI, Semantic Search, Document Intelligence,
+Vault Operator ist ein Obsidian-Plugin mit 46+ Tools, Multi-Provider AI, Semantic Search, Document Intelligence,
 Multi-Agent-Orchestrierung und umfangreichen Erweiterungs-Mechanismen (Skills, Rules, Workflows, MCP, Sandbox).
 
 Obsidian dient als Runtime fuer drei Dinge:
@@ -15,7 +15,7 @@ Obsidian dient als Runtime fuer drei Dinge:
 2. **UI-Framework** (Sidebar, Modals, Settings, Editor)
 3. **Platform Services** (requestUrl, safeStorage, Plugin-System)
 
-Diese Analyse untersucht, was noetig waere, um Obsilo als eigenstaendige Electron-App zu betreiben --
+Diese Analyse untersucht, was noetig waere, um Vault Operator als eigenstaendige Electron-App zu betreiben --
 mit vollem Funktionsumfang inklusive Wissensmanagement.
 
 ---
@@ -122,7 +122,7 @@ Eigener Markdown-Editor, Datei-Browser, Graph View -- voller Obsidian-Ersatz mit
 | Split View | CM6 Multi-Editor-Layout | 1-2 Tage |
 | Outline Panel | AST-Extraktion via remark | 0.5 Tage |
 
-**Ergebnis:** Eine App die alles kann was Obsilo + Obsidian heute kann,
+**Ergebnis:** Eine App die alles kann was Vault Operator + Obsidian heute kann,
 plus Unabhaengigkeit, freie Editor-Wahl, keine Review-Bot-Einschraenkungen.
 
 ---

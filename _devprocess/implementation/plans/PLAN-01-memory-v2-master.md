@@ -252,9 +252,9 @@ Edge-Typen:
 | `same_topic_high_similarity` | beim Insert: cosine > 0.85 + topic-overlap | fact_edges | ja |
 | `supersedes` / `refines` | Conflict-Resolution | fact_edges | ja |
 | `mentions_entity` | Single-Call-LLM-Output | fact_edges (to_external_ref=`entity:...`) | ja |
-| `mentions_vault_note` | Single-Call-LLM-Output + Markdown-Link-Parser | fact_edges (to_external_ref=`vault://...`) | nur Obsilo |
+| `mentions_vault_note` | Single-Call-LLM-Output + Markdown-Link-Parser | fact_edges (to_external_ref=`vault://...`) | nur Vault Operator |
 | `cross_interface_continuation` | UCM-Thread-Verlinkung | fact_edges (to_external_ref=`thread:...`) | nur UCM |
-| `vault_implicit` | Vault-Crawler (existiert) | knowledge.db.implicit_edges | nur Obsilo |
+| `vault_implicit` | Vault-Crawler (existiert) | knowledge.db.implicit_edges | nur Vault Operator |
 | `mentions_file` | Markdown-Link-Parser + LLM-Output | fact_edges (to_external_ref=`file://...`) | universell, Resolution via LocalFileAdapter |
 | `mentions_url` | URL-Parser + LLM-Output | fact_edges (to_external_ref=`https://...`) | universell, Resolution via WebUrlAdapter |
 | `mentions_cloud_file` | LLM-Output (User erwaehnt explizit) | fact_edges (to_external_ref=`cloud://...`) | universell, Resolution via CloudAdapter |

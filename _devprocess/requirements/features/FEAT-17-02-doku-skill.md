@@ -1,4 +1,4 @@
-# Feature: Obsilo Doku-Skill
+# Feature: Vault Operator Doku-Skill
 
 > **Feature ID**: FEAT-17-02
 > **Epic**: EPIC-17 - Website-Dokumentation
@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Ein Obsilo-Skill der die User-Guide-Inhalte als Kontext bereitstellt, sodass der Agent Fragen zur eigenen Bedienung direkt im Chat beantworten kann. Der Skill basiert auf den Markdown-Quellen des User Guides und wird automatisch relevant wenn der User Fragen wie "Wie richte ich Semantic Search ein?" oder "Welches Modell soll ich nehmen?" stellt.
+Ein Vault Operator-Skill der die User-Guide-Inhalte als Kontext bereitstellt, sodass der Agent Fragen zur eigenen Bedienung direkt im Chat beantworten kann. Der Skill basiert auf den Markdown-Quellen des User Guides und wird automatisch relevant wenn der User Fragen wie "Wie richte ich Semantic Search ein?" oder "Welches Modell soll ich nehmen?" stellt.
 
 Der Skill nutzt das bestehende Skill-System (SkillsManager, Keyword-Matching) und benoetigt keine neue Infrastruktur -- nur eine gut strukturierte SKILL.md mit den relevanten Doku-Inhalten.
 
@@ -19,18 +19,18 @@ Der Skill nutzt das bestehende Skill-System (SkillsManager, Keyword-Matching) un
 - >80% der gaengigen Fragen werden korrekt im Chat beantwortet
 
 **Wir wissen dass wir erfolgreich sind wenn:**
-- Obsilo beantwortet 10 vordefinierte Test-Fragen korrekt (z.B. "Wie installiere ich?", "Wie richte ich Semantic Search ein?", "Wie erstelle ich einen Skill?")
+- Vault Operator beantwortet 10 vordefinierte Test-Fragen korrekt (z.B. "Wie installiere ich?", "Wie richte ich Semantic Search ein?", "Wie erstelle ich einen Skill?")
 - Der Skill wird automatisch aktiviert bei relevanten Fragen (Keyword-Matching)
 
 ## User Stories
 
 ### Story 1: Bedienungsfrage im Chat
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** im Chat fragen "Wie richte ich die semantische Suche ein?"
 **um** eine Schritt-fuer-Schritt-Anleitung direkt im Chat zu erhalten statt die Website zu besuchen
 
 ### Story 2: Best-Practice-Empfehlung
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** im Chat fragen "Welches Modell empfiehlst du?"
 **um** eine kontextbezogene Empfehlung zu erhalten
 

@@ -110,7 +110,7 @@ export const en: Translations = {
   "notice.indexRefreshed": "Index refreshed for current file",
 
   // Onboarding
-  "onboarding.welcome": "Welcome to Obsilo Agent!",
+  "onboarding.welcome": "Welcome to Vault Operator!",
   "onboarding.step": "Setup {{current}}/{{total}} — {{name}}",
 
   // Approval
@@ -172,7 +172,7 @@ export async function initI18n(lang: Language): Promise<void> {
 
 ```typescript
 // In settings.ts
-interface ObsiloSettings {
+interface VaultOperatorSettings {
   // ... bestehende Settings
   language: Language; // Default: 'en'
 }

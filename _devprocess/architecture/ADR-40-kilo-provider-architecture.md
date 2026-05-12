@@ -5,7 +5,7 @@
 
 ## Context
 
-Kilo Gateway soll als weiterer LLM Provider in Obsilo integriert werden. Im Unterschied zu GitHub Copilot ist die Inferenzseite von Kilo OpenAI-kompatibel, waehrend Authentifizierung, Session-Aufbau und Organisationskontext proprietaer sind. Das zentrale Architekturproblem ist daher nicht die Chat-Completion-Semantik, sondern die saubere Trennung von Auth-Service, Request-Konfiguration und Provider-Auswahl.
+Kilo Gateway soll als weiterer LLM Provider in Vault Operator integriert werden. Im Unterschied zu GitHub Copilot ist die Inferenzseite von Kilo OpenAI-kompatibel, waehrend Authentifizierung, Session-Aufbau und Organisationskontext proprietaer sind. Das zentrale Architekturproblem ist daher nicht die Chat-Completion-Semantik, sondern die saubere Trennung von Auth-Service, Request-Konfiguration und Provider-Auswahl.
 
 **Triggering ASR:**
 - Critical ASR-01: Separate Kilo Auth and Session Service

@@ -104,7 +104,7 @@ Damit ist Fehler-UX kein UI-Layer (Status-Ampel, Toasts), sondern Conversation-L
 
 ### Story 2: Erst-User versteht Memory v2 (Functional Job)
 
-**As a** neuer Obsilo-User
+**As a** neuer Vault Operator-User
 **I want to** lernen, was Memory bedeutet und wie ich es nutze
 **so that** ich es nicht aus Versehen falsch nutze oder gar nicht aktiviere
 

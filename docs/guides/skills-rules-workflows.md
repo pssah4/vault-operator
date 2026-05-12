@@ -5,7 +5,7 @@ description: Create custom behaviors, constraints, and automated task sequences.
 
 # Skills, rules & workflows
 
-Obsilo's behavior is fully customizable. You can give it permanent instructions, teach it new abilities, and build reusable multi-step sequences, all without writing code.
+Vault Operator's behavior is fully customizable. You can give it permanent instructions, teach it new abilities, and build reusable multi-step sequences, all without writing code.
 
 ## The four building blocks
 
@@ -31,7 +31,7 @@ Never use bullet points. Use numbered lists instead.
 When summarizing notes, always include the creation date.
 ```
 
-Toggle rules on and off in **Settings > Obsilo Agent > Rules**. Disabled rules stay in the folder but stop being injected.
+Toggle rules on and off in **Settings > Vault Operator > Rules**. Disabled rules stay in the folder but stop being injected.
 
 :::tip When to use rules
 Rules work best for global constraints that should always apply: tone of voice, formatting preferences, language requirements, domain terminology.
@@ -42,7 +42,7 @@ Rules work best for global constraints that should always apply: tone of voice, 
 Skills go further than rules. They are only injected when the agent detects that a conversation is relevant to the skill's domain, which keeps the system prompt lean.
 
 :::tip Bundled skills
-Obsilo ships with a set of bundled skills you can use right away: `/ingest` (single-pass capture), `/ingest-deep` (multi-turn Karpathy-style sense-making), `/meeting-summary`, `/office-workflow`, `/presentation-design`, `/sandbox-environment`, `/vault-health-batch`, plus a few more. Bundled skills live inside the plugin and update with new releases. They sit alongside any skills you author yourself in your vault.
+Vault Operator ships with a set of bundled skills you can use right away: `/ingest` (single-pass capture), `/ingest-deep` (multi-turn Karpathy-style sense-making), `/meeting-summary`, `/office-workflow`, `/presentation-design`, `/sandbox-environment`, `/vault-health-batch`, plus a few more. Bundled skills live inside the plugin and update with new releases. They sit alongside any skills you author yourself in your vault.
 :::
 
 To create one:
@@ -70,9 +70,9 @@ Skills can be restricted to specific modes. A skill meant for Agent mode (writin
 
 ### Plugin integration
 
-Obsilo discovers your installed Obsidian plugins and can use them. There are three mechanisms.
+Vault Operator discovers your installed Obsidian plugins and can use them. There are three mechanisms.
 
-Plugin skills (automatic). On startup, Obsilo scans all installed plugins and generates skill files that describe their capabilities. If you have Dataview installed, the agent knows it can run Dataview queries. If you have Templater, it knows about your templates. You can see these in **Settings > Skills > Plugin Skills** and toggle them on or off per plugin.
+Plugin skills (automatic). On startup, Vault Operator scans all installed plugins and generates skill files that describe their capabilities. If you have Dataview installed, the agent knows it can run Dataview queries. If you have Templater, it knows about your templates. You can see these in **Settings > Skills > Plugin Skills** and toggle them on or off per plugin.
 
 Plugin commands. The agent can run any Obsidian command through the `execute_command` tool. That includes commands from your plugins, like "Dataview: Refresh all views" or "Templater: Insert template". Commands require approval by default (configurable under Settings > Auto-Approve > Plugin Skills).
 
@@ -115,7 +115,7 @@ Custom prompts are reusable message templates with variable placeholders. Two va
 
 Example: a prompt called "Explain Like I'm 5" with the template `Explain the following in simple terms a beginner would understand: {{activeFile}}`.
 
-Create and manage custom prompts in **Settings > Obsilo Agent > Custom Prompts**, or type `/` in the chat to browse and trigger them.
+Create and manage custom prompts in **Settings > Vault Operator > Custom Prompts**, or type `/` in the chat to browse and trigger them.
 
 ## Choosing the right tool
 

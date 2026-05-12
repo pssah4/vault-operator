@@ -131,4 +131,4 @@ MODERATE ASR #2: Async Modell- und Organisationsdaten im Modal
 ## Out of Scope
 
 - Separate Kilo-spezifische Settings-Seite
-- Team-/Billing-Dashboard-Features in Obsilo
+- Team-/Billing-Dashboard-Features in Vault Operator

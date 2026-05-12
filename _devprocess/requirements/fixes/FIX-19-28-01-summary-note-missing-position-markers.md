@@ -2,7 +2,7 @@
 
 **Prioritaet:** P0 (Promised Feature liefert sein Kern-Versprechen nicht)
 **Feature-Bezug:** FEAT-19-28 (Source-Position-Marker), EPIC-19 (Knowledge Maintenance)
-**Verwandt:** ADR-103 (Block-Reference-Konvention + PDF-Strategie), GitHub Issue #11 (pssah4/obsilo-dev)
+**Verwandt:** ADR-103 (Block-Reference-Konvention + PDF-Strategie), GitHub Issue #11 (pssah4/vault-operator-dev)
 **Entdeckt:** 2026-05-07 (User-Repro `ingest_deep` auf PDF, Modus `source-plus-summary`)
 
 ## Reopen 2026-05-08 -- konsolidierte Root-Cause-Diagnose

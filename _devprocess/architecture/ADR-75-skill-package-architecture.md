@@ -6,7 +6,7 @@
 
 ## Context
 
-Obsilo laedt Skills heute als einzelne `SKILL.md` Files in Unterordnern
+Vault Operator laedt Skills heute als einzelne `SKILL.md` Files in Unterordnern
 (`bundled-skills/<slug>/SKILL.md` oder `<agent-folder>/skills/<slug>/SKILL.md`).
 Der `SelfAuthoredSkillLoader` scannt diese Ordner bereits
 ([src/core/skills/SelfAuthoredSkillLoader.ts:115](../../src/core/skills/SelfAuthoredSkillLoader.ts#L115))
@@ -35,7 +35,7 @@ Drei Luecken entstehen:
    `read_file`-on-demand-Flow fehlt.
 3. **Kein Coordinator-Pattern.** User wuenscht einen Skill der andere
    Skills im selben Ordner orchestriert. Das geht ueber die Anthropic-Spec
-   hinaus, passt aber zu Obsilos Agent-Loop (`new_task`, Mode-Switching).
+   hinaus, passt aber zu Vault Operators Agent-Loop (`new_task`, Mode-Switching).
 
 ## Decision Drivers
 
@@ -56,14 +56,14 @@ Drei Luecken entstehen:
 
 ## Considered Options
 
-### Option A: Volle Anthropic-Kompatibilitaet + Obsilo-Coordinator-Erweiterung
+### Option A: Volle Anthropic-Kompatibilitaet + Vault Operator-Coordinator-Erweiterung
 
 Ordner-Layout nach Anthropic-Spec (`SKILL.md` plus `scripts/`, `references/`,
-`assets/`). `.skill` Zip-Import ueber JSZip. Zusaetzlich: Obsilo-spezifisches
+`assets/`). `.skill` Zip-Import ueber JSZip. Zusaetzlich: Vault Operator-spezifisches
 `type: coordinator` Frontmatter-Flag + `*.skill.md` Sub-Rollen-Pattern.
 
 **Pro:** Sofort kompatibel mit Anthropic-Ecosystem, Skill-Sharing geht
-einfach, Coordinator-Pattern ist Obsilo-Unterschied mit klarem Wert.
+einfach, Coordinator-Pattern ist Vault Operator-Unterschied mit klarem Wert.
 **Contra:** Vier Features gleichzeitig (Loader-Umbau, Zip-Import, Scripts,
 Coordinator) -- Scope wird groesser, aber pro Feature unabhaengig releasebar.
 
@@ -76,7 +76,7 @@ Gleich wie A, aber Coordinator wird verschoben auf Folge-Epic.
 Pattern muss in einem Folge-Epic ohnehin kommen, deshalb lieber gleich
 zusammen designen (dann konsistente Frontmatter-Schema-Erweiterung).
 
-### Option C: Eigenes Obsilo-Skill-Format (ohne Anthropic-Kompatibilitaet)
+### Option C: Eigenes Vault Operator-Skill-Format (ohne Anthropic-Kompatibilitaet)
 
 Eigenes Ordner-Schema + eigenes Zip-Format.
 
@@ -116,7 +116,7 @@ neuen Unterordner werden beim Umbau mit einbezogen).
 
 ```yaml
 ---
-# Obsilo (bestehend)
+# Vault Operator (bestehend)
 name: research-synthesis          # Pflicht, muss mit Ordnername matchen
 description: "..."                # Pflicht
 trigger: "(research|synth)"       # optional, Regex
@@ -131,7 +131,7 @@ metadata:
   author: "..."
   version: "1.0.0"
 
-# Obsilo-Extension (neu)
+# Vault Operator-Extension (neu)
 type: coordinator                 # optional, nur wenn Skill-Ordner Sub-Rollen hat
 role: writer                      # optional, nur in *.skill.md Sub-Rollen
 ---
@@ -139,7 +139,7 @@ role: writer                      # optional, nur in *.skill.md Sub-Rollen
 
 Parsing-Regel: Unbekannte Frontmatter-Felder werden akzeptiert und in
 einem `metadata`-Objekt gehalten, werfen keinen Fehler. Validiert werden
-nur die Obsilo-Pflichtfelder (`name`, `description`).
+nur die Vault Operator-Pflichtfelder (`name`, `description`).
 
 Name-Validierung: Wenn `name` gesetzt ist und NICHT mit Ordner-Name
 uebereinstimmt, wird der Skill abgelehnt mit `Notice` + `console.warn`.
@@ -321,7 +321,7 @@ Dort gibt es keinen `SKILL.md` neben, daher kein Coordinator-Match.
   ~50ms zusaetzlich fuer 20 Skills (akzeptabel gegen heute ~100ms).
 - Zip-Import fuehrt neue Fehlerklasse ein (Path-Traversal, Zip-Bomb) --
   muss gewissenhaft validiert und getestet werden.
-- Coordinator-Pattern ist Obsilo-only, fuehrt zu leichter Divergenz von
+- Coordinator-Pattern ist Vault Operator-only, fuehrt zu leichter Divergenz von
   Anthropic-Spec. Mitigation: explizites Flag + Doku-Hinweis.
 - Sub-Dir-Konvention muss in 9 bundled-skills optional nachgezogen
   werden (falls sinnvoll), damit das Format im Vault-Beispiel sichtbar
@@ -373,7 +373,7 @@ Die Review gegen die Codebase hat drei Annahmen des Entwurfs praezisiert:
 ### Regression
 
 - Alle 9 bundled-skills laden ohne Frontmatter-Aenderung.
-- Alle bestehenden User-Skills (bei Obsilo-Beta-Testern) laufen weiter.
+- Alle bestehenden User-Skills (bei Vault Operator-Beta-Testern) laufen weiter.
 - `manage_skill` Tool funktioniert unveraendert fuer Single-File-Skills.
 
 ### Integration / Live

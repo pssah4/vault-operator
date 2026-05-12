@@ -68,9 +68,14 @@ describe('systemPrompt section ordering (ADR-062)', () => {
         }
     });
 
-    it('should not include DateTime when includeTime is false', async () => {
-        const prompt = await buildTestPrompt({ includeTime: false });
-        expect(prompt).not.toContain('TODAY IS:');
+    it('always includes the calendar date, and the time-of-day only when includeTime is true (ADR-62 amendment)', async () => {
+        const dateOnly = await buildTestPrompt({ includeTime: false });
+        expect(dateOnly).toContain('TODAY IS:');
+        expect(dateOnly).not.toContain('Local time:');
+
+        const withTime = await buildTestPrompt({ includeTime: true });
+        expect(withTime).toContain('TODAY IS:');
+        expect(withTime).toContain('Local time:');
     });
 
     it('should omit Skills and Memory for subtasks', async () => {
@@ -169,6 +174,30 @@ describe('systemPrompt KV-cache stability (FEATURE-0315 / ADR-062)', () => {
         // before that would mean the timestamp invalidates every cached
         // turn -- the scenario ADR-062 was created to prevent.
         expect(dateTimeIdx).toBeGreaterThan(securityIdx);
+    });
+
+    it('emits a real cache breakpoint marker between the stable prefix and the volatile tail (ADR-62 amendment)', async () => {
+        const { CACHE_BREAKPOINT_MARKER, splitSystemPromptAtCacheBreakpoint } = await import('../systemPrompt');
+        const prompt = await buildTestPrompt({ memoryContext: 'USER MEMORY: x', includeTime: true });
+        expect(prompt).toContain(CACHE_BREAKPOINT_MARKER);
+
+        const { stable, volatile } = splitSystemPromptAtCacheBreakpoint(prompt);
+        // Stable side has the security boundary, not the date/memory.
+        expect(stable).toContain('SECURITY');
+        expect(stable).not.toContain('TODAY IS:');
+        expect(stable).not.toContain('USER MEMORY: x');
+        // Volatile side has the date and memory, not the marker.
+        expect(volatile).toContain('TODAY IS:');
+        expect(volatile).toContain('USER MEMORY: x');
+        expect(volatile).not.toContain(CACHE_BREAKPOINT_MARKER);
+        expect(stable).not.toContain(CACHE_BREAKPOINT_MARKER);
+    });
+
+    it('splitSystemPromptAtCacheBreakpoint falls back to the whole prompt when no marker is present', async () => {
+        const { splitSystemPromptAtCacheBreakpoint } = await import('../systemPrompt');
+        const { stable, volatile } = splitSystemPromptAtCacheBreakpoint('no marker here');
+        expect(stable).toBe('no marker here');
+        expect(volatile).toBe('');
     });
 });
 

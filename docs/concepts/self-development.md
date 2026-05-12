@@ -1,11 +1,11 @@
 ---
 title: Self-development
-description: How Obsilo extends its own capabilities at runtime through five tiers of increasing autonomy.
+description: How Vault Operator extends its own capabilities at runtime through five tiers of increasing autonomy.
 ---
 
 # Self-development
 
-Most agents ship with a fixed set of tools. Obsilo can extend itself at runtime by writing new instructions, creating new tools, and in the highest tier, modifying its own source code.
+Most agents ship with a fixed set of tools. Vault Operator can extend itself at runtime by writing new instructions, creating new tools, and in the highest tier, modifying its own source code.
 
 This is useful and risky, so the system has hard boundaries between tiers. Each tier requires more trust than the last: lower tiers are safe by default, higher tiers need explicit approval. No tier lets the agent do something you haven't agreed to.
 

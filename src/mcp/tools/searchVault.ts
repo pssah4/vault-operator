@@ -20,7 +20,7 @@ export async function handleSearchVault(
 
     const semanticIndex = plugin.semanticIndex;
     if (!semanticIndex?.isIndexed) {
-        return { content: [{ type: 'text', text: 'Semantic index not built. Enable and build the index in Obsilo settings.' }], isError: true };
+        return { content: [{ type: 'text', text: 'Semantic index not built. Enable and build the index in Vault Operator settings.' }], isError: true };
     }
 
     const topK = Math.min(Number(args.top_k) || 8, 20);

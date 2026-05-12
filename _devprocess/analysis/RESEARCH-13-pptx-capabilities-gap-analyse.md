@@ -202,7 +202,7 @@ pSlide.addText('Text', options, [
 **1.3 Metadata setzen**
 ```diff
 + pptx.title = outputPath;
-+ pptx.author = 'Obsilo Agent';
++ pptx.author = 'Vault Operator';
 + pptx.company = '';
 ```
 

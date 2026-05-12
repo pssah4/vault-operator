@@ -21,7 +21,7 @@ UNSERE LOESUNG nutzt die bestehende Infrastruktur (SemanticIndex, GraphStore, Im
 > cross-references, summaries, consistency across 15 pages. Humans give up because
 > maintenance costs grow faster than value. LLMs don't tire."
 
-Obsilo hat die technische Basis (Vektoren, Graph, MOC-Parsing, Implicit Connections).
+Vault Operator hat die technische Basis (Vektoren, Graph, MOC-Parsing, Implicit Connections).
 Was fehlt ist der Schritt vom passiven Index zum aktiven Wissens-Pfleger:
 - **Ingest**: Nicht nur embedden, sondern verstehen und einordnen
 - **Lint**: Nicht nur Verbindungen erkennen, sondern Inkonsistenzen aufdecken

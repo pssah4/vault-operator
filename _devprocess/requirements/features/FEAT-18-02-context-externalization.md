@@ -65,7 +65,7 @@ getrennte Features. Aber:
 ## User Stories
 
 ### Story 1: Effiziente Standard-Tasks
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** dass der Agent Suchergebnisse effizient verarbeitet
 **um** schnellere und guenstigere Ergebnisse zu bekommen
 
@@ -75,7 +75,7 @@ getrennte Features. Aber:
 **um** vollstaendige Ergebnisse zu bekommen auch bei langen Workflows
 
 ### Story 3: Laengere Workflows
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** dass auch nach vielen Schritten kein Token-Overflow auftritt
 **um** komplexe Aufgaben ohne Abbruch bearbeiten zu koennen
 

@@ -319,7 +319,7 @@ export class CreateDocxTool extends BaseTool<'create_docx'> {
 
             // Build document
             const doc = new Document({
-                creator: 'Obsilo Agent',
+                creator: 'Vault Operator',
                 title: docTitle || undefined,
                 numbering: {
                     config: [

@@ -7,7 +7,7 @@
 
 ## Context
 
-The system prompt is the single most important configuration artifact in Obsilo — it shapes every LLM response. By Phase D completion, the prompt had grown to ~300 lines of inline constants in `systemPrompt.ts`, with tool descriptions duplicated between the prompt builder and the ToolPickerPopover UI.
+The system prompt is the single most important configuration artifact in Vault Operator — it shapes every LLM response. By Phase D completion, the prompt had grown to ~300 lines of inline constants in `systemPrompt.ts`, with tool descriptions duplicated between the prompt builder and the ToolPickerPopover UI.
 
 Three specific problems motivated this decision:
 
@@ -15,7 +15,7 @@ Three specific problems motivated this decision:
 
 2. **Tool description drift**: Tool names, signatures, and descriptions were maintained independently in `systemPrompt.ts` (for the LLM) and `ToolPickerPopover.ts` (for the UI). These diverged silently — a renamed tool or updated description in one location was easily missed in the other.
 
-3. **Missing prompt engineering sections**: Kilo Code's prompt architecture includes Objective (task decomposition strategy) and Capabilities (agent self-model) sections. Obsilo's original prompt lacked both, resulting in less structured multi-step behavior.
+3. **Missing prompt engineering sections**: Kilo Code's prompt architecture includes Objective (task decomposition strategy) and Capabilities (agent self-model) sections. Vault Operator's original prompt lacked both, resulting in less structured multi-step behavior.
 
 ## Decision
 

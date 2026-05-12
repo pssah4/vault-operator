@@ -250,9 +250,28 @@ cachePoint) adressiert. Diese ADR bleibt in ihrer Kern-Entscheidung
 gueltig (Section-Reordering, kein separater Adapter), wird nicht
 superseded. ADR-111 ergaenzt sie additiv.
 
+## Amendment 2026-05-12 (EPIC-24 / FEAT-24-01): Cache-Praefix-Stabilisierung -- die Section-Reihenfolge allein reicht nicht
+
+**Befund (5-Provider-Messlauf 2026-05-12, Diagnose-Log `[CacheStat:<provider>]`):** Die hier entschiedene Section-Reihenfolge (DateTime und Memory ans Ende) ist umgesetzt, bleibt auf dem Anthropic-Direkt-Pfad aber wirkungslos: der Cache-Marker liegt auf dem **gesamten** System-Prompt-Block, der den volatilen Tail (DateTime, Memory, Active Skills, Recipes, Vault Context) **enthaelt**. Da der Cache-Key der ganze Block ist und der DateTime-Abschnitt pro Call wechselt, gibt es bei jeder Iteration einen Cache-Miss + Re-Write; Anthropic schlaegt +25 % auf Cache-Writes auf, also ist Caching auf diesem Pfad in der Summe teurer als ohne. Der "CACHE BREAKPOINT" zwischen Section 8 und 9 war bisher nur ein Kommentar, kein echter zweiter Marker. Die Auto-Caching-Provider (OpenAI, Copilot, OpenRouter) cachen dagegen schon: 75-99 % Hit ab Call 2. Auf Bedrock fehlt jeder Marker (siehe ADR-111).
+
+**Entscheidung (ergaenzt ADR-62 additiv, kein Supersede):** die urspruenglich verworfene Option 2 (Zwei-Block-System-Prompt) wird fuer Provider mit explizitem Cache-Marker als zusaetzliche Cache-Hint-Schicht *im Provider* eingefuehrt -- nicht als globale Typ-Aenderung der Rueckgabe von `buildSystemPromptForMode`. Konkret:
+
+1. **Provider-seitiger Split am dokumentierten "CACHE BREAKPOINT":** der Provider trennt den System-Prompt am Marker-String in den stabilen Block (Sections 1-8) und den volatilen Tail; nur der stabile Block bekommt `cache_control` (Anthropic) bzw. `cachePoint` (Bedrock, siehe ADR-111), der Tail keinen. Der Split-Punkt wird deterministisch ueber den Marker-String gefunden, der System-Prompt wird nicht neu gebaut.
+2. **DateTime auf Tagesgranularitaet** als Default (Datum, kein Time-of-Day); Time-of-Day nur auf explizite Anforderung. Gilt fuer alle Provider und verbessert auch die Auto-Caching-Hit-Rate.
+3. **Eigener Cache-Marker auf dem `tools`-API-Feld** (Anthropic erlaubt `cache_control` auf dem letzten Tool) -- ~30k Tokens, relevanter Block, heute ungecacht.
+4. **Rollende Cache-Marker in der Message-History** (1-2): einer wandert pro Turn Richtung Ende, einer bleibt weiter hinten -- damit auch der Konversationsteil langer Sessions ueberwiegend Cache-Reads erzeugt.
+5. **`cached_tokens` der OpenAI-Familie in `usage`-Chunk und Kostenrechnung verdrahten** (gehoert zu IMP-18-01-02, hier nur referenziert) -- sonst zeigt die Kostenanzeige 2-3x zu hoch, weil Cache-Reads zum Vollpreis gebucht werden.
+
+**Abgrenzung:** Kern-Entscheidung dieser ADR (stabile Sections zuerst, kein separates Adapter-Interface, Cache-Hint-Logik provider-intern) bleibt gueltig. Bedrock-`cachePoint` und das `cached_tokens`-Wiring sind in ADR-111 / IMP-18-01-02 verortet; dieses Amendment ergaenzt sie um den echten Split-Punkt, die DateTime-Granularitaet, den `tools`-Marker und die History-Marker.
+
+**Beleg:** EnBW Cowork (`prompt-cache-utils.ts`) nutzt dieselbe 1-Marker-Mechanik wie Obsilo, erreicht aber echte Hits -- weil dort der System-Prompt sessionweit stabil ist (tagesgranulares Datum, kein per-Turn-Memory-Inject, Session-Reuse ueber einen System-Prompt-Hash). Nicht die Mechanik ist das Problem, sondern die Volatilitaet vor dem Marker.
+
+**Implementation Notes (2026-05-12, kann veralten):** Split-Anker = die `── CACHE BREAKPOINT ──`-Kommentarzeile in `systemPrompt.ts`. `anthropic.ts`: statt `[{type:'text', text:<ganzer String>, cache_control}]` -> `[{type:'text', text:<stabiler Teil>, cache_control}, {type:'text', text:<volatiler Teil>}]`; Marker zusaetzlich auf dem letzten Eintrag des `tools`-Arrays. `getDateTimeSection(includeTime=false)` als Default. Diagnose: `src/api/logCacheStat.ts` (`[CacheStat:<provider>]`, IMP-24-05-01). Verwandt: ADR-111, IMP-18-01-02, FEAT-24-01, FIX-24-01-01.
+
 ## References
 
 - FEAT-18-01: Prompt Caching (Provider-agnostisch)
 - Manus Context Engineering: "Keep your prompt prefix stable"
 - Anthropic Prompt Caching Docs: cache_control Breakpoints
 - OpenAI Prompt Caching: Automatisches Prefix-Caching ab 1024 Tokens
+- RESEARCH-36: Agent-Loop Kosten-Refactoring (5-Provider-Messlauf, Befund B)

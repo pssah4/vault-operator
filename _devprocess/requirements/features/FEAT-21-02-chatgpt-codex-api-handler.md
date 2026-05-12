@@ -23,7 +23,7 @@ Der Handler ist neu in `src/api/providers/chatgpt-oauth.ts` und mischt sich nich
 **Wir glauben, dass** ein dedizierter Codex-Backend-Handler mit Tool-Call-Support
 **folgende messbare Outcomes liefert:**
 
-- ChatGPT-Plus-Subscriber koennen alle Obsilo-Features (inklusive Tools) ohne API-Key nutzen.
+- ChatGPT-Plus-Subscriber koennen alle Vault Operator-Features (inklusive Tools) ohne API-Key nutzen.
 - Die Antwortqualitaet entspricht der Codex-CLI-Erfahrung.
 
 **Wir wissen, dass wir erfolgreich sind, wenn:**
@@ -35,7 +35,7 @@ Der Handler ist neu in `src/api/providers/chatgpt-oauth.ts` und mischt sich nich
 
 | Job-Typ | Job | User Story |
 |---------|-----|-----------|
-| Funktional | Den vollen Obsilo-Funktionsumfang inklusive Tool-Calls mit ChatGPT-Subscription nutzen | Story 1 |
+| Funktional | Den vollen Vault Operator-Funktionsumfang inklusive Tool-Calls mit ChatGPT-Subscription nutzen | Story 1 |
 | Funktional | Modell auswaehlen, das mein Subscription-Plan abdeckt | Story 2 |
 | Emotional | Vertrauen, dass der Handler auch bei API-Aenderungen sauber faellt statt still falsche Antworten liefert | Story 3 |
 
@@ -44,7 +44,7 @@ Der Handler ist neu in `src/api/providers/chatgpt-oauth.ts` und mischt sich nich
 ### Story 1: Tool-Calls funktionieren wie bei BYOK (Funktional)
 
 **Als** verbundener ChatGPT-OAuth-Nutzer
-**moechte ich**, dass alle Obsilo-Tools (read_file, write_file, semantic_search etc.) genauso aufgerufen und gestreamt werden wie beim OpenAI-BYOK-Provider,
+**moechte ich**, dass alle Vault Operator-Tools (read_file, write_file, semantic_search etc.) genauso aufgerufen und gestreamt werden wie beim OpenAI-BYOK-Provider,
 **damit ich** keinen Funktionsverlust gegenueber Pay-per-Use erlebe.
 
 ### Story 2: Modell-Auswahl (Funktional)
@@ -80,7 +80,7 @@ Der Handler ist neu in `src/api/providers/chatgpt-oauth.ts` und mischt sich nich
 
 ### Security
 
-- **Header-Set**: `Authorization: Bearer <access_token>`, `chatgpt-account-id: <accountId>`, `OpenAI-Beta: responses=experimental`, `User-Agent: Obsilo/<version>`. Keine zusaetzlichen Header.
+- **Header-Set**: `Authorization: Bearer <access_token>`, `chatgpt-account-id: <accountId>`, `OpenAI-Beta: responses=experimental`, `User-Agent: Vault Operator/<version>`. Keine zusaetzlichen Header.
 - **Token-Hand-Off**: Handler holt Tokens ausschliesslich vom `ChatGptOAuthService`. Kein Caching im Handler selbst.
 - **Refresh-on-401**: Bei 401 genau einmal Refresh anfordern, dann Anfrage neu absetzen. Bei zweitem 401 Fehler durchreichen.
 - **No-Logging**: Request-Bodies und Response-Bodies kommen nicht in Logs. Nur Statuscode und Error-Code.

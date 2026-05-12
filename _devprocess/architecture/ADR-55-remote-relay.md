@@ -5,7 +5,7 @@
 
 ## Context
 
-Obsilo's MCP Server laeuft auf localhost:27182 im Electron Renderer. Fuer Remote-Zugriff
+Vault Operator's MCP Server laeuft auf localhost:27182 im Electron Renderer. Fuer Remote-Zugriff
 (claude.ai, ChatGPT, etc.) muss der Server ueber eine oeffentliche HTTPS-URL erreichbar sein.
 
 Direkte Tunnel-Loesungen (cloudflared, ngrok) erfordern ein Binary auf dem User-Rechner
@@ -61,7 +61,7 @@ Cloudflare API Token ein und klickt "Deploy" -- kein Terminal, kein CLI.
 ```
 User-Aktion: API Token eingeben + "Deploy" klicken
 
-Obsilo intern:
+Vault Operator intern:
   1. GET /accounts → Account ID ermitteln
   2. PUT /accounts/{id}/workers/scripts/obsilo-relay
      → Worker-Code hochladen (als String im Plugin eingebettet)
@@ -93,7 +93,7 @@ Durable Object (per User)
     │  Forward request over WebSocket
     │  Wait for response (30s timeout)
     ▼
-Obsilo Plugin (WebSocket Client)
+Vault Operator Plugin (WebSocket Client)
     │
     │  handleToolCall() → result
     │

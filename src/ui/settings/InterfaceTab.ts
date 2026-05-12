@@ -82,7 +82,7 @@ export class InterfaceTab {
             .setName(t('settings.interface.includeTime'))
             .setDesc(t('settings.interface.includeTimeDesc'))
             .addToggle((tog) =>
-                tog.setValue(this.plugin.settings.includeCurrentTimeInContext ?? true).onChange(async (v) => {
+                tog.setValue(this.plugin.settings.includeCurrentTimeInContext ?? false).onChange(async (v) => {
                     this.plugin.settings.includeCurrentTimeInContext = v;
                     await this.plugin.saveSettings();
                 }),

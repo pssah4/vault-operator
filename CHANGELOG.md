@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Obsilo Agent are documented here. Format follows
+All notable changes to Vault Operator are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -41,7 +41,7 @@ All notable changes to Obsilo Agent are documented here. Format follows
     (`string` is already a subtype).
   - `obsidianmd/no-static-styles-assignment` disable in `main.ts` line 927
     replaced by a new `.agent-u-cursor-pointer` utility CSS class.
-  - Sentence case (29 strings): `Obsilo` brand removed from settings, error
+  - Sentence case (29 strings): `Vault Operator` brand removed from settings, error
     and onboarding copy ("the agent" instead). ChatGPT account block reworded
     to avoid `ChatGPT` / `OS` / `Plus` / `Pro` tokens. Eleven BA-25 commands
     and notices in `main.ts` translated from German to English. `MOC` replaced
@@ -56,7 +56,7 @@ All notable changes to Obsilo Agent are documented here. Format follows
 ### Added
 
 - **Cross-Surface AI Workflow (EPIC-23, BA-26).** Externe Surfaces wie
-  Claude Desktop, ChatGPT und Perplexity koennen Obsilos Memory- und
+  Claude Desktop, ChatGPT und Perplexity koennen Vault Operators Memory- und
   History-Layer ueber MCP ansprechen. Neue Remote-MCP-Tools:
   - `save_to_memory` -- Fact-Persistierung mit Source-Tagging
   - `save_conversation` -- Konversation als Living Document
@@ -195,7 +195,7 @@ All notable changes to Obsilo Agent are documented here. Format follows
 
 Wave-4 Community-Feedback Release. Detailliert im git-Log
 (`ae7d041 chore: release v2.6.0`) und unter
-[obsilo Releases](https://github.com/pssah4/obsilo/releases).
+[Vault Operator Releases](https://github.com/pssah4/vault-operator/releases).
 
 Highlights:
 - BUG-019..022 fixes (drag-and-drop, OpenAI tool-call flush, BUG-020

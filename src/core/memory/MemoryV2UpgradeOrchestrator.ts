@@ -1,6 +1,6 @@
 /**
  * MemoryV2UpgradeOrchestrator -- single entry-point for the cascade of
- * one-shot upgrade steps that run when an existing user opens Obsilo
+ * one-shot upgrade steps that run when an existing user opens Vault Operator
  * after a release that introduces v2 (or any later v2 -> v3 jump).
  *
  * Step pattern: each step is an independent class with `id`, `label`,

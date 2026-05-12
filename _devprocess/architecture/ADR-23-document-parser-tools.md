@@ -5,7 +5,7 @@
 
 ## Context
 
-Obsilo braucht die Faehigkeit, Office- und Datenformate (PPTX, XLSX, DOCX, PDF, JSON, XML, CSV) zu verarbeiten. Die BA fordert zwei Nutzungskontexte:
+Vault Operator braucht die Faehigkeit, Office- und Datenformate (PPTX, XLSX, DOCX, PDF, JSON, XML, CSV) zu verarbeiten. Die BA fordert zwei Nutzungskontexte:
 
 1. **Chat-Attachments:** Nutzer haengt Datei an -> automatisches Parsing -> Text als Kontext
 2. **Agent-initiiert:** Agent liest proaktiv Dateien aus dem Vault (z.B. "Analysiere die Excel X")

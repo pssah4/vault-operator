@@ -4,7 +4,7 @@
 > **Epic**: EPIC-05 (Self-Development & Sandbox)
 > **Priority**: P0 (Hotfix), P1 (Folge), P2 (Follow-up)
 > **Effort Estimate**: S
-> **Issue-Bezug**: [#26](https://github.com/pssah4/obsilo/issues/26) follow-up
+> **Issue-Bezug**: [#26](https://github.com/pssah4/vault-operator/issues/26) follow-up
 > **Abhaengig von**: FEAT-05-07 (Konfigurierbarer Agent-Folder, released v2.5.0/v2.5.1)
 > **Backlog row:** `_devprocess/context/BACKLOG.md` -> FEAT-05-08
 > (Status, Phase, Commit-SHA leben dort.)

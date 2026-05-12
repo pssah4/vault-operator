@@ -1,5 +1,5 @@
 /**
- * ObsiloEmbeddingProvider -- concrete EmbeddingProvider for the Obsilo plugin.
+ * VaultOperatorEmbeddingProvider -- concrete EmbeddingProvider for the Vault Operator plugin.
  *
  * Phase-2 thin adapter (PLAN-005 task 6). Wraps a callback that does the
  * actual API work, so we keep the battle-tested batch / retry / provider-
@@ -7,7 +7,7 @@
  * re-deriving it. The callback shape lets tests inject mocks without
  * pulling in SemanticIndexService.
  *
- * Discovery during PLAN-005 task 6: Obsilo today has only one real
+ * Discovery during PLAN-005 task 6: Vault Operator today has only one real
  * embedding caller (SemanticIndexService). The two services PLAN-005
  * originally listed (MemoryRetriever, EpisodicExtractor) call into
  * `semanticIndex.searchSessions / searchEpisodes / indexSessionSummary`
@@ -28,16 +28,16 @@ export type EmbedCallback = (texts: string[]) => Promise<Float32Array[]>;
 /** Lazy info supplier so the provider can pick up live model swaps. */
 export type ModelInfoSupplier = () => ModelInfo | null;
 
-export interface ObsiloEmbeddingProviderOptions {
+export interface VaultOperatorEmbeddingProviderOptions {
     /** Lower-cased provider tag, e.g. 'openrouter'. Falls back to `'unknown'`. */
     fallbackInfo?: ModelInfo;
 }
 
-export class ObsiloEmbeddingProvider implements EmbeddingProvider {
+export class VaultOperatorEmbeddingProvider implements EmbeddingProvider {
     constructor(
         private readonly embedFn: EmbedCallback,
         private readonly infoSupplier: ModelInfoSupplier,
-        private readonly opts: ObsiloEmbeddingProviderOptions = {},
+        private readonly opts: VaultOperatorEmbeddingProviderOptions = {},
     ) {}
 
     /** Live ModelInfo from the supplier (may change at runtime when user swaps models). */

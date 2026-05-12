@@ -7,7 +7,7 @@ description: Integrate PDFs, web clips, and Office documents into your vault wit
 
 Adding a new source to a well-kept vault is more work than reading the source. You have to decide whether it is worth the effort, figure out where it belongs, link it to hubs that already exist, write a summary that does not lose nuance, and keep a way to trace any claim back to the paragraph that produced it. That is the bookkeeping layer that makes a vault useful six months later, and it is the part most people quietly skip until everything is a mess.
 
-Obsilo's ingest workflow does the bookkeeping with you. There are two paths: a quick single-pass `/ingest` for inbox capture, and a multi-turn `/ingest-deep` for sense-making on research papers, long reports, and anything that needs more than a summary.
+Vault Operator's ingest workflow does the bookkeeping with you. There are two paths: a quick single-pass `/ingest` for inbox capture, and a multi-turn `/ingest-deep` for sense-making on research papers, long reports, and anything that needs more than a summary.
 
 Both paths share three rules:
 
@@ -121,5 +121,5 @@ Ingest is the write-path side of the same story that [Vault Health](/guides/vaul
 
 - [Knowledge discovery](/guides/knowledge-discovery): the semantic index and graph that ingest uses to find existing entities.
 - [Vault health check](/guides/vault-health): repair work for entries that drifted.
-- [Memory and personalization](/guides/memory-personalization): how Obsilo remembers your preferred categories and conventions over time.
+- [Memory and personalization](/guides/memory-personalization): how Vault Operator remembers your preferred categories and conventions over time.
 - [Tools reference](/reference/tools#knowledge-ingest-tools): the underlying `ingest_triage`, `ingest_document`, and `ingest_deep` tools.

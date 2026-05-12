@@ -1,4 +1,4 @@
-# Obsilo Agent — Deep Dive
+# Vault Operator — Deep Dive
 
 > **Lesezeit:** ~30 Minuten
 > **Zielgruppe:** Du selbst (Sebastian) und jeder, der verstehen will, wie das Plugin aufgebaut ist und funktioniert.
@@ -8,10 +8,10 @@
 
 ## Inhaltsverzeichnis
 
-1. [Was ist Obsilo?](#1-was-ist-obsilo)
+1. [Was ist Vault Operator?](#1-was-ist-obsilo)
 2. [Die Architektur im Überblick](#2-die-architektur-im-überblick)
 3. [Einstiegspunkt: Das Plugin startet](#3-einstiegspunkt-das-plugin-startet)
-4. [Der Agent-Loop: Wie Obsilo „denkt"](#4-der-agent-loop-wie-obsilo-denkt)
+4. [Der Agent-Loop: Wie Vault Operator „denkt"](#4-der-agent-loop-wie-obsilo-denkt)
 5. [Tools: Die Hände des Agenten](#5-tools-die-hände-des-agenten)
 6. [Die Tool Execution Pipeline: Governance & Sicherheit](#6-die-tool-execution-pipeline-governance--sicherheit)
 7. [Modi: Ask vs. Agent](#7-modi-ask-vs-agent)
@@ -32,9 +32,9 @@
 
 ---
 
-## 1. Was ist Obsilo?
+## 1. Was ist Vault Operator?
 
-Obsilo ist ein **AI-Agent-Plugin für Obsidian**. Es verwandelt dein Obsidian-Vault in einen interaktiven Arbeitsbereich, in dem ein KI-Agent:
+Vault Operator ist ein **AI-Agent-Plugin für Obsidian**. Es verwandelt dein Obsidian-Vault in einen interaktiven Arbeitsbereich, in dem ein KI-Agent:
 
 - Notizen lesen, schreiben, bearbeiten und durchsuchen kann
 - Im Internet recherchieren kann
@@ -113,7 +113,7 @@ ConsoleRingBuffer → SafeStorageService → GlobalFileService → GlobalSetting
 
 ### Schritt 2: Settings laden
 Settings werden aus zwei Quellen zusammengeführt:
-- **Vault-lokal**: `.obsidian/plugins/obsilo-agent/data.json` (Obsidian-Standard)
+- **Vault-lokal**: `.obsidian/plugins/vault-operator/data.json` (Obsidian-Standard)
 - **Global**: `~/.obsidian-agent/settings.json` (vault-übergreifend)
 
 Globale Settings (API-Keys, Models, Memory) überschreiben lokale. API-Keys werden beim Laden entschlüsselt, beim Speichern verschlüsselt.
@@ -143,7 +143,7 @@ In dieser Reihenfolge:
 
 ---
 
-## 4. Der Agent-Loop: Wie Obsilo „denkt"
+## 4. Der Agent-Loop: Wie Vault Operator „denkt"
 
 **Datei:** `src/core/AgentTask.ts` — Klasse `AgentTask`
 
@@ -369,7 +369,7 @@ Jedes Tool ist einer Gruppe zugeordnet (definiert in `TOOL_GROUPS`):
 
 **Dateien:** `src/core/modes/builtinModes.ts`, `src/core/modes/ModeService.ts`
 
-Obsilo hat zwei eingebaute Modi:
+Vault Operator hat zwei eingebaute Modi:
 
 ### Ask-Modus
 - **Zweck:** Lesen, Suchen, Fragen beantworten — **kein Schreiben**
@@ -398,7 +398,7 @@ Der **ModeService** (`src/core/modes/ModeService.ts`) verwaltet Modi, filtert To
 
 ### Das Provider-System
 
-Obsilo unterstützt mehrere LLM-Anbieter über eine einheitliche Schnittstelle:
+Vault Operator unterstützt mehrere LLM-Anbieter über eine einheitliche Schnittstelle:
 
 ```typescript
 interface ApiHandler {
@@ -548,7 +548,7 @@ Kein extra API-Call -- der Quality-Prompt ist Teil des Tool-Results. Unsichtbar 
 
 ### Wie Memory funktioniert
 
-Obsilo hat ein zweistufiges Gedächtnis:
+Vault Operator hat ein zweistufiges Gedächtnis:
 
 **Stufe 1: Sofort-Memory (im System Prompt)**
 Vier Markdown-Dateien werden bei jedem API-Call mitgesendet:
@@ -599,7 +599,7 @@ Wenn eine Konversation endet und Memory aktiviert ist:
 
 ### Wie es funktioniert
 
-Obsilo unterhält ein **Shadow-Git-Repo** unter `.obsidian/plugins/obsilo-agent/checkpoints/`. Es ist komplett unabhängig von einem eventuellen Git-Repo im Vault selbst.
+Vault Operator unterhält ein **Shadow-Git-Repo** unter `.obsidian/plugins/vault-operator/checkpoints/`. Es ist komplett unabhängig von einem eventuellen Git-Repo im Vault selbst.
 
 **Vor jedem Write-Tool:**
 1. Die Pipeline ruft `checkpointService.snapshot(taskId, [filePath], toolName)` auf
@@ -621,7 +621,7 @@ Obsilo unterhält ein **Shadow-Git-Repo** unter `.obsidian/plugins/obsilo-agent/
 
 ### Was ist MCP?
 
-Das **Model Context Protocol** ist ein Standard von Anthropic für die Kommunikation zwischen KI-Agenten und externen Services. Obsilo kann sich mit MCP-Servern verbinden und deren Tools nutzen.
+Das **Model Context Protocol** ist ein Standard von Anthropic für die Kommunikation zwischen KI-Agenten und externen Services. Vault Operator kann sich mit MCP-Servern verbinden und deren Tools nutzen.
 
 ### Unterstützte Transporte
 - **SSE** (Server-Sent Events) — für bestehende SSE-basierte Server
@@ -729,7 +729,7 @@ Dies ist das ambitionierteste Feature, aufgeteilt in 4 Phasen:
 
 ## 17. Sicherheitsarchitektur
 
-Obsilo hat **7 Sicherheitsschichten**, die zusammen ein Defense-in-Depth-Modell bilden:
+Vault Operator hat **7 Sicherheitsschichten**, die zusammen ein Defense-in-Depth-Modell bilden:
 
 ### Schicht 1: Verschlüsselte API-Keys
 **Datei:** `src/core/security/SafeStorageService.ts`
@@ -800,7 +800,7 @@ Wenn der Agent eine Datei schreiben will und Approval erforderlich ist:
 
 ### Zwei Speicherorte
 
-**Vault-lokal** (`.obsidian/plugins/obsilo-agent/`):
+**Vault-lokal** (`.obsidian/plugins/vault-operator/`):
 - `data.json` — Vault-spezifische Settings
 - `checkpoints/` — Shadow-Git-Repo
 - `semantic-index/` — Vektor-Index (wenn Sync-Location = obsidian-sync)

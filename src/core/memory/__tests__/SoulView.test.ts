@@ -91,13 +91,13 @@ describe('SoulView (PLAN-008 task A.2)', () => {
     });
 
     it('partitions facts into the four soul categories', () => {
-        seedSoul('I am Obsilo', 'identity');
+        seedSoul('I am Vault Operator', 'identity');
         seedSoul('Usefulness over politeness', 'value');
         seedSoul('No emojis', 'anti_pattern');
         seedSoul('German, casual', 'communication');
 
         const s = view.snapshot();
-        expect(s.identity[0].text).toBe('I am Obsilo');
+        expect(s.identity[0].text).toBe('I am Vault Operator');
         expect(s.values[0].text).toBe('Usefulness over politeness');
         expect(s.antiPatterns[0].text).toBe('No emojis');
         expect(s.communication[0].text).toBe('German, casual');
@@ -144,13 +144,13 @@ describe('SoulView (PLAN-008 task A.2)', () => {
     });
 
     it('renderMarkdown produces a stable cache-friendly block', () => {
-        seedSoul('Obsilo, AI agent in Obsidian', 'identity');
+        seedSoul('Vault Operator, AI agent in Obsidian', 'identity');
         seedSoul('Usefulness over politeness', 'value');
         seedSoul('No emojis', 'anti_pattern');
         seedSoul('German, casual', 'communication');
 
         const md = view.renderMarkdown();
-        expect(md).toContain('## Identity & Soul (Obsilo)');
+        expect(md).toContain('## Identity & Soul (Vault Operator)');
         expect(md).toContain('**Identity:**');
         expect(md).toContain('**Values:**');
         expect(md).toContain('**Anti-Patterns:**');

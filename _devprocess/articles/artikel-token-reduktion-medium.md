@@ -4,7 +4,7 @@
 
 ---
 
-I build an Obsidian plugin called Obsilo. It's an AI agent with over 40 tools that operates directly inside a user's vault: searching notes, summarizing content, linking documents, creating canvases. The agent uses a ReAct loop, meaning it iterates between reasoning and tool calls until a task is complete.
+I build an Obsidian plugin called Vault Operator. It's an AI agent with over 40 tools that operates directly inside a user's vault: searching notes, summarizing content, linking documents, creating canvases. The agent uses a ReAct loop, meaning it iterates between reasoning and tool calls until a task is complete.
 
 In early April 2026, I ran a system test with a standard task: "Search my notes on Kant and write a summary." The result was 634,000 input tokens, eight LLM iterations, and a cost of roughly $2 per execution. On GitHub Copilot's gateway (which routes to Claude Sonnet with a 168k context limit), the agent crashed outright at 183,000 tokens.
 
@@ -138,4 +138,4 @@ Whether the learning behavior holds up over months of use, whether the long-term
 
 ---
 
-*Sebastian Hanke builds Obsilo, an AI agent plugin for Obsidian. The architectural decisions referenced in this article are documented as ADRs 058-063 in the project's development process archive.*
+*Sebastian Hanke builds Vault Operator, an AI agent plugin for Obsidian. The architectural decisions referenced in this article are documented as ADRs 058-063 in the project's development process archive.*

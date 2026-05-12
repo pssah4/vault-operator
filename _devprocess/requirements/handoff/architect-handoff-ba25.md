@@ -195,7 +195,7 @@ Quantifizierte NFRs pro Bereich:
 - Wie verhalten sich Zettel-Notes zur Memory-v2-Fact-Extraktion (FEAT-03-25)? Brauchen sie ein Frontmatter-Flag "diese Note ist Memory-Source"?
 
 **Web-Search:**
-- BYOK obligatorisch fuer Stufe-2 und Stufe-3 oder Default-Provider via Obsilo-Gateway anbieten (Token-Kosten dann pro User-Account)?
+- BYOK obligatorisch fuer Stufe-2 und Stufe-3 oder Default-Provider via Vault Operator-Gateway anbieten (Token-Kosten dann pro User-Account)?
 - Welcher Web-Search-Provider hat beste Source-Filter-Optionen (fuer Anti-Echo-Suche)?
 
 **Ingest-Approval:**

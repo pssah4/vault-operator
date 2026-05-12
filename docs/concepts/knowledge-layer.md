@@ -1,6 +1,6 @@
 ---
 title: Knowledge Layer
-description: How Obsilo finds relevant information in your vault through a 4-stage retrieval pipeline.
+description: How Vault Operator finds relevant information in your vault through a 4-stage retrieval pipeline.
 ---
 
 # Knowledge layer

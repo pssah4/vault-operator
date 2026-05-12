@@ -1,6 +1,6 @@
-# Obsilo Template Analyzer
+# Vault Operator Template Analyzer
 
-Analyzes a PPTX template and generates a Visual Design Language (VDL) Skill document for use in Obsilo.
+Analyzes a PPTX template and generates a Visual Design Language (VDL) Skill document for use in Vault Operator.
 
 ## Prerequisites
 
@@ -95,7 +95,7 @@ requiredTools: [create_pptx]
 ...
 ```
 
-Import the generated file as a User Skill in Obsilo (Settings > Skills > Import).
+Import the generated file as a User Skill in Vault Operator (Settings > Skills > Import).
 
 ## Customization
 

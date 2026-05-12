@@ -1,7 +1,7 @@
 # Codebase Analysis — Obsidian Agent
 **Datum:** 2026-02-26 (aktualisiert)
 **Analysierte Dateien:** 158 TypeScript-Dateien, ~38.000 LOC (src/)
-**Plugin-Version:** 1.1.0 (Obsilo Agent)
+**Plugin-Version:** 1.1.0 (Vault Operator)
 **Vergleich mit:** forked-kilocode/ (2.368 TS-Dateien)
 
 ---

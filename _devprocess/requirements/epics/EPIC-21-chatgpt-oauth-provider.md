@@ -13,7 +13,7 @@ depends-on: [FEAT-04-03]
 
 ## How-Might-We
 
-Wie koennen wir Obsilo-Nutzern mit aktivem ChatGPT-Plus- oder Pro-Abo erlauben, ihr Abo direkt im Plugin als LLM-Backend zu nutzen, ohne einen separaten OpenAI-API-Key kaufen und verwalten zu muessen?
+Wie koennen wir Vault Operator-Nutzern mit aktivem ChatGPT-Plus- oder Pro-Abo erlauben, ihr Abo direkt im Plugin als LLM-Backend zu nutzen, ohne einen separaten OpenAI-API-Key kaufen und verwalten zu muessen?
 
 ## Epic Hypothesis Statement
 

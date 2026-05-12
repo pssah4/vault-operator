@@ -1,6 +1,6 @@
 ---
 name: BA-23 Mobile Support
-description: Business Analysis fuer Mobile-Companion-Mode von Obsilo. Zettelkasten-konforme Capture-und-Pre-Wire-Unterstuetzung auf iOS/Android mit Desktop-synchronisiertem Read-only-Index.
+description: Business Analysis fuer Mobile-Companion-Mode von Vault Operator. Zettelkasten-konforme Capture-und-Pre-Wire-Unterstuetzung auf iOS/Android mit Desktop-synchronisiertem Read-only-Index.
 status: Draft
 scope: MVP
 created: 2026-04-23
@@ -8,7 +8,7 @@ created-by: /business-analysis
 epic: EPIC-23 (proposed)
 ---
 
-# Business Analysis: Mobile Support fuer Obsilo
+# Business Analysis: Mobile Support fuer Vault Operator
 
 > **Scope:** MVP
 > **Created:** 2026-04-23
@@ -21,8 +21,8 @@ epic: EPIC-23 (proposed)
 
 ### 1.1 Problem Statement
 
-Obsilo laeuft in v2.6.0 ausschliesslich auf Desktop (`manifest.json:
-isDesktopOnly: true`). Der Obsilo-Besitzer und die bestehende Community
+Vault Operator laeuft in v2.6.0 ausschliesslich auf Desktop (`manifest.json:
+isDesktopOnly: true`). Der Vault Operator-Besitzer und die bestehende Community
 betreiben ihre Zettelkaesten aber nicht nur am Schreibtisch. Ideen,
 Scans, Fotos, Sprachnotizen und Web-Clips fallen unterwegs an und
 bleiben bis zum naechsten Desktop-Fenster unverarbeitet. Die
@@ -40,7 +40,7 @@ Stellen, die eine unveraenderte Mobile-Nutzung verhindern.
 
 ### 1.3 Value Proposition (Solution Hypothesis)
 
-Obsilo Mobile wird **Companion-Modus** statt Full-Parity-Clone. Der
+Vault Operator Mobile wird **Companion-Modus** statt Full-Parity-Clone. Der
 Agent arbeitet mobil als Capture- und Pre-Wire-Assistent mit Zugriff
 auf den am Desktop erzeugten Vektor-Index. Er nimmt Sprach-, Text-,
 Scan- und Foto-Inputs entgegen, schlaegt Metadaten und Links vor,
@@ -76,7 +76,7 @@ komplette Schreibtisch.
 
 ### 2.1 Background
 
-Obsilo ist seit v2.6.0 released (2026-04-19), AUDIT-012 GREEN, alle
+Vault Operator ist seit v2.6.0 released (2026-04-19), AUDIT-012 GREEN, alle
 Phasen A-F abgeschlossen. 22 Epics, 151 FEATUREs, 49 Tools. Die
 Obsidian-Community-Waves 1 und 4 haben Mobile bislang nicht
 priorisiert und keine expliziten Mobile-Issues in Wave-1 oder
@@ -174,15 +174,15 @@ in die ADRs uebernommen.
 | Stakeholder | Rolle | Interest | Influence | Needs |
 |-------------|-------|----------|-----------|-------|
 | Sebastian (Owner, Primary User) | Produktowner, Power-User, Zettelkasten-Praktiker | H | H | Mobile-Capture fuer eigenen Vault, kein Feature-Split-Chaos |
-| Obsilo-Community (Wave-1, Wave-4 User) | Bestehende Desktop-User, teils Mobile-interessiert | M | M | BRAT-kompatibler Mobile-Rollout, Rueckwaerts-Kompatibilitaet Desktop |
+| Vault Operator-Community (Wave-1, Wave-4 User) | Bestehende Desktop-User, teils Mobile-interessiert | M | M | BRAT-kompatibler Mobile-Rollout, Rueckwaerts-Kompatibilitaet Desktop |
 | Obsidian-Core (Community Plugin Review-Bot) | Gate-Keeper fuer Public-Store | M | H | Bot-Compliance, `isDesktopOnly: false` erfordert saubere Guards |
 | Anthropic/OpenAI (Provider) | API-Bereitsteller | L | M | Keine Aenderung, Multi-Provider bleibt |
-| MCP-Server-Betreiber (User) | Nutzen Obsilo-MCP | M | L | Relay-Option bei Mobile-only Setup |
+| MCP-Server-Betreiber (User) | Nutzen Vault Operator-MCP | M | L | Relay-Option bei Mobile-only Setup |
 
 ### 3.2 Key Stakeholders
 
 **Primary:** Sebastian (Entscheider, Entwickler, Primary User)
-**Secondary:** Obsilo-Community (Akzeptanz-Indikator), Review-Bot
+**Secondary:** Vault Operator-Community (Akzeptanz-Indikator), Review-Bot
 (Compliance-Gate fuer zukuenftigen Public-Release)
 
 ---
@@ -193,7 +193,7 @@ in die ADRs uebernommen.
 
 **Persona P1: Sebastian, der mobile Zettelkasten-Wissensarbeiter**
 
-- **Rolle:** Obsilo-Owner, Obsidian-Power-User, Zettelkasten-
+- **Rolle:** Vault Operator-Owner, Obsidian-Power-User, Zettelkasten-
   Praktizierender
 - **Ziele:**
   - Ideen und Quellen unterwegs so erfassen, dass sie spaeter am
@@ -203,7 +203,7 @@ in die ADRs uebernommen.
   - RAG-Zugriff und Brainstorming auf dem bestehenden Vault auch
     unterwegs.
 - **Pain Points:**
-  - Obsilo ist auf Mobile gar nicht installierbar (isDesktopOnly).
+  - Vault Operator ist auf Mobile gar nicht installierbar (isDesktopOnly).
   - Manuelle Notes auf Mobile haben heute keine Link-Vorarbeit,
     Verzettelung dauert laenger.
   - Sprach-Input wird aktuell nur im Apple-Notizen- oder
@@ -217,14 +217,14 @@ in die ADRs uebernommen.
 - **Nutzungs-Kontext:** Waehrend Pendeln, Spaziergang, Meetings,
   Research-Sessions im Cafe.
 
-**Persona P2: Die Obsilo-Community (Hypothese, Validierung nach
+**Persona P2: Die Vault Operator-Community (Hypothese, Validierung nach
 PoC-Release)**
 
-- **Rolle:** Bestehende Obsilo-Desktop-Nutzer, die Obsidian auch auf
+- **Rolle:** Bestehende Vault Operator-Desktop-Nutzer, die Obsidian auch auf
   iPad oder Smartphone betreiben.
 - **Ziele:** (angenommen, basiert auf Wave-1 + Wave-4 Feedback-
   Profilen)
-  - Obsilo soll Mobile nicht crashen.
+  - Vault Operator soll Mobile nicht crashen.
   - Kern-Features (Chat, Semantic Search, Inbox-Support) sollen auf
     Mobile verfuegbar sein, auch wenn Full-Parity nicht moeglich ist.
   - BRAT-Install-Flow soll ohne Desktop-Extra-Schritte auf Mobile
@@ -287,7 +287,7 @@ PoC-Release)**
   muss.", Sebastian, 2026-04-23.)
 
 **Sozial:**
-- Die Obsilo-Community hat Mobile in Wave-1 und Wave-4 nicht
+- Die Vault Operator-Community hat Mobile in Wave-1 und Wave-4 nicht
   aufgebracht. Das koennte Desinteresse sein ODER Selbst-
   Selektion (Community = Desktop-User). Annahme, muss in Phase 8
   post-release validiert werden. (Quelle: MEMORY.md Community-
@@ -305,24 +305,24 @@ PoC-Release)**
 ### 4.4 User Journey (High-Level)
 
 1. **Morgen:** Sebastian hat im Bett einen Gedanken zu einem
-   laufenden Projekt. Er oeffnet Obsidian Mobile, startet Obsilo,
+   laufenden Projekt. Er oeffnet Obsidian Mobile, startet Vault Operator,
    sagt: "Neue Idee zu EPIC-19: Lint-Rules fuer veraltete Chunks
    koennten ueber Recency-Score gewichtet werden."
-2. **Agent-Vorarbeit:** Obsilo nimmt den Voice-Input entgegen,
+2. **Agent-Vorarbeit:** Vault Operator nimmt den Voice-Input entgegen,
    strukturiert Titel + Body, zieht per Semantic Search aus dem
    Desktop-Index die passende Note "EPIC-19 Knowledge Maintenance"
    und verlinkt sie, setzt Tags `[[Inbox]]` + `[[EPIC-19]]`.
 3. **Inbox-Note:** Die Note landet in `Inbox/2026-04-23-idee-
    lint-recency.md` mit YAML-Frontmatter und Link-Vorschlaegen.
 4. **Pendeln:** Sebastian scannt auf dem Weg ins Cafe eine
-   Buchseite mit der Obsidian-Kamera, Obsilo extrahiert Text (OCR
+   Buchseite mit der Obsidian-Kamera, Vault Operator extrahiert Text (OCR
    via Plattform-API) und legt eine Quelle-Note an mit Zitat-
    Vorlage.
-5. **Cafe:** Er macht ein Brainstorming-Chat mit Obsilo zum Thema
+5. **Cafe:** Er macht ein Brainstorming-Chat mit Vault Operator zum Thema
    "Ontologie-Evolution". RAG-Zugriff zieht die passenden Chunks
    aus dem Desktop-Index. Der Chat wird auf Mobile als Conversation
    gespeichert (kein Index-Write).
-6. **Abend am Desktop:** Sebastian oeffnet Obsilo Desktop. Der
+6. **Abend am Desktop:** Sebastian oeffnet Vault Operator Desktop. Der
    Semantic Index indexiert die mobil erzeugten Inbox-Notes
    automatisch. Er verzettelt sie in Ruhe, loest [[Inbox]]-Tags auf
    und integriert die Notes in den Vault.
@@ -334,10 +334,10 @@ PoC-Release)**
 | Obsidian Mobile App | Before | App Store / Sideload | o (neutral, Voraussetzung) |
 | BRAT-Install obsilo-agent | Before | BRAT-Plugin | + (bekannt aus Desktop) |
 | Plugin-Enable auf Mobile | During | Obsidian Settings | - (aktuell blockiert durch isDesktopOnly) |
-| Sidebar-Chat mobil | During | Obsilo-UI | + (Ziel-Zustand) |
-| Voice-Input-Button | During | Obsilo-Capture-View | + (Neu) |
+| Sidebar-Chat mobil | During | Vault Operator-UI | + (Ziel-Zustand) |
+| Voice-Input-Button | During | Vault Operator-Capture-View | + (Neu) |
 | Inbox-Note in Vault | After | Obsidian Vault + Sync | + (nahtlos fuer Zettelkasten-Workflow) |
-| Desktop-Verzettelung | After | Obsilo Desktop | + (unveraendert) |
+| Desktop-Verzettelung | After | Vault Operator Desktop | + (unveraendert) |
 
 ---
 
@@ -345,7 +345,7 @@ PoC-Release)**
 
 ### 5.1 Problem Statement (Detailed)
 
-Obsilo ist als Desktop-only Plugin gestartet, weil viele Kern-
+Vault Operator ist als Desktop-only Plugin gestartet, weil viele Kern-
 Subsysteme auf Electron-APIs und Node.js-nativen Modulen aufbauen:
 safeStorage, child_process, fs fuer Global-Storage, isomorphic-git
 fuer Checkpoints, esbuild-wasm fuer Self-Modification, sql.js ueber
@@ -382,7 +382,7 @@ Loesung muss die Inbox-Stage respektieren.
    Kompatibilitaet nachdenken. Das hat zu top-level `import fs`
    Statements und statischen `require('./ProcessSandboxExecutor')`
    gefuehrt, die sofort crashen, wenn der Gate fallen wuerde.
-4. **Fehlender Capture-Flow:** Obsilo hat keinen Voice-Input-
+4. **Fehlender Capture-Flow:** Vault Operator hat keinen Voice-Input-
    Button, keinen Scan/Foto-Importer, keinen Web-Clipper-Entry-
    Point. Das sind mobile First-Class-Use-Cases, die auch auf
    Desktop heute fehlen.
@@ -414,7 +414,7 @@ Loesung muss die Inbox-Stage respektieren.
 | Funktional | "Web-Artikel unterwegs auf Mobile speichern fuer spaetere Verarbeitung" | Obsidian-WebClipper ohne Agent-Vorarbeit | Titel und Links werden nicht automatisch an bestehende Vault-Notes gekoppelt |
 | Funktional | "Wissen aus meinem Vault unterwegs abrufen" | Obsidian-Mobile-Suche (BM25 ohne Semantic) | Keine Semantic Search, keine RAG, keine Agent-Zusammenfassung |
 | Emotional | "Ich moechte mich als produktiver Wissensarbeiter fuehlen, auch wenn ich nicht am Schreibtisch sitze" | Aktuell Kompromiss-Workflow mit Drittools | Bruch im Workflow, fuehlt sich zerstueckelt an |
-| Sozial | "Ich moechte glaubwuerdig einem anderen Obsidian-Power-User erzaehlen koennen, dass mein Obsilo mobil funktioniert" | Kann ich heute nicht | Community-Signal: Plugin ist Desktop-only |
+| Sozial | "Ich moechte glaubwuerdig einem anderen Obsidian-Power-User erzaehlen koennen, dass mein Vault Operator mobil funktioniert" | Kann ich heute nicht | Community-Signal: Plugin ist Desktop-only |
 
 ---
 
@@ -422,10 +422,10 @@ Loesung muss die Inbox-Stage respektieren.
 
 ### 6.1 Business Goals
 
-- **BG-01:** Obsilo wird auf iOS und Android installierbar und
+- **BG-01:** Vault Operator wird auf iOS und Android installierbar und
   funktional nutzbar. Zielzustand: `isDesktopOnly: false` mit
   sauberer Mobile-UX.
-- **BG-02:** Mobile-Release erweitert den Obsilo-Nutzungsrahmen ohne
+- **BG-02:** Mobile-Release erweitert den Vault Operator-Nutzungsrahmen ohne
   Desktop-Regression. Desktop-User merken keinen negativen Impact.
 - **BG-03:** Vorbereitung auf potenziellen Public-Release via
   Obsidian-Community-Store: Review-Bot-compliant auch fuer den
@@ -469,7 +469,7 @@ Aussagekraft haben.
 
 ### 7.2 The Wow
 
-Obsilo ist der erste Obsidian-Agent, der Zettelkasten-konformes
+Vault Operator ist der erste Obsidian-Agent, der Zettelkasten-konformes
 Capture-und-Pre-Wire unterwegs liefert, **mit** Zugriff auf den
 eigenen Desktop-Wissensindex, **ohne** auf Mobile zu indexieren.
 Voice-to-Zettel-mit-Link in unter 10 Sekunden. Kein Cloud-Upload,
@@ -486,14 +486,14 @@ kein Drittdienst, Synchronisation laeuft ueber Obsidian Sync.
 | H-05 | IframeSandboxExecutor (oder ein Worker-Sandbox) reicht fuer die Mobile-relevanten Skills. | Tech Feasibility | Skill-Katalog auditieren, Skills mit Process-Dependencies flaggen | Mindestens die Top-10-Skills nach Nutzungshaeufigkeit funktionieren im Mobile-Sandbox |
 | H-06 | MCP-Tools sind mobil entweder lokal oder ueber Desktop-Relay nutzbar. | Tech Feasibility | Spike: Relay-Variante testen, lokal-Mobile-Variante evaluieren | Mindestens ein Variante liefert vollstaendigen Tool-Roundtrip |
 | H-07 | GlobalFileService-Migration zu vault-lokalem Storage laesst sich rueckwaerts-kompatibel zu Desktop-v2.6.0 durchfuehren. | Tech Feasibility | Migration-Script + Fallback-Lesepfad | Bestehende Desktop-Setups laufen nach Upgrade ohne Datenverlust weiter |
-| H-08 | Die Obsilo-Community interessiert sich ueberhaupt fuer Mobile-Support. | Market | Post-PoC-Release: BRAT-Adoption-Monitoring, Discord-Poll | >= 5 aktive Community-User probieren den Mobile-Build innerhalb 8 Wochen |
+| H-08 | Die Vault Operator-Community interessiert sich ueberhaupt fuer Mobile-Support. | Market | Post-PoC-Release: BRAT-Adoption-Monitoring, Discord-Poll | >= 5 aktive Community-User probieren den Mobile-Build innerhalb 8 Wochen |
 
 ### 7.4 Solution Idea and Object Model
 
 **Companion-Modus-Architektur in Komponenten:**
 
 ```
-Desktop (Obsilo Producer Mode)                Mobile (Obsilo Consumer Mode)
+Desktop (Vault Operator Producer Mode)                Mobile (Vault Operator Consumer Mode)
 +-------------------------------------+       +-------------------------------------+
 | SemanticIndexService (writer)       |       | SemanticIndexService (reader-only)  |
 |   - writes knowledge.db             |       |   - reads {vault}/.obsilo/index/... |
@@ -551,7 +551,7 @@ Desktop (Obsilo Producer Mode)                Mobile (Obsilo Consumer Mode)
   strukturierte Inbox-Note mit Agent-Vorarbeit.
 - **Scan/Foto-Import:** Eingang fuer Obsidian-Kamera-Notes mit
   Agent-Metadaten-Vorschlag.
-- **Web-Clipper-Handoff:** Import von Web-Artikeln in Obsilo-Inbox-
+- **Web-Clipper-Handoff:** Import von Web-Artikeln in Vault Operator-Inbox-
   Workflow.
 - **RAG-Zugriff:** Semantic-Query auf Desktop-Index funktioniert
   mobil.
@@ -674,7 +674,7 @@ Desktop (Obsilo Producer Mode)                Mobile (Obsilo Consumer Mode)
 | P0 | Mobile-Capture-View (Voice-to-Note) | Voice-Input, Agent-Vorarbeit, Inbox-Note-Erzeugung |
 | P1 | MCP-Mobile-Strategie | Lokal oder Relay (ADR Phase 3), mindestens ein Pfad lauffaehig |
 | P1 | Skill-Capability-Filter | Skill-Metadata um `requires`-Feld erweitern, Mobile-UI-Markierung |
-| P1 | Scan/Foto-Import und Web-Clipper-Handoff | Eingang fuer Obsidian-Kamera/Clipper in Obsilo-Inbox-Flow |
+| P1 | Scan/Foto-Import und Web-Clipper-Handoff | Eingang fuer Obsidian-Kamera/Clipper in Vault Operator-Inbox-Flow |
 | P1 | UI-Markierungen fuer Desktop-only-Features | Canvas, Excalidraw, Checkpoints, Plugin-Builder sichtbar disabled |
 | P2 | Base-Erstellung mobil | Leichtgewichtige Base-UI auf Mobile |
 | P2 | Agent-Brainstorming-Mode | Gesonderter Chat-Mode ohne Index-Write |
@@ -700,16 +700,16 @@ knapp gehalten, weil Monetarisierung nicht Ziel dieses Zyklus ist.
 
 | Axe | Score | Rationale |
 |-----|-------|-----------|
-| **Brand Fit** | 9 | Passt zum Obsilo-Kern: Zettelkasten-Agent, AI-Assist im Vault |
+| **Brand Fit** | 9 | Passt zum Vault Operator-Kern: Zettelkasten-Agent, AI-Assist im Vault |
 | **Investment** | 4 | 10-14 Wochen Entwicklungsaufwand, nicht trivial |
 | **Asset Fit** | 8 | Bestehende Infrastruktur (Multi-Provider, MCP, Skills, Memory) wird wiederverwendet |
 | **Viral Potential** | 5 | Obsidian-Power-User-Community, mittleres Reichweitenpotenzial |
-| **New Customer** | 4 | Kein primaeres Akquise-Ziel, eher Retention fuer bestehende Obsilo-User |
+| **New Customer** | 4 | Kein primaeres Akquise-Ziel, eher Retention fuer bestehende Vault Operator-User |
 | **Market Size** | 6 | Obsidian-Mobile hat Millionen-Nutzer, Power-User-Segment ist kleiner aber relevant |
 
 ### 11.3 Price Point & Willingness to Pay
 
-Nicht relevant im aktuellen Scope. Obsilo ist privat + Community-
+Nicht relevant im aktuellen Scope. Vault Operator ist privat + Community-
 BRAT.
 
 ### 11.4 Channels
@@ -726,7 +726,7 @@ BRAT.
 - Desktop-Index-Producer plus Mobile-Index-Consumer ist eine
   Architektur, die Cloud-Indexer wie Mem.ai nicht bieten (Privacy-
   Vorteil).
-- Obsilo hat bereits 30+ Tools, Memory, Skills, Self-Development.
+- Vault Operator hat bereits 30+ Tools, Memory, Skills, Self-Development.
   Mobile-Companion wird zum differenzierten Feature statt zum
   neuen Produkt.
 - Zettelkasten-Respect ist kulturell konsistent mit Obsidian-
@@ -767,7 +767,7 @@ Siehe Abschnitt 6.3.
 
 ### A. Glossary
 
-- **Companion-Modus:** Bewusste Scope-Reduktion fuer Mobile. Obsilo
+- **Companion-Modus:** Bewusste Scope-Reduktion fuer Mobile. Vault Operator
   ist mobil Capture-und-Pre-Wire-Assistent, nicht Full-Parity-Clone.
 - **Index-Producer / Index-Consumer:** Architektur-Rollen. Desktop
   schreibt den Semantic-Index, Mobile liest ihn readonly.
@@ -795,13 +795,13 @@ in Phase 3 zusaetzliche Discovery-Runden erfordert.
   Analysiere bitte mal umfangreich die Code Base, um zu verstehen wo
   momentan Hindernisse und Blocker sind."
 - Antwort Primary-Use-Case: siehe Persona P1 Zitat.
-- Antwort Zielgruppe: "Obsilo Community (bestehende Desktop-User
+- Antwort Zielgruppe: "Vault Operator Community (bestehende Desktop-User
   die auch mobil wollen)" - Dokumentiert als P2 mit
   Validierungs-Hypothese H-08.
 
 ### D. References
 
-- Explore-Subagent-Report "As-Is Mobile-Blocker-Report (Obsilo
+- Explore-Subagent-Report "As-Is Mobile-Blocker-Report (Vault Operator
   v2.6.0)", 2026-04-22. Inline im /dia-guide-Transcript.
 - Obsidian Platform API (`Platform.isDesktop`, `Platform.isMobile`).
 - MEMORY.md Community-Wave-1 + Wave-4 Eintraege (Community-

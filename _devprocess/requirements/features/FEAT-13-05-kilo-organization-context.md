@@ -11,7 +11,7 @@ Ermoeglicht die Auswahl und Nutzung eines Kilo-Organisationskontexts fuer Team- 
 
 ## Benefits Hypothesis
 
-**Wir glauben dass** Organisationskontext in Obsilo
+**Wir glauben dass** Organisationskontext in Vault Operator
 **Folgende messbare Outcomes liefert:**
 - Team-Nutzer koennen ihre richtigen Modelle und Richtlinien verwenden
 - Kilo-Zugang wird auch fuer Enterprise-Nutzer praktisch nutzbar

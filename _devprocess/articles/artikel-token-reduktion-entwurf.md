@@ -1,6 +1,6 @@
 # From 634,000 to 60,000 tokens: How I cut my AI agent's costs by 90%
 
-My Obsidian plugin "Obsilo" is an AI agent with over 40 tools that works directly inside the vault: searching notes, summarizing, linking, creating canvases. A simple task like "Search my notes on Kant and write a summary" cost $2 and consumed 634,000 input tokens. On GitHub Copilot, the agent crashed at 183,000 tokens because the context limit there is 168,000.
+My Obsidian plugin "Vault Operator" is an AI agent with over 40 tools that works directly inside the vault: searching notes, summarizing, linking, creating canvases. A simple task like "Search my notes on Kant and write a summary" cost $2 and consumed 634,000 input tokens. On GitHub Copilot, the agent crashed at 183,000 tokens because the context limit there is 168,000.
 
 Two dollars for a summary. That's when I stopped building features.
 

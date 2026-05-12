@@ -7,7 +7,7 @@
  */
 
 export const SOURCE_INTERFACES = [
-    'obsilo',       // Obsilo's eigene Sidebar-Chats
+    'obsilo',       // Vault Operator's eigene Sidebar-Chats
     'claude-ai',    // claude.ai (Web)
     'claude-code',  // Claude Code CLI / IDE
     'chatgpt',      // chatgpt.com / Mobile

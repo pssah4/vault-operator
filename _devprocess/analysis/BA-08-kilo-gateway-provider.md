@@ -9,13 +9,13 @@
 ## 1. Executive Summary
 
 ### 1.1 Problem Statement
-Obsilo Agent unterstuetzt aktuell nur klassische BYOK-Provider und plant zusaetzlich GitHub Copilot als abonnementsbasierten Zugang. Nutzer mit einem bestehenden Kilo-Account beziehungsweise Kilo-Gateway-Zugang koennen ihre dort gebuendelten Modelle, freien Modelle, Organisationsrichtlinien und optionalen BYOK-Routings aktuell nicht in Obsilo verwenden.
+Vault Operator unterstuetzt aktuell nur klassische BYOK-Provider und plant zusaetzlich GitHub Copilot als abonnementsbasierten Zugang. Nutzer mit einem bestehenden Kilo-Account beziehungsweise Kilo-Gateway-Zugang koennen ihre dort gebuendelten Modelle, freien Modelle, Organisationsrichtlinien und optionalen BYOK-Routings aktuell nicht in Vault Operator verwenden.
 
 ### 1.2 Proposed Solution
-Kilo Gateway als vollwertigen LLM Provider in Obsilo integrieren. Authentifizierung ueber Kilo Device Authorization Flow oder optional manuellen Token, dynamisches Modell-Listing ueber die Gateway-Endpoints, Chat- und Embedding-Nutzung ueber die OpenAI-kompatible Gateway-API und sichere Speicherung ueber SafeStorageService.
+Kilo Gateway als vollwertigen LLM Provider in Vault Operator integrieren. Authentifizierung ueber Kilo Device Authorization Flow oder optional manuellen Token, dynamisches Modell-Listing ueber die Gateway-Endpoints, Chat- und Embedding-Nutzung ueber die OpenAI-kompatible Gateway-API und sichere Speicherung ueber SafeStorageService.
 
 ### 1.3 Expected Outcomes
-- Nutzer koennen ihren bestehenden Kilo-Zugang direkt in Obsilo nutzen
+- Nutzer koennen ihren bestehenden Kilo-Zugang direkt in Vault Operator nutzen
 - Zugriff auf die gesamte Kilo-Gateway-Modellpalette ohne separate Provider-Konfiguration pro Modell
 - Organisationskontext und Kilo-spezifische Routing-Funktionen koennen genutzt werden
 - Kilo Gateway erscheint konsistent als weiterer Provider neben OpenAI, OpenRouter, Azure, Ollama und GitHub Copilot
@@ -28,11 +28,11 @@ Kilo Gateway als vollwertigen LLM Provider in Obsilo integrieren. Authentifizier
 Kilo Gateway bietet einen OpenAI-kompatiblen Zugang zu hunderten Modellen unterschiedlicher Anbieter ueber eine einheitliche Gateway-API. Neben klassischer Bearer-Token-Authentifizierung bietet Kilo einen browsergestuetzten Device-Authorization-Flow, Organisationskontext per Header, freie Modelle ohne Authentifizierung sowie provideruebergreifendes Routing inklusive BYOK-Weiterleitung innerhalb des Gateways.
 
 ### 2.2 Current State ("As-Is")
-- Obsilo hat eine bestehende Multi-Provider-Architektur mit `ProviderType`, `CustomModel`, `LLMProvider` und `ApiHandler`
+- Vault Operator hat eine bestehende Multi-Provider-Architektur mit `ProviderType`, `CustomModel`, `LLMProvider` und `ApiHandler`
 - Settings UI und Embedding-Konfiguration sind bereits fuer mehrere Provider vorhanden
 - `SafeStorageService` fuer verschluesselte Secret-Speicherung existiert
 - Dynamische Modell-Listen sind fuer einzelne Provider bereits ein bekanntes Pattern
-- Kilo Gateway ist aktuell in Obsilo nicht verfuegbar
+- Kilo Gateway ist aktuell in Vault Operator nicht verfuegbar
 
 ### 2.3 Desired State ("To-Be")
 - Kilo Gateway als weiterer Provider in der bestehenden Provider-Auswahl
@@ -48,10 +48,10 @@ Kilo Gateway bietet einen OpenAI-kompatiblen Zugang zu hunderten Modellen unters
 | Gap | Beschreibung |
 |-----|-------------|
 | Auth-Modell | Bestehende Provider nutzen API Keys. Kilo bietet zusaetzlich einen eigenen Device-Authorization-Flow |
-| Organisationen | Kilo unterstuetzt Organisationskontext ueber `X-KiloCode-OrganizationId`, Obsilo bislang nicht |
-| Modell-Discovery | Kilo bietet eigene oeffentliche Modelle-Endpoints, die in Obsilo noch nicht genutzt werden |
+| Organisationen | Kilo unterstuetzt Organisationskontext ueber `X-KiloCode-OrganizationId`, Vault Operator bislang nicht |
+| Modell-Discovery | Kilo bietet eigene oeffentliche Modelle-Endpoints, die in Vault Operator noch nicht genutzt werden |
 | Provider-Semantik | Kilo ist OpenAI-kompatibel, aber fachlich ein abonnements- und routingbasierter Gateway-Provider |
-| Free Models | Kilo erlaubt anonyme Nutzung bestimmter Free-Modelle, dieses Konzept existiert in Obsilo noch nicht |
+| Free Models | Kilo erlaubt anonyme Nutzung bestimmter Free-Modelle, dieses Konzept existiert in Vault Operator noch nicht |
 | Gateway-spezifische Header | Kilo nutzt Zusatzheader wie `X-KiloCode-OrganizationId`, `X-KiloCode-Version` und `x-kilocode-mode` |
 
 ---
@@ -71,7 +71,7 @@ Kilo Gateway bietet einen OpenAI-kompatiblen Zugang zu hunderten Modellen unters
 
 ### 3.2 Key Stakeholders
 
-**Primary:** Plugin-Entwickler, Obsilo-Nutzer mit Kilo-Zugang
+**Primary:** Plugin-Entwickler, Vault Operator-Nutzer mit Kilo-Zugang
 **Secondary:** Kilo Plattform, Obsidian Review Team
 
 ---
@@ -82,14 +82,14 @@ Kilo Gateway bietet einen OpenAI-kompatiblen Zugang zu hunderten Modellen unters
 
 **Persona 1: "All-in-One Alex"**
 - **Rolle:** Entwickler:in mit aktivem Kilo-Account
-- **Ziele:** Viele frontier Modelle ueber einen einzigen Zugang in Obsilo nutzen
+- **Ziele:** Viele frontier Modelle ueber einen einzigen Zugang in Vault Operator nutzen
 - **Pain Points:** Will nicht fuer jedes Modell einen eigenen Provider und API Key pflegen
 - **Nutzungshaeufigkeit:** Daily
 - **Tech-Level:** Hoch
 
 **Persona 2: "Team Tenant Toni"**
 - **Rolle:** Enterprise-/Team-Nutzer:in in einer Kilo-Organisation
-- **Ziele:** Modelle unter den Richtlinien und Limits der Organisation in Obsilo nutzen
+- **Ziele:** Modelle unter den Richtlinien und Limits der Organisation in Vault Operator nutzen
 - **Pain Points:** Braucht Organisationskontext und modellbezogene Freigaben im richtigen Tenant
 - **Nutzungshaeufigkeit:** Daily
 - **Tech-Level:** Mittel bis hoch
@@ -108,7 +108,7 @@ Kilo Gateway bietet einen OpenAI-kompatiblen Zugang zu hunderten Modellen unters
 3. Klickt "Connect with Kilo" oder gibt optional manuell ein Token ein
 4. Browser oeffnet Kilo-Authentifizierung
 5. Nach erfolgreichem Login wird optional eine Organisation ausgewaehlt
-6. Obsilo laedt die verfuegbaren Modelle dynamisch
+6. Vault Operator laedt die verfuegbaren Modelle dynamisch
 7. User waehlt Modell und aktiviert es fuer Chat oder Embeddings
 8. Bei Fehlern erhaelt der User klare Anweisungen statt stiller Fallbacks
 
@@ -117,18 +117,18 @@ Kilo Gateway bietet einen OpenAI-kompatiblen Zugang zu hunderten Modellen unters
 ## 5. Problem Analysis
 
 ### 5.1 Problem Statement (Detailed)
-Kilo Gateway abstrahiert Modellzugang, Routing, Organisationen und teilweise auch BYOK innerhalb einer einzigen Plattform. Obsilo-Nutzer mit bestehendem Kilo-Zugang muessen heute trotzdem auf separate Direkt-Provider ausweichen und verlieren damit den Mehrwert des Gateways: zentrales Konto, freie Modelle, Routinglogik, Organisationsrichtlinien und vereinfachte Modellverwaltung.
+Kilo Gateway abstrahiert Modellzugang, Routing, Organisationen und teilweise auch BYOK innerhalb einer einzigen Plattform. Vault Operator-Nutzer mit bestehendem Kilo-Zugang muessen heute trotzdem auf separate Direkt-Provider ausweichen und verlieren damit den Mehrwert des Gateways: zentrales Konto, freie Modelle, Routinglogik, Organisationsrichtlinien und vereinfachte Modellverwaltung.
 
 ### 5.2 Root Causes
 - Kilo ist als Plattform und nicht nur als direkter Modellanbieter zu betrachten
 - Der Login erfolgt ueber Kilo-spezifische Auth-Endpunkte, nicht ueber klassische API-Key-Eingabe allein
 - Organisations- und Routing-Kontext muessen auf Request-Ebene transportiert werden
-- Obsilo kennt bislang keine Gateway-spezifische Device-Auth fuer Modellprovider
+- Vault Operator kennt bislang keine Gateway-spezifische Device-Auth fuer Modellprovider
 
 ### 5.3 Impact
 - **Business Impact:** Eine relevante Nutzergruppe mit vorhandenem Kilo-Zugang bleibt unadressiert
 - **User Impact:** Doppelter Konfigurationsaufwand, Verlust von Free Models, Org-Kontext und Gateway-Features
-- **Strategic Impact:** Obsilo verpasst einen modernen Gateway-Provider, der mehrere Modellanbieter hinter einer einheitlichen API kapselt
+- **Strategic Impact:** Vault Operator verpasst einen modernen Gateway-Provider, der mehrere Modellanbieter hinter einer einheitlichen API kapselt
 
 ---
 
@@ -136,11 +136,11 @@ Kilo Gateway abstrahiert Modellzugang, Routing, Organisationen und teilweise auc
 
 ### 6.1 Business Goals
 - Gateway-basierte Provider als zusaetzliche Zugangskategorie etablieren
-- Nutzer mit bestehendem Kilo-Zugang in Obsilo abholen
+- Nutzer mit bestehendem Kilo-Zugang in Vault Operator abholen
 - Komplexitaet fuer Multi-Model-Nutzung reduzieren
 
 ### 6.2 User Goals
-- Kilo-Zugang einmal verbinden und dann direkt Modelle in Obsilo nutzen
+- Kilo-Zugang einmal verbinden und dann direkt Modelle in Vault Operator nutzen
 - Kilo-Organisationen, Free Models und Gateway-Routing verwenden koennen
 - Keine stillen Providerwechsel bei Problemen; Entscheidungen selbst treffen
 
@@ -172,10 +172,10 @@ Kilo Gateway abstrahiert Modellzugang, Routing, Organisationen und teilweise auc
 - I18n fuer neue Kilo-Strings
 
 ### 7.2 Out of Scope
-- Verwaltung von BYOK-Keys innerhalb des Kilo-Dashboards aus Obsilo heraus
+- Verwaltung von BYOK-Keys innerhalb des Kilo-Dashboards aus Vault Operator heraus
 - Vollstaendige Abbildung aller Kilo-Plattformfeatures ausser LLM- und Embedding-Zugang
 - Automatischer Fallback von Kilo auf andere Provider bei Fehlern
-- Separate Kilo-spezifische Team-, Billing- oder Analytics-Oberflaechen in Obsilo
+- Separate Kilo-spezifische Team-, Billing- oder Analytics-Oberflaechen in Vault Operator
 - Vollautomatische Nutzung anonymer Free Models ohne explizite Produktentscheidung
 
 ### 7.3 Assumptions
@@ -260,7 +260,7 @@ Kilo Gateway abstrahiert Modellzugang, Routing, Organisationen und teilweise auc
 | P1 | Organization Context | Organisation waehlen und als Header mitsenden |
 | P1 | Manual Token Mode | Fallback fuer Power User ohne Device Auth |
 | P1 | Embedding Support | Kilo fuer Embeddings und Semantic Index nutzbar machen |
-| P2 | `kilo/auto` Mode Mapping | Obsilo-Modes auf Kilo-Mode-Hints abbilden |
+| P2 | `kilo/auto` Mode Mapping | Vault Operator-Modes auf Kilo-Mode-Hints abbilden |
 | P2 | Free Model Strategy | Produktentscheidung fuer anonyme Free-Model-Nutzung |
 
 ---
@@ -307,7 +307,7 @@ Kilo Gateway abstrahiert Modellzugang, Routing, Organisationen und teilweise auc
 - Referenz-Code: `forked-kilocode/cli/src/auth/providers/kilocode/device-auth.ts`
 - Referenz-Code: `forked-kilocode/cli/src/auth/providers/kilocode/shared.ts`
 - Referenz-Code: `forked-kilocode/src/services/kilocode/DeviceAuthService.ts`
-- Obsilo Provider-Architektur: `src/api/index.ts`, `src/api/providers/openai.ts`, `src/types/settings.ts`
+- Vault Operator Provider-Architektur: `src/api/index.ts`, `src/api/providers/openai.ts`, `src/types/settings.ts`
 
 ---
 

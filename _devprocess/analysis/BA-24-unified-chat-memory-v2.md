@@ -13,16 +13,16 @@ related:
 
 # Business Analysis: Unified Chat Memory (v2)
 
-> Aktualisiert nach Pfad-2-Entscheidung fuer Obsilo Memory.
-> UCM ist nachgelagert: Bauphase startet erst nach Engine-Extraction in Obsilo Memory v2 Phase 7.
+> Aktualisiert nach Pfad-2-Entscheidung fuer Vault Operator Memory.
+> UCM ist nachgelagert: Bauphase startet erst nach Engine-Extraction in Vault Operator Memory v2 Phase 7.
 
 ## Hauptaenderungen gegenueber v1
 
-- UCM-Engine basiert auf Obsilo Memory v2 (kompletter Rewrite, nicht aktuelle Engine)
+- UCM-Engine basiert auf Vault Operator Memory v2 (kompletter Rewrite, nicht aktuelle Engine)
 - Memory-Profile als zentrales UCM-Konzept neu eingefuehrt
-- Sidecar-Architektur fuer Obsilo-als-Persistence (UCM behaelt eigene DB)
+- Sidecar-Architektur fuer Vault Operator-als-Persistence (UCM behaelt eigene DB)
 - ChatGPT via Developer-Mode-MCP zurueck in Scope
-- Realistischer Startzeitpunkt verschoben (Abhaengigkeit zu Obsilo v2)
+- Realistischer Startzeitpunkt verschoben (Abhaengigkeit zu Vault Operator v2)
 
 ---
 
@@ -30,11 +30,11 @@ related:
 
 ### 1.1 Problem Statement
 
-Wissensarbeiter nutzen heute mehrere AI-Interfaces parallel: Claude Desktop, Claude Code, ChatGPT (Developer-Mode), Obsilo, und optional Agent-Systeme wie OpenClaw via Telegram. Jedes Interface hat seine eigene, isolierte Memory-Schicht. Erkenntnisse, Entscheidungen und Ideen aus Konversationen bleiben dort gefangen, wo sie entstanden sind. Eine Idee, die walking-the-dog per Telegram diktiert wurde, findet nie den Weg in die abendliche Coding-Session in Claude Code.
+Wissensarbeiter nutzen heute mehrere AI-Interfaces parallel: Claude Desktop, Claude Code, ChatGPT (Developer-Mode), Vault Operator, und optional Agent-Systeme wie OpenClaw via Telegram. Jedes Interface hat seine eigene, isolierte Memory-Schicht. Erkenntnisse, Entscheidungen und Ideen aus Konversationen bleiben dort gefangen, wo sie entstanden sind. Eine Idee, die walking-the-dog per Telegram diktiert wurde, findet nie den Weg in die abendliche Coding-Session in Claude Code.
 
 ### 1.2 Proposed Solution
 
-Ein standalone Service namens **Unified Chat Memory** (UCM), der als MCP-Server auf einem beliebigen always-on Rechner laeuft. UCM **wiederverwendet die Obsilo Memory v2 Engine** (siehe `OBSILO-MEMORY-V2-FULL-REWRITE.md`) als Library, ein faktisches `facts`-Schema mit Topics, Importance, Aging, Konflikt-Resolution und dynamischer Context-Composition.
+Ein standalone Service namens **Unified Chat Memory** (UCM), der als MCP-Server auf einem beliebigen always-on Rechner laeuft. UCM **wiederverwendet die Vault Operator Memory v2 Engine** (siehe `OBSILO-MEMORY-V2-FULL-REWRITE.md`) als Library, ein faktisches `facts`-Schema mit Topics, Importance, Aging, Konflikt-Resolution und dynamischer Context-Composition.
 
 UCM erweitert diese Engine um Multi-Interface-spezifische Konzepte:
 
@@ -42,23 +42,23 @@ UCM erweitert diese Engine um Multi-Interface-spezifische Konzepte:
 - **Cross-Interface Threads** fuer Konversationen, die ueber mehrere Tools hinweg fortgefuehrt werden
 - **Source-Interface Provenance** zur Nachvollziehbarkeit der Herkunft
 
-UCM ingestiert Konversationen aus allen angebundenen Interfaces via explizitem User-Trigger ("save to memory") und persistiert sie in einer **pluggable persistence layer**: entweder standalone in einer eigenen SQLite-DB, oder im Obsilo-Vault als Speicherort, mit UCM-spezifischen Erweiterungen in einer Sidecar-DB.
+UCM ingestiert Konversationen aus allen angebundenen Interfaces via explizitem User-Trigger ("save to memory") und persistiert sie in einer **pluggable persistence layer**: entweder standalone in einer eigenen SQLite-DB, oder im Vault Operator-Vault als Speicherort, mit UCM-spezifischen Erweiterungen in einer Sidecar-DB.
 
 ### 1.3 Expected Outcomes
 
 - Interface-unabhaengige Konvergenz: Konversationen aus beliebigem AI-Tool landen in einem durchsuchbaren Speicher
 - User-kontrollierte Kuratierung: Nur explizit markierte Konversationen werden persistiert, kein automatisches Scraping
 - Client-spezifische Memory-Views: Coding-Tools sehen Coding-Kontext, persoenliche Tools sehen persoenlichen Kontext
-- Souveraenitaet ueber Persistence-Location: User waehlt zwischen UCM-eigener DB und Obsilo-Vault als Backend
+- Souveraenitaet ueber Persistence-Location: User waehlt zwischen UCM-eigener DB und Vault Operator-Vault als Backend
 - Offline-Resilienz: Always-on Persistence Layer funktioniert auch wenn einzelne Clients offline sind
 
 ### 1.4 Strategische Einordnung
 
-UCM ist die **logische Erweiterung von Obsilo Memory v2** auf den Multi-Interface-Fall. Beide Systeme teilen sich die Engine. Der Aufwand fuer UCM ist daher signifikant geringer als ein Greenfield-Projekt, weil die schwierige Memory-Logik (Konflikt-Resolution, Aging, dynamische Composition) bereits in Obsilo gebaut wurde.
+UCM ist die **logische Erweiterung von Vault Operator Memory v2** auf den Multi-Interface-Fall. Beide Systeme teilen sich die Engine. Der Aufwand fuer UCM ist daher signifikant geringer als ein Greenfield-Projekt, weil die schwierige Memory-Logik (Konflikt-Resolution, Aging, dynamische Composition) bereits in Vault Operator gebaut wurde.
 
 ### 1.5 Setup-Varianten (Persistenz-Service-Pattern, drei Klassen)
 
-UCM ist **kein** separates System neben Obsilo. UCM ist die Engine + die MCP-API. Das Obsilo-Plugin **ist eine vollwertige UCM-Worker-Implementierung** mit Plugin-internem MCP-Server. Ein externer Standalone-Worker ist die zweite Worker-Variante. Beide sprechen dieselbe MCP-API gegen dieselbe Engine.
+UCM ist **kein** separates System neben Vault Operator. UCM ist die Engine + die MCP-API. Das Vault Operator-Plugin **ist eine vollwertige UCM-Worker-Implementierung** mit Plugin-internem MCP-Server. Ein externer Standalone-Worker ist die zweite Worker-Variante. Beide sprechen dieselbe MCP-API gegen dieselbe Engine.
 
 **Konstante:** Plugin-MCP laeuft immer fuer Vault-Tools (`read_file`, `semantic_search`, `get_vault_implicit_edges`, `get_vault_note_metadata`), weil nur das Plugin Vault-Zugriff hat. knowledge.db bleibt immer beim Plugin.
 
@@ -151,9 +151,9 @@ User koennen zwischen den vier Setups K1-K4 wechseln. Migration ist first-class 
 
 ### 2.1 Background
 
-Sebastian arbeitet parallel mit mehreren AI-Systemen: Claude Desktop und Claude in Chrome fuer konversationelle Arbeit, Claude Code fuer Entwicklung, ChatGPT im Developer-Mode mit MCP-Support, Obsilo als Obsidian-Plugin fuer Vault-native Workflows, und plant OpenClaw auf einem Server als Automation-Backend mit Telegram-Interface fuer mobile Capture.
+Sebastian arbeitet parallel mit mehreren AI-Systemen: Claude Desktop und Claude in Chrome fuer konversationelle Arbeit, Claude Code fuer Entwicklung, ChatGPT im Developer-Mode mit MCP-Support, Vault Operator als Obsidian-Plugin fuer Vault-native Workflows, und plant OpenClaw auf einem Server als Automation-Backend mit Telegram-Interface fuer mobile Capture.
 
-Jedes dieser Systeme hat eigene Memory-Mechaniken. Obsilo bekommt im Rahmen des Memory-v2-Rewrites ein modernes Memory-System mit `facts`-Tabelle, Topics, Importance-Decay und Konflikt-Resolution. Andere Tools haben ihre eigenen Mechanismen oder gar keine.
+Jedes dieser Systeme hat eigene Memory-Mechaniken. Vault Operator bekommt im Rahmen des Memory-v2-Rewrites ein modernes Memory-System mit `facts`-Tabelle, Topics, Importance-Decay und Konflikt-Resolution. Andere Tools haben ihre eigenen Mechanismen oder gar keine.
 
 Das Ergebnis bisher: Memory-Fragmentierung ueber alle Interfaces hinweg. Der mentale Aufwand, sich zu erinnern *wo* ein Gedanke gefuehrt wurde, bevor man ihn wiederfindet, ist hoch.
 
@@ -162,7 +162,7 @@ Das Ergebnis bisher: Memory-Fragmentierung ueber alle Interfaces hinweg. Der men
 - Jedes AI-Interface persistiert Memory isoliert
 - Kein gemeinsamer Suchindex ueber alle Konversationen
 - Konversations-Retrieval erfordert explizites Wechseln zum richtigen Tool
-- Obsilo Memory v2 (in Bau) wird ein vorbildliches Memory-System, aber nur fuer Konversationen, die in Obsilo selbst stattfanden
+- Vault Operator Memory v2 (in Bau) wird ein vorbildliches Memory-System, aber nur fuer Konversationen, die in Vault Operator selbst stattfanden
 - Mobile Capture (Voice Memos) lebt in Apple Notes/OneNote, entkoppelt vom AI-Workflow
 - ChatGPT-Konversationen mit relevanten Erkenntnissen sind toter Speicher
 
@@ -172,7 +172,7 @@ Das Ergebnis bisher: Memory-Fragmentierung ueber alle Interfaces hinweg. Der men
 - Das gesamte Gespraech wird als *living document* gespeichert: spaetere Ergaenzungen fliessen automatisch in die Memory ein
 - Retrieval funktioniert interface-unabhaengig: "Was habe ich letzten Monat ueber X diskutiert?" liefert Treffer, egal in welchem Tool das Gespraech stattfand
 - Client-spezifischer Hot-Memory-Kontext: Claude Code bekommt Coding-Kontext, Claude Desktop bekommt persoenlichen Kontext, OpenClaw-Worker bekommt minimalen Identifikations-Kontext
-- User entscheidet, wo die Memory lebt (UCM-DB oder Obsilo-Vault als Backend)
+- User entscheidet, wo die Memory lebt (UCM-DB oder Vault Operator-Vault als Backend)
 - Mobile Capture via Telegram-Voice zu OpenClaw wird zum ersten Schritt in den Memory-Lifecycle, nicht zu einem separaten Silo
 
 ### 2.4 Gap Analysis
@@ -182,7 +182,7 @@ Das Ergebnis bisher: Memory-Fragmentierung ueber alle Interfaces hinweg. Der men
 | Interface-Konvergenz | Fragmentiert, pro Tool isoliert | Ein Memory-Store, viele Clients |
 | Kuratierung | Implizit / automatisch je Tool | Explizit via User-Trigger |
 | Memory-Profile | Inexistent | Pro Client/Use-Case konfigurierbar |
-| Persistence-Flexibilitaet | Hardcoded pro Tool | UCM-DB oder Obsilo-Backend waehlbar |
+| Persistence-Flexibilitaet | Hardcoded pro Tool | UCM-DB oder Vault Operator-Backend waehlbar |
 | Living Documents | Konversation = finales Artefakt | Konversation bleibt memory-eligible, waechst mit |
 | Cross-Interface Threads | Inexistent | Konversation ueber mehrere Tools hinweg verfolgbar |
 | Mobile Capture Integration | Separates Inbox-System | Integraler Teil des AI-Memory-Flows |
@@ -195,8 +195,8 @@ Das Ergebnis bisher: Memory-Fragmentierung ueber alle Interfaces hinweg. Der men
 
 | Stakeholder | Role | Interest | Influence | Needs |
 |---|---|---|---|---|
-| Sebastian (Builder & Primary User) | Owner, Developer, erster User | H | H | Funktioniert zuverlaessig in seinem Setup, integriert sauber mit Obsilo Memory v2 |
-| Bestehende Obsilo-Nutzer | Potential Early Adopters | M | M | Opt-in moeglich, Obsilo-Memory-Verhalten nicht durch UCM-Integration brechen |
+| Sebastian (Builder & Primary User) | Owner, Developer, erster User | H | H | Funktioniert zuverlaessig in seinem Setup, integriert sauber mit Vault Operator Memory v2 |
+| Bestehende Vault Operator-Nutzer | Potential Early Adopters | M | M | Opt-in moeglich, Vault Operator-Memory-Verhalten nicht durch UCM-Integration brechen |
 | Open-Source Community | Potential Contributors / User | M | L | Klares Value Proposition, gute Dokumentation, pluggable Backends |
 | Anthropic / Claude Platform | Ecosystem-Kontext | L | L | MCP-konforme Implementation |
 | OpenAI / ChatGPT Platform | Ecosystem-Kontext fuer Developer-Mode | L | L | MCP-konforme Implementation |
@@ -205,7 +205,7 @@ Das Ergebnis bisher: Memory-Fragmentierung ueber alle Interfaces hinweg. Der men
 
 **Primary:** Sebastian: baut zuerst fuer sich selbst. Alle Design-Entscheidungen muessen seinen Workflow bedienen, bevor Verallgemeinerung diskutiert wird.
 
-**Secondary:** Obsilo-Nutzer, die UCM als Ergaenzung adoptieren koennten. Fuer sie muss klar sein: UCM ist eine **separate Anwendung**, die Obsilo's Memory v2 Engine wiederverwendet. Standalone-Obsilo bleibt unveraendert nutzbar.
+**Secondary:** Vault Operator-Nutzer, die UCM als Ergaenzung adoptieren koennten. Fuer sie muss klar sein: UCM ist eine **separate Anwendung**, die Vault Operator's Memory v2 Engine wiederverwendet. Standalone-Vault Operator bleibt unveraendert nutzbar.
 
 ---
 
@@ -215,26 +215,26 @@ Das Ergebnis bisher: Memory-Fragmentierung ueber alle Interfaces hinweg. Der men
 
 **Persona 1: Sebastian (Primary User)**
 
-- **Rolle:** Senior Manager Digital Transformation, Builder von Obsilo
+- **Rolle:** Senior Manager Digital Transformation, Builder von Vault Operator
 - **Ziele:** Gedanken und Entscheidungen aus beliebigem AI-Tool spaeter wiederfinden, ohne vorher zu wissen wo sie entstanden sind. Mobile Capture soll sich in den Knowledge-Workflow integrieren, nicht danebenstehen. Client-spezifischer Kontext: Claude Code soll wissen, wie ich code, ohne dass es persoenliche Gespraechsthemen kennt.
 - **Pain Points:** Context-Switches zwischen Tools, wichtige Erkenntnisse aus Claude Desktop bleiben dort, Voice Memos in Apple Notes landen in einem toten Inbox-Silo, jeder Client kennt mich entweder nicht (kein Kontext) oder zu allgemein (alles oder nichts)
 - **Nutzungshaeufigkeit:** Daily
 
-**Persona 2: Obsilo Power User**
+**Persona 2: Vault Operator Power User**
 
-- **Rolle:** Wissensarbeiter, der Obsidian als Second Brain nutzt und Obsilo bereits im Einsatz hat
+- **Rolle:** Wissensarbeiter, der Obsidian als Second Brain nutzt und Vault Operator bereits im Einsatz hat
 - **Ziele:** Memory bleibt im eigenen Vault (Souveraenitaet), aber auch Konversationen aus Claude Desktop oder ChatGPT sollen dort auffindbar sein
 - **Pain Points:** Bisherige AI-Tools schreiben nicht zurueck in den Vault, doppelte Buchfuehrung zwischen AI-Memory und Second Brain
 - **Nutzungshaeufigkeit:** Weekly, wenn wichtige Entscheidungen/Gedanken festgehalten werden sollen
 
 ### 4.2 User Journey (High-Level)
 
-1. User fuehrt Konversation in beliebigem Interface (Claude, Claude Code, ChatGPT-Developer-Mode, Obsilo, OpenClaw via Telegram)
+1. User fuehrt Konversation in beliebigem Interface (Claude, Claude Code, ChatGPT-Developer-Mode, Vault Operator, OpenClaw via Telegram)
 2. Beim Konversationsstart hat das Interface Zugriff auf das passende **Memory Profile** via UCM-MCP-Endpoint (z.B. Claude Code -> Profile `coding`)
 3. User erkennt Mehrwert der Konversation, triggert "save to memory" Skill/Command
 4. Konversation wird als *memory-eligible* markiert, kein sofortiger Cutoff
 5. User kann die Konversation spaeter fortsetzen, auch in einem anderen Interface (Cross-Interface Thread); neue Beitraege fliessen automatisch in die Memory ein
-6. Asynchrone Extraction-Pipeline (Obsilo Memory v2 Engine) verarbeitet die Konversation: Atomic Facts, Topics, Importance, Konflikt-Resolution
+6. Asynchrone Extraction-Pipeline (Vault Operator Memory v2 Engine) verarbeitet die Konversation: Atomic Facts, Topics, Importance, Konflikt-Resolution
 7. Spaeter, in beliebigem Interface: User fragt "Was habe ich zu X diskutiert?", Retrieval via MCP liefert Treffer aus allen gespeicherten Konversationen, optional gefiltert nach Source-Interface
 
 ---
@@ -269,7 +269,7 @@ Sieben Differenzierungsmerkmale zu existierenden Loesungen, geordnet nach Wichti
 | # | Selling-Point | UCM-Implementierung | Existierende Loesungen schaffen das nicht so |
 |---|---|---|---|
 | 1 | **Local-First, kein Cloud-Zwang** | Engine laeuft im Plugin-Worker oder auf User-eigenem Server. Keine Telemetrie, keine Cloud-Abhaengigkeit ausser konfigurierten LLM-Providern | Mem0 SaaS, Memoir SaaS sind Cloud-zentriert. OpenMemory ist Self-Hosted-Konzept aber ohne UI |
-| 2 | **Multi-Source via MCP-Standard** | Claude Desktop / Claude Code / ChatGPT-Developer-Mode / Obsilo / OpenClaw via einer einheitlichen MCP-API | MemoryPlugin: nur OpenAI ChatGPT. Mem0: SDK-Pflicht pro Sprache. Supermemory: Vendor-spezifisch |
+| 2 | **Multi-Source via MCP-Standard** | Claude Desktop / Claude Code / ChatGPT-Developer-Mode / Vault Operator / OpenClaw via einer einheitlichen MCP-API | MemoryPlugin: nur OpenAI ChatGPT. Mem0: SDK-Pflicht pro Sprache. Supermemory: Vendor-spezifisch |
 | 3 | **Token-effiziente Engine** | Single-Call-Extraction (~1500 Tokens/Op, Mem0-Benchmark-Ziel), KV-Cache-aware Composition (>60% Cache-Hit-Rate), Lazy Conflict-Resolution (<10% LLM-Calls) | A-MEM, Mem0 sind Forschungs-Vorbild aber proprietaer; UCM nutzt Best-Practices openly |
 | 4 | **Pluggable Persistence (3 Setup-Klassen)** | A Single-Device, B Vault-Sync (via Obsidian-Sync), C Central-Service (User-eigener Server), wechselbar via Settings + Migrations-Wizard | Andere Loesungen haben fest-verdrahtete Persistenz |
 | 5 | **Living-Document-Modell** | Conversations bleiben memory-eligible nach Mark, neue Messages fliessen via incremental Re-Extraction. Re-Extract ist linear in Delta, nicht in Conversation-Laenge | Andere Loesungen behandeln Conversation als finales Artefakt |
@@ -330,8 +330,8 @@ UCM-Engine wird **gegen [MemoryBench](https://github.com/supermemoryai/memoryben
 ### 6.1 Business Goals
 
 - Sebastian baut ein Tool, das sein eigenes Workflow-Problem loest
-- Potentiell: Open-Source-Projekt, das analog zu Obsilo eine Nische besetzt (Unified AI Memory mit pluggable Backend und Memory-Profilen)
-- Oekosystem-Kompatibilitaet: Baut auf MCP-Standard auf, funktioniert mit Claude, ChatGPT (Developer-Mode), Obsilo, beliebigen MCP-Clients
+- Potentiell: Open-Source-Projekt, das analog zu Vault Operator eine Nische besetzt (Unified AI Memory mit pluggable Backend und Memory-Profilen)
+- Oekosystem-Kompatibilitaet: Baut auf MCP-Standard auf, funktioniert mit Claude, ChatGPT (Developer-Mode), Vault Operator, beliebigen MCP-Clients
 
 ### 6.2 User Goals
 
@@ -344,12 +344,12 @@ UCM-Engine wird **gegen [MemoryBench](https://github.com/supermemoryai/memoryben
 
 | KPI | Baseline | Target | Timeframe |
 |---|---|---|---|
-| Anzahl Interfaces mit "save to memory" Integration | 0 | Min. 4 (Claude Desktop, Claude Code, ChatGPT-Developer-Mode, Obsilo) | MVP |
+| Anzahl Interfaces mit "save to memory" Integration | 0 | Min. 4 (Claude Desktop, Claude Code, ChatGPT-Developer-Mode, Vault Operator) | MVP |
 | Memory-Profile unterstuetzt | 0 | Min. 4 (default, coding, personal, quick-capture) | MVP |
 | Retrieval-Latenz (lokales Setup, LAN) | N/A | < 500ms p95 | MVP |
-| Persistence-Backends unterstuetzt | 0 | 2 (UCM-eigene SQLite, Obsilo-Vault mit Sidecar) | MVP |
-| Offline-Resilienz: UCM-Writes funktionieren wenn Obsilo offline | N/A | 100% (always-on Persistence Layer) | MVP |
-| Reuse von Obsilo Memory v2 Engine | N/A | > 80% der Memory-Logik wiederverwendet, nicht reimplementiert | MVP |
+| Persistence-Backends unterstuetzt | 0 | 2 (UCM-eigene SQLite, Vault Operator-Vault mit Sidecar) | MVP |
+| Offline-Resilienz: UCM-Writes funktionieren wenn Vault Operator offline | N/A | 100% (always-on Persistence Layer) | MVP |
+| Reuse von Vault Operator Memory v2 Engine | N/A | > 80% der Memory-Logik wiederverwendet, nicht reimplementiert | MVP |
 | MemoryBench LongMemEval gesamt | N/A | > 70% (Quality-Gate vor Public-Release) | MVP |
 | MemoryBench LoCoMo | N/A | > 65% (Quality-Gate vor Public-Release) | MVP |
 | MemoryBench Score post-Iteration | N/A | > 80% (Konkurrenzfaehigkeit zu Supermemory) | 6-12 Monate post-MVP |
@@ -361,13 +361,13 @@ UCM-Engine wird **gegen [MemoryBench](https://github.com/supermemoryai/memoryben
 ### 7.1 In Scope (MVP)
 
 - Standalone MCP-Server "Unified Chat Memory" als Node/TypeScript-Service
-- **Wiederverwendung der Obsilo Memory v2 Engine** als Library (`@obsilo/memory-engine` Package, extrahiert in Phase 7 von Obsilo Memory v2)
+- **Wiederverwendung der Vault Operator Memory v2 Engine** als Library (`@obsilo/memory-engine` Package, extrahiert in Phase 7 von Vault Operator Memory v2)
 - UCM-spezifische Erweiterungen on top: Memory-Profile, Cross-Interface Threads, Source-Interface Provenance
 - Always-on Persistence Layer: SQLite (UCM's eigene DB) als primaerer Store
 - Pluggable Persistence-Abstraktion mit zwei initialen Backends:
   - **UCM-Native:** Eigene SQLite-DB, vollstaendig UCM-kontrolliert
-  - **Obsilo-Backend:** Inhalte (Konversationen, Memory-Files) liegen im Obsilo-Vault, UCM-spezifische Metadaten in Sidecar-DB neben Obsilo's `memory.db`
-- "Save to memory" Skill/Command fuer: Claude Desktop (via MCP), Claude Code (via MCP), ChatGPT (via Developer-Mode-MCP), Obsilo (via nativer Skill in Phase 5 von Obsilo Memory v2)
+  - **Vault Operator-Backend:** Inhalte (Konversationen, Memory-Files) liegen im Vault Operator-Vault, UCM-spezifische Metadaten in Sidecar-DB neben Vault Operator's `memory.db`
+- "Save to memory" Skill/Command fuer: Claude Desktop (via MCP), Claude Code (via MCP), ChatGPT (via Developer-Mode-MCP), Vault Operator (via nativer Skill in Phase 5 von Vault Operator Memory v2)
 - Living-Document-Modell: Konversation wird per Flag memory-eligible markiert, spaetere Ergaenzungen werden automatisch einbezogen, auch ueber Interface-Grenzen hinweg
 - Cross-Interface Thread-Konzept: Konversation kann von Claude Desktop in Claude Code fortgesetzt werden
 - MCP-Tools fuer Clients:
@@ -376,7 +376,7 @@ UCM-Engine wird **gegen [MemoryBench](https://github.com/supermemoryai/memoryben
   - `search_history(query, ...)`: Volltextsuche ueber alle Konversationen
   - `mark_for_memory(conversation_id, reason?)`: Memory-eligible markieren
   - `save_conversation(conv)`: Konversation persistieren
-- Settings-Entscheidung "Retrieval Source" pro Client: UCM-Service vs. Obsilo-Twin (lokal, stale-tolerant)
+- Settings-Entscheidung "Retrieval Source" pro Client: UCM-Service vs. Vault Operator-Twin (lokal, stale-tolerant)
 - Konfiguration ueber einfache JSON/YAML-Datei
 
 ### 7.2 Out of Scope (MVP)
@@ -387,11 +387,11 @@ UCM-Engine wird **gegen [MemoryBench](https://github.com/supermemoryai/memoryben
 - End-to-End-Verschluesselung (Memoir-Style)
 - Automatisches Profil-Routing (LLM erkennt: "diese Konversation ist Coding"), initial pro Client fest konfiguriert
 - Voice-Capture-Pipeline (OpenClaw + Telegram als Ingestion-Quelle), separater Workstream nach UCM-MVP
-- GUI / Dashboard fuer Memory-Browsing **wird in Standalone-Worker P1 erforderlich**: Da die meisten UCM-User kein Obsilo haben (Obsilo ist Nischenprodukt), braucht der Standalone-Worker zwingend ein eigenes UI (Web-Dashboard oder Electron-Wrapper). Plugin-Worker-User nutzen Obsilos History-Sidebar mit Global-Tab. Konkretes UI-Detail: Out-of-Scope fuer Memory-v2-Initiative, im Scope fuer separates UCM-Repo.
+- GUI / Dashboard fuer Memory-Browsing **wird in Standalone-Worker P1 erforderlich**: Da die meisten UCM-User kein Vault Operator haben (Vault Operator ist Nischenprodukt), braucht der Standalone-Worker zwingend ein eigenes UI (Web-Dashboard oder Electron-Wrapper). Plugin-Worker-User nutzen Vault Operators History-Sidebar mit Global-Tab. Konkretes UI-Detail: Out-of-Scope fuer Memory-v2-Initiative, im Scope fuer separates UCM-Repo.
 
 ### 7.3 Assumptions
 
-- **Obsilo Memory v2 ist abgeschlossen und die Engine ist als Library extrahiert** (Phase 7 von Obsilo Memory v2 Plan). Dies ist die kritischste Vorbedingung.
+- **Vault Operator Memory v2 ist abgeschlossen und die Engine ist als Library extrahiert** (Phase 7 von Vault Operator Memory v2 Plan). Dies ist die kritischste Vorbedingung.
 - Ein always-on Rechner ist verfuegbar (Ubuntu-Notebook fuer MVP, spaeter migrierbar)
 - Lokale LLM-Inferenz ist im UCM-MVP **nicht erforderlich**, alle Extraction-Calls gehen via Cloud-API
 - MCP bleibt der relevante Standard fuer Interface-Integration (Claude, ChatGPT-Developer-Mode beide unterstuetzen MCP)
@@ -400,23 +400,23 @@ UCM-Engine wird **gegen [MemoryBench](https://github.com/supermemoryai/memoryben
 
 ### 7.4 Constraints
 
-- **Engine-Reuse zwingend:** UCM darf Obsilo's Memory-Logik nicht reimplementieren. Wenn Funktionalitaet fehlt, wird Obsilo's Engine erweitert, nicht UCM-spezifisch dupliziert.
-- **Sidecar-Prinzip fuer Obsilo-Backend:** UCM veraendert Obsilo's Schema NICHT. UCM-spezifische Daten (Memory-Profile, Source-Interface-Tagging, Cross-Interface-Threads) leben in einer separaten `ucm-sidecar.db` neben Obsilo's `memory.db`.
+- **Engine-Reuse zwingend:** UCM darf Vault Operator's Memory-Logik nicht reimplementieren. Wenn Funktionalitaet fehlt, wird Vault Operator's Engine erweitert, nicht UCM-spezifisch dupliziert.
+- **Sidecar-Prinzip fuer Vault Operator-Backend:** UCM veraendert Vault Operator's Schema NICHT. UCM-spezifische Daten (Memory-Profile, Source-Interface-Tagging, Cross-Interface-Threads) leben in einer separaten `ucm-sidecar.db` neben Vault Operator's `memory.db`.
 - **Hardware-Budget:** MVP muss auf vorhandener Hardware (Ubuntu-Notebook) laufen
 - **Privacy:** Alles lokal, keine Cloud-Abhaengigkeit ausser fuer LLM-Calls, keine Telemetrie
-- **Lizenz:** Apache 2.0 (konsistent mit Obsilo-Core)
+- **Lizenz:** Apache 2.0 (konsistent mit Vault Operator-Core)
 - **Personelle Ressourcen:** Sebastian als Einzel-Entwickler
-- **Kompatibilitaet:** Standalone-Obsilo darf von UCM-Existenz nichts mitbekommen, wenn der User UCM nicht nutzt
+- **Kompatibilitaet:** Standalone-Vault Operator darf von UCM-Existenz nichts mitbekommen, wenn der User UCM nicht nutzt
 
-### 7.5 Zeitliche Abhaengigkeit zu Obsilo Memory v2
+### 7.5 Zeitliche Abhaengigkeit zu Vault Operator Memory v2
 
-UCM-Bau startet **fruehestens nach Phase 7 von Obsilo Memory v2** (Engine-Extraction als Library).
+UCM-Bau startet **fruehestens nach Phase 7 von Vault Operator Memory v2** (Engine-Extraction als Library).
 
 | Meilenstein | Voraussetzung | Realistischer Zeitpunkt |
 |---|---|---|
-| Obsilo Memory v2 Phase 0-3 (Storage, Migration, Retrieval) | Aktueller Stand | Bis ~Q2 2026 |
-| Obsilo Memory v2 Phase 4-6 (Updates, Living Document, History-Search) | Phase 0-3 abgeschlossen | Bis ~Q3 2026 |
-| Obsilo Memory v2 Phase 7 (Engine-Extraction) | Phase 4-6 abgeschlossen | Bis ~Q3/Q4 2026 |
+| Vault Operator Memory v2 Phase 0-3 (Storage, Migration, Retrieval) | Aktueller Stand | Bis ~Q2 2026 |
+| Vault Operator Memory v2 Phase 4-6 (Updates, Living Document, History-Search) | Phase 0-3 abgeschlossen | Bis ~Q3 2026 |
+| Vault Operator Memory v2 Phase 7 (Engine-Extraction) | Phase 4-6 abgeschlossen | Bis ~Q3/Q4 2026 |
 | **UCM-MVP Start** | Engine-Extraction abgeschlossen | **fruehestens Q3/Q4 2026** |
 | UCM-MVP Release | ca. 6-8 Wochen Entwicklung | **Q4 2026 / Q1 2027** |
 
@@ -428,12 +428,12 @@ Diese Zeitplanung beruecksichtigt Sebastian's part-time Arbeitsweise und sein be
 
 | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
-| Obsilo Memory v2 wird nicht abgeschlossen, UCM-Foundation fehlt | M | H | Pfad-2-Plan hat Stop-Punkte nach Phase 3, selbst bei Stopp ist die Engine teilweise nutzbar. UCM kann notfalls auf der teilweise extrahierten Engine bauen, akzeptiert aber dann einige fehlende Features. |
-| Latenz-Degradation beim Retrieval (MCP-Roundtrip zum UCM-Server) | M | H | Hybrid-Modell: Obsilo nutzt lokalen Twin fuer Reads, UCM-Service fuer Writes, Retrieval-Source pro Client in Settings waehlbar |
-| Sync-Inkonsistenzen zwischen UCM-DB und Obsilo-Vault (im Backend-Modus) | H | M | Sidecar-Prinzip macht Konflikte unwahrscheinlich (UCM-Daten und Obsilo-Daten ueberlappen nicht), klare Schreibrichtung definiert |
+| Vault Operator Memory v2 wird nicht abgeschlossen, UCM-Foundation fehlt | M | H | Pfad-2-Plan hat Stop-Punkte nach Phase 3, selbst bei Stopp ist die Engine teilweise nutzbar. UCM kann notfalls auf der teilweise extrahierten Engine bauen, akzeptiert aber dann einige fehlende Features. |
+| Latenz-Degradation beim Retrieval (MCP-Roundtrip zum UCM-Server) | M | H | Hybrid-Modell: Vault Operator nutzt lokalen Twin fuer Reads, UCM-Service fuer Writes, Retrieval-Source pro Client in Settings waehlbar |
+| Sync-Inkonsistenzen zwischen UCM-DB und Vault Operator-Vault (im Backend-Modus) | H | M | Sidecar-Prinzip macht Konflikte unwahrscheinlich (UCM-Daten und Vault Operator-Daten ueberlappen nicht), klare Schreibrichtung definiert |
 | ChatGPT-Developer-Mode aendert MCP-Implementation, bricht Integration | M | M | Vendor-Risiko, Mitigation durch MCP-konforme Standard-Implementation, kein OpenAI-spezifischer Code |
 | Memory-Profile zu starr definiert, User braucht andere Profile | M | M | Profile sind Config-getrieben, nicht hardcoded, User kann eigene Profile anlegen |
-| Obsilo-User wollen UCM nicht, Entwicklung laeuft ins Leere | M | M | Sebastian ist Primary User, Produkt wird primaer fuer ihn gebaut, Community-Adoption ist Bonus |
+| Vault Operator-User wollen UCM nicht, Entwicklung laeuft ins Leere | M | M | Sebastian ist Primary User, Produkt wird primaer fuer ihn gebaut, Community-Adoption ist Bonus |
 | Cross-Interface Thread-Continuity ist unzuverlaessig (User vergisst zu verlinken) | H | L | Auto-Detection als Default mit User-Confirmation, manuelle Verlinkung moeglich aber nicht erforderlich |
 | Scope Creep: "Unified Memory" verlockt zu Feature-Vollstaendigkeit | H | H | Strikt auf MVP-Scope bleiben, Iteration 2 erst nach Dogfooding |
 
@@ -443,12 +443,12 @@ Diese Zeitplanung beruecksichtigt Sebastian's part-time Arbeitsweise und sein be
 
 ### 9.1 Functional Requirements (Summary)
 
-- Ingestion via "save to memory" Trigger aus mindestens vier Interfaces (Claude Desktop, Claude Code, ChatGPT-Developer-Mode, Obsilo)
+- Ingestion via "save to memory" Trigger aus mindestens vier Interfaces (Claude Desktop, Claude Code, ChatGPT-Developer-Mode, Vault Operator)
 - Memory-Profile-System mit mindestens vier Profilen (default, coding, personal, quick-capture)
 - Living-Document-Modell fuer markierte Konversationen, cross-interface
 - Cross-Interface Thread-Konzept mit User-bestaetigter oder Auto-Detection
-- Wiederverwendung der Obsilo Memory v2 Engine fuer Storage, Extraction, Konflikt-Resolution
-- Pluggable Persistence Layer mit zwei initialen Backends (UCM-Native, Obsilo-Sidecar)
+- Wiederverwendung der Vault Operator Memory v2 Engine fuer Storage, Extraction, Konflikt-Resolution
+- Pluggable Persistence Layer mit zwei initialen Backends (UCM-Native, Vault Operator-Sidecar)
 - MCP-basierter Service mit fuenf Kern-Tools (get_essential_memory, recall_memory, search_history, mark_for_memory, save_conversation)
 - Konfigurierbare Retrieval-Source pro Client
 
@@ -466,12 +466,12 @@ Diese Zeitplanung beruecksichtigt Sebastian's part-time Arbeitsweise und sein be
 | Priority | Feature | Description |
 |---|---|---|
 | P0 | MCP Server mit 5 Kern-Tools | Kern-Endpunkte fuer alle Clients |
-| P0 | Obsilo Memory Engine Integration | Engine als Library importiert, konfiguriert, betrieben |
+| P0 | Vault Operator Memory Engine Integration | Engine als Library importiert, konfiguriert, betrieben |
 | P0 | UCM-Native Persistence Backend | SQLite-DB fuer UCM-spezifische Daten |
 | P0 | Memory-Profile-System | Pro Client konfiguriertes Profile-Routing |
 | P0 | Save-to-Memory Trigger Integration | Pro Interface dokumentierte Integration |
 | P0 | Source-Interface Provenance | Jede gespeicherte Konversation/Fact traegt Herkunfts-Tag |
-| P1 | Obsilo-Backend-Modus mit Sidecar | Obsilo als Persistence Layer mit klarer Trennung |
+| P1 | Vault Operator-Backend-Modus mit Sidecar | Vault Operator als Persistence Layer mit klarer Trennung |
 | P1 | Cross-Interface Thread-Detection | Auto-Detection mit User-Confirmation |
 | P1 | Retrieval-Source Setting pro Client | UCM-DB direkt vs. lokaler Twin |
 | P2 | Auto-Profile-Routing (LLM-basiert) | LLM erkennt Konversations-Typ und routed Profil |
@@ -507,9 +507,9 @@ Diese Zeitplanung beruecksichtigt Sebastian's part-time Arbeitsweise und sein be
                     +---------+--------------+---------+
                               |              |
                   +-----------+--+        +--+--------------------+
-                  | UCM-Native   |        | Obsilo-Backend Mode   |
+                  | UCM-Native   |        | Vault Operator-Backend Mode   |
                   |              |        |                       |
-                  | ucm.db       |        | Obsilo Vault          |
+                  | ucm.db       |        | Vault Operator Vault          |
                   | (alles in    |        | + ucm-sidecar.db      |
                   |  einer DB)   |        |   (UCM-Erweiterungen) |
                   +--------------+        +-----------------------+
@@ -518,7 +518,7 @@ Clients (Konfiguration pro Client):
 - Claude Desktop:           profile=default,    retrieval=ucm-direct
 - Claude Code:              profile=coding,     retrieval=ucm-direct
 - ChatGPT Developer-Mode:   profile=default,    retrieval=ucm-direct
-- Obsilo (Sebastian):       profile=default,    retrieval=local-twin
+- Vault Operator (Sebastian):       profile=default,    retrieval=local-twin
 - OpenClaw (Telegram):      profile=quick-cap,  retrieval=ucm-direct
 ```
 
@@ -527,11 +527,11 @@ Clients (Konfiguration pro Client):
 ## 11. Next Steps
 
 - [ ] BA-Review durch Sebastian, offene Fragen klaeren (siehe Appendix B)
-- [ ] Entscheidung: Bevorzugtes Persistence-Backend fuer eigenen Workflow (UCM-Native vs. Obsilo-Sidecar)
+- [ ] Entscheidung: Bevorzugtes Persistence-Backend fuer eigenen Workflow (UCM-Native vs. Vault Operator-Sidecar)
 - [ ] Entscheidung: Memory-Profile-Liste finalisieren (default, coding, personal, quick-capture sind Vorschlaege)
 - [ ] Entscheidung: Projektname final ("Unified Chat Memory" als Arbeitstitel)
-- [ ] **Erst nach Abschluss von Obsilo Memory v2:** Uebergabe an Requirements Engineering (`/requirements-engineering`)
-- [ ] Waehrend Obsilo Memory v2 laeuft: parallele BA-Verfeinerung moeglich, aber kein UCM-Code
+- [ ] **Erst nach Abschluss von Vault Operator Memory v2:** Uebergabe an Requirements Engineering (`/requirements-engineering`)
+- [ ] Waehrend Vault Operator Memory v2 laeuft: parallele BA-Verfeinerung moeglich, aber kein UCM-Code
 
 ---
 
@@ -545,18 +545,18 @@ Clients (Konfiguration pro Client):
 - **Memory Profile:** Vordefinierte Auswahl von Memory-Inhalten und Topics, abgestimmt auf einen Use-Case (z.B. coding, personal)
 - **Cross-Interface Thread:** Konversation, die ueber mehrere Interfaces fortgefuehrt wird, geteilte Thread-ID
 - **Source-Interface:** Tag, das angibt, aus welchem Tool eine Konversation/ein Fakt stammt (obsilo, claude-desktop, claude-code, chatgpt-dev-mcp, telegram-voice-via-openclaw, ...)
-- **Persistence Layer:** Die technische Schicht, die Memory persistiert (UCM-Native SQLite oder Obsilo-Backend mit Sidecar)
-- **Sidecar-DB:** Separate SQLite-Datei (`ucm-sidecar.db`) neben Obsilo's `memory.db`, enthaelt UCM-spezifische Metadaten ohne Obsilo's Schema zu modifizieren
+- **Persistence Layer:** Die technische Schicht, die Memory persistiert (UCM-Native SQLite oder Vault Operator-Backend mit Sidecar)
+- **Sidecar-DB:** Separate SQLite-Datei (`ucm-sidecar.db`) neben Vault Operator's `memory.db`, enthaelt UCM-spezifische Metadaten ohne Vault Operator's Schema zu modifizieren
 - **Twin:** Lokale Read-Replica der Service-DB fuer niedrige Retrieval-Latenz
-- **Source of Truth:** Das Backend, das autoritativ ueber den aktuellen Memory-Stand entscheidet (immer UCM-Native DB, auch im Obsilo-Backend-Modus)
+- **Source of Truth:** Das Backend, das autoritativ ueber den aktuellen Memory-Stand entscheidet (immer UCM-Native DB, auch im Vault Operator-Backend-Modus)
 - **MCP:** Model Context Protocol (Anthropic-Standard fuer Tool-Integration, auch von ChatGPT Developer-Mode unterstuetzt)
-- **Engine:** `@obsilo/memory-engine`, die aus Obsilo extrahierte Memory-Library, die UCM wiederverwendet
+- **Engine:** `@obsilo/memory-engine`, die aus Vault Operator extrahierte Memory-Library, die UCM wiederverwendet
 
 ### B. Offene Fragen fuer Architecture-Phase
 
 1. **Memory-Profile-Persistenz:** Sind Profile statisch in Config-File definiert, oder dynamisch per CRUD-API verwaltbar?
 2. **Profile-Uebergaenge:** Was passiert, wenn ein Fakt eigentlich zu Profile A gehoert, aber in einer Profile-B-Konversation entstanden ist?
-3. **Obsilo-Backend Sync-Latenz:** Ist die Obsilo-Datei-Schreibung im Hintergrund-Sync OK, oder muessen Schreiboperationen synchron mit MCP-Save sein?
+3. **Vault Operator-Backend Sync-Latenz:** Ist die Vault Operator-Datei-Schreibung im Hintergrund-Sync OK, oder muessen Schreiboperationen synchron mit MCP-Save sein?
 4. **Konflikt-Resolution cross-Interface:** Wenn zwei Interfaces (Claude Desktop und Claude Code) gleichzeitig zu derselben Konversation Fakten extrahieren wollen, wie wird Race-Condition gehandhabt?
 5. **Auth zwischen Clients und UCM-Service:** Im LAN ohne Auth OK, aber bei Cloudflare-Tunnel fuer ChatGPT-Developer-Mode? Token-basiert?
 6. **Rate Limiting:** Soll UCM Rate-Limiting pro Client haben, um runaway-Loops zu verhindern?
@@ -564,11 +564,11 @@ Clients (Konfiguration pro Client):
 
 ### C. References
 
-- **Obsilo Memory v2 Plan:** `_devprocess/requirements/OBSILO-MEMORY-V2-FULL-REWRITE.md` (KRITISCHE Vorbedingung)
+- **Vault Operator Memory v2 Plan:** `_devprocess/requirements/OBSILO-MEMORY-V2-FULL-REWRITE.md` (KRITISCHE Vorbedingung)
 - **Vorgaengerversion dieser BA:** keine validierte v1 in `_devprocess/analysis/` (im Doc als `BA-UNIFIED-CHAT-MEMORY.md` referenziert, war Pre-Repo-Sketch)
-- **Obsilo Repo:** github.com/pssah4/obsilo
-- **Obsilo Memory-Architektur Diskussion:** ConversationStore (`src/core/history/`), MemoryService + ExtractionQueue (`src/core/memory/`), SemanticIndexService (`src/core/semantic/`)
-- **Anthropic Contextual Retrieval Pattern:** Obsilo ADR-51
+- **Vault Operator Repo:** github.com/pssah4/vault-operator
+- **Vault Operator Memory-Architektur Diskussion:** ConversationStore (`src/core/history/`), MemoryService + ExtractionQueue (`src/core/memory/`), SemanticIndexService (`src/core/semantic/`)
+- **Anthropic Contextual Retrieval Pattern:** Vault Operator ADR-51
 - **Vergleichsanalyse existierender Loesungen:** Mem0, MemoryPlugin, OpenMemory (CaviraOSS), Memoir (camgitt), MemPalace, Supermemory
 - **OpenClaw Architecture:** Pugh-Meeting Notes, Telegram-Integration (fuer spaeter relevanten Workstream)
 - **User-Profile:** `Notes/Sebastian Hanke.md` im Obsidian-Vault

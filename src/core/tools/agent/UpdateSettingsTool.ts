@@ -132,7 +132,7 @@ export class UpdateSettingsTool extends BaseTool<'update_settings'> {
         return {
             name: 'update_settings',
             description:
-                'Change Obsilo plugin settings. Use action "set" to change a single setting by path, ' +
+                'Change Vault Operator plugin settings. Use action "set" to change a single setting by path, ' +
                 '"apply_preset" to apply a permission preset, or "open_tab" to open a settings tab for the user. ' +
                 'Available presets: "permissive" (all auto-approved), "balanced" (reads + skills auto, writes ask), "restrictive" (everything asks). ' +
                 'Available tabs for open_tab: "providers", "agent-behaviour", "advanced". Sub-tabs: "backup", "models", "permissions", "interface". ' +

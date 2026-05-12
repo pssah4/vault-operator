@@ -2,13 +2,13 @@
 
 > **Status:** Draft (Solution Proposal only -- no implementation yet)
 > **Date:** 2026-04-19
-> **Trigger:** [pssah4/obsilo#31](https://github.com/pssah4/obsilo/issues/31) by [@nicholas-leonard](https://github.com/nicholas-leonard)
-> **Upstream branch:** [nicholas-leonard:obsilo:drag-and-drop](https://github.com/pssah4/obsilo/compare/main...nicholas-leonard:obsilo:drag-and-drop)
+> **Trigger:** [pssah4/vault-operator#31](https://github.com/pssah4/vault-operator/issues/31) by [@nicholas-leonard](https://github.com/nicholas-leonard)
+> **Upstream branch:** [nicholas-leonard:obsilo:drag-and-drop](https://github.com/pssah4/vault-operator/compare/main...nicholas-leonard:obsilo:drag-and-drop)
 
 ## 1 Problem Context
 
 Nicholas Leonard opened issue #31 with four distinct bug-fix commits in his
-fork. The reports come from pushing Obsilo "to its limits" in a real
+fork. The reports come from pushing Vault Operator "to its limits" in a real
 vault. Each commit fixes a discrete symptom; taken together they cover
 UI plumbing (drag-and-drop), context-externalisation plumbing
 (read_file vs globalFs), tool-group configuration gaps, and a sandbox
@@ -138,7 +138,7 @@ BUG-019's `dragManager` access will trip `no-explicit-any`; we need
 ## 6 Contribution Feedback (for issue response)
 
 Nick asked about contribution guidelines. The community-plugin
-conventions used by Obsilo are documented under
+conventions used by Vault Operator are documented under
 `_devprocess/architecture/` (V-Model, ADR-MADR) and in CLAUDE.md. The
 workflow Nick followed (fork -> compare branch -> link commits)
 matches our preferred pattern for small bundles; PRs are also welcome.

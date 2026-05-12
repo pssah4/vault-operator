@@ -3,7 +3,7 @@
 > **Priority:** P2
 > **Epic:** EPIC-19 (Knowledge Maintenance)
 > **Date:** 2026-04-19
-> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/obsilo/issues/31) / commit [cb5aec3](https://github.com/nicholas-leonard/obsilo/commit/cb5aec3)
+> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/vault-operator/issues/31) / commit [cb5aec3](https://github.com/nicholas-leonard/obsilo/commit/cb5aec3)
 
 ## Problem
 

@@ -1,17 +1,17 @@
 ---
 title: UI Architecture
-description: How Obsilo's interface works within Obsidian's constraints, without React or innerHTML.
+description: How Vault Operator's interface works within Obsidian's constraints, without React or innerHTML.
 ---
 
 # UI architecture
 
-Obsidian plugins can't use React, Vue, or any framework that relies on `innerHTML`. The Community Plugin review bot rejects plugins that set `innerHTML` directly. Everything in Obsilo's UI uses Obsidian's DOM API: `createEl`, `createDiv`, `createSpan`, `appendText`. More verbose than JSX, but that's what the platform requires.
+Obsidian plugins can't use React, Vue, or any framework that relies on `innerHTML`. The Community Plugin review bot rejects plugins that set `innerHTML` directly. Everything in Vault Operator's UI uses Obsidian's DOM API: `createEl`, `createDiv`, `createSpan`, `appendText`. More verbose than JSX, but that's what the platform requires.
 
 ## Two main components
 
 ```mermaid
 flowchart TD
-    O[Obsilo UI] --> S[AgentSidebarView]
+    O[Vault Operator UI] --> S[AgentSidebarView]
     O --> T[AgentSettingsTab]
     S --> Chat[Chat interface]
     S --> Ext[Extracted components]
@@ -42,7 +42,7 @@ The sidebar started as a single large file. As features accumulated, components 
 | `AutocompleteHandler` | Slash commands and @-mentions in the input |
 | `ToolPickerPopover` | Tool selection popup when the agent needs to choose |
 | `VaultFilePicker` | File selection from the vault |
-| `HistoryPanel` | Conversation history browser, grouped by source-interface tab (Obsilo, Claude, ChatGPT, Perplexity, All). Living documents render as one entry with a turn count. |
+| `HistoryPanel` | Conversation history browser, grouped by source-interface tab (Vault Operator, Claude, ChatGPT, Perplexity, All). Living documents render as one entry with a turn count. |
 | `ContextDisplay` | Token usage and context window visualization |
 | `CondensationFeedback` | Notification when context condensing occurs |
 | `SuggestionBanner` | Proactive suggestions from the agent |
@@ -58,13 +58,13 @@ The CSS is authored as a single stylesheet bundled with the plugin. Obsidian's b
 
 ## Modal system
 
-Obsilo uses Obsidian's `Modal` class for dialogs: model configuration, code import, content editing, system prompt preview, task selection, and mode creation. Each modal is a separate class in `src/ui/settings/` or `src/ui/`. Modals follow Obsidian's pattern: extend `Modal`, override `onOpen` and `onClose`, build the DOM in `onOpen`.
+Vault Operator uses Obsidian's `Modal` class for dialogs: model configuration, code import, content editing, system prompt preview, task selection, and mode creation. Each modal is a separate class in `src/ui/settings/` or `src/ui/`. Modals follow Obsidian's pattern: extend `Modal`, override `onOpen` and `onClose`, build the DOM in `onOpen`.
 
 ## Rendering approach
 
 There's no virtual DOM, no diffing, no reactive state. When something changes, the relevant section is cleared and rebuilt. The settings tab calls `this.display()`, which empties the container and reconstructs everything. The sidebar is more surgical: individual message elements are appended during streaming, and only specific elements update when tool results arrive.
 
-Markdown rendering in chat responses uses Obsidian's built-in `MarkdownRenderer.render()`, which handles syntax highlighting, Wikilinks, and embedded content. This is one area where Obsilo gets framework-level rendering for free.
+Markdown rendering in chat responses uses Obsidian's built-in `MarkdownRenderer.render()`, which handles syntax highlighting, Wikilinks, and embedded content. This is one area where Vault Operator gets framework-level rendering for free.
 
 ## i18n
 

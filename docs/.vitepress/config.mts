@@ -16,7 +16,7 @@ const guidesSidebar = [
   {
     text: 'Overview',
     items: [
-      { text: 'What Obsilo Can Do', link: '/guides/capabilities' },
+      { text: 'What Vault Operator Can Do', link: '/guides/capabilities' },
     ],
   },
   {
@@ -69,7 +69,7 @@ const conceptsSidebar = [
   {
     text: 'Fundamentals',
     items: [
-      { text: 'How Obsilo works', link: '/concepts/' },
+      { text: 'How Vault Operator works', link: '/concepts/' },
       { text: 'The agent loop', link: '/concepts/agent-loop' },
     ],
   },
@@ -116,10 +116,13 @@ const conceptsSidebar = [
 
 export default withMermaid(
   defineConfig({
-    title: 'Obsilo',
+    title: 'Vault Operator',
     description: 'An AI agent for your Obsidian vault',
+    // Served as a GitHub Pages project site at https://pssah4.github.io/vault-operator/.
+    // If a custom domain is ever added back, set base to '/'.
+    base: '/vault-operator/',
     head: [
-      ['meta', { property: 'og:title', content: 'Obsilo, an AI agent for your Obsidian vault' }],
+      ['meta', { property: 'og:title', content: 'Vault Operator, an AI agent for your Obsidian vault' }],
       ['meta', { property: 'og:description', content: 'An autonomous AI agent for Obsidian with 60+ tools, block-level provenance, cross-surface MCP, semantic search, persistent memory, and full safety controls.' }],
     ],
 
@@ -130,7 +133,7 @@ export default withMermaid(
     lang: 'en',
 
     themeConfig: {
-      siteTitle: 'Obsilo',
+      siteTitle: 'Vault Operator',
       nav: [
         { text: 'Tutorials', link: '/tutorials/getting-started', activeMatch: '/tutorials/' },
         { text: 'Guides', link: '/guides/capabilities', activeMatch: '/guides/' },
@@ -148,11 +151,11 @@ export default withMermaid(
         provider: 'local',
       },
       editLink: {
-        pattern: 'https://github.com/pssah4/obsilo/edit/main/docs/:path',
+        pattern: 'https://github.com/pssah4/vault-operator/edit/main/docs/:path',
         text: 'Edit this page on GitHub',
       },
       footer: {
-        message: '<a href="https://github.com/pssah4/obsilo/blob/main/LICENSE">Apache 2.0</a> | <a href="/imprint">Imprint</a>',
+        message: '<a href="https://github.com/pssah4/vault-operator/blob/main/LICENSE">Apache 2.0</a> | <a href="/vault-operator/imprint">Imprint</a>',
         copyright: 'Provided as-is, without any warranty or liability.',
       },
     },

@@ -6,7 +6,7 @@ adr-refs: []
 plan-refs: []
 depends-on: []
 created: 2026-05-08
-issue: https://github.com/pssah4/obsilo-dev/issues/60
+issue: https://github.com/pssah4/vault-operator-dev/issues/60
 ---
 
 # FIX-04-03-01: SummaryGenerator umgeht konfigurierten Provider, Anthropic 400 trotz OpenRouter-Setup
@@ -83,4 +83,4 @@ See the backlog row for FIX-04-03-01 in `_devprocess/context/BACKLOG.md`
 
 ## Tracking
 
-GitHub Issue: https://github.com/pssah4/obsilo-dev/issues/60
+GitHub Issue: https://github.com/pssah4/vault-operator-dev/issues/60

@@ -1,29 +1,29 @@
 ---
 title: Choosing a Model
-description: Understand AI providers, how to configure them, and what matters for a good Obsilo experience.
+description: Understand AI providers, how to configure them, and what matters for a good Vault Operator experience.
 ---
 
 # Choosing a model
 
-Obsilo works with many providers and models. Not all of them are equally good at being agents.
+Vault Operator works with many providers and models. Not all of them are equally good at being agents.
 
-## What makes a good model for Obsilo
+## What makes a good model for Vault Operator
 
-Obsilo is an agent, not a chat assistant. The model needs to:
+Vault Operator is an agent, not a chat assistant. The model needs to:
 
-- Support tool use (function calling). It has to call Obsilo's 60+ tools.
+- Support tool use (function calling). It has to call Vault Operator's 60+ tools.
 - Follow instructions precisely. The system prompt is dense with rules, skills, and mode definitions.
 - Reason about multi-step tasks. Reading files, searching, editing, and verifying takes planning.
 
 :::tip Use the latest, most capable models
-Obsilo works best with strong frontier models that are good at tool use and reasoning. Older or smaller models may struggle with bigger tasks, skip approval steps, or call the wrong tools. Most of the testing has been done with Anthropic Claude models.
+Vault Operator works best with strong frontier models that are good at tool use and reasoning. Older or smaller models may struggle with bigger tasks, skip approval steps, or call the wrong tools. Most of the testing has been done with Anthropic Claude models.
 :::
 
 For background tasks like memory extraction, chat titling, or contextual retrieval, a cheap model is fine. Those tasks are simple and don't need tool use.
 
 ## Provider categories
 
-Obsilo supports three categories of providers, each with different trade-offs.
+Vault Operator supports three categories of providers, each with different trade-offs.
 
 ### Cloud providers (API key)
 
@@ -55,9 +55,9 @@ Models run on your machine. No data leaves your device. Free, but needs decent h
 | **LM Studio** | Install from [lmstudio.ai](https://lmstudio.ai). Download a model in the app, then start the local server from the Developer tab. | Visual model browser, easy setup. Default URL: `http://localhost:1234`. |
 | **Custom** | Any server with an OpenAI-compatible API. Enter the base URL (with `/v1` suffix) and optional API key. | For self-hosted inference servers, corporate proxies, or any compatible endpoint. |
 
-## How to add a model in Obsilo
+## How to add a model in Vault Operator
 
-1. Open **Settings > Obsilo Agent > Models**
+1. Open **Settings > Vault Operator > Models**
 2. Click **"+ add model"**
 3. Select a **provider** from the dropdown
 4. Follow the provider-specific instructions:
@@ -74,7 +74,7 @@ For API-key providers, the "Quick pick" dropdown shows popular models with pre-f
 
 ## Using different models for different tasks
 
-You don't have to use the same model everywhere. Obsilo lets you assign models per context. In Settings > Modes, each mode can override the default model: a strong model for Agent mode and a cheaper one for Ask mode works well. Settings > Memory lets you pick a small model for background memory extraction (it only summarizes conversations). Settings > Interface > Chat Linking has its own model for generating conversation titles. Settings > Embeddings lets you pick a cheap model for enriching search chunks in the background.
+You don't have to use the same model everywhere. Vault Operator lets you assign models per context. In Settings > Modes, each mode can override the default model: a strong model for Agent mode and a cheaper one for Ask mode works well. Settings > Memory lets you pick a small model for background memory extraction (it only summarizes conversations). Settings > Interface > Chat Linking has its own model for generating conversation titles. Settings > Embeddings lets you pick a cheap model for enriching search chunks in the background.
 
 A typical setup is one frontier model for interactive work and one lightweight model for everything in the background.
 

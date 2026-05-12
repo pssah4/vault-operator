@@ -10,21 +10,21 @@ related-bas: BA-26
 ## Hypothesis Statement
 
 Sebastian arbeitet taeglich mit ChatGPT, Claude.ai, Claude Code und
-Perplexity neben Obsilo. Ohne eine ueberdachende Memory- und
+Perplexity neben Vault Operator. Ohne eine ueberdachende Memory- und
 History-Schicht entstehen Insights in einem Tool und gehen im
-naechsten verloren. Wenn Obsilo via Remote-MCP zur einheitlichen
-Memory- und History-Schicht ueber alle Surfaces wird, wird Obsilo
+naechsten verloren. Wenn Vault Operator via Remote-MCP zur einheitlichen
+Memory- und History-Schicht ueber alle Surfaces wird, wird Vault Operator
 zur Single Source of Truth fuer Sebastians AI-Wissen, und der
 Tool-Wechsel verliert seine Reibung. Im Unterschied zu den
 Memory-Loesungen einzelner Provider (ChatGPT-Memory, Claude
 Projects, Mem0) liegt unser Fokus auf BYOI (Bring Your Own
-Interface): jedes Chat-Frontend kann ueber MCP zum Obsilo-Memory-
+Interface): jedes Chat-Frontend kann ueber MCP zum Vault Operator-Memory-
 Hub greifen, mit klar erkennbarer Source-Interface-Differenzierung.
 
 ## How might we
 
 Wie kann Sebastian aus jedem Chat-Tool gezielt Insights und
-Conversations in Obsilo's Memory + History festschreiben und beim
+Conversations in Vault Operator's Memory + History festschreiben und beim
 naechsten Tool-Wechsel sofort darauf zugreifen, ohne den Tool-Stack
 zu wechseln und ohne dass das Lifecycle-Management des Memory-
 Layers extra Arbeit fuer ihn erzeugt?
@@ -32,9 +32,9 @@ Layers extra Arbeit fuer ihn erzeugt?
 ## Business Outcomes
 
 - **OUT-01**: Cross-Surface-Memory-Coverage: Conversations aus min.
-  2 externen Tools landen binnen 7 Tagen Live-Use in Obsilo's
+  2 externen Tools landen binnen 7 Tagen Live-Use in Vault Operator's
   History-Sidebar.
-- **OUT-02**: Reduktion der Provider-Lock-In-Wechselkosten: Obsilo
+- **OUT-02**: Reduktion der Provider-Lock-In-Wechselkosten: Vault Operator
   haelt persistent Memory + History; Tool-Wechsel ohne Memory-
   Verlust.
 - **OUT-03**: V1-Legacy-Pfad gegen Null: 100% der MCP-`update_memory`-
@@ -67,7 +67,7 @@ Layers extra Arbeit fuer ihn erzeugt?
 
 ## Critical Hypotheses (Leading Indicators)
 
-- H1: Obsilo Remote MCP ist stabil genug fuer taegliche Cross-Surface-
+- H1: Vault Operator Remote MCP ist stabil genug fuer taegliche Cross-Surface-
   Use. (Bestaetigt seit FEATURE-1403, 2026-04-01.)
 - H2: Vier P0-Tools decken 80% der Cross-Surface-Use-Cases ab.
   (Validierung in Phase 4 UAT.)

@@ -23,9 +23,9 @@ OAuth Device Code Flow fuer GitHub Copilot Authentifizierung mit vollstaendigem 
 ## User Stories
 
 ### Story 1: GitHub-Login starten
-**Als** Obsilo-Nutzer mit GitHub Copilot Abo
+**Als** Vault Operator-Nutzer mit GitHub Copilot Abo
 **moechte ich** mich per Knopfdruck mit GitHub verbinden
-**um** meine Premium Requests in Obsilo nutzen zu koennen
+**um** meine Premium Requests in Vault Operator nutzen zu koennen
 
 ### Story 2: Automatischer Token-Refresh
 **Als** verbundener Copilot-Nutzer

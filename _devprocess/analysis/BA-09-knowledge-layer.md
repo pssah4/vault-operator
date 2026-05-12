@@ -10,11 +10,11 @@
 
 ### 1.1 Problem Statement
 
-Obsilos semantische Suche ist durch einen kritischen Skalierungsbug nicht nutzbar: Die vectra-Bibliothek speichert alle Vektoren in einer einzigen JSON-Datei (aktuell 507MB), die V8's String-Limit bei `JSON.stringify()` sprengt. Der Index wird bei jedem Neustart komplett neu aufgebaut und scheitert erneut -- eine Endlosschleife. Darueber hinaus liefert die bestehende Vektorsuche nur isolierte Text-Chunks ohne strukturelle Vernetzung: implizite Zusammenhaenge zwischen Notes bleiben unsichtbar.
+Vault Operators semantische Suche ist durch einen kritischen Skalierungsbug nicht nutzbar: Die vectra-Bibliothek speichert alle Vektoren in einer einzigen JSON-Datei (aktuell 507MB), die V8's String-Limit bei `JSON.stringify()` sprengt. Der Index wird bei jedem Neustart komplett neu aufgebaut und scheitert erneut -- eine Endlosschleife. Darueber hinaus liefert die bestehende Vektorsuche nur isolierte Text-Chunks ohne strukturelle Vernetzung: implizite Zusammenhaenge zwischen Notes bleiben unsichtbar.
 
 ### 1.2 Proposed Solution
 
-Ein Unified Knowledge Layer basierend auf SQLite (sql.js WASM) ersetzt vectra und konsolidiert alle maschinenlesbaren Wissensdaten (Embeddings, Sessions, Episodes, Recipes) in einer Datenbank. Vier Retrieval-Stufen -- Vector Search, Graph Expansion, Implicit Connections und Reranking -- ermoeglichen vernetztes Denken: Obsilo erkennt und zeigt Verbindungen zwischen Notes, die der User nicht explizit modelliert hat.
+Ein Unified Knowledge Layer basierend auf SQLite (sql.js WASM) ersetzt vectra und konsolidiert alle maschinenlesbaren Wissensdaten (Embeddings, Sessions, Episodes, Recipes) in einer Datenbank. Vier Retrieval-Stufen -- Vector Search, Graph Expansion, Implicit Connections und Reranking -- ermoeglichen vernetztes Denken: Vault Operator erkennt und zeigt Verbindungen zwischen Notes, die der User nicht explizit modelliert hat.
 
 ### 1.3 Expected Outcomes
 
@@ -31,7 +31,7 @@ Ein Unified Knowledge Layer basierend auf SQLite (sql.js WASM) ersetzt vectra un
 
 ### 2.1 Background
 
-Obsilo ist ein AI-Agent als Obsidian-Plugin mit Hybrid-Gateway-Strategie: Standalone in Obsidian und via MCP-Connector fuer externe LLM-Clients (Claude Code etc.). Die semantische Suche (`semantic_search` Tool) ist ein Kern-Differenzierungsmerkmal -- kein externer Client kann einen Embedding-Index ueber den Vault aufbauen.
+Vault Operator ist ein AI-Agent als Obsidian-Plugin mit Hybrid-Gateway-Strategie: Standalone in Obsidian und via MCP-Connector fuer externe LLM-Clients (Claude Code etc.). Die semantische Suche (`semantic_search` Tool) ist ein Kern-Differenzierungsmerkmal -- kein externer Client kann einen Embedding-Index ueber den Vault aufbauen.
 
 Der Vault des Users enthaelt 826 Markdown-Dateien (~12MB Text) mit reichhaltiger Frontmatter-Vernetzung ueber MOC-Properties (Themen, Konzepte, Personen, Notizen, Meeting-Notes, Quellen). Diese explizite Struktur wird aktuell nicht fuer die Suche genutzt.
 
@@ -81,7 +81,7 @@ Der Vault des Users enthaelt 826 Markdown-Dateien (~12MB Text) mit reichhaltiger
 | Stakeholder | Role | Interest | Influence | Needs |
 |-------------|------|----------|-----------|-------|
 | Sebastian (User/Developer) | Primaerer User + Entwickler | H | H | Vernetztes Denken, zuverlaessige Suche, Showcase fuer Agentic AI Kompetenz |
-| Obsilo Agent (LLM) | Konsument der Suche | H | M | Praezise, kontextreiche Suchergebnisse fuer bessere Antworten |
+| Vault Operator (LLM) | Konsument der Suche | H | M | Praezise, kontextreiche Suchergebnisse fuer bessere Antworten |
 | Externer LLM-Client (Claude Code) | MCP-Konsument | H | M | semantic_search via MCP muss funktionieren und relevante Ergebnisse liefern |
 | Obsidian Community | Potenzielle User | M | L | Stabiles Plugin, keine Performance-Einbussen |
 
@@ -104,7 +104,7 @@ Der Vault des Users enthaelt 826 Markdown-Dateien (~12MB Text) mit reichhaltiger
 - **Vault-Struktur:** 826 Notes, reichhaltiges Frontmatter (Themen, Konzepte, Personen, Notizen, Meeting-Notes, Quellen als MOC-Backlinks)
 
 **Persona 2: Claude Code (Agent-User via MCP)**
-- **Rolle:** Externer LLM-Client der Obsilo-Tools ueber MCP aufruft
+- **Rolle:** Externer LLM-Client der Vault Operator-Tools ueber MCP aufruft
 - **Ziele:** semantic_search aufrufen und kontextreiche Ergebnisse erhalten; Vault-Wissen in eigene Antworten einbeziehen
 - **Pain Points:** Aktuell keine funktionierende semantische Suche; nur isolierte Chunks ohne Kontext
 - **Nutzungshaeufigkeit:** On-Demand (bei jeder MCP-Session)
@@ -113,19 +113,19 @@ Der Vault des Users enthaelt 826 Markdown-Dateien (~12MB Text) mit reichhaltiger
 
 **Standalone (Sebastian in Obsidian):**
 1. Stellt Frage: "Was weiss ich ueber Agent-Architekturen im Kontext von EAM?"
-2. Obsilo durchsucht Vault semantisch (Stufe 1)
+2. Vault Operator durchsucht Vault semantisch (Stufe 1)
 3. Folgt Wikilinks der Treffer zu verwandten Notes (Stufe 2)
 4. Findet implizit verwandte Notes die nicht verlinkt sind (Stufe 3)
 5. Rankt alle Ergebnisse nach Relevanz (Stufe 4)
 6. Praesentiert vernetzte Antwort mit Quellen und Verbindungen
 
-**Aktive Vorschlaege (Obsilo proaktiv):**
-1. Obsilo erkennt: "EAM-Hypothesen.md" und "Digitalisierungsgrad.md" teilen Thema [[Kuenstliche Intelligenz]] und sind semantisch nah, aber nicht direkt verlinkt
+**Aktive Vorschlaege (Vault Operator proaktiv):**
+1. Vault Operator erkennt: "EAM-Hypothesen.md" und "Digitalisierungsgrad.md" teilen Thema [[Kuenstliche Intelligenz]] und sind semantisch nah, aber nicht direkt verlinkt
 2. Schlaegt Verbindung vor: "Diese Notes koennten zusammenhaengen"
 
 **Connector (Claude Code via MCP):**
 1. Claude Code ruft `semantic_search("Agent-Architekturen EAM")` via MCP
-2. Obsilo fuehrt 4-Stufen-Retrieval lokal aus
+2. Vault Operator fuehrt 4-Stufen-Retrieval lokal aus
 3. Gibt kontextreiche Ergebnisse zurueck (Text + Pfade + Scores + Verbindungskontext)
 4. Claude Code nutzt die Ergebnisse in seiner Antwort
 
@@ -162,7 +162,7 @@ Drei zusammenhaengende Probleme:
 
 ### 6.1 Business Goals
 
-- Obsilos Kern-Differenzierung (semantische Suche + vernetztes Denken) zuverlaessig und skalierbar machen
+- Vault Operators Kern-Differenzierung (semantische Suche + vernetztes Denken) zuverlaessig und skalierbar machen
 - Knowledge Layer als Showcase fuer fortgeschrittene RAG-Architektur (4-Stufen Hybrid-Retrieval)
 - Mobile-Readiness als Grundlage fuer breitere Nutzbarkeit
 
@@ -171,7 +171,7 @@ Drei zusammenhaengende Probleme:
 - "Ich will implizite Verbindungen in meinem Vault erkennen, die ich nicht manuell modelliert habe"
 - "Die Suche soll meine MOC-Struktur (Themen, Konzepte, Personen) beruecksichtigen"
 - "Semantic Search muss zuverlaessig funktionieren, auch wenn mein Vault waechst"
-- "Obsilo soll mir aktiv Verbindungen vorschlagen die ich uebersehen habe"
+- "Vault Operator soll mir aktiv Verbindungen vorschlagen die ich uebersehen habe"
 
 ### 6.3 Success Metrics (KPIs)
 
@@ -227,7 +227,7 @@ Drei zusammenhaengende Probleme:
 - **Embedding-Modell-Wechsel:** Bleibt konfigurierbar, kein Zwang zu bestimmtem Modell
 - **Cloud-basierte Vektor-DB:** Alles bleibt lokal
 - **Natural Language Graph Queries:** Keine natuerlichsprachlichen Graph-Abfragen (z.B. "Wer kennt wen ueber welches Thema")
-- **Automatisches Link-Erstellen:** Obsilo schlaegt vor, aber erstellt keine Links automatisch
+- **Automatisches Link-Erstellen:** Vault Operator schlaegt vor, aber erstellt keine Links automatisch
 
 ### 7.3 Assumptions
 

@@ -21,6 +21,21 @@ export type ApiStreamChunk =
 
 export type ApiStream = AsyncIterable<ApiStreamChunk>;
 
+/**
+ * Build the actionable error for a malformed / truncated tool-call input. Every
+ * provider's stream handler uses this so the model gets a consistent,
+ * recovery-oriented instruction (split the write, do not double-emit) instead of
+ * a bare JSON parse error it can only loop on.
+ */
+export function truncatedToolInputError(toolName: string, rawError: string, wasMaxTokens = false): string {
+    const cause = wasMaxTokens
+        ? `The response hit the max output token limit, so this "${toolName}" call was cut off before its arguments finished.`
+        : `The "${toolName}" tool-call arguments were truncated or malformed.`;
+    return `Tool input parse error: ${rawError}. ${cause} `
+        + `Do NOT retry the same call. If this was a large write, split it: call write_file with the document header and the first section only, then call append_to_file repeatedly for the rest. `
+        + `Reduce the payload if needed. Output the document only through the tool — do not also print its full text in your reply.`;
+}
+
 // --- Model Info ---
 
 export interface ModelInfo {

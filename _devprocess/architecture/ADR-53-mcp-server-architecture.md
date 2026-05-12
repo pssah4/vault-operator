@@ -5,11 +5,11 @@
 
 ## Context
 
-Obsilo soll sich als MCP Server exponieren (EPIC-14). Claude Desktop/Code verbindet sich via stdio, Claude spricht MCP JSON-RPC, und Obsilo fuehrt Intelligence-Operationen aus (Suche, Lesen, Schreiben, Memory).
+Vault Operator soll sich als MCP Server exponieren (EPIC-14). Claude Desktop/Code verbindet sich via stdio, Claude spricht MCP JSON-RPC, und Vault Operator fuehrt Intelligence-Operationen aus (Suche, Lesen, Schreiben, Memory).
 
 **Triggering ASRs:**
 - ASR-1: MCP Server muss als separater Prozess laufen (Electron Renderer kann nicht stdio bedienen)
-- ASR-3: Claude ist der Agent, Obsilo macht keine LLM-Calls im Connector-Modus
+- ASR-3: Claude ist der Agent, Vault Operator macht keine LLM-Calls im Connector-Modus
 
 **Constraint:** Obsidian laeuft im Electron Renderer-Prozess. Node.js stdio ist im Renderer nicht direkt nutzbar. `child_process.fork()` funktioniert nicht in Electron (ELECTRON_RUN_AS_NODE wird ignoriert). Bewiesenes Pattern: `child_process.spawn()` mit IPC (ProcessSandboxExecutor).
 
@@ -37,7 +37,7 @@ MCP Server laeuft direkt im Electron Renderer.
 MCP Server laeuft als Node.js Child Process (spawn). Kommuniziert via IPC mit dem Plugin im Renderer. Der Child Process bedient stdio (MCP JSON-RPC) nach aussen und IPC (Requests) nach innen.
 
 ```
-Claude Desktop  ←stdio→  McpServerProcess  ←IPC→  ObsiloPlugin (Renderer)
+Claude Desktop  ←stdio→  McpServerProcess  ←IPC→  VaultOperatorPlugin (Renderer)
                           (child_process)           (alle Services)
 ```
 
@@ -143,7 +143,7 @@ process.send!({ type: 'server-ready' });
 
 ### Claude Desktop Auto-Config
 
-Obsilo schreibt automatisch in `claude_desktop_config.json`:
+Vault Operator schreibt automatisch in `claude_desktop_config.json`:
 
 ```json
 {

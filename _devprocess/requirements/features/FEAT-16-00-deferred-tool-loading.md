@@ -17,7 +17,7 @@ Claude Code loest das via `ToolSearchTool`: nur Kern-Tool-Namen + Kurzbeschreibu
 stehen im Prompt, vollstaendige Schemas werden via Meta-Tool `ToolSearch` on-demand
 nachgeladen.
 
-Obsilo-Adaption: **Kern-Tools** (Reading, Editing, Agent-Control) sind immer
+Vault Operator-Adaption: **Kern-Tools** (Reading, Editing, Agent-Control) sind immer
 im Schema. **Spezialisierte Tools** (Office-Creation, Excalidraw, Drawio, Canvas,
 Base-Tools, Semantic-Search, Plan-Presentation, Ingest-Template, Evaluate-Expression)
 werden als `deferred` markiert. Neues Meta-Tool `find_tool(query)` findet passende
@@ -27,7 +27,7 @@ der Session.
 ## User Stories
 
 ### Story 1: Schlanker Start-Prompt
-**Als** Obsilo-User mit grosser Modell-Latenz
+**Als** Vault Operator-User mit grosser Modell-Latenz
 **moechte ich** dass der erste API-Call nicht unnoetig gross ist wenn ich nur
 schnell eine Datei lesen will
 **um** Kosten und Latenz zu senken.

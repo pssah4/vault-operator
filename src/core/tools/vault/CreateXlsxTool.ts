@@ -130,7 +130,7 @@ export class CreateXlsxTool extends BaseTool<'create_xlsx'> {
 
         try {
             const workbook = new ExcelJS.Workbook();
-            workbook.creator = 'Obsilo Agent';
+            workbook.creator = 'Vault Operator';
             let totalRows = 0;
 
             for (let i = 0; i < sheets.length; i++) {

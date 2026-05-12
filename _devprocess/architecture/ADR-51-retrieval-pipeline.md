@@ -5,7 +5,7 @@
 
 ## Context
 
-Die aktuelle Suche in Obsilo ist ein einfacher Cosine-Similarity-Lookup: Query embedden, gegen alle Chunk-Vektoren vergleichen, besten Chunk pro Datei zurueckgeben. Dies ignoriert den reichen Obsidian-Graph (Wikilinks, Tags, MOC-Properties), erkennt keine impliziten Verbindungen, und liefert nur isolierte Chunks ohne Kontext.
+Die aktuelle Suche in Vault Operator ist ein einfacher Cosine-Similarity-Lookup: Query embedden, gegen alle Chunk-Vektoren vergleichen, besten Chunk pro Datei zurueckgeben. Dies ignoriert den reichen Obsidian-Graph (Wikilinks, Tags, MOC-Properties), erkennt keine impliziten Verbindungen, und liefert nur isolierte Chunks ohne Kontext.
 
 Der User will vernetztes Denken: implizite Verbindungen erkennen, MOC-Struktur nutzen, zusammenhaengende Informationen statt isolierte Chunks.
 

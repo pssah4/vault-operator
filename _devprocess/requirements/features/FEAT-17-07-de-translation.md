@@ -14,7 +14,7 @@ Deutsche Uebersetzung des User Guides und der Developer Docs. Englisch bleibt di
 **Wir glauben dass** eine deutsche Uebersetzung
 **Folgende messbare Outcomes liefert:**
 - Deutschsprachige User finden die Doku zugaenglicher
-- Der Obsilo Doku-Skill kann auch auf Deutsch antworten
+- Der Vault Operator Doku-Skill kann auch auf Deutsch antworten
 
 **Wir wissen dass wir erfolgreich sind wenn:**
 - User Guide vollstaendig auf Deutsch verfuegbar

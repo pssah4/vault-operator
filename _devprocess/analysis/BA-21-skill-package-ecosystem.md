@@ -8,7 +8,7 @@
 
 ## Problem-Kontext
 
-Obsilo hat heute ein funktionierendes Skill-System: Markdown-Dateien mit
+Vault Operator hat heute ein funktionierendes Skill-System: Markdown-Dateien mit
 YAML-Frontmatter, geladen vom `SelfAuthoredSkillLoader`. Jeder Skill ist
 **eine** `SKILL.md`-Datei in einem Unterordner von `bundled-skills/` oder
 der User-Skills-Dir.
@@ -23,17 +23,17 @@ als Distribution (offiziell via Claude.ai Upload).
 Drei Probleme fallen zusammen:
 
 1. **User-Erwartung verschoben.** Wer Claude Skills kennt, erwartet
-   dieses Format auch in Obsilo. Single-File-Skills fuehlen sich
+   dieses Format auch in Vault Operator. Single-File-Skills fuehlen sich
    limitiert an, besonders wenn der Skill Scripts oder grosse
    Referenz-Dokumente braucht.
 2. **Skill-Sharing bricht.** Im Anthropic-Oekosystem existieren schon
    17+ offizielle Skills (pdf, pptx, skill-creator, mcp-builder, ...)
-   plus third-party-Sammlungen. Obsilo kann sie nicht einlesen weil
+   plus third-party-Sammlungen. Vault Operator kann sie nicht einlesen weil
    der Loader keine Sub-Files kennt.
 3. **Coordinator-Pattern fehlt.** Der User wuenscht sich explizit einen
    Skill der andere Skills im selben Ordner orchestriert. Das geht ueber
    die Anthropic-Spec hinaus (dort gibt es das nicht formell), ist aber
-   in Obsilos Agent-Loop sinnvoll: ein Meta-Skill kann Sub-Tasks
+   in Vault Operators Agent-Loop sinnvoll: ein Meta-Skill kann Sub-Tasks
    delegieren, analog zu `new_task` aber mit feineren Rollen-Definitionen
    pro Sub-Skill.
 
@@ -42,14 +42,14 @@ Drei Probleme fallen zusammen:
 | Stakeholder | Interesse | Einfluss |
 |-------------|-----------|----------|
 | Power-User (Sebastian) | Skills aus eigenem Git-Repo nutzen, inkl. Scripts und Templates | Hoch (Anforderung) |
-| Skill-Autoren (extern) | Obsilo soll Anthropic-kompatible Skills akzeptieren, damit bestehende Packages wiederverwendet werden koennen | Mittel (Community-Wachstum) |
+| Skill-Autoren (extern) | Vault Operator soll Anthropic-kompatible Skills akzeptieren, damit bestehende Packages wiederverwendet werden koennen | Mittel (Community-Wachstum) |
 | Agent-Loop | Skills muessen weiterhin schnell geladen werden, System-Prompt nicht aufblaehen | Hoch (Performance) |
 | Security | Scripts im Skill-Ordner sind Code-Ausfuehrung — braucht Sandbox / Opt-in / Signatur-Check | Hoch (Safety) |
 | Community-Plugin-Reviewer | Keine neuen `obsidianmd/*` Review-Bot-Verletzungen | Hoch (Release-Approval) |
 
 ## As-Is Analyse
 
-### Aktueller Skill-Aufbau (Obsilo v2.5.2)
+### Aktueller Skill-Aufbau (Vault Operator v2.5.2)
 
 - **Bundled-Skills:** `bundled-skills/<slug>/SKILL.md` (9 Stueck, beim Build mit eingebettet).
 - **User-Skills:** `<agent-folder>/skills/<slug>/SKILL.md` (vom User selbst angelegt oder via `manage_skill` Tool).
@@ -75,7 +75,7 @@ Drei Probleme fallen zusammen:
 
 ## To-Be (gewuenschter Zustand)
 
-1. Ein Obsilo-Skill ist ein **Ordner** mit `SKILL.md` plus optionalen
+1. Ein Vault Operator-Skill ist ein **Ordner** mit `SKILL.md` plus optionalen
    `scripts/`, `references/`, `assets/` Subfolders.
 2. Das Frontmatter ist zu Anthropic **rueckwaerts-kompatibel** (akzeptiert
    `license`, `compatibility`, `metadata` zusaetzlich zu unseren eigenen
@@ -89,7 +89,7 @@ Drei Probleme fallen zusammen:
 5. **References** werden nur bei Bedarf geladen. Skill-Text verweist auf
    `references/FOO.md`, Agent liest on-demand mit `read_file`. Kein
    System-Prompt-Bloat.
-6. **Coordinator-Pattern** (Obsilo-Erweiterung): ein Skill-Ordner kann
+6. **Coordinator-Pattern** (Vault Operator-Erweiterung): ein Skill-Ordner kann
    mehrere `*.skill.md` Sub-Files enthalten. Das Haupt-`SKILL.md`
    koordiniert, Sub-Skills sind spezialisierte Rollen (z.B. `writer.skill.md`,
    `reviewer.skill.md`). Der Coordinator kann per Text-Instruktion
@@ -107,7 +107,7 @@ Drei Probleme fallen zusammen:
 
 ## Nicht im Scope
 
-- Eigener Online-Registry ("Obsilo Skill Store"). User muss Zips manuell
+- Eigener Online-Registry ("Vault Operator Skill Store"). User muss Zips manuell
   per URL / File-Import installieren.
 - Auto-Update von Skills aus externen Quellen. Zip-Import ist einmalig.
 - Signatur-Verifikation bei Zip-Imports. Fuer Version 1 verlassen wir uns
@@ -130,7 +130,7 @@ Drei Probleme fallen zusammen:
 
 ## Innovations-Phasen
 
-- **EXPLORATION:** abgeschlossen. Anthropic-Spec recherchiert, Obsilo-Stand
+- **EXPLORATION:** abgeschlossen. Anthropic-Spec recherchiert, Vault Operator-Stand
   ausgewertet, Gaps klar.
 - **IDEATION:** vier abgrenzbare Features (Folder + Zip + Scripts +
   Coordinator). Reihenfolge nicht blockierend — jeder Feature-Commit

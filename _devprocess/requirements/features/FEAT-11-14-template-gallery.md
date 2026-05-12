@@ -8,9 +8,9 @@
 
 ## Feature Description
 
-Community-Repository mit voranalysierten Template-Skills. Populaere und generische Templates werden einmal analysiert und als SKILL.md bereitgestellt. User koennen Skills direkt herunterladen und in Obsilo importieren -- kein Analyse-Aufwand noetig.
+Community-Repository mit voranalysierten Template-Skills. Populaere und generische Templates werden einmal analysiert und als SKILL.md bereitgestellt. User koennen Skills direkt herunterladen und in Vault Operator importieren -- kein Analyse-Aufwand noetig.
 
-Separates GitHub Repository (`pssah4/obsilo-template-gallery`). Community kann eigene Template-Skills beitragen.
+Separates GitHub Repository (`pssah4/vault-operator-template-gallery`). Community kann eigene Template-Skills beitragen.
 
 ## Benefits Hypothesis
 
@@ -28,12 +28,12 @@ Separates GitHub Repository (`pssah4/obsilo-template-gallery`). Community kann e
 ## User Stories
 
 ### Story 1: Fertigen Skill nutzen
-**Als** neuer Obsilo-User
+**Als** neuer Vault Operator-User
 **moechte ich** einen fertigen Template-Skill herunterladen
 **um** sofort mit der Praesentation-Erstellung zu starten
 
 ### Story 2: Eigenen Skill teilen
-**Als** erfahrener Obsilo-User
+**Als** erfahrener Vault Operator-User
 **moechte ich** meinen analysierten Template-Skill der Community bereitstellen
 **um** anderen den Analyse-Aufwand zu ersparen
 
@@ -44,7 +44,7 @@ Separates GitHub Repository (`pssah4/obsilo-template-gallery`). Community kann e
 | ID | Criterion | Target | Measurement |
 |----|-----------|--------|-------------|
 | SC-01 | Verfuegbare Template-Skills sind auffindbar und herunterladbar | Mindestens 3 Generic + 2 Corporate | Gallery-Inhalt |
-| SC-02 | Heruntergeladener Skill funktioniert direkt in Obsilo | Import + Praesentation erstellen | End-to-End Test |
+| SC-02 | Heruntergeladener Skill funktioniert direkt in Vault Operator | Import + Praesentation erstellen | End-to-End Test |
 | SC-03 | Community kann beitragen | Dokumentierter Beitrags-Prozess | CONTRIBUTING.md vorhanden |
 | SC-04 | Qualitaet der Skills ist konsistent | Review-Prozess fuer PRs | PR-Template vorhanden |
 
@@ -54,7 +54,7 @@ Separates GitHub Repository (`pssah4/obsilo-template-gallery`). Community kann e
 
 ### Hosting
 - **Plattform**: GitHub Repository (Apache 2.0)
-- **Optional**: Gallery-Seite auf obsilo.ai (Links auf GitHub)
+- **Optional**: Gallery-Seite auf pssah4.github.io/vault-operator (Links auf GitHub)
 - **Kosten**: $0
 
 ---
@@ -62,7 +62,7 @@ Separates GitHub Repository (`pssah4/obsilo-template-gallery`). Community kann e
 ## Repository-Struktur
 
 ```
-pssah4/obsilo-template-gallery
+pssah4/vault-operator-template-gallery
   ├── README.md
   ├── CONTRIBUTING.md
   ├── LICENSE (Apache 2.0)
@@ -97,7 +97,7 @@ pssah4/obsilo-template-gallery
 - **Qualitaets-Sicherung**: PR-Review durch Maintainer
 
 ### Open Questions fuer Architekt
-- Soll die Gallery-Seite auf obsilo.ai eine Suchfunktion haben?
+- Soll die Gallery-Seite auf pssah4.github.io/vault-operator eine Suchfunktion haben?
 - Soll es ein Standard-Validierungsscript fuer Skill-Qualitaet geben?
 - Wie wird mit Templates umgegangen deren Design Copyright-geschuetzt ist (Skill beschreibt nur die Struktur, nicht das Design selbst)?
 

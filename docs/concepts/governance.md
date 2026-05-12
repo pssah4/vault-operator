@@ -1,6 +1,6 @@
 ---
 title: Governance
-description: How Obsilo prevents the agent from doing damage. Path protection, approval, checkpoints, and audit logging.
+description: How Vault Operator prevents the agent from doing damage. Path protection, approval, checkpoints, and audit logging.
 ---
 
 # Governance
@@ -64,7 +64,7 @@ For note edits, the approval UI can show a semantic diff grouped by Markdown str
 
 ## Checkpoints
 
-Before any write operation, the pipeline takes a git snapshot of the affected file. This uses a shadow repository at `.obsidian/plugins/obsilo-agent/checkpoints/` powered by `isomorphic-git` (pure JavaScript, no native git binary needed).
+Before any write operation, the pipeline takes a git snapshot of the affected file. This uses a shadow repository at `.obsidian/plugins/vault-operator/checkpoints/` powered by `isomorphic-git` (pure JavaScript, no native git binary needed).
 
 `GitCheckpointService` (`src/core/checkpoints/GitCheckpointService.ts`) commits the file's current content into the shadow repo before the tool modifies it. Each checkpoint records the task ID, commit hash, timestamp, changed files, and the tool that triggered it. Files that didn't exist before the checkpoint are tracked separately so restore can delete them.
 
@@ -72,7 +72,7 @@ After any task, you can undo all changes. Every write operation gets its own che
 
 ## Audit log
 
-Every tool call is logged to a JSONL file via `OperationLogger` (`src/core/governance/OperationLogger.ts`). One file per day, stored at `.obsidian/plugins/obsilo-agent/logs/YYYY-MM-DD.jsonl`. Files older than 30 days are automatically deleted.
+Every tool call is logged to a JSONL file via `OperationLogger` (`src/core/governance/OperationLogger.ts`). One file per day, stored at `.obsidian/plugins/vault-operator/logs/YYYY-MM-DD.jsonl`. Files older than 30 days are automatically deleted.
 
 Each entry records:
 

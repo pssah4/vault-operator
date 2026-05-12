@@ -159,7 +159,7 @@ const TOOL_SCHEMA: ToolDefinition = {
     },
 };
 
-const SYSTEM_PROMPT = `You are the memory engine for Obsilo, an Obsidian-side AI agent.
+const SYSTEM_PROMPT = `You are the memory engine for Vault Operator, an Obsidian-side AI agent.
 
 Given a conversation (or a delta of new messages plus a prior summary), produce ONE
 structured tool call that captures everything memory-relevant.

@@ -1,4 +1,4 @@
-# Obsidian Agent (Obsilo) -- Projekt-Kontext
+# Obsidian Agent (Vault Operator) -- Projekt-Kontext
 
 > Projekt-spezifische Anweisungen fuer Claude Code.
 > Globale Arbeitsweise-Patterns stehen in `~/.claude/CLAUDE.md`.
@@ -26,7 +26,7 @@ npm run dev                # Watch-Mode mit Auto-Deploy
 npm run deploy             # Nur Deploy (ohne Build)
 ```
 
-**Deploy-Pfad:** Aus `.env` (PLUGIN_DIR) -- aktuell iCloud: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/NexusOS/.obsidian/plugins/obsilo-agent/`
+**Deploy-Pfad:** Aus `.env` (PLUGIN_DIR) -- aktuell iCloud: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/NexusOS/.obsidian/plugins/vault-operator/`
 
 Build + Deploy nach JEDEM Implementierungsschritt.
 

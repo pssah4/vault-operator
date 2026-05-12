@@ -2,7 +2,7 @@
  * save_conversation -- BA-26 / FEAT-23-01.
  *
  * External MCP clients call this to copy a Chat conversation into
- * Obsilo's ConversationStore + HistoryDB. Conversation appears in
+ * Vault Operator's ConversationStore + HistoryDB. Conversation appears in
  * the matching source-tab of the History sidebar; Memory-extraction
  * triggers via ExtractionQueue when sync-mode resolves to 'auto'.
  *

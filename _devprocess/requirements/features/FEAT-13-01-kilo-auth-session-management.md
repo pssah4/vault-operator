@@ -7,13 +7,13 @@
 
 ## Feature Description
 
-Implementiert den Kilo-spezifischen Device-Authorization-Flow fuer Obsilo inklusive Session-Verwaltung, sicherer Token-Speicherung, optionalem Logout und grundlegender Statuspruefung. Der Flow startet browserbasiert, pollt die Kilo-Endpunkte bis zur Autorisierung und speichert danach den Zugang fuer die weitere Gateway-Nutzung.
+Implementiert den Kilo-spezifischen Device-Authorization-Flow fuer Vault Operator inklusive Session-Verwaltung, sicherer Token-Speicherung, optionalem Logout und grundlegender Statuspruefung. Der Flow startet browserbasiert, pollt die Kilo-Endpunkte bis zur Autorisierung und speichert danach den Zugang fuer die weitere Gateway-Nutzung.
 
 ## Benefits Hypothesis
 
 **Wir glauben dass** ein einfacher browsergestuetzter Login in Kilo
 **Folgende messbare Outcomes liefert:**
-- Nutzer koennen ohne manuelle Provider-Konfiguration ihren Kilo-Zugang in Obsilo aktivieren
+- Nutzer koennen ohne manuelle Provider-Konfiguration ihren Kilo-Zugang in Vault Operator aktivieren
 - Der Zugang bleibt zwischen Sitzungen erhalten und muss nicht wiederholt neu eingerichtet werden
 
 **Wir wissen dass wir erfolgreich sind wenn:**
@@ -23,7 +23,7 @@ Implementiert den Kilo-spezifischen Device-Authorization-Flow fuer Obsilo inklus
 ## User Stories
 
 ### Story 1: Login per Browser starten
-**Als** Obsilo-Nutzer mit Kilo-Account
+**Als** Vault Operator-Nutzer mit Kilo-Account
 **moechte ich** den Kilo-Login per Klick starten
 **um** mein Konto ohne manuelle Token-Kopie zu verbinden
 
@@ -103,7 +103,7 @@ MODERATE ASR #3: Polling-Status fuer UI
 - **Token-Format**: Kilo-Token als Bearer-Token fuer Gateway-Nutzung
 
 ### Open Questions fuer Architekt
-- Eigenes Event-basiertes Service-Objekt wie in Kilo oder einfacherer Promise-basierter Service fuer Obsilo?
+- Eigenes Event-basiertes Service-Objekt wie in Kilo oder einfacherer Promise-basierter Service fuer Vault Operator?
 - Welche User-Metadaten sollen nach erfolgreichem Login gespeichert werden (Email, Display Name, nur Status)?
 
 ---

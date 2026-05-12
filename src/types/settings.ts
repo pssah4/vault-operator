@@ -91,7 +91,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         baseUrl: getDefaultBaseUrlForProvider('anthropic'),
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
         thinkingEnabled: true,
         thinkingBudgetTokens: 10000,
     },
@@ -102,7 +101,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         baseUrl: getDefaultBaseUrlForProvider('anthropic'),
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
         thinkingEnabled: true,
         thinkingBudgetTokens: 10000,
     },
@@ -113,7 +111,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         baseUrl: getDefaultBaseUrlForProvider('anthropic'),
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
         thinkingEnabled: true,
         thinkingBudgetTokens: 5000,
     },
@@ -124,7 +121,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'gpt-4o-mini',
@@ -132,7 +128,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o mini',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'gpt-4.1',
@@ -140,7 +135,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4.1',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     // Ollama (local)
     {
@@ -166,7 +160,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Claude 3.5 Sonnet',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
     },
     {
         name: 'openai/gpt-4o',
@@ -174,7 +167,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'meta-llama/llama-3.2-3b-instruct:free',
@@ -190,7 +182,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Gemini 2.5 Flash',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
     },
     {
         name: 'gemini-2.5-pro',
@@ -198,7 +189,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Gemini 2.5 Pro',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 8192,
     },
     // GitHub Copilot (unofficial API — requires active Copilot subscription)
     {
@@ -207,7 +197,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'GPT-4o (Copilot)',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 16384,
     },
     {
         name: 'claude-sonnet-4',
@@ -215,7 +204,6 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         displayName: 'Claude Sonnet 4 (Copilot)',
         enabled: false,
         isBuiltIn: true,
-        maxTokens: 64000,
     },
 ];
 
@@ -449,6 +437,19 @@ export interface AdvancedApiSettings {
     maxIterations: number;
     /** Maximum sub-agent nesting depth (1 = no grandchildren, 2 = one level of grandchildren) */
     maxSubtaskDepth: number;
+    /**
+     * FEAT-24-02 (ADR-12 amendment): prune old tool_result contents to skeletons
+     * at turn boundaries. Stops the dominant history-growth driver (accumulating
+     * read/search results). Additive to condensing. Default true.
+     */
+    microcompactionEnabled?: boolean;
+    /**
+     * FEAT-24-02: fold the oldest part of the conversation into a running summary
+     * once estimated tokens exceed this % of the context window — earlier and
+     * gentler than full condensing (`condensingThreshold`). Effective only below
+     * `condensingThreshold`. Generous default (50) so short sessions are untouched.
+     */
+    rollingSummaryThreshold?: number;
     /**
      * Telemetry opt-in: persist a 200-char preview of the user's message
      * with each task's telemetry entry (.obsidian-agent/telemetry/tasks.jsonl).
@@ -706,7 +707,11 @@ export interface ObsidianAgentSettings {
     autoAddActiveFileContext: boolean;
     /** Press Enter to send (Shift+Enter for newline). When false, Ctrl/Cmd+Enter sends. */
     sendWithEnter: boolean;
-    /** Inject current date and time into the system prompt */
+    /**
+     * Add the current time-of-day to the system prompt. The calendar date is
+     * always included (daily granularity, KV-cache-safe); this opt-in adds the
+     * exact time, which changes every call and defeats prompt caching. Default false.
+     */
     includeCurrentTimeInContext: boolean;
     /** Display context window usage progress bar in sidebar (restart sidebar to apply) */
     showContextProgress: boolean;
@@ -1075,6 +1080,8 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         powerSteeringFrequency: 0,
         maxIterations: 25,
         maxSubtaskDepth: 2,
+        microcompactionEnabled: true,       // FEAT-24-02
+        rollingSummaryThreshold: 50,        // FEAT-24-02
         telemetryRecordPromptPreview: false, // AUDIT-013 M-2: opt-in
     },
 
@@ -1164,7 +1171,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
 
     autoAddActiveFileContext: true,
     sendWithEnter: true,
-    includeCurrentTimeInContext: true,
+    includeCurrentTimeInContext: false, // ADR-62 amendment: date is always present; time-of-day is opt-in (defeats caching)
     showContextProgress: false,
     rulesToggles: {},
     workflowToggles: {},

@@ -30,9 +30,9 @@ export async function confirmAndWipeAllMemory(
     const ok = await confirmModal(app, {
         title: 'Delete all memory?',
         message:
-            'This permanently removes EVERYTHING Obsilo has stored:\n\n' +
+            'This permanently removes EVERYTHING Vault Operator has stored:\n\n' +
             '· All facts you taught it about yourself\n' +
-            '· Obsilo\'s entire soul (identity, values, anti-patterns, communication style)\n' +
+            '· Vault Operator\'s entire soul (identity, values, anti-patterns, communication style)\n' +
             '· All session summaries from past conversations\n' +
             '· The audit trail (no recovery, no undo)\n' +
             '· The capability snapshot (will rebuild on next plugin reload)\n\n' +

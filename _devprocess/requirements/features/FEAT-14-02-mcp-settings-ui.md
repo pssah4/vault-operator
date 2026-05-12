@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Settings-Tab fuer den MCP Server in den Obsilo Settings. Ermoeglicht Aktivierung,
+Settings-Tab fuer den MCP Server in den Vault Operator Settings. Ermoeglicht Aktivierung,
 Statusanzeige und Claude Desktop Auto-Konfiguration.
 
 ## User Stories

@@ -7,7 +7,7 @@
 
 Die bestehende Website hat eine flache, feature-orientierte Struktur: 13 User-Seiten und 11 Dev-Seiten in einer einzigen Sidebar. Bei 30+ geplanten Seiten wird diese Struktur unuebersichtlich. Die neue Architektur muss Progressive Disclosure umsetzen (Basics -> Intermediate -> Advanced) und zwei getrennte Zielgruppen bedienen (Non-Tech User "Alex" und Curious Engineer "Jordan").
 
-Gleichzeitig muessen die Markdown-Quellen des User Guides als Obsilo-Skill funktionieren (Dual-Use). Das beeinflusst die Granularitaet und Struktur der Seiten.
+Gleichzeitig muessen die Markdown-Quellen des User Guides als Vault Operator-Skill funktionieren (Dual-Use). Das beeinflusst die Granularitaet und Struktur der Seiten.
 
 **Triggering ASR:**
 - ASR-2: Progressive Disclosure in Navigation (FEAT-17-01)
@@ -133,10 +133,10 @@ Die URL-Aenderungen werden durch Redirect-Mappings abgefangen (getting-started.h
 
 **Doku-Skill-Strategie:**
 
-Ein uebergeordneter Skill (`obsilo-guide`) mit Keyword-Trigger-Sets pro Seite:
+Ein uebergeordneter Skill (`vault-operator-guide`) mit Keyword-Trigger-Sets pro Seite:
 ```yaml
-name: obsilo-guide
-description: Answers questions about Obsilo usage, setup, and features
+name: vault-operator-guide
+description: Answers questions about Vault Operator usage, setup, and features
 keywords: [help, how to, setup, configure, getting started, ...]
 sections:
   - file: getting-started.md
@@ -204,7 +204,7 @@ Fuer jeden alten Pfad wird eine minimale HTML-Datei mit `<meta http-equiv="refre
 ```typescript
 // docs/.vitepress/config.ts
 export default defineConfig({
-  title: 'Obsilo',
+  title: 'Vault Operator',
   description: 'Agentic AI for Obsidian',
   locales: {
     root: { label: 'English', lang: 'en' },
@@ -214,7 +214,7 @@ export default defineConfig({
     sidebar: {
       '/guide/': [
         { text: 'Getting Started', items: [...] },
-        { text: 'Working with Obsilo', items: [...] },
+        { text: 'Working with Vault Operator', items: [...] },
         { text: 'Advanced', items: [...] },
         { text: 'Reference', items: [...] },
       ],

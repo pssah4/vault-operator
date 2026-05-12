@@ -36,9 +36,9 @@ Memory-Knoten und Source-Refs werden als URIs persistiert. Das Schema ist **offe
 | Knoten-Typ | URI-Schema | Beispiel | Storage / Adapter |
 |---|---|---|---|
 | Fact | `fact:{id}` | `fact:412` | memory.db.facts (Engine intern) |
-| Vault-Note | `vault://{relative_path}` | `vault://Notes/UniCredit.md` | VaultAdapter (Obsilo) -> knowledge.db.vectors |
-| Vault-Asset (Attachment) | `vault://{relative_path}` | `vault://Attachments/Pitch.pdf` | VaultAdapter (Obsilo), Resolution via parseDocument |
-| Session-Summary | `session://{source}/{id}` (source optional) | `session://obsilo/2026-04-25-a3f2`, oder `session://2026-04-25-a3f2` (Solo-Obsilo) | memory.db.sessions, history.db.history_chunks |
+| Vault-Note | `vault://{relative_path}` | `vault://Notes/UniCredit.md` | VaultAdapter (Vault Operator) -> knowledge.db.vectors |
+| Vault-Asset (Attachment) | `vault://{relative_path}` | `vault://Attachments/Pitch.pdf` | VaultAdapter (Vault Operator), Resolution via parseDocument |
+| Session-Summary | `session://{source}/{id}` (source optional) | `session://obsilo/2026-04-25-a3f2`, oder `session://2026-04-25-a3f2` (Solo-Vault Operator) | memory.db.sessions, history.db.history_chunks |
 | Session-Message-Chunk | `session://{source}/{id}#message-{i}#chunk-{j}` | `session://claude-desktop/abc#message-3#chunk-0` | history.db.history_chunks (FEAT-03-20) |
 | Episode | `episode://{id}` | `episode://817` | memory.db.episodes |
 | Entity | `entity://{name}` | `entity://UniCredit` | virtuell (kein Storage, nur in Edges) |
@@ -53,7 +53,7 @@ Memory-Knoten und Source-Refs werden als URIs persistiert. Das Schema ist **offe
 
 ### Source-Adapter-Registry-Pattern
 
-Engine bietet eine Adapter-Registry, an der Hosts (Obsilo, UCM, andere) Source-Adapter registrieren:
+Engine bietet eine Adapter-Registry, an der Hosts (Vault Operator, UCM, andere) Source-Adapter registrieren:
 
 ```typescript
 interface SourceAdapter {

@@ -8,7 +8,7 @@ parent-ba: BA-19-knowledge-maintenance.md
 related-epics: EPIC-15, EPIC-19, EPIC-03
 ---
 
-# Business Analysis: Karpathy-Wiki-Pattern fuer Obsilo (Ingest, Retrieval, Lint)
+# Business Analysis: Karpathy-Wiki-Pattern fuer Vault Operator (Ingest, Retrieval, Lint)
 
 > **Scope:** MVP
 > **Erstellt:** 2026-05-02
@@ -21,7 +21,7 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 
 ### 1.1 Problem Statement
 
-Obsilo hat mit EPIC-15 (Knowledge Layer), EPIC-19 (Knowledge Maintenance) und EPIC-20 (Graph Intelligence) die technische Foundation fuer Karpathys LLM-Wiki-Pattern bereits gebaut: SQLite-Storage mit Vektoren, Edges, Implicit-Connections, typisierte Ontologie, Freshness-Klassifikation, 4-Stufen-Retrieval-Pipeline mit Reranker, Vault-Health-Check, Knowledge-Ingest-Skill. **Was fehlt sind drei aktive Schichten ueber dieser Foundation, die zusammen die Lebensader eines kompoundierenden Wissensartefakts sind: Ingest mit Bias-Awareness, Retrieval mit Note-Level-Awareness, Lint mit pro-aktiver Aktualitaetspflege.**
+Vault Operator hat mit EPIC-15 (Knowledge Layer), EPIC-19 (Knowledge Maintenance) und EPIC-20 (Graph Intelligence) die technische Foundation fuer Karpathys LLM-Wiki-Pattern bereits gebaut: SQLite-Storage mit Vektoren, Edges, Implicit-Connections, typisierte Ontologie, Freshness-Klassifikation, 4-Stufen-Retrieval-Pipeline mit Reranker, Vault-Health-Check, Knowledge-Ingest-Skill. **Was fehlt sind drei aktive Schichten ueber dieser Foundation, die zusammen die Lebensader eines kompoundierenden Wissensartefakts sind: Ingest mit Bias-Awareness, Retrieval mit Note-Level-Awareness, Lint mit pro-aktiver Aktualitaetspflege.**
 
 **Pain Points entlang der drei Dimensionen:**
 
@@ -86,7 +86,7 @@ Obsilo hat mit EPIC-15 (Knowledge Layer), EPIC-19 (Knowledge Maintenance) und EP
 
 ### 2.1 Background
 
-BA-19 hat das Karpathy-Wiki-Pattern als Leitstern fuer EPIC-19 etabliert und die drei Operationen (Ingest, Lint, Synthese) in Obsilo verankert. Was BA-19 nicht ausgearbeitet hat: **die drei aktiven Schichten ueber der vorhandenen Foundation**. Karpathys index.md hat pro Page einen 1-Zeiler. Obsilo hat heute Per-Chunk-Text in `vectors.text`, aber keine Note-Level-Beschreibung. Diese Luecke macht drei Dinge teurer als noetig:
+BA-19 hat das Karpathy-Wiki-Pattern als Leitstern fuer EPIC-19 etabliert und die drei Operationen (Ingest, Lint, Synthese) in Vault Operator verankert. Was BA-19 nicht ausgearbeitet hat: **die drei aktiven Schichten ueber der vorhandenen Foundation**. Karpathys index.md hat pro Page einen 1-Zeiler. Vault Operator hat heute Per-Chunk-Text in `vectors.text`, aber keine Note-Level-Beschreibung. Diese Luecke macht drei Dinge teurer als noetig:
 
 - Retrieval-Output: search_vault liefert Chunk-Snippets, kein Note-Level-Kontext.
 - Taxonomie-Pflege: jeder neue Themen-Vorschlag braucht LLM-Suche statt SQL-Lookup.
@@ -95,10 +95,10 @@ BA-19 hat das Karpathy-Wiki-Pattern als Leitstern fuer EPIC-19 etabliert und die
 **Erkenntnisse aus Karpathy-Adoptionen (Mai 2026):**
 
 - **swarmvault** macht das Karpathy-Pattern voll: Nodes tragen Freshness, Confidence, Community-Membership; `lint --deep --web` reichert Findings mit externer Evidenz an; Activity-triggered Updates via Watch-Mode, Git-Hooks, periodische Schedules. Token-Budget-Cap per Compile-Pass.
-- **PENgram** kritisiert Karpathys untypisierte Wikilinks und loest das mit 24 typisierten Relationen plus Confidence-Labels (EXTRACTED, INFERRED, AMBIGUOUS) auf jeder Edge. Obsilo hat hier bereits einen Vorsprung durch das edges-Schema.
+- **PENgram** kritisiert Karpathys untypisierte Wikilinks und loest das mit 24 typisierten Relationen plus Confidence-Labels (EXTRACTED, INFERRED, AMBIGUOUS) auf jeder Edge. Vault Operator hat hier bereits einen Vorsprung durch das edges-Schema.
 - **OwlerLite** loest die Token-Explosion bei Web-Recherche durch user-definierte Scopes plus Semantic Change Detection: re-indexiert nur bei meaningful updates statt blind zu pollen.
 - **Atlan** definiert vier Freshness-Dimensionen (Content Age, Embedding Lag, Stale Retrieval Rate, Coverage Drift) plus Composite-Score 0-100 mit Alert-Schwellwerten.
-- **Echo-Chamber-Forschung** liefert Diversity-Metriken (separation, variety, disparity, Harrison/Klein), die noch keine Karpathy-Adoption explizit nutzt. **Hier ist Obsilo-Innovationsspielraum.**
+- **Echo-Chamber-Forschung** liefert Diversity-Metriken (separation, variety, disparity, Harrison/Klein), die noch keine Karpathy-Adoption explizit nutzt. **Hier ist Vault Operator-Innovationsspielraum.**
 
 Sebastian pflegt heute manuell ein Frontmatter-Schema mit "Zusammenfassung" (1 Satz, 25 Worte, deutsch), "tags", "Themen", "Konzepte". Der Skill-Aufruf dafuer existiert als manueller Workflow. Skalierung ueber den Single-User-Use-Case scheitert aber an der Kadenz: 1.500 existierende Notes plus 5-10 neue pro Tag erzeugen Backlog statt Pflege. Beim Ingest neuer Artikel scheitert es an der Lese-Zeit: zu viele Quellen, zu wenig Stunden, aber automatischer Ingest ohne Bias-Schutz produziert Echo-Chamber.
 
@@ -238,8 +238,8 @@ Alle Findings landen im bestehenden Vault-Health-Modal mit kontext-spezifischen 
   - N10: Bias-Awareness als Default-on Sicherheitsnetz
 
 **P3: Neuer User mit kleinem Vault**
-- Rolle: Erstausstieg in Obsilo
-- Goal: Erleben, dass Obsilo den Vault als Wissenssystem versteht
+- Rolle: Erstausstieg in Vault Operator
+- Goal: Erleben, dass Vault Operator den Vault als Wissenssystem versteht
 - Pain: leerer Vault, kein Mehrwert sichtbar
 - Top-Needs:
   - N11: Erste Notes werden sofort eingeordnet, nicht ignoriert
@@ -289,7 +289,7 @@ Alle Findings landen im bestehenden Vault-Health-Modal mit kontext-spezifischen 
 ### 4.3 Jobs to be Done
 
 **P1 Power-User (Retrieval):**
-- "Wenn ich eine Note erstelle, will ich, dass Obsilo sie automatisch einordnet, damit ich den Pflege-Schritt einsparen kann."
+- "Wenn ich eine Note erstelle, will ich, dass Vault Operator sie automatisch einordnet, damit ich den Pflege-Schritt einsparen kann."
 - "Wenn ich eine bestehende Note bearbeite, will ich, dass meine bisherige Pflege nicht zerstoert wird, damit ich dem System trauen kann."
 - "Wenn ich nach einem Thema frage, will ich, dass der Agent die richtigen existierenden Themen-Notes findet, damit transitives Retrieval funktioniert."
 
@@ -375,7 +375,7 @@ Alle Findings landen im bestehenden Vault-Health-Modal mit kontext-spezifischen 
 
 ### 6.1 Nordstern
 
-Der Vault wird zum kompoundierenden Wissens-Artefakt, ohne dass der User dafuer Pflege-Zeit aufwendet UND ohne dass das System ihn in einer Echo-Chamber gefangen haelt. Karpathys Versprechen ("LLMs don't tire of bookkeeping") wird auf Obsilo-Niveau eingeloest, mit Bias-Awareness und Aktualitaets-Pflege als Innovations-Layer obendrauf.
+Der Vault wird zum kompoundierenden Wissens-Artefakt, ohne dass der User dafuer Pflege-Zeit aufwendet UND ohne dass das System ihn in einer Echo-Chamber gefangen haelt. Karpathys Versprechen ("LLMs don't tire of bookkeeping") wird auf Vault Operator-Niveau eingeloest, mit Bias-Awareness und Aktualitaets-Pflege als Innovations-Layer obendrauf.
 
 ### 6.2 Wow
 

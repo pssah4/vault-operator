@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Bindet Kilo Gateway als Chat-Provider fuer Obsilo an. Der Provider nutzt die OpenAI-kompatible Gateway-API fuer Streaming, Tool Calling und Modellwechsel. Im Gegensatz zu GitHub Copilot ist kein proprietaerer Chat-Endpoint mit Spezialformat notwendig, sondern ein Gateway-Zugang mit Kilo-spezifischen Headern und Session-Kontext.
+Bindet Kilo Gateway als Chat-Provider fuer Vault Operator an. Der Provider nutzt die OpenAI-kompatible Gateway-API fuer Streaming, Tool Calling und Modellwechsel. Im Gegensatz zu GitHub Copilot ist kein proprietaerer Chat-Endpoint mit Spezialformat notwendig, sondern ein Gateway-Zugang mit Kilo-spezifischen Headern und Session-Kontext.
 
 ## Benefits Hypothesis
 

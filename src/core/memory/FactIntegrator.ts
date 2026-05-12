@@ -58,7 +58,7 @@ export interface IntegrationInput {
     mentions: readonly MentionCandidate[];
     sessionId?: string;
     threadId?: string;
-    /** Default 'default' (Obsilo single-user). UCM hosts pass per-profile keys. */
+    /** Default 'default' (Vault Operator single-user). UCM hosts pass per-profile keys. */
     profileId?: string;
     sourceInterface?: string;
     sourceUri?: string;

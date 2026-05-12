@@ -16,7 +16,7 @@ export class McpTab {
         const introText = intro.createDiv({ cls: 'agent-settings-info-text' });
         introText.createEl('strong', { text: 'Connections' });
 
-        introText.createDiv({ text: 'Connect Obsilo to AI assistants like Claude, or extend Obsilo with external tool servers. All connections use the open MCP standard.' });
+        introText.createDiv({ text: 'Connect Vault Operator to AI assistants like Claude, or extend Vault Operator with external tool servers. All connections use the open MCP standard.' });
 
         this.buildConnectorSection(containerEl);
         this.buildExternalServersSection(containerEl);
@@ -235,7 +235,7 @@ export class McpTab {
                 troubleshoot.appendText('Not working? Make sure Obsidian is running and the toggle above is enabled. The connector URL does not change between restarts. ');
                 troubleshoot.createEl('a', {
                     text: 'Troubleshooting guide',
-                    href: 'https://obsilo.dev/remote-access.html#troubleshooting',
+                    href: 'https://pssah4.github.io/vault-operator/guides/connectors',
                 });
 
                 // Redeploy + Reset
@@ -427,7 +427,7 @@ export class McpTab {
             try { config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* new file */ }
 
             const servers = (config['mcpServers'] ?? {}) as Record<string, unknown>;
-            servers['Obsilo'] = { command: this.findNodePath(), args: [this.getWorkerPath()] };
+            servers['Vault Operator'] = { command: this.findNodePath(), args: [this.getWorkerPath()] };
             config['mcpServers'] = servers;
 
             fs.mkdirSync(configDir, { recursive: true });

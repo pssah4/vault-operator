@@ -1,6 +1,6 @@
 /**
  * MemoryV2UpgradeModal -- one-time announcement after upgrading from a
- * v1-memory install to a v2-capable Obsilo build.
+ * v1-memory install to a v2-capable Vault Operator build.
  *
  * Triggered from `main.ts` ON FIRST PLUGIN LOAD AFTER UPDATE when the
  * detector finds legacy `memory/<name>.md` files and no v2 facts in
@@ -45,7 +45,7 @@ class MemoryV2UpgradeModalImpl extends Modal {
         contentEl.empty();
         contentEl.addClass('agent-memory-v2-upgrade-modal');
 
-        contentEl.createEl('h2', { text: 'Obsilo upgrade' });
+        contentEl.createEl('h2', { text: 'Vault Operator upgrade' });
 
         const intro = contentEl.createEl('p');
         intro.appendText(

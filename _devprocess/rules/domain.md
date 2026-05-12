@@ -1,4 +1,4 @@
-# Fachliche Regeln Obsilo
+# Fachliche Regeln Vault Operator
 
 > Max 100 Zeilen. Nur laden wenn Fachlogik betroffen.
 
@@ -7,7 +7,7 @@
 | Begriff             | Bedeutung                                                                            |
 |---------------------|--------------------------------------------------------------------------------------|
 | Vault               | Obsidian-Wurzelverzeichnis mit Markdown-Notizen und `.obsidian/` Konfiguration       |
-| Plugin              | Obsidian-Erweiterung. Obsilo ist eines davon, andere koennen nebenan laufen          |
+| Plugin              | Obsidian-Erweiterung. Vault Operator ist eines davon, andere koennen nebenan laufen          |
 | Tool                | Ausfuehrbare Funktion, die der Agent aufruft. Built-in, Custom, Plugin, oder MCP     |
 | Tool Group          | Logische Gruppe von Tools (read, vault, edit, agent, skill). Per Mode aktivierbar    |
 | Mode                | Konfigurations-Set (Tools plus System-Prompt). Bsp: ask, code, architect, debug      |

@@ -37,7 +37,7 @@ Diese Edges werden als `mentions_*_provisional` (Edge-Type-Suffix) sofort persis
 
 **Bypass-Pfad fuer expliziten Save-Trigger:** User-Trigger (Star-Button "Save now", `mark_conversation_for_memory`-Tool, `/save now`-Command) ueberspringt den 60s-Throttle und triggert sofort eine Single-Call-Extraction des aktuellen Delta-Windows. Bypass setzt einen Flag im ExtractionQueue-Item, der den Throttle-Check umgeht.
 
-**Episode-Living-Document-Verhalten (B2-Beschluss 2026-04-26):** Eine Episode pro Conversation, die mit jedem Re-Extract erweitert wird (mehr tool_sequence-Eintraege, Outcome aktualisiert). ADR-18 Episode-Schema bekommt `last_updated_at`-Spalte, Updates sind idempotent. Recipe-Promotion (ADR-58) sieht eine konsolidierte Episode statt vieler Fragmente. Recipes bleiben Obsilo-spezifisch (B3-Beschluss), nicht in Engine-Public-API exportiert.
+**Episode-Living-Document-Verhalten (B2-Beschluss 2026-04-26):** Eine Episode pro Conversation, die mit jedem Re-Extract erweitert wird (mehr tool_sequence-Eintraege, Outcome aktualisiert). ADR-18 Episode-Schema bekommt `last_updated_at`-Spalte, Updates sind idempotent. Recipe-Promotion (ADR-58) sieht eine konsolidierte Episode statt vieler Fragmente. Recipes bleiben Vault Operator-spezifisch (B3-Beschluss), nicht in Engine-Public-API exportiert.
 
 **Edge-Konzept-Layer (E1, Supermemory-Differenzierung):** Single-Call-Output gibt pro Fact-Candidate eine semantische `relation`-Klassifikation zurueck (`new` | `update` | `extend` | `derive`), die FactIntegrator nutzt:
 
@@ -91,7 +91,7 @@ Parallel als Vault-Side-Quick-Win: Combined Note-Index-Pass. Heute (vermutlich) 
 
 ### Story 2: Konflikte werden nur dann analysiert wenn relevant (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass nur echte Konflikte LLM-Aufwand kosten, nicht jede Aehnlichkeit
 **so that** Memory-Update schnell bleibt
 
@@ -109,19 +109,19 @@ Parallel als Vault-Side-Quick-Win: Combined Note-Index-Pass. Heute (vermutlich) 
 
 ### Story 5: Erwaehnungen aller Quellen werden erkannt (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass Verweise auf Vault-Notes, Attachments, lokale Dateien und Web-URLs alle als Bridge-Edges erfasst werden
 **so that** Hybrid-Retrieval Cross-Source-Hits liefern kann
 
 ### Story 6: Sofort-Speichern auf explizite Geste (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** mit einem Klick oder Voice-Trigger eine Konversation sofort in Memory uebernehmen
 **so that** der 60s-Throttle nicht im Weg steht, wenn ich es eilig habe
 
 ### Story 7: Topic-Wechsel mid-conversation wird erkannt (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass das Plugin merkt, wenn ich das Thema wechsle, und Memory-Kontext entsprechend nachzieht
 **so that** der Agent nicht mit veralteten Topical-Facts arbeitet
 
