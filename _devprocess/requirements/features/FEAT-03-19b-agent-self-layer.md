@@ -21,13 +21,13 @@ related:
 
 ## Feature Description
 
-Der Agent (Obsilo) bekommt einen eigenen, durchsuchbaren Memory-Layer fuer **Selbstverstaendnis, Werte, Anti-Patterns und Capabilities**. Aktuell hat Obsilo zwei verstreute Quellen: legacy `soul.md` (file-based, nicht v2-integriert) und `communication_styles`-Tabelle (zu kurz fuer Werte/Anti-Patterns). Beide werden durch eine konsolidierte Konvention auf der bestehenden `facts`-Tabelle ersetzt: reservierter `profile_id='_obsilo'`. Damit wandert die Agent-Self-Information in den gleichen Read-/Write-/Aging-Pfad wie User-Facts, ohne neue Tabelle.
+Der Agent (Vault Operator) bekommt einen eigenen, durchsuchbaren Memory-Layer fuer **Selbstverstaendnis, Werte, Anti-Patterns und Capabilities**. Aktuell hat Vault Operator zwei verstreute Quellen: legacy `soul.md` (file-based, nicht v2-integriert) und `communication_styles`-Tabelle (zu kurz fuer Werte/Anti-Patterns). Beide werden durch eine konsolidierte Konvention auf der bestehenden `facts`-Tabelle ersetzt: reservierter `profile_id='_obsilo'`. Damit wandert die Agent-Self-Information in den gleichen Read-/Write-/Aging-Pfad wie User-Facts, ohne neue Tabelle.
 
 Parallel adressiert das Feature die **Self-Awareness-Luecke**, die im Live-Test 2026-04-28 sichtbar wurde: der Agent halluzinierte Features (Star-Button, automatische Extraction-Logik), weil er weder einen verlaesslichen Capability-Snapshot noch ein Tool zum Code-Introspect hatte. Die Loesung ist **Layered Self-Memory**:
 
 | Layer | Inhalt | Quelle | Speicher |
 |-------|--------|--------|----------|
-| L1 Static Identity | Name=Obsilo, Type=AI Agent, Host=Obsidian | hardcoded | Bundle |
+| L1 Static Identity | Name=Vault Operator, Type=AI Agent, Host=Obsidian | hardcoded | Bundle |
 | L2 Curated Soul | Werte, Anti-Patterns, Persoenlichkeit, Communication-Style | User + Agent (editierbar) | facts(profile_id='_obsilo') |
 | L3 Capabilities Snapshot | "Ich kann mark_for_memory; Star ist im Header" | CapabilityManifest beim Plugin-Onload | facts(profile_id='_obsilo', topics=['capability']) |
 | L4 Code/Settings Awareness | Aktueller Settings-State, Tool-Inventar, Module-Kurzbeschreibung | runtime-introspection | nicht persistiert |
@@ -43,7 +43,7 @@ Parallel adressiert das Feature die **Self-Awareness-Luecke**, die im Live-Test 
 
 ## Benefits Hypothesis
 
-**We believe that** ein konsolidierter Agent-Self-Layer mit Capability-Sync die Halluzinationsrate des Agents bezueglich eigener Features auf null senkt und gleichzeitig dem User erlaubt, Obsilo Werte und Anti-Patterns zu setzen, die das Verhalten ueber Conversations hinweg pragen.
+**We believe that** ein konsolidierter Agent-Self-Layer mit Capability-Sync die Halluzinationsrate des Agents bezueglich eigener Features auf null senkt und gleichzeitig dem User erlaubt, Vault Operator Werte und Anti-Patterns zu setzen, die das Verhalten ueber Conversations hinweg pragen.
 
 **Delivers the following measurable outcomes:**
 
@@ -94,7 +94,7 @@ Parallel adressiert das Feature die **Self-Awareness-Luecke**, die im Live-Test 
 
 ### Settings-UI
 
-18. `Settings -> Memory -> Obsilo's soul` neuer Tab/Section.
+18. `Settings -> Memory -> Vault Operator's soul` neuer Tab/Section.
 19. Liste aller L2-Facts mit Add/Edit/Deprecate per Eintrag.
 20. Migration-Button: importiert legacy soul.md einmalig.
 21. Read-only-Inspektion der L3-Capabilities (zur Diagnose; "ich sehe was der Agent ueber sich weiss").

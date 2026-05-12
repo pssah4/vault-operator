@@ -82,7 +82,7 @@ same tick finds the promise already on `plugin`.
 
 Manual BRAT-update flow:
 
-1. Install Obsilo Beta-N, open chat sidebar, verify normal render.
+1. Install Vault Operator Beta-N, open chat sidebar, verify normal render.
 2. Publish Beta-N+1 on obsilo-dev (tag only), wait for BRAT to fetch.
 3. Sidebar should re-render WITHOUT a full Obsidian reload. Console
    clean of the two TypeError stack traces.

@@ -62,13 +62,13 @@ Cut-over via Config-Flag `memory.engineVersion: 'v1' | 'v2'`. Default startet au
 
 ### Story 1: Conversation startet schnell mit relevantem Kontext (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass das Plugin in unter einer Sekunde anfaengt zu antworten
 **so that** sich Conversations natuerlich anfuehlen
 
 ### Story 2: Memory passt sich an das Gespraechsthema an (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass bei einer Coding-Frage Coding-Wissen verfuegbar ist und nicht persoenliches
 **so that** Token-Budget und Aufmerksamkeit auf das Relevante gerichtet sind
 

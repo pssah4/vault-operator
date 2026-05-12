@@ -9,7 +9,7 @@
 
 FUER Obsidian-Nutzer mit Claude-Abonnement (Pro/Max/Team/Enterprise)
 DIE ihren Vault nahtlos in Claude-Workflows einbinden wollen ohne eigene API-Keys zu verwalten
-IST DER Obsilo MCP Connector
+IST DER Vault Operator MCP Connector
 EIN Intelligence-Backend fuer Claude
 DAS Vault-Operationen (Suche, Lesen, Schreiben, Dokument-Erstellung) direkt aus Claude heraus ermoeglicht
 IM GEGENSATZ ZU bestehenden Community MCP-Servern die nur CRUD-Operationen bieten
@@ -24,7 +24,7 @@ UNSERE LOESUNG bietet Agent-Intelligence (semantische Suche, Memory, Plugin Skil
 
 ## Leading Indicators (Fruehindikatoren)
 
-- **Connector-Aktivierungsrate**: Anteil der Obsilo-Installationen mit aktiviertem MCP Server (Ziel: >30%)
+- **Connector-Aktivierungsrate**: Anteil der Vault Operator-Installationen mit aktiviertem MCP Server (Ziel: >30%)
 - **Tool-Call-Verteilung**: Anteil Read vs. Write vs. Intelligence Tools (zeigt Nutzungstiefe)
 - **Retention nach 7 Tagen**: Connector-User die nach Erstaktivierung weiterhin aktiv sind
 - **Error-Rate**: Fehlgeschlagene Tool Calls / Gesamt Tool Calls (Ziel: <5%)
@@ -53,11 +53,11 @@ UNSERE LOESUNG bietet Agent-Intelligence (semantische Suche, Memory, Plugin Skil
 
 ### FEAT-14-10: Sandbox Exposure via MCP
 
-**Kontext:** Obsilo hat eine isolierte Sandbox (Process/iframe) mit Vault-APIs (read, write, list) und CDN-HTTP (esm.sh, unpkg). Externe Clients (Claude Code) haben eigene Code-Execution, aber NICHT Vault-scoped mit Security-Garantien.
+**Kontext:** Vault Operator hat eine isolierte Sandbox (Process/iframe) mit Vault-APIs (read, write, list) und CDN-HTTP (esm.sh, unpkg). Externe Clients (Claude Code) haben eigene Code-Execution, aber NICHT Vault-scoped mit Security-Garantien.
 
 **Was exponiert werden soll:**
-- `evaluate_expression` als MCP Tool -- externer Client sendet TypeScript/JS, Obsilo fuehrt es sicher in der Sandbox aus
-- Security Boundary bleibt in Obsilo: Pfad-Validierung, Rate-Limiting (10 Writes/min, 5 Requests/min), .obsidian-Blockade, AstValidator
+- `evaluate_expression` als MCP Tool -- externer Client sendet TypeScript/JS, Vault Operator fuehrt es sicher in der Sandbox aus
+- Security Boundary bleibt in Vault Operator: Pfad-Validierung, Rate-Limiting (10 Writes/min, 5 Requests/min), .obsidian-Blockade, AstValidator
 - Custom Tools (`custom_*`) als MCP Tools -- DynamicToolFactory-registrierte Tools werden via MCP aufrufbar
 - NPM-Dependency-Bundling via EsbuildWasmManager bleibt server-seitig
 
@@ -66,7 +66,7 @@ UNSERE LOESUNG bietet Agent-Intelligence (semantische Suche, Memory, Plugin Skil
 - Die Sandbox bietet atomare Vault-Batch-Ops die ein externer Client nicht replizieren kann
 - Security: Externer Client muesste Vault-Pfade nicht selbst validieren
 
-**Architektur-Implikation:** Im Connector-Modus sendet der externe Client Code als String, Obsilo validiert (AstValidator), kompiliert (esbuild falls noetig) und fuehrt in der Sandbox aus. Result zurueck via MCP Response.
+**Architektur-Implikation:** Im Connector-Modus sendet der externe Client Code als String, Vault Operator validiert (AstValidator), kompiliert (esbuild falls noetig) und fuehrt in der Sandbox aus. Result zurueck via MCP Response.
 
 ### FEAT-14-11: Memory Transparency (Agent vs. Human)
 
@@ -79,7 +79,7 @@ UNSERE LOESUNG bietet Agent-Intelligence (semantische Suche, Memory, Plugin Skil
 - Learnings aus Agent-Aktionen sollen genauso gelernt werden wie aus Human-Aktionen (transparent)
 
 **Warum relevant:**
-- Obsilo soll egal sein ob Mensch oder Agent -- aber fuer Audit und Debugging muss die Quelle nachvollziehbar sein
+- Vault Operator soll egal sein ob Mensch oder Agent -- aber fuer Audit und Debugging muss die Quelle nachvollziehbar sein
 - Verhindert unbeabsichtigtes Memory-Poisoning durch externe Agents
 - Ermoeglicht spaetere Analyse: "Welche Learnings kamen aus Standalone vs. Connector?"
 

@@ -6,10 +6,10 @@
 
 ## Epic Hypothesis Statement
 
-FUER Obsilo-Nutzer mit bestehendem Kilo-Zugang oder Bedarf an einem zentralen Gateway fuer viele Modelle
+FUER Vault Operator-Nutzer mit bestehendem Kilo-Zugang oder Bedarf an einem zentralen Gateway fuer viele Modelle
 DIE ohne separate Provider-Setups auf mehrere frontier Modelle, Organisationsrichtlinien und Gateway-Routing zugreifen moechten
 IST DIE Kilo Gateway Integration
-EIN neuer Gateway-basierter LLM Provider innerhalb der bestehenden Obsilo Provider-Architektur
+EIN neuer Gateway-basierter LLM Provider innerhalb der bestehenden Vault Operator Provider-Architektur
 DER zentralen Modellzugang, Device Login, Organisationskontext und dynamische Modellverwaltung ueber eine OpenAI-kompatible API bietet
 IM GEGENSATZ ZU direkten BYOK-Providern mit jeweils eigener Konfiguration
 UNSERE LOESUNG verbindet einen einmaligen Kilo-Login mit dynamischem Modellzugang und optionalem Org-Kontext in einer einheitlichen UX
@@ -17,7 +17,7 @@ UNSERE LOESUNG verbindet einen einmaligen Kilo-Login mit dynamischem Modellzugan
 ## Business Outcomes (messbar)
 
 1. **Kilo-Aktivierung**: Kilo-Auth-Erfolgsrate erreicht >95% innerhalb der ersten 2 Wochen nach Launch
-2. **Modell-Abdeckung**: 100% der vom Kilo Gateway gelieferten Modelle sind in Obsilo auswaehlbar oder als Fallback manuell nutzbar
+2. **Modell-Abdeckung**: 100% der vom Kilo Gateway gelieferten Modelle sind in Vault Operator auswaehlbar oder als Fallback manuell nutzbar
 3. **Team-Nutzbarkeit**: >90% der Team-/Enterprise-Nutzer schliessen die Organisationsauswahl erfolgreich ab
 4. **Null-Regression**: 0 neue Bugs in bestehenden Providern und Embedding-Pfaden nach Einfuehrung
 
@@ -49,10 +49,10 @@ UNSERE LOESUNG verbindet einen einmaligen Kilo-Login mit dynamischem Modellzugan
 
 ## Explizit Out-of-Scope
 
-- **Kilo Dashboard Management**: Keine Verwaltung von BYOK-Keys, Billing oder Analytics in Obsilo
+- **Kilo Dashboard Management**: Keine Verwaltung von BYOK-Keys, Billing oder Analytics in Vault Operator
 - **Automatisches Fallback auf andere Provider**: Kein stilles Umschalten bei Kilo-Fehlern
 - **Vollautomatische anonyme Free-Model-Nutzung**: separate Produktentscheidung erforderlich
-- **Nicht-LLM Kilo Plattformfeatures**: Keine Team-Administration, Notifications oder Plattform-UI in Obsilo
+- **Nicht-LLM Kilo Plattformfeatures**: Keine Team-Administration, Notifications oder Plattform-UI in Vault Operator
 - **Komplette Kilo-Modus-Orchestrierung**: Nur optionale `kilo/auto`-Hints, keine tiefe Kilo-spezifische Workflow-Abbildung
 
 ## Dependencies & Risks

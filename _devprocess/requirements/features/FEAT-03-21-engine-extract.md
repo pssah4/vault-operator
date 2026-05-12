@@ -20,13 +20,13 @@ related:
 
 ## Feature Description
 
-Extraktion der seit Phase 1 designed Memory-Engine als wiederverwendbares Package `@obsilo/memory-engine`. Public-API frozen: FactStore, EdgeStore, StyleStore, HistoryStore, HistoryIndexer, SearchHistoryService, ContextComposer, FactExtractor, FactIntegrator, AgingService, PendingReviewService, **InferenceService** (FEAT-03-24: runInferencePass, findPatternCandidates), **VaultMemorySourceService** (FEAT-03-25: dirty-tracking + re-extract), UnifiedGraphService, EmbeddingService, RRF-Helper, UriResolver, AdapterRegistry, SourceAdapter-Interface, **MigrationService** (dumpAll, restoreAll, validateTarget, lockForMigration, recoverPendingMigration). Plus **User-Profile-View** (E9-Empfehlung): `factStore.getUserProfile()` als aggregierte View. Adapter-Interface fuer Knowledge-DB (Obsilo-spezifisch, optional registrierbar). Konfig-Abstraktion: drei DB-Pfade (memory.db, knowledge.db [optional], history.db), Embedding-Provider, LLM-Provider, Source-Interface-Default-Name werden via Constructor injiziert.
+Extraktion der seit Phase 1 designed Memory-Engine als wiederverwendbares Package `@obsilo/memory-engine`. Public-API frozen: FactStore, EdgeStore, StyleStore, HistoryStore, HistoryIndexer, SearchHistoryService, ContextComposer, FactExtractor, FactIntegrator, AgingService, PendingReviewService, **InferenceService** (FEAT-03-24: runInferencePass, findPatternCandidates), **VaultMemorySourceService** (FEAT-03-25: dirty-tracking + re-extract), UnifiedGraphService, EmbeddingService, RRF-Helper, UriResolver, AdapterRegistry, SourceAdapter-Interface, **MigrationService** (dumpAll, restoreAll, validateTarget, lockForMigration, recoverPendingMigration). Plus **User-Profile-View** (E9-Empfehlung): `factStore.getUserProfile()` als aggregierte View. Adapter-Interface fuer Knowledge-DB (Vault Operator-spezifisch, optional registrierbar). Konfig-Abstraktion: drei DB-Pfade (memory.db, knowledge.db [optional], history.db), Embedding-Provider, LLM-Provider, Source-Interface-Default-Name werden via Constructor injiziert.
 
-**Engine-Hosting-Neutralitaet:** Engine kennt keinen Host. Sie laeuft identisch in Obsilo-Plugin-Worker (Plugin-Renderer-Prozess, always-on via Cloudflare-Relay) und in Standalone-Worker (separater Node-Service-Prozess). Beide sind gleichwertige UCM-Worker, kein Fallback-Verhaeltnis. Gleiche Stores, gleiche API, gleiche MCP-Tools. Source-Interface-Tagging entscheidet ueber Provenance, Adapter-Registry entscheidet ueber Source-Resolution.
+**Engine-Hosting-Neutralitaet:** Engine kennt keinen Host. Sie laeuft identisch in Vault Operator-Plugin-Worker (Plugin-Renderer-Prozess, always-on via Cloudflare-Relay) und in Standalone-Worker (separater Node-Service-Prozess). Beide sind gleichwertige UCM-Worker, kein Fallback-Verhaeltnis. Gleiche Stores, gleiche API, gleiche MCP-Tools. Source-Interface-Tagging entscheidet ueber Provenance, Adapter-Registry entscheidet ueber Source-Resolution.
 
 Vorbedingung fuer UCM-Bau (siehe BA-UNIFIED-CHAT-MEMORY-V2 Section 7.5). UCM-MVP startet fruehestens nach diesem Feature-Release plus 2 Wochen produktivem Use auf Sebastians Vault.
 
-Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine User-sichtbaren Aenderungen, aber Code-Organisation wird substantiell aufgeraeumt.
+Vault Operator selbst importiert die Engine post-extract aus dem internen Package. Keine User-sichtbaren Aenderungen, aber Code-Organisation wird substantiell aufgeraeumt.
 
 ## Benefits Hypothesis
 
@@ -41,7 +41,7 @@ Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine
 **We know we are successful when:**
 
 - Engine compiliert als standalone Package
-- Obsilo nutzt Engine via Package-Import, keine internen Pfade mehr
+- Vault Operator nutzt Engine via Package-Import, keine internen Pfade mehr
 - Alle Tests gruen
 - API-Doc dokumentiert jeden Public-Symbol
 - UCM kann theoretisch importieren (wird im UCM-Repo verifiziert)
@@ -52,7 +52,7 @@ Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine
 
 **As a** UCM-Builder (Sebastian)
 **I want to** die Memory-Engine als npm-Package importieren
-**so that** UCM nicht von Obsilo's Plugin-Kontext abhaengt
+**so that** UCM nicht von Vault Operator's Plugin-Kontext abhaengt
 
 ### Story 2: Engine-API ist dokumentiert (Functional Job)
 
@@ -60,9 +60,9 @@ Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine
 **I want to** klare API-Doku mit Beispielen
 **so that** ich Engine-Konfiguration ohne Source-Code-Lesen verstehe
 
-### Story 3: Obsilo wird durch Extract nicht instabiler (Emotional Job)
+### Story 3: Vault Operator wird durch Extract nicht instabiler (Emotional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass mein Memory-System nach dem Extract gleich funktioniert
 **so that** der UCM-Foundation-Schritt fuer mich unsichtbar ist
 
@@ -73,7 +73,7 @@ Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine
 | ID | Criterion | Target | Measurement |
 |----|-----------|--------|-------------|
 | SC-01 | Engine ist als Package extrahierbar | npm pack laeuft, alle Tests gruen | CI |
-| SC-02 | Obsilo nutzt extrahierte Engine | keine internen Pfade auf src/core/memory/v2/* in Obsilo-Code | grep |
+| SC-02 | Vault Operator nutzt extrahierte Engine | keine internen Pfade auf src/core/memory/v2/* in Vault Operator-Code | grep |
 | SC-03 | Engine hat dokumentierte Public-API | jeder Public-Symbol mit JSDoc + Beispiel | Lint |
 | SC-04 | UCM kann theoretisch importieren | Smoke-Test in separatem Test-Projekt | Test |
 | SC-05 | Memory-Verhalten bleibt unveraendert nach Extract | Eval-Test-Set wie vor Extract | Regression-Test |
@@ -94,7 +94,7 @@ Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine
 
 ### Scalability
 
-- **Multi-DB-Konfiguration:** Engine kann mit beliebigen DB-Pfaden konfiguriert werden (UCM-Native, UCM-Sidecar, Obsilo)
+- **Multi-DB-Konfiguration:** Engine kann mit beliebigen DB-Pfaden konfiguriert werden (UCM-Native, UCM-Sidecar, Vault Operator)
 
 ### Availability
 
@@ -114,7 +114,7 @@ Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine
 
 **CRITICAL ASR #2:** Adapter-Interface fuer Knowledge-DB ist klar definiert und ohne Vault-Spezifika.
 
-- **Why ASR:** UCM-Native braucht keinen Knowledge-Adapter, UCM-Mit-Obsilo-Backend nutzt Obsilos Adapter
+- **Why ASR:** UCM-Native braucht keinen Knowledge-Adapter, UCM-Mit-Vault Operator-Backend nutzt Vault Operators Adapter
 - **Impact:** Interface-Definition, Adapter-Lifecycle
 - **Quality Attribute:** Modularity
 
@@ -141,7 +141,7 @@ Obsilo selbst importiert die Engine post-extract aus dem internen Package. Keine
 - [ ] Public-API-Exports (Index-Datei) frozen
 - [ ] Adapter-Interface fuer Knowledge-DB
 - [ ] Konfig-Abstraktion (DB-Pfad, Embedding-Provider, LLM-Provider, Source-Interface)
-- [ ] Obsilo-Code-Refactor: nutzt Engine als Package
+- [ ] Vault Operator-Code-Refactor: nutzt Engine als Package
 - [ ] Smoke-Test in separatem Test-Projekt
 
 ### Quality

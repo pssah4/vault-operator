@@ -162,7 +162,7 @@ class SandboxBridge {
 
 ### 3.1 SKILL.md Format
 
-**Speicherort**: `.obsidian/plugins/obsilo-agent/skills/<skill-name>/SKILL.md`
+**Speicherort**: `.obsidian/plugins/vault-operator/skills/<skill-name>/SKILL.md`
 
 ```markdown
 ---
@@ -246,7 +246,7 @@ DynamicToolFactory registriert Tool in ToolRegistry
 
 ```typescript
 // Modul-Source den der Agent schreibt
-// .obsidian/plugins/obsilo-agent/dynamic-tools/custom_csv_converter.ts
+// .obsidian/plugins/vault-operator/dynamic-tools/custom_csv_converter.ts
 
 export const definition = {
   name: 'custom_csv_converter',

@@ -1,6 +1,6 @@
 ---
 id: BA-26
-title: Cross-Surface AI Workflow via Obsilo Remote MCP
+title: Cross-Surface AI Workflow via Vault Operator Remote MCP
 date: 2026-05-03
 scope: PoC
 status: Validated (PoC implemented, see Section 12 Implementation Mapping)
@@ -8,30 +8,30 @@ related-bas: BA-24 (Unified Chat Memory v2)
 related-epics: EPIC-23 (Cross-Surface AI Workflow)
 ---
 
-# BA-26: Cross-Surface AI Workflow via Obsilo Remote MCP
+# BA-26: Cross-Surface AI Workflow via Vault Operator Remote MCP
 
 ## 1. Executive Summary
 
-Sebastian arbeitet taeglich mit mehreren Chat-UIs neben Obsilo:
+Sebastian arbeitet taeglich mit mehreren Chat-UIs neben Vault Operator:
 ChatGPT, Claude.ai, Claude Code, Perplexity. Heute leben Memory
 und History in jedem dieser Tools getrennt. Ein Insight aus einem
 ChatGPT-Gespraech ist nicht in der naechsten Claude-Session
 verfuegbar; eine ChatGPT-Conversation laesst sich nicht in der
-Obsilo-Sidebar nachlesen.
+Vault Operator-Sidebar nachlesen.
 
-**Goal**: Obsilo wird zur **einheitlichen Memory- und History-
-Schicht** ueber alle Chat-Surfaces hinweg, via Obsilo Remote MCP
+**Goal**: Vault Operator wird zur **einheitlichen Memory- und History-
+Schicht** ueber alle Chat-Surfaces hinweg, via Vault Operator Remote MCP
 (Cloudflare-DO-relayed). Das bestehende `update_memory`-MCP-Tool
 schreibt heute in V1-Legacy-MD-Files und wird ersetzt durch einen
 v2-Pfad mit vier Kern-Tools. UI-seitig bekommt die History-Sidebar
-**Tabs pro Provider** (All / Obsilo / ChatGPT / Claude.ai /
+**Tabs pro Provider** (All / Vault Operator / ChatGPT / Claude.ai /
 Claude Code / Perplexity); ein Tab zeigt nur die Conversations
 seines Providers, keine Vermischung.
 
 ## 1.1 How might we
 
 Wie kann Sebastian aus jedem Chat-Tool, das er nutzt, gezielt
-Erkenntnisse und Conversations in Obsilo's Memory + History
+Erkenntnisse und Conversations in Vault Operator's Memory + History
 festschreiben und beim naechsten Tool-Wechsel sofort darauf
 zugreifen, ohne den Tool-Stack zu wechseln und ohne dass das
 Lifecycle-Management des Memory-Layers extra Arbeit fuer ihn
@@ -39,7 +39,7 @@ erzeugt?
 
 ## 1.2 Value Proposition
 
-Obsilo wird zum **persistenten Memory-Hub** fuer Sebastians
+Vault Operator wird zum **persistenten Memory-Hub** fuer Sebastians
 gesamten AI-Workflow. Jedes Tool wird zum dummen Frontend ueber
 demselben Memory-Layer. Wechselkosten zwischen Chat-Tools sinken
 gegen Null, weil Kontext immer mitwandert. Provider-Lock-In
@@ -67,10 +67,10 @@ in verschiedenen Tools immer wieder neu erarbeitet wird.
 ## 3. Jobs to be Done
 
 **Functional Job**: "Wenn ich im UI X einen wichtigen Insight
-generiert habe, will ich ihn in Obsilo's Memory festhalten, damit
+generiert habe, will ich ihn in Vault Operator's Memory festhalten, damit
 er beim naechsten Mal in UI Y wieder verfuegbar ist."
 
-**Emotional Job**: "Ich will sicher sein, dass Obsilo der
+**Emotional Job**: "Ich will sicher sein, dass Vault Operator der
 Single Source of Truth fuer mein AI-Wissen ist, unabhaengig vom
 gerade benutzten Chat-Tool."
 
@@ -81,7 +81,7 @@ Browser-History scrollen zu muessen."
 ## 4. Critical Hypotheses
 
 - **H1**: Externe Chat-Tools (ChatGPT, Claude.ai etc.) koennen ueber
-  ihren MCP-Client das Remote-MCP von Obsilo zuverlaessig erreichen.
+  ihren MCP-Client das Remote-MCP von Vault Operator zuverlaessig erreichen.
   (Bestaetigt durch FEATURE-1403 Remote-Transport, live seit 2026-04-01.)
 - **H2**: Die vier Kern-Tools (`save_to_memory`, `save_conversation`,
   `recall_memory`, `search_history`) decken 80% der Cross-Surface-
@@ -91,7 +91,7 @@ Browser-History scrollen zu muessen."
   muss. (Zu validieren in Live-Test, Wiedervorlage-Feature
   FEAT-23-06 vorgesehen.)
 - **H4**: Sebastian akzeptiert read-only Sichten externer
-  Conversations in der Obsilo-History-Sidebar (ohne Continue-Pfad).
+  Conversations in der Vault Operator-History-Sidebar (ohne Continue-Pfad).
   (Zu validieren in Live-Test; Continue-Pfad waere UCM-Thema.)
 
 ## 5. Loesungsbild
@@ -107,7 +107,7 @@ Browser-History scrollen zu muessen."
 
 2. **`save_conversation(messages[], title?, source_interface)`**
    - Speichert die uebergebene Conversation in `ConversationStore`
-     (Obsilo-internes History-Format) plus indexiert sie in
+     (Vault Operator-internes History-Format) plus indexiert sie in
      `HistoryDB.history_chunks` fuer Search.
    - `source_interface` als Pflichtfeld.
    - Optional: triggert Memory-Extraction (siehe Setting Sync-Mode
@@ -133,12 +133,12 @@ Enum: `'chatgpt' | 'claude-ai' | 'claude-code' | 'perplexity' |
 - `conversations.source_interface` (NEU, Migration noetig -- siehe FEAT-23-04)
 - `history_chunks` indirekt via Conversation-Join
 
-### 5.3 UI -- Obsilo Sidebar History-Tabs
+### 5.3 UI -- Vault Operator Sidebar History-Tabs
 
 History-Panel bekommt **Tabs am oberen Rand** zum Filtern nach
 Source-Interface. Tabs:
 - **All** (Default, alle Conversations)
-- **Obsilo** (interne Chats, source_interface='obsilo')
+- **Vault Operator** (interne Chats, source_interface='obsilo')
 - **ChatGPT** (source_interface='chatgpt')
 - **Claude.ai** (source_interface='claude-ai')
 - **Claude Code** (source_interface='claude-code')
@@ -148,12 +148,12 @@ Tab erscheint nur wenn min. eine Conversation mit der jeweiligen
 Source existiert (kein leerer Tab).
 
 Klick auf eine externe Conversation oeffnet die bestehende
-Obsilo-Chat-View **read-only** (Banner oben: "Imported from
+Vault Operator-Chat-View **read-only** (Banner oben: "Imported from
 {source} -- read only"). Kein Continue-Pfad in P0 -- UCM-Thema.
 
 ### 5.4 Sync-Mode-Setting
 
-Externe UIs koennen Obsilo nicht von sich aus pushen -- sie haben
+Externe UIs koennen Vault Operator nicht von sich aus pushen -- sie haben
 keinen Filesystem- oder DB-Zugriff. Der Trigger laeuft IMMER ueber
 einen MCP-Tool-Call vom externen Client. Die Frage "wie kommt ein
 Chat in die Shared History und Memory?" hat drei Pfade:
@@ -161,7 +161,7 @@ Chat in die Shared History und Memory?" hat drei Pfade:
 #### Pfad A -- User triggert explizit per Prompt
 
 Sebastian sagt im externen Chat sinngemaess "speicher das in mein
-Obsilo-Memory" oder "speicher diese Conversation in Obsilo". Das
+Vault Operator-Memory" oder "speicher diese Conversation in Vault Operator". Das
 externe LLM ruft `save_to_memory(content, source_interface=...)`
 oder `save_conversation(messages[], title?, source_interface=...)`.
 Funktioniert in jedem MCP-fähigen Client.
@@ -189,7 +189,7 @@ in einen `pending`-Bucket der `ConversationStore`-Tabelle. Der
 Eintrag erscheint im History-Tab des jeweiligen Providers mit
 sichtbarem `pending`-Marker. Memory-Extraction laeuft NICHT
 automatisch. Erst wenn:
-- Sebastian den Pending-Eintrag in Obsilo bestaetigt (Star-Click
+- Sebastian den Pending-Eintrag in Vault Operator bestaetigt (Star-Click
   oder Save-Button), oder
 - externes UI explizit `mark_for_memory(conversation_id)` ruft, oder
 - externes UI `save_to_memory(...)` parallel ruft (geht direkt in
@@ -222,7 +222,7 @@ Setting-Struktur:
 Settings -> Memory -> Cross-Surface Sync
   Default Sync-Mode (fuer 'unknown' und neu erkannte Provider): [Auto / Manual]
   Per Provider:
-    Obsilo               [global / Auto / Manual]   default: global
+    Vault Operator               [global / Auto / Manual]   default: global
     Claude.ai            [global / Auto / Manual]   default: Auto
     Claude Code          [global / Auto / Manual]   default: Auto
     ChatGPT              [global / Auto / Manual]   default: Manual
@@ -271,7 +271,7 @@ ueber komplette Entfernung.
 
 - **K1**: 100% der `update_memory`-MCP-Aufrufe landen in
   FactStore, nicht in V1-MD-Files. (Code-Audit nach Cut-over.)
-- **K2**: Sebastian sieht in der Obsilo-History-Sidebar
+- **K2**: Sebastian sieht in der Vault Operator-History-Sidebar
   Conversations aus min. 2 externen Tools binnen 7 Tagen Live-Use.
   (Manuelles UAT.)
 - **K3**: Mindestens eine `recall_memory`-Suche in einem externen
@@ -297,7 +297,7 @@ Bewusst deferred:
 
 ## 8. Akzeptanzkriterien
 
-- AK-01: Vier MCP-Tools registriert und ueber Obsilo Remote
+- AK-01: Vier MCP-Tools registriert und ueber Vault Operator Remote
   erreichbar.
 - AK-02: `update_memory` Legacy-Tool routet auf v2 + zeigt
   Deprecation-Notice.
@@ -370,7 +370,7 @@ EPIC-23 Cross-Surface AI Workflow umgesetzt mit folgenden Bausteinen:
 
 Validation der Critical Hypotheses:
 - H1: Bestaetigt durch Live-Test mit Claude Desktop, Perplexity, ChatGPT.
-- H2: Bestaetigt durch Cross-Source-Recall in Obsilo-Sidebar (Source-Tabs sichtbar).
+- H2: Bestaetigt durch Cross-Source-Recall in Vault Operator-Sidebar (Source-Tabs sichtbar).
 - H3: Bestaetigt durch Tab-Filterung in HistoryPanel.
 - H4: V1 deprecated, Migration-Helper im Settings-Tab verfuegbar.
 

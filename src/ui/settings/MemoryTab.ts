@@ -165,7 +165,7 @@ export class MemoryTab {
             // ─── Cross-Surface Sync (BA-26 / FEAT-23-04) ──────────────
             this.buildCrossSurfaceSection(containerEl);
 
-            // ─── Obsilo's Soul (FEATURE-0319b L2 + L3) ─────────────────
+            // ─── Vault Operator's Soul (FEATURE-0319b L2 + L3) ─────────────────
             this.buildSoulSection(containerEl);
 
             // ─── Onboarding ──────────────────────────────────────────
@@ -245,8 +245,8 @@ export class MemoryTab {
             cls: 'agent-settings-desc',
             text:
                 'External chat tools (ChatGPT, Claude.ai, Claude Code, Perplexity) can save '
-                + 'conversations and facts into Obsilo via the Remote MCP. Auto-sync triggers '
-                + 'memory extraction immediately with the same thresholds as Obsilo-internal '
+                + 'conversations and facts into Vault Operator via the Remote MCP. Auto-sync triggers '
+                + 'memory extraction immediately with the same thresholds as Vault Operator-internal '
                 + 'conversations. Manual-sync parks conversations as pending until you confirm '
                 + 'them in the History sidebar. ChatGPT and Perplexity default to manual to '
                 + 'keep family-shared accounts out of personal memory.',
@@ -314,7 +314,7 @@ export class MemoryTab {
 
         // Per-provider overrides
         const PROVIDER_LABELS: Record<SourceInterface, string> = {
-            'obsilo': 'Obsilo (internal)',
+            'obsilo': 'Vault Operator (internal)',
             'claude-ai': 'Claude.ai',
             'claude-code': 'Claude Code',
             'chatgpt': 'ChatGPT',
@@ -377,7 +377,7 @@ export class MemoryTab {
     private buildMemoryV2MigrationSection(containerEl: HTMLElement): void {
         const status = this.plugin.settings.memory.v2MigrationStatus;
 
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Obsilo upgrade' });
+        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Vault Operator upgrade' });
 
         // Status banner -- different copy per pre-upgrade state.
         const banner = containerEl.createDiv('agent-settings-info-banner');
@@ -385,7 +385,7 @@ export class MemoryTab {
         if (status === 'pending') {
             bannerText.createEl('strong', { text: 'Upgrade pending. ' });
             bannerText.appendText(
-                'A short cascade brings your existing Obsilo memory onto the new engine: ' +
+                'A short cascade brings your existing Vault Operator memory onto the new engine: ' +
                 'atomise legacy memory files, seed topic centroids, refresh defaults. ' +
                 'Originals are copied to memory-v1-backup/{timestamp}/ before any change.',
             );
@@ -458,7 +458,7 @@ export class MemoryTab {
         }
         if (!atomizerApi) {
             new Notice(
-                'Obsilo upgrade: no API handler available for the atomiser step. ' +
+                'Vault Operator upgrade: no API handler available for the atomiser step. ' +
                 'Pick a model in the dropdown above or under Settings → Memory → Memory Model.',
                 10000,
             );
@@ -466,7 +466,7 @@ export class MemoryTab {
         }
 
         const ok = await confirmModal(this.app, {
-            title: 'Run Obsilo upgrade?',
+            title: 'Run Vault Operator upgrade?',
             message:
                 `Atomiser provider: ${providerLabel}\n\n` +
                 'Cascade steps:\n' +
@@ -486,24 +486,24 @@ export class MemoryTab {
         const atomizer = new MemoryAtomizer(atomizerApi);
         const orchestrator = new MemoryV2UpgradeOrchestrator();
 
-        const progressNotice = new Notice('Obsilo upgrade running...', 0);
+        const progressNotice = new Notice('Vault Operator upgrade running...', 0);
         try {
             const report = await orchestrator.run({
                 fs, factStore, styleStore, atomizer, embeddingService,
                 memoryDB: memDB,
-                onProgress: (msg) => progressNotice.setMessage(`Obsilo upgrade: ${msg}`),
+                onProgress: (msg) => progressNotice.setMessage(`Vault Operator upgrade: ${msg}`),
             });
             progressNotice.hide();
 
             if (report.aborted) {
                 const failed = report.steps.find(s => !s.ok);
-                new Notice(`Obsilo upgrade aborted: ${failed?.error ?? 'unknown error'}`, 12000);
-                console.error('[ObsiloUpgrade] Aborted:', report);
+                new Notice(`Vault Operator upgrade aborted: ${failed?.error ?? 'unknown error'}`, 12000);
+                console.error('[VaultOperatorUpgrade] Aborted:', report);
                 return;
             }
 
             new Notice(formatReport(report), 14000);
-            console.debug('[ObsiloUpgrade] Report:', report);
+            console.debug('[VaultOperatorUpgrade] Report:', report);
 
             // Persist outcome from the migration step so the settings banner
             // switches state and the modal stops appearing on next load.
@@ -520,8 +520,8 @@ export class MemoryTab {
             }
         } catch (e) {
             progressNotice.hide();
-            console.error('[ObsiloUpgrade] Failed:', e);
-            new Notice(`Obsilo upgrade failed: ${(e as Error).message}`, 10000);
+            console.error('[VaultOperatorUpgrade] Failed:', e);
+            new Notice(`Vault Operator upgrade failed: ${(e as Error).message}`, 10000);
         } finally {
             btn.setText('Upgrade now');
             btn.disabled = false;
@@ -531,7 +531,7 @@ export class MemoryTab {
 }
 
 function formatReport(report: UpgradeReport): string {
-    const lines = ['Obsilo upgrade done.'];
+    const lines = ['Vault Operator upgrade done.'];
     for (const step of report.steps) {
         const tag = step.skipped ? 'skipped' : step.ok ? 'ok' : 'failed';
         lines.push(`  ${step.label}: ${tag}${step.detail ? ` -- ${step.detail}` : ''}`);

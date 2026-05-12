@@ -1,21 +1,21 @@
 ---
-title: How Obsilo Works
-description: What Obsilo is, how its layers fit together, and where to start reading the code.
+title: How Vault Operator Works
+description: What Vault Operator is, how its layers fit together, and where to start reading the code.
 ---
 
-# How Obsilo works
+# How Vault Operator works
 
-Obsilo is an AI agent that runs inside Obsidian as a community plugin. You send it a message, it calls tools to read and change your vault, and it loops until the task is done. That loop, and the infrastructure around it, is what this section explains.
+Vault Operator is an AI agent that runs inside Obsidian as a community plugin. You send it a message, it calls tools to read and change your vault, and it loops until the task is done. That loop, and the infrastructure around it, is what this section explains.
 
 ## The mental model
 
-Forget chat interfaces for a moment. A chatbot takes your message, generates a response, and stops. Obsilo does something different. It takes your message, generates a response that may include tool calls (read a file, run a search, edit a note), executes those tools, feeds the results back to the language model, and repeats. The loop continues until the model decides it has finished or a safety limit cuts it off.
+Forget chat interfaces for a moment. A chatbot takes your message, generates a response, and stops. Vault Operator does something different. It takes your message, generates a response that may include tool calls (read a file, run a search, edit a note), executes those tools, feeds the results back to the language model, and repeats. The loop continues until the model decides it has finished or a safety limit cuts it off.
 
 That loop is the entire architecture. Everything else, the approval system, the prompt assembly, the memory layer, the mode system, exists to make that loop safe and extensible.
 
 ## Layers
 
-Obsilo has four layers. Each depends only on the layer below it.
+Vault Operator has four layers. Each depends only on the layer below it.
 
 ```mermaid
 flowchart TD
@@ -35,11 +35,11 @@ The core layer is where the agent loop lives. `AgentTask` orchestrates the conve
 
 The service layer contains domain logic: semantic search, memory, MCP integration, office document generation, the skill system, the code sandbox. The core layer calls into these services when it executes tools.
 
-The storage layer is Obsidian's vault. All reads and writes go through `app.vault` and `app.fileManager`, never through raw filesystem calls. This keeps Obsilo compatible with Obsidian sync, indexing, and the rest of the plugin ecosystem.
+The storage layer is Obsidian's vault. All reads and writes go through `app.vault` and `app.fileManager`, never through raw filesystem calls. This keeps Vault Operator compatible with Obsidian sync, indexing, and the rest of the plugin ecosystem.
 
 ## Design principles
 
-Obsilo is local-first. Your data never leaves your machine except for API calls to the AI provider you configured. No cloud services, no telemetry, no accounts.
+Vault Operator is local-first. Your data never leaves your machine except for API calls to the AI provider you configured. No cloud services, no telemetry, no accounts.
 
 The safety model is fail-closed. Write operations require explicit user approval by default. If the approval callback is missing or broken, the pipeline rejects the operation. This logic lives in `ToolExecutionPipeline`, not in individual tools, so no single tool can bypass it.
 
@@ -64,7 +64,7 @@ The plugin is a platform. You can extend it with MCP servers for external tools,
 
 ## Kilo Code heritage
 
-Obsilo's core loop and tool architecture are adapted from Kilo Code, an open-source AI coding agent. The adaptation replaces filesystem operations with Obsidian's vault API, adds governance layers for approval and checkpointing, and introduces domain-specific tools for knowledge management.
+Vault Operator's core loop and tool architecture are adapted from Kilo Code, an open-source AI coding agent. The adaptation replaces filesystem operations with Obsidian's vault API, adds governance layers for approval and checkpointing, and introduces domain-specific tools for knowledge management.
 
 ## Where to read next
 

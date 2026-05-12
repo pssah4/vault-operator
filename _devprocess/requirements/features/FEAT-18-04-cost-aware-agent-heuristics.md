@@ -34,22 +34,22 @@ Dieses Feature fasst zehn universelle Heuristiken zusammen, die den Agent
 ## User Stories
 
 ### Story 1: Triviale Aufgaben sind trivial guenstig
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** dass eine "lies X, schreibe Y"-Aufgabe maximal wenige Cent kostet
 **um** nicht fuer Routine-Aufgaben Frontier-Modell-Preise zu zahlen
 
 ### Story 2: Plan vor Aktion
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** den geplanten Weg sehen, bevor der Agent Tools ruft
 **um** Eingreifen zu koennen wenn die Strategie offensichtlich falsch ist
 
 ### Story 3: Keine Halluzinations-Quellen
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** dass eine Synthese-Note nur Quellen listet, die der Agent wirklich gelesen hat
 **um** keine erfundenen Referenzen in der eigenen Wissensbasis zu haben
 
 ### Story 4: Sichtbare Kosten + Tokens
-**Als** Obsilo-Nutzer
+**Als** Vault Operator-Nutzer
 **moechte ich** Tokens und EUR-Kosten live im Chat sehen
 **um** entscheiden zu koennen, ob ein Modellwechsel sich lohnt
 

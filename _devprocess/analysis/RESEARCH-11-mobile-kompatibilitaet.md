@@ -1,4 +1,4 @@
-# MOBILE-001: Kompatibilitaetsanalyse Obsilo auf iOS/Android
+# MOBILE-001: Kompatibilitaetsanalyse Vault Operator auf iOS/Android
 
 > Stand: 2026-03-08
 > Status: Analyse abgeschlossen, Umsetzung offen
@@ -20,11 +20,11 @@
 
 **Kernprinzip:** Derselbe Plugin-Code (`main.js`) laeuft auf beiden Plattformen. Features, die nur Obsidian-APIs nutzen, funktionieren automatisch. Features, die Node.js/Electron-APIs nutzen, crashen auf Mobile.
 
-Plugins koennen sich via `Platform.isMobile` / `Platform.isDesktop` abfragen und Features bedingt aktivieren. Alternativ: `"isDesktopOnly": true` in `manifest.json` (aktueller Obsilo-Status).
+Plugins koennen sich via `Platform.isMobile` / `Platform.isDesktop` abfragen und Features bedingt aktivieren. Alternativ: `"isDesktopOnly": true` in `manifest.json` (aktueller Vault Operator-Status).
 
 ---
 
-## 2. Node.js-Abhaengigkeiten in Obsilo (Blocker)
+## 2. Node.js-Abhaengigkeiten in Vault Operator (Blocker)
 
 ### 2.1 Electron APIs (2 Dateien)
 
@@ -152,13 +152,13 @@ Plugins koennen sich via `Platform.isMobile` / `Platform.isDesktop` abfragen und
 
 **Global Storage** -- Von `~/.obsidian-agent/` auf Vault-lokalen Storage umstellen.
 - Aenderung: `GlobalFileService` erhaelt zweiten Adapter, der `vault.adapter` nutzt.
-- Mobile-Pfad: `.obsidian/plugins/obsilo-agent/global-data/`
+- Mobile-Pfad: `.obsidian/plugins/vault-operator/global-data/`
 - Betrifft: Memory, Workflows, Skills, Logs, Episodes, Settings
 - Risiko: Mittel. Daten sind dann Vault-spezifisch statt global.
 
 **Semantic Index** -- `fs`/`path` durch Vault-API ersetzen.
 - Aenderung: `SemanticIndexService` nutzt `vault.adapter.read/write` statt `fs`.
-- Index-Pfad bleibt: `.obsidian/plugins/obsilo-agent/semantic-index/`
+- Index-Pfad bleibt: `.obsidian/plugins/vault-operator/semantic-index/`
 - Risiko: Gering. Funktional identisch, nur anderer I/O-Pfad.
 
 **Git Checkpoints** -- Vereinfachen oder deaktivieren.

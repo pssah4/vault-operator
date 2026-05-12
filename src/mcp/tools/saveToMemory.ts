@@ -4,7 +4,7 @@
  * Persists a content blob as a Memory v2 fact. Replaces the V1
  * update_memory pathway. External MCP clients (Claude Desktop,
  * ChatGPT, Claude Code, Perplexity) call this when they want to
- * record a learned insight in Obsilo's shared memory.
+ * record a learned insight in Vault Operator's shared memory.
  *
  * Source-Interface-Tag is set per the connector configuration; the
  * tool whitelists the value and falls back to 'unknown'.

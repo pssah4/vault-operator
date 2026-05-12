@@ -13,7 +13,7 @@ priority: P1
 
 ## Symptom
 
-Sebastian versucht das Obsilo Remote MCP in Perplexity einzubinden
+Sebastian versucht das Vault Operator Remote MCP in Perplexity einzubinden
 (Authentifizierungs-Optionen "OAuth", "API Key" oder "Keine"). Bei
 Auswahl "Keine" liefert Perplexity:
 
@@ -75,7 +75,7 @@ Drei Schritte, in dieser Reihenfolge:
 
 ## Akzeptanzkriterien
 
-- AK-01: Perplexity verbindet sich erfolgreich mit Obsilo Remote MCP.
+- AK-01: Perplexity verbindet sich erfolgreich mit Vault Operator Remote MCP.
 - AK-02: Mindestens `recall_memory` und `search_history` funktionieren
   in Perplexity.
 - AK-03: Bestehende Claude- und ChatGPT-Verbindungen bleiben

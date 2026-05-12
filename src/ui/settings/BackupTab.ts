@@ -15,7 +15,7 @@ interface BackupCategory {
     /**
      * 'global'  = ~/.obsidian-agent/ (via GlobalFileService)
      * 'vault'   = vault root (via vault.adapter) — per-vault data only
-     * 'plugin'  = .obsidian/plugins/obsilo-agent/ (via vault.adapter) — legacy, kept for vault-local
+     * 'plugin'  = .obsidian/plugins/vault-operator/ (via vault.adapter) — legacy, kept for vault-local
      */
     root: 'global' | 'vault' | 'plugin';
     /** Directory relative to root (or null for settings/vault-dna which are handled specially) */
@@ -251,7 +251,7 @@ export class BackupTab {
 
         new Setting(section)
             .setName('Import legacy soul.md')
-            .setDesc('Reads memory/soul.md and adds each bullet under Identity / Values / Anti-Patterns / Communication into Obsilo’s soul. Idempotent.')
+            .setDesc('Reads memory/soul.md and adds each bullet under Identity / Values / Anti-Patterns / Communication into Vault Operator’s soul. Idempotent.')
             .addButton((b: ButtonComponent) => b
                 .setButtonText('Import')
                 .onClick(() => { void this.importLegacySoulMd(); }));
@@ -466,7 +466,7 @@ export class BackupTab {
             const a = document.createElement('a');
             a.href = url;
             const date = new Date().toISOString().split('T')[0];
-            a.download = `obsilo-backup-${date}.zip`;
+            a.download = `vault-operator-backup-${date}.zip`;
             a.click();
             URL.revokeObjectURL(url);
 

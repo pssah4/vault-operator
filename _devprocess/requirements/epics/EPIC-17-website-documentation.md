@@ -6,18 +6,18 @@
 
 ## Epic Hypothesis Statement
 
-FUER Obsidian-Nutzer die Obsilo einsetzen wollen und Entwickler die verstehen wollen wie es funktioniert
+FUER Obsidian-Nutzer die Vault Operator einsetzen wollen und Entwickler die verstehen wollen wie es funktioniert
 DIE eine intuitive, praxisnahe Anleitung bzw. einen technischen Deep-Dive benoetigen
 IST DIE ueberarbeitete Website-Dokumentation
 EIN Persona-basiertes Informationssystem mit drei Streams (User Guide, Dev Docs, Roadmap)
 DAS Non-Tech-User vom ersten Start bis zu fortgeschrittenen Workflows begleitet, Engineers Architektur-Einblicke gibt, und die Projekt-Vision transparent kommuniziert
 IM GEGENSATZ ZU der aktuellen feature-orientierten Seiten-Sammlung mit ~40% Content-Luecken
-UNSERE LOESUNG strukturiert Wissen nach Nutzer-Beduerfnissen statt nach technischen Modulen, ist in Markdown geschrieben und dient gleichzeitig als Obsilo-Skill fuer In-App-Hilfe
+UNSERE LOESUNG strukturiert Wissen nach Nutzer-Beduerfnissen statt nach technischen Modulen, ist in Markdown geschrieben und dient gleichzeitig als Vault Operator-Skill fuer In-App-Hilfe
 
 ## Business Outcomes (messbar)
 
 1. **Feature-Abdeckung**: Dokumentierte Features steigen von ~60% auf 100%
-2. **Self-Service-Rate**: Obsilo beantwortet >80% der gaengigen Bedienungsfragen direkt im Chat
+2. **Self-Service-Rate**: Vault Operator beantwortet >80% der gaengigen Bedienungsfragen direkt im Chat
 3. **Wartungsaufwand**: Markdown-basiert statt raw HTML -- Aenderungen in Minuten statt Stunden
 
 ## Leading Indicators (Fruehindikatoren)
@@ -32,7 +32,7 @@ UNSERE LOESUNG strukturiert Wissen nach Nutzer-Beduerfnissen statt nach technisc
 |------------|------|----------|--------|--------|
 | FEAT-17-00 | SSG-Migration & Grundgeruest | P0 | M | Geplant |
 | FEAT-17-01 | User Guide -- Informationsarchitektur & Content | P0 | L | Geplant |
-| FEAT-17-02 | Obsilo Doku-Skill | P0 | S | Geplant |
+| FEAT-17-02 | Vault Operator Doku-Skill | P0 | S | Geplant |
 | FEAT-17-03 | Developer Docs -- Update & Erweiterung | P1 | M | Geplant |
 | FEAT-17-04 | Homepage -- Roadmap & Versions-Log | P1 | S | Geplant |
 | FEAT-17-05 | Homepage -- Hero & Messaging Update | P1 | S | Geplant |
@@ -49,7 +49,7 @@ UNSERE LOESUNG strukturiert Wissen nach Nutzer-Beduerfnissen statt nach technisc
 - **Website-Chatbot**: Token-Kosten ohne Nutzen
 - **Commit-Level Changelog**: Zu granular, stattdessen Versions-Log
 - **Mehr als 2 Sprachen**: EN + DE reichen fuer MVP
-- **API-Dokumentation**: Obsilo hat keine externe API
+- **API-Dokumentation**: Vault Operator hat keine externe API
 
 ## Dependencies & Risks
 

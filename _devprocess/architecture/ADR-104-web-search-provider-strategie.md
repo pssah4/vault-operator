@@ -15,7 +15,7 @@ related:
 
 ## Context
 
-Stufe-2-Activity-Trigger (FEAT-19-19), Stufe-3-Periodischer-Job (FEAT-19-20) und Anti-Echo-Suche (FEAT-19-14) brauchen Web-Search. Zwei Strategie-Optionen: BYOK (User bringt eigenen Provider-API-Key fuer Brave oder Tavily, wie in FEAT-04-02 etabliert) oder Default-Provider via Obsilo-Gateway (Token-Kosten ueber User-Account-Subscription).
+Stufe-2-Activity-Trigger (FEAT-19-19), Stufe-3-Periodischer-Job (FEAT-19-20) und Anti-Echo-Suche (FEAT-19-14) brauchen Web-Search. Zwei Strategie-Optionen: BYOK (User bringt eigenen Provider-API-Key fuer Brave oder Tavily, wie in FEAT-04-02 etabliert) oder Default-Provider via Vault Operator-Gateway (Token-Kosten ueber User-Account-Subscription).
 
 ## Decision Drivers
 
@@ -31,21 +31,21 @@ Stufe-2-Activity-Trigger (FEAT-19-19), Stufe-3-Periodischer-Job (FEAT-19-20) und
 Pros:
 - Existing Stack (Brave, Tavily, weitere via FEAT-04-02).
 - Token-Kosten direkt beim User-Provider, transparent.
-- Keine zusaetzliche Obsilo-Gateway-Infrastruktur.
+- Keine zusaetzliche Vault Operator-Gateway-Infrastruktur.
 - Privacy: Queries gehen direkt User-zu-Provider.
 
 Cons:
 - Casual-User muss eigenen API-Key besorgen.
 
-### Option B: Default-Provider via Obsilo-Gateway (Subscription)
+### Option B: Default-Provider via Vault Operator-Gateway (Subscription)
 
 Pros:
 - Casual-User braucht keinen eigenen API-Key.
 
 Cons:
-- Obsilo-Gateway-Infrastruktur muss gebaut werden (separates Projekt).
-- Token-Kosten bei Obsilo, undurchsichtig fuer User.
-- Privacy: Queries laufen ueber Obsilo-Gateway.
+- Vault Operator-Gateway-Infrastruktur muss gebaut werden (separates Projekt).
+- Token-Kosten bei Vault Operator, undurchsichtig fuer User.
+- Privacy: Queries laufen ueber Vault Operator-Gateway.
 - Subscription-Modell setzt Monetarisierung voraus, die noch nicht released ist.
 
 ### Option C: Hybrid (BYOK Default, Gateway optional spaeter)
@@ -63,7 +63,7 @@ Cons:
 Begruendung:
 - FEAT-04-02 ist released und produktiv. Reuse spart Implementation komplett.
 - Token-Transparenz ist BA-25 N7 (Cross-Persona-Need): "User will Token-Budget kontrollieren koennen".
-- Gateway-Infrastruktur waere separates Projekt (siehe FEAT-09-01 Obsilo Gateway, Status Candidates).
+- Gateway-Infrastruktur waere separates Projekt (siehe FEAT-09-01 Vault Operator Gateway, Status Candidates).
 - Casual-User-Friction ist akzeptabel weil Stufe-2/3-Lint-Features explizit Power-User sind.
 
 ## Consequences

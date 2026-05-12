@@ -80,7 +80,7 @@ dann bleibt das Memory-Layer transparent und vorhersagbar.
 | SC-08 | Effektiver Mode pro Conversation = `perProvider[source_interface] ?? defaultSyncMode` | Test | Test |
 | SC-09 | Whitelist-Validation, unbekannte Werte fallen auf 'unknown' (Sync-Mode laut Per-Provider-Override fuer 'unknown') | Test | Test |
 | SC-10 | Pending-Conversations sind im jeweiligen History-Tab sichtbar mit `pending`-Marker | UI-Sicht | Manuell |
-| SC-11 | Pending -> Confirmed-Pfade: Star-Click in Obsilo, mark_for_memory MCP-Call, save_to_memory parallel | Eval | Test |
+| SC-11 | Pending -> Confirmed-Pfade: Star-Click in Vault Operator, mark_for_memory MCP-Call, save_to_memory parallel | Eval | Test |
 
 ## Technical NFRs
 

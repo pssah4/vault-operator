@@ -49,7 +49,7 @@ Wir wissen, dass wir erfolgreich sind, wenn nach 4 Wochen Real-Use die Hint-Acce
 
 ## Architecturally Significant Requirements (ASRs)
 
-- **ASR-1 (Critical):** Web-Search-Provider-Strategie (BYOK obligatorisch vs Default-Provider via Obsilo-Gateway) ist Open Question. ADR-Bedarf.
+- **ASR-1 (Critical):** Web-Search-Provider-Strategie (BYOK obligatorisch vs Default-Provider via Vault Operator-Gateway) ist Open Question. ADR-Bedarf.
 - **ASR-2 (Moderate):** Activity-Trigger-Cooldown-Strategie (pro Cluster, pro Tag, hybrid) ist ADR-Bedarf.
 
 ## Definition of Done

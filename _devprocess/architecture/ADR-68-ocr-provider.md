@@ -5,7 +5,7 @@
 
 ## Context
 
-FEAT-19-05 (OCR-Integration) benoetigt einen OCR-Dienst der gescannte PDFs in strukturiertes Markdown konvertiert. Heute nutzt Obsilo pdfjs-dist fuer PDF-Textextraktion, das bei gescannten oder bildbasierten PDFs scheitert (`No extractable text found`). Die Wahl des OCR-Providers bestimmt Qualitaet, Kosten, Privacy und Plattformkompatibilitaet.
+FEAT-19-05 (OCR-Integration) benoetigt einen OCR-Dienst der gescannte PDFs in strukturiertes Markdown konvertiert. Heute nutzt Vault Operator pdfjs-dist fuer PDF-Textextraktion, das bei gescannten oder bildbasierten PDFs scheitert (`No extractable text found`). Die Wahl des OCR-Providers bestimmt Qualitaet, Kosten, Privacy und Plattformkompatibilitaet.
 
 **Triggering ASR:**
 - ASR-7 (FEAT-19-05): OCR-Provider-Auswahl -- Quality, Cost, Privacy

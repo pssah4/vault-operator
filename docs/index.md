@@ -1,5 +1,5 @@
 ---
 layout: home
-title: Obsilo, an AI agent for your Obsidian vault
+title: Vault Operator, an AI agent for your Obsidian vault
 titleTemplate: false
 ---

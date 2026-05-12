@@ -839,7 +839,7 @@ export const en: Translations = {
     // =========================================================================
     // Chat UI — Sidebar
     // =========================================================================
-    'ui.sidebar.title': 'Obsilo',
+    'ui.sidebar.title': 'Vault Operator',
     'ui.sidebar.settings': 'Settings',
     'ui.sidebar.vaultHealth': 'Vault health findings available',
     'ui.sidebar.chatHistory': 'Chat history',
@@ -1006,7 +1006,7 @@ export const en: Translations = {
     'ui.error.overloaded': 'API overloaded \u2014 try again shortly',
     'ui.error.network': 'Network error \u2014 check your connection and that the local server is running',
     'ui.error.generic': 'Error',
-    'ui.error.ollamaNotRunning': '{{model}} could not start. Make sure Ollama is running (`ollama serve`) and the model name is correct. Open settings -> Obsilo agent -> configure to verify.',
+    'ui.error.ollamaNotRunning': '{{model}} could not start. Make sure Ollama is running (`ollama serve`) and the model name is correct. Open settings -> Vault Operator -> configure to verify.',
 
     // =========================================================================
     // Notices
@@ -1304,7 +1304,7 @@ export const en: Translations = {
     // =========================================================================
     // Main Plugin
     // =========================================================================
-    'plugin.ribbonTooltip': 'Obsilo agent',
+    'plugin.ribbonTooltip': 'Vault Operator',
     'plugin.commandOpen': 'Open agent sidebar',
 
     // =========================================================================

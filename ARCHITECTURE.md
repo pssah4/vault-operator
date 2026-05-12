@@ -1,4 +1,4 @@
-# Obsilo Agent — Architecture Reference
+# Vault Operator — Architecture Reference
 
 This document is embedded in the plugin at build time and used by the agent
 for **core self-modification** (Phase 4). It describes the key modules,

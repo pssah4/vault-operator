@@ -1,7 +1,7 @@
 /**
  * SourceAdapter -- engine-public interface for resolving URIs into payloads.
  *
- * Hosts (Obsilo, UCM, custom integrations) register adapters per URI
+ * Hosts (Vault Operator, UCM, custom integrations) register adapters per URI
  * scheme. The engine itself never imports `obsidian` or any
  * host-specific code; it only knows the interface and asks the
  * `AdapterRegistry` to resolve a URI when payload is needed.

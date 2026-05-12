@@ -14,14 +14,14 @@ depends-on: [FEAT-23-04]
 
 ## Description
 
-Die Obsilo-Sidebar History-Panel bekommt am oberen Rand Tabs zum
+Die Vault Operator-Sidebar History-Panel bekommt am oberen Rand Tabs zum
 Filtern nach Source-Interface. Externe Conversations oeffnen in
 einer Read-Only-Variante der Chat-View mit Source-Banner.
 
 ## Benefits Hypothesis
 
 Wenn externe Conversations sichtbar in einer dedizierten
-History-Sicht erscheinen, dann erlebt Sebastian Obsilo als
+History-Sicht erscheinen, dann erlebt Sebastian Vault Operator als
 einheitlichen Memory- und History-Hub statt als ein weiteres
 isoliertes Tool.
 
@@ -29,7 +29,7 @@ isoliertes Tool.
 
 **US-01** -- Discoverability:
 - **As** Sebastian
-- **I want to** zwischen Tabs wechseln (All / Obsilo / ChatGPT /
+- **I want to** zwischen Tabs wechseln (All / Vault Operator / ChatGPT /
   Claude.ai / Claude Code / Perplexity),
 - **so that** ich gezielt Conversations einer bestimmten Source
   finde.

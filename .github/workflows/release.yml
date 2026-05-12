@@ -73,7 +73,7 @@ jobs:
 
           # Create tarball of extras (skills + templates have directory structure)
           cd release-assets
-          tar czf ../obsilo-assets.tar.gz --exclude='main.js' --exclude='manifest.json' --exclude='styles.css' .
+          tar czf ../vault-operator-assets.tar.gz --exclude='main.js' --exclude='manifest.json' --exclude='styles.css' .
           cd ..
 
           echo "=== Release assets ==="
@@ -94,19 +94,19 @@ jobs:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.version }}
           body: |
-            ## Obsilo Agent v${{ inputs.version }}
+            ## Vault Operator v${{ inputs.version }}
 
             Install via [BRAT](https://github.com/TfTHacker/obsidian42-brat):
             1. Install BRAT from Community Plugins
-            2. BRAT → Add Beta Plugin → `https://github.com/pssah4/obsilo`
+            2. BRAT → Add Beta Plugin → `https://github.com/pssah4/vault-operator`
 
             Or install manually:
-            1. Download `main.js`, `manifest.json`, `styles.css` into `.obsidian/plugins/obsilo-agent/`
-            2. Download and extract `obsilo-assets.tar.gz` into the same folder
+            1. Download `main.js`, `manifest.json`, `styles.css` into `.obsidian/plugins/vault-operator/`
+            2. Download and extract `vault-operator-assets.tar.gz` into the same folder
           files: |
             release-assets/main.js
             release-assets/manifest.json
             release-assets/styles.css
-            obsilo-assets.tar.gz
+            vault-operator-assets.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-Obsidian Agent (Obsilo Agent) is a desktop-first Obsidian plugin (v1.1.0) that provides an agentic operating layer for vault operations. It adapts the Kilo Code architecture to the Obsidian context, replacing IDE operations with vault operations while maintaining the core patterns of tool governance, approval systems, checkpoints, and MCP extensibility.
+Obsidian Agent (Vault Operator) is a desktop-first Obsidian plugin (v1.1.0) that provides an agentic operating layer for vault operations. It adapts the Kilo Code architecture to the Obsidian context, replacing IDE operations with vault operations while maintaining the core patterns of tool governance, approval systems, checkpoints, and MCP extensibility.
 
 **Key Stats:** 158 TypeScript files, ~38k LOC, 42 tools across 7 groups, 6 languages, 21 ADRs.
 
@@ -16,7 +16,7 @@ Obsidian Agent (Obsilo Agent) is a desktop-first Obsidian plugin (v1.1.0) that p
 
 1. **Tool-Use Interception**: ALL tool executions (internal vault ops AND MCP) flow through a central governance layer (ADR-01)
 2. **Approval-by-Default**: Every write operation requires explicit user approval unless whitelisted (ADR-05)
-3. **Shadow Repository**: Isomorphic-git maintains checkpoints in `.obsidian/plugins/obsilo-agent/checkpoints/` (ADR-02)
+3. **Shadow Repository**: Isomorphic-git maintains checkpoints in `.obsidian/plugins/vault-operator/checkpoints/` (ADR-02)
 4. **Local-Only**: No cloud dependencies except user-configured LLM providers
 5. **Mode-Based Agents**: Different agent personas with scoped tool access and specialized prompts (ADR-04)
 6. **MCP Extensibility**: External tools integrate seamlessly through the governance layer
@@ -136,7 +136,7 @@ Obsidian Agent (Obsilo Agent) is a desktop-first Obsidian plugin (v1.1.0) that p
 ### Critical
 
 **ASR-01: Isomorphic-Git Integration** (ADR-02)
-- Shadow git repository at `.obsidian/plugins/obsilo-agent/checkpoints/`
+- Shadow git repository at `.obsidian/plugins/vault-operator/checkpoints/`
 - Status: Implemented
 
 **ASR-02: Tool-Use Interception Layer** (ADR-01)

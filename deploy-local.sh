@@ -4,7 +4,7 @@
 # Usage: ./deploy-local.sh
 #
 # Requires a .env file with:
-#   PLUGIN_DIR=/path/to/your/obsidian/vault/.obsidian/plugins/obsilo-agent
+#   PLUGIN_DIR=/path/to/your/obsidian/vault/.obsidian/plugins/vault-operator
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -14,7 +14,7 @@ fi
 
 if [ -z "$PLUGIN_DIR" ]; then
   echo "Error: PLUGIN_DIR not set. Create a .env file with:"
-  echo "  PLUGIN_DIR=/path/to/.obsidian/plugins/obsilo-agent"
+  echo "  PLUGIN_DIR=/path/to/.obsidian/plugins/vault-operator"
   exit 1
 fi
 

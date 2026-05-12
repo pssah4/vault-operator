@@ -11,7 +11,7 @@ The vault health check is the feature that finds these problems and helps you fi
 
 ## The health badge
 
-Open the Obsilo sidebar and look for a small colored dot next to the vault health icon. That dot is the health badge.
+Open the Vault Operator sidebar and look for a small colored dot next to the vault health icon. That dot is the health badge.
 
 No dot means everything looks fine. Orange means there are medium-severity findings waiting. Red means at least one is high-severity. Click the icon to open the repair modal, or trigger a scan from the sidebar ellipsis menu. You can also just ask the agent:
 
@@ -41,7 +41,7 @@ Each finding has an action bar with three options.
 
 **Repair** is the right choice for mechanical fixes: adding a missing backlink, pruning an orphaned edge, correcting a category. The service applies the change and creates a checkpoint first, so you always have an undo. Nothing gets lost.
 
-**Discuss** is for findings that need judgment. A god-node needs a decision about how to split it. A weak cluster might or might not be a real connection that belongs in the graph. Click discuss and Obsilo opens a new agent chat pre-loaded with the context of that specific finding. The agent walks you through what it is and where it lives, then suggests a concrete fix that you can accept, tweak, or reject.
+**Discuss** is for findings that need judgment. A god-node needs a decision about how to split it. A weak cluster might or might not be a real connection that belongs in the graph. Click discuss and Vault Operator opens a new agent chat pre-loaded with the context of that specific finding. The agent walks you through what it is and where it lives, then suggests a concrete fix that you can accept, tweak, or reject.
 
 **Dismiss** is for findings that aren't actually problems. A broken link might point at a note you deliberately deleted. A note might be meant to stay orphaned because it's a private draft you don't want indexed anywhere. Click the eye-off button and the finding is filtered out of future scans. It's not deleted, just hidden.
 

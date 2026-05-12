@@ -171,7 +171,7 @@ export class CreatePptxTool extends BaseTool<'create_pptx'> {
             pres.defineLayout({ name: 'WIDE', width: SLIDE_W, height: SLIDE_H });
             pres.layout = 'WIDE';
             if (presTitle) pres.title = presTitle;
-            pres.author = 'Obsilo Agent';
+            pres.author = 'Vault Operator';
 
             for (const si of slides) {
                 const slide = pres.addSlide();

@@ -103,7 +103,7 @@ npm install @huggingface/transformers
 
 ```
 Option A: Im Plugin-Bundle (esbuild kopiert ONNX-Dateien)
-  {vault}/.obsidian/plugins/obsilo-agent/models/ms-marco-MiniLM-L-6-v2-int8/
+  {vault}/.obsidian/plugins/vault-operator/models/ms-marco-MiniLM-L-6-v2-int8/
 
 Option B: Lazy Download nach ~/.obsidian-agent/models/
   Download via requestUrl (Review-Bot-konform)

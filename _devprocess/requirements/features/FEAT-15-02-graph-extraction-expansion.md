@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Obsilos existierender Graph (Wikilinks, Tags, MOC-Properties) wird in die Knowledge DB extrahiert und fuer die Suche nutzbar gemacht. Bei jedem Suchtreffer folgt das System automatisch 1-3 Hops ueber Wikilinks und MOC-Verbindungen (Themen, Konzepte, Personen, Notizen, Meeting-Notes, Quellen) um verwandte Notes als erweiterten Kontext einzubeziehen. Die Ergebnisse werden mit Verbindungskontext angereichert ("via [[Kuenstliche Intelligenz]] (Themen)").
+Vault Operators existierender Graph (Wikilinks, Tags, MOC-Properties) wird in die Knowledge DB extrahiert und fuer die Suche nutzbar gemacht. Bei jedem Suchtreffer folgt das System automatisch 1-3 Hops ueber Wikilinks und MOC-Verbindungen (Themen, Konzepte, Personen, Notizen, Meeting-Notes, Quellen) um verwandte Notes als erweiterten Kontext einzubeziehen. Die Ergebnisse werden mit Verbindungskontext angereichert ("via [[Kuenstliche Intelligenz]] (Themen)").
 
 Ersetzt das vorherige Regex-basierte Wikilink-Parsing in SemanticSearchTool durch systematische DB-Queries auf die edges-Tabelle (BFS).
 

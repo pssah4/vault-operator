@@ -122,7 +122,7 @@ export class SyncBridge {
 
     /**
      * One-time migration: pull sync data from the legacy plugin directory
-     * (.obsidian/plugins/obsilo-agent/{category}/) into global storage.
+     * (.obsidian/plugins/vault-operator/{category}/) into global storage.
      * From there, pushToVault() copies it to the new .obsilo-sync/ location.
      */
     async pullFromLegacyPluginDir(legacyPluginDir: string): Promise<void> {

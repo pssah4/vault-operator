@@ -1,11 +1,11 @@
 ---
 title: Memory & Personalization
-description: How Obsilo remembers your preferences, projects, and patterns, and how memory works across your other AI tools.
+description: How Vault Operator remembers your preferences, projects, and patterns, and how memory works across your other AI tools.
 ---
 
 # Memory & Personalization
 
-Obsilo remembers what you care about, how you like to work, and what you have discussed before. The same memory store also takes input from the other AI tools you use, so a fact learned in Claude Code can surface in an Obsilo conversation.
+Vault Operator remembers what you care about, how you like to work, and what you have discussed before. The same memory store also takes input from the other AI tools you use, so a fact learned in Claude Code can surface in an Vault Operator conversation.
 
 The mechanics behind this are explained in [Memory](../concepts/memory-system) and [Unified Chat Memory](../concepts/unified-chat-memory). This page covers how to use it day to day.
 
@@ -15,8 +15,8 @@ Memory v2 stores everything as **facts**. A fact is a single short statement wit
 
 Three things happen automatically:
 
-- **At the start of each conversation**, Obsilo picks the facts that match what the conversation is about and includes them in the system prompt. A coding chat sees coding facts; a personal chat sees identity and preference facts.
-- **At the end of each conversation**, Obsilo extracts new facts from the transcript in a single LLM call. Facts that re-appear get a confirmation boost. Facts that contradict existing ones produce an edge so you keep the history.
+- **At the start of each conversation**, Vault Operator picks the facts that match what the conversation is about and includes them in the system prompt. A coding chat sees coding facts; a personal chat sees identity and preference facts.
+- **At the end of each conversation**, Vault Operator extracts new facts from the transcript in a single LLM call. Facts that re-appear get a confirmation boost. Facts that contradict existing ones produce an edge so you keep the history.
 - **In the background**, importance scores age based on how often a fact gets used. Identity-level facts decay slowly (months). Event facts decay quickly (weeks). Nothing gets deleted; it sinks down the ranking until something more relevant takes its place.
 
 You can browse, edit, or soft-delete individual facts. **Settings > Memory > View memory** opens a viewer with a list of facts, edges, and the active communication style.
@@ -39,13 +39,13 @@ You will rarely need to think about which layer does what. The viewer shows fact
 
 ## Memory across your other AI tools
 
-If you use Claude Desktop, Claude Code, ChatGPT, or Perplexity alongside Obsilo, memory can flow between them via the MCP server.
+If you use Claude Desktop, Claude Code, ChatGPT, or Perplexity alongside Vault Operator, memory can flow between them via the MCP server.
 
 The shared layer is called **Unified Chat Memory (UCM)**. From your side, here is what it gives you:
 
-- Conversations from those tools land in Obsilo's history sidebar, in a tab named after the source (Claude.ai, Claude Code, ChatGPT, Perplexity).
-- Facts saved in those tools end up in the same store as Obsilo's own facts, with a `source_interface` tag.
-- The other tool can call `recall_memory` and `search_history` to read what Obsilo knows.
+- Conversations from those tools land in Vault Operator's history sidebar, in a tab named after the source (Claude.ai, Claude Code, ChatGPT, Perplexity).
+- Facts saved in those tools end up in the same store as Vault Operator's own facts, with a `source_interface` tag.
+- The other tool can call `recall_memory` and `search_history` to read what Vault Operator knows.
 - A topic that crosses tools (start in Claude.ai, continue in Claude Code) can be linked into a single cross-interface thread.
 
 To set this up, see [Connectors](./connectors).
@@ -62,7 +62,7 @@ The other tools usually save the same conversation more than once as it grows. U
 
 ## Chat history
 
-Chat history is on by default. Every conversation, both Obsilo's own and those saved from other tools, lives in `history.db` and shows up in the sidebar.
+Chat history is on by default. Every conversation, both Vault Operator's own and those saved from other tools, lives in `history.db` and shows up in the sidebar.
 
 To open the history:
 
@@ -71,19 +71,19 @@ To open the history:
 3. Source tabs above the list let you filter to one tool at a time.
 4. Click any conversation to restore it and pick up where you left off.
 
-If you have a small, fast titling model configured (Haiku, Flash, or GPT-4o mini work well), Obsilo titles conversations automatically. Without one, it falls back to the first 60 characters.
+If you have a small, fast titling model configured (Haiku, Flash, or GPT-4o mini work well), Vault Operator titles conversations automatically. Without one, it falls back to the first 60 characters.
 
 ## Chat-Linking
 
-When Obsilo creates or edits a note, it can add a link back to the conversation in the note's frontmatter. Anyone reading the note later can jump straight to the chat that produced it.
+When Vault Operator creates or edits a note, it can add a link back to the conversation in the note's frontmatter. Anyone reading the note later can jump straight to the chat that produced it.
 
 How it works:
 
 - A `obsilo-chat` field is added to the note's YAML frontmatter
 - The value is a clickable link in the format `obsidian://obsilo-chat?id=...`
-- Clicking the link opens Obsilo and jumps straight to that conversation
+- Clicking the link opens Vault Operator and jumps straight to that conversation
 
-To configure Chat-Linking, go to **Settings > Obsilo Agent > Interface** and look for the "Auto-link chats in frontmatter" toggle.
+To configure Chat-Linking, go to **Settings > Vault Operator > Interface** and look for the "Auto-link chats in frontmatter" toggle.
 
 :::info Cost saving
 Use a cheap, fast model for titling, separate from your main model. Even small models handle short titles well.
@@ -91,25 +91,25 @@ Use a cheap, fast model for titling, separate from your main model. Even small m
 
 ## Onboarding wizard
 
-When you first install Obsilo, a conversational setup wizard walks you through the basics:
+When you first install Vault Operator, a conversational setup wizard walks you through the basics:
 
-1. Introduction: Obsilo introduces itself and asks your name
+1. Introduction: Vault Operator introduces itself and asks your name
 2. Naming: rename the agent if you prefer a different name
 3. Backup reminder: a prompt to back up your vault before you let the agent write
 4. Permissions: pick your comfort level for automatic approvals
 5. Profile: tell it what you use your vault for so it can tailor its help
 
-Your answers go straight into the fact store as identity-kind facts with a high initial importance and a long half-life. Obsilo is personalized from the first real task.
+Your answers go straight into the fact store as identity-kind facts with a high initial importance and a long half-life. Vault Operator is personalized from the first real task.
 
 ## Vault notes as memory sources
 
-You can mark any vault note as a memory source. Obsilo runs the same extraction pipeline against it that runs after a conversation, with `source_uri='vault://...'`. Edits to the note retrigger extraction in the background. Long-form documents like `personal-profile.md` or `project-roadmap.md` become structured facts without losing the original.
+You can mark any vault note as a memory source. Vault Operator runs the same extraction pipeline against it that runs after a conversation, with `source_uri='vault://...'`. Edits to the note retrigger extraction in the background. Long-form documents like `personal-profile.md` or `project-roadmap.md` become structured facts without losing the original.
 
-To mark a note, open the note in Obsidian and use the command **Obsilo: Mark as memory source**. The note shows up in **Settings > Memory > Memory source notes** with the count of facts it has produced.
+To mark a note, open the note in Obsidian and use the command **Vault Operator: Mark as memory source**. The note shows up in **Settings > Memory > Memory source notes** with the count of facts it has produced.
 
 ## Memory settings
 
-Open **Settings > Obsilo Agent > Memory** to configure:
+Open **Settings > Vault Operator > Memory** to configure:
 
 | Setting | What it does | Default |
 |---------|--------------|---------|

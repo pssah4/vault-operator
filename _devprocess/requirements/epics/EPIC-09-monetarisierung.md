@@ -5,10 +5,10 @@
 
 ## Beschreibung
 
-Obsilo Gateway: Zentraler API-Gateway für Monetarisierung und Lizenzierung.
+Vault Operator Gateway: Zentraler API-Gateway für Monetarisierung und Lizenzierung.
 
 ## Features
 
 | Feature ID | Name | Priority | Status |
 |------------|------|----------|--------|
-| FEAT-09-01 | Obsilo Gateway | P2 | Geplant |
+| FEAT-09-01 | Vault Operator Gateway | P2 | Geplant |

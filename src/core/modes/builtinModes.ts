@@ -42,10 +42,10 @@ export const BUILT_IN_MODES: ModeConfig[] = [
         name: 'Ask',
         icon: 'circle-help',
         description: 'Conversational vault assistant. Search, explore, and get answers — read-only.',
-        whenToUse: 'Use for questions, searches, and exploration of your vault content. Also answers questions about how Obsidian and Obsilo work. Does not modify any files.',
+        whenToUse: 'Use for questions, searches, and exploration of your vault content. Also answers questions about how Obsidian and Vault Operator work. Does not modify any files.',
         toolGroups: ['read', 'vault', 'agent'],
         source: 'built-in',
-        roleDefinition: `You are Obsilo in Ask mode — read-only access to the vault. You answer questions, explore ideas, and think with the user — without modifying any files.
+        roleDefinition: `You are Vault Operator in Ask mode — read-only access to the vault. You answer questions, explore ideas, and think with the user — without modifying any files.
 
 ## Core principles
 
@@ -80,7 +80,7 @@ When the user picks an action that requires writing, use switch_mode to escalate
         whenToUse: 'Use for any task that requires action: writing notes, editing content, reorganizing structure, web research, or complex multi-step workflows. Can spawn sub-agents for parallel or sequential delegation.',
         toolGroups: ['read', 'vault', 'edit', 'web', 'agent', 'mcp', 'skill'],
         source: 'built-in',
-        roleDefinition: `You are Obsilo in Agent mode — fully autonomous with access to all tools: vault read/write, web research, sub-agents, MCP, and plugin skills.
+        roleDefinition: `You are Vault Operator in Agent mode — fully autonomous with access to all tools: vault read/write, web research, sub-agents, MCP, and plugin skills.
 
 ## Core principles
 

@@ -7,13 +7,13 @@
 
 ## Epic Hypothesis Statement
 
-FUER Power-User die Obsilo's Skill-System kennen und Anthropic Claude-Skills genutzt haben
+FUER Power-User die Vault Operator's Skill-System kennen und Anthropic Claude-Skills genutzt haben
 DIE aktuell kein Package-Format, keine Scripts-im-Skill und keine Multi-Rollen-Skills haben
 IST EPIC-22
-EIN Skill-Package-Format analog zu Anthropics offener Skill-Spec (`agentskills.io`) plus Obsilo-spezifischer Coordinator-Erweiterung
+EIN Skill-Package-Format analog zu Anthropics offener Skill-Spec (`agentskills.io`) plus Vault Operator-spezifischer Coordinator-Erweiterung
 DAS Skills als Ordner mit SKILL.md + optionalen scripts/references/assets/ Subfolders speichert, `.skill`-Zip-Distribution anbietet, und Sub-Skill-Koordination zulaesst
 IM GEGENSATZ ZUM Status quo wo Skills nur einzelne Markdown-Files sind, ohne Distribution und ohne Rollen-Orchestrierung
-UNSERE LOESUNG macht Obsilo rueckwaerts-kompatibel zu bestehenden Single-File-Skills (v2.5.x), nimmt bestehende Anthropic-Skills-Zips an, und erweitert das Format um eine Coordinator-Rolle die in Claude-Land nicht existiert aber in Obsilos Agent-Loop sinnvoll ist.
+UNSERE LOESUNG macht Vault Operator rueckwaerts-kompatibel zu bestehenden Single-File-Skills (v2.5.x), nimmt bestehende Anthropic-Skills-Zips an, und erweitert das Format um eine Coordinator-Rolle die in Claude-Land nicht existiert aber in Vault Operators Agent-Loop sinnvoll ist.
 
 ## Business Outcomes (messbar)
 
@@ -37,7 +37,7 @@ UNSERE LOESUNG macht Obsilo rueckwaerts-kompatibel zu bestehenden Single-File-Sk
 | FEAT-22-03 | Scripts-im-Skill (Sandbox-Aufruf) | Feature | P1 | M | Geplant |
 | FEAT-22-04 | Coordinator-Skill (Multi-Rolle in einem Ordner) | Feature | P1 | M | Geplant |
 
-**Priority:** P0-Critical (Kern-Funktionalitaet fuer Anthropic-Kompatibilitaet), P1-High (Obsilo-spezifische Erweiterungen).
+**Priority:** P0-Critical (Kern-Funktionalitaet fuer Anthropic-Kompatibilitaet), P1-High (Vault Operator-spezifische Erweiterungen).
 
 ## Architektur-Beruehrungspunkte
 
@@ -59,7 +59,7 @@ UNSERE LOESUNG macht Obsilo rueckwaerts-kompatibel zu bestehenden Single-File-Sk
 | Script-Ausfuehrung ohne Approval fuehrt zu Datenverlust | L | H | Zwinge bestehende Sandbox-Approval-Kette, kein Auto-Run |
 | Zip-Bomb / Path-Traversal im Import | M | M | Whitelist-Extraktion (nur SKILL.md, scripts/, references/, assets/), Pfad-Normalisierung, Groessenlimit |
 | Loader-Refaktor bricht bestehende Skills | M | H | Klarer Test-Plan: alle 9 bundled-skills muessen nach Umbau gruen sein |
-| Coordinator-Pattern ist ueber Anthropic-Spec hinaus, fuehrt zu divergenter Konvention | M | L | Explizite Markierung in SKILL.md: `type: coordinator` (Obsilo-only), Dokumentation macht klar dass das eine Erweiterung ist |
+| Coordinator-Pattern ist ueber Anthropic-Spec hinaus, fuehrt zu divergenter Konvention | M | L | Explizite Markierung in SKILL.md: `type: coordinator` (Vault Operator-only), Dokumentation macht klar dass das eine Erweiterung ist |
 
 ## Out of Scope
 

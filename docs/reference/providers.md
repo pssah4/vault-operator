@@ -5,9 +5,9 @@ description: Setup guides for all supported AI providers. Anthropic, OpenAI, Goo
 
 # Providers & models
 
-Obsilo supports 11 AI providers. Setup instructions for each one follow.
+Vault Operator supports 11 AI providers. Setup instructions for each one follow.
 
-For all providers, open **Settings > Obsilo Agent > Models**, click **"+ add model"**, and select your provider.
+For all providers, open **Settings > Vault Operator > Models**, click **"+ add model"**, and select your provider.
 
 ## Cloud providers
 
@@ -22,10 +22,10 @@ For all providers, open **Settings > Obsilo Agent > Models**, click **"+ add mod
 Setup:
 1. Create an account at [console.anthropic.com](https://console.anthropic.com)
 2. Go to **API Keys** and create a new key
-3. In Obsilo, select **Anthropic** as provider, paste the key, and pick a model
+3. In Vault Operator, select **Anthropic** as provider, paste the key, and pick a model
 
 :::tip Best tool use
-Anthropic models are the most reliable at calling Obsilo's tools correctly. If quality matters most, start here.
+Anthropic models are the most reliable at calling Vault Operator's tools correctly. If quality matters most, start here.
 :::
 
 ### OpenAI
@@ -39,7 +39,7 @@ Anthropic models are the most reliable at calling Obsilo's tools correctly. If q
 Setup:
 1. Create an account at [platform.openai.com](https://platform.openai.com)
 2. Go to **API Keys** and generate a new key
-3. In Obsilo, select **OpenAI** as provider, paste the key, and pick a model
+3. In Vault Operator, select **OpenAI** as provider, paste the key, and pick a model
 
 :::info Embedding models
 An OpenAI key also gives you access to embedding models for semantic search. Configure in **Settings > Embeddings**.
@@ -56,11 +56,11 @@ An OpenAI key also gives you access to embedding models for semantic search. Con
 Setup:
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey) and sign in with your Google account
 2. Click **Create API Key** and copy it
-3. In Obsilo, select **Google Gemini** as provider, paste the key
+3. In Vault Operator, select **Google Gemini** as provider, paste the key
 4. Browse available models or pick from the pre-configured list
 
 :::tip Free tier
-Google Gemini has a free tier with reasonable rate limits. Good starting point if you want to try Obsilo without paying.
+Google Gemini has a free tier with reasonable rate limits. Good starting point if you want to try Vault Operator without paying.
 :::
 
 ### OpenRouter
@@ -74,7 +74,7 @@ Google Gemini has a free tier with reasonable rate limits. Good starting point i
 Setup:
 1. Create an account at [openrouter.ai](https://openrouter.ai)
 2. Go to **Keys** and create a new API key
-3. In Obsilo, select **OpenRouter** as provider, paste the key
+3. In Vault Operator, select **OpenRouter** as provider, paste the key
 4. Browse or type any model ID (e.g., `anthropic/claude-sonnet-4.6`, `google/gemini-2.5-pro`)
 
 ### Azure OpenAI
@@ -88,7 +88,7 @@ Setup:
 Setup:
 1. Deploy a model in your Azure OpenAI resource
 2. Copy the **endpoint URL**, **API key**, and **deployment name**
-3. In Obsilo, select **Azure OpenAI** as provider and fill in all three fields
+3. In Vault Operator, select **Azure OpenAI** as provider and fill in all three fields
 
 :::info Enterprise use
 Azure OpenAI fits organizations with compliance requirements. Data stays inside your Azure tenant.
@@ -119,7 +119,7 @@ Setup:
     ```
 4. For EU cross-region inference profiles (recommended), the resource ARN pattern covers all EU regions. For a more restricted policy, scope it to the specific inference profile ARNs you use
 5. Generate an **access key ID** and **secret access key** for the user and copy both
-6. In Obsilo, select **Amazon Bedrock** as provider, pick your region, and paste the credentials. Use the quick pick dropdown to select a model
+6. In Vault Operator, select **Amazon Bedrock** as provider, pick your region, and paste the credentials. Use the quick pick dropdown to select a model
 
 :::tip Cross-region inference profiles
 Model IDs prefixed with `eu.` or `us.` are cross-region inference profiles. They route requests across the regions in that geography for higher availability. In Europe, `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` is the recommended default. It works from any EU region and keeps data inside the EU.
@@ -146,11 +146,11 @@ Bedrock bills per-token directly through your AWS account. There is no free tier
 | Embedding | Not available |
 
 Setup (OAuth device flow):
-1. In Obsilo, select **GitHub Copilot** as provider
+1. In Vault Operator, select **GitHub Copilot** as provider
 2. Click **"Sign in with GitHub"**. A device code appears.
 3. Open [github.com/login/device](https://github.com/login/device) in your browser
 4. Enter the code and authorize the app
-5. Obsilo automatically detects your available models
+5. Vault Operator automatically detects your available models
 
 :::tip No extra cost
 If you already pay for GitHub Copilot, this costs nothing extra. The models come with your subscription.
@@ -165,14 +165,14 @@ If you already pay for GitHub Copilot, this costs nothing extra. The models come
 | Embedding | Not available |
 
 Setup (device auth, recommended):
-1. In Obsilo, select **Kilo Gateway** as provider
+1. In Vault Operator, select **Kilo Gateway** as provider
 2. Click **"Sign in"**. A device code and URL appear.
 3. Open the URL in your browser, enter the code, and authorize
 4. Models are loaded dynamically from your organization
 
 Setup (manual token):
 1. Obtain a gateway token from your Kilo Code admin
-2. In Obsilo, select **Kilo Gateway** and choose **"Manual Token"**
+2. In Vault Operator, select **Kilo Gateway** and choose **"Manual Token"**
 3. Paste the token. Models load automatically.
 
 ## Local providers
@@ -188,7 +188,7 @@ Setup (manual token):
 Setup:
 1. Install Ollama from [ollama.ai](https://ollama.ai)
 2. Pull a model: `ollama pull qwen2.5:7b`
-3. In Obsilo, select **Ollama** as provider. No API key needed.
+3. In Vault Operator, select **Ollama** as provider. No API key needed.
 4. The model list auto-detects running models
 
 :::tip Privacy
@@ -207,7 +207,7 @@ Setup:
 1. Install LM Studio from [lmstudio.ai](https://lmstudio.ai)
 2. Download a model from the catalog and load it
 3. Start the **local server** (LM Studio > Developer tab)
-4. In Obsilo, select **LM Studio** as provider. No API key needed.
+4. In Vault Operator, select **LM Studio** as provider. No API key needed.
 
 ### Custom endpoint
 
@@ -218,7 +218,7 @@ Setup:
 | Embedding | Depends on the server |
 
 Setup:
-1. In Obsilo, select **Custom** as provider
+1. In Vault Operator, select **Custom** as provider
 2. Enter the **base URL** (e.g., `http://localhost:8080/v1`)
 3. Enter an **API key** if your server requires one
 4. Type the **model name** exactly as the server expects

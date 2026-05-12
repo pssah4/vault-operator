@@ -8,7 +8,7 @@
 
 ## Feature Description
 
-Obsilo akzeptiert Skills im Anthropic-Folder-Format: ein Skill ist ein Ordner mit
+Vault Operator akzeptiert Skills im Anthropic-Folder-Format: ein Skill ist ein Ordner mit
 `SKILL.md` und optionalen Unterordnern `scripts/`, `references/`, `assets/`.
 Der bestehende `SelfAuthoredSkillLoader` wird so erweitert, dass er diese
 Sub-Strukturen wahrnimmt und fuer andere Tools (Sandbox, `read_file`)

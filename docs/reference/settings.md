@@ -1,11 +1,11 @@
 ---
 title: Settings Reference
-description: Every Obsilo setting explained, organized by tab with defaults and recommendations.
+description: Every Vault Operator setting explained, organized by tab with defaults and recommendations.
 ---
 
 # Settings reference
 
-All Obsilo settings are in **Obsidian Settings > Obsilo Agent**. This page documents every section.
+All Vault Operator settings are in **Obsidian Settings > Vault Operator**. This page documents every section.
 
 ## Models
 
@@ -77,17 +77,17 @@ Enable tools for accessing the internet.
 
 ## MCP (Model Context Protocol)
 
-Connect external tool servers and expose Obsilo as a server.
+Connect external tool servers and expose Vault Operator as a server.
 
 | Setting | What it does | Default | Recommendation |
 |---------|-------------|---------|----------------|
 | Client servers | List of MCP servers the agent can call tools on | Empty | Add servers for external integrations |
 | + add server | Configure a new MCP server connection (SSE or streamable-http) | n/a | Only SSE and streamable-http transports work |
 | Test server | Verify connectivity to a configured server | n/a | Test after adding |
-| Obsilo as MCP server | Expose Obsilo's tools to external clients like Claude Desktop | Off | Enable to use Obsilo from Claude Desktop |
+| Vault Operator as MCP server | Expose Vault Operator's tools to external clients like Claude Desktop | Off | Enable to use Vault Operator from Claude Desktop |
 
 :::info Transport limitation
-Obsilo runs inside Electron (Obsidian's runtime), so only **SSE** and **streamable-http** transports are supported. Stdio-based MCP servers do not work.
+Vault Operator runs inside Electron (Obsidian's runtime), so only **SSE** and **streamable-http** transports are supported. Stdio-based MCP servers do not work.
 :::
 
 ## Modes
@@ -146,7 +146,7 @@ Configure how the agent remembers across conversations.
 | Setting | What it does | Default | Recommendation |
 |---------|-------------|---------|----------------|
 | Chat history | Save conversation history for future reference | On | Keep on. Required for memory extraction. |
-| Chat history folder | Where to store conversation files in the vault | `Obsilo/Chats` | Change if you prefer a different location |
+| Chat history folder | Where to store conversation files in the vault | `Vault Operator/Chats` | Change if you prefer a different location |
 | Memory extraction | Automatically extract key facts from conversations | On | Keep on for personalization |
 | Memory model | Which model to use for memory extraction (background task) | Global model | Use a cheap model (Haiku, GPT-4o-mini) to save cost |
 | Memory threshold | Minimum relevance score for a memory to be saved | 0.7 | Lower for more memories, raise for fewer but higher quality |
@@ -188,7 +188,7 @@ Appearance and input behavior settings.
 | Auto-add active file | Automatically include the currently open note as context | On | Keep on. Helps the agent understand what you're looking at. |
 | Send key | Which key sends a message (Enter or Ctrl/Cmd+Enter) | Enter | Change to Ctrl+Enter if you write multi-line messages often |
 | Show date/time | Display timestamps in the chat | Off | Personal preference |
-| Chat history folder | Vault folder for saved conversations | `Obsilo/Chats` | Also configurable in Memory tab |
+| Chat history folder | Vault folder for saved conversations | `Vault Operator/Chats` | Also configurable in Memory tab |
 | Chat linking | Link chat sessions to notes for traceability | Off | Enable for project-based workflows |
 | Task extraction | Detect and extract tasks from agent responses | Off | Enable to auto-create tasks from conversations |
 
@@ -214,7 +214,7 @@ Checkpoint and snapshot settings for the undo system.
 
 ### Agent folder
 
-Vault-relative folder where Obsilo keeps its own files: plugin skills, the vault-dna snapshot, externalised tmp results, and the local knowledge database. Default is `.obsidian-agent`.
+Vault-relative folder where Vault Operator keeps its own files: plugin skills, the vault-dna snapshot, externalised tmp results, and the local knowledge database. Default is `.obsidian-agent`.
 
 Use the **Pick folder...** button to choose an existing folder from a fuzzy picker (works the same on Windows, macOS, and Linux), or type a new path that will be created on next use. Existing files are not auto-migrated when you change this path. Move them manually if needed.
 
@@ -224,5 +224,5 @@ Use the **Pick folder...** button to choose an existing folder from a fuzzy pick
 |-----|-------------|
 | Log | Browse the daily audit trail of all tool calls with timestamps and parameters |
 | Debug | Internal diagnostics: debug mode toggle, system prompt preview |
-| Backup | Export and import your complete Obsilo configuration |
+| Backup | Export and import your complete Vault Operator configuration |
 | Language | Set the agent's response language (follows Obsidian's language by default) |

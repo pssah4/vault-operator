@@ -177,11 +177,11 @@ EpisodicExtractor) bekommen `EmbeddingService` constructor-injected und
 nutzen `embed()` statt direkter Provider-Aufrufe.
 
 **Anpassungen:**
-- Neue Datei `src/core/memory/ObsiloEmbeddingProvider.ts` -- konkretes
+- Neue Datei `src/core/memory/VaultOperatorEmbeddingProvider.ts` -- konkretes
   EmbeddingProvider, das die existing `embedBatchViaApi`-Logik aus
   SemanticIndexService kapselt.
 - Plugin-Init in main.ts erstellt einen EmbeddingService, registriert
-  ObsiloEmbeddingProvider, injectet die Service-Instanz in alle drei
+  VaultOperatorEmbeddingProvider, injectet die Service-Instanz in alle drei
   Caller.
 - Caller migrieren ihre internen Aufrufe auf `service.embed(texts)`.
 - Test: bestehende Tests der drei Caller bleiben gruen (kein
@@ -241,7 +241,7 @@ Sequentiell, jede Aufgabe mit Build + Tests + Commit:
 | `src/core/memory/FactExporter.ts` | NEU | Klein |
 | `src/core/memory/MemoryAtomizer.ts` | NEU | Klein |
 | `src/core/memory/MemoryMigrationJob.ts` | NEU | Mittel |
-| `src/core/memory/ObsiloEmbeddingProvider.ts` | NEU | Klein |
+| `src/core/memory/VaultOperatorEmbeddingProvider.ts` | NEU | Klein |
 | `src/core/semantic/TrigramIndex.ts` | NEU | Mittel (Performance) |
 | `src/core/semantic/SemanticIndexService.ts` | Embedding-Provider-Migration + neue Search-Helper | Hoch |
 | `src/core/memory/MemoryRetriever.ts` | EmbeddingService-Injection | Mittel |
@@ -302,14 +302,14 @@ Alle 8 Aufgaben implementiert. 8 Commits gegen `feature/memory-redesign`:
 - `416a61e` -- Aufgabe 1 (RRF-Helper als Pure Function)
 - `a357897` -- Aufgabe 2 (FactExporter facts -> markdown)
 - `8b5ca40` -- Aufgabe 3 (MemoryAtomizer mit Tool-Call-Schema)
-- `c85d256` -- Aufgabe 6 (ObsiloEmbeddingProvider + main.ts wiring)
+- `c85d256` -- Aufgabe 6 (VaultOperatorEmbeddingProvider + main.ts wiring)
 - `fa203da` -- Aufgabe 5 (Hybrid semantic_search 3-signal RRF, Tag-Match neu)
 - `3f812a0` -- Aufgabe 4 (MemoryMigrationJob)
 - `fa4d536` -- Aufgabe 7 (Migration-Approval-UI im MemoryTab)
 - (folgend) -- Aufgabe 8 (Recall-Eval Snapshot + PLAN-05-Status auf Implemented)
 
 **Tests:** 632/632 gruen, +85 neu fuer Phase 2 (rrf 12, FactExporter 10,
-MemoryAtomizer 14, ObsiloEmbeddingProvider 7, MemoryMigrationJob 9,
+MemoryAtomizer 14, VaultOperatorEmbeddingProvider 7, MemoryMigrationJob 9,
 Recall-Eval Snapshot 12, plus inkrementelle).
 
 **Live verifiziert** (Sebastian, 23:40-23:54):

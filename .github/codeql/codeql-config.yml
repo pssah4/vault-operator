@@ -1,4 +1,4 @@
-name: "Obsilo Agent CodeQL Config"
+name: "Vault Operator CodeQL Config"
 
 queries:
   - uses: security-and-quality

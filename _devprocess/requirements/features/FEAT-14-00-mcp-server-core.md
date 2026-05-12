@@ -7,13 +7,13 @@
 
 ## Feature Description
 
-Obsilo exponiert sich als MCP Server ueber stdio-Transport. Der Server laeuft als
+Vault Operator exponiert sich als MCP Server ueber stdio-Transport. Der Server laeuft als
 Child Process (Node.js `child_process.fork`), kommuniziert via IPC mit dem Plugin
-im Renderer-Prozess. Claude Desktop/Code verbindet sich via stdio und kann Obsilo's
+im Renderer-Prozess. Claude Desktop/Code verbindet sich via stdio und kann Vault Operator's
 Intelligence-Features nutzen.
 
-**Architektur-Kernprinzip:** Claude ist der Agent (orchestriert, denkt), Obsilo ist
-das Intelligence-Backend (sucht, liest, schreibt, lernt). Obsilo macht KEINE eigenen
+**Architektur-Kernprinzip:** Claude ist der Agent (orchestriert, denkt), Vault Operator ist
+das Intelligence-Backend (sucht, liest, schreibt, lernt). Vault Operator macht KEINE eigenen
 LLM-Calls im Connector-Modus. Alle Inferenz kommt von Claude.
 
 **Kein Standalone-Impact:** Der MCP Server ist ein reiner Aufsatz auf bestehende
@@ -26,7 +26,7 @@ Keine Aenderungen an bestehenden Services.
 **Folgende messbare Outcomes liefert:**
 - Claude Desktop kann direkt auf den Vault zugreifen
 - Kein API-Key-Setup fuer den Connector-Modus
-- Obsilo's 4-Stufen-Retrieval-Pipeline fuer Claude nutzbar
+- Vault Operator's 4-Stufen-Retrieval-Pipeline fuer Claude nutzbar
 
 **Wir wissen dass wir erfolgreich sind wenn:**
 - Claude Desktop erkennt den MCP Server und listet die Tools
@@ -51,7 +51,7 @@ Keine Aenderungen an bestehenden Services.
 
 | ID | Criterion | Target | Measurement |
 |----|-----------|--------|-------------|
-| SC-01 | Claude Desktop erkennt Obsilo als Connector | Verbindung hergestellt | Claude Desktop zeigt "Obsilo" |
+| SC-01 | Claude Desktop erkennt Vault Operator als Connector | Verbindung hergestellt | Claude Desktop zeigt "Vault Operator" |
 | SC-02 | search_vault liefert 4-Stufen-Pipeline-Ergebnisse | Semantic + Graph + Implicit | Ergebnis-Pruefung |
 | SC-03 | Standalone-Modus funktioniert unveraendert | 0 Regressionen | Alle bestehenden Tests gruen |
 | SC-04 | Antwortzeit | Unter 500ms (lokal) | Zeitmessung |
@@ -82,15 +82,15 @@ Keine Aenderungen an bestehenden Services.
 
 ## MCP Tools (6 Intelligence-Tools + 2 Learning-Tools)
 
-| MCP Tool | Obsilo API (read-only Zugriff) | Beschreibung |
+| MCP Tool | Vault Operator API (read-only Zugriff) | Beschreibung |
 |----------|-------------------------------|--------------|
 | `get_context` | MemoryService, VaultStats, SkillsManager | IMMER zuerst aufrufen. Liefert User-Profil, Memory, Vault-Kontext, verfuegbare Skills. |
 | `search_vault` | SemanticIndexService, GraphStore, ImplicitConnectionService, RerankerService | Intelligente Vault-Suche: Semantic + Graph + Implicit + Reranking in einem Call. |
 | `read_notes` | Vault.cachedRead | Mehrere Dateien lesen, strukturiert mit Frontmatter + Linked Notes. |
 | `write_vault` | Vault.create/modify/delete | Batch-Write mit Approval-Pipeline. |
-| `create_document` | CreateDocx/Pptx/XlsxTool | PPTX, DOCX, XLSX erstellen. Claude liefert Inhalt, Obsilo formatiert. |
+| `create_document` | CreateDocx/Pptx/XlsxTool | PPTX, DOCX, XLSX erstellen. Claude liefert Inhalt, Vault Operator formatiert. |
 | `execute_vault_op` | Diverse Tools | Spezial-Ops: generate_canvas, update_frontmatter, create_base, etc. |
-| `sync_session` | MemoryService, EpisodicExtractor | Konversation + Learnings speichern. Claude extrahiert, Obsilo persistiert. |
+| `sync_session` | MemoryService, EpisodicExtractor | Konversation + Learnings speichern. Claude extrahiert, Vault Operator persistiert. |
 | `update_memory` | MemoryService | User-Profil, Patterns, Errors aktualisieren. |
 
 ## MCP Prompts (System-Prompt-Ersatz)

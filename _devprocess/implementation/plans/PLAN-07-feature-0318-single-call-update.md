@@ -217,7 +217,7 @@ gegen Mock-Atomizer. Plus performance-snapshot (token-budget assertions).
 
 - Phase-0.5-Components (KnowledgeDB, WriterLock, SnapshotJob)
 - Phase-1+2-Stores (FactStore, EdgeStore (außer Provisional), StyleStore, AuditLog,
-  ObsiloEmbeddingProvider, MemoryAtomizer fuer Migration)
+  VaultOperatorEmbeddingProvider, MemoryAtomizer fuer Migration)
 - Phase-3-Read-Pfad (ContextComposer, RecallMemoryTool, UnifiedGraphService,
   KnowledgeGraphAdapter, StandardAdapters, MemoryV2UpgradeOrchestrator)
 - Profile-System (Phase 3.5)

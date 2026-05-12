@@ -5,7 +5,7 @@
 
 ## Context
 
-Die bestehende Obsilo-Website besteht aus ~30 handgeschriebenen HTML-Dateien mit einem eigenen i18n-System (JSON-Locales, Client-Side-Rendering). Bei wachsendem Content-Umfang (15+ neue Seiten geplant, EN+DE) wird raw HTML unwartbar. Die Migration zu einem Static Site Generator ermoeglicht Markdown-Authoring und schafft die Grundlage fuer Dual-Use der Inhalte als Obsilo-Skill.
+Die bestehende Vault Operator-Website besteht aus ~30 handgeschriebenen HTML-Dateien mit einem eigenen i18n-System (JSON-Locales, Client-Side-Rendering). Bei wachsendem Content-Umfang (15+ neue Seiten geplant, EN+DE) wird raw HTML unwartbar. Die Migration zu einem Static Site Generator ermoeglicht Markdown-Authoring und schafft die Grundlage fuer Dual-Use der Inhalte als Vault Operator-Skill.
 
 **Triggering ASR:**
 - ASR-1: SSG-Auswahl (FEAT-17-00)
@@ -14,7 +14,7 @@ Die bestehende Obsilo-Website besteht aus ~30 handgeschriebenen HTML-Dateien mit
 ## Decision Drivers
 
 - **Markdown-First:** Authoring muss in Markdown passieren (kein MDX/JSX-Zwang)
-- **GitHub Pages:** Static Output, kostenlos deployen, CNAME www.obsilo.ai beibehalten
+- **GitHub Pages:** Static Output, kostenlos deployen, CNAME pssah4.github.io/vault-operator beibehalten
 - **i18n (EN+DE):** Native Unterstuetzung fuer zwei Sprachen mit Fallback
 - **Sidebar Auto-Generation:** Navigation aus Dateistruktur/Config, nicht manuell pro Seite
 - **Suche:** Eingebaute Volltextsuche ohne externe Services
@@ -57,7 +57,7 @@ Astro-basiertes Doku-Framework. Content Collections, Islands Architecture. Bekan
 React-basierter SSG von Meta. Markdown + MDX. Bekannt durch React Docs, viele OSS-Projekte.
 
 - Pro: Sehr ausgereift, grosse Community
-- Pro: Versioning eingebaut (irrelevant fuer Obsilo)
+- Pro: Versioning eingebaut (irrelevant fuer Vault Operator)
 - Pro: i18n eingebaut (Crowdin-Integration)
 - Con: React-Overhead im Output (groesseres Bundle)
 - Con: Langsamster Build der drei Optionen (~30s+)
@@ -71,7 +71,7 @@ React-basierter SSG von Meta. Markdown + MDX. Bekannt durch React Docs, viele OS
 
 **Begruendung:**
 
-VitePress ist die beste Wahl fuer Obsilo weil:
+VitePress ist die beste Wahl fuer Vault Operator weil:
 
 1. **Minimaler Overhead:** Schnellster Build, kleinstes Output, einfachstes Setup. Perfekt fuer Ein-Personen-Projekt.
 2. **Best-in-Class Default-Design:** Das Default-Theme sieht bereits sehr nah an den Vorbildern aus (Stripe, Tailwind). Wenig Custom CSS noetig.
@@ -90,7 +90,7 @@ Astro Starlight waere die zweite Wahl -- flexibler, aber komplexer. Docusaurus i
 - Content-Aenderungen in Minuten statt Stunden (Markdown statt HTML)
 - Professionelles Design out of the box
 - i18n, Suche, Navigation ohne Custom-Code
-- Dual-Use: Markdown-Quellen direkt als Obsilo-Skill nutzbar
+- Dual-Use: Markdown-Quellen direkt als Vault Operator-Skill nutzbar
 
 ### Negative
 - Migration der 30 bestehenden HTML-Seiten zu Markdown (einmaliger Aufwand)
@@ -104,7 +104,7 @@ Astro Starlight waere die zweite Wahl -- flexibler, aber komplexer. Docusaurus i
 
 - `docs/` Verzeichnis wird zu VitePress-Projekt (docs/.vitepress/config.ts)
 - Bestehende HTML-Seiten werden zu Markdown konvertiert
-- CNAME (www.obsilo.ai) bleibt erhalten
+- CNAME (pssah4.github.io/vault-operator) bleibt erhalten
 - GitHub Actions Workflow fuer automatischen Build + Deploy
 - Custom CSS wird in docs/.vitepress/theme/custom.css migriert
 

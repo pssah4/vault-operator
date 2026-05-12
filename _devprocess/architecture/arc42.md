@@ -840,7 +840,7 @@ ADRs: [ADR-69](ADR-69-confidence-storage.md), [ADR-70](ADR-70-community-detectio
 
 ### 8.14 MCP Server (EPIC-14)
 
-MCP-Server-Architektur fuer externen Zugriff auf Obsilo-Funktionen:
+MCP-Server-Architektur fuer externen Zugriff auf Vault Operator-Funktionen:
 
 - **McpBridge** (`src/mcp/McpBridge.ts`): Hauptorchestrator, stdio JSON-RPC plus Streamable-HTTP-konformer Worker-Pfad
 - **Vault-Tools (Approval-tiered)**: getContext, searchVault, readNotes, writeVault, executeVaultOp, syncSession

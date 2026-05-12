@@ -13,7 +13,7 @@ Neue Sektion auf der Homepage die transparent zeigt was bereits implementiert wu
 
 **Wir glauben dass** eine oeffentliche Roadmap mit Versions-Log
 **Folgende messbare Outcomes liefert:**
-- Besucher erkennen sofort dass Obsilo aktiv weiterentwickelt wird
+- Besucher erkennen sofort dass Vault Operator aktiv weiterentwickelt wird
 - Die Roadmap vermittelt eine klare Vision und Richtung
 
 **Wir wissen dass wir erfolgreich sind wenn:**
@@ -23,12 +23,12 @@ Neue Sektion auf der Homepage die transparent zeigt was bereits implementiert wu
 ## User Stories
 
 ### Story 1: Projekt-Aktivitaet einschaetzen
-**Als** potenzieller Obsilo-Nutzer
+**Als** potenzieller Vault Operator-Nutzer
 **moechte ich** auf der Homepage sehen wie aktiv das Projekt ist
 **um** zu entscheiden ob ich einem aktiv gepflegten Projekt vertrauen kann
 
 ### Story 2: Zukunftsplaene sehen
-**Als** bestehender Obsilo-Nutzer
+**Als** bestehender Vault Operator-Nutzer
 **moechte ich** sehen was als naechstes geplant ist
 **um** einschaetzen zu koennen ob Features die ich mir wuensche auf der Roadmap stehen
 
@@ -55,7 +55,7 @@ Done:
 - Knowledge Layer (Semantic Search, Graph, Implicit Connections, Reranking)
 - Office Pipeline (PPTX/DOCX/XLSX Erstellung, Template Engine)
 - Multi-Provider (Anthropic, OpenAI, Copilot, Kilo, Ollama, Azure, ...)
-- MCP Connector (Obsilo als MCP Server fuer Claude Desktop)
+- MCP Connector (Vault Operator als MCP Server fuer Claude Desktop)
 - Memory & Personalization (3-Tier Memory, Onboarding, Chat-Linking)
 - Safety & Governance (Permissions, Checkpoints, Audit Log)
 - Self-Development (Skills, Sandbox, Dynamic Tools, Plugin API)

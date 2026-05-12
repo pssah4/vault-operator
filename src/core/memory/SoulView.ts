@@ -75,9 +75,9 @@ export class SoulView {
     renderMarkdown(): string {
         const s = this.snapshot();
         const lines: string[] = [];
-        lines.push('## Identity & Soul (Obsilo)');
+        lines.push('## Identity & Soul (Vault Operator)');
         lines.push('');
-        lines.push('You are Obsilo, an AI agent embedded in Obsidian.');
+        lines.push('You are Vault Operator, an AI agent embedded in Obsidian.');
         lines.push('');
 
         for (const cat of SOUL_CATEGORY_ORDER) {

@@ -5,7 +5,7 @@ description: Semantic search, knowledge graph, implicit connections, and local r
 
 # Knowledge Discovery
 
-Most search tools match exact words. Obsilo understands meaning. A search for "improving focus" can find a note titled "Deep Work Techniques" even though the words do not overlap.
+Most search tools match exact words. Vault Operator understands meaning. A search for "improving focus" can find a note titled "Deep Work Techniques" even though the words do not overlap.
 
 ## What is semantic search?
 
@@ -18,9 +18,9 @@ This means:
 
 ## Setup
 
-Semantic search requires an embedding model to convert text into embeddings. You set this up once; Obsilo handles the rest.
+Semantic search requires an embedding model to convert text into embeddings. You set this up once; Vault Operator handles the rest.
 
-1. Open **Settings > Obsilo Agent > Embeddings**
+1. Open **Settings > Vault Operator > Embeddings**
 2. Choose an embedding model from the dropdown
 3. Click **Build Index** to process your vault
 
@@ -42,7 +42,7 @@ Embeddings are stored in a local database inside your vault. If you use a cloud 
 
 ## How search works under the hood
 
-When you or the agent run a semantic search, Obsilo combines multiple retrieval strategies:
+When you or the agent run a semantic search, Vault Operator combines multiple retrieval strategies:
 
 ### 1. BM25 (keyword matching)
 
@@ -58,7 +58,7 @@ Combines the results from BM25 and semantic search into a single ranked list. No
 
 ## The knowledge graph
 
-Beyond search, Obsilo builds a knowledge graph from the structure already in your vault:
+Beyond search, Vault Operator builds a knowledge graph from the structure already in your vault:
 
 - **Wikilinks:** `[[note]]` connections between your notes
 - **Tags:** shared tags create implicit groupings
@@ -70,7 +70,7 @@ When the agent searches, it can expand results through the graph. If a search fi
 
 ## Implicit connections
 
-Obsilo can find notes that are semantically similar but not linked to each other: two notes about closely related topics, written months apart, that you never connected.
+Vault Operator can find notes that are semantically similar but not linked to each other: two notes about closely related topics, written months apart, that you never connected.
 
 When it finds them, a suggestion banner appears in the sidebar offering to show you the discovered relationships.
 
@@ -80,15 +80,15 @@ The larger your vault, the more useful implicit connections get.
 
 ## Local reranking
 
-After the initial search returns candidates, Obsilo can run a second pass using a cross-encoder model to improve result quality. This model runs entirely on your device via WebAssembly. No data is sent anywhere.
+After the initial search returns candidates, Vault Operator can run a second pass using a cross-encoder model to improve result quality. This model runs entirely on your device via WebAssembly. No data is sent anywhere.
 
 The reranker (based on ms-marco-MiniLM) reads each candidate alongside your query and produces a more accurate relevance score. False positives get pushed down; actually relevant results move up.
 
-Toggle it in **Settings > Obsilo Agent > Embeddings > Local Reranking**.
+Toggle it in **Settings > Vault Operator > Embeddings > Local Reranking**.
 
 ## Contextual retrieval
 
-When enabled, Obsilo enriches each chunk with surrounding context before creating its embedding. It reads the note around a chunk and adds a brief description of what that chunk covers. This improves search accuracy for short or ambiguous passages.
+When enabled, Vault Operator enriches each chunk with surrounding context before creating its embedding. It reads the note around a chunk and adds a brief description of what that chunk covers. This improves search accuracy for short or ambiguous passages.
 
 For example, a chunk containing just a table of numbers becomes much more findable when the system adds context like "quarterly revenue figures from the 2025 financial review."
 
@@ -104,15 +104,15 @@ Search results include a freshness signal based on file modification time. Notes
 
 ## Community detection
 
-The knowledge graph often contains natural clusters: groups of notes that link to each other frequently but have few connections to the rest of the vault. Obsilo runs the Louvain algorithm at startup to find these clusters. The results feed into vault health checks, where they help spot notes whose category tag doesn't match the cluster they actually belong to.
+The knowledge graph often contains natural clusters: groups of notes that link to each other frequently but have few connections to the rest of the vault. Vault Operator runs the Louvain algorithm at startup to find these clusters. The results feed into vault health checks, where they help spot notes whose category tag doesn't match the cluster they actually belong to.
 
 ## God-node detection
 
-The flip side of a healthy hub is a note that has collected too many backlinks to still be useful. A topic note with eighty connections isn't an index anymore, it's a dumping ground. Obsilo flags these "god nodes" as part of the vault health check so you can think about splitting them into more focused notes. The threshold is configurable in [Settings > Embeddings > Vault health check](/reference/settings#vault-health-check).
+The flip side of a healthy hub is a note that has collected too many backlinks to still be useful. A topic note with eighty connections isn't an index anymore, it's a dumping ground. Vault Operator flags these "god nodes" as part of the vault health check so you can think about splitting them into more focused notes. The threshold is configurable in [Settings > Embeddings > Vault health check](/reference/settings#vault-health-check).
 
 ## Scanned PDFs and OCR
 
-PDFs that contain only scanned images (no extractable text layer) are common in academic workflows, and on its own the PDF parser can't read them. If you have the Obsidian Text Extractor plugin installed and have already let it OCR your attachments, Obsilo falls back to that plugin's OCR cache when indexing scanned PDFs. Anything you've processed with Text Extractor becomes searchable here too, with no additional API calls.
+PDFs that contain only scanned images (no extractable text layer) are common in academic workflows, and on its own the PDF parser can't read them. If you have the Obsidian Text Extractor plugin installed and have already let it OCR your attachments, Vault Operator falls back to that plugin's OCR cache when indexing scanned PDFs. Anything you've processed with Text Extractor becomes searchable here too, with no additional API calls.
 
 ## Configuration
 
@@ -139,5 +139,5 @@ For vaults with 5000+ notes, the initial index build may take 10-20 minutes depe
 ## Next steps
 
 - [Vault Operations](/guides/vault-operations): Reading, writing, and organizing your files
-- [Memory & Personalization](/guides/memory-personalization): How Obsilo remembers your preferences
+- [Memory & Personalization](/guides/memory-personalization): How Vault Operator remembers your preferences
 - [Settings Reference](/reference/settings): All embedding and search settings explained

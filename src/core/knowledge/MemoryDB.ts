@@ -289,7 +289,7 @@ export class MemoryDB {
         // Phase 2: Memory-v2 additive tables + version tracker (FEATURE-0315)
         execDDL(db, MEMORY_SCHEMA_V2_ADDITIVE);
         // Phase 3.5 (UCM-readiness): profile_id column for multi-profile facts.
-        // Default 'default' covers Obsilo's single-user reality; UCM later
+        // Default 'default' covers Vault Operator's single-user reality; UCM later
         // assigns per-profile values (work / personal / coding / ...).
         this.applyV3ProfileColumn(db);
         // Phase 4 (FEATURE-0318 task B.3): delta-window state per thread so

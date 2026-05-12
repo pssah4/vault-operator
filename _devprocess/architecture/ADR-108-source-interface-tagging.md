@@ -15,7 +15,7 @@ Proposed (RE-Pass 2026-05-03).
 
 ## Kontext
 
-EPIC-23 "Cross-Surface AI Workflow" exposed Obsilo's Memory + History
+EPIC-23 "Cross-Surface AI Workflow" exposed Vault Operator's Memory + History
 ueber MCP an externe Chat-UIs. Damit landen Conversations und Facts
 aus mehreren Surfaces im selben Storage. Ohne Differenzierung kann
 Sebastian nicht erkennen, woher ein Fact stammt -- weder in der

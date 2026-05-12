@@ -5,7 +5,7 @@ description: Create PPTX, DOCX, and XLSX presentations and documents from your n
 
 # Office documents
 
-Obsilo can create PowerPoint presentations, Word documents, and Excel spreadsheets directly inside your vault. It can also read existing office files and use them as context in conversations.
+Vault Operator can create PowerPoint presentations, Word documents, and Excel spreadsheets directly inside your vault. It can also read existing office files and use them as context in conversations.
 
 ## What you can create
 
@@ -31,7 +31,7 @@ You don't need to spell out exact slide layouts or cell formatting. The agent pi
 
 ## Template workflow for presentations
 
-For corporate decks, Obsilo supports a template-based pipeline. This is the best way to create presentations that match your organization's design.
+For corporate decks, Vault Operator supports a template-based pipeline. This is the best way to create presentations that match your organization's design.
 
 ### How it works
 
@@ -48,7 +48,7 @@ For corporate decks, Obsilo supports a template-based pipeline. This is the best
 
 ### The 6-step office workflow
 
-For best results, Obsilo follows a built-in workflow:
+For best results, Vault Operator follows a built-in workflow:
 
 1. Context: gather source material from your vault
 2. Template: analyze the provided template (or use ad-hoc mode)
@@ -63,7 +63,7 @@ Ad-hoc mode creates presentations from scratch without a template (using PptxGen
 
 ## Reading office documents
 
-Obsilo can parse existing office files and use their content in conversations:
+Vault Operator can parse existing office files and use their content in conversations:
 
 - PPTX: text from all slides
 - DOCX: headings, paragraphs, tables

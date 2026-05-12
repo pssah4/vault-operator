@@ -7,18 +7,18 @@
 
 ## Feature Description
 
-Obsilo's System-Prompt-Inhalt wird als MCP Prompts an Claude uebergeben. Beim Connect
+Vault Operator's System-Prompt-Inhalt wird als MCP Prompts an Claude uebergeben. Beim Connect
 erhaelt Claude die Rolle, Kommunikationsstil, User-Profil, Regeln und Skill-Anleitungen --
 exakt wie der System-Prompt im Standalone-Modus, aber ueber MCP statt als API-Parameter.
 
-**Kernprinzip:** Claude bekommt beim ersten Kontakt gesagt: "Wenn du mit Obsilo arbeitest,
+**Kernprinzip:** Claude bekommt beim ersten Kontakt gesagt: "Wenn du mit Vault Operator arbeitest,
 ist das hier deine Rolle und diese Regeln gelten." Ersetzt den System-Prompt 1:1.
 
 ## User Stories
 
 ### Story 1: Claude kennt die Regeln
 **Als** User mit eigenen Rules und Patterns
-**moechte ich** dass Claude meine Regeln kennt wenn es Obsilo nutzt
+**moechte ich** dass Claude meine Regeln kennt wenn es Vault Operator nutzt
 **um** konsistente Ergebnisse zu bekommen (z.B. immer Deutsch, bestimmter Stil)
 
 ### Story 2: Workflow-Anleitungen
@@ -46,7 +46,7 @@ Quelle: `MemoryService.buildMemoryContext()` + `soul.md` + `RulesLoader.getRules
 
 ```
 Inhalt:
-- Rolle: "Du arbeitest mit Obsilo, einem Vault-Intelligence-Backend."
+- Rolle: "Du arbeitest mit Vault Operator, einem Vault-Intelligence-Backend."
 - Kommunikationsstil: aus soul.md
 - Regeln: "Rufe IMMER get_context als erstes auf. Am Ende: sync_session aufrufen."
 - User-Regeln: aus Rules-Dateien

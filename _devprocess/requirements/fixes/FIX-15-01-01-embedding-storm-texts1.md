@@ -6,7 +6,7 @@ adr-refs: []
 plan-refs: []
 depends-on: []
 created: 2026-05-08
-issue: https://github.com/pssah4/obsilo-dev/issues/61
+issue: https://github.com/pssah4/vault-operator-dev/issues/61
 ---
 
 # FIX-15-01-01: SemanticIndex sendet pro Chunk einen `texts=1`-Embedding-Call statt Batches
@@ -83,4 +83,4 @@ See the backlog row for FIX-15-01-01 in `_devprocess/context/BACKLOG.md`
 
 ## Tracking
 
-GitHub Issue: https://github.com/pssah4/obsilo-dev/issues/61
+GitHub Issue: https://github.com/pssah4/vault-operator-dev/issues/61

@@ -34,7 +34,7 @@ const CODEX_RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses';
 const CODEX_HEADERS: Record<string, string> = {
     'OpenAI-Beta': 'responses=experimental',
     'Originator': 'codex_cli_rs',
-    'User-Agent': 'codex_cli_rs/0.21.0 (Obsidian Plugin) Obsilo',
+    'User-Agent': 'codex_cli_rs/0.21.0 (Obsidian Plugin) Vault Operator',
     'Accept': 'text/event-stream',
 };
 

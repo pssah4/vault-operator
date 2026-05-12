@@ -3,12 +3,12 @@
 > **Priority:** P1
 > **Epic:** EPIC-04 (Chat UX)
 > **Date:** 2026-04-19
-> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/obsilo/issues/31) / commit [cc97106](https://github.com/nicholas-leonard/obsilo/commit/cc97106)
+> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/vault-operator/issues/31) / commit [cc97106](https://github.com/nicholas-leonard/obsilo/commit/cc97106)
 
 ## Problem
 
 Dragging a note from Obsidian's built-in file explorer or search result
-list into the Obsilo chat sidebar does not attach the file. Instead
+list into the Vault Operator chat sidebar does not attach the file. Instead
 Obsidian opens the dropped file in a new tab while the chat input shows
 no attachment chip. The drag affordance on the input wrapper
 (`.drag-over` class) fires correctly, so the handler receives the

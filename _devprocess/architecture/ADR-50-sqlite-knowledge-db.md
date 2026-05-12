@@ -5,7 +5,7 @@
 
 ## Context
 
-Obsilos semantische Suche nutzt vectra (LocalIndex), das alle Vektoren in einer einzigen JSON-Datei speichert. Bei 5.980 Vektoren mit 4096 Dimensionen erreicht diese 507MB und sprengt V8's String-Limit bei `JSON.stringify()`. Der Index wird bei jedem Neustart komplett neu aufgebaut und scheitert erneut -- eine Endlosschleife.
+Vault Operators semantische Suche nutzt vectra (LocalIndex), das alle Vektoren in einer einzigen JSON-Datei speichert. Bei 5.980 Vektoren mit 4096 Dimensionen erreicht diese 507MB und sprengt V8's String-Limit bei `JSON.stringify()`. Der Index wird bei jedem Neustart komplett neu aufgebaut und scheitert erneut -- eine Endlosschleife.
 
 Zusaetzlich nutzt vectra Node.js `fs` fuer Persistenz, was auf Obsidian Mobile nicht funktioniert. Maschinenlesbare Daten (Sessions, Episodes, Recipes, Patterns) sind als lose Dateien verstreut ohne Cross-Referenz-Moeglichkeit.
 

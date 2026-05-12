@@ -1,13 +1,13 @@
 ---
 title: The Agent Loop
-description: How Obsilo turns a single message into a multi-step, tool-using conversation.
+description: How Vault Operator turns a single message into a multi-step, tool-using conversation.
 ---
 
 # The agent loop
 
-A chatbot responds once. An agent loops. That distinction is the main thing to understand about Obsilo.
+A chatbot responds once. An agent loops. That distinction is the main thing to understand about Vault Operator.
 
-When you send a message, Obsilo passes it to the language model along with a system prompt and tool definitions. The model responds with text, tool calls, or both. If there are tool calls, Obsilo executes them, appends the results to the conversation history, and sends everything back to the model. This repeats until the model responds with only text, calls `attempt_completion`, or a safety limit stops the loop.
+When you send a message, Vault Operator passes it to the language model along with a system prompt and tool definitions. The model responds with text, tool calls, or both. If there are tool calls, Vault Operator executes them, appends the results to the conversation history, and sends everything back to the model. This repeats until the model responds with only text, calls `attempt_completion`, or a safety limit stops the loop.
 
 The entire loop lives in one file: `src/core/AgentTask.ts`.
 
@@ -29,7 +29,7 @@ That's it. Everything else on this page is about controlling, protecting, and ex
 
 The loop starts by assembling a system prompt from 16 modular sections: mode definition, available tools, active rules, loaded skills, memory context, and a few others. The system prompt is cached and only rebuilt when something changes, for example a mode switch or a tool availability toggle.
 
-The assembled prompt and conversation history go to the AI provider. Obsilo streams the response, firing `onText()` for each text chunk and collecting any `tool_use` blocks.
+The assembled prompt and conversation history go to the AI provider. Vault Operator streams the response, firing `onText()` for each text chunk and collecting any `tool_use` blocks.
 
 If the response contains tool calls, each one goes through `ToolExecutionPipeline` (`src/core/tool-execution/ToolExecutionPipeline.ts`). The pipeline validates paths, checks approval requirements, creates checkpoints before write operations, executes the tool, and logs the result. No tool bypasses this pipeline, not even MCP tools from external servers.
 

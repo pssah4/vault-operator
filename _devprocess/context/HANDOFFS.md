@@ -14,7 +14,7 @@ was uebergeben wurde und was der naechste Schritt ist.
 - BA: [BA-23-mobile-support.md](../analysis/BA-23-mobile-support.md) (815 Zeilen, Status: Draft)
 - As-Is-Evidenz: inline im Explore-Subagent-Report vom 2026-04-22 (22 HARD + 15 SOFT + 8 DEGRADED Blocker, Pfad:Zeile-genau)
 
-**Scope:** MVP, Companion-Modus statt Full-Parity. Personal-First (P1: Sebastian) mit Community-Hypothese (P2: Obsilo-Community, H-08).
+**Scope:** MVP, Companion-Modus statt Full-Parity. Personal-First (P1: Sebastian) mit Community-Hypothese (P2: Vault Operator-Community, H-08).
 
 **HMW:**
 > How might we einem Zettelkasten-basierten Wissensarbeiter ermoeglichen, unterwegs erfasste Inhalte mit Agent-Unterstuetzung vorzustrukturieren, obwohl Obsidian Mobile weder Node.js noch nativen Filesystem-Zugriff erlaubt und die Indexierung auf Mobile zu ressourcenintensiv waere?
@@ -119,7 +119,7 @@ Ziel: EPIC-023 anlegen, Features FEATURE-2301..FEATURE-23NN breakdown, Success C
 
 Skill-Format analog Anthropic-Spec ([agentskills.io](https://agentskills.io/specification)):
 Ordner mit `SKILL.md` plus optionalen `scripts/`, `references/`, `assets/`
-Subfolders, `.skill` Zip-Import, plus Obsilo-spezifisches `type: coordinator`
+Subfolders, `.skill` Zip-Import, plus Vault Operator-spezifisches `type: coordinator`
 Pattern mit `*.skill.md` Sub-Rollen. Backward-Compat zu v2.5.x Single-File-Skills.
 
 **Kernentscheidungen:**
@@ -585,7 +585,7 @@ Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
 **Verifikation bisher:**
 
 - `npx tsc --noEmit`: clean.
-- `npm run build`: clean. Plugin-Bundle deployt nach `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/NexusOS/.obsidian/plugins/obsilo-agent/`.
+- `npm run build`: clean. Plugin-Bundle deployt nach `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/NexusOS/.obsidian/plugins/vault-operator/`.
 
 **Noch offen (Sebastians Login-Test):**
 
@@ -624,7 +624,7 @@ Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
 1. **OAuth-Schema:** `redirect_uri` muss `http://localhost:PORT/auth/callback` (nicht `127.0.0.1`), Scopes `api.connectors.read api.connectors.invoke` zusaetzlich, plus `id_token_add_organizations=true` und `codex_cli_simplified_flow=true` als Authorize-Params. Verifiziert gegen codex-rs/login/src/server.rs.
 2. **Browser-Open:** `electron.shell.openExternal()` statt `window.open()`, weil Microsoft-SSO im Obsidian-Webview blockt.
 3. **Transport:** Electron-Renderer-CORS blockt globalThis.fetch gegen chatgpt.com -> `createNodeFetch` aus openai.ts exportiert und genutzt.
-4. **Header-Whitelist:** Codex-Backend prueft Originator/User-Agent. Mit "fremden" Werten kommt 403 + "no active subscription" trotz aktivem Abo. Fix: `Originator: codex_cli_rs`, `User-Agent: codex_cli_rs/0.21.0 (Obsidian Plugin) Obsilo`, plus Account-ID auch in PascalCase. Quelle: pi-mono#1828.
+4. **Header-Whitelist:** Codex-Backend prueft Originator/User-Agent. Mit "fremden" Werten kommt 403 + "no active subscription" trotz aktivem Abo. Fix: `Originator: codex_cli_rs`, `User-Agent: codex_cli_rs/0.21.0 (Obsidian Plugin) Vault Operator`, plus Account-ID auch in PascalCase. Quelle: pi-mono#1828.
 5. **Endpoint + Schema:** OpenAI-SDK postet `/chat/completions`, Codex-Backend hat aber nur `/responses`. Provider komplett vom SDK auf direkten `https.request` umgebaut, Body im Responses-API-Format, eigener SSE-Parser fuer `response.output_text.delta`, `response.output_item.added/done`, `response.function_call_arguments.delta`, `response.completed`, `response.failed`.
 
 **Default-Modell:** `gpt-5.5`. Weitere unterstuetzte: `gpt-5`, `gpt-5-codex`, `gpt-5-codex-mini`.
@@ -718,7 +718,7 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 **Artefakte erzeugt:**
 
 - BA: [BA-25-vault-summary-pflege.md](../analysis/BA-25-vault-summary-pflege.md) (836 Zeilen, Status: Draft)
-- Title aktualisiert: "Karpathy-Wiki-Pattern fuer Obsilo (Ingest, Retrieval, Lint)"
+- Title aktualisiert: "Karpathy-Wiki-Pattern fuer Vault Operator (Ingest, Retrieval, Lint)"
 - Parent-BA: [BA-19-knowledge-maintenance.md](../analysis/BA-19-knowledge-maintenance.md)
 - Web-Recherche zu swarmvault, PENgram, OwlerLite, Atlan, qmd in BA Section 2.1 dokumentiert
 
@@ -737,7 +737,7 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 > Wie koennen wir den Vault zum kompoundierenden Wissens-Artefakt machen, ohne dass der User Pflege-Zeit aufwendet, ohne in eine Echo-Chamber zu rutschen, ohne dass Wissen stillschweigend veraltet, und ohne das Token-Budget zu sprengen?
 
 **Value Proposition:**
-Karpathys "LLMs don't tire of bookkeeping" wird auf Obsilo-Niveau eingeloest, mit Bias-Awareness und Aktualitaets-Pflege als Innovations-Layer obendrauf. Default konservativ (lokale SQL-Operationen, kein Vault-Write, kein externer Call). Power-User-Mehrwert in opt-in Stufen (Frontmatter-Write, Activity-Triggered Lint, Periodischer Lint mit Token-Budget-Cap).
+Karpathys "LLMs don't tire of bookkeeping" wird auf Vault Operator-Niveau eingeloest, mit Bias-Awareness und Aktualitaets-Pflege als Innovations-Layer obendrauf. Default konservativ (lokale SQL-Operationen, kein Vault-Write, kein externer Call). Power-User-Mehrwert in opt-in Stufen (Frontmatter-Write, Activity-Triggered Lint, Periodischer Lint mit Token-Budget-Cap).
 
 **Critical Hypotheses (Open, 15 Hypothesen):**
 
@@ -816,7 +816,7 @@ Ingest:
 
 Lint:
 - Halbwertszeit-Defaults: globale Liste oder per-User-Vault-Setup?
-- Web-Search-Provider: BYOK obligatorisch oder Default-Provider via Obsilo-Gateway?
+- Web-Search-Provider: BYOK obligatorisch oder Default-Provider via Vault Operator-Gateway?
 - Stufe-3-Job-Runner: setInterval, BackgroundFetch, oder Cron-via-OS?
 
 **Assumptions (fuer RE und Architektur zu pruefen):**
@@ -902,7 +902,7 @@ Output-Modus:
 - Memory-v2-Fact-Extraction-Verhaeltnis zu Zettel-Notes (Frontmatter-Flag noetig)?
 
 Web-Search:
-- BYOK obligatorisch oder Default-Provider via Obsilo-Gateway?
+- BYOK obligatorisch oder Default-Provider via Vault Operator-Gateway?
 - Bester Provider fuer Source-Filter (Anti-Echo)?
 
 Ingest-Approval:
@@ -953,7 +953,7 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 - Two-Schritt-Migration v9 -> v10 -> v11 (Option B in ADR-92): verworfen wegen Mid-State-Risiko.
 - Pure-LLM-Tension-Detection (Option B in ADR-99): verworfen wegen Token-Explosion.
 - Memory-v2-Facts als Dialog-State-Storage (Option C in ADR-100): verworfen wegen Schema-Semantik-Bruch.
-- Default-Provider via Obsilo-Gateway fuer Web-Search (Option B in ADR-104): verworfen weil Gateway-Infra noch nicht released.
+- Default-Provider via Vault Operator-Gateway fuer Web-Search (Option B in ADR-104): verworfen weil Gateway-Infra noch nicht released.
 - Soft cap fuer Stufe-3-Token-Budget (Option B1 in ADR-105): verworfen wegen Cost-Falle-Risiko.
 
 **Known Risks (waehrend Coding monitoren):**
@@ -1474,7 +1474,7 @@ Mehrere FEATs sind als Done markiert, aber im Code Skelett:
 
 - `.dia/config.toml` mit mode=github-sync angelegt
 - 36 EPIC-19-Issues (EPIC + 30 FEATs + 5 FIX + 1 IMP) auf
-  pssah4/obsilo-dev erstellt via flow.py
+  pssah4/vault-operator-dev erstellt via flow.py
 - Status synchronisiert (Done -> closed, Planned -> open)
 - 8 neue Issues fuer FEAT-19-31 + 7 IMPs (#49-#56)
 - FEAT-19-05/06 reopened nach Status-Korrektur (#17, #18)
@@ -1576,7 +1576,7 @@ Anschliessend Phase-2 (FEAT-19-31 Skill-Suite-Deployment).
 **Phase:** Business Analysis (Update-Modus auf BA-12)
 **Branch:** chore/imp-18-01-prompt-cache-settings
 **Items:** IMP-18-01-01 (Settings & Default), IMP-18-01-02 (Provider-Implementierungen)
-**Bezug:** [Issue #313](https://github.com/pssah4/obsilo-dev/issues/313), FEAT-18-01 (Done/Released), ADR-62 (Accepted)
+**Bezug:** [Issue #313](https://github.com/pssah4/vault-operator-dev/issues/313), FEAT-18-01 (Done/Released), ADR-62 (Accepted)
 **Scope:** IMP (Improvement) auf bestehende Feature, kein Greenfield
 
 ### Was diese Phase produziert hat
@@ -1642,7 +1642,7 @@ Anschliessend `/architecture` fuer eine ADR zum Capability-Flag-Pattern (Erweite
 
 ### Critical ASRs (fuer Architektur-Phase)
 
-- **ASR-1 Capability-Flag-Standort:** wo sitzt `supportsPromptCache` -- in `ModelInfo` (pro Modell) oder in `LLMProvider` (pro Provider-Typ)? Heute hat Obsilo keine zentrale `ModelInfo`-Struktur in `src/types/settings.ts`. Architektur-Entscheidung ueber das Pattern noetig (ADR-Update zu ADR-62 oder neuer ADR).
+- **ASR-1 Capability-Flag-Standort:** wo sitzt `supportsPromptCache` -- in `ModelInfo` (pro Modell) oder in `LLMProvider` (pro Provider-Typ)? Heute hat Vault Operator keine zentrale `ModelInfo`-Struktur in `src/types/settings.ts`. Architektur-Entscheidung ueber das Pattern noetig (ADR-Update zu ADR-62 oder neuer ADR).
 - **ASR-2 Bedrock cachePoint-Format:** AWS-SDK-Spezifik. Architektur entscheidet, ob das Setzen im Provider-Code direkt oder ueber den Adapter-Pattern aus FEAT-18-01 (PromptCacheAdapter) gehen soll.
 
 ### Open architecture questions

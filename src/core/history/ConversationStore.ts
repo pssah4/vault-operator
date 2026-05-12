@@ -127,7 +127,7 @@ export class ConversationStore {
      *
      * BA-26 / FEAT-23-04: optional source-tagging + sync-state for
      * Cross-Surface MCP. Default values keep backward-compat with
-     * Obsilo-internal call sites that pass only mode + model.
+     * Vault Operator-internal call sites that pass only mode + model.
      */
     async create(
         mode: string,

@@ -4,7 +4,7 @@
 
 ## Summary
 
-Enterprise users receive API access credentials as code snippets in documentation (Python, JavaScript, curl). These contain base URL, API version, and model names — but manually transferring each value into Obsilo's model configuration is error-prone and tedious. This feature adds an "Import from Code" button that opens a modal where users paste their code snippet. A parser automatically extracts provider, base URL, API version, and all model names. The user only needs to add their API key.
+Enterprise users receive API access credentials as code snippets in documentation (Python, JavaScript, curl). These contain base URL, API version, and model names — but manually transferring each value into Vault Operator's model configuration is error-prone and tedious. This feature adds an "Import from Code" button that opens a modal where users paste their code snippet. A parser automatically extracts provider, base URL, API version, and all model names. The user only needs to add their API key.
 
 ## Motivation
 

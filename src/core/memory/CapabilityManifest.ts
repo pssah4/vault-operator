@@ -1,5 +1,5 @@
 /**
- * CapabilityManifest -- single source of truth for what Obsilo can do.
+ * CapabilityManifest -- single source of truth for what Vault Operator can do.
  *
  * The plugin maintains a curated list of features (tools, UI elements,
  * settings, modes) here. On every onload the plugin hashes the manifest
@@ -29,7 +29,7 @@ export interface Capability {
 }
 
 /**
- * The manifest. Edit this array whenever Obsilo gains, loses, or
+ * The manifest. Edit this array whenever Vault Operator gains, loses, or
  * changes a feature the agent should know about. The hash will pick
  * up the change automatically; the next plugin onload will sync.
  *
@@ -41,7 +41,7 @@ export const CAPABILITIES: ReadonlyArray<Capability> = [
     {
         area: 'tool', key: 'recall_memory',
         summary: 'Search Memory v2 facts by meaning + topics. Returns URI-typed hits.',
-        notes: 'Use profile=\'_obsilo\' to search Obsilo\'s own soul/capabilities.',
+        notes: 'Use profile=\'_obsilo\' to search Vault Operator\'s own soul/capabilities.',
     },
     {
         area: 'tool', key: 'mark_for_memory',

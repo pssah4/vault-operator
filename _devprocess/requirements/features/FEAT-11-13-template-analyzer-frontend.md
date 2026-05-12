@@ -1,4 +1,4 @@
-# Feature: Template-Analyzer Web-Frontend (obsilo.ai)
+# Feature: Template-Analyzer Web-Frontend (pssah4.github.io/vault-operator)
 
 > **Feature ID**: FEAT-11-13
 > **Epic**: EPIC-11 - Office Document Quality
@@ -8,17 +8,17 @@
 
 ## Feature Description
 
-Statische Web-Seite auf obsilo.ai (GitHub Pages) die als Frontend fuer den multimodalen Template-Analyzer (FEAT-11-12) dient. User laden ihre PPTX-Vorlage hoch, geben ihren Anthropic API Key ein und erhalten ein Visual Design Language Document zum Download.
+Statische Web-Seite auf pssah4.github.io/vault-operator (GitHub Pages) die als Frontend fuer den multimodalen Template-Analyzer (FEAT-11-12) dient. User laden ihre PPTX-Vorlage hoch, geben ihren Anthropic API Key ein und erhalten ein Visual Design Language Document zum Download.
 
-Kein Backend auf obsilo.ai noetig -- die Seite kommuniziert direkt mit dem Cloud Run Service. API Key wird nur im Browser gehalten und direkt an den Service weitergegeben.
+Kein Backend auf pssah4.github.io/vault-operator noetig -- die Seite kommuniziert direkt mit dem Cloud Run Service. API Key wird nur im Browser gehalten und direkt an den Service weitergegeben.
 
 ## Benefits Hypothesis
 
-**Wir glauben dass** ein Web-Frontend auf obsilo.ai
+**Wir glauben dass** ein Web-Frontend auf pssah4.github.io/vault-operator
 **Folgende messbare Outcomes liefert:**
 - Niedrige Einstiegshuerde: Browser oeffnen, hochladen, fertig
 - Kein Plugin-Update noetig fuer Analyse-Verbesserungen
-- Sichtbare Marke: obsilo.ai als Anlaufstelle fuer Template-Analyse
+- Sichtbare Marke: pssah4.github.io/vault-operator als Anlaufstelle fuer Template-Analyse
 
 **Wir wissen dass wir erfolgreich sind wenn:**
 - User kann in unter 5 Minuten von Upload bis zum fertigen Skill kommen
@@ -29,9 +29,9 @@ Kein Backend auf obsilo.ai noetig -- die Seite kommuniziert direkt mit dem Cloud
 ## User Stories
 
 ### Story 1: Template analysieren
-**Als** Obsilo-User
+**Als** Vault Operator-User
 **moechte ich** mein Template auf einer Web-Seite hochladen und analysieren lassen
-**um** den generierten Skill in Obsilo importieren zu koennen
+**um** den generierten Skill in Vault Operator importieren zu koennen
 
 ### Story 2: Ergebnis ueberpruefen
 **Als** Berater
@@ -47,7 +47,7 @@ Kein Backend auf obsilo.ai noetig -- die Seite kommuniziert direkt mit dem Cloud
 | SC-01 | Gesamter Workflow abgeschlossen in akzeptabler Zeit | Unter 5 Minuten von Upload bis Download | Zeitmessung |
 | SC-02 | Fortschritt ist sichtbar waehrend der Analyse | Nutzer sieht aktuellen Schritt | Beobachtbar |
 | SC-03 | Ergebnis kann vor dem Download eingesehen werden | Vorschau im Browser | Funktionstest |
-| SC-04 | Ergebnis kann heruntergeladen und importiert werden | SKILL.md korrekt formatiert | Import-Test in Obsilo |
+| SC-04 | Ergebnis kann heruntergeladen und importiert werden | SKILL.md korrekt formatiert | Import-Test in Vault Operator |
 | SC-05 | Seite ist zugaenglich und bedienbar | Desktop + Tablet, keine Huerden | Manueller Test |
 | SC-06 | Eingaben des Nutzers (insb. Schluessel) werden nicht gespeichert | Kein Storage, kein Tracking | Code-Review |
 
@@ -56,7 +56,7 @@ Kein Backend auf obsilo.ai noetig -- die Seite kommuniziert direkt mit dem Cloud
 ## Technical NFRs (fuer Architekt)
 
 ### Hosting
-- **Plattform**: GitHub Pages (bestehende obsilo.ai Infrastruktur)
+- **Plattform**: GitHub Pages (bestehende pssah4.github.io/vault-operator Infrastruktur)
 - **Deployment**: Automatisch bei Push auf main (bestehende Pipeline)
 - **Kosten**: $0
 
@@ -75,10 +75,10 @@ Kein Backend auf obsilo.ai noetig -- die Seite kommuniziert direkt mit dem Cloud
 ## Seitenstruktur
 
 ```
-obsilo.ai/template-analyzer
+pssah4.github.io/vault-operator/template-analyzer
 
 ┌──────────────────────────────────────────────┐
-│  Obsilo Template Analyzer                      │
+│  Vault Operator Template Analyzer                      │
 │                                                │
 │  [Drag-and-Drop Upload Zone]                   │
 │  "Drop your .pptx template here"               │
@@ -120,7 +120,7 @@ obsilo.ai/template-analyzer
 
 ### Constraints
 - **Statische Seite**: Kein Server-Side-Code, nur HTML/CSS/JS
-- **Bestehendes Design**: Konsistent mit restlicher obsilo.ai Seite
+- **Bestehendes Design**: Konsistent mit restlicher pssah4.github.io/vault-operator Seite
 - **Keine Dependencies**: Vanilla JS oder minimale Build-Chain (kein React/Vue fuer eine Seite)
 
 ### Open Questions fuer Architekt
@@ -138,14 +138,14 @@ obsilo.ai/template-analyzer
 - [ ] Fortschrittsanzeige zeigt Analyse-Schritte
 - [ ] Markdown-Vorschau des Ergebnisses
 - [ ] Download-Button fuer SKILL.md
-- [ ] Anleitung zum Import in Obsilo
+- [ ] Anleitung zum Import in Vault Operator
 
 ### Quality
 - [ ] Responsive (Desktop + Tablet)
 - [ ] Accessible (Keyboard-Navigation, ARIA)
 - [ ] Kein API Key Leaking (Code-Review)
 - [ ] Error Handling: Netzwerk-Fehler, ungueltige Dateien, API-Fehler
-- [ ] Konsistent mit obsilo.ai Design
+- [ ] Konsistent mit pssah4.github.io/vault-operator Design
 
 ### Documentation
 - [ ] Feature-Spec aktualisiert (Status: Implemented)
@@ -156,8 +156,8 @@ obsilo.ai/template-analyzer
 ## Dependencies
 
 - **FEAT-11-12**: Cloud Run Backend (muss POST /analyze Endpoint bereitstellen)
-- **obsilo.ai**: Bestehende GitHub Pages Site
-- **CORS**: Cloud Run muss obsilo.ai Origin erlauben
+- **pssah4.github.io/vault-operator**: Bestehende GitHub Pages Site
+- **CORS**: Cloud Run muss pssah4.github.io/vault-operator Origin erlauben
 
 ## Out of Scope
 

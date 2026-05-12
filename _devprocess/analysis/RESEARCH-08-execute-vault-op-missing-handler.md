@@ -31,7 +31,7 @@
 
 > generate_canvas, update_frontmatter, create_base, search_by_tag, get_daily_note, execute_command, get_linked_notes
 
-Diese Operationen existieren als interne Obsilo-Tools, aber es fehlt die MCP-Brücke, die sie von außen aufrufbar macht.
+Diese Operationen existieren als interne Vault Operator-Tools, aber es fehlt die MCP-Brücke, die sie von außen aufrufbar macht.
 
 ## Optionen
 

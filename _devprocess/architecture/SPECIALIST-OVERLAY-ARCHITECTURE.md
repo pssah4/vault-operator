@@ -1,7 +1,7 @@
 # Specialist Overlay Architektur -- Multi-Agent Option 4
 
-> Analyse und Implementierungskonzept fuer arbeitsteilige Spezialisierung in Obsilo.
-> Ergebnis der Evaluierung von [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents/) und Abgleich mit Obsilo's bestehender Multi-Agent-Architektur.
+> Analyse und Implementierungskonzept fuer arbeitsteilige Spezialisierung in Vault Operator.
+> Ergebnis der Evaluierung von [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents/) und Abgleich mit Vault Operator's bestehender Multi-Agent-Architektur.
 
 ---
 
@@ -9,7 +9,7 @@
 
 ### Ausgangslage
 
-Obsilo hat zwei Mechanismen fuer Multi-Agent-Arbeit:
+Vault Operator hat zwei Mechanismen fuer Multi-Agent-Arbeit:
 
 | Mechanismus | Datei | Verhalten |
 |---|---|---|
@@ -115,7 +115,7 @@ Ein Specialist fuegt keine neuen Faehigkeiten hinzu -- er fuegt **Wissen** hinzu
 
 ---
 
-## 4. Relevante Specialists fuer Obsilo
+## 4. Relevante Specialists fuer Vault Operator
 
 ### Aus agency-agents Repo uebernommen: Keine
 
@@ -127,7 +127,7 @@ Die 61 Agents im Repo sind auf Software-Entwicklungsteams zugeschnitten (Fronten
 - Quality-Kriterien pro Agent (messbare Erfolgskriterien)
 - Handoff-Strukturen fuer Subtask-Kommunikation
 
-### Eigene Specialists fuer Obsilo
+### Eigene Specialists fuer Vault Operator
 
 | Specialist | Wofuer | Tool-Gruppen-Trigger | Tool-Trigger (feingranular) |
 |---|---|---|---|

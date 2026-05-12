@@ -4,7 +4,7 @@
 > **Epic**: EPIC-05 (Self-Development & Sandbox)
 > **Priority**: P2
 > **Effort Estimate**: M
-> **Issue-Bezug**: https://github.com/pssah4/obsilo/issues/26
+> **Issue-Bezug**: https://github.com/pssah4/vault-operator/issues/26
 > **ADR**: ADR-72
 > **Bezogene Features**: FEAT-05-01 (Self-Development), FEAT-02-03 (Skills), FEAT-02-04 (Local Skills)
 

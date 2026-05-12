@@ -6,7 +6,7 @@ adr-refs: []
 plan-refs: []
 depends-on: []
 created: 2026-05-08
-issue: https://github.com/pssah4/obsilo-dev/issues/64
+issue: https://github.com/pssah4/vault-operator-dev/issues/64
 ---
 
 # FIX-14-03-03: MCP Cloudflare-Worker-Connect schlaegt aus Settings UI fehl
@@ -17,7 +17,7 @@ Live-Test 2026-05-08 (User-Report). Beim Verbinden eines via Cloudflare
 Worker erreichbaren MCP-Servers in den Plugin-Settings schlaegt der
 Connect-Versuch fehl. Sichtbare Fehlermeldung in der UI; konkreter
 Text wird vom User als Issue-Kommentar nachgereicht (siehe
-[#64](https://github.com/pssah4/obsilo-dev/issues/64)).
+[#64](https://github.com/pssah4/vault-operator-dev/issues/64)).
 
 Verwandte Vorgaenger im selben Feature:
 
@@ -80,4 +80,4 @@ See the backlog row for FIX-14-03-03 in `_devprocess/context/BACKLOG.md`
 
 ## Tracking
 
-GitHub Issue: https://github.com/pssah4/obsilo-dev/issues/64
+GitHub Issue: https://github.com/pssah4/vault-operator-dev/issues/64

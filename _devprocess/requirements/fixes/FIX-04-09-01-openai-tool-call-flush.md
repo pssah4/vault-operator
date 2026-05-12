@@ -4,7 +4,7 @@
 **Datei:** `src/api/providers/openai.ts` (Streaming-Loop)
 **Feature-Bezug:** FEAT-04-09 (OpenAI-kompatible Streaming Tool-Call Robustheit) in EPIC-04
 **Entdeckt:** 2026-04-15 (Community Issue #30, Reporter: Nicholas Leonard)
-**Issue:** https://github.com/pssah4/obsilo/issues/30
+**Issue:** https://github.com/pssah4/vault-operator/issues/30
 
 ---
 

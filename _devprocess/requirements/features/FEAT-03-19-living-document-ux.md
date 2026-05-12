@@ -83,19 +83,19 @@ Migration: bestehende Conversations mit `source = 'mcp'` werden retroaktiv mit d
 
 ### Story 1: Wichtige Konversation explizit speichern (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** mit einem Klick eine Konversation als memory-eligible markieren
 **so that** ich klare Kontrolle ueber meine Memory habe
 
 ### Story 2: Sprach-Trigger statt UI (Emotional Job)
 
-**As a** Obsilo-Nutzer mitten im Chat
+**As a** Vault Operator-Nutzer mitten im Chat
 **I want to** "speichere das ins Memory" sagen koennen, statt zur Maus zu greifen
 **so that** der Flow nicht unterbrochen wird
 
 ### Story 3: Vorschlag fuer speicherwuerdige Konversationen (Social Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass das Plugin mich auf moeglicherweise wertvolle Konversationen aufmerksam macht
 **so that** ich nicht alle bewusst tracken muss und trotzdem nichts wichtiges verpasse
 

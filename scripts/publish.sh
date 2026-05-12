@@ -1,10 +1,10 @@
 #!/bin/bash
-# publish.sh — Build and push clean public release to obsilo
+# publish.sh — Build and push clean public release to vault-operator
 # Usage: bash _devprocess/scripts/publish.sh [--dry-run]
 #
 # What this does:
 #   1. Runs npm build
-#   2. Pushes current branch to obsilo/main
+#   2. Pushes current branch to vault-operator/main
 #
 # Private files (_devprocess/, .claude/, forked-kilocode/)
 # are gitignored and will NOT appear in the public repo.
@@ -36,16 +36,16 @@ echo "Build complete."
 
 # Show what will be published
 echo ""
-echo "Files that will be in obsilo/main:"
+echo "Files that will be in vault-operator/main:"
 git ls-files | head -60
 echo ""
 
 # Push
 if [[ "$DRY_RUN" == "false" ]]; then
-  echo "Pushing to obsilo/main..."
-  git push --force obsilo "${CURRENT_BRANCH}:main"
+  echo "Pushing to vault-operator/main..."
+  git push --force vault-operator "${CURRENT_BRANCH}:main"
   echo ""
-  echo "Done. obsilo/main updated from branch: $CURRENT_BRANCH"
+  echo "Done. vault-operator/main updated from branch: $CURRENT_BRANCH"
 else
-  echo "[dry-run] Would run: git push --force obsilo ${CURRENT_BRANCH}:main"
+  echo "[dry-run] Would run: git push --force vault-operator ${CURRENT_BRANCH}:main"
 fi

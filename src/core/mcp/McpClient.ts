@@ -1,5 +1,5 @@
 /**
- * McpClient — simplified MCP client for Obsilo Agent
+ * McpClient — simplified MCP client for Vault Operator
  *
  * Manages connections to MCP servers (stdio, SSE, streamable-http) and
  * forwards tool calls from the agent to the appropriate server.

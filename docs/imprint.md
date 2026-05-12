@@ -12,7 +12,10 @@ Germany
 
 ## Contact
 
-E-Mail: [sebastian@obsilo.ai](mailto:sebastian@obsilo.ai)
+<!-- TODO(rebrand): the old sebastian@obsilo.ai address is being decommissioned with the obsilo.ai domain.
+     Replace the line below with a working contact email before publishing (German TMG S 5 requires a way to
+     contact the operator quickly and directly). Until then, GitHub is the contact channel. -->
+GitHub: [@pssah4](https://github.com/pssah4) (issues: [pssah4/vault-operator](https://github.com/pssah4/vault-operator/issues))
 
 ---
 
@@ -32,7 +35,7 @@ A permanent content control of the linked pages is not reasonable without concre
 
 The content and works created by the site operator on these pages are subject to German copyright law. The reproduction, editing, distribution and any kind of use outside the limits of copyright law require the written consent of the respective author or creator. Downloads and copies of these pages are only permitted for private, non-commercial use.
 
-The source code of Obsilo Agent is published under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0) and freely available at [GitHub](https://github.com/pssah4/obsilo).
+The source code of Vault Operator is published under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0) and freely available at [GitHub](https://github.com/pssah4/vault-operator).
 
 ---
 

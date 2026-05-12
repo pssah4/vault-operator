@@ -18,7 +18,7 @@ import { SkillsManager } from './core/context/SkillsManager';
 import { GitCheckpointService } from './core/checkpoints/GitCheckpointService';
 import { SemanticIndexService } from './core/semantic/SemanticIndexService';
 import { EmbeddingService } from './core/memory/EmbeddingService';
-import { ObsiloEmbeddingProvider } from './core/memory/ObsiloEmbeddingProvider';
+import { VaultOperatorEmbeddingProvider } from './core/memory/VaultOperatorEmbeddingProvider';
 import { KnowledgeDB, WriterLockHeldError } from './core/knowledge/KnowledgeDB';
 import { VectorStore } from './core/knowledge/VectorStore';
 import { GraphStore } from './core/knowledge/GraphStore';
@@ -310,7 +310,29 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.ringBuffer = new ConsoleRingBuffer(500);
         this.ringBuffer.install();
 
-        console.debug('Loading Obsilo Agent plugin');
+        console.debug('Loading Vault Operator plugin');
+
+        // 0-pre. Rebrand migration: the plugin id changed from `obsilo-agent` to
+        // `vault-operator` (the Obsidian community-plugin review bot rejects any
+        // name that starts with "Obsi"). Obsidian loads the plugin from the new
+        // `<configDir>/plugins/vault-operator/` folder, which has no data.json on
+        // the first launch after the rename, so all settings/credentials would
+        // reset. Copy the legacy data.json over once, before anything reads it.
+        // The agent-data folder (`.obsilo-vault`, vault-parent `obsilo-shared`)
+        // keeps its name — it is internal plumbing the user never sees and a
+        // folder move carries real risk for no visible benefit.
+        try {
+            const cfg = this.app.vault.configDir;
+            const adapter = this.app.vault.adapter;
+            const newDataPath = `${this.manifest.dir ?? `${cfg}/plugins/${this.manifest.id}`}/data.json`;
+            const legacyDataPath = `${cfg}/plugins/vault-operator/data.json`;
+            if (!(await adapter.exists(newDataPath)) && (await adapter.exists(legacyDataPath))) {
+                await adapter.write(newDataPath, await adapter.read(legacyDataPath));
+                console.debug(`[Plugin] Rebrand migration: copied data.json from legacy plugin folder obsilo-agent -> ${this.manifest.id}`);
+            }
+        } catch (e) {
+            console.warn('[Plugin] Rebrand data.json migration failed (non-fatal):', e);
+        }
 
         // 0a. Initialize SafeStorageService (must happen before loadSettings)
         this.safeStorage = new SafeStorageService();
@@ -676,7 +698,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             // route through this single Service instead of growing parallel
             // embed paths.
             const semanticIndexRef = this.semanticIndex;
-            this.embeddingService = new EmbeddingService(new ObsiloEmbeddingProvider(
+            this.embeddingService = new EmbeddingService(new VaultOperatorEmbeddingProvider(
                 (texts) => semanticIndexRef.embedTexts(texts),
                 () => semanticIndexRef.getEmbeddingModelInfo(),
             ));
@@ -1302,7 +1324,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 3. Register UI views (registerView moved to synchronous onload())
 
         // Ribbon icon in left activity bar (using built-in lucide icon)
-        this.addRibbonIcon('bot', 'Obsilo agent', () => {
+        this.addRibbonIcon('bot', 'Vault Operator', () => {
             void this.activateView();
         });
 
@@ -1429,7 +1451,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             if (tab) this.openSettingsAt(tab, sub);
         });
 
-        // MCP Server (EPIC-014): Expose Obsilo as MCP Server for Claude Desktop/Code
+        // MCP Server (EPIC-014): Expose Vault Operator as MCP Server for Claude Desktop/Code
         if (this.settings.enableMcpServer) {
             const { McpBridge } = await import('./mcp/McpBridge');
             // FIX-23-01-01: Living-Document state for save_conversation.
@@ -1471,14 +1493,14 @@ export default class ObsidianAgentPlugin extends Plugin {
         const vaultFs = new VaultDataFileAdapter(this.app.vault.adapter);
         void ResultExternalizer.cleanupOrphaned(vaultFs, getTmpRoot(this));
 
-        console.debug('Obsilo Agent plugin loaded successfully');
+        console.debug('Vault Operator plugin loaded successfully');
     }
 
     /**
      * Plugin cleanup
      */
     onunload(): void {
-        console.debug('Unloading Obsilo Agent plugin');
+        console.debug('Unloading Vault Operator plugin');
         // Fire-and-forget async cleanup (Plugin API expects synchronous return)
         void (async () => {
             // Flush any pending chat-links before shutdown
@@ -1534,7 +1556,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         }
         this.sandboxExecutor?.destroy();
         this.ringBuffer?.uninstall();
-        console.debug('Obsilo Agent plugin unloaded');
+        console.debug('Vault Operator plugin unloaded');
     }
 
     /**

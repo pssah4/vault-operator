@@ -167,7 +167,7 @@ describe('MemoryMigrationJob (PLAN-005 task 4)', () => {
 
     it('migrates the full file set with backups and dedup', async () => {
         fs.seed('memory/user-profile.md', '# Profile\n- Sebastian uses Obsidian.');
-        fs.seed('memory/projects.md', '# Projects\n- Obsilo plugin.');
+        fs.seed('memory/projects.md', '# Projects\n- Vault Operator plugin.');
         fs.seed('memory/patterns.md', '# Patterns\n- Plans before coding.');
         fs.seed('memory/errors.md', '# Errors\n- Forgot to await once.');
         fs.seed('memory/custom-tools.md', '# Custom Tools\n- writeBinary helper.');
@@ -176,7 +176,7 @@ describe('MemoryMigrationJob (PLAN-005 task 4)', () => {
 
         const job = makeJob({
             'user-profile.md': [{ text: 'Sebastian uses Obsidian.', topics: ['tools'], importance: 0.8, kind: 'preference' }],
-            'projects.md': [{ text: 'Obsilo plugin.', topics: ['projects'], importance: 0.7, kind: 'fact' }],
+            'projects.md': [{ text: 'Vault Operator plugin.', topics: ['projects'], importance: 0.7, kind: 'fact' }],
             'patterns.md': [{ text: 'Plans before coding.', topics: ['patterns'], importance: 0.6, kind: 'preference' }],
             'errors.md': [{ text: 'Forgot to await once.', topics: ['errors'], importance: 0.4, kind: 'event' }],
             'custom-tools.md': [{ text: 'writeBinary helper.', topics: ['tools'], importance: 0.5, kind: 'fact' }],

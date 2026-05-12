@@ -7,7 +7,7 @@ refs:
   - FEAT-19-29
   - ADR-103
   - EPIC-19
-  - GitHub Issue#11 pssah4/obsilo-dev
+  - GitHub Issue#11 pssah4/vault-operator-dev
 created: 2026-05-07
 implemented: 2026-05-07
 branch: feature/block-source-citations

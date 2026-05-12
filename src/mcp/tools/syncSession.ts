@@ -1,5 +1,5 @@
 /**
- * sync_session -- Save the full conversation transcript to Obsilo's shared history.
+ * sync_session -- Save the full conversation transcript to Vault Operator's shared history.
  *
  * FIX-23-01-02: source_interface argument now accepted (defaults to
  * 'unknown'). Without it the conversation lands in the Unknown tab,

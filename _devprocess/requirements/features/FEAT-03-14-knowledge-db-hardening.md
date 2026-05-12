@@ -61,13 +61,13 @@ Diese vier Probleme werden in einer kombinierten Haertungs-Phase geloest, bevor 
 
 ### Story 1: Plugin-Crash ueberlebt (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** dass meine Vault-Index-Daten einen Crash oder Cloud-Sync-Konflikt ueberleben
 **so that** ich nicht meine ~10k Embeddings verliere und stundenlang neu indexieren muss
 
 ### Story 2: Note-Rename ohne Recall-Verlust (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** Vault-Notes umbenennen, ohne dass ihre Verweise im Memory-System sterben
 **so that** semantic_search weiterhin auf die richtigen Inhalte zeigt
 
@@ -75,7 +75,7 @@ Diese vier Probleme werden in einer kombinierten Haertungs-Phase geloest, bevor 
 
 ### Story 3: Modellwechsel ohne stille Verschlechterung (Emotional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** das Embedding-Modell wechseln und sehen, was passiert
 **so that** ich Vertrauen behalte, dass Search-Ergebnisse aussagekraeftig bleiben
 

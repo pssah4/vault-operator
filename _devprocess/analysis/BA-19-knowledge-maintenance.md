@@ -15,7 +15,7 @@ Obsidian-Power-User mit Zettelkasten-Methode oder vergleichbaren Wissensmanageme
 
 ### 1.2 Proposed Solution
 
-Obsilo wird vom passiven Index-System zum aktiven Wissens-Pfleger. Der Agent uebernimmt das Bookkeeping: neue Notes intelligent einordnen (Ingest), bestehende Strukturen konsistent halten (Lint), Chat-Synthesen als Zettel speichern und Quell-Dokumente automatisch aufbereiten (OCR). Ergaenzt durch UI-Verbesserungen fuer effizientere Chat-Interaktion.
+Vault Operator wird vom passiven Index-System zum aktiven Wissens-Pfleger. Der Agent uebernimmt das Bookkeeping: neue Notes intelligent einordnen (Ingest), bestehende Strukturen konsistent halten (Lint), Chat-Synthesen als Zettel speichern und Quell-Dokumente automatisch aufbereiten (OCR). Ergaenzt durch UI-Verbesserungen fuer effizientere Chat-Interaktion.
 
 ### 1.3 Expected Outcomes
 
@@ -33,7 +33,7 @@ Obsilo wird vom passiven Index-System zum aktiven Wissens-Pfleger. Der Agent ueb
 
 Karpathys LLM-Wiki-Konzept (April 2026) beschreibt eine persistente, LLM-gepflegte Wissensdatenbank mit drei Kernoperationen: Ingest (Quellen aufnehmen und einordnen), Query (Wissen abrufen mit transitiver Vollstaendigkeit) und Lint (Konsistenz pruefen). Die zentrale These: "LLMs don't tire of bookkeeping."
 
-Obsilo hat mit EPIC-15 (Knowledge Layer) die technische Basis gebaut: SemanticIndex, GraphStore, ImplicitConnections, 4-Stufen-Retrieval-Pipeline mit Contextual Retrieval. Diese Infrastruktur ist produktionsreif, wird aber nur **passiv** genutzt -- zum Indexieren und Suchen, nicht zum aktiven Pflegen.
+Vault Operator hat mit EPIC-15 (Knowledge Layer) die technische Basis gebaut: SemanticIndex, GraphStore, ImplicitConnections, 4-Stufen-Retrieval-Pipeline mit Contextual Retrieval. Diese Infrastruktur ist produktionsreif, wird aber nur **passiv** genutzt -- zum Indexieren und Suchen, nicht zum aktiven Pflegen.
 
 ### 2.2 Current State ("As-Is")
 
@@ -118,12 +118,12 @@ Obsilo hat mit EPIC-15 (Knowledge Layer) die technische Basis gebaut: SemanticIn
 | Stakeholder | Role | Interest | Influence | Needs |
 |-------------|------|----------|-----------|-------|
 | Sebastian (Product Owner) | Primaerer User & Entwickler | H | H | Effizientes PKM, Zettelkasten-Workflow |
-| Obsilo-Community-User | Zukuenftige Nutzer | H | M | Anpassbare Templates, mehrsprachig |
+| Vault Operator-Community-User | Zukuenftige Nutzer | H | M | Anpassbare Templates, mehrsprachig |
 | Obsidian Review-Bot | Gatekeeper | M | H | Plugin-Compliance (kein innerHTML, etc.) |
 
 ### 3.2 Key Stakeholders
 
-**Primary:** Sebastian -- nutzt Obsilo taeglich fuer persoenliches Wissensmanagement
+**Primary:** Sebastian -- nutzt Vault Operator taeglich fuer persoenliches Wissensmanagement
 **Secondary:** Community-User mit eigenen Wissensmanagement-Methoden (nicht nur Zettelkasten)
 
 ---
@@ -187,11 +187,11 @@ Chat-Synthese
 
 Das Wissensmanagement in Obsidian hat ein fundamentales Skalierungsproblem: Der Wert eines vernetzten Vault steigt mit der Anzahl und Qualitaet der Verbindungen, aber der Aufwand diese Verbindungen zu pflegen steigt schneller als der Nutzen. Ab einer kritischen Vault-Groesse (~300+ Notes) gibt der User auf und die Struktur erodiert.
 
-Obsilo hat mit EPIC-15 die technische Basis fuer automatische Verbindungserkennung gebaut (SemanticIndex, GraphStore, ImplicitConnections). Diese wird aber nur fuer Retrieval genutzt -- die erkannten Verbindungen werden nicht in den Vault zurueckgeschrieben.
+Vault Operator hat mit EPIC-15 die technische Basis fuer automatische Verbindungserkennung gebaut (SemanticIndex, GraphStore, ImplicitConnections). Diese wird aber nur fuer Retrieval genutzt -- die erkannten Verbindungen werden nicht in den Vault zurueckgeschrieben.
 
 ### 5.2 Root Causes
 
-1. **Passives System:** Obsilo indexiert und sucht, aber pflegt nicht aktiv
+1. **Passives System:** Vault Operator indexiert und sucht, aber pflegt nicht aktiv
 2. **Kein Ontologie-Verstaendnis:** Der Agent kennt keine Themen-Hierarchien, kann nur paarweise Aehnlichkeit erkennen
 3. **Kein Ingest-Workflow:** Neue Dateien werden technisch indexiert (Vektoren), aber nicht inhaltlich eingeordnet
 4. **OCR-Luecke:** Gescannte PDFs sind unsichtbar fuer das System
@@ -209,7 +209,7 @@ Obsilo hat mit EPIC-15 die technische Basis fuer automatische Verbindungserkennu
 
 ### 6.1 Business Goals
 
-- Obsilo als einzigartiges Produkt positionieren: Kein anderes Obsidian-Plugin bietet aktives Wissensmanagement
+- Vault Operator als einzigartiges Produkt positionieren: Kein anderes Obsidian-Plugin bietet aktives Wissensmanagement
 - Karpathys LLM-Wiki Vision als konkretes Produkt-Feature umsetzen
 - Token-Kosten minimal halten (Skill-basiert, kein permanenter Hintergrund-Agent)
 

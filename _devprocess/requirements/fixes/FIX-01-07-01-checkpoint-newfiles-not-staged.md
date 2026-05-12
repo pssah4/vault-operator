@@ -6,7 +6,7 @@ adr-refs: []
 plan-refs: []
 depends-on: []
 created: 2026-05-08
-issue: https://github.com/pssah4/obsilo-dev/issues/63
+issue: https://github.com/pssah4/vault-operator-dev/issues/63
 ---
 
 # FIX-01-07-01: Checkpoint-Snapshot legt neue Dateien nicht ab, "No files staged" trotz `newFiles=1`
@@ -101,4 +101,4 @@ See the backlog row for FIX-01-07-01 in `_devprocess/context/BACKLOG.md`
 
 ## Tracking
 
-GitHub Issue: https://github.com/pssah4/obsilo-dev/issues/63
+GitHub Issue: https://github.com/pssah4/vault-operator-dev/issues/63

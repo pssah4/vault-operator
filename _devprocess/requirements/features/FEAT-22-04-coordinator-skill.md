@@ -4,7 +4,7 @@
 > **Epic**: EPIC-22 (Skill-Package Ecosystem)
 > **Priority**: P1
 > **Effort Estimate**: M
-> **Obsilo-Extension**: Ueber Anthropic-Spec hinaus — dort gibt es keinen formalen Coordinator-Pattern.
+> **Vault Operator-Extension**: Ueber Anthropic-Spec hinaus — dort gibt es keinen formalen Coordinator-Pattern.
 
 ## Feature Description
 
@@ -17,8 +17,8 @@ Text-Instruktion ("Activate writer role, then pass to reviewer for
 feedback"). Die Sub-Skill-Inhalte werden bei Bedarf via `read_file`
 gelesen.
 
-Das ist eine **Obsilo-Erweiterung** zur Anthropic-Spec: Anthropic-Skills
-sind self-contained, haben kein Cross-Skill-Dispatch. Fuer Obsilos
+Das ist eine **Vault Operator-Erweiterung** zur Anthropic-Spec: Anthropic-Skills
+sind self-contained, haben kein Cross-Skill-Dispatch. Fuer Vault Operators
 Agent-Loop (der `new_task` und Mode-Switching schon kennt) ist dieses
 Muster eine natuerliche Ergaenzung.
 

@@ -367,7 +367,7 @@ export class CreateDrawioTool extends BaseTool<'create_drawio'> {
 
         // The pure .drawio payload (and also the content-attribute of the SVG wrapper).
         const mxfileXml = [
-            `<mxfile host="Obsidian" modified="${now}" agent="obsilo-agent" version="1.0" type="device">`,
+            `<mxfile host="Obsidian" modified="${now}" agent="vault-operator" version="1.0" type="device">`,
             '<diagram name="Page-1" id="obsilo-main">',
             '<mxGraphModel dx="900" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">',
             '<root>',

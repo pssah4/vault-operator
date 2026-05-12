@@ -153,7 +153,7 @@ export class OpenAiProvider implements ApiHandler {
         const defaultHeaders: Record<string, string> = {};
         if (config.type === 'openrouter') {
             defaultHeaders['HTTP-Referer'] = 'https://obsidian.md';
-            defaultHeaders['X-Title'] = 'Obsilo Agent';
+            defaultHeaders['X-Title'] = 'Vault Operator';
         }
         if (config.type === 'azure' && config.apiKey) {
             defaultHeaders['api-key'] = config.apiKey;

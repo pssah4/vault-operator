@@ -48,7 +48,7 @@ ist die Plugin-Skills-Sektion entweder unklar oder nicht vorhanden.
   installiert sie BEWUSST und erwartet dass der Agent sie nutzt. Stattdessen
   produziert der Agent einen schlechteren built-in Output.
 - **Vertrauen:** Sehr hoch. "Plugin-Awareness" ist eines der zentralen
-  Werteversprechen von Obsilo (VaultDNA).
+  Werteversprechen von Vault Operator (VaultDNA).
 
 ## Fix Wave 1 (beta.2)
 

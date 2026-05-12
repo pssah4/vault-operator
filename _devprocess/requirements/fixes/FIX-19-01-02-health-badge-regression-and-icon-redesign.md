@@ -17,8 +17,8 @@ never showed up.
 title, replaced with a lucide `heart-pulse` icon coloured by severity
 (`color-red` / `color-orange`), and placed immediately left of the
 settings button. The indicator must stay hidden when no findings exist.
-Same opportunity: shorten the sidebar title from "Obsilo agent" to
-"Obsilo".
+Same opportunity: shorten the sidebar title from "Vault Operator" to
+"Vault Operator".
 
 ## Causal Chain -- (a)
 
@@ -57,8 +57,8 @@ badge against the current state. The external push from `main.ts` stays
   `.severity-low`) control the icon colour via `color` (heart-pulse
   uses `currentColor` for its stroke). Hidden state is handled by the
   existing `.agent-u-hidden` utility class.
-- The title `ui.sidebar.title` is now `"Obsilo"` (English locale);
-  other labels like the ribbon tooltip stay `"Obsilo agent"` so the
+- The title `ui.sidebar.title` is now `"Vault Operator"` (English locale);
+  other labels like the ribbon tooltip stay `"Vault Operator"` so the
   command palette keeps its full identifier.
 
 ## Risk
@@ -72,7 +72,7 @@ badge against the current state. The external push from `main.ts` stays
 - Existing integration tests of `updateHealthBadge` cover the CSS
   transitions; no unit test was added for `syncHealthBadge` because it
   is a pure passthrough that uses the already-tested update path.
-- Manual: BRAT-update Obsilo while a findings-rich vault is open;
+- Manual: BRAT-update Vault Operator while a findings-rich vault is open;
   verify the heart-pulse icon appears left of the settings button in
   red/orange after the update.
 

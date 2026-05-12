@@ -52,7 +52,7 @@ function formatDate(isoDate: string): string {
 type SourceTab = 'all' | 'obsilo' | 'claude-ai' | 'claude-code' | 'chatgpt' | 'perplexity' | 'unknown';
 const SOURCE_TAB_LABELS: Record<SourceTab, string> = {
     'all': 'All',
-    'obsilo': 'Obsilo',
+    'obsilo': 'Vault Operator',
     'claude-ai': 'Claude.ai',
     'claude-code': 'Claude Code',
     'chatgpt': 'ChatGPT',

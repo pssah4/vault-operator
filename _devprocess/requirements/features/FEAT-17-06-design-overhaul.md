@@ -51,7 +51,7 @@ Das bestehende Design-System wird weiterentwickelt, nicht ersetzt. Dark/Light Th
 
 ### Design-Elemente
 - Typografie: klare Hierarchie (H1-H4), gute Lesbarkeit (line-height, letter-spacing)
-- Farbpalette: Primaerfarbe (Obsilo Lila), Akzentfarben fuer Callouts
+- Farbpalette: Primaerfarbe (Vault Operator Lila), Akzentfarben fuer Callouts
 - Callout-Boxen: Tip, Warning, Note, Example (visuell distinkt)
 - Code-Blocks: Syntax-Highlighting, Copy-Button
 - Navigation: Sticky Sidebar, Smooth Scroll, aktiver Abschnitt hervorgehoben

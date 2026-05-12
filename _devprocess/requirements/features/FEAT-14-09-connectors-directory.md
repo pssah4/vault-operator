@@ -7,12 +7,12 @@
 
 ## Feature Description
 
-Einreichung des Obsilo MCP Connectors bei Anthropic fuer die offizielle Aufnahme in das Connectors Directory. Erfordert Compliance mit Anthropic's Qualitaetsstandards und Dokumentation.
+Einreichung des Vault Operator MCP Connectors bei Anthropic fuer die offizielle Aufnahme in das Connectors Directory. Erfordert Compliance mit Anthropic's Qualitaetsstandards und Dokumentation.
 
 ## User Stories
 
 ### Story 1: Offizielle Praesenz
-**Als** Obsilo-Entwickler
+**Als** Vault Operator-Entwickler
 **moechte ich** im Anthropic Connectors Directory gelistet sein
 **um** Sichtbarkeit und Vertrauen bei Claude-Nutzern zu erhoehen
 

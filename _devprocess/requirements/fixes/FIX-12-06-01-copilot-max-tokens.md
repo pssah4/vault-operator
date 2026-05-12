@@ -4,7 +4,7 @@
 **Datei:** `src/api/providers/github-copilot.ts`
 **Feature-Bezug:** FEAT-12-06 (Copilot Modern Model Compatibility) in EPIC-12
 **Entdeckt:** 2026-04-15 (Community Issue #28)
-**Issue:** https://github.com/pssah4/obsilo/issues/28
+**Issue:** https://github.com/pssah4/vault-operator/issues/28
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * CloudflareDeployer -- Deploy the Obsilo Relay Worker to Cloudflare via REST API.
+ * CloudflareDeployer -- Deploy the Vault Operator Relay Worker to Cloudflare via REST API.
  *
  * No CLI, no wrangler, no terminal. Uses Obsidian's requestUrl (Review-Bot compliant).
  * The user provides a Cloudflare API token, and this class handles:
@@ -98,7 +98,7 @@ export class CloudflareDeployer {
             // No migrations -- DO already exists
         };
 
-        const boundary = '----ObsiloRelayUpdate' + Date.now();
+        const boundary = '----VaultOperatorRelayUpdate' + Date.now();
         const body = [
             `--${boundary}`,
             'Content-Disposition: form-data; name="metadata"; filename="metadata.json"',
@@ -194,7 +194,7 @@ export class CloudflareDeployer {
             // Bindings include the RELAY_TOKEN secret (will be set separately)
         };
 
-        const boundary = '----ObsiloRelayUpload' + Date.now();
+        const boundary = '----VaultOperatorRelayUpload' + Date.now();
         const body = [
             `--${boundary}`,
             'Content-Disposition: form-data; name="metadata"; filename="metadata.json"',

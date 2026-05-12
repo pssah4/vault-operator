@@ -9,13 +9,13 @@
 ## 1. Executive Summary
 
 ### 1.1 Problem Statement
-Obsilo Agent unterstuetzt aktuell LLM-Provider ausschliesslich ueber BYOK (Bring Your Own Key) -- Anthropic, OpenAI, Ollama, LM Studio, OpenRouter, Azure, Custom. Nutzer mit einem bestehenden GitHub Copilot Abo (Pro/Business/Enterprise) koennen ihre bereits bezahlten Premium Requests nicht nutzen und muessen separate API Keys erwerben und konfigurieren.
+Vault Operator unterstuetzt aktuell LLM-Provider ausschliesslich ueber BYOK (Bring Your Own Key) -- Anthropic, OpenAI, Ollama, LM Studio, OpenRouter, Azure, Custom. Nutzer mit einem bestehenden GitHub Copilot Abo (Pro/Business/Enterprise) koennen ihre bereits bezahlten Premium Requests nicht nutzen und muessen separate API Keys erwerben und konfigurieren.
 
 ### 1.2 Proposed Solution
 GitHub Copilot als vollwertigen LLM Provider integrieren, analog zu bestehenden Providern. Authentifizierung ueber GitHub OAuth Device Code Flow, dynamisches Modell-Listing ueber Copilot API, Nutzung fuer Chat-Modelle und Embedding-Modelle. Integriert in bestehende Provider-Architektur (ProviderType, CustomModel, LLMProvider, ApiHandler).
 
 ### 1.3 Expected Outcomes
-- Nutzer koennen ihr bestehendes GitHub Copilot Abo direkt in Obsilo nutzen
+- Nutzer koennen ihr bestehendes GitHub Copilot Abo direkt in Vault Operator nutzen
 - Zugang zu allen Copilot-verfuegbaren Modellen (Claude, GPT, Gemini etc.) ohne separate API Keys
 - Embedding-Modelle ueber Copilot fuer den SemanticIndexService nutzbar
 - Konsistente UX: GitHub Copilot erscheint als Provider im Dropdown wie OpenAI, Ollama etc.
@@ -115,7 +115,7 @@ GitHub Copilot bietet seit 2025 Zugang zu verschiedenen LLM-Familien (Claude, GP
 ## 5. Problem Analysis
 
 ### 5.1 Problem Statement (Detailed)
-GitHub Copilot Abonnenten zahlen bereits fuer Premium Requests, die Zugang zu Claude, GPT-4o, Gemini und weiteren Modellen bieten. In Obsilo Agent muessen diese Nutzer aktuell separate API Keys erwerben (ab $5-20/Monat), obwohl sie die gleichen Modelle bereits ueber Copilot nutzen koennten. Die fehlende Integration fuehrt zu doppelten Kosten und verpasster Zielgruppe.
+GitHub Copilot Abonnenten zahlen bereits fuer Premium Requests, die Zugang zu Claude, GPT-4o, Gemini und weiteren Modellen bieten. In Vault Operator muessen diese Nutzer aktuell separate API Keys erwerben (ab $5-20/Monat), obwohl sie die gleichen Modelle bereits ueber Copilot nutzen koennten. Die fehlende Integration fuehrt zu doppelten Kosten und verpasster Zielgruppe.
 
 ### 5.2 Root Causes
 - GitHub Copilot nutzt einen proprietaeren OAuth + Token-Refresh Mechanismus statt statischer API Keys
@@ -137,7 +137,7 @@ GitHub Copilot Abonnenten zahlen bereits fuer Premium Requests, die Zugang zu Cl
 - Plugin-Attraktivitaet fuer Community Plugin Store erhoehen
 
 ### 6.2 User Goals
-- Copilot Abo direkt in Obsilo nutzen (Chat + Embeddings)
+- Copilot Abo direkt in Vault Operator nutzen (Chat + Embeddings)
 - Keine separaten API Keys noetig
 - Einfacher einmaliger Auth-Flow, danach automatisch
 
@@ -191,7 +191,7 @@ GitHub Copilot Abonnenten zahlen bereits fuer Premium Requests, die Zugang zu Cl
 - **Token-Lebenszeit:** Copilot Token laeuft nach ~1h ab, muss automatisch refreshed werden
 - **Header-Requirements:** Copilot API erfordert spezifische Headers (User-Agent, Editor-Version, etc.)
 - **Markenrecht:** "GitHub Copilot" nur mit "(unofficial)" Label verwenden
-- **Keine LangChain-Abhaengigkeit:** Obsilo nutzt Anthropic SDK + OpenAI SDK direkt, keine LangChain (anders als obsidian-copilot Referenz)
+- **Keine LangChain-Abhaengigkeit:** Vault Operator nutzt Anthropic SDK + OpenAI SDK direkt, keine LangChain (anders als obsidian-copilot Referenz)
 
 ---
 
@@ -294,7 +294,7 @@ GitHub Copilot Abonnenten zahlen bereits fuer Premium Requests, die Zugang zu Cl
 | **Premium Requests** | Begrenzte Anzahl an LLM-Aufrufen pro Monat im Copilot Abo |
 | **Client ID** | Identifikator der OAuth-App gegenueber GitHub. Standard: VSCodes ID. |
 | **requestUrl** | Obsidians HTTP-Funktion (ersetzt `fetch()` fuer Plugin-Review-Compliance) |
-| **SafeStorageService** | Obsilo-Klasse die Electron `safeStorage` nutzt fuer OS-Keychain-Verschluesselung |
+| **SafeStorageService** | Vault Operator-Klasse die Electron `safeStorage` nutzt fuer OS-Keychain-Verschluesselung |
 
 ### B. Interview Notes
 
@@ -308,14 +308,14 @@ GitHub Copilot Abonnenten zahlen bereits fuer Premium Requests, die Zugang zu Cl
 5. **Fehlerverhalten:** Klare Fehlermeldung an User, kein stilles Umschalten auf anderen Provider
 6. **Haftung:** Disclaimers in UI und Docs; MIT-Lizenz schliesst Haftung aus; kein kommerzielles Interesse
 
-**Referenz-Implementierung:** `obsidian-copilot` Plugin (GitHub) als Orientierung, aber keine 1:1 Kopie. Wichtig: Obsilo nutzt kein LangChain, sondern direkte SDK-Integration.
+**Referenz-Implementierung:** `obsidian-copilot` Plugin (GitHub) als Orientierung, aber keine 1:1 Kopie. Wichtig: Vault Operator nutzt kein LangChain, sondern direkte SDK-Integration.
 
 ### C. References
 
 - GitHub OAuth Device Flow: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow
 - GitHub Copilot API (inoffiziell): `api.githubcopilot.com`
 - Referenz-Plugin: obsidian-copilot (GitHub: logancyang/obsidian-copilot)
-- Obsilo Provider-Architektur: `src/api/index.ts`, `src/api/providers/`, `src/types/settings.ts`
+- Vault Operator Provider-Architektur: `src/api/index.ts`, `src/api/providers/`, `src/types/settings.ts`
 - SafeStorageService: `src/core/security/SafeStorageService.ts`
 - Review-Bot Compliance: `_memory/quality-rules.md`
 

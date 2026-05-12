@@ -28,12 +28,12 @@ Zusaetzlich wird learnings.md entfernt -- die Inhalte sind redundant mit Recipes
 
 ### Story 1: Schnellerer Start
 **Als** Knowledge Worker
-**moechte ich** dass Obsilo beim Start nicht dutzende Dateien laden muss
+**moechte ich** dass Vault Operator beim Start nicht dutzende Dateien laden muss
 **um** schneller arbeitsfaehig zu sein
 
 ### Story 2: Lernhistorie verstehen
 **Als** Knowledge Worker
-**moechte ich** nachvollziehen koennen welche Workflows Obsilo gelernt hat und warum
+**moechte ich** nachvollziehen koennen welche Workflows Vault Operator gelernt hat und warum
 **um** das Lernverhalten meines Agenten zu verstehen und zu steuern
 
 ---

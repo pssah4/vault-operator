@@ -30,7 +30,7 @@ die bekannten Optionen "Replace / Rename / Cancel".
 
 Anthropic definiert `.skill` als De-facto-Extension (nicht formell
 spec'd, aber vom `skill-creator` Tool produziert), und Claude.ai akzeptiert
-Uploads via Settings. Wir uebernehmen diese Konvention plus Obsilo-eigene
+Uploads via Settings. Wir uebernehmen diese Konvention plus Vault Operator-eigene
 Markdown-/Ordner-Pfade fuer Backward-Compat.
 
 ## User Stories
@@ -38,12 +38,12 @@ Markdown-/Ordner-Pfade fuer Backward-Compat.
 ### Story 1: Skill aus Anthropic-Repo importieren
 **Als** User
 **moechte ich** einen Skill aus [anthropics/skills](https://github.com/anthropics/skills)
-als Zip herunterladen und in Obsilo importieren
+als Zip herunterladen und in Vault Operator importieren
 **um** Formatkonvertierungen wie `pdf`, `pptx`, `skill-creator` direkt zu nutzen.
 
 ### Story 2: Skill-Update
 **Als** User
-**moechte ich** eine neuere Version desselben Skills importieren und Obsilo
+**moechte ich** eine neuere Version desselben Skills importieren und Vault Operator
 fragt: "Replace or keep both?"
 **um** nicht versehentlich meine Anpassungen zu verlieren.
 

@@ -13,9 +13,9 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-TEST_DIR="/tmp/obsilo-brat-test"
+TEST_DIR="/tmp/vault-operator-brat-test"
 VAULT_DIR="$TEST_DIR/TestVault"
-PLUGIN_DIR="$VAULT_DIR/.obsidian/plugins/obsilo-agent"
+PLUGIN_DIR="$VAULT_DIR/.obsidian/plugins/vault-operator"
 
 echo "=== BRAT Installation Simulator ==="
 echo ""
@@ -45,7 +45,7 @@ echo "Total size: $(du -sh "$PLUGIN_DIR" | cut -f1)"
 # Create minimal Obsidian config to enable the plugin
 mkdir -p "$VAULT_DIR/.obsidian"
 cat > "$VAULT_DIR/.obsidian/community-plugins.json" << 'EOF'
-["obsilo-agent"]
+["vault-operator"]
 EOF
 
 echo ""
@@ -79,7 +79,7 @@ if [ "${1:-}" = "verify" ]; then
         "ort-wasm-simd-threaded.mjs"
         "sandbox-worker.js"
         "mcp-server-worker.js"
-        ".obsilo-assets-version"
+        ".vault-operator-assets-version"
     )
     missing=0
     for f in "${REQUIRED[@]}"; do

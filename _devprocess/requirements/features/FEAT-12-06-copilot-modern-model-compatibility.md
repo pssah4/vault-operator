@@ -13,7 +13,7 @@ Der Copilot-Provider sendet aktuell unbedingt `max_tokens`. Neuere Modelle (gpt-
 
 ## User Story
 
-**Als** Obsilo-User mit GitHub-Copilot-Abo
+**Als** Vault Operator-User mit GitHub-Copilot-Abo
 **moechte ich** alle Copilot-Modelle (gpt-5, o4-mini, claude-sonnet) im Sidebar-Chat verwenden
 **um** die volle Modellbandbreite zu nutzen, fuer die ich bezahle.
 

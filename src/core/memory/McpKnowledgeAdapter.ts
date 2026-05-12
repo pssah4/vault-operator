@@ -2,7 +2,7 @@
  * McpKnowledgeAdapter -- Setup-C implementation of KnowledgeGraphAdapter.
  *
  * Used when Memory v2 runs as a standalone engine (separate process or
- * UCM service) and the vault index lives in the Obsilo plugin behind
+ * UCM service) and the vault index lives in the Vault Operator plugin behind
  * an MCP-server endpoint. The adapter calls plugin-MCP tools
  * `get_vault_implicit_edges`, `get_vault_note_metadata`, and
  * `search_vault` via the host-supplied transport; LAN-RTT 20-50 ms is

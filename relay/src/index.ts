@@ -1,11 +1,11 @@
 /**
- * Obsilo Relay -- Cloudflare Worker + Durable Object
+ * Vault Operator Relay -- Cloudflare Worker + Durable Object
  *
  * Proxies MCP JSON-RPC requests from AI assistants (claude.ai, ChatGPT, etc.)
- * to a local Obsilo plugin via WebSocket.
+ * to a local Vault Operator plugin via WebSocket.
  *
  * Architecture:
- *   MCP Client → HTTPS POST → Worker (auth + route) → Durable Object → WebSocket → Obsilo Plugin
+ *   MCP Client → HTTPS POST → Worker (auth + route) → Durable Object → WebSocket → Vault Operator Plugin
  *
  * ADR-055: Remote MCP Relay
  * FEATURE-1403: Remote Transport
@@ -99,7 +99,7 @@ export class RelayDO {
                 return new Response(JSON.stringify({
                     jsonrpc: '2.0',
                     id: null,
-                    error: { code: -32603, message: 'Obsilo plugin not connected. Make sure Obsidian is running with remote access enabled.' },
+                    error: { code: -32603, message: 'Vault Operator plugin not connected. Make sure Obsidian is running with remote access enabled.' },
                 }), { status: 502, headers: { 'Content-Type': 'application/json' } });
             }
 

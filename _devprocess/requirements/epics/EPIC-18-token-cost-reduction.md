@@ -6,7 +6,7 @@
 
 ## Epic Hypothesis Statement
 
-FUER Obsilo-Nutzer die taeglich Vault-Aufgaben an den AI-Agenten delegieren
+FUER Vault Operator-Nutzer die taeglich Vault-Aufgaben an den AI-Agenten delegieren
 DIE unter hohen Token-Kosten und Provider-Inkompatibilitaet leiden
 IST DIE Token-Kostenreduktion
 EIN Performance- und Kosten-Optimierungs-Release

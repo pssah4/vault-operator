@@ -4,15 +4,15 @@
 
 | Repo | Sichtbarkeit | Zweck |
 |------|-------------|-------|
-| `github.com/pssah4/obsilo` | Privat | Entwicklung — alle Branches |
-| `github.com/pssah4/obsilo` | Öffentlich | Releases — nur `main` |
+| `github.com/pssah4/vault-operator` | Privat | Entwicklung — alle Branches |
+| `github.com/pssah4/vault-operator` | Öffentlich | Releases — nur `main` |
 
 ---
 
-## Branch-Struktur (obsilo, privat)
+## Branch-Struktur (vault-operator, privat)
 
 ```
-dev     →  test     →  main     →  obsilo/main
+dev     →  test     →  main     →  vault-operator/main
 (Entwicklung)  (Staging)  (Release)   (öffentlich, ohne CLAUDE.md)
 ```
 
@@ -25,16 +25,16 @@ dev     →  test     →  main     →  obsilo/main
 ### `test`
 - Staging-Branch — stabiler Stand von `dev`
 - Enthält ebenfalls `CLAUDE.md` (wird für die Entwicklung benötigt)
-- Merge: `dev → test` (manuell via PR in obsilo)
+- Merge: `dev → test` (manuell via PR in vault-operator)
 - Wird **nicht** automatisch synchronisiert
 
-### `main` (obsilo, privat)
+### `main` (vault-operator, privat)
 - Release-Branch — getesteter Stand aus `test`
-- Merge: `test → main` (manuell via PR in obsilo)
+- Merge: `test → main` (manuell via PR in vault-operator)
 - **Trigger:** Push auf `main` startet automatisch den GitHub Actions Workflow
 
-### `main` (obsilo, öffentlich)
-- Gespiegelt von `obsilo/main`, gefiltert:
+### `main` (vault-operator, öffentlich)
+- Gespiegelt von `vault-operator/main`, gefiltert:
   - `CLAUDE.md` wird entfernt
 - Wird **automatisch** via GitHub Actions aktualisiert (kein manueller Schritt)
 
@@ -49,27 +49,27 @@ dev     →  test     →  main     →  obsilo/main
    git push origin dev
 
 2. Für Staging bereit
-   → PR auf GitHub: dev → test (in obsilo)
+   → PR auf GitHub: dev → test (in vault-operator)
    → Merge
 
 3. Für Release bereit
-   → PR auf GitHub: test → main (in obsilo)
+   → PR auf GitHub: test → main (in vault-operator)
    → Merge
          │
          ▼ (automatisch)
    GitHub Actions: sync-public.yml
          │
-         ├── Checkout obsilo/main
+         ├── Checkout vault-operator/main
          ├── CLAUDE.md entfernen
          ├── Commit (gefiltert)
-         └── Force-Push → obsilo/main
+         └── Force-Push → vault-operator/main
 ```
 
 ---
 
 ## Was ist wo vorhanden
 
-| Datei / Ordner | dev | test | main (obsilo) | main (obsilo) |
+| Datei / Ordner | dev | test | main (vault-operator) | main (vault-operator) |
 |----------------|-----|------|---------------|----------------------|
 | `src/` | ✓ | ✓ | ✓ | ✓ |
 | `docs/` | ✓ | ✓ | ✓ | ✓ |
@@ -84,11 +84,11 @@ dev     →  test     →  main     →  obsilo/main
 ## GitHub Actions Workflow
 
 Datei: `.github/workflows/sync-public.yml`
-Trigger: Push auf `obsilo/main`
+Trigger: Push auf `vault-operator/main`
 
 Einmaliges Setup:
 1. PAT erstellen (github.com → Settings → Developer settings → Tokens (classic), Scope: `repo`)
-2. Secret `OBSILO_PUBLIC_TOKEN` in obsilo Repo Settings → Secrets and variables → Actions hinterlegen
+2. Secret `OBSILO_PUBLIC_TOKEN` in vault-operator Repo Settings → Secrets and variables → Actions hinterlegen
 
 Details: `_devprocess/docs/TWO-REMOTE-SETUP.md`
 
@@ -98,9 +98,9 @@ Details: `_devprocess/docs/TWO-REMOTE-SETUP.md`
 
 ```bash
 git remote -v
-# origin         https://github.com/pssah4/obsilo.git (fetch/push)
-# obsilo  https://github.com/pssah4/obsilo.git (fetch/push)
+# origin         https://github.com/pssah4/vault-operator.git (fetch/push)
+# vault-operator  https://github.com/pssah4/vault-operator.git (fetch/push)
 ```
 
-Das `obsilo` Remote wird lokal nur noch als Fallback für den manuellen
+Das `vault-operator` Remote wird lokal nur noch als Fallback für den manuellen
 Publish-Script benötigt. Der reguläre Sync läuft über GitHub Actions.

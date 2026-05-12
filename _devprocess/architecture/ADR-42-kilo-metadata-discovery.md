@@ -5,7 +5,7 @@
 
 ## Context
 
-Kilo Gateway stellt Modelle, Provider und zum Teil organisationsabhaengige Defaults ueber eigene Endpunkte bereit. Fuer Obsilo bedeutet das: Modellwahl und Organisationskontext koennen nicht ausschliesslich statisch aus Konstanten kommen. Gleichzeitig darf ein Fehler beim Laden dieser Metadaten den Nutzer nicht komplett blockieren.
+Kilo Gateway stellt Modelle, Provider und zum Teil organisationsabhaengige Defaults ueber eigene Endpunkte bereit. Fuer Vault Operator bedeutet das: Modellwahl und Organisationskontext koennen nicht ausschliesslich statisch aus Konstanten kommen. Gleichzeitig darf ein Fehler beim Laden dieser Metadaten den Nutzer nicht komplett blockieren.
 
 **Triggering ASR:**
 - Moderate ASR-04: Runtime-Loaded Model and Organization Metadata

@@ -1,7 +1,7 @@
 /**
  * update_soul -- agent-driven editing of L2 Curated Soul.
  *
- * The user often instructs Obsilo with phrases like
+ * The user often instructs Vault Operator with phrases like
  *   "merk dir, dass ich keine Floskeln mag"
  *   "remember to never use emojis"
  *   "stell dir vor du bist eher direkt als hoeflich"
@@ -13,7 +13,7 @@
  * Categories:
  *   - value          stable beliefs / preferences
  *   - anti_pattern   things to avoid
- *   - identity       who Obsilo is (rare; usually static)
+ *   - identity       who Vault Operator is (rare; usually static)
  *   - communication  style / tone preferences
  *
  * supersedes={factId} replaces an existing soul fact via

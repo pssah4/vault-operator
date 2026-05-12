@@ -123,7 +123,7 @@ Heutige Realitaet: [MemoryDB.ts](../../../src/core/knowledge/MemoryDB.ts) ist ei
 
 ### Aufgabe 7 -- SourceAdapter + AdapterRegistry + UriResolver
 
-**Ziel:** Engine-Public-API fuer URI-Aufloesung. Hosts (Obsilo, UCM, andere) registrieren Adapter pro Schema; Engine kennt nur das Interface.
+**Ziel:** Engine-Public-API fuer URI-Aufloesung. Hosts (Vault Operator, UCM, andere) registrieren Adapter pro Schema; Engine kennt nur das Interface.
 
 **Anpassungen:**
 

@@ -5,13 +5,13 @@
 
 ## Context
 
-Obsilo hat 46+ interne Tools und einen reichhaltigen System-Prompt (Memory, Skills, Rules, Tool-Guidelines). Im Connector-Modus muss diese Intelligenz ueber MCP an Claude uebertragen werden -- ohne eigene LLM-Calls in Obsilo.
+Vault Operator hat 46+ interne Tools und einen reichhaltigen System-Prompt (Memory, Skills, Rules, Tool-Guidelines). Im Connector-Modus muss diese Intelligenz ueber MCP an Claude uebertragen werden -- ohne eigene LLM-Calls in Vault Operator.
 
 **Triggering ASRs:**
 - ASR-2: Bestehende Tool-Pipeline wiederverwenden (0 Aenderungen)
 - ASR-4: System-Prompt via MCP Prompts uebertragbar
 
-**Kernprinzip:** Claude ist der Agent. Obsilo exponiert **wenige hochstufige MCP Tools** die intern die volle Pipeline kapseln. Claude sieht keine internen Tool-Namen.
+**Kernprinzip:** Claude ist der Agent. Vault Operator exponiert **wenige hochstufige MCP Tools** die intern die volle Pipeline kapseln. Claude sieht keine internen Tool-Namen.
 
 ## Decision Drivers
 
@@ -110,7 +110,7 @@ Kein `whenToUse`, `commonMistakes` etc. als separate Felder (MCP Schema hat nur 
 
 ### Positive
 - ~1850 Token statt ~8000 (Token-effizient)
-- `search_vault` differenziert Obsilo von CRUD-Servern
+- `search_vault` differenziert Vault Operator von CRUD-Servern
 - System-Prompt wird via MCP Prompts uebertragen
 - 0 Aenderungen an bestehenden Services
 

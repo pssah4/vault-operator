@@ -36,7 +36,7 @@ gleichzeitig bestehende Vault-Strukturen schuetzt.
 
 ### Story 1: Bestehende Templates erkennen
 **Als** Wissensarbeiter mit eigenem Template-System
-**moechte ich** dass Obsilo meine bestehenden Templates erkennt und nutzt
+**moechte ich** dass Vault Operator meine bestehenden Templates erkennt und nutzt
 **um** mein bewaehrtes Schema beizubehalten statt ein neues aufgezwungen zu bekommen
 
 ### Story 2: Default-Templates fuer Einsteiger

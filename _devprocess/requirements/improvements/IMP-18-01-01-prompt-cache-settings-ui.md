@@ -12,7 +12,7 @@ created: 2026-05-09
 
 **Prioritaet:** P1 (User-Erwartung aus Issue #313, kein akuter Bug, aber Default-Verhalten widerspricht ADR-62-Praemisse)
 **Feature-Bezug:** FEAT-18-01 (Prompt Caching, Provider-agnostisch), EPIC-18 (Token-Kostenreduktion)
-**Quelle:** [Issue #313](https://github.com/pssah4/obsilo-dev/issues/313), BA-12 Section 11
+**Quelle:** [Issue #313](https://github.com/pssah4/vault-operator-dev/issues/313), BA-12 Section 11
 **Hypothesen aus BA:** H-313-1 (Default-on ist sicher), H-313-2 (ein Boolean-Capability-Flag genuegt)
 
 ## Problem

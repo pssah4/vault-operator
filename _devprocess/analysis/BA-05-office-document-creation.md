@@ -10,7 +10,7 @@
 
 ### 1.1 Problem Statement
 
-Obsilo kann Office-Dokumente (PPTX, DOCX, XLSX, PDF) lesen und als Kontext bereitstellen (EPIC-06), aber nicht erzeugen. Versuche, die Erzeugung ueber die Sandbox (`evaluate_expression` mit npm-Paketen wie pptxgenjs) umzusetzen, sind gescheitert: Die Sandbox-Umgebung hat kein `Blob`, kein `Buffer`, kein DOM -- essenzielle APIs fuer binaere Dateierzeugung fehlen strukturell. Im konkreten Fall scheiterte eine PPTX-Erstellung nach ueber 20 Code-Executions, weil pptxgenjs intern Blob-APIs erwartet, die in der iframe-Sandbox nicht verfuegbar sind.
+Vault Operator kann Office-Dokumente (PPTX, DOCX, XLSX, PDF) lesen und als Kontext bereitstellen (EPIC-06), aber nicht erzeugen. Versuche, die Erzeugung ueber die Sandbox (`evaluate_expression` mit npm-Paketen wie pptxgenjs) umzusetzen, sind gescheitert: Die Sandbox-Umgebung hat kein `Blob`, kein `Buffer`, kein DOM -- essenzielle APIs fuer binaere Dateierzeugung fehlen strukturell. Im konkreten Fall scheiterte eine PPTX-Erstellung nach ueber 20 Code-Executions, weil pptxgenjs intern Blob-APIs erwartet, die in der iframe-Sandbox nicht verfuegbar sind.
 
 ### 1.2 Proposed Solution
 
@@ -29,7 +29,7 @@ Vier dedizierte Built-in Tools (`create_pptx`, `create_docx`, `create_xlsx`, `cr
 
 ### 2.1 Background
 
-Obsilo ist ein AI-Agent-Plugin fuer Obsidian mit 30+ Tools fuer Vault-Management. Das Plugin kann bereits komplexe Formate programmatisch erzeugen (Canvas, Excalidraw, Base), liest Office-Formate (PPTX, XLSX, DOCX, PDF via `read_document`), kann aber keine Office-Dateien erstellen.
+Vault Operator ist ein AI-Agent-Plugin fuer Obsidian mit 30+ Tools fuer Vault-Management. Das Plugin kann bereits komplexe Formate programmatisch erzeugen (Canvas, Excalidraw, Base), liest Office-Formate (PPTX, XLSX, DOCX, PDF via `read_document`), kann aber keine Office-Dateien erstellen.
 
 Die bestehende Sandbox-Architektur (ADR-21) definiert eine klare Abgrenzung:
 - **Sandbox (Schicht 3):** Agent-generierter Code fuer Kalkulationen, Batch-Operationen, Datenanalyse
@@ -72,7 +72,7 @@ Im Glossar (GLOSSAR-begriffe.md) ist explizit dokumentiert: *"Fuer Faehigkeiten 
 | Stakeholder | Role | Interest | Influence | Needs |
 |-------------|------|----------|-----------|-------|
 | Sebastian Hanke | Entwickler + Primaer-User | H | H | Zuverlaessige Office-Erzeugung, professionelle Qualitaet |
-| Obsilo-Enduser (kuenftig) | Endanwender | H | M | Einfache Nutzung via Chat, hochwertige Ergebnisse |
+| Vault Operator-Enduser (kuenftig) | Endanwender | H | M | Einfache Nutzung via Chat, hochwertige Ergebnisse |
 | Obsidian Community Plugin Review | Gatekeeper | L | H | Review-Bot-Compliance, keine verbotenen APIs |
 
 ### 3.2 Key Stakeholders
@@ -104,7 +104,7 @@ Im Glossar (GLOSSAR-begriffe.md) ist explizit dokumentiert: *"Fuer Faehigkeiten 
 
 ### 5.1 Problem Statement (Detailed)
 
-Die Sandbox-Architektur von Obsilo bietet eine isolierte Ausfuehrungsumgebung fuer Agent-generierten Code. Diese Umgebung hat bewusst keinen Zugriff auf Node.js APIs (Buffer, stream, fs) und Browser-APIs (Blob, DOM). Binaere Dateiformate wie OOXML (PPTX, DOCX, XLSX) und PDF benoetigen jedoch genau diese APIs fuer die Erzeugung von ZIP-Containern, XML-Serialisierung und Binaer-Streams.
+Die Sandbox-Architektur von Vault Operator bietet eine isolierte Ausfuehrungsumgebung fuer Agent-generierten Code. Diese Umgebung hat bewusst keinen Zugriff auf Node.js APIs (Buffer, stream, fs) und Browser-APIs (Blob, DOM). Binaere Dateiformate wie OOXML (PPTX, DOCX, XLSX) und PDF benoetigen jedoch genau diese APIs fuer die Erzeugung von ZIP-Containern, XML-Serialisierung und Binaer-Streams.
 
 ### 5.2 Root Causes
 

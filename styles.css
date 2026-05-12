@@ -793,7 +793,7 @@
 /* SoakReportModal: a wide read-only textarea shows the JSON snapshot
  * so the user can manually copy or save to vault. Modal owns focus
  * which makes clipboard.writeText reliable. */
-.obsilo-soak-report-modal .obsilo-soak-report-textarea {
+.vault-operator-soak-report-modal .vault-operator-soak-report-textarea {
     width: 100%;
     min-height: 360px;
     font-family: var(--font-monospace);

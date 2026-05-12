@@ -26,7 +26,7 @@ Automatische, bidirektionale Traceability zwischen Agent-Chats und bearbeiteten 
 ## 2. Business Context
 
 ### 2.1 Background
-Obsilo ist ein Obsidian Plugin mit 30+ Agent-Tools. Die Chat-basierte Interaktion ist die primäre Schnittstelle. Im Arbeitsalltag entstehen in den Chats Recherche-Ergebnisse, Entscheidungen und Diskussionen, die über mehrere Iterationen reifen. Der Vault ist die Single Source of Truth für Wissen -- aber der Entstehungsweg dieses Wissens (der Chat) ist derzeit nicht verknüpft.
+Vault Operator ist ein Obsidian Plugin mit 30+ Agent-Tools. Die Chat-basierte Interaktion ist die primäre Schnittstelle. Im Arbeitsalltag entstehen in den Chats Recherche-Ergebnisse, Entscheidungen und Diskussionen, die über mehrere Iterationen reifen. Der Vault ist die Single Source of Truth für Wissen -- aber der Entstehungsweg dieses Wissens (der Chat) ist derzeit nicht verknüpft.
 
 ### 2.2 Current State ("As-Is")
 - **Chat-Storage:** ConversationStore speichert Chats außerhalb des Vaults in `~/.obsidian-agent/history/`
@@ -120,7 +120,7 @@ Chats sind dabei bewusst kein Vault-Content -- sie enthalten unreife Gedanken, B
 ## 6. Goals & Objectives
 
 ### 6.1 Business Goals
-- Obsilo als transparenten, nachvollziehbaren AI-Agenten positionieren
+- Vault Operator als transparenten, nachvollziehbaren AI-Agenten positionieren
 - Iteratives Arbeiten über Chat-Grenzen hinweg ermöglichen
 - Vertrauen in Agent-Operationen durch Provenienz-Information stärken
 

@@ -21,14 +21,14 @@ related:
 
 Volltext- und Semantic-Search ueber alle Conversations, unabhaengig von memory-eligibility. Damit findet der User auch Konversationen wieder, die er nicht explizit gespeichert hat.
 
-**Storage in dedizierter `history.db` als Engine-Public-DB** (statt `knowledge.db.history_chunks`-Tabelle), damit UCM die Engine portable wiederverwenden kann ohne knowledge.db. Drei Engine-DBs ab dieser Phase: `memory.db`, `knowledge.db` (Obsilo-spezifisch, optional ueber Adapter), `history.db` (Engine-Public). Schema: `history_chunks` mit URI-konformen Identifiern (`session://{source}/{id}#message-{i}#chunk-{j}`) und `source_interface`-Spalte (analog facts).
+**Storage in dedizierter `history.db` als Engine-Public-DB** (statt `knowledge.db.history_chunks`-Tabelle), damit UCM die Engine portable wiederverwenden kann ohne knowledge.db. Drei Engine-DBs ab dieser Phase: `memory.db`, `knowledge.db` (Vault Operator-spezifisch, optional ueber Adapter), `history.db` (Engine-Public). Schema: `history_chunks` mit URI-konformen Identifiern (`session://{source}/{id}#message-{i}#chunk-{j}`) und `source_interface`-Spalte (analog facts).
 
-**Drei Engine-Public-Komponenten:** HistoryStore (CRUD), HistoryIndexer (Backfill + inkrementell), SearchHistoryService (Tool-Backend). Constructor-Injection, kein Plugin-Kontext. Conversation-Ingestion via abstrakter `Conversation`-Struktur, nicht via Datei-Pfad. Damit kann UCM Conversations aus beliebigen Sources (Claude Desktop, Claude Code, ChatGPT, OpenClaw) per MCP einreichen, Obsilo liest aus seinem `history/`-Verzeichnis und ruft die gleiche API.
+**Drei Engine-Public-Komponenten:** HistoryStore (CRUD), HistoryIndexer (Backfill + inkrementell), SearchHistoryService (Tool-Backend). Constructor-Injection, kein Plugin-Kontext. Conversation-Ingestion via abstrakter `Conversation`-Struktur, nicht via Datei-Pfad. Damit kann UCM Conversations aus beliebigen Sources (Claude Desktop, Claude Code, ChatGPT, OpenClaw) per MCP einreichen, Vault Operator liest aus seinem `history/`-Verzeichnis und ruft die gleiche API.
 
 **UI-Sidebar mit Tab-Strategie:** Zwei Tabs, beide immer aktiv:
 
-- **"Obsidian"-Tab:** Conversations, die in Obsilo selbst (Sidebar-Chat) gefuehrt wurden -- `source_interface = 'obsilo'`.
-- **"Global"-Tab:** Alle Cross-Source-Conversations, die durch den Plugin-Worker oder einen registrierten externen Worker geflossen sind (claude-desktop, claude-code, chatgpt-dev-mcp, ...). Tab ist auch ohne externen Standalone-Worker aktiv, weil Obsilo-Plugin selbst der UCM-Worker ist und alle Cross-Source-Conversations bereits sammelt. Bei zusaetzlich konfiguriertem externen Worker werden dessen Source-Interfaces ebenfalls hier sichtbar (Live-Fetch oder lokaler Twin).
+- **"Obsidian"-Tab:** Conversations, die in Vault Operator selbst (Sidebar-Chat) gefuehrt wurden -- `source_interface = 'obsilo'`.
+- **"Global"-Tab:** Alle Cross-Source-Conversations, die durch den Plugin-Worker oder einen registrierten externen Worker geflossen sind (claude-desktop, claude-code, chatgpt-dev-mcp, ...). Tab ist auch ohne externen Standalone-Worker aktiv, weil Vault Operator-Plugin selbst der UCM-Worker ist und alle Cross-Source-Conversations bereits sammelt. Bei zusaetzlich konfiguriertem externen Worker werden dessen Source-Interfaces ebenfalls hier sichtbar (Live-Fetch oder lokaler Twin).
 
 Filter pro Tab: Source-Interface, Date-Range, Thread-ID, memory-eligible-only.
 
@@ -56,19 +56,19 @@ Filter pro Tab: Source-Interface, Date-Range, Thread-ID, memory-eligible-only.
 
 ### Story 1: Conversations wiederfinden ohne Vorab-Markierung (Functional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** in alten Konversationen suchen, auch wenn ich sie nicht gespeichert hatte
 **so that** ich nicht alles bewusst tracken muss
 
 ### Story 2: Continuation einer alten Conversation (Emotional Job)
 
-**As a** Obsilo-Nutzer
+**As a** Vault Operator-Nutzer
 **I want to** eine alte Conversation als Ausgangspunkt fuer eine neue nutzen
 **so that** Kontext nicht verloren geht
 
 ### Story 3: Initial-Backfill stoert nicht (Functional Job)
 
-**As a** Obsilo-Nutzer beim Update
+**As a** Vault Operator-Nutzer beim Update
 **I want to** dass das Indexieren der bestehenden Conversations im Hintergrund laeuft
 **so that** das Plugin sofort weiternutzbar ist
 
@@ -126,7 +126,7 @@ Filter pro Tab: Source-Interface, Date-Range, Thread-ID, memory-eligible-only.
 
 **MODERATE ASR #2:** history_chunks-Tabelle nutzt URI-Konvention `session://{source}/{id}#message-{i}#chunk-{j}` mit optionalem source-Praefix.
 
-- **Why ASR:** Cross-Source-Disambiguierung in UCM-Modus, kompatibel mit Solo-Obsilo (source-Praefix entfaellt oder ist `obsilo`)
+- **Why ASR:** Cross-Source-Disambiguierung in UCM-Modus, kompatibel mit Solo-Vault Operator (source-Praefix entfaellt oder ist `obsilo`)
 - **Impact:** URI-Resolver-Erweiterung, Migration der bestehenden Session-IDs
 - **Quality Attribute:** Maintainability
 

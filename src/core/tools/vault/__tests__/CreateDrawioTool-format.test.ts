@@ -19,7 +19,7 @@ describe('CreateDrawioTool output format (BUG-018)', () => {
         // produces — the tool always emits `<?xml ...?><mxfile ...>...</mxfile>`.
         const expectedPrefix = '<?xml version="1.0" encoding="UTF-8"?><mxfile ';
         const sample = expectedPrefix
-            + 'host="Obsidian" modified="2026-04-17T00:00:00.000Z" agent="obsilo-agent" version="1.0" type="device">'
+            + 'host="Obsidian" modified="2026-04-17T00:00:00.000Z" agent="vault-operator" version="1.0" type="device">'
             + '<diagram name="Page-1" id="obsilo-main">'
             + '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>'
             + '</diagram></mxfile>';

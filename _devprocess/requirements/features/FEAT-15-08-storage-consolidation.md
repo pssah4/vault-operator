@@ -19,7 +19,7 @@ Aktuell sind Daten ueber 6 Verzeichnisse verstreut:
 - `{vault}/.obsilo-sync/` (Sync-Spiegel) -- fragiler Workaround
 - `{vault}/.obsilo/` (legacy, leer)
 - `{vault}/.obsidian/.obsilo/` (legacy, leer)
-- `{vault}/.obsidian/plugins/obsilo-agent/` (Plugin Runtime)
+- `{vault}/.obsidian/plugins/vault-operator/` (Plugin Runtime)
 
 Das Refactoring eliminiert SyncBridge, Legacy-Verzeichnisse und verschiebt alles neben den Vault.
 
@@ -132,7 +132,7 @@ Beispiel fuer `~/Obsidian/NexusOS/`:
 | skills/ | `~/.obsidian-agent/` | `{vault}/.obsidian-agent/` |
 | workflows/ | `~/.obsidian-agent/` | `{vault}/.obsidian-agent/` |
 | pending-extractions.json | `~/.obsidian-agent/` | `{vault}/.obsidian-agent/` |
-| Plugin runtime | `{vault}/.obsidian/plugins/obsilo-agent/` | unveraendert |
+| Plugin runtime | `{vault}/.obsidian/plugins/vault-operator/` | unveraendert |
 
 ---
 
@@ -161,4 +161,4 @@ Beispiel fuer `~/Obsidian/NexusOS/`:
 - **FEAT-15-05**: Knowledge Data Consolidation (memory.db bleibt vault-lokal)
 
 ## Out of Scope
-- Plugin-Verzeichnis Aenderungen (.obsidian/plugins/obsilo-agent/)
+- Plugin-Verzeichnis Aenderungen (.obsidian/plugins/vault-operator/)

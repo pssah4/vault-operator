@@ -1,11 +1,11 @@
 ---
 title: Office Pipeline
-description: How Obsilo creates and reads PPTX, DOCX, XLSX, and PDF files inside your vault.
+description: How Vault Operator creates and reads PPTX, DOCX, XLSX, and PDF files inside your vault.
 ---
 
 # Office pipeline
 
-Obsilo can create PowerPoint, Word, and Excel files directly in your vault. It can also read them, extracting text and structure from office documents to use as context in conversations.
+Vault Operator can create PowerPoint, Word, and Excel files directly in your vault. It can also read them, extracting text and structure from office documents to use as context in conversations.
 
 ## Document creation
 

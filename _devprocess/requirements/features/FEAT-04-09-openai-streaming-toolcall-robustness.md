@@ -16,7 +16,7 @@ Im OpenAI- und Copilot-Provider werden Tool-Call-Akkumulatoren nach dem Stream-E
 
 ## User Story
 
-**Als** Obsilo-User mit OpenRouter-Konfiguration und einem Open-Source-Modell wie gpt-oss-120b
+**Als** Vault Operator-User mit OpenRouter-Konfiguration und einem Open-Source-Modell wie gpt-oss-120b
 **moechte ich** dass der Agent Tools korrekt aufruft statt Tool-Argumente als JSON-Text auszugeben
 **um** unabhaengig von Provider-spezifischen finish_reason-Quirks alle unterstuetzten Modelle nutzen zu koennen.
 

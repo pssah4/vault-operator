@@ -10,7 +10,7 @@
 
 ### 1.1 Problem Statement
 
-Eine Standard-Aufgabe in Obsilo ("Suche Notizen zu X und erstelle Zusammenfassung")
+Eine Standard-Aufgabe in Vault Operator ("Suche Notizen zu X und erstelle Zusammenfassung")
 verbraucht 634.000 Input-Tokens und kostet ~$2.00 via OpenRouter Sonnet 4.6. Bei
 GitHub Copilot Sonnet 4.6 scheitert die Aufgabe komplett (183k > 168k Token-Limit).
 Das macht das Plugin fuer typische Knowledge-Worker-Tasks wirtschaftlich untragbar
@@ -37,7 +37,7 @@ ohne Qualitaetsverlust:
 
 ### 2.1 Background
 
-Obsilo ist ein AI-Agent-Plugin fuer Obsidian mit 47 Tools, 48 Plugin-Skills,
+Vault Operator ist ein AI-Agent-Plugin fuer Obsidian mit 47 Tools, 48 Plugin-Skills,
 Memory-System und Multi-Provider-Unterstuetzung. Der Agent arbeitet in einer
 ReAct-Loop: LLM entscheidet pro Iteration welches Tool aufzurufen ist, fuehrt
 es aus, und entscheidet erneut. Bei jeder Iteration wird die gesamte bisherige
@@ -97,7 +97,7 @@ KOSTEN (mit Prompt Caching):                                ~$0.10-0.20
 
 | Stakeholder | Role | Interest | Influence | Beduerfnisse |
 |-------------|------|----------|-----------|--------------|
-| Obsilo-User (Endanwender) | Primaernutzer | H | H | Schnelle, guenstige, qualitativ hochwertige Antworten |
+| Vault Operator-User (Endanwender) | Primaernutzer | H | H | Schnelle, guenstige, qualitativ hochwertige Antworten |
 | Plugin-Entwickler (Sebastian) | Product Owner | H | H | Wirtschaftlich tragfaehiges Plugin, breite Provider-Kompatibilitaet |
 | API-Provider (Anthropic, OpenAI, etc.) | Infrastruktur | M | M | Faire Nutzung, keine Abuse-Patterns |
 | Obsidian Community | Oekosystem | M | L | Verlaessliches Plugin ohne uebertriebene API-Kosten |
@@ -150,7 +150,7 @@ Die Tool-Results akkumulieren ohne Kompression in der History.
 
 3. **Kein Prompt Caching implementiert:** Die Anthropic/OpenAI/DeepSeek APIs bieten
    explizites Prompt Caching an, das den stabilen System-Prompt-Anteil um 90% guenstiger
-   macht. Obsilo nutzt das nicht.
+   macht. Vault Operator nutzt das nicht.
 
 4. **Unkomprimierte Tool-Results:** `search_files` gibt bis zu 50 Matches zurueck,
    `semantic_search` gibt 10 Ergebnisse mit je 2.000 Zeichen Excerpt. Diese bleiben
@@ -170,7 +170,7 @@ Die Tool-Results akkumulieren ohne Kompression in der History.
 
 ### 6.1 Business Goals
 
-- Obsilo wirtschaftlich tragfaehig fuer taegliche Nutzung (5-20 Tasks/Tag < $1)
+- Vault Operator wirtschaftlich tragfaehig fuer taegliche Nutzung (5-20 Tasks/Tag < $1)
 - Kompatibel mit allen gaengigen Providern inkl. 168k-Limit-Modelle
 - Qualitaet der Agent-Ergebnisse bleibt identisch oder verbessert sich
 
@@ -299,7 +299,7 @@ Die Tool-Results akkumulieren ohne Kompression in der History.
 
 ## 11. Update-Block: Issue #313 -- Provider-Coverage Gap (2026-05-09)
 
-> **Trigger:** GitHub Issue [#313](https://github.com/pssah4/obsilo-dev/issues/313) "Prompt Caching Settings"
+> **Trigger:** GitHub Issue [#313](https://github.com/pssah4/vault-operator-dev/issues/313) "Prompt Caching Settings"
 > **Bezug:** FEAT-18-01 (Done/Released), ADR-62 (Accepted)
 > **Folge-Items:** IMP-18-01-01 (Settings & Default), IMP-18-01-02 (Provider-Implementierungen)
 
@@ -332,7 +332,7 @@ Was nicht oder nur partiell umgesetzt wurde:
 Persona 1 (Knowledge Worker) und Persona 2 (Power User) bleiben unveraendert. Neue Sub-Beobachtung:
 
 - **Bedrock-User (Sub-Persona Power User):** Enterprise-Kunden mit AWS-Compliance-Pflicht koennen Anthropic-Modelle nur ueber Bedrock nutzen. Aktuell zahlen sie **die volle Bedrock-Rate** (Anthropic-via-Bedrock), obwohl Bedrock Caching unterstuetzt. Wirtschaftlicher Impact identisch zu Direkt-Anthropic-Usern, aber technisch nicht aktivierbar.
-- **OpenAI-User (Sub-Persona Knowledge Worker):** OpenAI cached implizit ab >1024 Tokens. Der Rabatt (50% auf cached prefix) faellt zwar auf Provider-Seite an, aber Obsilo zeigt es weder im Token-Tracking noch in Cost-Schaetzungen. User glauben, kein Caching zu haben, weil das UI nichts dazu sagt.
+- **OpenAI-User (Sub-Persona Knowledge Worker):** OpenAI cached implizit ab >1024 Tokens. Der Rabatt (50% auf cached prefix) faellt zwar auf Provider-Seite an, aber Vault Operator zeigt es weder im Token-Tracking noch in Cost-Schaetzungen. User glauben, kein Caching zu haben, weil das UI nichts dazu sagt.
 
 ### 11.4 Neue Hypothesen (zur Validierung in Phase RE/Coding/Live-Test)
 

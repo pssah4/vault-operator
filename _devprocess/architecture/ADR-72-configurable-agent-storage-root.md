@@ -57,14 +57,14 @@ Setting akzeptiert auch absolute Pfade ausserhalb der Vault.
 ```typescript
 // src/core/utils/agentFolder.ts (neu)
 import { normalizePath } from 'obsidian';
-import type { ObsiloPlugin } from '../../main';
+import type { VaultOperatorPlugin } from '../../main';
 
-export function getAgentFolderPath(plugin: ObsiloPlugin): string {
+export function getAgentFolderPath(plugin: VaultOperatorPlugin): string {
     const raw = plugin.settings.agentFolderPath?.trim() || '.obsidian-agent';
     return normalizePath(raw);
 }
 
-export function getPluginSkillsPath(plugin: ObsiloPlugin, pluginId: string): string {
+export function getPluginSkillsPath(plugin: VaultOperatorPlugin, pluginId: string): string {
     return normalizePath(`${getAgentFolderPath(plugin)}/plugin-skills/${pluginId}.skill.md`);
 }
 ```

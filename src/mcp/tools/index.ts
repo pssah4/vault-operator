@@ -1,7 +1,7 @@
 /**
  * MCP Tool Dispatcher -- routes tool calls to the appropriate handler.
  *
- * Automatically tracks all tool calls as a session in Obsilo's chat history.
+ * Automatically tracks all tool calls as a session in Vault Operator's chat history.
  * This ensures MCP conversations appear in the history sidebar even if Claude
  * never explicitly calls sync_session.
  */

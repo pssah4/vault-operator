@@ -3,7 +3,7 @@
 > **Priority:** P1
 > **Epic:** EPIC-05 (Sandbox)
 > **Date:** 2026-04-19
-> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/obsilo/issues/31) / commit [36bad1c](https://github.com/nicholas-leonard/obsilo/commit/36bad1c)
+> **Reporter:** [@nicholas-leonard](https://github.com/nicholas-leonard) via [#31](https://github.com/pssah4/vault-operator/issues/31) / commit [36bad1c](https://github.com/nicholas-leonard/obsilo/commit/36bad1c)
 
 ## Problem
 
@@ -26,7 +26,7 @@ represents the vault root as an empty string internally). The
 
 1. esm.sh / jsdelivr rebuild the `esbuild-wasm@0.25.4` bundle (e.g.
    different source-map comment, different banner).
-2. Obsilo ships with hashes computed against the previous build.
+2. Vault Operator ships with hashes computed against the previous build.
 3. User opens a skill that calls `evaluate_expression`.
 4. `EsbuildWasmManager.ensureDownloaded()` fetches the bundle.
 5. Computed SHA-256 does not equal the pinned constant.

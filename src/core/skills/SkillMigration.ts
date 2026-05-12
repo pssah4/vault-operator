@@ -107,7 +107,7 @@ async function ensureDir(adapter: DataAdapter, path: string): Promise<void> {
 async function writeMarker(adapter: DataAdapter, path: string): Promise<void> {
     await adapter.write(
         path,
-        `Migrated by Obsilo v2.6 on ${new Date().toISOString()}.\nThis marker prevents re-migration; safe to delete the whole legacy folder once the new location works.\n`,
+        `Migrated by Vault Operator v2.6 on ${new Date().toISOString()}.\nThis marker prevents re-migration; safe to delete the whole legacy folder once the new location works.\n`,
     );
 }
 

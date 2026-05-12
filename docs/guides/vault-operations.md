@@ -1,11 +1,11 @@
 ---
 title: Vault Operations
-description: How Obsilo reads, writes, searches, and structures your vault.
+description: How Vault Operator reads, writes, searches, and structures your vault.
 ---
 
 # Vault Operations
 
-Obsilo can read, write, search, and organize files across your entire vault.
+Vault Operator can read, write, search, and organize files across your entire vault.
 
 ## How it works
 
@@ -58,7 +58,7 @@ These tools modify your vault. They only work in Agent mode and need approval by
 - *"Set the status field to 'complete' in @project-brief"* (uses `update_frontmatter`)
 
 :::info Checkpoints protect your files
-Before any write operation, Obsilo saves a snapshot. If something goes wrong, click Undo in the [undo bar](/guides/chat-interface#the-undo-bar) to restore the original.
+Before any write operation, Vault Operator saves a snapshot. If something goes wrong, click Undo in the [undo bar](/guides/chat-interface#the-undo-bar) to restore the original.
 :::
 
 ## Organizing files and folders
@@ -94,7 +94,7 @@ The agent can give you an overview of your vault using **get_vault_stats**:
 
 ## Canvas and visual maps
 
-Obsilo can create visual representations of your notes and their relationships.
+Vault Operator can create visual representations of your notes and their relationships.
 
 | Tool | What it does |
 |------|-------------|

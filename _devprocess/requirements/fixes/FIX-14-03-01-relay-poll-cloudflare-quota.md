@@ -17,7 +17,7 @@ commit: 3be9eca
 Nach erfolgreichem `Connected to relay` beim Plugin-Start failt jeder
 weitere `GET /poll` durchgehend. Das Plugin durchlaeuft den exponential
 Backoff (1s, 2s, 4s, 8s, 16s, 30s) und bleibt bei 30s haengen. Externe
-MCP-Clients (Claude.ai, ChatGPT) sehen keine Tools mehr von Obsilo. In
+MCP-Clients (Claude.ai, ChatGPT) sehen keine Tools mehr von Vault Operator. In
 der UI gibt es keine Fehlermeldung. `curl https://obsilo-relay.se-hanke.workers.dev/`
 liefert reproduzierbar `HTTP 429` mit Cloudflare-Body `error code: 1027`.
 

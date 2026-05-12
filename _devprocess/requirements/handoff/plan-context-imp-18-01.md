@@ -5,7 +5,7 @@ related-features: FEAT-18-01
 related-imps: [IMP-18-01-01, IMP-18-01-02]
 related-adrs: [ADR-62, ADR-111]
 related-epics: [EPIC-18]
-issue: https://github.com/pssah4/obsilo-dev/issues/313
+issue: https://github.com/pssah4/vault-operator-dev/issues/313
 branch: chore/imp-18-01-prompt-cache-settings
 ---
 

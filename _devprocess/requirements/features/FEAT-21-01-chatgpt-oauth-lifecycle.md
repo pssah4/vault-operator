@@ -45,7 +45,7 @@ Der Flow folgt dem Muster, das Codex-CLI und opencode nutzen: Browser-Redirect n
 
 **Als** Obsidian-Nutzer mit ChatGPT-Plus-Abo
 **moechte ich** mit einem Klick einen Browser-Login starten und nach Bestaetigung verbunden sein,
-**damit ich** meine Subscription als LLM-Backend in Obsilo verwenden kann.
+**damit ich** meine Subscription als LLM-Backend in Vault Operator verwenden kann.
 
 ### Story 2: Sichere Token-Speicherung (Emotional)
 

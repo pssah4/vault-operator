@@ -53,7 +53,7 @@ UNSERE LOESUNG kombiniert Vektor-Aehnlichkeit mit dem existierenden Obsidian-Gra
 - **PageIndex / Vectorless RAG**: Fuer kurze Notes ungeeignet, designed fuer lange hierarchische Dokumente.
 - **ColBERT / Late Interaction**: Multi-Vektor-Ansatz vervielfacht Storage, uebersteigt aktuellen Bedarf.
 - **Cloud-basierte Vektor-DB**: Alles bleibt lokal.
-- **Automatisches Link-Erstellen**: Obsilo schlaegt vor, erstellt aber keine Links automatisch.
+- **Automatisches Link-Erstellen**: Vault Operator schlaegt vor, erstellt aber keine Links automatisch.
 - **Natural Language Graph Queries**: Keine natuerlichsprachlichen Graph-Traversal-Abfragen.
 
 ## Dependencies & Risks

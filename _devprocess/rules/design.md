@@ -1,10 +1,10 @@
-# Design-Regeln Obsilo
+# Design-Regeln Vault Operator
 
 > Max 100 Zeilen. Nur laden wenn UI-Aenderungen anstehen.
 
 ## Visuelles System
 
-- Obsilo orientiert sich am Obsidian-Theme. Eigene Farben nur fuer
+- Vault Operator orientiert sich am Obsidian-Theme. Eigene Farben nur fuer
   klar abgegrenzte Branding-Elemente (Sidebar-Header, Onboarding-
   Akzent).
 - Spacing-System uebernimmt Obsidian-Defaults: `var(--size-2-1)`,

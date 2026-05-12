@@ -7,7 +7,7 @@
 
 ## Feature Description
 
-Migration der bestehenden Website von raw HTML zu einem Static Site Generator (SSG) mit Markdown-Authoring. Das SSG generiert statische HTML-Seiten die auf GitHub Pages gehostet werden. Die Migration schafft die technische Grundlage fuer alle weiteren Content-Arbeiten und ermoeglicht gleichzeitig die Nutzung der Markdown-Quellen als Obsilo-Skill.
+Migration der bestehenden Website von raw HTML zu einem Static Site Generator (SSG) mit Markdown-Authoring. Das SSG generiert statische HTML-Seiten die auf GitHub Pages gehostet werden. Die Migration schafft die technische Grundlage fuer alle weiteren Content-Arbeiten und ermoeglicht gleichzeitig die Nutzung der Markdown-Quellen als Vault Operator-Skill.
 
 Das bestehende Design-System (Dark/Light Theme, CSS-Variablen, responsive Layout) wird migriert, nicht neu gebaut. Die Seitenstruktur wird an die neue Informationsarchitektur angepasst (User Guide / Dev Docs / Homepage als getrennte Bereiche).
 
@@ -16,7 +16,7 @@ Das bestehende Design-System (Dark/Light Theme, CSS-Variablen, responsive Layout
 **Wir glauben dass** eine Markdown-basierte Website mit SSG
 **Folgende messbare Outcomes liefert:**
 - Content-Aenderungen dauern Minuten statt Stunden (kein HTML-Editing mehr)
-- Markdown-Dateien dienen als Dual-Use: Website + Obsilo-Skill
+- Markdown-Dateien dienen als Dual-Use: Website + Vault Operator-Skill
 
 **Wir wissen dass wir erfolgreich sind wenn:**
 - Alle bestehenden Seiten im neuen System erreichbar sind
@@ -76,14 +76,14 @@ Das bestehende Design-System (Dark/Light Theme, CSS-Variablen, responsive Layout
 - **Quality Attribute**: Wartbarkeit, Developer Experience
 
 **MODERATE ASR #2**: Dual-Use Markdown (Website + Skill)
-- **Warum ASR**: Markdown muss sowohl als SSG-Input (mit Frontmatter) als auch als Obsilo-Skill (plain Markdown) funktionieren
+- **Warum ASR**: Markdown muss sowohl als SSG-Input (mit Frontmatter) als auch als Vault Operator-Skill (plain Markdown) funktionieren
 - **Impact**: Content-Struktur, Frontmatter-Schema
 - **Quality Attribute**: Wartbarkeit
 
 ### Open Questions fuer Architekt
 - VitePress vs Astro vs Docusaurus -- welcher SSG passt am besten (i18n, GitHub Pages, Markdown-First)?
 - Wie werden Redirects fuer bestehende URLs umgesetzt?
-- Wie wird das Markdown fuer den Obsilo-Skill extrahiert (Build-Step oder Symlink)?
+- Wie wird das Markdown fuer den Vault Operator-Skill extrahiert (Build-Step oder Symlink)?
 
 ---
 

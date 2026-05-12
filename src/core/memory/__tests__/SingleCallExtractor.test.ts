@@ -75,7 +75,7 @@ describe('SingleCallExtractor (PLAN-007 task B.1)', () => {
                     name: '_memory_single_call',
                     input: {
                         ...validToolInput,
-                        session_summary: 'Sebastian configured Obsilo.',
+                        session_summary: 'Sebastian configured Vault Operator.',
                         facts: [
                             {
                                 text: 'Sebastian uses Obsidian',
@@ -116,7 +116,7 @@ describe('SingleCallExtractor (PLAN-007 task B.1)', () => {
             expect(result.mentions).toEqual([
                 { uri: 'vault://Notes/Setup.md', label: 'Setup', kind: 'note' },
             ]);
-            expect(result.sessionSummary).toBe('Sebastian configured Obsilo.');
+            expect(result.sessionSummary).toBe('Sebastian configured Vault Operator.');
             expect(result.rejected).toEqual([]);
         });
 
@@ -134,7 +134,7 @@ describe('SingleCallExtractor (PLAN-007 task B.1)', () => {
             expect(capture.tools![0].input_schema.properties).toHaveProperty('mentions');
             expect(capture.tools![0].input_schema.properties).toHaveProperty('conversation_so_far');
             expect(capture.tools![0].input_schema.properties).toHaveProperty('topic_drift_detected');
-            expect(capture.systemPrompt).toContain('memory engine for Obsilo');
+            expect(capture.systemPrompt).toContain('memory engine for Vault Operator');
             expect(capture.systemPrompt).toContain('ATOMIC FACT RULE');
             expect(capture.systemPrompt).toContain('NOISE FILTER');
             expect(capture.messages![0].content).toContain('Conversation transcript');

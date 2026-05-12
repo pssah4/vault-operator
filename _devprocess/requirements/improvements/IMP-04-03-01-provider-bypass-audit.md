@@ -20,7 +20,7 @@ Bekannte Vorkommen:
   Community-Wave-1-Beta gefunden, in `memory/MEMORY.md` als "Open Wave
   2" markiert (`bypass configured provider -> Anthropic direct`). Noch
   nicht als eigener FIX-Eintrag im Backlog erfasst.
-- **FIX-04-03-01** ([#60](https://github.com/pssah4/obsilo-dev/issues/60))
+- **FIX-04-03-01** ([#60](https://github.com/pssah4/vault-operator-dev/issues/60))
   -- SummaryGenerator schlaegt mit 4x 400 fehl bei OpenRouter-Setup,
   Live-Test 2026-05-08.
 
@@ -79,4 +79,4 @@ Out-of-Scope:
 ## Tracking
 
 GitHub Issue (Parent): wird in Phase 1 angelegt; Sub-Issue:
-[#60](https://github.com/pssah4/obsilo-dev/issues/60) (FIX-04-03-01).
+[#60](https://github.com/pssah4/vault-operator-dev/issues/60) (FIX-04-03-01).

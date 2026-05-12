@@ -50,7 +50,7 @@ Die Produktanforderung fuer Kilo umfasst auch Embedding-Support, damit Nutzer ih
 **Vorgeschlagene Option:** Option 2 - Architektonisch vorbereiten, aber per Capability Check oder Feature Gate absichern
 
 **Begruendung:**
-Der Embedding-Pfad soll dieselbe Auth- und Session-Infrastruktur wiederverwenden wie Chat. Gleichzeitig ist technisch noch offen, ob Kilo Gateway denselben OpenAI-kompatiblen Embedding-Contract in der fuer Obsilo benoetigten Form stabil erfuellt. Deshalb wird Embedding-Support in der Architektur explizit vorgesehen, aber nur nach verifizierter Kompatibilitaet aktiviert. So bleibt die Zielarchitektur konsistent, ohne das Chat-MVP an eine unbestaetigte Annahme zu koppeln.
+Der Embedding-Pfad soll dieselbe Auth- und Session-Infrastruktur wiederverwenden wie Chat. Gleichzeitig ist technisch noch offen, ob Kilo Gateway denselben OpenAI-kompatiblen Embedding-Contract in der fuer Vault Operator benoetigten Form stabil erfuellt. Deshalb wird Embedding-Support in der Architektur explizit vorgesehen, aber nur nach verifizierter Kompatibilitaet aktiviert. So bleibt die Zielarchitektur konsistent, ohne das Chat-MVP an eine unbestaetigte Annahme zu koppeln.
 
 ## Consequences
 

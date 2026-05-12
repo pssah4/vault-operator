@@ -115,4 +115,4 @@ bleiben.
 - FEAT-19-28: Source-Position-Marker (Tool-Layer)
 - FIX-19-28-01: Bug, der die Tool-Layer-Reparatur antreibt
 - BA-25 Section 11.6: Output-Modi 1/2/3
-- GitHub Issue #11 pssah4/obsilo-dev
+- GitHub Issue #11 pssah4/vault-operator-dev

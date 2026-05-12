@@ -5,7 +5,7 @@ description: Common issues and how to fix them.
 
 # Troubleshooting
 
-Fixes for the most common Obsilo issues. If your problem isn't here, check the **Debug** tab in settings or ask in the community forum.
+Fixes for the most common Vault Operator issues. If your problem isn't here, check the **Debug** tab in settings or ask in the community forum.
 
 ## Model connection issues
 
@@ -104,7 +104,7 @@ Symptom: The agent doesn't remember things from previous conversations.
 |-------|---------|-----|
 | `400: context_length_exceeded` | The conversation is too long for the model's context window. | Enable context condensing. Start a new chat for fresh context. |
 | `400: tool_use ids were found without tool_result` | Anthropic / Claude-via-Copilot rejected the request because the conversation history had an orphan tool call. Usually caused by an aborted stream or a resumed crashed conversation. | v2.5.0 sanitises the history automatically on every API call, so this should no longer surface. If it does, start a new conversation. |
-| `400: Unsupported parameter: 'max_tokens' is not supported` | Old Copilot code path sending the wrong token-limit parameter. | v2.5.0 sends `max_completion_tokens` for every Copilot model. Update Obsilo. |
+| `400: Unsupported parameter: 'max_tokens' is not supported` | Old Copilot code path sending the wrong token-limit parameter. | v2.5.0 sends `max_completion_tokens` for every Copilot model. Update Vault Operator. |
 | `401: Unauthorized` | Invalid or expired API key. | Re-enter the key in Settings > Models. |
 | `429: Rate limit exceeded` | Too many API calls in a short time. | Set a rate limit in Settings > Loop, or wait and retry. |
 | `ECONNREFUSED` | Local server (Ollama, LM Studio) isn't running. | Start the local server, then retry. |

@@ -22,7 +22,7 @@ export class SoakReportModal extends Modal {
     onOpen(): void {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.addClass('obsilo-soak-report-modal');
+        contentEl.addClass('vault-operator-soak-report-modal');
 
         contentEl.createEl('h3', { text: 'Memory soak report' });
 
@@ -33,7 +33,7 @@ export class SoakReportModal extends Modal {
         );
 
         const ta = contentEl.createEl('textarea', {
-            cls: 'obsilo-soak-report-textarea',
+            cls: 'vault-operator-soak-report-textarea',
         });
         ta.value = this.json;
         ta.readOnly = true;

@@ -7,8 +7,8 @@
 
 ## Feature Description
 
-Obsilo's isolierte Sandbox wird als MCP Tool exponiert. Claude kann Code senden,
-Obsilo fuehrt ihn sicher in der Sandbox aus. Ermoeglicht Batch-Operationen die
+Vault Operator's isolierte Sandbox wird als MCP Tool exponiert. Claude kann Code senden,
+Vault Operator fuehrt ihn sicher in der Sandbox aus. Ermoeglicht Batch-Operationen die
 mit einzelnen read/write-Calls ineffizient waeren.
 
 ## Success Criteria (Tech-Agnostic)
