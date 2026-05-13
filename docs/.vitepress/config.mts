@@ -42,6 +42,7 @@ const guidesSidebar = [
       { text: 'Office Documents', link: '/guides/office-documents' },
       { text: 'Connectors', link: '/guides/connectors' },
       { text: 'Multi-Agent & Tasks', link: '/guides/multi-agent' },
+      { text: 'Power Features', link: '/guides/power-features' },
     ],
   },
   {
@@ -82,17 +83,21 @@ const conceptsSidebar = [
     ],
   },
   {
-    text: 'Safety',
+    text: 'Safety and quality',
     items: [
       { text: 'Governance', link: '/concepts/governance' },
+      { text: 'Quality and cost', link: '/concepts/quality-and-cost' },
     ],
   },
   {
     text: 'Intelligence',
     items: [
       { text: 'Knowledge layer', link: '/concepts/knowledge-layer' },
+      { text: 'Semantic indexing', link: '/concepts/semantic-indexing' },
+      { text: 'Vault health', link: '/concepts/vault-health' },
       { text: 'Memory', link: '/concepts/memory-system' },
       { text: 'Unified Chat Memory', link: '/concepts/unified-chat-memory' },
+      { text: 'Mastery and recipes', link: '/concepts/mastery' },
       { text: 'Token optimization', link: '/concepts/token-optimization' },
     ],
   },
@@ -101,6 +106,7 @@ const conceptsSidebar = [
     items: [
       { text: 'Plugin discovery', link: '/concepts/vault-dna' },
       { text: 'Self-development', link: '/concepts/self-development' },
+      { text: 'Rules', link: '/concepts/rules-system' },
       { text: 'MCP', link: '/concepts/mcp-architecture' },
     ],
   },
@@ -108,6 +114,7 @@ const conceptsSidebar = [
     text: 'Specialized systems',
     items: [
       { text: 'Office pipeline', link: '/concepts/office-pipeline' },
+      { text: 'Task extraction', link: '/concepts/task-extraction' },
       { text: 'Provider auth', link: '/concepts/provider-auth' },
       { text: 'UI architecture', link: '/concepts/ui-architecture' },
     ],

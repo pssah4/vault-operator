@@ -7,6 +7,18 @@ description: Sub-tasks, task extraction, and how Vault Operator delegates work t
 
 For complex work, a single agent conversation can get unwieldy. Vault Operator handles this with sub-agents: child agents that take on specific parts of a larger task on their own. It also pulls actionable tasks out of conversations and turns them into trackable notes.
 
+**You will need:** a working chat with at least one configured model. Sub-agents inherit the parent's model unless you give them their own mode with a different model assigned.
+
+**Use this guide when:** a task is too large for one chat (researching three topics in parallel, processing a folder of files, comparing vault content against external research), or when you want extracted tasks to land as notes you can track.
+
+**You will know it works when:** the agent spawns a sub-task with `new_task`, you see it in the activity block as a nested chat, the result flows back into the parent, and (if task extraction is on) actionable checkboxes from the conversation appear as task notes in the configured folder.
+
+### When to delegate vs. stay in one chat
+
+- **Stay in one chat** for sequential work in a single domain ("read note A, then edit note B").
+- **Delegate** when steps are independent (three searches that do not depend on each other), when one step needs a different mode (Ask for analysis while Agent does writes), or when context would balloon (large research with many tool results).
+- **Avoid delegating** for tasks that finish in 2-3 tool calls. The cost of spawning a sub-agent outweighs the benefit.
+
 ## What are sub-agents?
 
 A sub-agent is a separate agent instance spawned by the main agent. It gets its own conversation, its own mode, and its own tool access. The parent hands off a specific job, waits for the result, then carries on.

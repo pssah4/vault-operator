@@ -7,6 +7,12 @@ description: Attachments, @-mentions, tool picker, chat history, and keyboard sh
 
 The Vault Operator sidebar is where you talk to the agent, attach files, browse past conversations, and watch the agent work as it goes.
 
+**You will need:** Vault Operator installed, one model configured (see [Choosing a model](/guides/choosing-a-model)).
+
+**Use this guide when:** you want to learn the input surface (attachments, @-mentions, slash commands, the activity block, history) before settling into a daily routine.
+
+**You will know it works when:** you can send a message, attach a file via drag-and-drop, jump to a past chat, and undo a tool call from the checkpoint history without thinking about it.
+
 ## The chat panel
 
 Open Vault Operator by clicking its icon in the left sidebar. The panel has three areas:

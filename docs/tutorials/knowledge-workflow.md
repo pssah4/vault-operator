@@ -25,7 +25,7 @@ Enter your API key if the provider needs one, click **Test Connection** to verif
 
 Still in **Settings > Embeddings**, click **Build Index**. Vault Operator processes your notes in batches. A small vault (under 100 notes) finishes in about a minute, 500 notes take a few minutes, and 2000+ notes run for 10-20 minutes.
 
-The progress bar shows how many notes have been processed. You can keep working in Obsidian while it runs. When it finishes you get a confirmation with the number of indexed notes.
+The progress bar shows how many notes have been processed. You can keep editing notes in Obsidian while it runs, and changed files get re-indexed automatically. Semantic search only returns useful results once the first build is done, so wait for the confirmation before running step 3.
 
 ## Step 3: Search by meaning
 

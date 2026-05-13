@@ -7,6 +7,12 @@ description: Understand AI providers, how to configure them, and what matters fo
 
 Vault Operator works with many providers and models. Not all of them are equally good at being agents.
 
+**You will need:** an account at the provider of your choice and an API key (or a local model server running). The [Tutorial](/tutorials/getting-started#before-you-start) lists the most common providers and where to grab a key.
+
+**Use this guide when:** you are setting up a new model, deciding between cloud and local, picking a cheaper model for background tasks, or you need to understand the trade-offs to make this decision.
+
+**You will know it works when:** you have at least one frontier model configured for primary use, optionally a cheaper model for background work (memory extraction, embeddings), and the **Test connection** button reports success for both.
+
 ## What makes a good model for Vault Operator
 
 Vault Operator is an agent, not a chat assistant. The model needs to:

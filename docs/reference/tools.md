@@ -1,11 +1,11 @@
 ---
 title: Tools Reference
-description: Complete list of all 62 tools available to the Vault Operator, organized by group.
+description: Complete list of all 65 tools available to the Vault Operator, organized by group.
 ---
 
 # Tools reference
 
-Vault Operator has 62 built-in tools across nine groups. The agent picks the right tool based on your request. You never call tools yourself.
+Vault Operator has 65 built-in tools across nine groups. The agent picks the right tool based on your request. You never call tools yourself.
 
 :::tip How tools work
 When you ask Vault Operator to do something, it picks one or more tools, shows its plan in the activity block, and asks for approval before any write operation. See [Safety & Control](/guides/safety-control) for details.
@@ -18,12 +18,12 @@ When you ask Vault Operator to do something, it picks one or more tools, shows i
 | Read | 4 | No | No |
 | Vault intelligence | 10 | No (except `open_note`) | No |
 | Knowledge ingest | 3 | Yes | Yes |
-| Memory and history | 7 | Yes (memory store) | Yes for writes |
+| Memory and history | 8 | Yes (memory store) | Yes for writes |
 | Edit | 16 | Yes | Yes |
 | Web | 2 | No | Yes (external access) |
-| Agent control | 14 | Varies | Varies |
+| Agent control | 15 | Varies | Varies |
 | Plugin integration | 5 | Varies | Yes |
-| MCP | 1 | Depends on server | Yes |
+| MCP | 2 | Depends on server | Yes |
 
 ## Read tools
 
@@ -80,6 +80,7 @@ Tools for the agent's persistent memory layer (facts, preferences, soul) and the
 | `mark_note_as_memory_source` | Mark a vault note as a memory source. The frontmatter indexer will keep facts derived from it in sync as the note changes. | When a note holds canonical knowledge that should feed the memory layer. |
 | `unmark_note_as_memory_source` | Remove a note from the memory-source set. | When a note should no longer feed the memory layer. |
 | `list_memory_source_notes` | List all notes currently marked as memory sources. | To audit which notes drive the memory layer. |
+| `list_pinned_conversations` | List chat conversations pinned to memory (via the star button or `mark_for_memory`). Read-only, complementary to `list_memory_source_notes`. | To audit which chats are saved to long-term memory. |
 
 ## Edit tools
 
@@ -127,6 +128,7 @@ Internal tools the agent uses to manage its own workflow and configuration.
 | `evaluate_expression` | Execute TypeScript code in an isolated sandbox with vault access. | For batch operations, computations, data transforms, or API calls beyond built-in tools. |
 | `find_tool` | Look up which tool fits a task description, including custom and plugin tools. | When the agent is unsure which tool to use. |
 | `inspect_self` | Read the agent's own configuration, available tools, modes, and active rules. | For debugging or when the user asks "what can you do?". |
+| `read_skill` | Load the full step-by-step body of a skill listed in the SKILLS directory of the system prompt. | Before doing the work when a skill matches the task. Skip when no skill applies. |
 | `manage_skill` | Create, update, delete, or list skills (persistent instruction sets). | To save a reusable approach for a specific task type. |
 | `manage_source` | Manage context sources: persistent text blocks injected into every conversation. | To always include certain context like project rules. |
 | `manage_mcp_server` | Add, remove, or test MCP server connections. | To connect external tool servers. |
@@ -151,6 +153,7 @@ Tools that interact with other Obsidian plugins installed in your vault.
 | Tool | Description | When to use |
 |------|-------------|-------------|
 | `use_mcp_tool` | Call any tool provided by a connected MCP server. | When an external MCP server offers the functionality you need. |
+| `read_mcp_tool` | Read the full description and a compact input-schema summary for a single MCP tool. | When the MCP listing shows a truncated description and the agent needs the full text or schema before calling `use_mcp_tool`. |
 
 :::tip Custom modes control tool access
 Each mode (Ask, Agent, or your custom modes) can enable or disable specific tool groups. Configure per-mode tools in **Settings > Modes**. Ask mode only has read tools enabled by default.

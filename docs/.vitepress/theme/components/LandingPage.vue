@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { withBase } from 'vitepress'
 
 const typewriterText = ref<HTMLSpanElement>()
 const mentionDropdown = ref<HTMLDivElement>()
@@ -202,8 +203,8 @@ onMounted(() => {
     </p>
 
     <div class="landing-cta">
-      <a href="/tutorials/getting-started" class="landing-btn-primary">Get Started</a>
-      <a href="/guides/capabilities" class="landing-btn-secondary">
+      <a :href="withBase('/tutorials/getting-started')" class="landing-btn-primary">Get Started</a>
+      <a :href="withBase('/guides/capabilities')" class="landing-btn-secondary">
 What Vault Operator Can Do
       </a>
     </div>

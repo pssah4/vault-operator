@@ -218,11 +218,51 @@ Vault-relative folder where Vault Operator keeps its own files: plugin skills, t
 
 Use the **Pick folder...** button to choose an existing folder from a fuzzy picker (works the same on Windows, macOS, and Linux), or type a new path that will be created on next use. Existing files are not auto-migrated when you change this path. Move them manually if needed.
 
-## Other tabs
+## Log
 
-| Tab | What it does |
-|-----|-------------|
-| Log | Browse the daily audit trail of all tool calls with timestamps and parameters |
-| Debug | Internal diagnostics: debug mode toggle, system prompt preview |
-| Backup | Export and import your complete Vault Operator configuration |
-| Language | Set the agent's response language (follows Obsidian's language by default) |
+Daily audit trail of every tool call. Each tool invocation is appended to a JSONL log file under the plugin's data folder, with timestamp, tool name, arguments, result status, and approval decision.
+
+| Setting | What it does | Default | Recommendation |
+|---------|-------------|---------|----------------|
+| Date selector | Pick which day's log to load | Today | Use to review what the agent did yesterday or last week |
+| Load | Render the selected day's log as a table | n/a | Click after picking a date |
+| Download | Save the raw JSONL log for the selected day | n/a | Useful for audits, sharing with support, or external analysis |
+| Clear all | Delete every log file from disk | n/a | Use sparingly. Logs are the only post-hoc record of what the agent did |
+
+:::info Where logs live
+Logs are stored under the agent folder (`Settings > Vault > Agent folder`, default `.obsidian-agent/logs/`). Each day is a separate JSONL file. Logs do not contain conversation content, only tool calls.
+:::
+
+## Debug
+
+Internal diagnostics and optional source bundle for self-development tools.
+
+| Setting | What it does | Default | Recommendation |
+|---------|-------------|---------|----------------|
+| Debug mode | Enable verbose logging to the developer console | Off | Enable while reproducing a bug. Disable for normal use, it generates a lot of output |
+| Self-Development source bundle | Optional one-time download (~5 MB) of the plugin's TypeScript source. Required for the `manage_source` tool, so the agent can answer "how does feature X work?" questions and propose patches. Downloaded from the plugin's GitHub release, verified by SHA256, stored under the agent folder | Not installed | Install only if you want the agent to introspect its own source code |
+
+:::tip Inspecting the running state
+Use the `inspect_self` tool from chat ("inspect your tools" or "show me your current settings") to see live introspection of the running plugin. It returns a Markdown summary of the actual runtime state, not guesses.
+:::
+
+## Backup
+
+Export and import your Vault Operator configuration. Useful when moving to a new device, sharing settings with a team, or restoring after a bad change.
+
+| Setting | What it does | Default | Recommendation |
+|---------|-------------|---------|----------------|
+| Export categories | Checkboxes for each settings category (models, rules, skills, workflows, prompts, modes, soul, memory) | All on | Uncheck categories that contain device-specific keys before sharing |
+| Export | Bundle the selected categories into a JSON file | n/a | Run before major settings changes or before sharing with another machine |
+| Select file (Import) | Pick a previously exported JSON file | n/a | Step 1 of import |
+| Import categories | Pick which categories from the file to import | All on | Skip categories that should keep their current values |
+| Confirm import | Apply the imported settings | n/a | Step 3 of import. Existing settings in the selected categories are overwritten |
+| Import legacy `soul.md` | Read `memory/soul.md` and add each bullet under Identity / Values / Anti-Patterns / Communication into the soul store. Idempotent. | n/a | One-off migration if you have an older `soul.md` from a prior plugin version |
+
+:::warning API keys travel with the export
+A full export includes provider API keys. Treat the JSON file like a password vault: never commit it, never share it publicly. Uncheck **Models** before sharing if you want to keep keys private.
+:::
+
+## Language
+
+Set the agent's response language. The setting follows Obsidian's language by default. UI strings (settings labels, modals, errors) follow the Obsidian language separately.

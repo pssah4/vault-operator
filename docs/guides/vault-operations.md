@@ -7,6 +7,12 @@ description: How Vault Operator reads, writes, searches, and structures your vau
 
 Vault Operator can read, write, search, and organize files across your entire vault.
 
+**You will need:** Vault Operator installed, one model configured, and Agent mode active (writes need Agent mode). Auto-approval is off by default, which is the safe choice while you learn how the agent edits files.
+
+**Use this guide when:** you want to know which read, write, edit, search, and structure tools the agent has, when each fires, and how checkpoints protect you from a bad write.
+
+**You will know it works when:** the agent can read a note you asked about, edit a single section without rewriting the whole file, move or rename a note with backlinks intact, and you can undo any write from the checkpoint history.
+
 ## How it works
 
 The agent does not access your vault directly. It uses tools: small, single-purpose functions. When you ask it to find a note or create a file, it picks the right tools and calls them on your behalf.

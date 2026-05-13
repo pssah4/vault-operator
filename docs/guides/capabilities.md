@@ -31,7 +31,7 @@ Vault Operator runs implicit connection analysis in the background and finds not
 
 When the agent completes a task successfully, it remembers the tool sequence. After a few repetitions, it builds a "recipe" and runs similar tasks 10x faster using 90% fewer tokens.
 
-It also remembers your preferences, your writing style, and your projects, not just within one chat but across sessions. It builds a profile over time and adapts to how you like things done.
+It also remembers your preferences, your writing style, and your projects across sessions, not only within a single chat. It builds a profile over time and adapts to how you like things done.
 
 > **Example prompt:** "Summarize this meeting note like last time." (It remembers your preferred format.)
 
@@ -96,6 +96,14 @@ Sub-agents run in isolation, each with their own conversation context. The main 
 > **Example prompt:** "Compare what my vault says about pricing strategy with the latest market research online, then write a recommendation note."
 
 [Multi-agent guide](/guides/multi-agent)
+
+## It has a power-user layer
+
+Beyond the everyday read-write-search loop, Vault Operator ships three advanced tools: anti-echo search for breaking confirmation bias, a TypeScript sandbox for batch jobs and npm-package one-offs, and self-development tools so the agent can introspect or patch its own code.
+
+> **Example prompts:** "Find sources that argue against what this note says." "Count the open tasks in `Projects/`." "Show me how `semantic_search` picks the embedding model."
+
+[Power features guide](/guides/power-features)
 
 ## What it costs
 

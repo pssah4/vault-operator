@@ -7,6 +7,12 @@ description: Semantic search, knowledge graph, implicit connections, and local r
 
 Most search tools match exact words. Vault Operator understands meaning. A search for "improving focus" can find a note titled "Deep Work Techniques" even though the words do not overlap.
 
+**You will need:** an embedding model (OpenAI, Google, or a local model via Ollama) and a built index. See the [Settings reference](/reference/settings#embeddings) for the embedding settings, or follow [Your first knowledge workflow](/tutorials/knowledge-workflow) for a guided setup.
+
+**Use this guide when:** you want to ask "what do I know about X?" instead of grep, you want the agent to follow links and tags from a seed note, or you want to find notes that should be linked but are not yet.
+
+**You will know it works when:** a semantic search for a vague phrase ("morning routine", "supplier risk", "Kant on duty") surfaces the right notes by meaning, and the implicit-connections background job flags a handful of plausible link suggestions for review.
+
 ## What is semantic search?
 
 Traditional keyword search looks for exact text matches. Semantic search converts your notes into numerical vectors (embeddings) that represent their meaning. Your query is converted the same way, and the system finds notes whose vectors are closest to yours.

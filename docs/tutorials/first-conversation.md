@@ -16,7 +16,7 @@ Vault Operator has two built-in modes:
 | **Ask** | Read-only. Searches and analyzes but never changes your vault. | Questions, research, analysis |
 | **Agent** | Full access. Can read, write, edit, create, and delete files. | Active work, content creation, refactoring |
 
-Switch modes using the dropdown in the chat toolbar, or let the agent switch automatically.
+The mode dropdown sits at the top of the chat panel, next to the model selector. Click it to switch between **Ask** and **Agent**. The agent can also switch modes mid-conversation when the task calls for it.
 
 :::tip Start with Ask mode
 If you are new to Vault Operator, start in **Ask** mode. It cannot change anything, so you can explore safely. Switch to **Agent** mode when you are ready to let it work.
@@ -81,3 +81,5 @@ For broad questions like "What do I know about X?", just ask. The agent will run
 ## Next steps
 
 See [Choosing a model](/guides/choosing-a-model) for provider comparisons, [Chat interface](/guides/chat-interface) for the full feature set, and [Knowledge discovery](/guides/knowledge-discovery) to set up semantic search.
+
+If a tool call fails or the agent gets stuck, the [Troubleshooting](/reference/troubleshooting) page covers the common cases.

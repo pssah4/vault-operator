@@ -86,6 +86,44 @@ Symptom: Obsidian feels slow, the agent takes a long time, or the UI lags.
 | Many MCP servers | Each connected server maintains an active connection. Remove unused servers. |
 | Slow model | Local models on limited hardware can be slow. Try a smaller model or use a cloud provider. |
 
+## Knowledge database errors
+
+Symptom: The plugin logs "knowledge.db is corrupt", "database is locked", "integrity check failed", or semantic search and memory tools return nothing after a crash or sudden Obsidian quit.
+
+| Cause | Solution |
+|-------|----------|
+| Corrupt write after a crash or power loss | The plugin runs an `integrity_check` and auto-recovers from the last good state on the next open. Reopen Obsidian. If it does not recover, restore from `.obsidian/plugins/vault-operator/.bak/{db-name}/{YYYY-MM-DD}.db` (daily snapshots, 7-day retention). |
+| Another Obsidian window has the database open | A second running instance holds a lock file. Close the other window or restart Obsidian. |
+| Storage mode mismatch after switching `global` ↔ `local` | A switch resets the active database. Set the desired mode in **Settings > Embeddings > Storage location** and rebuild the index. |
+| Database wedged after a failed upgrade | Quit Obsidian. Move `knowledge.db` and `knowledge.db-journal` aside and copy the most recent file from the `.bak/` snapshot folder into place. Reopen. |
+| Semantic index missing after restoring a vault from backup | The index lives outside the vault. Open **Settings > Embeddings** and click **Rebuild index**. |
+
+:::warning Do not delete `knowledge.db` while Obsidian is running
+The lock file is held by the live process. Quit Obsidian first, then move or restore the file. Deleting it mid-run drops all embeddings, the memory store, and the conversation history index, and requires a full reindex.
+:::
+
+## `write_file` is truncated mid-output
+
+Symptom: The agent calls `write_file`, but the file ends mid-sentence or shows a JSON parse error in the activity block. Often followed by repeated retry loops and a final 400 context-overflow error.
+
+| Cause | Solution |
+|-------|----------|
+| `max_tokens` too low for the model | Open **Settings > Models**, edit the active model, and switch on **Automatic (recommended)** for max output tokens. The plugin then clamps the output budget to the model's real ceiling minus the estimated input. |
+| Manual `max_tokens` plus a large thinking budget | For Anthropic and Bedrock, `max_tokens` covers the thinking budget AND the visible output. A configured `max_tokens=8192` with a `thinking_budget=10000` leaves nothing for the visible tool call. Set **Automatic** or raise `max_tokens` well above the thinking budget. |
+| Very long file in a single call | Ask the agent to split the file: `write_file` for the head section, then `append_to_file` calls for the following sections. The built-in prompt already nudges the model to do this for content above 2000 words. |
+| Repeated parse-error loop after a truncation | The agent now reports the real provider error back into the tool result and trips the consecutive-mistake circuit breaker after three retries (default). If the loop survives, click **Stop** and start a fresh conversation. |
+
+## Context overflow on long conversations
+
+Symptom: A 400 error with `context_length_exceeded`, `prompt is too long`, or the conversation suddenly stops responding.
+
+| Cause | Solution |
+|-------|----------|
+| Conversation too long for the model's context window | Enable **Context condensing** in **Settings > Loop**. The plugin keeps a stable cache-aligned prefix and condenses older turns. |
+| Threshold set too high | Lower **Condensing threshold** to 0.6 or 0.7. The plugin also runs an emergency condensing pass on any 400 context-overflow error. |
+| Very large @-mention attached to the chat | Plaintext, Markdown, and XML attachments are now capped at 80,000 characters with a `read_file path=...` hint. Older builds injected the full text. Update the plugin, or split the source into smaller notes. |
+| Long tool output filling the context | Enable **Context externalization** in **Settings > Loop**. Large tool outputs are written to a temp file and the conversation keeps a compact reference (`read_file path=...`) instead of the full payload. |
+
 ## Memory not extracting
 
 Symptom: The agent doesn't remember things from previous conversations.

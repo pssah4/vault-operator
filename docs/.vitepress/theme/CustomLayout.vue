@@ -1,7 +1,7 @@
 <script setup>
 import DefaultTheme from 'vitepress/theme'
 import LandingPage from './components/LandingPage.vue'
-import { useData } from 'vitepress'
+import { useData, withBase } from 'vitepress'
 
 const { Layout } = DefaultTheme
 const { frontmatter, isDark } = useData()
@@ -45,7 +45,7 @@ function toggleTheme() {
         <p>
           <a href="https://github.com/pssah4/vault-operator/blob/main/LICENSE">Apache 2.0</a>
           <span class="sep">|</span>
-          <a href="/imprint">Imprint</a>
+          <a :href="withBase('/imprint')">Imprint</a>
           <span class="sep">|</span>
           <span class="disclaimer">Provided as-is, without any warranty or liability.</span>
         </p>
