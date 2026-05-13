@@ -6,6 +6,34 @@ All notable changes to Vault Operator are documented here. Format follows
 
 ---
 
+## [2.8.1] -- 2026-05-14
+
+### Security (AUDIT-024 fix-loop)
+
+Bundle fix for the four AUDIT-024 findings (1 Medium plus 3 Lows, all
+Defense-in-Depth). No user-visible behaviour change.
+
+- **runtimeWorker SHA-cache (M-1).** The materialised worker file
+  now stores a SHA-256 sidecar and verifies the hash before reuse.
+  Replaces the byte-length-only check that allowed a forged file of
+  identical size to survive.
+- **runtimeWorker path-traversal hardening (L-1).** Hard whitelist
+  for worker filenames (`sandbox-worker.js`, `mcp-server-worker.js`)
+  plus explicit slash, backslash and double-dot rejection, plus a
+  `startsWith` defense on the resolved path.
+- **OptionalAssetManager path-traversal hardening (L-2).** New
+  `assertSafeFilename` helper runs before every `filePath` and
+  `shaSidecarPath` call. Rejects empty, slash, backslash, double-dot
+  and leading dot.
+- **OptionalAssetManager size cap (L-3).** `install()` and
+  `installFromBuffer()` reject payloads over 50 MB before spending
+  memory on a full SHA-256 digest. Catches both an oversized GitHub
+  download and a wrong-file local pick.
+
+Audit report: [`_devprocess/analysis/AUDIT-024-v2.8.0-2026-05-13.md`].
+
+---
+
 ## [2.8.0] -- 2026-05-13
 
 ### Community-plugin-directory readiness
