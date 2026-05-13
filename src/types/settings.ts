@@ -567,6 +567,15 @@ export interface ObsidianAgentSettings {
      */
     activeModels: CustomModel[];
     activeModelKey: string;
+    /**
+     * FEAT-24-07 / ADR-115: optional helper-model key for agent-internal
+     * LLM calls (context condensing, fast-path planner/presenter,
+     * plan_presentation, recipe-promotion). Empty string means no helper
+     * configured; all internal calls run on the main model. Mirrors the
+     * per-feature pattern of memoryModelKey / titlingModelKey but as a
+     * generic catch-all routed via getHelperApi() in src/core/helper-api.ts.
+     */
+    helperModelKey: string;
 
     // Legacy provider settings (kept for backwards compat, not used in new UI)
     defaultProvider: string;
@@ -1045,6 +1054,7 @@ export interface VaultDNASettings {
 export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     activeModels: [],
     activeModelKey: '',
+    helperModelKey: '',           // FEAT-24-07 / ADR-115
 
     defaultProvider: 'anthropic',
     providers: {},

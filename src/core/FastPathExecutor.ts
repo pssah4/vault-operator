@@ -23,6 +23,7 @@ import type { ApiHandler, MessageParam } from '../api/types';
 import type { ToolExecutionPipeline } from './tool-execution/ToolExecutionPipeline';
 import type { ProceduralRecipe } from './mastery/types';
 import type { ToolCallbacks, ToolName, ToolDefinition } from './tools/types';
+import { getHelperApi } from './helper-api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,6 +113,17 @@ export class FastPathExecutor {
         private api: ApiHandler,
         private pipeline: ToolExecutionPipeline,
     ) {}
+
+    /**
+     * FEAT-24-07 / ADR-115: resolve the helper handler for internal
+     * planner/presenter calls. Uses the parent plugin reachable through
+     * the pipeline's tool registry. Falls back to `this.api` if no
+     * helper model is configured or the build fails.
+     */
+    private getInternalApi(): ApiHandler {
+        const plugin = this.pipeline.getPlugin();
+        return getHelperApi(plugin, this.api);
+    }
 
     async execute(
         recipe: ProceduralRecipe,
@@ -272,10 +284,12 @@ export class FastPathExecutor {
 
         try {
             let responseText = '';
-            for await (const chunk of this.api.createMessage(
+            // FEAT-24-07 / ADR-115: route planner/presenter through the optional helper model.
+            const internalApi = this.getInternalApi();
+            for await (const chunk of internalApi.createMessage(
                 systemPrompt,
                 [{ role: 'user', content: prompt }],
-                [], // No tools — want JSON output, not tool calls
+                [], // No tools -- want JSON output, not tool calls
                 abortSignal,
             )) {
                 if (chunk.type === 'text') responseText += chunk.text;

@@ -189,6 +189,15 @@ export interface ContextExtensions {
 export class ToolExecutionPipeline {
     private plugin: ObsidianAgentPlugin;
     private toolRegistry: ToolRegistry;
+
+    /**
+     * FEAT-24-07 / ADR-115: read-only accessor for the parent plugin.
+     * Used by FastPathExecutor.getInternalApi to look up the configured
+     * helper model without exposing the private field directly.
+     */
+    getPlugin(): ObsidianAgentPlugin {
+        return this.plugin;
+    }
     private taskId: string;
     private mode: string;
     private apiHandler?: import('../../api/types').ApiHandler;

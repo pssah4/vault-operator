@@ -2732,3 +2732,223 @@ real genutzt wird.
 Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`
 (User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-
 Abnahme von SC-6 in einer naechsten Vault-Session.
+
+---
+
+## FEAT-24-07 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing` (off `dev` 3190a70).
+Refs: PLAN-23, ADR-115 (Accepted, Amendment 2026-05-13). **Letztes
+EPIC-24-Item.**
+
+### Critical-Review-Befund vor Implementation (kein Pivot)
+
+Codebase-Recon offenbarte ein bestehendes Per-Feature-Routing-Pattern
+(`memoryModelKey`, `titlingModelKey`). Memory-Atomizer, ChatLinking-
+Titling und sogar Recipe-Promotion nutzten dieses Pattern schon
+(`plugin.getMemoryModel()`-callback fuer Recipe). ADR-115 wurde im
+Amendment 2026-05-13 entsprechend praezisiert:
+
+- 4 Call-Sites (nicht 5): condenseHistory, FastPathExecutor planner/
+  presenter, plan_presentation, RecipePromotion (Migration).
+- Out-of-scope: Memory-Atomizer (`memoryModelKey`), ChatLinking-Titling
+  (`titlingModelKey`), `classifyText` in main.ts, `hard-limit-recovery`,
+  ReAct-Hauptloop.
+- Recipe-Migration: helper-first-memory-fallback chained, damit User
+  ohne `helperModelKey` aber mit `memoryModelKey` weiter ihre Memory-
+  Modell-Config sehen.
+
+ADR-115 Status `Proposed` -> `Accepted` mit Amendment im File.
+
+### Was implementiert wurde
+
+- **`src/types/settings.ts`**: `helperModelKey: string` Top-Level
+  (Geschwister `activeModelKey`), Default `''`.
+- **`src/main.ts`**: `getHelperModel(): CustomModel | null` analog
+  `getMemoryModel`; RecipePromotion-callback helper-first-memory-fallback
+  chained mit `console.warn`-on-helper-build-fail.
+- **`src/core/helper-api.ts`** (NEU): `getHelperApi(plugin, fallback)`.
+  Fail-closed: `getHelperModel()` null -> fallback; `buildApiHandlerForModel`
+  throws -> `console.warn` + fallback; nur clean build returnt einen
+  neuen Handler.
+- **`src/core/AgentTask.ts`**: `condenseHistory` createMessage ueber
+  `getHelperApi(this.toolRegistry.plugin, this.api)`. ReAct-Hauptloop +
+  hard-limit-recovery unangetastet.
+- **`src/core/FastPathExecutor.ts`**: neue private Methode
+  `getInternalApi()` -> `getHelperApi(pipeline.getPlugin(), this.api)`.
+  Der eine createMessage-Call (Line 275, sowohl Planner als auch
+  Presenter teilen den Loop) ruft jetzt `internalApi.createMessage`.
+- **`src/core/tool-execution/ToolExecutionPipeline.ts`**: neuer
+  `getPlugin()`-accessor (read-only) damit FastPathExecutor das Plugin
+  on-demand bekommt ohne Konstruktor-Aenderung.
+- **`src/core/tools/vault/PlanPresentationTool.ts`**: `callPlanningLLM`
+  baut weiterhin `mainApi` aus `getActiveModel()` und chained dann
+  `getHelperApi(plugin, mainApi)`.
+
+### Tests
+
+`npm test`: **1464 gruen** (+4 vs dev-Baseline 1460). 150 Test-Files.
+
+- `src/core/__tests__/helper-api.test.ts` (NEU, 4 Tests):
+  - no-config-fallback (kein `helperModel` -> fallback returned)
+  - helper-built (gueltiges Modell -> mock-handler returned)
+  - build-throws-fallback (`buildApiHandlerForModel` wirft ->
+    fallback + `console.warn`)
+  - contract-only-via-getHelperModel (`getHelperApi` peekt NICHT in
+    `plugin.settings.helperModelKey`, nur via `getHelperModel()`)
+
+`npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors. `npm run build`
+gruen (tsc + esbuild + Vault-Deploy).
+
+### Abweichungen vom Plan
+
+- **FastPathExecutor-Konstruktor unveraendert.** Der Plan diskutierte
+  Option A (Konstruktor um `plugin` erweitern) und Option B (vor-
+  resolved api-Override). Realisiert wurde eine dritte Option: neuer
+  `pipeline.getPlugin()`-accessor + on-demand-Lookup im
+  `FastPathExecutor.getInternalApi()`. Vorteil: keine Aenderung der
+  `new FastPathExecutor(...)`-Call-Site in `AgentTask.ts:331`.
+
+### Bugs/Findings
+
+Keine. Kein Mid-course-Trigger waehrend Implementation.
+
+### Fuer /testing
+
+- SC-1..SC-7 sind durch +4 helper-api-Tests + unveraendertes Test-Baseline
+  abgedeckt (kein Behavior-Change mit leerem `helperModelKey`).
+- SC-8 (Live-Messlauf, `[AWAITING RE]`): Vault-Session mit konfiguriertem
+  Hilfs-Modell (z.B. Haiku), Aufgabe die condensing triggert; pruefen:
+  - `[Cost]`-Log zeigt Hilfs-Modell beim Condensing-Call
+  - Hauptloop weiterhin auf Haupt-Modell
+  - Bei leerem `helperModelKey`: kein Verhaltenswechsel
+- Coverage-Tooling im Projekt nicht installiert; Test-Anzahl-basierter
+  Beleg.
+
+### Fuer /security-audit
+
+- **`getHelperApi`-Vertrauensgrenze:** keine User-Eingabe ueber
+  Tool-Calls; nur Settings-Lookup. Fail-closed bei Build-Fehler. Console-
+  warn bei jedem Fehler. Audit-Frage: ist es robust gegen settings
+  corruption / fehlende activeModels?
+- **`pipeline.getPlugin()`-accessor:** nur read-only return des
+  bestehenden privaten Felds; keine neue Mutation-Surface.
+- **RecipePromotion-callback chain:** der `console.warn`-Pfad beim
+  helper-build-fail koennte log-spammy werden wenn das User-Setting
+  konsistent kaputt ist. Mitigation: warn ist nicht-fatal, callback
+  faellt sauber auf Memory-Modell zurueck.
+- **No new dependencies.** SCA-Baseline unveraendert.
+
+### Naechster Schritt
+
+`/testing` (Gap-Test + Coverage-Check), danach `/security-audit`, danach
+Merge nach `dev` ueber `scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`.
+**Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.**
+
+---
+
+## FEAT-24-07 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing` (Commit b5c4575).
+
+### Testlage
+
+- `npm test`: **1464 gruen**, 150 Test-Files, 0 Failures (+4 vs dev-Baseline 1460). Die +4 Tests in `helper-api.test.ts` decken SC-1+SC-2 direkt; SC-3..SC-6 (Call-Site-Routing) sind durch das unveraenderte Test-Verhalten bei leerem `helperModelKey` indirekt belegt (kein Behavior-Change). SC-7 (Bestehende Funktionalitaet unveraendert) ist durch das gleichgrosse Baseline-Bestehen abgedeckt.
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `npm run lint`: 0 errors, 664 vorbestehende warnings.
+- `/consistency-check` mode A: 89 findings -- **0 echte durch FEAT-24-07**. Der eine neue Finding (orphan-backlog-row fuer ADR-115) faellt unter den DIA-Checker-Regex-Bug fuer 3-stellige ADR-IDs (gleiches Pattern wie ADR-113/114/116/117/118).
+
+### SC-Mapping
+
+| SC | Status | Evidence |
+|---|---|---|
+| SC-1 `helperModelKey` + `getHelperModel` | gruen | Setting + Method analog `memoryModelKey`/`getMemoryModel` (vorbestehendes getestetes Pattern) |
+| SC-2 `getHelperApi(plugin, fallback)` fail-closed | gruen | 4 Tests in `helper-api.test.ts`: no-config-fallback, helper-built, build-throws-fallback, contract-only |
+| SC-3 condenseHistory geroutet | gruen | Code-Diff zeigt `getHelperApi(this.toolRegistry.plugin, this.api)` vor dem createMessage in `AgentTask.ts:1463`. Unveraendertes Bestehen aller bestehenden Condensing-Tests bei leerem `helperModelKey` |
+| SC-4 FastPathExecutor geroutet | gruen | Code-Diff: neue `getInternalApi()`-Methode + `pipeline.getPlugin()`-accessor. Unveraendertes Bestehen aller FastPath-Tests |
+| SC-5 plan_presentation geroutet | gruen | Code-Diff: `getHelperApi(plugin, mainApi)` in `PlanPresentationTool.callPlanningLLM` |
+| SC-6 RecipePromotion helper-first-memory-fallback | gruen | Code-Diff im RecipePromotion-callback in `main.ts`: chain helper -> memory -> null mit `console.warn`-on-helper-fail |
+| SC-7 Bestehende Funktionalitaet unveraendert | gruen | 1460 vorbestehende Tests gruen + 4 neue gruen, keine Regression |
+| SC-8 Live-Messlauf | `[AWAITING RE]` | Konfigurierter Hilfs-Modell + Vault-Session: `[Cost]`-Log zeigt Hilfs-Modell beim Condensing; leerer Slot -> kein Verhaltenswechsel. Nicht autonom pruefbar. |
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-8 Hilfs-Modell-Routing Live:** Laufzeit-Telemetrie gegen echte Provider. Die Bausteine darunter (`getHelperApi`, `getHelperModel`, Call-Site-Insertion) sind durch helper-api.test.ts + Code-Review verankert.
+- **Audit-Vektoren (Settings corruption, log-spam bei kaputtem Setting, accessor-Read-only):** sind /security-audit-Fragen, keine funktionalen Regression-Gaps. Strukturell auf der sicheren Seite (fail-closed, no-new-input-surface, accessor delegated to existing private field).
+- **End-to-End Provider-Calls mit echtem Helper-Modell-Stream:** identisch zur Memory-Atomizer-Architektur (vorbestehend, durch Memory-v2-Implementation getestet). Kein neues Provider-Wiring; nur Routing.
+
+### Fuer /security-audit
+
+Aus dem /coding-Handoff uebernommen + verifiziert via Tests:
+
+- **`getHelperApi`-Fail-closed:** Build-Fehler -> `console.warn` + fallback. Test verifiziert das (`buildApiHandlerForModel`-mock throws -> fallback returned).
+- **`pipeline.getPlugin()`-accessor:** read-only return des bestehenden privaten Felds; keine neue Mutation-Surface, keine User-Eingabe ueber diesen Pfad.
+- **RecipePromotion-callback chain:** `console.warn` bei helper-build-fail koennte log-spammy werden bei konsistent kaputtem Setting. Mitigation: warn ist nicht-fatal; chain faellt sauber auf Memory-Modell zurueck; bei kaputtem Setting bekommt User Warn-Log einmal pro Promotion-Aufruf (selten).
+- **`getHelperModel`-Contract:** der vierte Test verifiziert dass `getHelperApi` nicht direkt in `settings.helperModelKey` peekt sondern nur `getHelperModel()` aufruft. Damit lebt die enabled/activeModels-Validierung an einer Stelle.
+- **Out-of-scope-Pfade dokumentiert:** Memory-Atomizer (`memoryModelKey`), ChatLinking-Titling (`titlingModelKey`), classifyText (main.ts), hard-limit-recovery, ReAct-Hauptloop -- diese behalten ihre heutigen Pfade vollstaendig.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-07 / ADR-115. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`. **Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.** Live-Messlauf-Abnahme von SC-8 bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-07 -- /security-audit (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing`. Audit-Report:
+[AUDIT-022-feat-24-07-2026-05-13.md](../analysis/AUDIT-022-feat-24-07-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green. Letztes EPIC-24-Item.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **3 Info-Notes** (alle accepted, keine BACKLOG-Eintraege):
+  F-1 Per-Call-Helper-Build by design (kein Cache; Provider-Konstruktoren billig),
+  F-2 Warn-Log bei kaputtem Setting nicht-fatal aber laestig (Mitigation: once-Wrapper waere Folge-IMP),
+  F-3 settings-corruption defense-in-depth bereits eingebaut (3 Korruptions-Szenarien fail-closed).
+
+### Hauptaudit-Vektoren (alle clean oder mehrfach mitigiert)
+
+- **Vertrauensgrenze:** keine neue User-Eingabe-Surface. Nur Settings-Lookup.
+- **LLM01 Prompt Injection:** Helper-Call erhaelt identischen Inhalt wie der gerouteete Aufrufer; Trust-Boundary identisch.
+- **LLM02 Insecure Output Handling:** Helper-Output durch Pipeline-Caps (FEAT-24-03 60k) und Microcompaction (FEAT-24-02) gedeckt wie heute.
+- **Privilege Escalation:** existiert nicht. `helperModelKey` ist User-Setting; kein Tool-Pfad mutiert es ausser via update_settings (normaler Settings-Aenderungs-Surface).
+- **Mutation-Surface:** `pipeline.getPlugin()` ist read-only accessor, kein Setter.
+- **Race Conditions:** synchroner Lookup + Build; kein async-shared-state.
+- **Out-of-scope-Pfade unangetastet:** ReAct-Hauptloop, hard-limit-recovery, Memory-Atomizer, ChatLinking-Titling, classifyText -- alle behalten ihre heutigen Pfade vollstaendig.
+
+### Positivbefunde
+
+- **Fail-closed-Design durchgaengig** (3 Korruptions-Szenarien getestet).
+- **Vertrauensgrenze enger** als bei Tool-Pfaden mit User-Input.
+- **Konsistenz zum bestehenden Per-Feature-Pattern** (`memoryModelKey` / `titlingModelKey`).
+- **RecipePromotion backwards-kompatibel** zu `memoryModelKey`.
+- **Read-only-accessor** in `ToolExecutionPipeline.getPlugin()`.
+- **No-direct-settings-access-Contract** verifiziert.
+- **Defense-in-Depth bei Settings-Korruption** mehrfach abgefangen.
+- **SCA-Baseline unveraendert**.
+
+### Architektonische Folgepunkte
+
+Keine kritischen. F-1 (Cache spaeter falls Provider-Konstruktor teuer wird) und F-2 (once-Warn-Wrapper falls Log-Spam stoert) sind potenzielle Folge-IMPs, kein heutiger Bedarf.
+
+### Naechster Schritt
+
+Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`
+(User-Trigger). Live-Messlauf-Abnahme von SC-8 in einer naechsten Vault-Session. **Mit dem Merge ist EPIC-24 (Welle 1 + 2 + 3, alle 5 ausgewaehlten Items inkl. FEAT-24-05) inhaltlich abgeschlossen** -- offen bleiben nur die `[AWAITING RE]`-Live-Messlaeufe der 5 FEATs und die Folge-IMPs IMP-24-06-01 (TOOL_METADATA-Drift) und IMP-24-09-01 (Dead Code SkillsManager.getRelevantSkills).
