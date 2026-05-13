@@ -2,7 +2,7 @@
 
 **Agentic AI for Obsidian.**
 
-An autonomous AI operating layer for your Obsidian vault. 50+ tools, semantic search, persistent memory, multi-agent workflows, office document creation, plugin discovery, and full safety controls. Works with 10+ providers. Local-first. Open source. Free.
+An autonomous AI operating layer for your Obsidian vault. 60+ tools, semantic search, persistent memory, multi-agent workflows, office document creation, plugin discovery, and full safety controls. Works with 12+ providers including local models. Unifies chat history from ChatGPT, Claude, and Perplexity into your vault. Open source. Free.
 
 [pssah4.github.io/vault-operator](https://pssah4.github.io/vault-operator)
 
@@ -10,23 +10,33 @@ An autonomous AI operating layer for your Obsidian vault. 50+ tools, semantic se
 
 ## What It Does
 
-You describe a task in natural language. Vault Operator plans, searches your vault, reads relevant notes, creates or edits content, browses the web when needed, and reports back -- all while showing you exactly what it's doing in real time. Every write operation requires your approval and creates a checkpoint you can undo with one click.
+You describe a task in natural language. Vault Operator plans, searches your vault, reads relevant notes, creates or edits content, generates PowerPoint / Word / Excel files, browses the web, calls MCP servers, and reports back -- all while showing you exactly what it's doing in real time. Every write operation requires your approval and creates a checkpoint you can undo with one click.
+
+Concrete examples:
+
+- "Read this PDF, link the key concepts to my existing notes, then create a summary in my Inbox."
+- "Find all my meeting notes about the EnBW project from the last 6 weeks and build a status presentation from my corporate PPTX template."
+- "Compare these two strategy notes, flag contradictions, and propose how to merge them."
+- "Look up the latest research on context-engineering, save the three best papers as ingested notes, and update my Innovation Strategy MOC."
+
+The agent works with one model for chat and (optionally) a cheaper helper model for internal tasks like context condensing -- so cost stays predictable. A sidebar footer shows real-time token usage and cost in EUR per task.
 
 ## Features
 
-### 50+ Built-in Tools
+### 60+ Built-in Tools
 
-Organized into eight groups:
+Organized into nine groups:
 
-- **Read & Search**: `read_file`, `read_document`, `list_files`, `search_files`
-- **Vault Intelligence**: `semantic_search`, `get_frontmatter`, `search_by_tag`, `get_linked_notes`, `get_vault_stats`, `get_daily_note`, `query_base`, `open_note`
+- **Read & Search**: `read_file`, `read_document`, `list_files`, `search_files`, `semantic_search`, `search_history`
+- **Vault Intelligence**: `get_frontmatter`, `search_by_tag`, `get_linked_notes`, `get_vault_stats`, `get_daily_note`, `query_base`, `open_note`, `vault_health_check`
 - **Write & Edit**: `write_file`, `edit_file`, `append_to_file`, `update_frontmatter`, `create_folder`, `delete_file`, `move_file`, `generate_canvas`, `create_excalidraw`, `create_drawio`, `create_base`, `update_base`
 - **Office Documents**: `plan_presentation`, `create_pptx`, `create_docx`, `create_xlsx`
-- **Knowledge Maintenance**: `ingest_document`, `vault_health_check`
-- **Web**: `web_fetch`, `web_search` (Brave / Tavily)
-- **Agent Control**: `new_task`, `update_todo_list`, `ask_followup_question`, `evaluate_expression`, `manage_skill`, `manage_source`, `switch_mode`, `find_tool`, `read_agent_logs`, `configure_model`, `update_settings`, `manage_mcp_server`
+- **Knowledge Ingest & Maintenance**: `ingest_document`, `ingest_triage`, `ingest_deep`
+- **Web**: `web_fetch`, `web_search` (Brave / Tavily), `anti_echo_search`
+- **Memory**: `recall_memory`, `mark_for_memory`, `update_soul`, `mark_note_as_memory_source`, `unmark_note_as_memory_source`, `list_memory_source_notes`, `list_pinned_conversations`
+- **Agent Control**: `new_task`, `update_todo_list`, `ask_followup_question`, `attempt_completion`, `evaluate_expression`, `manage_skill`, `manage_source`, `switch_mode`, `find_tool`, `read_skill`, `read_agent_logs`, `configure_model`, `update_settings`, `inspect_self`, `manage_mcp_server`
 - **Plugin Integration**: `execute_command`, `call_plugin_api`, `enable_plugin`, `resolve_capability_gap`, `execute_recipe`
-- **MCP**: `use_mcp_tool` -- connect any MCP server
+- **MCP**: `use_mcp_tool`, `read_mcp_tool` -- connect any MCP server
 
 ### Knowledge Discovery
 
@@ -52,9 +62,14 @@ Create PowerPoint, Word, and Excel files directly in your vault:
 
 Run TypeScript directly in a secure sandboxed iframe. Import npm packages (pptxgenjs, xlsx, pdf-lib, d3, etc.) from CDN -- no Node.js or shell required. Process data, automate complex batch operations, and create reusable skills with code modules.
 
-### Knowledge Maintenance
+### Knowledge Ingest & Maintenance
 
-Keep your vault clean and discoverable as it grows. `ingest_document` parses PDF, DOCX, PPTX, XLSX, CSV, and JSON into structured Markdown with extracted metadata. `vault_health_check` audits the vault for orphaned notes, broken links, missing frontmatter, duplicate titles, and stale content -- and proposes fixes you can approve in batches.
+Keep your vault clean and discoverable as it grows.
+
+- `ingest_document` parses PDF, DOCX, PPTX, XLSX, CSV, and JSON into structured Markdown with extracted metadata.
+- `ingest_triage` makes a quick keep / skim / skip decision on a new source before deeper processing.
+- `ingest_deep` runs a thorough multi-pass ingest with summary, tension detection, ontology mapping, and graph linking back into the vault.
+- `vault_health_check` audits for orphaned notes, broken links, missing frontmatter, duplicate titles, and stale content. It proposes fixes you can approve in batches.
 
 ### Plugin Integration
 
@@ -63,11 +78,11 @@ Vault Operator automatically scans your installed Obsidian plugins and generates
 ### Memory & Personalization
 
 Three-tier memory system:
-- **Session memory**: Summaries of each conversation -- decisions, outcomes, open questions
-- **Long-term memory**: Durable facts promoted from sessions -- your preferences, projects, workflow patterns
-- **Soul**: Core understanding of your communication style and how you like the agent to behave
+- **Session memory**: summaries of each conversation -- decisions, outcomes, open questions.
+- **Long-term memory**: durable facts promoted from sessions -- your preferences, projects, workflow patterns. Pin individual chats to memory with one click.
+- **Soul**: core understanding of your communication style and how you like the agent to behave.
 
-Chat-linking adds frontmatter references back to conversations, so you can trace any change to the chat that caused it.
+Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as_memory_source` tool) and the agent extracts facts from it automatically on save. Chat-linking adds frontmatter references back to conversations, so you can trace any change to the chat that caused it.
 
 ### Context Injection
 
@@ -91,17 +106,25 @@ Chat-linking adds frontmatter references back to conversations, so you can trace
 | Anthropic | Cloud | API key | Claude model family. Best tool use in testing. |
 | OpenAI | Cloud | API key | GPT model family. Fast, good structured output. |
 | Google | Cloud | API key | Gemini models. Free tier available. |
+| AWS Bedrock | Cloud | API key or IAM | Anthropic, Mistral, and other models hosted on AWS. EU region support. |
 | OpenRouter | Gateway | API key | 100+ models from many providers with a single key. |
 | Azure OpenAI | Enterprise | API key + endpoint | Enterprise compliance and private endpoints. |
 | GitHub Copilot | Gateway | OAuth | Uses your existing Copilot subscription. No separate API key. |
+| ChatGPT (OAuth) | Subscription | OAuth | Use your existing ChatGPT Plus/Pro subscription via the Responses API. |
 | Kilo Gateway | Gateway | Device auth / token | Centralized gateway with organization context. |
 | Ollama | Local | None | Free, fully private. Many open-source models. |
 | LM Studio | Local | None | Free, fully private. Visual model browser. |
 | Custom | Any | Varies | Any OpenAI-compatible endpoint. |
 
+You can also pick a **helper model** for cheap internal tasks (context condensing, fast-path planning, presentation planning) while a more capable model handles the main chat. Settings > Vault Operator > Agent behaviour > Loop > Helper model.
+
 ### MCP Integration
 
 Connect MCP servers via stdio, SSE, or streamable-HTTP. Tools are dynamically discovered and exposed to the agent. Per-mode whitelisting available. Vault Operator can also act as an MCP server, exposing your vault to Claude Desktop or any MCP client.
+
+### Cross-Surface AI Workflow
+
+Vault Operator can act as a remote MCP server for ChatGPT, Claude Desktop, Perplexity, and other AI tools. Conversations and facts from those surfaces flow into the same memory layer as the in-Obsidian agent. One thread of thinking, one searchable vault, regardless of which AI client you used to capture the idea.
 
 ---
 
@@ -141,12 +164,14 @@ Connect MCP servers via stdio, SSE, or streamable-HTTP. Tools are dynamically di
 ## Quick Start
 
 1. **Add a model**: Settings > Vault Operator > Models > click "+ add model"
-   - **Free option**: Get a [Google AI Studio](https://aistudio.google.com/app/apikey) API key (no credit card needed)
-   - **Best quality**: Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o
-   - **Local & private**: [Ollama](https://ollama.ai) or [LM Studio](https://lmstudio.ai)
-2. **Open the sidebar**: Click the Vault Operator icon in the ribbon
-3. **Ask a question**: Type any question about your vault, e.g. *"What are my most-linked notes?"*
-4. **Run a task**: Switch to Agent mode and try *"Create a weekly review template"*
+   - **Free option**: Get a [Google AI Studio](https://aistudio.google.com/app/apikey) API key (no credit card needed).
+   - **Best quality**: Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o.
+   - **Subscription-based**: GitHub Copilot or ChatGPT Plus / Pro via OAuth (no separate API key).
+   - **Local & private**: [Ollama](https://ollama.ai) or [LM Studio](https://lmstudio.ai).
+2. **(Optional) Add a helper model**: Settings > Vault Operator > Agent behaviour > Loop > Helper model. Pick something small and cheap (Haiku 4.5, GPT-4o-mini, a local Ollama model). The agent uses it for context condensing and other internal tasks while the main model handles the chat.
+3. **Open the sidebar**: click the Vault Operator icon in the ribbon.
+4. **Ask a question**: type any question about your vault, e.g. *"What are my most-linked notes?"*
+5. **Run a task**: switch to Agent mode and try *"Create a weekly review template"*.
 
 For search to work at its best, configure an embedding model and build the semantic index in Settings > Embeddings.
 
@@ -156,9 +181,9 @@ For search to work at its best, configure an embedding model and build the seman
 
 This plugin makes network requests depending on your configuration:
 
-- **LLM API calls**: Every message is sent to the configured model provider (Anthropic, OpenAI, Google, OpenRouter, Azure, or a local server like Ollama/LM Studio). No data is sent without a configured provider.
-- **Web search** (optional): When using `web_search`, requests go to the configured search API (Brave or Tavily). Disabled by default.
-- **MCP servers** (optional): Connected MCP servers may make additional network requests depending on their configuration.
+- **LLM API calls**: every message is sent to the configured model provider (Anthropic, OpenAI, Google, AWS Bedrock, OpenRouter, Azure, GitHub Copilot, ChatGPT-OAuth, Kilo Gateway, or a local server like Ollama / LM Studio). No data is sent without a configured provider.
+- **Web search** (optional): when using `web_search`, requests go to the configured search API (Brave or Tavily). Disabled by default.
+- **MCP servers** (optional): connected MCP servers may make additional network requests depending on their configuration. Vault Operator can also expose your vault as a remote MCP server (cross-surface workflows with ChatGPT, Claude, Perplexity); the remote-MCP path is opt-in and uses a token-protected Cloudflare relay.
 - **No telemetry**: The plugin does not collect analytics, usage data, or crash reports.
 - **API key storage**: API keys are encrypted via Electron's safeStorage API when available. On systems without safeStorage support, keys fall back to Obsidian's plugin settings (`data.json`), which is not encrypted. If you use Obsidian Sync, your settings will be synced.
 
