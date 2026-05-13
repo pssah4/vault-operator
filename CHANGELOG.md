@@ -6,6 +6,81 @@ All notable changes to Vault Operator are documented here. Format follows
 
 ---
 
+## [2.8.0] -- 2026-05-13
+
+### Community-plugin-directory readiness
+
+This release reshapes the plugin around Obsidian's community-plugin
+review-bot rules so the plugin can be submitted to the directory. The
+visible UX stays the same for existing users; the work is mostly under
+the hood.
+
+### Added
+
+- **FirstRun setup wizard.** Seven-step modal that walks new users
+  through provider setup (LLM, embedding model, role models, search
+  provider, optional downloads). Auto-opens for the first three
+  sessions, then stops nagging. Skipped steps surface as inline
+  hint banners in the matching settings tabs.
+- **Optional asset downloads.** Two large assets (ONNX reranker
+  ~12 MB, self-development source bundle ~5 MB) no longer ship inside
+  `main.js`. They live as separate GitHub-release assets, are
+  downloaded once with explicit user consent, SHA256-verified, and
+  stored under `<vault>/.vault-operator/assets/`. File-picker
+  fallback for users without GitHub access.
+- **Help tab in Settings** opens the docs site in the external
+  default browser.
+- **PluginPatchModal** replaces the agent's `manage_source` reload
+  path. Compiled patches are offered as a `main.js` download with a
+  step-by-step apply checklist instead of being written into the
+  plugin folder automatically.
+- **PRIVACY.md** at the repo root documents every system-identity
+  read, background network call, and third-party service.
+
+### Changed
+
+- **main.js shrunk from 37 MB to 14 MB.** No `pluginDir` writes at
+  runtime; workers, sql.js WASM, bundled skills and templates are
+  inlined as TypeScript constants; ONNX and source bundle moved to
+  the optional-download flow.
+- **Vault folder defaults** for fresh installs are now
+  `<vault>/.vault-operator/` (local data) and
+  `<vault-parent>/vault-operator-shared/` (cross-vault data).
+  Existing installs keep their legacy `.obsilo-vault/` and
+  `obsilo-shared/` folders through a lazy fallback in
+  `GlobalFileService`. No data migration needed.
+- **Deep-link protocols** added `obsidian://vault-operator-chat` and
+  `obsidian://vault-operator-settings`. Legacy `obsilo-chat` and
+  `obsilo-settings` aliases keep existing frontmatter links working.
+- **Backup format** new files use `vault-operator-backup`; legacy
+  `obsilo-backup` files can still be imported.
+- **VaultHealthRepairModal** stopped looking up a dead view-type
+  string.
+- **Memory + Soul chat** kicks off exactly once after wizard
+  completion instead of on every plugin reload.
+
+### Removed
+
+- `AssetProvisioner` removed. Was the main "self-update via archive
+  extraction" pattern the review bot rejected.
+- `PluginReloader.deployAndReload`, `writeBundle`, `createBackup`,
+  `rollback`, `hasBackup` removed. `PluginReloader.reload()` stays
+  for post-manual-replace re-init.
+- `vault-operator-assets.tar.gz` no longer produced by the release
+  workflow.
+
+### Internal
+
+- Release workflow now generates GitHub artifact-build-provenance
+  attestations for `main.js`, `styles.css`, the reranker WASM, and
+  the source bundle.
+- `esbuild.config.mjs` restructured: source-bundle generation moved
+  out of `onEnd` so the bake-in SHA in `main.js` matches the
+  generated `plugin-source.json` on every build.
+- `package.json` version aligned with `manifest.json`.
+
+---
+
 ## [2.7.4] -- 2026-05-13
 
 ### Added
