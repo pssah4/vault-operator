@@ -8,9 +8,9 @@ An autonomous AI operating layer for your Obsidian vault. 60+ tools, semantic se
 
 ---
 
-## What It Does
+## What it does
 
-You describe a task in natural language. Vault Operator plans, searches your vault, reads relevant notes, creates or edits content, generates PowerPoint / Word / Excel files, browses the web, calls MCP servers, and reports back -- all while showing you exactly what it's doing in real time. Every write operation requires your approval and creates a checkpoint you can undo with one click.
+You describe a task in natural language. Vault Operator plans, searches your vault, reads relevant notes, creates or edits content, generates PowerPoint / Word / Excel files, browses the web, calls MCP servers, and reports back. Every step is visible in the sidebar in real time. Every write operation requires your approval and creates a checkpoint you can undo with one click.
 
 Concrete examples:
 
@@ -19,11 +19,11 @@ Concrete examples:
 - "Compare these two strategy notes, flag contradictions, and propose how to merge them."
 - "Look up the latest research on context-engineering, save the three best papers as ingested notes, and update my Innovation Strategy MOC."
 
-The agent works with one model for chat and (optionally) a cheaper helper model for internal tasks like context condensing -- so cost stays predictable. A sidebar footer shows real-time token usage and cost in EUR per task.
+The agent works with one model for chat and (optionally) a cheaper helper model for internal tasks like context condensing, which keeps cost predictable. A sidebar footer shows real-time token usage and cost in EUR per task.
 
 ## Features
 
-### 60+ Built-in Tools
+### 60+ built-in tools
 
 Organized into nine groups:
 
@@ -36,33 +36,33 @@ Organized into nine groups:
 - **Memory**: `recall_memory`, `mark_for_memory`, `update_soul`, `mark_note_as_memory_source`, `unmark_note_as_memory_source`, `list_memory_source_notes`, `list_pinned_conversations`
 - **Agent Control**: `new_task`, `update_todo_list`, `ask_followup_question`, `attempt_completion`, `evaluate_expression`, `manage_skill`, `manage_source`, `switch_mode`, `find_tool`, `read_skill`, `read_agent_logs`, `configure_model`, `update_settings`, `inspect_self`, `manage_mcp_server`
 - **Plugin Integration**: `execute_command`, `call_plugin_api`, `enable_plugin`, `resolve_capability_gap`, `execute_recipe`
-- **MCP**: `use_mcp_tool`, `read_mcp_tool` -- connect any MCP server
+- **MCP**: `use_mcp_tool`, `read_mcp_tool` (connect any MCP server)
 
-### Knowledge Discovery
+### Knowledge discovery
 
 Local vector index (SQLite-backed via sql.js) with configurable embedding providers. Combines semantic similarity with full-text keyword search (RRF fusion), graph expansion via wikilinks (1-3 hops), local reranking (cross-encoder via WebAssembly), contextual retrieval, and implicit connection discovery between unlinked notes.
 
-### Agent Modes
+### Agent modes
 
-Two built-in modes -- **Ask** (read-only knowledge assistant) and **Agent** (full capabilities). Create custom modes with their own roles, tool sets, and instructions. Per-mode model overrides let you run a fast model for quick questions and a powerful one for complex tasks.
+Two built-in modes: **Ask** (read-only knowledge assistant) and **Agent** (full capabilities). Create custom modes with their own roles, tool sets, and instructions. Per-mode model overrides let you run a fast model for quick questions and a powerful one for complex tasks.
 
-### Multi-Agent Workflows
+### Multi-agent workflows
 
-Spawn sub-agents with `new_task` for complex parallel or sequential workflows -- Orchestrator-Worker, Prompt Chaining, Evaluator-Optimizer, and Routing patterns built in. Depth-limited to 2 levels with parallel execution for read-safe tools.
+Spawn sub-agents with `new_task` for complex parallel or sequential workflows. Built-in patterns: Orchestrator-Worker, Prompt Chaining, Evaluator-Optimizer, and Routing. Depth-limited to 2 levels with parallel execution for read-safe tools.
 
-### Office Documents
+### Office documents
 
 Create PowerPoint, Word, and Excel files directly in your vault:
-- **Template mode**: Use your corporate `.pptx` template -- the agent analyzes every layout and placeholder, plans content with an internal LLM call, and builds the presentation in your exact design.
+- **Template mode**: Use your corporate `.pptx` template. The agent analyzes every layout and placeholder, plans content with an internal LLM call, and builds the presentation in your exact design.
 - **Ad-hoc mode**: Create presentations from scratch without a template.
 - **Reading**: Parse existing PPTX, DOCX, XLSX, PDF, CSV, and JSON files as conversation context.
 - **Visual QA**: Render presentations to images for layout verification (requires LibreOffice).
 
-### Sandbox Code Execution
+### Sandbox code execution
 
-Run TypeScript directly in a secure sandboxed iframe. Import npm packages (pptxgenjs, xlsx, pdf-lib, d3, etc.) from CDN -- no Node.js or shell required. Process data, automate complex batch operations, and create reusable skills with code modules.
+Run TypeScript directly in a secure sandboxed iframe. Import npm packages (pptxgenjs, xlsx, pdf-lib, d3, etc.) from CDN, with no Node.js or shell required. Process data, automate complex batch operations, and create reusable skills with code modules.
 
-### Knowledge Ingest & Maintenance
+### Knowledge ingest and maintenance
 
 Keep your vault clean and discoverable as it grows.
 
@@ -71,27 +71,27 @@ Keep your vault clean and discoverable as it grows.
 - `ingest_deep` runs a thorough multi-pass ingest with summary, tension detection, ontology mapping, and graph linking back into the vault.
 - `vault_health_check` audits for orphaned notes, broken links, missing frontmatter, duplicate titles, and stale content. It proposes fixes you can approve in batches.
 
-### Plugin Integration
+### Plugin integration
 
-Vault Operator automatically scans your installed Obsidian plugins and generates skill files that teach the agent how to use them. The agent learns each plugin's commands, settings, and file formats -- so it can create Excalidraw drawings, build Kanban boards, populate Dataview tables, or use any other plugin on your behalf.
+Vault Operator automatically scans your installed Obsidian plugins and generates skill files that teach the agent how to use them. The agent learns each plugin's commands, settings, and file formats, so it can create Excalidraw drawings, build Kanban boards, populate Dataview tables, or use any other plugin on your behalf.
 
-### Memory & Personalization
+### Memory and personalization
 
 Three-tier memory system:
-- **Session memory**: summaries of each conversation -- decisions, outcomes, open questions.
-- **Long-term memory**: durable facts promoted from sessions -- your preferences, projects, workflow patterns. Pin individual chats to memory with one click.
+- **Session memory**: summaries of each conversation (decisions, outcomes, open questions).
+- **Long-term memory**: durable facts promoted from sessions (your preferences, projects, workflow patterns). Pin individual chats to memory with one click.
 - **Soul**: core understanding of your communication style and how you like the agent to behave.
 
 Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as_memory_source` tool) and the agent extracts facts from it automatically on save. Chat-linking adds frontmatter references back to conversations, so you can trace any change to the chat that caused it.
 
-### Context Injection
+### Context injection
 
 - **Rules** (`.obsidian-agent/rules/`): permanent instructions injected into every system prompt
 - **Skills** (`.obsidian-agent/skills/`): keyword-matched mini-instructions auto-injected per message
 - **Workflows** (`.obsidian-agent/workflows/`): slash-command driven instruction sets
 - **Custom Prompts**: `/prompt-slug` templates with `{{userInput}}` and `{{activeFile}}` variables
 
-### Safety & Control
+### Safety and control
 
 - **Approval-based writes**: every write operation requires explicit approval (or configured auto-approval per category)
 - **Automatic checkpoints**: isomorphic-git shadow repo snapshots before every task's first write
@@ -99,7 +99,7 @@ Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as
 - **Vault governance**: `.obsidian-agentignore` and `.obsidian-agentprotected` access control files
 - **Audit log**: JSONL operation trail with parameter sanitization (30-day retention)
 
-### Provider Flexibility
+### Provider flexibility
 
 | Provider | Type | Auth | Notes |
 |----------|------|------|-------|
@@ -118,11 +118,11 @@ Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as
 
 You can also pick a **helper model** for cheap internal tasks (context condensing, fast-path planning, presentation planning) while a more capable model handles the main chat. Settings > Vault Operator > Agent behaviour > Loop > Helper model.
 
-### MCP Integration
+### MCP integration
 
 Connect MCP servers via stdio, SSE, or streamable-HTTP. Tools are dynamically discovered and exposed to the agent. Per-mode whitelisting available. Vault Operator can also act as an MCP server, exposing your vault to Claude Desktop or any MCP client.
 
-### Cross-Surface AI Workflow
+### Cross-surface AI workflow
 
 Vault Operator can act as a remote MCP server for ChatGPT, Claude Desktop, Perplexity, and other AI tools. Conversations and facts from those surfaces flow into the same memory layer as the in-Obsidian agent. One thread of thinking, one searchable vault, regardless of which AI client you used to capture the idea.
 
@@ -139,7 +139,7 @@ Vault Operator can act as a remote MCP server for ChatGPT, Claude Desktop, Perpl
 3. Enter `https://github.com/pssah4/vault-operator`
 4. Enable "Vault Operator" in Settings > Community Plugins
 
-### Manual Installation
+### Manual installation
 
 1. Clone the repository:
    ```bash
@@ -161,7 +161,7 @@ Vault Operator can act as a remote MCP server for ChatGPT, Claude Desktop, Perpl
 
 ---
 
-## Quick Start
+## Quick start
 
 1. **Add a model**: Settings > Vault Operator > Models > click "+ add model"
    - **Free option**: Get a [Google AI Studio](https://aistudio.google.com/app/apikey) API key (no credit card needed).
@@ -177,7 +177,7 @@ For search to work at its best, configure an embedding model and build the seman
 
 ---
 
-## Network Usage
+## Network usage
 
 This plugin makes network requests depending on your configuration:
 
@@ -189,7 +189,7 @@ This plugin makes network requests depending on your configuration:
 
 ---
 
-## Directory Structure
+## Directory structure
 
 ```
 <vault>/
@@ -265,9 +265,9 @@ Apache 2.0
 
 ## Acknowledgements
 
-- [Kilo Code](https://kilocode.ai) -- architectural inspiration
-- [Obsidian](https://obsidian.md) -- the platform
-- [sql.js](https://github.com/sql-js/sql.js) -- SQLite in WebAssembly for the knowledge layer
-- [Hugging Face Transformers.js](https://github.com/huggingface/transformers.js) -- local ONNX reranking
-- [isomorphic-git](https://isomorphic-git.org) -- pure JS git for checkpoints
-- [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) -- Model Context Protocol
+- [Kilo Code](https://kilocode.ai) for architectural inspiration
+- [Obsidian](https://obsidian.md) as the platform
+- [sql.js](https://github.com/sql-js/sql.js) for SQLite in WebAssembly powering the knowledge layer
+- [Hugging Face Transformers.js](https://github.com/huggingface/transformers.js) for local ONNX reranking
+- [isomorphic-git](https://isomorphic-git.org) as pure JS git for checkpoints
+- [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) for the Model Context Protocol
