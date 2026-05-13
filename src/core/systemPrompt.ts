@@ -104,6 +104,19 @@ export interface SystemPromptConfig {
     webEnabled?: boolean;
     recipesSection?: string;
     configDir: string;
+    /**
+     * FEAT-24-04 / ADR-113: when set, REPLACES `mode.roleDefinition` in
+     * Section 1 so a profile-spawned subagent gets a lean role line
+     * instead of the inherited mode role. Only set by spawnSubtask when
+     * `new_task` was called with `profile='...'`.
+     */
+    subagentRoleOverride?: string;
+    /**
+     * FEAT-24-04 / ADR-113: when set, the TOOLS section is rendered for
+     * exactly this allowlist (subset of `mode.toolGroups`). Keeps the
+     * subagent's tool surface as small as the profile demands.
+     */
+    subagentAllowedTools?: string[];
 }
 
 /**
@@ -149,6 +162,8 @@ export function buildSystemPromptForMode(
     // Normalize: if first arg has 'slug' and 'toolGroups', it's a ModeConfig (legacy call)
     // If it has 'mode' property, it's a SystemPromptConfig
     let mode: ModeConfig;
+    let subagentRoleOverride: string | undefined;
+    let subagentAllowedTools: string[] | undefined;
     if ('mode' in configOrMode && 'slug' in configOrMode.mode) {
         // Config object form
         const cfg = configOrMode;
@@ -165,6 +180,8 @@ export function buildSystemPromptForMode(
         webEnabled = cfg.webEnabled;
         recipesSection = cfg.recipesSection;
         configDir = cfg.configDir;
+        subagentRoleOverride = cfg.subagentRoleOverride;
+        subagentAllowedTools = cfg.subagentAllowedTools;
     } else {
         // Legacy positional form
         mode = configOrMode as ModeConfig;
@@ -176,8 +193,8 @@ export function buildSystemPromptForMode(
     // Reference: Manus Context Engineering (2025)
     const sections: string[] = [
         // ── STABLE (cached, does not change within a task session) ──────
-        // 1. Mode role definition
-        getModeDefinitionSection(mode),
+        // 1. Mode role definition (or subagent profile override -- FEAT-24-04 / ADR-113)
+        getModeDefinitionSection(mode, subagentRoleOverride),
 
         // 1b. ADR-090: Cost-Aware Agent Heuristics (plan-first, tool tiers,
         //     anti-overthinking, sub-agent gating, error recovery, stop
@@ -193,7 +210,8 @@ export function buildSystemPromptForMode(
 
         // 4. Tools (filtered by mode -- compact form by default, ~1.5k tokens.
         //    Full docs via find_tool(name). ADR-090 Lever 8.
-        getToolsSection(mode.toolGroups, mcpClient, allowedMcpServers, webEnabled, false),
+        //    FEAT-24-04 / ADR-113: subagent profile narrows the allowlist further.
+        getToolsSection(mode.toolGroups, mcpClient, allowedMcpServers, webEnabled, false, subagentAllowedTools),
 
         // 5. Tool Routing (merged rules + guidelines)
         getToolRoutingSection(configDir!),

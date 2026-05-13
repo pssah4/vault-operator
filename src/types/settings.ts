@@ -438,6 +438,14 @@ export interface AdvancedApiSettings {
     /** Maximum sub-agent nesting depth (1 = no grandchildren, 2 = one level of grandchildren) */
     maxSubtaskDepth: number;
     /**
+     * FEAT-24-04 / ADR-113: hard per-call token budget for the `new_task`
+     * message payload. If the estimated tokens (chars / 4) of the spawn
+     * message exceed this number, new_task returns a tool error with ist
+     * and soll so the model can trim the message and retry. Prevents a
+     * subagent from starting with an already overfull request. Default 8000.
+     */
+    subtaskTokenBudget: number;
+    /**
      * FEAT-24-02 (ADR-12 amendment): prune old tool_result contents to skeletons
      * at turn boundaries. Stops the dominant history-growth driver (accumulating
      * read/search results). Additive to condensing. Default true.
@@ -1086,6 +1094,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         powerSteeringFrequency: 0,
         maxIterations: 25,
         maxSubtaskDepth: 2,
+        subtaskTokenBudget: 8000,           // FEAT-24-04 / ADR-113
         microcompactionEnabled: true,       // FEAT-24-02
         rollingSummaryThreshold: 50,        // FEAT-24-02
         costWarnThresholdEur: 0.5,          // FEAT-24-05

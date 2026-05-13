@@ -27,6 +27,7 @@ import { logInputBreakdown } from './utils/logInputBreakdown';
 import { microcompactToolResults } from './context/MicroCompactor';
 import { filterShadowedBuiltins } from './tools/shadowedByPlugin';
 import { isDeferredTool } from './tools/toolMetadata';
+import { getSubagentProfile } from './agent/subagent-profiles';
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -111,6 +112,19 @@ export interface AgentTaskRunConfig {
     configDir?: string;
     /** Active conversation ID for chat-linking frontmatter stamping (ADR-022) */
     conversationId?: string;
+    /**
+     * FEAT-24-04 / ADR-113: when set, this subagent runs with a profile
+     * roleDefinition that REPLACES `mode.roleDefinition` in the system
+     * prompt. Used only by spawnSubtask when `new_task` was called with
+     * `profile='...'`.
+     */
+    subagentRoleOverride?: string;
+    /**
+     * FEAT-24-04 / ADR-113: when set, this subagent's tool list is
+     * restricted to these names (subset of the parent's mode tool set).
+     * Used only by spawnSubtask when `new_task` was called with `profile='...'`.
+     */
+    subagentAllowedTools?: ToolName[];
 }
 
 export class AgentTask {
@@ -248,6 +262,8 @@ export class AgentTask {
             recipesSection,
             configDir,
             conversationId,
+            subagentRoleOverride,
+            subagentAllowedTools,
         } = config;
         // Resolve mode to ModeConfig
         let activeMode: ModeConfig = this.resolveMode(initialMode);
@@ -411,9 +427,15 @@ export class AgentTask {
         const childDepth = this.depth + 1;
         const childCanSpawn = childDepth < this.maxSubtaskDepth;
 
-        const spawnSubtask = async (childMode: string, childMessage: string): Promise<string> => {
+        const spawnSubtask = async (childMode: string, childMessage: string, profileName?: string): Promise<string> => {
             const childHistory: MessageParam[] = [];
             let childText = '';
+
+            // FEAT-24-04 / ADR-113: optional subagent profile path. When a
+            // profile is set, the subagent gets a lean role + reduced tool
+            // allowlist and the parent's rules / mcp / plugin-skills set is
+            // dropped (the profile is the explicit scope).
+            const profile = profileName ? getSubagentProfile(profileName) : undefined;
 
             const childTask = new AgentTask(
                 this.api,
@@ -455,16 +477,21 @@ export class AgentTask {
             await childTask.run({
                 userMessage: childMessage,
                 taskId: `${taskId}-sub-${Date.now()}`,
-                initialMode: childMode,
+                initialMode: profile ? 'agent' : childMode,
                 history: childHistory,
                 abortSignal,
                 globalCustomInstructions,
                 includeTime,
-                rulesContent,
+                // Profile spawn: drop the parent's rules/mcp/plugin-skills set
+                // entirely. The profile's roleDefinition + allowedTools is the
+                // full scope.
+                rulesContent: profile ? undefined : rulesContent,
                 skillDirectorySection, // subtask-gated to '' inside buildSystemPromptForMode -- pass-through anyway
-                mcpClient,
-                allowedMcpServers,
-                pluginSkillsSection,
+                mcpClient: profile ? undefined : mcpClient,
+                allowedMcpServers: profile ? undefined : allowedMcpServers,
+                pluginSkillsSection: profile ? undefined : pluginSkillsSection,
+                subagentRoleOverride: profile?.roleDefinition,
+                subagentAllowedTools: profile?.allowedTools,
                 configDir,
             });
             return childText;
@@ -497,10 +524,22 @@ export class AgentTask {
                 webEnabled,
                 recipesSection,
                 configDir: configDir ?? this.toolRegistry.plugin.app.vault.configDir,
+                // FEAT-24-04 / ADR-113: profile-spawn overrides; undefined on non-profile spawns.
+                subagentRoleOverride,
+                subagentAllowedTools,
             });
-            const baseTools = this.modeService
+            let baseTools = this.modeService
                 ? this.modeService.getToolDefinitions(activeMode)
                 : this.toolRegistry.getToolDefinitions();
+
+            // FEAT-24-04 / ADR-113: subagent profile restricts the tool
+            // schemas to the profile allowlist. Applied BEFORE the deferred-
+            // tool and shadowed-builtin filters so the profile's small surface
+            // wins regardless of the other policies.
+            if (subagentAllowedTools && subagentAllowedTools.length > 0) {
+                const allowSet = new Set<string>(subagentAllowedTools);
+                baseTools = baseTools.filter((t) => allowSet.has(t.name));
+            }
 
             // FEATURE-1600: by default hide deferred tools from the prompt.
             // The LLM can activate them via find_tool, which adds them to

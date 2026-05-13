@@ -2451,3 +2451,284 @@ Deferred als **IMP-24-06-01** (P3, Source SEC, Ready). Detail-File:
 Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`
 (User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-Abnahme
 von SC-6 in einer naechsten Vault-Session.
+
+---
+
+## FEAT-24-04 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-04
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-04
+
+Branch: `feature/feat-24-04-subagent-delegation` (off `dev` 00e4516).
+Refs: PLAN-22, ADR-113 (Accepted, Amendment 2026-05-13 additiv zu ADR-090).
+
+### Critical-Review-Befund vor Implementation (kein Pivot)
+
+ADR-113 in Spannung zu ADR-090 (Tier-4-Eskalation fuer `new_task`).
+Aufloesung im PLAN-22: **additiv, nicht ersetzend**. Neuer optionaler
+`profile`-Parameter auf `new_task`: wenn gesetzt -> Profile-Pfad
+(schlanker subagentRoleOverride + reduzierte Tool-Allowlist + ohne
+Tier-4-Justification); wenn nicht gesetzt -> heutiger ADR-090-Pfad
+voll aktiv. Per-Call-Token-Budget greift fuer beide Pfade. ADR-113
+Status `Proposed` -> `Accepted` mit Amendment im File festgehalten.
+Kein Mid-course-Pivot wie bei ADR-117/118 noetig -- die ADR-Logik
+selbst war ueberwiegend tragbar.
+
+### Was implementiert wurde
+
+- **`src/core/agent/subagent-profiles.ts`** (NEU): Profile-Registry
+  mit dem einen `research`-Profile (read-only Tool-Allowlist, lean
+  roleDefinition, max 3-7 Tool-Calls, kein Schachteln).
+  `getSubagentProfile` + `listSubagentProfileNames`.
+- **`src/types/settings.ts`**: `subtaskTokenBudget: number` in
+  `AdvancedApiSettings`, Default 8000. Keine UI-Aenderung (Power-User
+  via update_settings/data.json).
+- **`src/core/tools/agent/newTaskValidation.ts`**: Profile-Branch in
+  `validateNewTaskInput`. Wenn `profile` gesetzt + bekannt ->
+  justification nicht required (Profile-Wahl IS die Entscheidung).
+  Unbekannter Profile-Name -> Fehler mit Liste bekannter Profile.
+  Whitespace-only profile faellt auf Tier-4 zurueck. Tier-4-Fehler
+  nennt jetzt `profile="research"` als Alternative.
+- **`src/core/tools/agent/NewTaskTool.ts`**: input_schema um
+  `profile`-Property erweitert (enum aus `listSubagentProfileNames`).
+  Per-Call-Token-Budget-Check vor dem Spawn: `Math.ceil(message.length / 4) > budget`
+  -> formatError mit ist/soll + Hinweis auf Setting. Description
+  des Tools beschreibt jetzt explizit "Two paths" (Profile vs Tier-4).
+  Spawn-Aufruf reicht profileName als 3. Argument durch; Completion-
+  Header zeigt `profile: ...` statt `mode: ...` wenn Profile gesetzt.
+- **`src/core/tools/types.ts`**: `ToolExecutionContext.spawnSubtask`-
+  Signatur um `profileName?` erweitert.
+- **`src/core/AgentTask.ts`**: `spawnSubtask(childMode, childMessage, profileName?)`.
+  Profile-Pfad reicht `subagentRoleOverride` + `subagentAllowedTools`
+  an `childTask.run`, plus rules/mcp/plugin-skills NICHT durchreichen
+  (Profile ist die Scope-Entscheidung). `AgentTaskRunConfig` um die
+  beiden Felder erweitert. `rebuildPromptCache` filtert `baseTools`
+  ZUERST gegen die Profile-Allowlist (vor deferred/shadowed-Filtern).
+- **`src/core/systemPrompt.ts`**: `SystemPromptConfig` um
+  `subagentRoleOverride` + `subagentAllowedTools`. Beide werden in
+  Section 1 (Mode-Definition) bzw. Section 4 (Tools) wirksam.
+- **`src/core/prompts/sections/modeDefinition.ts`**:
+  `getModeDefinitionSection(mode, roleOverride?)`. Bei Override
+  bleibt der Mode-Header, der Role-Body wird ersetzt. Nullish coalescing
+  (`undefined` -> Fallback; explicit '' -> Override mit leerem Body
+  als fail-loud Verhalten).
+- **`src/core/prompts/sections/tools.ts`** + **`src/core/tools/toolMetadata.ts`**:
+  `buildToolPromptSection(groups, includeExamples, allowedNames?)`
+  filtert per Allowlist-Intersection. `getToolsSection` reicht den
+  Parameter durch.
+- **`src/core/prompts/sections/toolDecisionGuidelines.ts`**: Rule 8
+  um "RESEARCH PROFILE EXCEPTION"-Zeile ergaenzt (`profile="research"`
+  als Pfad fuer multi-step Recherche, kein Tier-4-Justification).
+
+### Tests
+
+`npm test`: **1460 gruen** (+21 vs dev-Baseline 1439). 149 Test-Files.
+
+- `subagent-profiles.test.ts` (NEU, 5 Tests): Registry-Listing,
+  Lookup, read-only-Tool-Surface (kein write/edit/use_mcp_tool/new_task),
+  roleDefinition-Regeln (kein writes, kein modes, kein nesting), unknown name.
+- `newTaskValidation.test.ts` (erweitert, +5 Tests): profile akzeptiert
+  ohne justification, mode/message still required, unknown profile mit
+  Liste, whitespace profile -> Tier-4, Tier-4-Fehler erwaehnt `profile="research"`.
+- `NewTaskTool.test.ts` (NEU, 8 Tests): Budget-Overflow mit ist/soll-
+  Format, Budget-Edge (genau 8000 -> okay), user-konfiguriertes
+  schmaleres Budget; Profile-Spawn ruft spawnSubtask mit profileName,
+  Completion-Header `profile: research`; non-profile Tier-4-Pfad bleibt;
+  unknown profile Fehler; Mode-Check (only Agent).
+- `modeDefinition.test.ts` (NEU, 3 Tests): Default-Render mit Mode-
+  roleDefinition, Override ersetzt body und behaelt Header, undefined
+  -> Fallback.
+
+`npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors (664
+vorbestehende warnings unveraendert). `npm run build` gruen
+(tsc + esbuild + Vault-Deploy).
+
+### Abweichungen vom Plan
+
+- **`getModeDefinitionSection`** mit nullish coalescing (`??`) statt
+  truthy-Check: explicit `''` als Override greift jetzt durch (fail-loud);
+  begruendet in den Implementation-Notes.
+- **`NewTaskTool`** nutzt einen lokalen `DEFAULT_SUBTASK_TOKEN_BUDGET = 8000`-
+  Konstante als Fallback fuer alte data.json-Stand ohne migrierten
+  Setting-Default (Optional-Chaining-Pfad). Im PLAN nicht explizit
+  erwaehnt; Robustheits-Anforderung an die Setting-Default-Migration.
+- **Settings-UI** nicht erweitert (kein Slider): Power-User koennen das
+  Setting via update_settings oder data.json setzen. UI-Erweiterung waere
+  Folge-Item.
+
+### Bugs/Findings
+
+Keine. Kein Mid-course-Bug- oder Requirement-Trigger.
+
+### Fuer /testing
+
+- SC-1..SC-5 sind durch die +21 Tests direkt abgedeckt (validation,
+  profile registry, tool filter, mode override, budget check).
+- SC-6 (Live-Messlauf, `[AWAITING RE]`): Vault-Session mit einer Frage,
+  die >3 read/search-Calls braucht; pruefen dass:
+  - Agent ruft `new_task(profile='research', message='...')`
+  - Subtask laeuft mit `[subtask] read_file`-Logs
+  - Parent-Kontext nach Subtask-Ende waechst nur um die verdichtete
+    Antwort, nicht um die Zwischen-Tool-Results
+  - `[InputBreakdown]`-Log zeigt nach dem Subtask einen flachen Parent
+- Coverage-Tooling im Projekt nicht installiert; Test-Anzahl-basierter
+  Beleg.
+
+### Fuer /security-audit
+
+- **`spawnSubtask` mit profileName:** Profile-Lookup geht ueber String-
+  Map (`getSubagentProfile(name)`), keine vom Modell kontrollierte
+  Pfad-Konstruktion. Kein neuer Filesystem-Surface.
+- **`subagentRoleOverride`-Inlining im System-Prompt:** der
+  roleDefinition-String aus dem Profile geht 1:1 in den Subagent-
+  System-Prompt. Profile sind im Code definiert (keine User-Eingabe),
+  also kein Prompt-Injection-Vektor vom User-Eingang aus.
+- **Per-Call-Token-Budget:** dient als Defense-in-Depth-Schutz gegen
+  riesige Subtask-Messages. Hilft auch indirekt gegen versehentliche
+  Context-Bombe. Audit-Frage: greift der Budget-Check vor jedem Spawn-
+  Pfad (Tier-4 + Profile)? Code-Beleg: ja, vor `spawnSubtask`-Aufruf.
+- **`subagentAllowedTools`-Filter:** schneidet Tools VOR den
+  deferred-/shadowed-Filtern weg. Audit-Frage: kein "Privilege
+  Escalation"-Pfad, weil Profile-Allowlist eine Untermenge der
+  registrierten Tools ist; kein Tool-Schema, das nicht in der
+  ToolRegistry vorhanden ist, kann via Profile auftauchen.
+- **`activeMcpServers`-Whitelist:** Profile-Spawn setzt `mcpClient: undefined`
+  durch. Damit hat ein Profile-Subagent keinen MCP-Zugriff; Whitelist-
+  Check wuerde ohnehin keine Server zulassen. Audit: konsistent mit
+  dem read-only-Profile-Intent.
+
+### Naechster Schritt
+
+`/testing` (Gap-Test + Coverage-Check), danach `/security-audit`, danach
+Merge nach `dev` ueber `scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`.
+
+---
+
+## FEAT-24-04 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-04
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-04
+
+Branch: `feature/feat-24-04-subagent-delegation` (Commit 98ef26d).
+
+### Testlage
+
+- `npm test`: **1460 gruen**, 149 Test-Files, 0 Failures (+21 vs dev-Baseline 1439). Die +21 Tests entsprechen 1:1 den SC-1..SC-5 (Mapping siehe BACKLOG-Row + HANDOFFS-Eintrag der /coding-Phase). Keine zusaetzlichen Unit-Tests in dieser /testing-Phase notwendig.
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `npm run lint`: 0 errors, 664 vorbestehende warnings (security/detect-object-injection, nicht FEAT-24-04-bezogen).
+- `/consistency-check` mode A: 89 findings -- **0 echte durch FEAT-24-04** verursacht. Der eine neue Finding (orphan-backlog-row fuer ADR-113) faellt unter den bekannten DIA-Checker-Regex-Bug fuer 3-stellige ADR-IDs (gleiches Pattern wie ADR-114..118).
+
+### SC-Mapping
+
+| SC | Status | Evidence |
+|---|---|---|
+| SC-1 `new_task` akzeptiert profile='research' (optional) | gruen | 5 Profile-Branch-Tests in `newTaskValidation.test.ts` + 2 Profile-Spawn-Tests in `NewTaskTool.test.ts` |
+| SC-2 Profile-Spawn schlank: roleDefinition + reduzierte Tools, rules/mcp/plugin-skills NICHT durchgereicht | gruen | `subagent-profiles.test.ts` (5 Tests) + `modeDefinition.test.ts` (3 Tests) + AgentTask.spawnSubtask code-Diff (rules/mcp/pluginSkillsSection `: undefined` im Profile-Pfad) |
+| SC-3 Per-Call-Token-Budget greift fuer beide Pfade (Default 8000) | gruen | 3 Budget-Tests in `NewTaskTool.test.ts` (Overflow, Edge, Custom-Budget) |
+| SC-4 Non-profile-Pfad unveraendert (ADR-090 Tier-4 bleibt) | gruen | Tier-4-Pfad-Test in `NewTaskTool.test.ts` + alle vorhandenen `newTaskValidation.test.ts`-Tests gruen (keine Regression auf bestehende PARALLEL/SPECIALIST/ESCALATION-Validation) |
+| SC-5 Profile-Registry erweiterbar (mind. 1 Profile) | gruen | `listSubagentProfileNames` enthaelt `research` -- assertion in `subagent-profiles.test.ts` |
+| SC-6 Live-Messlauf | `[AWAITING RE]` | Funktionsverifikation in einer Vault-Session: eine Frage, die >3 read/search-Aufrufe braucht, fuehrt zu `new_task(profile='research', ...)`-Call; Parent-Kontext waechst nur um die verdichtete Antwort; `[InputBreakdown]`-Log Beleg. Nicht autonom pruefbar. |
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-6 Eltern-Kontext-Wachstum:** Laufzeit-Telemetrie gegen den realen Agent-Loop mit gespawntem Subagent. Die Bausteine darunter (Profile-Allowlist-Filter, roleOverride im Mode-Prompt, microcompaction der Subtask-Tool-Results) sind einzeln getestet; ein End-to-End-Beleg waere ein Live-Messlauf mit `[InputBreakdown]` vor/nach Subtask.
+- **Audit-Vektoren (server-/profile-kontrollierte Inhalte, Whitelist-Synchronitaet, Privilege-Escalation via Profile-Allowlist):** sind /security-audit-Fragen, keine funktionalen Regression-Gaps. Die Profile-Definition liegt im Code (kein User-Eingabe-Vektor), das Token-Budget greift unconditional, der Tool-Allowlist-Filter schneidet vor deferred/shadowed-Filtern -- alles strukturell auf der sicheren Seite.
+
+### Fuer /security-audit
+
+Aus dem /coding-Handoff uebernommen + verifiziert via Tests:
+
+- **`spawnSubtask` mit profileName:** Profile-Lookup ueber Konstanten-Map (`getSubagentProfile(name)`), KEIN Filesystem-Surface. Code-Beleg in `subagent-profiles.ts` (PROFILES als Record-Literal).
+- **`subagentRoleOverride`-Inlining:** der `roleDefinition`-String aus dem Profile geht 1:1 in den Subagent-System-Prompt. Profile sind im Code definiert (keine User-Eingabe), kein Prompt-Injection-Vektor vom Modell-Eingang aus.
+- **Per-Call-Token-Budget:** greift vor JEDEM Spawn (Tier-4 + Profile). Code-Beleg in NewTaskTool.execute: Budget-Check liegt VOR der `context.spawnSubtask`-Aufruf. Setting-Default in settings.ts; Fallback-Konstante in NewTaskTool.ts.
+- **`subagentAllowedTools`-Filter:** Profile-Allowlist ist Untermenge der registrierten Tools; kein Tool, das nicht in der Registry vorhanden ist, kann via Profile auftauchen. Filter laeuft VOR deferred-/shadowed-Filtern in rebuildPromptCache.
+- **`mcpClient: undefined` im Profile-Spawn:** konsistent mit read-only-Intent des research-Profiles; verhindert versehentlichen MCP-Zugriff aus dem Profile-Subagent.
+- **`maxSubtaskDepth`:** Profile-Spawns honorieren weiter die Tiefe-Grenze; Profile-Description verbietet zusaetzlich `new_task` aus dem Subagent (kein Schachteln).
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-04. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`. Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-04 -- /security-audit (2026-05-13)
+
+triage: FEAT-24-04
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-04
+
+Branch: `feature/feat-24-04-subagent-delegation`. Audit-Report:
+[AUDIT-021-feat-24-04-2026-05-13.md](../analysis/AUDIT-021-feat-24-04-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **3 Info-Notes** (Pre-Emptive only, keine BACKLOG-Eintraege noetig):
+  F-1 user-eingebbare Profile waeren ein Injection-Vektor (heute Code-
+  konstant, kein Risiko), F-2 Token-Budget-Schaetzung chars/4 ist grob
+  aber als Defense-in-Depth-Bodenplatte ausreichend, F-3 mode-Override
+  beim Profile-Spawn ist by-design und in der Tool-Description
+  dokumentiert.
+
+### Hauptaudit-Vektoren (alle clean oder mehrfach mitigiert)
+
+- **Path-Traversal in spawnSubtask:** existiert nicht. Profile-Lookup
+  ueber Konstanten-Map, kein Filesystem-Surface.
+- **Resource Consumption via Subtask-Message-Bombe:** zwei unabhaengige
+  Verteidigungslinien -- Per-Call-Budget vor dem Spawn UND Pipeline-
+  HARD_TOOL_OUTPUT_CAP_CHARS (60k) am Tool-Result-Ausgang.
+- **Prompt Injection via Subagent-Inhalte:** roleDefinition Code-
+  konstant; `message` ist normale User-Message-Trust-Boundary;
+  Subagent-Antwort identisch zu jedem anderen Tool-Result. Keine neue
+  Surface.
+- **Privilege Escalation via Profile-Allowlist:** Order-of-Filters in
+  rebuildPromptCache (Profile-Allowlist FIRST, dann Deferred, dann
+  Activated-Injection mit `baseTools.find`) garantiert dass kein Tool
+  ausserhalb der Allowlist im Subagent-Schema auftaucht -- auch nicht
+  ueber `find_tool`-Aktivierung.
+- **MCP-Isolation des research-Subagent:** doppelt-gesichert. `mcpClient: undefined`
+  im Profile-Spawn UND `use_mcp_tool`/`read_mcp_tool` NICHT in der
+  research-Allowlist.
+- **Subagent-Nesting:** dreifach gesichert (maxSubtaskDepth + `new_task`
+  nicht in Allowlist + Profile-roleDefinition-Prompt-Leitplanke).
+- **Settings-Default-Migration:** Optional-Chaining + Konstanten-
+  Fallback `DEFAULT_SUBTASK_TOKEN_BUDGET = 8000` macht alte data.json-
+  Stand sauber.
+
+### Positivbefunde
+
+- **Vertrauensgrenze enger als Tier-4** beim Profile-Spawn (kein MCP,
+  keine Rules, keine Skills, eingeschraenkte Tool-Allowlist).
+- **Per-Call-Budget greift unconditional** vor jedem Spawn (Tier-4 +
+  Profile).
+- **Profile-Allowlist gewinnt strukturell** gegen alle anderen Tool-
+  Mechaniken (Order-of-Filters).
+- **Profile-roleDefinition enthaelt explizite Negativ-Anweisungen** als
+  Prompt-Leitplanke (no writes, no mode-switching, no nesting,
+  attempt_completion required).
+- **Regression-Schutz** via `subagent-profiles.test.ts`: write/edit/
+  use_mcp_tool/new_task duerfen nie in der research-Allowlist auftauchen.
+- **Konsistenz zu ADR-090:** non-profile-Pfad voll unveraendert; der
+  Profile-Pfad ergaenzt, ersetzt nicht.
+- **SCA-Baseline unveraendert** gegenueber AUDIT-020.
+
+### Architektonische Folgepunkte
+
+Keiner kritisch. F-1 (user-eingebbare Profile als zukuenftiger Injection-
+Vektor) ist ein Pre-Emptive Note fuer kuenftige Erweiterungen, kein
+heutiges Item. Mittelfristig sinnvoll: weitere Profile (`summarise`,
+`code-review`) addieren, sobald der Live-Messlauf zeigt dass `research`
+real genutzt wird.
+
+### Naechster Schritt
+
+Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`
+(User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-
+Abnahme von SC-6 in einer naechsten Vault-Session.

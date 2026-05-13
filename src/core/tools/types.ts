@@ -240,8 +240,13 @@ export interface ToolExecutionContext {
     /**
      * Spawn a child task and return its accumulated response text.
      * Used by new_task tool for multi-agent delegation.
+     *
+     * FEAT-24-04 / ADR-113: optional `profileName` selects a lean subagent
+     * profile (see src/core/agent/subagent-profiles.ts). When set, the
+     * subagent runs with the profile's roleDefinition + allowedTools
+     * instead of inheriting the parent's mode/rules/skills set.
      */
-    spawnSubtask?: (mode: string, message: string) => Promise<string>;
+    spawnSubtask?: (mode: string, message: string, profileName?: string) => Promise<string>;
 
     /**
      * Invalidate the cached system prompt and tool definitions.

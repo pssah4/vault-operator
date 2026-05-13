@@ -601,12 +601,23 @@ export function getToolsForGroup(group: ToolGroup): Array<[string, ToolMeta]> {
  * @param groups - Tool groups to include
  * @param includeExamples - Default false (compact). True emits Example / Best for / Avoid lines.
  */
-export function buildToolPromptSection(groups: ToolGroup[], includeExamples = false): string {
+export function buildToolPromptSection(
+    groups: ToolGroup[],
+    includeExamples = false,
+    /**
+     * FEAT-24-04 / ADR-113: when set, tools are filtered to the
+     * intersection of this allowlist and the group tools. Used by
+     * subagent profile spawns to restrict the tool surface.
+     */
+    allowedNames?: string[],
+): string {
+    const allowSet = allowedNames && allowedNames.length > 0 ? new Set(allowedNames) : undefined;
     const parts: string[] = [];
     for (const group of GROUP_ORDER) {
         if (!groups.includes(group)) continue;
         const header = GROUP_PROMPT_HEADERS[group];
-        const tools = getToolsForGroup(group);
+        let tools = getToolsForGroup(group);
+        if (allowSet) tools = tools.filter(([name]) => allowSet.has(name));
         if (tools.length === 0) continue;
         const lines = tools.map(([, meta]) => {
             let line = `- ${meta.signature}: ${meta.description}`;
