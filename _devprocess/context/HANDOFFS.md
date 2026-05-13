@@ -2084,3 +2084,48 @@ Bericht: `_devprocess/analysis/AUDIT-018-epic-24-welle-1-2026-05-12.md` (Per-Ite
 - **Positiv:** Re-Read-Cap faellt sicher aus (kuerzt im Zweifel mehr, nie weniger); `microcompactToolResults` kuerzt nur, exponiert nichts neu, Pairing bleibt invariant; `capOversizedToolOutput` ist eine reine getestete Bodenplatte; AttachmentHandler-Gesamtbudget verhindert Kontextfenster-Sprengung durch Riesen-Mentions, mit sichtbarem Hinweis im gekappten Text; bestehende Path-Traversal-Saeuberung des Externalizers (`safeName`-Regex) intakt. Kein neuer `fetch`/`require`/`console.log`, keine neuen Secrets, keine Race-Conditions.
 - **Release-Empfehlung (Welle-1-Code): Green.** Vor Public-Release noch noetig: manueller Provider-Messlauf zur Abnahme der `[AWAITING RE]`-SC (Cache-Hit-Rate, Token-Reduktion) -- Funktions-, keine Sicherheitsfrage.
 - **Architektonische Folgepunkte:** keine -- additive Aenderungen im bestehenden Loop, kein Vertrauensgrenzen-Redesign.
+
+---
+
+## FEAT-24-09 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-09
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-09
+
+Branch: `feature/feat-24-09-active-skills-on-demand` (off `dev`, Code-Commit `4dc6cf4`, Test-Commit folgt).
+Refs: PLAN-20, ADR-116, ADR-62 (Amendment), ADR-12 (Amendment).
+
+### Testlage
+
+- `npm test`: 1422 -> **1424** gruen (+2 SC-5-Assertion; vorher 1411 dev-Baseline). 144 Test-Files. 0 Failures. 6.4s.
+- `npm run lint`: 0 errors, 663 warnings (vorbestehend, security/detect-object-injection in HistoryPanel/OnboardingFlow/ToolPickerPopover, nicht FEAT-24-09-bezogen).
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `/consistency-check` mode A: 88 findings -- **0 durch FEAT-24-09 verursacht** (3 duplicate-backlog-id FEAT-04-01/02/04 = vorbestehender DEBT-CC-2026-05-12; 67 status-drift detail-vs-backlog = vorbestehend, in DEBT-CC erfasst; 18 orphan-backlog-row fuer 3-stellige ADR-IDs inkl. ADR-116/113/114/115/117 = DIA-Checker-Regex-Bug, lokal in der Plugin-Kopie gefixt aber upstream nicht gemergt -- separater DEBT-Eintrag).
+
+### Coverage (FEAT-24-09 spezifisch)
+
+- `src/core/tools/agent/ReadSkillTool.ts` (NEU): 6 Tests -- empty name, self-authored body+inventory, user-skill mit Frontmatter-Stripping, oversize-cap, unknown name, fehlender skillsManager.
+- `src/core/prompts/sections/skillDirectory.ts` (NEU): 4 Tests -- leer, verbatim render in `<available_skills>`, `read_skill`-Instruktion, keine per-message Marker.
+- `src/core/__tests__/systemPrompt.test.ts`: +1 Cache-Praefix-Test -- `skill-directory` direkt vor `cache-breakpoint`, kein `active-skills`/`self-authored-skills` mehr.
+- `src/core/tools/__tests__/deferredToolLoading.test.ts`: +2 SC-5-Assertion -- `isDeferredTool('read_skill') === false`, `TOOL_METADATA['read_skill'].group === 'read'` (SC-5 damit automatisiert).
+
+Coverage-Tooling im Projekt nicht installiert (`@vitest/coverage-v8` fehlt, keine `coverage`-Skripte -- bewusste Projekt-Konvention seit /testing-Welle-1). Gemessen wird ueber Test-Anzahl + gezielte Gap-Tests.
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-1 (kein Klassifikator-Call pro User-Message), SC-3 (Modell laedt eine Skill bei passender Aufgabe), SC-4 (kein Skill-Body bei nicht passender Aufgabe):** Laufzeit-/Integrationsmetriken am echten Provider (Anthropic/Bedrock/OpenAI) -- die Klassifikator-Klasse + ihre Aufrufstelle sind entfernt (Code-Diff zeigt `classifySkillsWithLlm` + `matchSkillsByKeywordAndTrigger` aus AgentSidebarView gestrichen), aber dass der Agent in der Praxis `read_skill` ruft, wenn ein Skill passt, ist Modell-Verhalten + Prompt-Quality. Verifikation = manueller Messlauf im Vault mit installiertem `office-workflow`-Skill, Aufgabe "erstelle eine Praesentation aus ..." -> `[Cost]`/`[CacheStat:*]`-Log darf keinen `classifyText`-Call vor der ersten Iteration zeigen; bei passender Aufgabe `read_skill({ name: "office-workflow" })`-Tool-Call; bei normaler Notizfrage weder Klassifikator- noch `read_skill`-Call.
+- **SC-2 (System-Prompt cache-stabil bzgl. Skills):** strukturell durch den `systemPrompt`-Cache-Praefix-Test abgesichert (skill-directory vor cache-breakpoint, kein active-skills/self-authored-skills). Live-Verifikation = `[SystemPrompt]`-Top-Sections-Log einer normalen Session.
+- **Shadow-Mode-Vergleich Klassifikator vs. Modell-Wahl:** ADR-116 Amendment 2026-05-13 hat das bewusst gestrichen (Klassifikator-Pfad wird entfernt, nicht parallel betrieben). Kein Test moeglich, kein Test noetig.
+
+### Fuer /security-audit
+
+- **`ReadSkillTool.execute({ name })` Path-Traversal-Vektor:** Tool nimmt nur einen String-`name` und schlaegt ihn in zwei In-Memory-Maps nach (`SelfAuthoredSkillLoader.getSkill(name)` Map-Lookup, dann `plugin.skillsManager.discoverSkills()` -> filter `meta.name === name`). Es wird NIEMALS ein vom Modell geliefereter Pfad an `readFile` weitergereicht -- `readFile(meta.path)` nutzt den von `discoverSkills()` ermittelten `meta.path`. Audit-Frage: ist `meta.path` aus `SkillsManager.discoverSkills()` per Konstruktion unter dem Skills-Root und nicht durch User-/Modell-Eingabe manipulierbar? Pruefen ob `discoverSkills()` Symlinks/`..` filtert.
+- **Body-Cap (`MAX_SKILL_BODY_CHARS = 24000`):** verhindert dass ein bewusst aufgeblaehtes Skill-File den Kontext sprengt; Truncation-Hinweis ohne sensible Daten.
+- **Skill-Directory-Section im stabilen Prompt-Prefix:** enthaelt nur Name + Description je Skill (kein Body, keine Pfade) -- kein PII-Leck-Vektor.
+- **`activeSkillNames` und `classifyText` Power-Steering entfernt:** Modell sieht nur noch das Verzeichnis + den `read_skill`-Result-Header. Kein latentes Prompt-Injection-Surface durch klassifizierten Inhalt.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-09 / ADR-116. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand`. Live-Messlauf-Abnahme von SC-1/3/4 (gemeinsam mit den `[AWAITING RE]`-SC aus FEAT-24-01..03) bleibt offen bis zur naechsten Vault-Session.

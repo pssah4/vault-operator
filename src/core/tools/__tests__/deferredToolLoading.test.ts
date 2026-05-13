@@ -46,6 +46,21 @@ describe('isDeferredTool (FEATURE-1600)', () => {
     });
 });
 
+describe('read_skill availability (FEAT-24-09 / ADR-116 SC-5)', () => {
+    it('is NOT deferred so loading a skill costs one roundtrip, not two', async () => {
+        // If read_skill ended up in DEFERRED_TOOL_NAMES, the agent would have
+        // to call find_tool first and the saved classifier roundtrip from
+        // ADR-116 would be cancelled out.
+        expect(isDeferredTool('read_skill')).toBe(false);
+    });
+
+    it('lives in the read tool group so it is available in Agent + Ask mode', async () => {
+        const { TOOL_METADATA } = await import('../toolMetadata');
+        expect(TOOL_METADATA['read_skill']).toBeDefined();
+        expect(TOOL_METADATA['read_skill'].group).toBe('read');
+    });
+});
+
 describe('FindToolTool matching semantics (FEATURE-1600 + BUG-021 Wave-4)', () => {
     // Reimplement the ranking inline so we can unit-test without Obsidian's
     // App instance. Mirrors the logic in FindToolTool.execute() AFTER the

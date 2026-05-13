@@ -25,6 +25,6 @@ Quelle: RESEARCH-36 Abschnitt 8 Hebel B-Teil + Abschnitt 3. Architektur: ADR-116
 3. **Modell laedt eine Skill bei passender Aufgabe:** mit installiertem `office-workflow`-Skill und Aufgabe "erstelle eine Praesentation aus ..." ruft der Agent `read_skill({ name: "office-workflow" })` und folgt anschliessend dem Workflow.
 4. **Kein Skill-Body bei nicht passender Aufgabe:** normale Notiz-/Frage-Tasks loesen weder einen Klassifikator-Call noch einen `read_skill`-Call aus; Skill-Bodies tauchen nicht in der History auf.
 5. **`read_skill` ist im Tool-Schema von Agent- und Ask-Mode verfuegbar** (Gruppe `read`, NICHT in `DEFERRED_TOOL_NAMES`).
-6. **Tests-Baseline auf dem Branch:** 1422 grün (vorher 1405 auf `dev` ohne FEAT-24-05; +6 ReadSkillTool, +4 skillDirectory, +1 systemPrompt-Cache-Praefix-Test, +6 von FEAT-24-05 = 1422).
+6. **Tests-Baseline auf dem Branch:** 1424 grün (vorher 1405 auf `dev` ohne FEAT-24-05; +6 ReadSkillTool, +4 skillDirectory, +1 systemPrompt-Cache-Praefix-Test, +2 SC-5-Assertion in deferredToolLoading.test.ts (read_skill NOT deferred + group=read), +6 von FEAT-24-05 = 1424).
 
 Shadow-Mode-Vergleich Klassifikator vs. Modell-Wahl bewusst nicht implementiert -- der Klassifikator-Pfad wird entfernt, nicht parallel betrieben (siehe ADR-116 Amendment 2026-05-13).
