@@ -2732,3 +2732,120 @@ real genutzt wird.
 Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`
 (User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-
 Abnahme von SC-6 in einer naechsten Vault-Session.
+
+---
+
+## FEAT-24-07 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing` (off `dev` 3190a70).
+Refs: PLAN-23, ADR-115 (Accepted, Amendment 2026-05-13). **Letztes
+EPIC-24-Item.**
+
+### Critical-Review-Befund vor Implementation (kein Pivot)
+
+Codebase-Recon offenbarte ein bestehendes Per-Feature-Routing-Pattern
+(`memoryModelKey`, `titlingModelKey`). Memory-Atomizer, ChatLinking-
+Titling und sogar Recipe-Promotion nutzten dieses Pattern schon
+(`plugin.getMemoryModel()`-callback fuer Recipe). ADR-115 wurde im
+Amendment 2026-05-13 entsprechend praezisiert:
+
+- 4 Call-Sites (nicht 5): condenseHistory, FastPathExecutor planner/
+  presenter, plan_presentation, RecipePromotion (Migration).
+- Out-of-scope: Memory-Atomizer (`memoryModelKey`), ChatLinking-Titling
+  (`titlingModelKey`), `classifyText` in main.ts, `hard-limit-recovery`,
+  ReAct-Hauptloop.
+- Recipe-Migration: helper-first-memory-fallback chained, damit User
+  ohne `helperModelKey` aber mit `memoryModelKey` weiter ihre Memory-
+  Modell-Config sehen.
+
+ADR-115 Status `Proposed` -> `Accepted` mit Amendment im File.
+
+### Was implementiert wurde
+
+- **`src/types/settings.ts`**: `helperModelKey: string` Top-Level
+  (Geschwister `activeModelKey`), Default `''`.
+- **`src/main.ts`**: `getHelperModel(): CustomModel | null` analog
+  `getMemoryModel`; RecipePromotion-callback helper-first-memory-fallback
+  chained mit `console.warn`-on-helper-build-fail.
+- **`src/core/helper-api.ts`** (NEU): `getHelperApi(plugin, fallback)`.
+  Fail-closed: `getHelperModel()` null -> fallback; `buildApiHandlerForModel`
+  throws -> `console.warn` + fallback; nur clean build returnt einen
+  neuen Handler.
+- **`src/core/AgentTask.ts`**: `condenseHistory` createMessage ueber
+  `getHelperApi(this.toolRegistry.plugin, this.api)`. ReAct-Hauptloop +
+  hard-limit-recovery unangetastet.
+- **`src/core/FastPathExecutor.ts`**: neue private Methode
+  `getInternalApi()` -> `getHelperApi(pipeline.getPlugin(), this.api)`.
+  Der eine createMessage-Call (Line 275, sowohl Planner als auch
+  Presenter teilen den Loop) ruft jetzt `internalApi.createMessage`.
+- **`src/core/tool-execution/ToolExecutionPipeline.ts`**: neuer
+  `getPlugin()`-accessor (read-only) damit FastPathExecutor das Plugin
+  on-demand bekommt ohne Konstruktor-Aenderung.
+- **`src/core/tools/vault/PlanPresentationTool.ts`**: `callPlanningLLM`
+  baut weiterhin `mainApi` aus `getActiveModel()` und chained dann
+  `getHelperApi(plugin, mainApi)`.
+
+### Tests
+
+`npm test`: **1464 gruen** (+4 vs dev-Baseline 1460). 150 Test-Files.
+
+- `src/core/__tests__/helper-api.test.ts` (NEU, 4 Tests):
+  - no-config-fallback (kein `helperModel` -> fallback returned)
+  - helper-built (gueltiges Modell -> mock-handler returned)
+  - build-throws-fallback (`buildApiHandlerForModel` wirft ->
+    fallback + `console.warn`)
+  - contract-only-via-getHelperModel (`getHelperApi` peekt NICHT in
+    `plugin.settings.helperModelKey`, nur via `getHelperModel()`)
+
+`npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors. `npm run build`
+gruen (tsc + esbuild + Vault-Deploy).
+
+### Abweichungen vom Plan
+
+- **FastPathExecutor-Konstruktor unveraendert.** Der Plan diskutierte
+  Option A (Konstruktor um `plugin` erweitern) und Option B (vor-
+  resolved api-Override). Realisiert wurde eine dritte Option: neuer
+  `pipeline.getPlugin()`-accessor + on-demand-Lookup im
+  `FastPathExecutor.getInternalApi()`. Vorteil: keine Aenderung der
+  `new FastPathExecutor(...)`-Call-Site in `AgentTask.ts:331`.
+
+### Bugs/Findings
+
+Keine. Kein Mid-course-Trigger waehrend Implementation.
+
+### Fuer /testing
+
+- SC-1..SC-7 sind durch +4 helper-api-Tests + unveraendertes Test-Baseline
+  abgedeckt (kein Behavior-Change mit leerem `helperModelKey`).
+- SC-8 (Live-Messlauf, `[AWAITING RE]`): Vault-Session mit konfiguriertem
+  Hilfs-Modell (z.B. Haiku), Aufgabe die condensing triggert; pruefen:
+  - `[Cost]`-Log zeigt Hilfs-Modell beim Condensing-Call
+  - Hauptloop weiterhin auf Haupt-Modell
+  - Bei leerem `helperModelKey`: kein Verhaltenswechsel
+- Coverage-Tooling im Projekt nicht installiert; Test-Anzahl-basierter
+  Beleg.
+
+### Fuer /security-audit
+
+- **`getHelperApi`-Vertrauensgrenze:** keine User-Eingabe ueber
+  Tool-Calls; nur Settings-Lookup. Fail-closed bei Build-Fehler. Console-
+  warn bei jedem Fehler. Audit-Frage: ist es robust gegen settings
+  corruption / fehlende activeModels?
+- **`pipeline.getPlugin()`-accessor:** nur read-only return des
+  bestehenden privaten Felds; keine neue Mutation-Surface.
+- **RecipePromotion-callback chain:** der `console.warn`-Pfad beim
+  helper-build-fail koennte log-spammy werden wenn das User-Setting
+  konsistent kaputt ist. Mitigation: warn ist nicht-fatal, callback
+  faellt sauber auf Memory-Modell zurueck.
+- **No new dependencies.** SCA-Baseline unveraendert.
+
+### Naechster Schritt
+
+`/testing` (Gap-Test + Coverage-Check), danach `/security-audit`, danach
+Merge nach `dev` ueber `scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`.
+**Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.**

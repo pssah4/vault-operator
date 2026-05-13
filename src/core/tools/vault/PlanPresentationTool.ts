@@ -19,6 +19,7 @@ import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import { TemplateCatalogLoader } from '../../office/pptx/TemplateCatalog';
 import type { DeckPlan, TemplateCatalog, SlideType } from '../../office/pptx/types';
+import { getHelperApi } from '../../helper-api';
 
 export class PlanPresentationTool extends BaseTool<'plan_presentation'> {
     readonly name = 'plan_presentation' as const;
@@ -166,7 +167,10 @@ export class PlanPresentationTool extends BaseTool<'plan_presentation'> {
             throw new Error('Kein aktives Modell konfiguriert. Bitte zuerst ein Modell in den Settings einrichten.');
         }
 
-        const api = buildApiHandlerForModel(model);
+        // FEAT-24-07 / ADR-115: route plan_presentation through the optional
+        // helper model. The active-model handler stays as the fallback.
+        const mainApi = buildApiHandlerForModel(model);
+        const api = getHelperApi(this.plugin, mainApi);
 
         const userPrompt =
             `SOURCE MATERIAL:\n${sourceContent}\n\n` +

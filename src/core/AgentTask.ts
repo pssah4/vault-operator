@@ -28,6 +28,7 @@ import { microcompactToolResults } from './context/MicroCompactor';
 import { filterShadowedBuiltins } from './tools/shadowedByPlugin';
 import { isDeferredTool } from './tools/toolMetadata';
 import { getSubagentProfile } from './agent/subagent-profiles';
+import { getHelperApi } from './helper-api';
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -1460,7 +1461,9 @@ export class AgentTask {
             // the generic sanitize as well so any new edge case is caught.
             const safeCondensingMessages = sanitizeAndLog(condensingMessages, 'condensing');
             logInputBreakdown('condensing', systemPrompt, safeCondensingMessages, []);
-            for await (const chunk of this.api.createMessage(
+            // FEAT-24-07 / ADR-115: route condensing through the optional helper model.
+            const condensingApi = getHelperApi(this.toolRegistry.plugin, this.api);
+            for await (const chunk of condensingApi.createMessage(
                 systemPrompt,
                 safeCondensingMessages,
                 [],
