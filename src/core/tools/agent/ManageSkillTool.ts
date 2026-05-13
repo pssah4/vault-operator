@@ -490,15 +490,15 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
             codeSection = `\n\n## Code Modules\n\n${codeParts.join('\n\n')}`;
         }
 
-        // Large skills (template skills etc.) are already injected into the system prompt via
-        // <available_skills>. Return a brief excerpt only — agent should use the system prompt
-        // context rather than re-reading the full skill body.
+        // FEAT-24-09 / ADR-116: skill bodies are no longer in the system prompt.
+        // manage_skill read is the EDITING/inspection path; the loading path for
+        // applying a skill to a task is the always-available read_skill tool.
         const BODY_LIMIT = 4000;
         const bodyDisplay = skill.body.length > BODY_LIMIT
             ? skill.body.slice(0, BODY_LIMIT) +
-              `\n\n...(body truncated — this skill (${skill.body.length} chars total) is ALREADY ACTIVE in your system prompt` +
-              ` under <available_skills>. Do NOT call read again — check your system prompt instead.` +
-              ` For template layouts call create_pptx with template name and no slides.)`
+              `\n\n...(body truncated -- this skill is ${skill.body.length} chars total. ` +
+              `If you wanted to APPLY the skill, call read_skill({ name: "${skill.name}" }) ` +
+              `instead of manage_skill read; for the full source open the file with read_file.)`
             : skill.body;
         callbacks.pushToolResult(this.formatSuccess(
             `# ${skill.name}\n\n**Description**: ${skill.description}\n**Trigger**: ${skill.triggerSource}\n**Source**: ${skill.source}\n**Used**: ${skill.successCount} time(s)\n**Tools**: ${skill.requiredTools.join(', ') || '(none)'}\n**Code Modules**: ${skill.codeModules.length > 0 ? skill.codeModules.join(', ') : '(none)'}\n\n---\n\n${bodyDisplay}${codeSection}`

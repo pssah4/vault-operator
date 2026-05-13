@@ -78,10 +78,17 @@ export class TaskMonitor {
             inputTokens,
             outputTokens,
             cacheReadTokens: cR,
+            cacheCreationTokens: cW,
             costEur: cost.totalEur,
             isSubscription,
         }));
         this.opts.footerEl.classList.remove('agent-u-hidden');
+
+        // FEAT-24-05: visible signal when the task's running cost crosses the
+        // warn threshold (the would-be API spend is worth flagging even on
+        // subscription providers). 0 disables the warning.
+        const warnEur = this.opts.plugin.settings.advancedApi.costWarnThresholdEur ?? 0;
+        this.opts.footerEl.classList.toggle('agent-cost-warn', warnEur > 0 && cost.totalEur >= warnEur);
 
         if (this.opts.contextTracker) {
             this.opts.contextTracker.updateUsage(inputTokens, outputTokens);

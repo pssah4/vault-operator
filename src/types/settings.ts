@@ -438,6 +438,14 @@ export interface AdvancedApiSettings {
     /** Maximum sub-agent nesting depth (1 = no grandchildren, 2 = one level of grandchildren) */
     maxSubtaskDepth: number;
     /**
+     * FEAT-24-04 / ADR-113: hard per-call token budget for the `new_task`
+     * message payload. If the estimated tokens (chars / 4) of the spawn
+     * message exceed this number, new_task returns a tool error with ist
+     * and soll so the model can trim the message and retry. Prevents a
+     * subagent from starting with an already overfull request. Default 8000.
+     */
+    subtaskTokenBudget: number;
+    /**
      * FEAT-24-02 (ADR-12 amendment): prune old tool_result contents to skeletons
      * at turn boundaries. Stops the dominant history-growth driver (accumulating
      * read/search results). Additive to condensing. Default true.
@@ -450,6 +458,12 @@ export interface AdvancedApiSettings {
      * `condensingThreshold`. Generous default (50) so short sessions are untouched.
      */
     rollingSummaryThreshold?: number;
+    /**
+     * FEAT-24-05: when a running task's (would-be) API cost reaches this many
+     * EUR, the cost footer in the sidebar gets a visible warning style. 0
+     * disables the warning. Default 0.5.
+     */
+    costWarnThresholdEur?: number;
     /**
      * Telemetry opt-in: persist a 200-char preview of the user's message
      * with each task's telemetry entry (.obsidian-agent/telemetry/tasks.jsonl).
@@ -553,6 +567,15 @@ export interface ObsidianAgentSettings {
      */
     activeModels: CustomModel[];
     activeModelKey: string;
+    /**
+     * FEAT-24-07 / ADR-115: optional helper-model key for agent-internal
+     * LLM calls (context condensing, fast-path planner/presenter,
+     * plan_presentation, recipe-promotion). Empty string means no helper
+     * configured; all internal calls run on the main model. Mirrors the
+     * per-feature pattern of memoryModelKey / titlingModelKey but as a
+     * generic catch-all routed via getHelperApi() in src/core/helper-api.ts.
+     */
+    helperModelKey: string;
 
     // Legacy provider settings (kept for backwards compat, not used in new UI)
     defaultProvider: string;
@@ -1031,6 +1054,7 @@ export interface VaultDNASettings {
 export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     activeModels: [],
     activeModelKey: '',
+    helperModelKey: '',           // FEAT-24-07 / ADR-115
 
     defaultProvider: 'anthropic',
     providers: {},
@@ -1080,8 +1104,10 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         powerSteeringFrequency: 0,
         maxIterations: 25,
         maxSubtaskDepth: 2,
+        subtaskTokenBudget: 8000,           // FEAT-24-04 / ADR-113
         microcompactionEnabled: true,       // FEAT-24-02
         rollingSummaryThreshold: 50,        // FEAT-24-02
+        costWarnThresholdEur: 0.5,          // FEAT-24-05
         telemetryRecordPromptPreview: false, // AUDIT-013 M-2: opt-in
     },
 

@@ -1107,6 +1107,17 @@ export default class ObsidianAgentPlugin extends Plugin {
                 console.warn('[Plugin] MemoryDB not available — memory features degraded');
                 this.memoryDB = null;
             }
+            // FIX-24-06-02: ensure MemorySourceStore is initialised once memoryDB
+            // is open. The earlier init attempt around the FrontmatterIndexer
+            // setup runs BEFORE memoryDB opens (init-order is fixed by Obsidian
+            // plugin onload), so memorySourceStore stays null otherwise.
+            // Tools that read this.memorySourceStore (list_memory_source_notes,
+            // mark/unmark_note_as_memory_source) silently failed with
+            // "MemorySourceStore not available" until this second-pass init.
+            if (this.memoryDB?.isOpen() && !this.memorySourceStore) {
+                const { MemorySourceStore } = await import('./core/knowledge/MemorySourceStore');
+                this.memorySourceStore = new MemorySourceStore(this.memoryDB);
+            }
         }
 
         // History DB (FEATURE-0320 Phase 6): per-message keyword + future cosine
@@ -1175,13 +1186,24 @@ export default class ObsidianAgentPlugin extends Plugin {
             await this.episodicExtractor.initialize().catch((e) =>
                 console.warn('[Plugin] EpisodicExtractor init failed (non-fatal):', e)
             );
-            // ADR-058: Semantic Recipe Promotion (intent-based, not sequence-based)
+            // ADR-058: Semantic Recipe Promotion (intent-based, not sequence-based).
+            // FEAT-24-07 / ADR-115: helper-model has priority; falls back to
+            // memory-model for backwards-compat with users who configured
+            // only memoryModelKey before FEAT-24-07.
             this.recipePromotionService = new RecipePromotionService(
                 this.recipeStore,
                 () => {
-                    const model = this.getMemoryModel();
-                    if (!model) return null;
-                    return buildApiHandler(modelToLLMProvider(model));
+                    const helper = this.getHelperModel();
+                    if (helper) {
+                        try {
+                            return buildApiHandler(modelToLLMProvider(helper));
+                        } catch (e) {
+                            console.warn('[RecipePromotion] helper-model build failed, falling back to memory-model:', e);
+                        }
+                    }
+                    const memModel = this.getMemoryModel();
+                    if (!memModel) return null;
+                    return buildApiHandler(modelToLLMProvider(memModel));
                 },
                 getLearnedEnabled,
                 this.episodicExtractor,
@@ -1845,6 +1867,20 @@ export default class ObsidianAgentPlugin extends Plugin {
     /** Return the memory extraction CustomModel, or null if none configured or disabled */
     getMemoryModel(): CustomModel | null {
         const key = this.settings.memory.memoryModelKey;
+        if (!key) return null;
+        const model = this.settings.activeModels.find((m) => getModelKey(m) === key);
+        if (!model || !model.enabled) return null;
+        return model;
+    }
+
+    /**
+     * FEAT-24-07 / ADR-115: return the helper-model CustomModel for
+     * agent-internal LLM calls (condensing, fast-path planner/presenter,
+     * plan_presentation, recipe-promotion), or null if none configured
+     * or disabled. Consumed via getHelperApi() in src/core/helper-api.ts.
+     */
+    getHelperModel(): CustomModel | null {
+        const key = this.settings.helperModelKey;
         if (!key) return null;
         const model = this.settings.activeModels.find((m) => getModelKey(m) === key);
         if (!model || !model.enabled) return null;

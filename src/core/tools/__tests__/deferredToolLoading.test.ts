@@ -46,6 +46,51 @@ describe('isDeferredTool (FEATURE-1600)', () => {
     });
 });
 
+describe('read_skill availability (FEAT-24-09 / ADR-116 SC-5)', () => {
+    it('is NOT deferred so loading a skill costs one roundtrip, not two', async () => {
+        // If read_skill ended up in DEFERRED_TOOL_NAMES, the agent would have
+        // to call find_tool first and the saved classifier roundtrip from
+        // ADR-116 would be cancelled out.
+        expect(isDeferredTool('read_skill')).toBe(false);
+    });
+
+    it('lives in the read tool group so it is available in Agent + Ask mode', async () => {
+        const { TOOL_METADATA } = await import('../toolMetadata');
+        expect(TOOL_METADATA['read_skill']).toBeDefined();
+        expect(TOOL_METADATA['read_skill'].group).toBe('read');
+    });
+});
+
+describe('read_mcp_tool availability (FEAT-24-06 / ADR-118 SC-3)', () => {
+    it('is NOT deferred so the truncated-description -> read -> use chain stays one round-trip', async () => {
+        // If read_mcp_tool became deferred, the model would have to call
+        // find_tool first whenever a description was truncated -- which
+        // defeats the whole point of the on-demand companion (ADR-118 D2).
+        expect(isDeferredTool('read_mcp_tool')).toBe(false);
+    });
+
+    it('lives in the mcp tool group so it is only visible when MCP is enabled', async () => {
+        const { TOOL_METADATA } = await import('../toolMetadata');
+        expect(TOOL_METADATA['read_mcp_tool']).toBeDefined();
+        expect(TOOL_METADATA['read_mcp_tool'].group).toBe('mcp');
+    });
+});
+
+describe('second deferred pass (FEAT-24-06 / ADR-118 D3)', () => {
+    it('marks inspect_self and update_settings as deferred', () => {
+        // Rarely-needed introspection and settings helpers do not need to be
+        // in every default schema; find_tool can pull them on demand.
+        expect(isDeferredTool('inspect_self')).toBe(true);
+        expect(isDeferredTool('update_settings')).toBe(true);
+    });
+
+    it('keeps TOOL_METADATA entries for the newly deferred tools so find_tool can rank them', async () => {
+        const { TOOL_METADATA } = await import('../toolMetadata');
+        expect(TOOL_METADATA['inspect_self']).toBeDefined();
+        expect(TOOL_METADATA['update_settings']).toBeDefined();
+    });
+});
+
 describe('FindToolTool matching semantics (FEATURE-1600 + BUG-021 Wave-4)', () => {
     // Reimplement the ranking inline so we can unit-test without Obsidian's
     // App instance. Mirrors the logic in FindToolTool.execute() AFTER the

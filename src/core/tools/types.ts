@@ -21,7 +21,6 @@ export type ToolName =
     | 'delete_file'
     | 'move_file'
     // Vault: structured
-    | 'create_canvas'
     | 'create_base'
     | 'update_base'
     | 'query_base'
@@ -54,6 +53,8 @@ export type ToolName =
     | 'mark_note_as_memory_source'
     | 'unmark_note_as_memory_source'
     | 'list_memory_source_notes'
+    // IMP-24-06-02: pendant to list_memory_source_notes for pinned chats
+    | 'list_pinned_conversations'
     // Web
     | 'web_fetch'
     | 'web_search'
@@ -65,9 +66,15 @@ export type ToolName =
     | 'switch_mode'
     | 'new_task'
     | 'find_tool'
+    // FEAT-24-09 / ADR-116: load a SKILL.md body on demand.
+    | 'read_skill'
     | 'update_todo_list'
     // MCP
     | 'use_mcp_tool'
+    // FEAT-24-06 / ADR-118: read the full description + input-schema summary
+    // of a single MCP tool on demand (companion to the truncated MCP listing
+    // in the system prompt).
+    | 'read_mcp_tool'
     // Skill (PAS-1)
     | 'execute_command'
     | 'resolve_capability_gap'
@@ -234,8 +241,13 @@ export interface ToolExecutionContext {
     /**
      * Spawn a child task and return its accumulated response text.
      * Used by new_task tool for multi-agent delegation.
+     *
+     * FEAT-24-04 / ADR-113: optional `profileName` selects a lean subagent
+     * profile (see src/core/agent/subagent-profiles.ts). When set, the
+     * subagent runs with the profile's roleDefinition + allowedTools
+     * instead of inheriting the parent's mode/rules/skills set.
      */
-    spawnSubtask?: (mode: string, message: string) => Promise<string>;
+    spawnSubtask?: (mode: string, message: string, profileName?: string) => Promise<string>;
 
     /**
      * Invalidate the cached system prompt and tool definitions.

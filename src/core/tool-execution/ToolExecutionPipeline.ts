@@ -88,7 +88,6 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     query_base: 'read',
     semantic_search: 'read',
     render_presentation: 'read',
-    check_presentation_quality: 'read',
     // Note content edits (write_file, edit_file, append_to_file, update_frontmatter)
     write_file: 'note-edit',
     edit_file: 'note-edit',
@@ -109,6 +108,8 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     mark_note_as_memory_source: 'note-edit',
     unmark_note_as_memory_source: 'note-edit',
     list_memory_source_notes: 'read',
+    // IMP-24-06-02: read-only listing of conversations pinned to memory
+    list_pinned_conversations: 'read',
     generate_canvas: 'vault-change',
     create_base: 'vault-change',
     update_base: 'vault-change',
@@ -189,6 +190,15 @@ export interface ContextExtensions {
 export class ToolExecutionPipeline {
     private plugin: ObsidianAgentPlugin;
     private toolRegistry: ToolRegistry;
+
+    /**
+     * FEAT-24-07 / ADR-115: read-only accessor for the parent plugin.
+     * Used by FastPathExecutor.getInternalApi to look up the configured
+     * helper model without exposing the private field directly.
+     */
+    getPlugin(): ObsidianAgentPlugin {
+        return this.plugin;
+    }
     private taskId: string;
     private mode: string;
     private apiHandler?: import('../../api/types').ApiHandler;

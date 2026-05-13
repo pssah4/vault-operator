@@ -324,26 +324,36 @@ export class SelfAuthoredSkillLoader {
     }
 
     /**
-     * Get metadata summary for system prompt (Progressive Disclosure: metadata only).
+     * Get metadata summary for the SKILLS directory in the system prompt
+     * (Progressive Disclosure / ADR-116: metadata only -- the body is loaded
+     * on demand via the `read_skill` tool).
      *
      * For skills that ship a FEATURE-2201 inventory (scripts/references/assets)
      * or a FEATURE-2204 coordinator, this method appends a nested block with
      * the filenames and sub-roles so the agent knows what to `read_file` or
      * execute via the sandbox.
+     *
+     * `allowedNames` is the optional FEAT-24-09 filter: when set, only skills
+     * whose name is in the set are rendered (used by per-mode allow-lists and
+     * manual toggles in AgentSidebarView).
      */
-    getMetadataSummary(): string {
+    getMetadataSummary(allowedNames?: ReadonlySet<string>): string {
         if (this.skills.size === 0) return '';
-        return [...this.skills.values()]
-            .map(s => this.renderSkillSummary(s))
-            .join('\n');
+        const skills = [...this.skills.values()].filter(
+            s => !allowedNames || allowedNames.has(s.name),
+        );
+        if (skills.length === 0) return '';
+        return skills.map(s => this.renderSkillSummary(s)).join('\n');
     }
 
     private renderSkillSummary(s: SelfAuthoredSkill): string {
+        // FEAT-24-09: trigger removed from the head -- in the on-demand model
+        // the LLM picks a skill by description, not by regex match.
         const codeBadge = s.codeModules.length > 0
             ? ` [code: ${s.codeModuleInfos.map(m => m.name).join(', ')}]`
             : '';
         const coordinatorBadge = s.isCoordinator ? ' (coordinator)' : '';
-        const head = `- ${s.name}${coordinatorBadge}: ${s.description} [trigger: ${s.triggerSource}]${codeBadge}`;
+        const head = `- ${s.name}${coordinatorBadge}: ${s.description}${codeBadge}`;
         const inventoryLines = this.renderInventoryLines(s);
         return inventoryLines.length === 0 ? head : [head, ...inventoryLines].join('\n');
     }

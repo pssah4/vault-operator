@@ -83,3 +83,53 @@ describe('validateNewTaskInput (FEATURE-1804 / ADR-090 Lever 4+7)', () => {
         expect(result.ok).toBe(true);
     });
 });
+
+describe('validateNewTaskInput profile path (FEAT-24-04 / ADR-113)', () => {
+    const baseProfileInput = {
+        mode: 'agent',
+        message: 'Find every meeting note that mentions Q3 and summarise the decisions',
+        profile: 'research',
+    };
+
+    it('accepts profile="research" without any justification fields', () => {
+        const result = validateNewTaskInput(baseProfileInput);
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.value.profile).toBe('research');
+            expect(result.value.justificationCategory).toBe('');
+            expect(result.value.justificationReason).toBe('');
+        }
+    });
+
+    it('still requires mode and message even with profile', () => {
+        const noMode = validateNewTaskInput({ ...baseProfileInput, mode: '' });
+        expect(noMode.ok).toBe(false);
+        const noMessage = validateNewTaskInput({ ...baseProfileInput, message: '   ' });
+        expect(noMessage.ok).toBe(false);
+    });
+
+    it('rejects an unknown profile name with the list of known profiles', () => {
+        const result = validateNewTaskInput({ ...baseProfileInput, profile: 'planner' });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error).toContain('Unknown subagent profile');
+            expect(result.error).toContain('research');
+        }
+    });
+
+    it('treats whitespace-only profile as no profile (falls back to Tier-4 path)', () => {
+        const result = validateNewTaskInput({ ...baseProfileInput, profile: '   ', justification_category: '', justification_reason: '' });
+        // Without a real profile, the Tier-4 path kicks in and demands a justification.
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error).toContain('justification_category must be');
+    });
+
+    it('mentions profile="research" as an alternative in the Tier-4 missing-category error', () => {
+        const result = validateNewTaskInput({ mode: 'agent', message: 'do a thing' });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error).toContain('PARALLEL, SPECIALIST, ESCALATION');
+            expect(result.error).toContain('profile="research"');
+        }
+    });
+});

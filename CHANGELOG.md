@@ -6,6 +6,139 @@ All notable changes to Vault Operator are documented here. Format follows
 
 ---
 
+## [2.7.4] -- 2026-05-13
+
+### Added
+
+- **EPIC-24 Wave 2+3: Agent-Loop Cost & Robustness.** Four new agent-loop
+  features that reduce cost and improve subagent ergonomics, complementing
+  Wave 1 (cache prefix, microcompaction, tool-output discipline) shipped in
+  2.7.3.
+  - **FEAT-24-09 (Active Skills, on-demand).** The skill directory now lives
+    inside the cached prompt prefix and the model loads a single skill body
+    on demand via the new `read_skill` tool. Replaces the per-message
+    keyword classifier so cache stays warm across turns. (ADR-116.)
+  - **FEAT-24-06 (MCP-Listing-Cap + on-demand detail).** MCP tool
+    descriptions in the system prompt are capped at 200 characters; the new
+    `read_mcp_tool({server, name})` tool fetches the full description and
+    input-schema summary when the model needs it. Also defers `inspect_self`
+    and `update_settings` to the deferred-tool set so they only land in the
+    schema after `find_tool` activation. (ADR-118 supersedes ADR-117.)
+  - **FEAT-24-04 (Subagent profile).** `new_task({profile: 'research'})`
+    spawns a lean subagent with a read-only tool allowlist (10 schemas vs.
+    34 in main) and a tight role definition. Parent context stays flat
+    after the subtask returns. Per-call token budget (default 8000) bounds
+    spawn messages. (ADR-113.)
+  - **FEAT-24-07 (Helper-Model-Routing).** New top-level setting
+    `helperModelKey` routes four internal LLM calls (context condensing,
+    fast-path planning, plan_presentation, recipe promotion) to a cheaper
+    helper model when set. Settable via the new "Helper model" dropdown in
+    Settings -> Vault Operator -> Agent behaviour -> Loop. Fail-closed:
+    invalid setting falls back to the main model. (ADR-115.)
+
+- **IMP-24-06-02: `list_pinned_conversations` tool.** Lists chat
+  conversations the user pinned to memory via the Star button or
+  `mark_for_memory`. Complementary to `list_memory_source_notes` (which
+  lists vault notes registered as memory-source). Reads
+  `facts.source_session_id` from the FactStore.
+
+### Changed
+
+- **IMP-24-04-01: research subagent completion discipline.** The
+  RESEARCH_PROFILE role definition now requires the subagent to put the
+  concrete output the parent asked for into `attempt_completion.result`
+  (with an explicit anti-pattern example), instead of a meta-acknowledgement
+  like "5 relevant notes identified". Reduces parent followup work and
+  cost when a subagent is spawned for structured research.
+
+### Fixed
+
+- **FIX-04-03-02 (P0, issue #34).** Claude Opus 4.7 and OpenAI GPT-5.x
+  reject any `temperature` parameter with a 400 ("temperature is
+  deprecated", "only default value 1 is supported"). The plugin sent
+  `temperature` unconditionally from five providers (anthropic, openai,
+  bedrock, kilo-gateway, chatgpt-oauth); only the OpenAI o-series was
+  skipped. New shared `modelSupportsTemperature()` helper in
+  `model-registry.ts` returns false for `claude-opus-4-7*` and `gpt-5*`
+  (normalises OpenRouter / Bedrock aliases) and all five providers now
+  omit the parameter when false. Live-reported by @edding333 on the
+  public repo.
+- **FIX-04-03-03 (P0, issue #33).** Custom OpenAI-compatible providers
+  like `opencode go` hit CORS in the Obsidian renderer. The
+  `createNodeFetch()` bypass that uses Node.js `https` to skip
+  CORS-enforcement was hardcoded to `type === 'gemini'` only, and even
+  if enabled it was hardcoded to HTTPS port 443. Makes `createNodeFetch`
+  protocol-aware (http vs https module, port 80 vs 443) and activates
+  the bypass for `custom`, `ollama`, and `lmstudio` as well as the
+  existing `gemini`. Reported by @hfr38.
+- **FIX-24-09-01 (P1).** `skill-directory` prompt section stayed hidden
+  for users who started but never finished the onboarding wizard but used
+  the plugin productively afterwards. New `isActiveOnboardingFlow()`
+  helper distinguishes "wizard currently active" from "wizard abandoned
+  but plugin is in use" by also checking `activeModels.length`.
+- **FIX-24-07-01 (P1).** `update_settings` could not write five EPIC-24
+  settings (`helperModelKey`, `subtaskTokenBudget`,
+  `microcompactionEnabled`, `rollingSummaryThreshold`,
+  `costWarnThresholdEur`) because `WRITABLE_PATHS` was not updated when
+  the settings shipped. All five paths added to the allowlist and pinned
+  by a regression test.
+- **FIX-24-07-02 (P1).** `helperModelKey` had no settings UI; only
+  settable via the `update_settings` tool or `data.json` edit. New
+  "Helper model" dropdown at the bottom of the Loop settings tab.
+- **FIX-24-06-01 (P1).** The deferred-tool filter only removed deferred
+  tools from the prompt schema; the model could still hallucinate the
+  call from training and the execution path ran the tool with hallucinated
+  arguments, wasting cost on wrong-path retries. Adds an execution-side
+  guard in `AgentTask.runTool` that returns a tool_error pointing the
+  model at `find_tool` when a deferred tool is called without activation.
+- **FIX-24-06-02 (P1).** `MemorySourceStore` was never initialised
+  because the init at `main.ts:600` checked `memoryDB?.isOpen()` before
+  `memoryDB` itself was opened ~500 lines later. All three memory-source
+  tools (list/mark/unmark) returned "MemorySourceStore not available".
+  Adds a second-pass init right after `memoryDB.open()`.
+- **FIX-24-06-03 (P1).** `read_mcp_tool` was registered in `ToolRegistry`
+  but missing from `TOOL_GROUP_MAP.mcp`, so the schema filter removed it
+  from every mode. The model tried to route the call via `use_mcp_tool`
+  to the MCP server (which rejected it as "unknown tool"). Same drift
+  pattern as BUG-021 / FIX-19-28. Adds the tool to the `mcp` group plus
+  a coverage test.
+
+### Compliance
+
+- 1490 tests passing (+23 from 2.7.3). lint clean for all touched files.
+  tsc clean. Build + deploy green.
+
+---
+
+## [2.7.3] -- 2026-05-13
+
+### Changed
+
+- **Rebrand to Vault Operator.** Plugin id and display name changed from
+  `obsilo` / "Obsilo" to `vault-operator` / "Vault Operator". Apache-2.0
+  LICENSE is now canonical. First release under the new plugin id.
+- **EPIC-24 Wave 1: Agent-Loop Cost (cache prefix + microcompaction).**
+  The system prompt is split at an explicit cache breakpoint so stable
+  sections stay cache-warm across turns. Microcompaction prunes consumed
+  tool_result blocks from the live history, freeing tokens without losing
+  task continuity. Bedrock provider added cache-point markers. Tool-output
+  externalization stays out of the cached prefix.
+
+### Fixed
+
+- Versions.json backfill: 2.7.2 was missed at release time and is now
+  included alongside 2.7.3.
+
+---
+
+## [2.7.2] -- 2026-05-12
+
+### Compliance
+
+- Lint cleanup and review-bot prep ahead of the rebrand release.
+
+---
+
 ## [2.7.1] -- 2026-05-05
 
 ### Fixed

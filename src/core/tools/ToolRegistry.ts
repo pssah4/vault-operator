@@ -31,6 +31,7 @@ import { AntiEchoSearchTool } from './vault/AntiEchoSearchTool';
 import { MarkNoteAsMemorySourceTool } from './vault/MarkNoteAsMemorySourceTool';
 import { UnmarkNoteAsMemorySourceTool } from './vault/UnmarkNoteAsMemorySourceTool';
 import { ListMemorySourceNotesTool } from './vault/ListMemorySourceNotesTool';
+import { ListPinnedConversationsTool } from './vault/ListPinnedConversationsTool';
 // Import tools — vault: intelligence (Phase 1.2)
 import { GetFrontmatterTool } from './vault/GetFrontmatterTool';
 import { UpdateFrontmatterTool } from './vault/UpdateFrontmatterTool';
@@ -71,6 +72,7 @@ import { UpdateTodoListTool } from './agent/UpdateTodoListTool';
 import { SwitchModeTool } from './agent/SwitchModeTool';
 import { NewTaskTool } from './agent/NewTaskTool';
 import { FindToolTool } from './agent/FindToolTool';
+import { ReadSkillTool } from './agent/ReadSkillTool';
 // Plugin Skills (PAS-1)
 import { ExecuteCommandTool } from './agent/ExecuteCommandTool';
 import { ResolveCapabilityGapTool } from './agent/ResolveCapabilityGapTool';
@@ -83,6 +85,7 @@ import { UpdateSettingsTool } from './agent/UpdateSettingsTool';
 import { ConfigureModelTool } from './agent/ConfigureModelTool';
 // MCP tool
 import { UseMcpToolTool } from './mcp/UseMcpToolTool';
+import { ReadMcpToolTool } from './mcp/ReadMcpToolTool';
 import type { McpClient } from '../mcp/McpClient';
 // Self-Development (Phase 1)
 import { ReadAgentLogsTool } from './agent/ReadAgentLogsTool';
@@ -126,6 +129,9 @@ export class ToolRegistry {
         );
         if (mcpClient) {
             this.register(new UseMcpToolTool(this.plugin, mcpClient));
+            // FEAT-24-06 / ADR-118: on-demand companion to the truncated MCP
+            // listing in the system prompt. NOT in DEFERRED_TOOL_NAMES.
+            this.register(new ReadMcpToolTool(this.plugin, mcpClient));
         }
     }
 
@@ -159,6 +165,7 @@ export class ToolRegistry {
         this.register(new MarkNoteAsMemorySourceTool(this.plugin));
         this.register(new UnmarkNoteAsMemorySourceTool(this.plugin));
         this.register(new ListMemorySourceNotesTool(this.plugin));
+        this.register(new ListPinnedConversationsTool(this.plugin));
         this.register(new CreateFolderTool(this.plugin));
         this.register(new DeleteFileTool(this.plugin));
         this.register(new MoveFileTool(this.plugin));
@@ -208,6 +215,9 @@ export class ToolRegistry {
         this.register(new NewTaskTool(this.plugin));
         // FEATURE-1600: meta-tool for activating deferred tools on demand
         this.register(new FindToolTool(this.plugin));
+        // FEAT-24-09 / ADR-116: load a SKILL.md body on demand (always
+        // available; skillLoader is optional and may be wired in later).
+        this.register(new ReadSkillTool(this.plugin, skillLoader ?? null));
         // Plugin Skills (PAS-1)
         this.register(new ExecuteCommandTool(this.plugin));
         this.register(new ResolveCapabilityGapTool(this.plugin));

@@ -2,6 +2,7 @@ import { App, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
 import { addInfoButton } from './utils';
+import { getModelKey } from '../../types/settings';
 
 export class LoopTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -129,6 +130,30 @@ export class LoopTab {
                         await this.plugin.saveSettings();
                     }),
             );
+
+        // FIX-24-07-02: helperModelKey UI (FEAT-24-07 / ADR-115)
+        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.loop.headingHelperModel') });
+
+        const enabledModels = this.plugin.settings.activeModels.filter((m) => m.enabled);
+        const helperSetting = new Setting(containerEl)
+            .setName(t('settings.loop.helperModelSelect'))
+            .setDesc(t('settings.loop.helperModelSelectDesc'));
+
+        if (enabledModels.length === 0) {
+            helperSetting.setDesc(t('settings.loop.noModels'));
+        }
+
+        helperSetting.addDropdown((d) => {
+            d.addOption('', t('settings.loop.helperModelDefault'));
+            for (const m of enabledModels) {
+                d.addOption(getModelKey(m), m.displayName ?? m.name);
+            }
+            d.setValue(this.plugin.settings.helperModelKey ?? '');
+            d.onChange(async (v) => {
+                this.plugin.settings.helperModelKey = v;
+                await this.plugin.saveSettings();
+            });
+        });
     }
 
 }

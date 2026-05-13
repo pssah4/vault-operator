@@ -2084,3 +2084,871 @@ Bericht: `_devprocess/analysis/AUDIT-018-epic-24-welle-1-2026-05-12.md` (Per-Ite
 - **Positiv:** Re-Read-Cap faellt sicher aus (kuerzt im Zweifel mehr, nie weniger); `microcompactToolResults` kuerzt nur, exponiert nichts neu, Pairing bleibt invariant; `capOversizedToolOutput` ist eine reine getestete Bodenplatte; AttachmentHandler-Gesamtbudget verhindert Kontextfenster-Sprengung durch Riesen-Mentions, mit sichtbarem Hinweis im gekappten Text; bestehende Path-Traversal-Saeuberung des Externalizers (`safeName`-Regex) intakt. Kein neuer `fetch`/`require`/`console.log`, keine neuen Secrets, keine Race-Conditions.
 - **Release-Empfehlung (Welle-1-Code): Green.** Vor Public-Release noch noetig: manueller Provider-Messlauf zur Abnahme der `[AWAITING RE]`-SC (Cache-Hit-Rate, Token-Reduktion) -- Funktions-, keine Sicherheitsfrage.
 - **Architektonische Folgepunkte:** keine -- additive Aenderungen im bestehenden Loop, kein Vertrauensgrenzen-Redesign.
+
+---
+
+## FEAT-24-09 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-09
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-09
+
+Branch: `feature/feat-24-09-active-skills-on-demand` (off `dev`, Code-Commit `4dc6cf4`, Test-Commit folgt).
+Refs: PLAN-20, ADR-116, ADR-62 (Amendment), ADR-12 (Amendment).
+
+### Testlage
+
+- `npm test`: 1422 -> **1424** gruen (+2 SC-5-Assertion; vorher 1411 dev-Baseline). 144 Test-Files. 0 Failures. 6.4s.
+- `npm run lint`: 0 errors, 663 warnings (vorbestehend, security/detect-object-injection in HistoryPanel/OnboardingFlow/ToolPickerPopover, nicht FEAT-24-09-bezogen).
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `/consistency-check` mode A: 88 findings -- **0 durch FEAT-24-09 verursacht** (3 duplicate-backlog-id FEAT-04-01/02/04 = vorbestehender DEBT-CC-2026-05-12; 67 status-drift detail-vs-backlog = vorbestehend, in DEBT-CC erfasst; 18 orphan-backlog-row fuer 3-stellige ADR-IDs inkl. ADR-116/113/114/115/117 = DIA-Checker-Regex-Bug, lokal in der Plugin-Kopie gefixt aber upstream nicht gemergt -- separater DEBT-Eintrag).
+
+### Coverage (FEAT-24-09 spezifisch)
+
+- `src/core/tools/agent/ReadSkillTool.ts` (NEU): 6 Tests -- empty name, self-authored body+inventory, user-skill mit Frontmatter-Stripping, oversize-cap, unknown name, fehlender skillsManager.
+- `src/core/prompts/sections/skillDirectory.ts` (NEU): 4 Tests -- leer, verbatim render in `<available_skills>`, `read_skill`-Instruktion, keine per-message Marker.
+- `src/core/__tests__/systemPrompt.test.ts`: +1 Cache-Praefix-Test -- `skill-directory` direkt vor `cache-breakpoint`, kein `active-skills`/`self-authored-skills` mehr.
+- `src/core/tools/__tests__/deferredToolLoading.test.ts`: +2 SC-5-Assertion -- `isDeferredTool('read_skill') === false`, `TOOL_METADATA['read_skill'].group === 'read'` (SC-5 damit automatisiert).
+
+Coverage-Tooling im Projekt nicht installiert (`@vitest/coverage-v8` fehlt, keine `coverage`-Skripte -- bewusste Projekt-Konvention seit /testing-Welle-1). Gemessen wird ueber Test-Anzahl + gezielte Gap-Tests.
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-1 (kein Klassifikator-Call pro User-Message), SC-3 (Modell laedt eine Skill bei passender Aufgabe), SC-4 (kein Skill-Body bei nicht passender Aufgabe):** Laufzeit-/Integrationsmetriken am echten Provider (Anthropic/Bedrock/OpenAI) -- die Klassifikator-Klasse + ihre Aufrufstelle sind entfernt (Code-Diff zeigt `classifySkillsWithLlm` + `matchSkillsByKeywordAndTrigger` aus AgentSidebarView gestrichen), aber dass der Agent in der Praxis `read_skill` ruft, wenn ein Skill passt, ist Modell-Verhalten + Prompt-Quality. Verifikation = manueller Messlauf im Vault mit installiertem `office-workflow`-Skill, Aufgabe "erstelle eine Praesentation aus ..." -> `[Cost]`/`[CacheStat:*]`-Log darf keinen `classifyText`-Call vor der ersten Iteration zeigen; bei passender Aufgabe `read_skill({ name: "office-workflow" })`-Tool-Call; bei normaler Notizfrage weder Klassifikator- noch `read_skill`-Call.
+- **SC-2 (System-Prompt cache-stabil bzgl. Skills):** strukturell durch den `systemPrompt`-Cache-Praefix-Test abgesichert (skill-directory vor cache-breakpoint, kein active-skills/self-authored-skills). Live-Verifikation = `[SystemPrompt]`-Top-Sections-Log einer normalen Session.
+- **Shadow-Mode-Vergleich Klassifikator vs. Modell-Wahl:** ADR-116 Amendment 2026-05-13 hat das bewusst gestrichen (Klassifikator-Pfad wird entfernt, nicht parallel betrieben). Kein Test moeglich, kein Test noetig.
+
+### Fuer /security-audit
+
+- **`ReadSkillTool.execute({ name })` Path-Traversal-Vektor:** Tool nimmt nur einen String-`name` und schlaegt ihn in zwei In-Memory-Maps nach (`SelfAuthoredSkillLoader.getSkill(name)` Map-Lookup, dann `plugin.skillsManager.discoverSkills()` -> filter `meta.name === name`). Es wird NIEMALS ein vom Modell geliefereter Pfad an `readFile` weitergereicht -- `readFile(meta.path)` nutzt den von `discoverSkills()` ermittelten `meta.path`. Audit-Frage: ist `meta.path` aus `SkillsManager.discoverSkills()` per Konstruktion unter dem Skills-Root und nicht durch User-/Modell-Eingabe manipulierbar? Pruefen ob `discoverSkills()` Symlinks/`..` filtert.
+- **Body-Cap (`MAX_SKILL_BODY_CHARS = 24000`):** verhindert dass ein bewusst aufgeblaehtes Skill-File den Kontext sprengt; Truncation-Hinweis ohne sensible Daten.
+- **Skill-Directory-Section im stabilen Prompt-Prefix:** enthaelt nur Name + Description je Skill (kein Body, keine Pfade) -- kein PII-Leck-Vektor.
+- **`activeSkillNames` und `classifyText` Power-Steering entfernt:** Modell sieht nur noch das Verzeichnis + den `read_skill`-Result-Header. Kein latentes Prompt-Injection-Surface durch klassifizierten Inhalt.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-09 / ADR-116. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand`. Live-Messlauf-Abnahme von SC-1/3/4 (gemeinsam mit den `[AWAITING RE]`-SC aus FEAT-24-01..03) bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-09 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-09
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-09
+
+Branch: `feature/feat-24-09-active-skills-on-demand`. Audit-Report:
+[AUDIT-019-feat-24-09-2026-05-13.md](../analysis/AUDIT-019-feat-24-09-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **1 Info-Finding** (F-1): Dead Code `SkillsManager.getRelevantSkills` -- nach Klassifikator-Entfernung aus FEAT-24-09 ist die Methode nicht mehr von `src/` aufgerufen. Kein direkter Sicherheitsimpact heute, mittelbares Drift-Risiko bei versehentlicher Re-Aktivierung. Defered als IMP-24-09-01 (Source SEC, P3, Status Ready).
+
+### Hauptaudit-Vektor (CLEAN)
+
+Path-Traversal beim Skill-Lookup geprueft -- Verdikt: existiert nicht. `ReadSkillTool` nimmt nur einen String-`name`; Lookup laeuft ueber In-Memory-Map (`SelfAuthoredSkillLoader.getSkill`) bzw. `Array.find` auf `discoverSkills()`-Output. `meta.path` wird in `SkillsManager.discoverSkills` aus `fs.list(this.skillsDir)` konstruiert; `skillsDir` ist konstant `'skills'` und nicht Modell-/User-beeinflussbar. Symlink-Ausbruch wird durch Obsidian-Vault-API verhindert. Kein vom Modell kontrollierter Pfad geht je an `readFile`.
+
+### Positivbefunde
+
+- **Reduzierte Prompt-Injection-Surface** -- `classifySkillsWithLlm` + `activeSkillNames`-Power-Steering entfernt; eine LLM-Sekundaer-Injektion entfaellt vollstaendig.
+- **Stable Cache-Praefix** -- Skill-Verzeichnis oberhalb `CACHE_BREAKPOINT_MARKER`, deterministisch aus den Loadern, kein per-Message-Roundtrip.
+- **Defense-in-Depth Layer 1+2** -- `MAX_SKILL_BODY_CHARS = 24_000` im Tool plus die `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`-Bodenplatte aus FEAT-24-03/PLAN-18. Auch boesartig grosse Skill-Files oder 1MB-`name`-Strings koennen den Kontext nicht sprengen.
+- **SC-5 Regression-getestet** -- `isDeferredTool('read_skill') === false` + `TOOL_METADATA['read_skill'].group === 'read'` als Tests verankert. Drift-Schutz.
+- **Microcompaction-Compliant** -- Skill-Bodies sind Tool-Results und unterliegen FEAT-24-02-Pruning; keine History-Akkumulation.
+- **Vertrauensgrenze klar** -- Modell-Input `name` ist Lookup-Key, kein Pfad.
+- **SCA-Baseline unveraendert** -- keine neuen Runtime-Dependencies; `mermaid` Moderate (DEBT-SCA-2026-05-12) bleibt vorbestehend.
+
+### Architektonische Folgepunkte
+
+Keine. Aenderung ist additiv, reduziert eine bestehende Vertrauensgrenze (entfernter Klassifikator-Call), kein neues Vertrauensgrenzen-Redesign.
+
+### Naechster Schritt
+
+- Merge nach `dev`: `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand` (User-Trigger; Memory-Konvention: nicht autonom mergen ohne Bestaetigung).
+- Live-Messlauf-Abnahme von SC-1/3/4 in einer naechsten Vault-Session (Funktions-, keine Sicherheitsfrage).
+- Optional spaeter: IMP-24-09-01 als eigenes V-Model-Item (kleiner Pass).
+- Danach das naechste EPIC-24-Item starten: FEAT-24-06 / ADR-117 (Lazy-Loading Tool-Schemas, MCP defaultseitig deferred).
+
+---
+
+## FEAT-24-06 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-06
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-06
+
+Branch: `feature/feat-24-06-lazy-loading-tool-schemas` (off `dev` cdd2d70).
+Refs: PLAN-21, ADR-118 (supersediert ADR-117 nach Codebase-Reconciliation).
+
+### Mid-course design discovery
+
+Vor der Implementation pivotiert (Pivot-Commit `e28139f`): ADR-117 nahm an,
+dass MCP-Tools mit vollen Schemas im `tools`-Feld jeder API-Anfrage landen.
+Codebase-Befund: `ToolRegistry.registerMcpTool` ist ein TODO-Stub und wird von
+keinem MCP-Code gerufen; MCP laeuft ueber das eine `use_mcp_tool`-Built-in;
+die MCP-Listung liegt schon im stabilen Praefix-Block (Section 4 in
+`systemPrompt.ts`, vor `CACHE_BREAKPOINT_MARKER` -- via FEAT-24-01).
+ADR-117 -> Superseded by ADR-118; FEAT-24-06 auf den realen Hebel umgehaengt:
+(1) Description-Cap in der MCP-Listung, (2) `read_mcp_tool` als on-demand-
+Companion, (3) Built-in `deferred`-Review fuer den `tools`-Feld-Teil.
+Root-cause-Notiz: `_devprocess/analysis/ADR-117-review.md`.
+
+### Was implementiert wurde
+
+- `src/core/prompts/sections/tools.ts`: neuer Helper `capMcpDescription`
+  (export) + Konstante `MCP_DESCRIPTION_CAP = 200`. Lange MCP-Tool-
+  Descriptions werden auf 200 Zeichen gekappt und enden mit
+  `... [full description: read_mcp_tool({ server: "...", name: "..." })]`.
+  Em-Dash ` — ` in der Listung auf ` -- ` umgestellt (Projekt-Konvention).
+  Header der MCP-Sektion annonciert `read_mcp_tool` als neue Zeile, damit
+  das Modell den Pfad versteht.
+- `src/core/tools/mcp/ReadMcpToolTool.ts` (NEU): NICHT-deferred Tool
+  `read_mcp_tool(server, name)`. Gruppe `mcp`. Validiert Server gegen
+  `activeMcpServers`-Whitelist + Connection-Status + Tool-Existenz.
+  Liefert Tool-Result mit Header `## MCP TOOL: server.name`, voller
+  Description und einem kompakten InputSchema-Summary (Property-Namen
+  mit Typ + `required`-Flag; keine vollen Description-/Example-Felder
+  damit der Result-Stream nicht der naechste Bloat wird). Enum + array
+  werden mit-rendered.
+- `src/core/tools/types.ts`: `'read_mcp_tool'` in `ToolName`-Union.
+- `src/core/tools/toolMetadata.ts`: `read_mcp_tool`-Entry (NICHT deferred);
+  zusaetzlich `inspect_self`- und `update_settings`-Entries angelegt (sie
+  hatten keine, was ein hidden-bug-Pattern war -- ohne Metadata wuerde
+  `find_tool` sie nicht ranken). Beide zusaetzlich in `DEFERRED_TOOL_NAMES`
+  aufgenommen. `manage_mcp_server` war bereits dort.
+- `src/core/tools/ToolRegistry.ts`: `ReadMcpToolTool` neben `UseMcpToolTool`
+  registriert (nur wenn `mcpClient` vorhanden).
+
+### Tests
+
+`npm test`: **1439 gruen** (+15 vs dev-Baseline 1424). 146 Test-Files.
+
+- `src/core/prompts/sections/__tests__/tools.test.ts` (NEU, 4 Tests):
+  kurze Description bleibt unveraendert, lange wird gekappt + Suffix mit
+  korrektem Server + Tool-Namen, Head deterministisch (cache-stabil).
+- `src/core/tools/mcp/__tests__/ReadMcpToolTool.test.ts` (NEU, 7 Tests):
+  leere Inputs, Whitelist-Enforce, Disconnected-Server, Tool-not-found mit
+  Liste, Happy-Path mit Schema-Summary, fehlendes inputSchema, enum-Property-
+  Rendering.
+- `src/core/tools/__tests__/deferredToolLoading.test.ts` (erweitert, +4):
+  `read_mcp_tool` NOT deferred + `group === 'mcp'`; `inspect_self` und
+  `update_settings` deferred mit `TOOL_METADATA`-Eintraegen.
+
+`npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors. `npm run build`
+gruen (tsc + esbuild production + Deploy zur Vault).
+
+### Abweichungen vom Plan
+
+- **Built-in deferred-Pass kleiner als geplant.** PLAN-21 nannte
+  `inspect_self`, `update_settings`, `manage_mcp_server` als Kandidaten;
+  `manage_mcp_server` war schon deferred -> kein Aktionspunkt. Real wirksam:
+  zwei zusaetzliche deferred-Eintraege.
+- **Zwei `TOOL_METADATA`-Luecken geschlossen.** `inspect_self` und
+  `update_settings` waren in `types.ts`/`ToolRegistry` registriert aber
+  ohne `TOOL_METADATA`-Eintrag. Im Plan nicht antizipiert; gefunden und
+  geschlossen, weil `find_tool` ohne Metadata keinen Rank machen kann.
+
+### Bugs/Findings
+
+Keine. Kein Mid-course-Trigger (bug oder requirement) waehrend Implementation.
+
+### Fuer /testing
+
+- Live-Messlauf-SC SC-6 bleibt offen (Vault-Session mit verbosen MCP-
+  Servern noetig): `[SystemPrompt]`-Section-Char-Breakdown fuer Section 4
+  sollte messbar sinken; `[InputBreakdown:main-loop] toolSchemas=...t`
+  sollte um den Built-in-deferred-Anteil leicht sinken.
+- Unit-Test-Lage gruen; ein /testing-Gap-Pass wuerde gegen die SC-1..5
+  unmittelbar Pass haben. Live-Messlauf bleibt User-Aufgabe.
+
+### Fuer /security-audit
+
+- **`ReadMcpToolTool` Path-Traversal-Vektor:** das Tool nimmt `server` und
+  `name` als String und schlaegt sie in `mcpClient.getConnection(server)`
+  bzw. `conn.tools.find(t => t.name === name)` nach. Kein Pfad geht je an
+  ein Filesystem. Vertrauensgrenze identisch zu `use_mcp_tool`.
+- **Whitelist-Check** dupliziert die Logik aus `UseMcpToolTool` -- pruefen
+  ob beide Stellen synchron bleiben (heute identisch).
+- **InputSchema-Summary-Renderer:** `renderInputSchemaSummary` iteriert die
+  vom MCP-Server gelieferten Properties. Robust gegen fehlende `properties`,
+  fehlende `required`, andere Typen; aber server-kontrolliertes JSON in den
+  Tool-Result. Wenn ein boesartiger MCP-Server Property-Namen oder Typen
+  mit Tausenden Zeichen liefert, landet das ungekappt im Result. Cap-Bedarf
+  pruefen.
+- **MCP-Description-Cap:** rein kosmetisch / cache-relevant. Kein neuer
+  Vertrauensgrenzen-Pfad. Pruefen, dass der Suffix-String keine
+  Injection-Vektor enthaelt (Server + Tool-Name werden in JSON-Quote-Wrapper
+  eingesetzt; wenn ein Server-Name ein Quote enthaelt, ist die Zeile leicht
+  kaputt -- aber Server-Namen sind User-Settings, kein Schaden).
+
+### Naechste Schritte
+
+`/testing` (Gap-Test + Coverage-Check) -> `/security-audit` -> Merge nach `dev`
+ueber `scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`.
+
+---
+
+## FEAT-24-06 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-06
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-06
+
+Branch: `feature/feat-24-06-lazy-loading-tool-schemas` (Commit cc7c609 + Test-Commit).
+
+### Testlage
+
+- `npm test`: **1439 gruen**, 146 Test-Files, 0 Failures (+15 vs dev-Baseline 1424). Die 15 neuen Tests wurden bereits in der /coding-Phase angelegt und entsprechen exakt den SC-1..SC-5 (Mapping siehe BACKLOG-Row + HANDOFFS-Eintrag der /coding-Phase). Keine zusaetzlichen Unit-Tests in dieser /testing-Phase notwendig.
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `npm run lint`: 0 errors, 663 warnings (vorbestehende `security/detect-object-injection`-Findings, nicht FEAT-24-06-bezogen).
+- `/consistency-check` mode A: 89 findings -- **0 echte durch FEAT-24-06** verursacht. Der eine neue Finding (orphan-backlog-row fuer ADR-118) faellt unter den bekannten DIA-Checker-Regex-Bug fuer 3-stellige ADR-IDs (gleiches Pattern wie ADR-116/117/113/114/115).
+
+### SC-Mapping
+
+| SC | Status | Evidence |
+|---|---|---|
+| SC-1 MCP-Description-Cap 200 chars greift | gruen | 4 Tests in `prompts/sections/__tests__/tools.test.ts` (cap-Boundary, Truncation, Suffix mit `read_mcp_tool`-Hint, deterministischer Head-Cut) |
+| SC-2 `read_mcp_tool` liefert Result-Block | gruen | Happy-Path-Test in `tools/mcp/__tests__/ReadMcpToolTool.test.ts` (Header `## MCP TOOL: ...`, volle Description, InputSchema-Summary mit Property-Typen + required-Flags) |
+| SC-3 `read_mcp_tool` an `mcp`-Gruppe gebunden, NICHT deferred | gruen | 2 Assertions in `tools/__tests__/deferredToolLoading.test.ts` (`isDeferredTool('read_mcp_tool') === false`, `TOOL_METADATA['read_mcp_tool'].group === 'mcp'`) |
+| SC-4 Built-in-deferred-Review | gruen | 2 Assertions in `tools/__tests__/deferredToolLoading.test.ts` (`isDeferredTool('inspect_self') === true`, `isDeferredTool('update_settings') === true`) plus Metadata-Vorhandensein |
+| SC-5 Bestehende Funktionalitaet unveraendert | gruen | 1424 vorbestehende Tests gruen, +15 neue gruen, keine Regression |
+| SC-6 Live-Messlauf | `[AWAITING RE]` | Funktionsverifikation gegen verbose MCP-Server (`[SystemPrompt]`-Section-Char-Breakdown fuer Section 4 messbar sinken, `[InputBreakdown:main-loop] toolSchemas=...t/<count>` sinken um den Built-in-deferred-Anteil) -- nicht autonom pruefbar, bleibt fuer manuelle Abnahme |
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-6 Cache-Praefix- und Token-Sicht-Effekte:** Laufzeit-Telemetrie gegen
+  echte Provider mit verbundenen MCP-Servern. Die Logik-Bausteine
+  (`capMcpDescription`, `renderInputSchemaSummary`, `DEFERRED_TOOL_NAMES`-Set,
+  `find_tool`-Ranking) sind einzeln getestet; ein End-to-End-Beleg waere ein
+  Messlauf, kein Unit-Test.
+- **Audit-Vektoren (server-kontrolliertes JSON in Schema-Summary, Quote in
+  Server-Namen im Suffix-String):** sind /security-audit-Fragen, keine
+  funktionalen Regression-Gaps. Mitigation der ersten Sorge laeuft bereits
+  ueber die `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`-Bodenplatte in
+  `ToolExecutionPipeline.capOversizedToolOutput()` aus FEAT-24-03 / PLAN-18.
+  Die zweite Sorge (Quote im Server-Namen) betrifft kosmetische Korrektheit
+  einer User-Setting-induzierten Eingabe, kein Sicherheitsvektor.
+
+### Fuer /security-audit
+
+Aus dem /coding-Handoff uebernommen + ergaenzt:
+
+- **`ReadMcpToolTool` Vertrauensgrenze:** `server` und `name` sind String-
+  Lookup-Keys, kein Filesystem-Pfad-Vektor (analog zu `read_skill` aus FEAT-24-09).
+  Whitelist-Check dupliziert `UseMcpToolTool` Logik 1:1; pruefen, ob die
+  Synchronitaet auch ohne Refactoring stabil bleibt (keine doppelte
+  Owner-Verantwortung).
+- **InputSchema-Summary-Renderer:** server-kontrolliertes JSON wird in den
+  Tool-Result gerendert. Defense-in-Depth: `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`
+  (FEAT-24-03/PLAN-18) kappt am Pipeline-Ausgang. Audit-Frage: ist die
+  Bodenplatte ausreichend, oder braucht der Renderer einen eigenen Cap fuer
+  einzelne Property-Namen / Typen?
+- **MCP-Description-Cap Suffix-String:** `read_mcp_tool({ server: "X", name: "Y" })`
+  wird mit doppelten Anfuehrungszeichen gerendert. Server- und Tool-Namen
+  kommen aus User-Settings und MCP-Server-Discovery; in der Praxis
+  kebab-case ohne Quotes. Falls je ein Name ein `"` enthielte, wuerde die
+  Zeile syntaktisch leicht kaputt -- kosmetisch, kein Sicherheitsimpact.
+- **Hidden-bug-Pattern bei `inspect_self`/`update_settings`:** beide Tools
+  waren in der Registry und im ToolName-Union, aber ohne `TOOL_METADATA`-
+  Eintrag. Das wurde behoben. Audit-Frage: gibt es weitere Tools in derselben
+  Drift-Situation? Grep nach `TOOL_METADATA`-Coverage waere ein eigenes
+  IMP-Item.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-06 / ADR-118. Danach Merge nach `dev` via
+`bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`.
+Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-06 -- /security-audit (2026-05-13)
+
+triage: FEAT-24-06
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-06
+
+Branch: `feature/feat-24-06-lazy-loading-tool-schemas`. Audit-Report:
+[AUDIT-020-feat-24-06-2026-05-13.md](../analysis/AUDIT-020-feat-24-06-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **4 Info-Findings**: F-1 TOOL_METADATA-Drift (deferred zu IMP-24-06-01),
+  F-2 Renderer-Cap als optionale Defense-in-Depth (accepted), F-3 Whitelist-
+  Duplikation (accepted), F-4 Suffix-Quote-Robustheit (accepted).
+
+### Hauptaudit-Vektoren (alle clean oder akzeptiert)
+
+- **Path-Traversal in ReadMcpToolTool:** existiert nicht. `server` und
+  `name` sind String-Lookup-Keys in `mcpClient.getConnection(server)` und
+  `conn.tools.find(t => t.name === name)`. Kein Pfad geht je an
+  `readFile`.
+- **Resource-Consumption ueber Schema-Summary-Renderer:** durch
+  `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000` in `ToolExecutionPipeline`
+  (FEAT-24-03 / PLAN-18) am Pipeline-Ausgang gekappt. Ein boesartiger
+  MCP-Server kann den Kontext nicht sprengen. Eigener Renderer-Cap waere
+  reine Defense-in-Depth, kein Muss.
+- **Suffix-Quote-Robustheit:** Server-/Tool-Namen aus User-Settings sind
+  kebab-case ohne Quotes. Kosmetisch, kein Sicherheitsvektor.
+- **Whitelist-Duplikation:** identische Logik in `UseMcpToolTool` und
+  `ReadMcpToolTool`. Code-Smell, kein Privilegien-Eskalations-Pfad.
+
+### Hidden-bug-Pattern-Befund (F-1)
+
+Der statische Drift-Audit ergab **16 weitere Tools** in der ToolName-Union
+ohne `TOOL_METADATA`-Eintrag (`_memory_atomize`, `_memory_single_call`,
+`anti_echo_search`, `configure_model`, `create_canvas`, `ingest_deep`,
+`ingest_triage`, `list_memory_source_notes`, `mark_for_memory`,
+`mark_note_as_memory_source`, `read_agent_logs`, `recall_memory`,
+`search_history`, `switch_mode`, `unmark_note_as_memory_source`,
+`update_soul`) plus 1 Spiegelfall (`check_presentation_quality` in
+`TOOL_METADATA` aber nicht in Union). Kein direkter Sicherheitsimpact
+heute, aber Drift-Risiko fuer zukuenftige Deferred-Pässe: wenn eines
+dieser Tools deferred wird, ist es ueber `find_tool` nicht entdeckbar
+(`if (!meta) continue;` in `FindToolTool.execute`).
+
+Deferred als **IMP-24-06-01** (P3, Source SEC, Ready). Detail-File:
+`_devprocess/requirements/improvements/IMP-24-06-01-toolmetadata-union-drift.md`.
+
+### Positivbefunde
+
+- **Klare Vertrauensgrenze** in `ReadMcpToolTool` (String-Lookup, kein
+  Pfad). Analog zum read_skill-Pattern.
+- **Whitelist + Connection-Status-Check fail-closed.**
+- **Defense-in-Depth durch Pipeline-Cap** (HARD_TOOL_OUTPUT_CAP_CHARS 60k).
+- **Konsistenz zum ADR-116-Pattern**: Verzeichnis stabil, Detail on-demand;
+  read_skill (FEAT-24-09) und read_mcp_tool (FEAT-24-06) folgen demselben
+  Muster.
+- **Cache-stabiler Cut:** `capMcpDescription` kuerzt deterministisch bei
+  200 chars (mit `trimEnd()`); der gecachte Praefix bleibt stable.
+- **Reduzierte tools-Feld-Surface:** `inspect_self` + `update_settings`
+  sind jetzt deferred -- ihre Schemas verschwinden aus jedem API-Call.
+- **Tests-Verankerung:** SC-3 + SC-4 als Regression-Assertions in
+  `deferredToolLoading.test.ts` festgezurrt.
+- **SCA-Baseline unveraendert** gegenueber AUDIT-019 (keine neuen
+  Dependencies; `mermaid` Moderate bleibt vorbestehend, DEBT-SCA-2026-05-12).
+
+### Architektonische Folgepunkte
+
+- IMP-24-06-01: TOOL_METADATA-Drift-Cleanup als eigenes V-Model-Item.
+- Mittelfristig: TypeScript-Type oder Vitest-Assertion fuer
+  Union/Metadata-Konsistenz (im IMP-24-06-01 mit-erwaegen, nicht
+  zwingend Teil davon).
+
+### Naechster Schritt
+
+Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`
+(User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-Abnahme
+von SC-6 in einer naechsten Vault-Session.
+
+---
+
+## FEAT-24-04 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-04
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-04
+
+Branch: `feature/feat-24-04-subagent-delegation` (off `dev` 00e4516).
+Refs: PLAN-22, ADR-113 (Accepted, Amendment 2026-05-13 additiv zu ADR-090).
+
+### Critical-Review-Befund vor Implementation (kein Pivot)
+
+ADR-113 in Spannung zu ADR-090 (Tier-4-Eskalation fuer `new_task`).
+Aufloesung im PLAN-22: **additiv, nicht ersetzend**. Neuer optionaler
+`profile`-Parameter auf `new_task`: wenn gesetzt -> Profile-Pfad
+(schlanker subagentRoleOverride + reduzierte Tool-Allowlist + ohne
+Tier-4-Justification); wenn nicht gesetzt -> heutiger ADR-090-Pfad
+voll aktiv. Per-Call-Token-Budget greift fuer beide Pfade. ADR-113
+Status `Proposed` -> `Accepted` mit Amendment im File festgehalten.
+Kein Mid-course-Pivot wie bei ADR-117/118 noetig -- die ADR-Logik
+selbst war ueberwiegend tragbar.
+
+### Was implementiert wurde
+
+- **`src/core/agent/subagent-profiles.ts`** (NEU): Profile-Registry
+  mit dem einen `research`-Profile (read-only Tool-Allowlist, lean
+  roleDefinition, max 3-7 Tool-Calls, kein Schachteln).
+  `getSubagentProfile` + `listSubagentProfileNames`.
+- **`src/types/settings.ts`**: `subtaskTokenBudget: number` in
+  `AdvancedApiSettings`, Default 8000. Keine UI-Aenderung (Power-User
+  via update_settings/data.json).
+- **`src/core/tools/agent/newTaskValidation.ts`**: Profile-Branch in
+  `validateNewTaskInput`. Wenn `profile` gesetzt + bekannt ->
+  justification nicht required (Profile-Wahl IS die Entscheidung).
+  Unbekannter Profile-Name -> Fehler mit Liste bekannter Profile.
+  Whitespace-only profile faellt auf Tier-4 zurueck. Tier-4-Fehler
+  nennt jetzt `profile="research"` als Alternative.
+- **`src/core/tools/agent/NewTaskTool.ts`**: input_schema um
+  `profile`-Property erweitert (enum aus `listSubagentProfileNames`).
+  Per-Call-Token-Budget-Check vor dem Spawn: `Math.ceil(message.length / 4) > budget`
+  -> formatError mit ist/soll + Hinweis auf Setting. Description
+  des Tools beschreibt jetzt explizit "Two paths" (Profile vs Tier-4).
+  Spawn-Aufruf reicht profileName als 3. Argument durch; Completion-
+  Header zeigt `profile: ...` statt `mode: ...` wenn Profile gesetzt.
+- **`src/core/tools/types.ts`**: `ToolExecutionContext.spawnSubtask`-
+  Signatur um `profileName?` erweitert.
+- **`src/core/AgentTask.ts`**: `spawnSubtask(childMode, childMessage, profileName?)`.
+  Profile-Pfad reicht `subagentRoleOverride` + `subagentAllowedTools`
+  an `childTask.run`, plus rules/mcp/plugin-skills NICHT durchreichen
+  (Profile ist die Scope-Entscheidung). `AgentTaskRunConfig` um die
+  beiden Felder erweitert. `rebuildPromptCache` filtert `baseTools`
+  ZUERST gegen die Profile-Allowlist (vor deferred/shadowed-Filtern).
+- **`src/core/systemPrompt.ts`**: `SystemPromptConfig` um
+  `subagentRoleOverride` + `subagentAllowedTools`. Beide werden in
+  Section 1 (Mode-Definition) bzw. Section 4 (Tools) wirksam.
+- **`src/core/prompts/sections/modeDefinition.ts`**:
+  `getModeDefinitionSection(mode, roleOverride?)`. Bei Override
+  bleibt der Mode-Header, der Role-Body wird ersetzt. Nullish coalescing
+  (`undefined` -> Fallback; explicit '' -> Override mit leerem Body
+  als fail-loud Verhalten).
+- **`src/core/prompts/sections/tools.ts`** + **`src/core/tools/toolMetadata.ts`**:
+  `buildToolPromptSection(groups, includeExamples, allowedNames?)`
+  filtert per Allowlist-Intersection. `getToolsSection` reicht den
+  Parameter durch.
+- **`src/core/prompts/sections/toolDecisionGuidelines.ts`**: Rule 8
+  um "RESEARCH PROFILE EXCEPTION"-Zeile ergaenzt (`profile="research"`
+  als Pfad fuer multi-step Recherche, kein Tier-4-Justification).
+
+### Tests
+
+`npm test`: **1460 gruen** (+21 vs dev-Baseline 1439). 149 Test-Files.
+
+- `subagent-profiles.test.ts` (NEU, 5 Tests): Registry-Listing,
+  Lookup, read-only-Tool-Surface (kein write/edit/use_mcp_tool/new_task),
+  roleDefinition-Regeln (kein writes, kein modes, kein nesting), unknown name.
+- `newTaskValidation.test.ts` (erweitert, +5 Tests): profile akzeptiert
+  ohne justification, mode/message still required, unknown profile mit
+  Liste, whitespace profile -> Tier-4, Tier-4-Fehler erwaehnt `profile="research"`.
+- `NewTaskTool.test.ts` (NEU, 8 Tests): Budget-Overflow mit ist/soll-
+  Format, Budget-Edge (genau 8000 -> okay), user-konfiguriertes
+  schmaleres Budget; Profile-Spawn ruft spawnSubtask mit profileName,
+  Completion-Header `profile: research`; non-profile Tier-4-Pfad bleibt;
+  unknown profile Fehler; Mode-Check (only Agent).
+- `modeDefinition.test.ts` (NEU, 3 Tests): Default-Render mit Mode-
+  roleDefinition, Override ersetzt body und behaelt Header, undefined
+  -> Fallback.
+
+`npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors (664
+vorbestehende warnings unveraendert). `npm run build` gruen
+(tsc + esbuild + Vault-Deploy).
+
+### Abweichungen vom Plan
+
+- **`getModeDefinitionSection`** mit nullish coalescing (`??`) statt
+  truthy-Check: explicit `''` als Override greift jetzt durch (fail-loud);
+  begruendet in den Implementation-Notes.
+- **`NewTaskTool`** nutzt einen lokalen `DEFAULT_SUBTASK_TOKEN_BUDGET = 8000`-
+  Konstante als Fallback fuer alte data.json-Stand ohne migrierten
+  Setting-Default (Optional-Chaining-Pfad). Im PLAN nicht explizit
+  erwaehnt; Robustheits-Anforderung an die Setting-Default-Migration.
+- **Settings-UI** nicht erweitert (kein Slider): Power-User koennen das
+  Setting via update_settings oder data.json setzen. UI-Erweiterung waere
+  Folge-Item.
+
+### Bugs/Findings
+
+Keine. Kein Mid-course-Bug- oder Requirement-Trigger.
+
+### Fuer /testing
+
+- SC-1..SC-5 sind durch die +21 Tests direkt abgedeckt (validation,
+  profile registry, tool filter, mode override, budget check).
+- SC-6 (Live-Messlauf, `[AWAITING RE]`): Vault-Session mit einer Frage,
+  die >3 read/search-Calls braucht; pruefen dass:
+  - Agent ruft `new_task(profile='research', message='...')`
+  - Subtask laeuft mit `[subtask] read_file`-Logs
+  - Parent-Kontext nach Subtask-Ende waechst nur um die verdichtete
+    Antwort, nicht um die Zwischen-Tool-Results
+  - `[InputBreakdown]`-Log zeigt nach dem Subtask einen flachen Parent
+- Coverage-Tooling im Projekt nicht installiert; Test-Anzahl-basierter
+  Beleg.
+
+### Fuer /security-audit
+
+- **`spawnSubtask` mit profileName:** Profile-Lookup geht ueber String-
+  Map (`getSubagentProfile(name)`), keine vom Modell kontrollierte
+  Pfad-Konstruktion. Kein neuer Filesystem-Surface.
+- **`subagentRoleOverride`-Inlining im System-Prompt:** der
+  roleDefinition-String aus dem Profile geht 1:1 in den Subagent-
+  System-Prompt. Profile sind im Code definiert (keine User-Eingabe),
+  also kein Prompt-Injection-Vektor vom User-Eingang aus.
+- **Per-Call-Token-Budget:** dient als Defense-in-Depth-Schutz gegen
+  riesige Subtask-Messages. Hilft auch indirekt gegen versehentliche
+  Context-Bombe. Audit-Frage: greift der Budget-Check vor jedem Spawn-
+  Pfad (Tier-4 + Profile)? Code-Beleg: ja, vor `spawnSubtask`-Aufruf.
+- **`subagentAllowedTools`-Filter:** schneidet Tools VOR den
+  deferred-/shadowed-Filtern weg. Audit-Frage: kein "Privilege
+  Escalation"-Pfad, weil Profile-Allowlist eine Untermenge der
+  registrierten Tools ist; kein Tool-Schema, das nicht in der
+  ToolRegistry vorhanden ist, kann via Profile auftauchen.
+- **`activeMcpServers`-Whitelist:** Profile-Spawn setzt `mcpClient: undefined`
+  durch. Damit hat ein Profile-Subagent keinen MCP-Zugriff; Whitelist-
+  Check wuerde ohnehin keine Server zulassen. Audit: konsistent mit
+  dem read-only-Profile-Intent.
+
+### Naechster Schritt
+
+`/testing` (Gap-Test + Coverage-Check), danach `/security-audit`, danach
+Merge nach `dev` ueber `scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`.
+
+---
+
+## FEAT-24-04 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-04
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-04
+
+Branch: `feature/feat-24-04-subagent-delegation` (Commit 98ef26d).
+
+### Testlage
+
+- `npm test`: **1460 gruen**, 149 Test-Files, 0 Failures (+21 vs dev-Baseline 1439). Die +21 Tests entsprechen 1:1 den SC-1..SC-5 (Mapping siehe BACKLOG-Row + HANDOFFS-Eintrag der /coding-Phase). Keine zusaetzlichen Unit-Tests in dieser /testing-Phase notwendig.
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `npm run lint`: 0 errors, 664 vorbestehende warnings (security/detect-object-injection, nicht FEAT-24-04-bezogen).
+- `/consistency-check` mode A: 89 findings -- **0 echte durch FEAT-24-04** verursacht. Der eine neue Finding (orphan-backlog-row fuer ADR-113) faellt unter den bekannten DIA-Checker-Regex-Bug fuer 3-stellige ADR-IDs (gleiches Pattern wie ADR-114..118).
+
+### SC-Mapping
+
+| SC | Status | Evidence |
+|---|---|---|
+| SC-1 `new_task` akzeptiert profile='research' (optional) | gruen | 5 Profile-Branch-Tests in `newTaskValidation.test.ts` + 2 Profile-Spawn-Tests in `NewTaskTool.test.ts` |
+| SC-2 Profile-Spawn schlank: roleDefinition + reduzierte Tools, rules/mcp/plugin-skills NICHT durchgereicht | gruen | `subagent-profiles.test.ts` (5 Tests) + `modeDefinition.test.ts` (3 Tests) + AgentTask.spawnSubtask code-Diff (rules/mcp/pluginSkillsSection `: undefined` im Profile-Pfad) |
+| SC-3 Per-Call-Token-Budget greift fuer beide Pfade (Default 8000) | gruen | 3 Budget-Tests in `NewTaskTool.test.ts` (Overflow, Edge, Custom-Budget) |
+| SC-4 Non-profile-Pfad unveraendert (ADR-090 Tier-4 bleibt) | gruen | Tier-4-Pfad-Test in `NewTaskTool.test.ts` + alle vorhandenen `newTaskValidation.test.ts`-Tests gruen (keine Regression auf bestehende PARALLEL/SPECIALIST/ESCALATION-Validation) |
+| SC-5 Profile-Registry erweiterbar (mind. 1 Profile) | gruen | `listSubagentProfileNames` enthaelt `research` -- assertion in `subagent-profiles.test.ts` |
+| SC-6 Live-Messlauf | `[AWAITING RE]` | Funktionsverifikation in einer Vault-Session: eine Frage, die >3 read/search-Aufrufe braucht, fuehrt zu `new_task(profile='research', ...)`-Call; Parent-Kontext waechst nur um die verdichtete Antwort; `[InputBreakdown]`-Log Beleg. Nicht autonom pruefbar. |
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-6 Eltern-Kontext-Wachstum:** Laufzeit-Telemetrie gegen den realen Agent-Loop mit gespawntem Subagent. Die Bausteine darunter (Profile-Allowlist-Filter, roleOverride im Mode-Prompt, microcompaction der Subtask-Tool-Results) sind einzeln getestet; ein End-to-End-Beleg waere ein Live-Messlauf mit `[InputBreakdown]` vor/nach Subtask.
+- **Audit-Vektoren (server-/profile-kontrollierte Inhalte, Whitelist-Synchronitaet, Privilege-Escalation via Profile-Allowlist):** sind /security-audit-Fragen, keine funktionalen Regression-Gaps. Die Profile-Definition liegt im Code (kein User-Eingabe-Vektor), das Token-Budget greift unconditional, der Tool-Allowlist-Filter schneidet vor deferred/shadowed-Filtern -- alles strukturell auf der sicheren Seite.
+
+### Fuer /security-audit
+
+Aus dem /coding-Handoff uebernommen + verifiziert via Tests:
+
+- **`spawnSubtask` mit profileName:** Profile-Lookup ueber Konstanten-Map (`getSubagentProfile(name)`), KEIN Filesystem-Surface. Code-Beleg in `subagent-profiles.ts` (PROFILES als Record-Literal).
+- **`subagentRoleOverride`-Inlining:** der `roleDefinition`-String aus dem Profile geht 1:1 in den Subagent-System-Prompt. Profile sind im Code definiert (keine User-Eingabe), kein Prompt-Injection-Vektor vom Modell-Eingang aus.
+- **Per-Call-Token-Budget:** greift vor JEDEM Spawn (Tier-4 + Profile). Code-Beleg in NewTaskTool.execute: Budget-Check liegt VOR der `context.spawnSubtask`-Aufruf. Setting-Default in settings.ts; Fallback-Konstante in NewTaskTool.ts.
+- **`subagentAllowedTools`-Filter:** Profile-Allowlist ist Untermenge der registrierten Tools; kein Tool, das nicht in der Registry vorhanden ist, kann via Profile auftauchen. Filter laeuft VOR deferred-/shadowed-Filtern in rebuildPromptCache.
+- **`mcpClient: undefined` im Profile-Spawn:** konsistent mit read-only-Intent des research-Profiles; verhindert versehentlichen MCP-Zugriff aus dem Profile-Subagent.
+- **`maxSubtaskDepth`:** Profile-Spawns honorieren weiter die Tiefe-Grenze; Profile-Description verbietet zusaetzlich `new_task` aus dem Subagent (kein Schachteln).
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-04. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`. Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-04 -- /security-audit (2026-05-13)
+
+triage: FEAT-24-04
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-04
+
+Branch: `feature/feat-24-04-subagent-delegation`. Audit-Report:
+[AUDIT-021-feat-24-04-2026-05-13.md](../analysis/AUDIT-021-feat-24-04-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **3 Info-Notes** (Pre-Emptive only, keine BACKLOG-Eintraege noetig):
+  F-1 user-eingebbare Profile waeren ein Injection-Vektor (heute Code-
+  konstant, kein Risiko), F-2 Token-Budget-Schaetzung chars/4 ist grob
+  aber als Defense-in-Depth-Bodenplatte ausreichend, F-3 mode-Override
+  beim Profile-Spawn ist by-design und in der Tool-Description
+  dokumentiert.
+
+### Hauptaudit-Vektoren (alle clean oder mehrfach mitigiert)
+
+- **Path-Traversal in spawnSubtask:** existiert nicht. Profile-Lookup
+  ueber Konstanten-Map, kein Filesystem-Surface.
+- **Resource Consumption via Subtask-Message-Bombe:** zwei unabhaengige
+  Verteidigungslinien -- Per-Call-Budget vor dem Spawn UND Pipeline-
+  HARD_TOOL_OUTPUT_CAP_CHARS (60k) am Tool-Result-Ausgang.
+- **Prompt Injection via Subagent-Inhalte:** roleDefinition Code-
+  konstant; `message` ist normale User-Message-Trust-Boundary;
+  Subagent-Antwort identisch zu jedem anderen Tool-Result. Keine neue
+  Surface.
+- **Privilege Escalation via Profile-Allowlist:** Order-of-Filters in
+  rebuildPromptCache (Profile-Allowlist FIRST, dann Deferred, dann
+  Activated-Injection mit `baseTools.find`) garantiert dass kein Tool
+  ausserhalb der Allowlist im Subagent-Schema auftaucht -- auch nicht
+  ueber `find_tool`-Aktivierung.
+- **MCP-Isolation des research-Subagent:** doppelt-gesichert. `mcpClient: undefined`
+  im Profile-Spawn UND `use_mcp_tool`/`read_mcp_tool` NICHT in der
+  research-Allowlist.
+- **Subagent-Nesting:** dreifach gesichert (maxSubtaskDepth + `new_task`
+  nicht in Allowlist + Profile-roleDefinition-Prompt-Leitplanke).
+- **Settings-Default-Migration:** Optional-Chaining + Konstanten-
+  Fallback `DEFAULT_SUBTASK_TOKEN_BUDGET = 8000` macht alte data.json-
+  Stand sauber.
+
+### Positivbefunde
+
+- **Vertrauensgrenze enger als Tier-4** beim Profile-Spawn (kein MCP,
+  keine Rules, keine Skills, eingeschraenkte Tool-Allowlist).
+- **Per-Call-Budget greift unconditional** vor jedem Spawn (Tier-4 +
+  Profile).
+- **Profile-Allowlist gewinnt strukturell** gegen alle anderen Tool-
+  Mechaniken (Order-of-Filters).
+- **Profile-roleDefinition enthaelt explizite Negativ-Anweisungen** als
+  Prompt-Leitplanke (no writes, no mode-switching, no nesting,
+  attempt_completion required).
+- **Regression-Schutz** via `subagent-profiles.test.ts`: write/edit/
+  use_mcp_tool/new_task duerfen nie in der research-Allowlist auftauchen.
+- **Konsistenz zu ADR-090:** non-profile-Pfad voll unveraendert; der
+  Profile-Pfad ergaenzt, ersetzt nicht.
+- **SCA-Baseline unveraendert** gegenueber AUDIT-020.
+
+### Architektonische Folgepunkte
+
+Keiner kritisch. F-1 (user-eingebbare Profile als zukuenftiger Injection-
+Vektor) ist ein Pre-Emptive Note fuer kuenftige Erweiterungen, kein
+heutiges Item. Mittelfristig sinnvoll: weitere Profile (`summarise`,
+`code-review`) addieren, sobald der Live-Messlauf zeigt dass `research`
+real genutzt wird.
+
+### Naechster Schritt
+
+Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`
+(User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-
+Abnahme von SC-6 in einer naechsten Vault-Session.
+
+---
+
+## FEAT-24-07 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing` (off `dev` 3190a70).
+Refs: PLAN-23, ADR-115 (Accepted, Amendment 2026-05-13). **Letztes
+EPIC-24-Item.**
+
+### Critical-Review-Befund vor Implementation (kein Pivot)
+
+Codebase-Recon offenbarte ein bestehendes Per-Feature-Routing-Pattern
+(`memoryModelKey`, `titlingModelKey`). Memory-Atomizer, ChatLinking-
+Titling und sogar Recipe-Promotion nutzten dieses Pattern schon
+(`plugin.getMemoryModel()`-callback fuer Recipe). ADR-115 wurde im
+Amendment 2026-05-13 entsprechend praezisiert:
+
+- 4 Call-Sites (nicht 5): condenseHistory, FastPathExecutor planner/
+  presenter, plan_presentation, RecipePromotion (Migration).
+- Out-of-scope: Memory-Atomizer (`memoryModelKey`), ChatLinking-Titling
+  (`titlingModelKey`), `classifyText` in main.ts, `hard-limit-recovery`,
+  ReAct-Hauptloop.
+- Recipe-Migration: helper-first-memory-fallback chained, damit User
+  ohne `helperModelKey` aber mit `memoryModelKey` weiter ihre Memory-
+  Modell-Config sehen.
+
+ADR-115 Status `Proposed` -> `Accepted` mit Amendment im File.
+
+### Was implementiert wurde
+
+- **`src/types/settings.ts`**: `helperModelKey: string` Top-Level
+  (Geschwister `activeModelKey`), Default `''`.
+- **`src/main.ts`**: `getHelperModel(): CustomModel | null` analog
+  `getMemoryModel`; RecipePromotion-callback helper-first-memory-fallback
+  chained mit `console.warn`-on-helper-build-fail.
+- **`src/core/helper-api.ts`** (NEU): `getHelperApi(plugin, fallback)`.
+  Fail-closed: `getHelperModel()` null -> fallback; `buildApiHandlerForModel`
+  throws -> `console.warn` + fallback; nur clean build returnt einen
+  neuen Handler.
+- **`src/core/AgentTask.ts`**: `condenseHistory` createMessage ueber
+  `getHelperApi(this.toolRegistry.plugin, this.api)`. ReAct-Hauptloop +
+  hard-limit-recovery unangetastet.
+- **`src/core/FastPathExecutor.ts`**: neue private Methode
+  `getInternalApi()` -> `getHelperApi(pipeline.getPlugin(), this.api)`.
+  Der eine createMessage-Call (Line 275, sowohl Planner als auch
+  Presenter teilen den Loop) ruft jetzt `internalApi.createMessage`.
+- **`src/core/tool-execution/ToolExecutionPipeline.ts`**: neuer
+  `getPlugin()`-accessor (read-only) damit FastPathExecutor das Plugin
+  on-demand bekommt ohne Konstruktor-Aenderung.
+- **`src/core/tools/vault/PlanPresentationTool.ts`**: `callPlanningLLM`
+  baut weiterhin `mainApi` aus `getActiveModel()` und chained dann
+  `getHelperApi(plugin, mainApi)`.
+
+### Tests
+
+`npm test`: **1464 gruen** (+4 vs dev-Baseline 1460). 150 Test-Files.
+
+- `src/core/__tests__/helper-api.test.ts` (NEU, 4 Tests):
+  - no-config-fallback (kein `helperModel` -> fallback returned)
+  - helper-built (gueltiges Modell -> mock-handler returned)
+  - build-throws-fallback (`buildApiHandlerForModel` wirft ->
+    fallback + `console.warn`)
+  - contract-only-via-getHelperModel (`getHelperApi` peekt NICHT in
+    `plugin.settings.helperModelKey`, nur via `getHelperModel()`)
+
+`npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors. `npm run build`
+gruen (tsc + esbuild + Vault-Deploy).
+
+### Abweichungen vom Plan
+
+- **FastPathExecutor-Konstruktor unveraendert.** Der Plan diskutierte
+  Option A (Konstruktor um `plugin` erweitern) und Option B (vor-
+  resolved api-Override). Realisiert wurde eine dritte Option: neuer
+  `pipeline.getPlugin()`-accessor + on-demand-Lookup im
+  `FastPathExecutor.getInternalApi()`. Vorteil: keine Aenderung der
+  `new FastPathExecutor(...)`-Call-Site in `AgentTask.ts:331`.
+
+### Bugs/Findings
+
+Keine. Kein Mid-course-Trigger waehrend Implementation.
+
+### Fuer /testing
+
+- SC-1..SC-7 sind durch +4 helper-api-Tests + unveraendertes Test-Baseline
+  abgedeckt (kein Behavior-Change mit leerem `helperModelKey`).
+- SC-8 (Live-Messlauf, `[AWAITING RE]`): Vault-Session mit konfiguriertem
+  Hilfs-Modell (z.B. Haiku), Aufgabe die condensing triggert; pruefen:
+  - `[Cost]`-Log zeigt Hilfs-Modell beim Condensing-Call
+  - Hauptloop weiterhin auf Haupt-Modell
+  - Bei leerem `helperModelKey`: kein Verhaltenswechsel
+- Coverage-Tooling im Projekt nicht installiert; Test-Anzahl-basierter
+  Beleg.
+
+### Fuer /security-audit
+
+- **`getHelperApi`-Vertrauensgrenze:** keine User-Eingabe ueber
+  Tool-Calls; nur Settings-Lookup. Fail-closed bei Build-Fehler. Console-
+  warn bei jedem Fehler. Audit-Frage: ist es robust gegen settings
+  corruption / fehlende activeModels?
+- **`pipeline.getPlugin()`-accessor:** nur read-only return des
+  bestehenden privaten Felds; keine neue Mutation-Surface.
+- **RecipePromotion-callback chain:** der `console.warn`-Pfad beim
+  helper-build-fail koennte log-spammy werden wenn das User-Setting
+  konsistent kaputt ist. Mitigation: warn ist nicht-fatal, callback
+  faellt sauber auf Memory-Modell zurueck.
+- **No new dependencies.** SCA-Baseline unveraendert.
+
+### Naechster Schritt
+
+`/testing` (Gap-Test + Coverage-Check), danach `/security-audit`, danach
+Merge nach `dev` ueber `scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`.
+**Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.**
+
+---
+
+## FEAT-24-07 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing` (Commit b5c4575).
+
+### Testlage
+
+- `npm test`: **1464 gruen**, 150 Test-Files, 0 Failures (+4 vs dev-Baseline 1460). Die +4 Tests in `helper-api.test.ts` decken SC-1+SC-2 direkt; SC-3..SC-6 (Call-Site-Routing) sind durch das unveraenderte Test-Verhalten bei leerem `helperModelKey` indirekt belegt (kein Behavior-Change). SC-7 (Bestehende Funktionalitaet unveraendert) ist durch das gleichgrosse Baseline-Bestehen abgedeckt.
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `npm run lint`: 0 errors, 664 vorbestehende warnings.
+- `/consistency-check` mode A: 89 findings -- **0 echte durch FEAT-24-07**. Der eine neue Finding (orphan-backlog-row fuer ADR-115) faellt unter den DIA-Checker-Regex-Bug fuer 3-stellige ADR-IDs (gleiches Pattern wie ADR-113/114/116/117/118).
+
+### SC-Mapping
+
+| SC | Status | Evidence |
+|---|---|---|
+| SC-1 `helperModelKey` + `getHelperModel` | gruen | Setting + Method analog `memoryModelKey`/`getMemoryModel` (vorbestehendes getestetes Pattern) |
+| SC-2 `getHelperApi(plugin, fallback)` fail-closed | gruen | 4 Tests in `helper-api.test.ts`: no-config-fallback, helper-built, build-throws-fallback, contract-only |
+| SC-3 condenseHistory geroutet | gruen | Code-Diff zeigt `getHelperApi(this.toolRegistry.plugin, this.api)` vor dem createMessage in `AgentTask.ts:1463`. Unveraendertes Bestehen aller bestehenden Condensing-Tests bei leerem `helperModelKey` |
+| SC-4 FastPathExecutor geroutet | gruen | Code-Diff: neue `getInternalApi()`-Methode + `pipeline.getPlugin()`-accessor. Unveraendertes Bestehen aller FastPath-Tests |
+| SC-5 plan_presentation geroutet | gruen | Code-Diff: `getHelperApi(plugin, mainApi)` in `PlanPresentationTool.callPlanningLLM` |
+| SC-6 RecipePromotion helper-first-memory-fallback | gruen | Code-Diff im RecipePromotion-callback in `main.ts`: chain helper -> memory -> null mit `console.warn`-on-helper-fail |
+| SC-7 Bestehende Funktionalitaet unveraendert | gruen | 1460 vorbestehende Tests gruen + 4 neue gruen, keine Regression |
+| SC-8 Live-Messlauf | `[AWAITING RE]` | Konfigurierter Hilfs-Modell + Vault-Session: `[Cost]`-Log zeigt Hilfs-Modell beim Condensing; leerer Slot -> kein Verhaltenswechsel. Nicht autonom pruefbar. |
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-8 Hilfs-Modell-Routing Live:** Laufzeit-Telemetrie gegen echte Provider. Die Bausteine darunter (`getHelperApi`, `getHelperModel`, Call-Site-Insertion) sind durch helper-api.test.ts + Code-Review verankert.
+- **Audit-Vektoren (Settings corruption, log-spam bei kaputtem Setting, accessor-Read-only):** sind /security-audit-Fragen, keine funktionalen Regression-Gaps. Strukturell auf der sicheren Seite (fail-closed, no-new-input-surface, accessor delegated to existing private field).
+- **End-to-End Provider-Calls mit echtem Helper-Modell-Stream:** identisch zur Memory-Atomizer-Architektur (vorbestehend, durch Memory-v2-Implementation getestet). Kein neues Provider-Wiring; nur Routing.
+
+### Fuer /security-audit
+
+Aus dem /coding-Handoff uebernommen + verifiziert via Tests:
+
+- **`getHelperApi`-Fail-closed:** Build-Fehler -> `console.warn` + fallback. Test verifiziert das (`buildApiHandlerForModel`-mock throws -> fallback returned).
+- **`pipeline.getPlugin()`-accessor:** read-only return des bestehenden privaten Felds; keine neue Mutation-Surface, keine User-Eingabe ueber diesen Pfad.
+- **RecipePromotion-callback chain:** `console.warn` bei helper-build-fail koennte log-spammy werden bei konsistent kaputtem Setting. Mitigation: warn ist nicht-fatal; chain faellt sauber auf Memory-Modell zurueck; bei kaputtem Setting bekommt User Warn-Log einmal pro Promotion-Aufruf (selten).
+- **`getHelperModel`-Contract:** der vierte Test verifiziert dass `getHelperApi` nicht direkt in `settings.helperModelKey` peekt sondern nur `getHelperModel()` aufruft. Damit lebt die enabled/activeModels-Validierung an einer Stelle.
+- **Out-of-scope-Pfade dokumentiert:** Memory-Atomizer (`memoryModelKey`), ChatLinking-Titling (`titlingModelKey`), classifyText (main.ts), hard-limit-recovery, ReAct-Hauptloop -- diese behalten ihre heutigen Pfade vollstaendig.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-07 / ADR-115. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`. **Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.** Live-Messlauf-Abnahme von SC-8 bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-07 -- /security-audit (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing`. Audit-Report:
+[AUDIT-022-feat-24-07-2026-05-13.md](../analysis/AUDIT-022-feat-24-07-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green. Letztes EPIC-24-Item.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **3 Info-Notes** (alle accepted, keine BACKLOG-Eintraege):
+  F-1 Per-Call-Helper-Build by design (kein Cache; Provider-Konstruktoren billig),
+  F-2 Warn-Log bei kaputtem Setting nicht-fatal aber laestig (Mitigation: once-Wrapper waere Folge-IMP),
+  F-3 settings-corruption defense-in-depth bereits eingebaut (3 Korruptions-Szenarien fail-closed).
+
+### Hauptaudit-Vektoren (alle clean oder mehrfach mitigiert)
+
+- **Vertrauensgrenze:** keine neue User-Eingabe-Surface. Nur Settings-Lookup.
+- **LLM01 Prompt Injection:** Helper-Call erhaelt identischen Inhalt wie der gerouteete Aufrufer; Trust-Boundary identisch.
+- **LLM02 Insecure Output Handling:** Helper-Output durch Pipeline-Caps (FEAT-24-03 60k) und Microcompaction (FEAT-24-02) gedeckt wie heute.
+- **Privilege Escalation:** existiert nicht. `helperModelKey` ist User-Setting; kein Tool-Pfad mutiert es ausser via update_settings (normaler Settings-Aenderungs-Surface).
+- **Mutation-Surface:** `pipeline.getPlugin()` ist read-only accessor, kein Setter.
+- **Race Conditions:** synchroner Lookup + Build; kein async-shared-state.
+- **Out-of-scope-Pfade unangetastet:** ReAct-Hauptloop, hard-limit-recovery, Memory-Atomizer, ChatLinking-Titling, classifyText -- alle behalten ihre heutigen Pfade vollstaendig.
+
+### Positivbefunde
+
+- **Fail-closed-Design durchgaengig** (3 Korruptions-Szenarien getestet).
+- **Vertrauensgrenze enger** als bei Tool-Pfaden mit User-Input.
+- **Konsistenz zum bestehenden Per-Feature-Pattern** (`memoryModelKey` / `titlingModelKey`).
+- **RecipePromotion backwards-kompatibel** zu `memoryModelKey`.
+- **Read-only-accessor** in `ToolExecutionPipeline.getPlugin()`.
+- **No-direct-settings-access-Contract** verifiziert.
+- **Defense-in-Depth bei Settings-Korruption** mehrfach abgefangen.
+- **SCA-Baseline unveraendert**.
+
+### Architektonische Folgepunkte
+
+Keine kritischen. F-1 (Cache spaeter falls Provider-Konstruktor teuer wird) und F-2 (once-Warn-Wrapper falls Log-Spam stoert) sind potenzielle Folge-IMPs, kein heutiger Bedarf.
+
+### Naechster Schritt
+
+Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`
+(User-Trigger). Live-Messlauf-Abnahme von SC-8 in einer naechsten Vault-Session. **Mit dem Merge ist EPIC-24 (Welle 1 + 2 + 3, alle 5 ausgewaehlten Items inkl. FEAT-24-05) inhaltlich abgeschlossen** -- offen bleiben nur die `[AWAITING RE]`-Live-Messlaeufe der 5 FEATs und die Folge-IMPs IMP-24-06-01 (TOOL_METADATA-Drift) und IMP-24-09-01 (Dead Code SkillsManager.getRelevantSkills).

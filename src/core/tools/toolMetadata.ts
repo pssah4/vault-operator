@@ -294,15 +294,6 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         commonMistakes: 'Creating a new base when you should update an existing one — check if it exists first.',
     },
 
-    check_presentation_quality: {
-        group: 'skill', label: 'Quality Check', icon: 'check-circle',
-        signature: 'check_presentation_quality(file)',
-        description: 'Render a PPTX and perform automated visual quality check using Claude Vision. Returns a structured QA report with pass/warn/fail per slide and fix suggestions.',
-        example: 'check_presentation_quality("Presentations/quarterly.pptx")',
-        whenToUse: 'After creating a presentation with create_pptx -- automated quality gate before delivery.',
-        commonMistakes: 'Not having Visual Intelligence enabled or no active model configured.',
-    },
-
     // ── Office Document Creation ────────────────────────────────────────
     plan_presentation: {
         group: 'edit', label: 'Plan Presentation', icon: 'layout-list',
@@ -409,6 +400,18 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'The user asks for something the currently loaded tools do not cover — before giving up, try find_tool with a relevant keyword.',
         commonMistakes: 'Calling find_tool repeatedly for the same query. Once activated, the tool stays available; call it directly on the next turn.',
     },
+    // FEAT-24-09 / ADR-116: load a SKILL.md body on demand. Always available
+    // (group "read", NOT in DEFERRED_TOOL_NAMES) so loading a skill is one
+    // round-trip — extending manage_skill instead would have required
+    // find_tool first because manage_skill itself is deferred.
+    read_skill: {
+        group: 'read', label: 'Read Skill', icon: 'book-open',
+        signature: 'read_skill(name)',
+        description: 'Load the full step-by-step instructions of a skill listed in the SKILLS directory of your system prompt. Returns the workflow body as a tool result; follow it exactly for the current task.',
+        example: 'read_skill({ name: "office-workflow" })',
+        whenToUse: 'BEFORE doing the work when the user\'s task matches a skill\'s purpose (read the SKILLS directory in your system prompt). Skip when no skill applies.',
+        commonMistakes: 'Loading a skill whose description does not match the task. Re-loading the same skill in the same turn — the body is already in the conversation. Calling read_skill for the system tool catalogue (use find_tool for tools, read_skill for skills).',
+    },
     // NOTE: group is 'agent' for mode-level availability (shows in Agent Control tools).
     // The Pipeline classifies this as 'sandbox' ApprovalGroup for approval checks.
     evaluate_expression: {
@@ -422,9 +425,9 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     manage_skill: {
         group: 'agent', label: 'Manage Skill', icon: 'bookmark-plus',
         signature: 'manage_skill(action, name, description?, trigger?, body?)',
-        description: 'Create, update, delete, list, or read skills. Skills are persistent instruction sets (Markdown) that guide the agent for specific task types. They are keyword-matched and injected into the system prompt when relevant.',
-        whenToUse: 'After solving a novel problem: save the approach as a reusable skill with a trigger pattern so you can apply it instantly next time.',
-        commonMistakes: 'Confusing skills with tools. Skills are instructions (how to approach a task), not executable code.',
+        description: 'Create, update, delete, list, validate, or read skill files (the editing/authoring path). Skills are persistent Markdown instruction sets that appear in the SKILLS directory; the agent loads a skill body for a task via the always-available read_skill tool. Use manage_skill only when changing or inspecting the file itself.',
+        whenToUse: 'After solving a novel problem: save the approach as a reusable skill so you can apply it instantly next time. Use read_skill to actually load and follow a skill.',
+        commonMistakes: 'Confusing skills with tools. Skills are instructions (how to approach a task), not executable code. Using manage_skill read to apply a skill -- use read_skill instead.',
     },
     manage_mcp_server: {
         group: 'agent', label: 'Manage MCP', icon: 'plug-2',
@@ -436,8 +439,25 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     manage_source: {
         group: 'agent', label: 'Manage Source', icon: 'file-code',
         signature: 'manage_source(action, name?, content?)',
-        description: 'Manage context sources — persistent text blocks injected into every conversation.',
+        description: 'Manage context sources -- persistent text blocks injected into every conversation.',
         whenToUse: 'When the user wants to always include certain context (project rules, style guides).',
+    },
+    // FEAT-24-06 / ADR-118 second pass: rarely-needed introspection + settings
+    // helpers move to the deferred set (see DEFERRED_TOOL_NAMES below). The
+    // metadata entries are required so find_tool can rank and activate them.
+    inspect_self: {
+        group: 'agent', label: 'Inspect Self', icon: 'eye',
+        signature: 'inspect_self(area)',
+        description: 'Live introspection of the running plugin (areas: settings, tools, capabilities, code). Returns a Markdown summary of the actual runtime state -- not guesses.',
+        whenToUse: 'Before claiming a setting/tool/capability exists, especially when the user asks "what can you do" or after a recent code change. Avoids hallucinating features.',
+        commonMistakes: 'Calling inspect_self when a normal read_file or settings tab would answer the question. Calling it on every turn instead of caching the result for the session.',
+    },
+    update_settings: {
+        group: 'agent', label: 'Update Settings', icon: 'sliders-horizontal',
+        signature: 'update_settings(action, path?, value?, preset?)',
+        description: 'Change plugin settings programmatically. action="set" with path+value, or action="apply_preset" with a permissive/balanced/restrictive preset. API keys are NOT writable here -- use configure_model.',
+        whenToUse: 'When the user explicitly asks to toggle an auto-approval flag, switch a feature on/off, or apply a permission preset. Always ask the user before changing a flag that affects safety.',
+        commonMistakes: 'Writing to settings without confirming with the user. Trying to set API keys (use configure_model instead).',
     },
 
     // ── MCP ───────────────────────────────────────────────────────────────
@@ -447,6 +467,15 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         description: 'Call a tool on an MCP server configured in settings.',
         example: 'use_mcp_tool("my-server", "get_data", {"query": "test"})',
         whenToUse: 'For tools provided by configured MCP servers. Check Connected servers list first.',
+    },
+    // FEAT-24-06 / ADR-118: on-demand companion to the truncated MCP listing.
+    read_mcp_tool: {
+        group: 'mcp', label: 'Read MCP Tool', icon: 'help-circle',
+        signature: 'read_mcp_tool(server, name)',
+        description: 'Read the full description and a compact input-schema summary of a single MCP tool. Use when the MCP listing shows a truncated description and you need the full text before calling use_mcp_tool.',
+        example: 'read_mcp_tool("notion", "create_page")',
+        whenToUse: 'When the MCP tool listing shows "... [full description: read_mcp_tool({ server, name })]" and you need the rest of the description or the input schema.',
+        commonMistakes: 'Reading a tool whose short description already covers what you need. Re-reading the same tool more than once per session -- the result stays in the conversation.',
     },
 
     // ── Plugin Skills (PAS-1) ──────────────────────────────────────────
@@ -485,10 +514,102 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     execute_recipe: {
         group: 'skill', label: 'Recipe', icon: 'chef-hat',
         signature: 'execute_recipe(recipe_id, params)',
-        description: 'Execute a pre-defined recipe for external tools (Pandoc PDF/DOCX export). No arbitrary shell — only validated recipes.',
+        description: 'Execute a pre-defined recipe for external tools (Pandoc PDF/DOCX export). No arbitrary shell -- only validated recipes.',
         example: 'execute_recipe("pandoc-pdf", {"input": "note.md", "output": "note.pdf"})',
         whenToUse: 'For CLI tool integrations (Pandoc, LaTeX). Check dependency availability first.',
         commonMistakes: 'Writing fake .pdf/.docx content instead of using the proper export recipe.',
+    },
+
+    // IMP-24-06-01: drift-closing entries for tools that were in the ToolName
+    // union but had no TOOL_METADATA entry. Without a metadata entry they are
+    // not described in the system-prompt TOOLS section, and find_tool cannot
+    // rank them either. Discovered by AUDIT-020 F-1.
+    anti_echo_search: {
+        group: 'web', label: 'Anti-Echo Search', icon: 'search-x',
+        signature: 'anti_echo_search(cluster, source_domain)',
+        description: 'Active web search for counter-positions to a cluster dominated by one source domain. Returns findings that contradict or qualify the dominant view.',
+        whenToUse: 'When a knowledge cluster looks one-sided and the user asked for balance. Used by the periodic knowledge-maintenance job.',
+    },
+    configure_model: {
+        group: 'agent', label: 'Configure Model', icon: 'cpu',
+        signature: 'configure_model(action, ...)',
+        description: 'Add, select, or test an LLM model. Manages the activeModels list and activeModelKey from the agent loop.',
+        whenToUse: 'During onboarding or when the user asks to switch to a different LLM. Prefer update_settings for non-model toggles.',
+    },
+    ingest_deep: {
+        group: 'edit', label: 'Ingest Deep', icon: 'layers',
+        signature: 'ingest_deep(source_path, ...)',
+        description: 'Deep-Ingest of a source note (BA-25 Karpathy pattern): creates a source note plus structured downstream notes (concepts, claims, evidence). Heavy operation, writes multiple notes.',
+        whenToUse: 'After ingest_triage decided that a source warrants deep ingestion.',
+        commonMistakes: 'Running deep on every read source. Use triage first; deep is for sources you will reference repeatedly.',
+    },
+    ingest_triage: {
+        group: 'edit', label: 'Ingest Triage', icon: 'filter',
+        signature: 'ingest_triage(source_path, ...)',
+        description: 'Quick triage of a source (article, PDF, vault note). Decides keep/skim/skip and writes a one-line decision into the triage log.',
+        whenToUse: 'Before deciding whether to call ingest_deep on a new source.',
+    },
+    list_memory_source_notes: {
+        group: 'read', label: 'List Memory Sources', icon: 'list',
+        signature: 'list_memory_source_notes(only_pending?)',
+        description: 'List vault notes registered as memory-source. Read-only. Returns path, registration timestamp, last extraction.',
+        whenToUse: 'When the user asks which notes feed long-term memory, or to find notes awaiting re-extraction.',
+    },
+    list_pinned_conversations: {
+        group: 'read', label: 'List Pinned Chats', icon: 'star',
+        signature: 'list_pinned_conversations(limit?)',
+        description: 'List chat conversations the user pinned to memory (via Star button or mark_for_memory). Read-only. Complementary to list_memory_source_notes.',
+        whenToUse: 'When the user asks which chats are saved to memory, or which conversations contributed facts to long-term memory.',
+    },
+    mark_for_memory: {
+        group: 'agent', label: 'Mark for Memory', icon: 'bookmark',
+        signature: 'mark_for_memory(scope?)',
+        description: 'Save the current sidebar conversation (or the named scope) to long-term memory immediately. Triggers extraction now instead of at session end.',
+        whenToUse: 'When the conversation contained a fact, decision, or preference the user wants persisted right away.',
+    },
+    mark_note_as_memory_source: {
+        group: 'edit', label: 'Mark Note as Memory', icon: 'bookmark-plus',
+        signature: 'mark_note_as_memory_source(note_path)',
+        description: 'Mark a vault note as memory-source. The note content gets extracted into the long-term memory store on the next maintenance pass.',
+        whenToUse: 'For notes that contain durable facts (project briefs, glossaries, policy notes) you want the agent to remember beyond the current chat.',
+    },
+    read_agent_logs: {
+        group: 'agent', label: 'Read Agent Logs', icon: 'scroll',
+        signature: 'read_agent_logs(action?, level?, since?, pattern?)',
+        description: 'Read the agent\'s own console logs (debug, warn, error) from the ring buffer. Supports filtering by level, time, and pattern.',
+        whenToUse: 'For self-debugging when something looks off and the user wants the agent to introspect what happened.',
+    },
+    recall_memory: {
+        group: 'agent', label: 'Recall Memory', icon: 'brain',
+        signature: 'recall_memory(query, top_k?)',
+        description: 'Search the user memory store (Memory v2 facts + edges) by cosine + keyword. Returns ranked facts with sources.',
+        whenToUse: 'When the user references something likely stored in long-term memory ("what did we decide about X?") and the conversation history alone is not enough.',
+        commonMistakes: 'Confusing recall_memory (facts) with search_history (raw past messages). recall_memory is narrower and faster.',
+    },
+    search_history: {
+        group: 'read', label: 'Search History', icon: 'history',
+        signature: 'search_history(query, top_k?)',
+        description: 'Keyword-search past conversations for messages that match the query. Returns matching messages with source conversation, role, timestamp, and a clickable obsidian:// link.',
+        whenToUse: 'When the user references "we talked about X earlier" or "find that chat where I mentioned Y". Much wider than recall_memory.',
+    },
+    switch_mode: {
+        group: 'agent', label: 'Switch Mode', icon: 'shuffle',
+        signature: 'switch_mode(mode_slug, reason?)',
+        description: 'Switch to a different agent mode when the current task is better handled by another mode (e.g. switch to ask-mode for read-only research mid-task).',
+        whenToUse: 'When the task profile changes during a conversation and a different toolset / role would help.',
+    },
+    unmark_note_as_memory_source: {
+        group: 'edit', label: 'Unmark Memory Source', icon: 'bookmark-minus',
+        signature: 'unmark_note_as_memory_source(note_path)',
+        description: 'Remove the memory-source marker from a vault note. The note stays in the vault; only the extraction binding is removed.',
+        whenToUse: 'When a previously useful source has become noise or stale and should stop feeding long-term memory.',
+    },
+    update_soul: {
+        group: 'agent', label: 'Update Soul', icon: 'user-circle',
+        signature: 'update_soul(action, key?, value?)',
+        description: 'Add, update, or replace an entry in the curated Soul (L2): values, principles, lessons, working preferences.',
+        whenToUse: 'When the user shares a durable principle ("I always X") or lesson learned that should shape future agent behaviour.',
+        commonMistakes: 'Storing transient context as Soul. Soul is for stable identity / values; use mark_for_memory for situational facts.',
     },
 };
 
@@ -519,7 +640,6 @@ export const DEFERRED_TOOL_NAMES: ReadonlySet<string> = new Set([
     'create_base',
     'update_base',
     // Office / presentation pipeline
-    'check_presentation_quality',
     'plan_presentation',
     'create_pptx',
     'create_docx',
@@ -531,6 +651,9 @@ export const DEFERRED_TOOL_NAMES: ReadonlySet<string> = new Set([
     'manage_source',
     'manage_mcp_server',
     'resolve_capability_gap',
+    // FEAT-24-06 / ADR-118 second pass: rarely-needed introspection + settings.
+    'inspect_self',
+    'update_settings',
 ]);
 
 /** FEATURE-1600: true when a tool is deferred and must be activated via find_tool. */
@@ -560,12 +683,23 @@ export function getToolsForGroup(group: ToolGroup): Array<[string, ToolMeta]> {
  * @param groups - Tool groups to include
  * @param includeExamples - Default false (compact). True emits Example / Best for / Avoid lines.
  */
-export function buildToolPromptSection(groups: ToolGroup[], includeExamples = false): string {
+export function buildToolPromptSection(
+    groups: ToolGroup[],
+    includeExamples = false,
+    /**
+     * FEAT-24-04 / ADR-113: when set, tools are filtered to the
+     * intersection of this allowlist and the group tools. Used by
+     * subagent profile spawns to restrict the tool surface.
+     */
+    allowedNames?: string[],
+): string {
+    const allowSet = allowedNames && allowedNames.length > 0 ? new Set(allowedNames) : undefined;
     const parts: string[] = [];
     for (const group of GROUP_ORDER) {
         if (!groups.includes(group)) continue;
         const header = GROUP_PROMPT_HEADERS[group];
-        const tools = getToolsForGroup(group);
+        let tools = getToolsForGroup(group);
+        if (allowSet) tools = tools.filter(([name]) => allowSet.has(name));
         if (tools.length === 0) continue;
         const lines = tools.map(([, meta]) => {
             let line = `- ${meta.signature}: ${meta.description}`;

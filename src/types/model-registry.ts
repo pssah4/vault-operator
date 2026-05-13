@@ -239,6 +239,30 @@ export function getModelOutputCeiling(modelId: string): number | undefined {
     return getModelInfo(normalizeModelId(modelId))?.maxTokens;
 }
 
+/**
+ * FIX-04-03-02: Some recent models reject any custom `temperature` value with
+ * a 400 and require the parameter to be omitted entirely.
+ *
+ * - Anthropic Claude Opus 4.7 (April 2026 and later snapshots): replies
+ *   `400 - 'temperature' is deprecated for this model`.
+ * - OpenAI GPT-5.x family: replies `400 - Unsupported value: 'temperature'
+ *   does not support 0.2 with this model. Only the default (1) value is
+ *   supported.` Even sending `1.0` is risky and version-dependent, so it is
+ *   safer to let the API use its default than to send anything explicitly.
+ *
+ * The check normalises the id first (so OpenRouter `anthropic/claude-opus-4-7`
+ * and Bedrock `eu.anthropic.claude-opus-4-7-v1` map to the same answer as the
+ * direct id `claude-opus-4-7`).
+ */
+export function modelSupportsTemperature(modelId: string): boolean {
+    const normalized = normalizeModelId(modelId).toLowerCase();
+    // Anthropic Opus 4.7 and later 4.x snapshots that drop temperature
+    if (/^claude-opus-4-7\b/.test(normalized)) return false;
+    // OpenAI GPT-5 family: default-only temperature
+    if (/^gpt-5(\b|[.-])/.test(normalized)) return false;
+    return true;
+}
+
 /** Output ceiling assumed for models we have no registry entry for (local models, gateways, ...). */
 const UNKNOWN_MODEL_OUTPUT_CEILING = 64_000;
 /** Generous-but-bounded default visible-output budget for known cloud models. */

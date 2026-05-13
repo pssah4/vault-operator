@@ -12,7 +12,20 @@ related-imps: []
 
 ## Status
 
-Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 2 -- nach Reconsideration des Spike-Ergebnisses bzgl. MCP). Triggernde ASR: EPIC-24 / FEAT-24-06; RESEARCH-36 Abschnitt 8 (Hebel B).
+**Superseded by ADR-118** (2026-05-13, im /coding-Pivot fuer FEAT-24-06 erkannt).
+Begruendung in [_devprocess/analysis/ADR-117-review.md](../analysis/ADR-117-review.md):
+Die zentrale Praemisse ("MCP-Tools landen mit vollen Schemas im `tools`-Feld
+via `registerMcpTool`") trifft auf den realen Code nicht zu --
+`ToolRegistry.registerMcpTool` ist ein TODO-Stub, MCP-Tools sind nicht in
+der Tool-Registry, die MCP-Bruecke ist das eine `use_mcp_tool`-Built-in.
+Das von ADR-117 angepeilte "Verzeichnis im stabilen Block" existiert
+bereits (Section 4 von `systemPrompt.ts` liegt vor `CACHE_BREAKPOINT_MARKER`).
+ADR-118 dokumentiert die echte Architektur + den machbaren Hebel
+(MCP-Description-Cap + `read_mcp_tool` + Built-in-`deferred`-Review).
+
+Historischer Eintrag, Inhalt unten unveraendert.
+
+Vorgaenger-Status: Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 2 -- nach Reconsideration des Spike-Ergebnisses bzgl. MCP). Triggernde ASR: EPIC-24 / FEAT-24-06; RESEARCH-36 Abschnitt 8 (Hebel B).
 
 ## Kontext
 

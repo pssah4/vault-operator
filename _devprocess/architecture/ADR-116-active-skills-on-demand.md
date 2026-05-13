@@ -12,7 +12,7 @@ related-imps: []
 
 ## Status
 
-Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 2). Triggernde ASR: EPIC-24 / FEAT-24-09; RESEARCH-36 Abschnitt 8 (Hebel B-Teil) und Abschnitt 3 (Caching-Stabilitaet).
+Accepted (Implementierung PLAN-20, 2026-05-13, EPIC-24 Welle 2). Triggernde ASR: EPIC-24 / FEAT-24-09; RESEARCH-36 Abschnitt 8 (Hebel B-Teil) und Abschnitt 3 (Caching-Stabilitaet). Siehe Amendment 2026-05-13 unten fuer die Implementierungs-Entscheidungen.
 
 ## Kontext
 
@@ -84,3 +84,15 @@ Der System-Prompt enthaelt nur noch das stabile Skill-**Verzeichnis** (Name + Be
 ## Implementation Notes (2026-05-12, kann veralten)
 
 Klassifikator-Pfad (`getSkillsSection(skillsSection)` plus der vorgelagerte Klassifikations-Call in `systemPrompt.ts` bzw. `AgentTask.ts`) entfernen; die Section "Active Skills" durch eine stabile "Skill-Verzeichnis"-Section ersetzen (Name + Beschreibung je Skill, analog zur bestehenden Plugin-Skill-Listung), in den stabilen Block vor dem CACHE-BREAKPOINT verschieben. Ein Lade-Tool (entweder das bestehende `manage_skill` um eine Lade-Aktion erweitern, oder ein schlankes neues `load_skill`-Tool), das den vollen SKILL.md-Body als Tool-Result zurueckgibt. Prompt-Leitplanke in `objective.ts`/`toolDecisionGuidelines.ts`. Skill-Loader (`SelfAuthoredSkillLoader` o.ae.) liefert das Verzeichnis statt vorklassifizierter Inhalte. Diagnose: `[SystemPrompt]` (die "active-skills"-Section sollte verschwinden bzw. zur kleinen "skill-directory"-Section schrumpfen). Verwandt: FEAT-24-09, ADR-62-Amendment, ADR-12-Amendment, RESEARCH-36 Abschnitt 8 (Hebel B), Claude Code (Skill-Tool / progressive disclosure), EnBW Cowork (pi-SDK Skill-Loader).
+
+## Amendment 2026-05-13 (PLAN-20 Umsetzung)
+
+Drei Entscheidungen, bei denen der Code-Abgleich von der Vorab-Note abwich:
+
+1. **Neues, NICHT-deferred Tool `read_skill` statt Erweiterung von `manage_skill`.** Befund: `manage_skill` steht in `DEFERRED_TOOL_NAMES` (`src/core/tools/toolMetadata.ts`) und ist erst nach einem `find_tool`-Roundtrip aufrufbar -- ein Skill darueber zu laden kostet damit zwei Roundtrips und macht den eingesparten Klassifikator-Call zunichte. `read_skill` ist deshalb ein eigenes Tool in der `read`-Gruppe, immer im Schema. `manage_skill` bleibt fuer Editing/Authoring.
+2. **Vereinigtes Skill-Verzeichnis ersetzt zwei Sections.** Das Verzeichnis vereinigt `SelfAuthoredSkillLoader.getMetadataSummary()` (bundled + learned, mit Inventory-Zeilen) und `SkillsManager.discoverSkills()` (User-Skills) und ersetzt damit sowohl die alte Section 10 ("ACTIVE SKILLS") als auch Section 13 ("SELF-AUTHORED SKILLS"). `pluginSkillsSection` (VaultDNA-Plugin-Commands, Section 9) ist ein anderes Konzept und bleibt unangetastet.
+3. **Power-Steering ohne `activeSkillNames`.** Ohne Klassifikator gibt es keine Vorab-Liste; der `activeSkillNames`-Parameter aus `AgentTask.run` und das Reminder-Anhaengsel wurden entfernt. Steuerung liegt im `read_skill`-Result-Header ("follow this workflow for the current task -- it OVERRIDES default tool selection") + der Verzeichnis-Leitplanke. Falls sich Skill-Befolgung ueber lange Tasks als zu schwach erweist, kann spaeter ein "du hast Skill X geladen, lies ihn mit read_skill neu falls verloren"-Reminder ergaenzt werden -- bewusst nicht in PLAN-20.
+
+Ausserdem bewusst nicht implementiert: der Shadow-Mode-Vergleich (Klassifikator-Wahl vs. Modell-Wahl) aus den "Risiken" -- der Klassifikator-Pfad wird entfernt, nicht parallel betrieben.
+
+**Tatsaechliche Code-Aenderungen (PLAN-20):** `src/core/prompts/sections/skillDirectory.ts` (neu, ersetzt `skills.ts`); `src/core/systemPrompt.ts` (Section 8b vor `CACHE_BREAKPOINT_MARKER`, Section 10/13 entfernt, `skillDirectorySection` statt `skillsSection`/`selfAuthoredSkillsSection`); `src/core/tools/agent/ReadSkillTool.ts` (neu); `src/core/tools/ToolRegistry.ts` (Registrierung); `src/core/tools/toolMetadata.ts` (TOOL_METADATA-Eintrag, NICHT in `DEFERRED_TOOL_NAMES`); `src/core/tools/types.ts` (`'read_skill'` in `ToolName`); `src/core/AgentTask.ts` (Run-Options + drei Call-Sites + Power-Steering); `src/ui/AgentSidebarView.ts` (Klassifikator-Pfad raus, `buildSkillDirectory`); `src/core/skills/SelfAuthoredSkillLoader.ts` (`getMetadataSummary(allowedNames?)`, `[trigger:]` aus Render entfernt); `src/core/tools/agent/ManageSkillTool.ts` (Truncation-Hinweis aktualisiert). Tests: `systemPrompt.test.ts` (skillDirectorySection statt skillsSection + neuer Cache-Praefix-Test), `ReadSkillTool.test.ts` (neu, 6 Tests), `skillDirectory.test.ts` (neu, 4 Tests). 1422 grün auf dem Branch (vorher 1411 auf `dev`).

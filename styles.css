@@ -996,6 +996,12 @@
     text-align: right;
 }
 
+/* FEAT-24-05: cost footer crossed the warn threshold */
+.message-footer.agent-cost-warn {
+    color: var(--text-warning, var(--color-orange));
+    font-weight: var(--font-semibold, 600);
+}
+
 /* Error row inside steps block (Feature 5) */
 .tool-step-error {
     display: flex;

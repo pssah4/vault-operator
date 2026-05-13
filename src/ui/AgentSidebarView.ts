@@ -17,6 +17,7 @@ import { HistoryPanel } from './sidebar/HistoryPanel';
 import type { UiMessage } from '../core/history/ConversationStore';
 import { MemoryRetriever } from '../core/memory/MemoryRetriever';
 import { OnboardingService } from '../core/memory/OnboardingService';
+import { isActiveOnboardingFlow } from '../core/onboarding-status';
 import { ContextTracker } from '../core/context/ContextTracker';
 import { TaskMonitor } from './sidebar/TaskMonitor';
 import { ContextDisplay } from './sidebar/ContextDisplay';
@@ -28,7 +29,6 @@ import { TaskNoteCreator } from '../core/tasks/TaskNoteCreator';
 import { TaskNotesAdapter } from '../core/tasks/TaskNotesAdapter';
 import { TaskSelectionModal } from './TaskSelectionModal';
 import { t } from '../i18n';
-import { safeRegex } from '../core/utils/safeRegex';
 
 export const VIEW_TYPE_AGENT_SIDEBAR = 'obsidian-agent-sidebar';
 
@@ -1049,205 +1049,54 @@ export class AgentSidebarView extends ItemView {
     }
 
     /**
-     * Build the skills section for system prompt injection.
+     * Build the SKILLS directory for the stable system-prompt prefix
+     * (FEAT-24-09 / ADR-116). Lists every installed skill (name + description,
+     * plus inventory lines for self-authored skills) -- the LLM picks a skill
+     * itself based on the directory and loads its body via the read_skill
+     * tool. Replaces the previous classifier-driven body injection.
      *
-     * Matching strategy (LLM-primary, keyword/trigger fallback):
-     *   1. Collect ALL skills (user + bundled) into a unified catalog
-     *   2. LLM classification: ask which skills apply (returns multiple)
-     *   3. Fallback: keyword + trigger matching if LLM unavailable/fails
-     *   4. Load full content for matched skills, deduplicate by name
+     * Honours the manual skill toggles and the per-mode allow-list so the
+     * directory matches what the user actually exposes.
      */
-    /** Max number of skills injected into system prompt to prevent context overflow. */
-    private static readonly MAX_INJECTED_SKILLS = 5;
-    /** Max total chars of skill content injected into system prompt. */
-    private static readonly MAX_TOTAL_SKILL_CHARS = 40_000;
-
-    private async buildSkillsSection(userMessage: string, allowedSkillNames?: string[]): Promise<{ section: string; activeSkillNames: string[] } | undefined> {
+    private async buildSkillDirectory(allowedSkillNames?: string[]): Promise<string | undefined> {
         const skillsManager = this.plugin.skillsManager;
-        if (!skillsManager) return undefined;
+        const selfLoader = this.plugin.selfAuthoredSkillLoader;
 
-        // Build effective toggles: combine manual toggles with per-mode allow-list
+        // Effective toggles for user-skill paths (per-mode allow-list narrows them).
         const toggles = { ...(this.plugin.settings.manualSkillToggles ?? {}) };
-        if (allowedSkillNames) {
-            const allUserSkills: { path: string; name: string }[] = await skillsManager.discoverSkills();
-            const allowedSet = new Set(allowedSkillNames);
-            for (const skill of allUserSkills) {
-                if (!allowedSet.has(skill.name)) {
-                    toggles[skill.path] = false;
-                }
+        const allowedSet = allowedSkillNames ? new Set(allowedSkillNames) : null;
+
+        const userSkills = skillsManager ? await skillsManager.discoverSkills() : [];
+        if (allowedSet) {
+            for (const skill of userSkills) {
+                if (!allowedSet.has(skill.name)) toggles[skill.path] = false;
             }
         }
-
-        // 1. Collect ALL available skills into a unified catalog
-        const userSkills = await skillsManager.discoverSkills();
         const filteredUserSkills = Object.keys(toggles).length > 0
             ? userSkills.filter(s => toggles[s.path] !== false)
             : userSkills;
 
-        const selfLoader = this.plugin.selfAuthoredSkillLoader;
-        const bundledSkills = selfLoader?.getAllSkills() ?? [];
+        // Self-authored / bundled skills (carries the inventory render).
+        const selfAuthoredAllowed = allowedSet ?? undefined;
+        const selfAuthoredBlock = selfLoader?.getMetadataSummary(selfAuthoredAllowed) ?? '';
 
-        // Build catalog entries: { name, description, source }
-        interface CatalogEntry { name: string; description: string; src: 'user' | 'bundled' }
-        const catalog: CatalogEntry[] = [
-            ...filteredUserSkills.map(s => ({ name: s.name, description: s.description, src: 'user' as const })),
-            ...bundledSkills.map(s => ({ name: s.name, description: s.description, src: 'bundled' as const })),
-        ];
+        // Names already covered by self-authored block to avoid duplicates.
+        const selfAuthoredNames = new Set(
+            (selfLoader?.getAllSkills() ?? [])
+                .filter(s => !allowedSet || allowedSet.has(s.name))
+                .map(s => s.name),
+        );
 
-        if (catalog.length === 0) return undefined;
+        const userLines = filteredUserSkills
+            .filter(s => !selfAuthoredNames.has(s.name))
+            .map(s => `- ${s.name}: ${s.description}`);
 
-        // 2. LLM classification (primary) -- ask which skills apply
-        let matchedNames = await this.classifySkillsWithLlm(userMessage, catalog);
-        console.debug('[buildSkillsSection] LLM matched skills:', [...matchedNames]);
+        const blocks = [selfAuthoredBlock, userLines.join('\n')].filter(Boolean);
+        if (blocks.length === 0) return undefined;
 
-        // 3. Fallback: keyword + trigger matching if LLM returned nothing
-        if (matchedNames.size === 0) {
-            matchedNames = this.matchSkillsByKeywordAndTrigger(userMessage, filteredUserSkills, bundledSkills);
-            console.debug('[buildSkillsSection] Fallback matched skills:', [...matchedNames]);
-        }
-
-        if (matchedNames.size === 0) return undefined;
-
-        // 4. Rank matched skills: bundled +20, user +10 (higher = injected first)
-        const ranked: { name: string; priority: number }[] = [];
-        for (const name of matchedNames) {
-            const isBundled = bundledSkills.some(s => s.name === name);
-            ranked.push({ name, priority: isBundled ? 20 : 10 });
-        }
-        ranked.sort((a, b) => b.priority - a.priority);
-
-        // 5. Load full content for matched skills with injection cap
-        const parts: string[] = [];
-        const activeSkillNames: string[] = [];
-        let totalChars = 0;
-
-        for (const { name } of ranked) {
-            if (parts.length >= AgentSidebarView.MAX_INJECTED_SKILLS) break;
-
-            // Try user skill first
-            const userSkill = filteredUserSkills.find(s => s.name === name);
-            if (userSkill) {
-                try {
-                    const raw = await skillsManager.readFile(userSkill.path);
-                    let body = raw.replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
-                    if (body.length > 16000) body = body.slice(0, 16000) + '\n...(truncated)';
-                    if (totalChars + body.length > AgentSidebarView.MAX_TOTAL_SKILL_CHARS) break;
-                    totalChars += body.length;
-                    parts.push(`  <skill>\n    <name>${xmlEsc(name)}</name>\n    <description>${xmlEsc(userSkill.description)}</description>\n    <instructions>${xmlEsc(body)}</instructions>\n  </skill>`);
-                    activeSkillNames.push(name);
-                } catch { /* skip unreadable */ }
-                continue;
-            }
-
-            // Try bundled skill
-            if (selfLoader) {
-                const bundled = selfLoader.getSkill(name);
-                if (bundled) {
-                    const body = selfLoader.getSkillBody(name);
-                    if (body) {
-                        const trimmed = body.length > 16000 ? body.slice(0, 16000) + '\n...(truncated)' : body;
-                        if (totalChars + trimmed.length > AgentSidebarView.MAX_TOTAL_SKILL_CHARS) break;
-                        totalChars += trimmed.length;
-                        parts.push(`  <skill>\n    <name>${xmlEsc(name)}</name>\n    <description>${xmlEsc(bundled.description)}</description>\n    <instructions>${xmlEsc(trimmed)}</instructions>\n  </skill>`);
-                        activeSkillNames.push(name);
-                    }
-                }
-            }
-        }
-
-        if (parts.length === 0) return undefined;
-        const skipped = ranked.length - parts.length;
-        if (skipped > 0) {
-            console.debug(`[buildSkillsSection] Capped: injected ${parts.length}, skipped ${skipped} lower-priority skills`);
-        }
-        console.debug(`[buildSkillsSection] Injecting ${parts.length} skill(s): ${activeSkillNames.join(', ')}`);
-        return {
-            section: `<available_skills>\n${parts.join('\n')}\n</available_skills>`,
-            activeSkillNames,
-        };
-    }
-
-    /**
-     * LLM-based skill classification (primary matching strategy).
-     * Sends a compact prompt with all skill names + descriptions, asks which apply.
-     * Returns ALL applicable skill names (not just one).
-     */
-    private async classifySkillsWithLlm(
-        userMessage: string,
-        catalog: Array<{ name: string; description: string }>,
-    ): Promise<Set<string>> {
-        try {
-            const model = this.plugin.getActiveModel();
-            if (!model) return new Set();
-
-            const handler = buildApiHandlerForModel(model);
-            if (!handler.classifyText) return new Set();
-
-            const skillList = catalog.map(s => `- ${s.name}: ${s.description}`).join('\n');
-
-            const prompt =
-                `User message: "${userMessage.slice(0, 400)}"\n\n` +
-                `Available skills:\n${skillList}\n\n` +
-                `Which skills should be activated for this message? A task may need MULTIPLE skills ` +
-                `(e.g. a presentation needs both design and workflow skills, a corporate presentation ` +
-                `also needs the corporate template skill).\n` +
-                `Reply with a comma-separated list of skill names, or "none" if no skill applies.`;
-
-            const result = await handler.classifyText(prompt);
-            const cleaned = result.toLowerCase().trim();
-
-            if (cleaned === 'none' || !cleaned) return new Set();
-
-            // Parse comma-separated response, match against catalog
-            const requested = cleaned.split(/[,\n]+/).map(s => s.trim().replace(/^-\s*/, ''));
-            const matched = new Set<string>();
-
-            for (const req of requested) {
-                if (!req || req === 'none') continue;
-                // Exact match
-                const exact = catalog.find(s => s.name.toLowerCase() === req);
-                if (exact) { matched.add(exact.name); continue; }
-                // Partial match (LLM might abbreviate)
-                const partial = catalog.find(s => req.includes(s.name.toLowerCase()) || s.name.toLowerCase().includes(req));
-                if (partial) matched.add(partial.name);
-            }
-
-            return matched;
-        } catch (e) {
-            console.debug('[buildSkillsSection] LLM skill classification failed:', e);
-            return new Set();
-        }
-    }
-
-    /**
-     * Keyword + trigger matching (fallback when LLM is unavailable).
-     * Combines user skill keyword matching with bundled skill trigger regex.
-     */
-    private matchSkillsByKeywordAndTrigger(
-        userMessage: string,
-        userSkills: import('../core/context/SkillsManager').SkillMeta[],
-        bundledSkills: import('../core/skills/SelfAuthoredSkillLoader').SelfAuthoredSkill[],
-    ): Set<string> {
-        const matched = new Set<string>();
-        const msgLower = userMessage.toLowerCase();
-        const wordPattern = /[a-z0-9\u00C0-\u024F_]{3,}/gi;
-        const msgWords = new Set(msgLower.match(wordPattern) ?? []);
-
-        // User skills: trigger regex + keyword
-        for (const s of userSkills) {
-            if (s.trigger) {
-                if (safeRegex(s.trigger, 'i').test(msgLower)) { matched.add(s.name); continue; }
-            }
-            const descWords = s.description.toLowerCase().match(wordPattern) ?? [];
-            if (descWords.some(w => msgWords.has(w))) matched.add(s.name);
-        }
-
-        // Bundled skills: trigger regex
-        for (const s of bundledSkills) {
-            if (s.trigger.test(userMessage)) matched.add(s.name);
-        }
-
-        return matched;
+        const directory = blocks.join('\n');
+        console.debug(`[buildSkillDirectory] ${selfAuthoredNames.size} self-authored + ${userLines.length} user skill(s)`);
+        return directory;
     }
 
     private autoResizeTextarea(): void {
@@ -2343,24 +2192,18 @@ export class AgentSidebarView extends ItemView {
         // Feature 4: Pass messageToSend (with active file context) instead of raw text
         const activeMode = this.modeService.getActiveMode();
 
-        // Load relevant skills for this message (Sprint 3.4)
-        // Skip during onboarding — the onboarding prompt has everything the LLM needs.
-        // Loading skills would trigger keyword matches (e.g. "Setup") causing unnecessary delay.
-        const isOnboarding = !this.plugin.settings.onboarding.completed;
-        let skillsSection: string | undefined;
-        let activeSkillNames: string[] = [];
+        // FEAT-24-09 / ADR-116: build the stable SKILLS directory for the
+        // cached system-prompt prefix. The model loads a skill body on demand
+        // via the read_skill tool -- no per-message LLM classifier any more.
+        // Skip only during the active first-time onboarding wizard, not for
+        // users who abandoned it but use the plugin productively (FIX-24-09-01).
+        const isOnboarding = isActiveOnboardingFlow(this.plugin.settings);
+        let skillDirectorySection: string | undefined;
         if (!isOnboarding) {
-            const userMessageText = typeof messageToSend === 'string'
-                ? messageToSend
-                : (Array.isArray(messageToSend) ? messageToSend.find((b): b is ContentBlock & { type: 'text'; text: string } => b.type === 'text')?.text ?? '' : '');
             const modeAllowed = this.plugin.settings.modeSkillAllowList?.[activeMode.slug];
             // empty/undefined = all allowed; non-empty = only those skill names
             const allowedSkillNames = modeAllowed && modeAllowed.length > 0 ? modeAllowed : undefined;
-            const skillResult = await this.buildSkillsSection(userMessageText, allowedSkillNames);
-            if (skillResult) {
-                skillsSection = skillResult.section;
-                activeSkillNames = skillResult.activeSkillNames;
-            }
+            skillDirectorySection = await this.buildSkillDirectory(allowedSkillNames);
         }
 
         // Apply forced workflow from tool picker (when message doesn't start with slash command)
@@ -2493,9 +2336,6 @@ export class AgentSidebarView extends ItemView {
             console.debug(`[Mastery] Skipped: enabled=${this.plugin.settings.mastery.enabled}, service=${!!this.plugin.recipeMatchingService}`);
         }
 
-        // Self-authored skills metadata for system prompt (Pipeline fix)
-        const selfAuthoredSkillsSection = this.plugin.selfAuthoredSkillLoader?.getMetadataSummary() || undefined;
-
         await task.run({
             userMessage: messageToSend,
             taskId,
@@ -2505,15 +2345,14 @@ export class AgentSidebarView extends ItemView {
             globalCustomInstructions: this.plugin.settings.globalCustomInstructions || undefined,
             includeTime: this.plugin.settings.includeCurrentTimeInContext ?? false,
             rulesContent: rulesContent || undefined,
-            skillsSection: skillsSection || undefined,
+            // FEAT-24-09 / ADR-116: SKILLS directory for the cached prefix.
+            skillDirectorySection: skillDirectorySection || undefined,
             mcpClient: this.plugin.mcpClient,
             allowedMcpServers,
             memoryContext,
             pluginSkillsSection: pluginSkillsSection || undefined,
             recipesSection,
-            selfAuthoredSkillsSection,
             configDir: this.app.vault.configDir,
-            activeSkillNames: activeSkillNames.length > 0 ? activeSkillNames : undefined,
             conversationId: this.activeConversationId ?? undefined,
         });
     }
@@ -4371,7 +4210,3 @@ export class AgentSidebarView extends ItemView {
     }
 }
 
-/** Minimal XML-escape for skill injection (module-level helper). */
-function xmlEsc(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}

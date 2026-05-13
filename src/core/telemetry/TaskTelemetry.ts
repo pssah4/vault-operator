@@ -137,11 +137,25 @@ export class TaskTelemetry {
     }
 }
 
-/** UI helper: build a one-line cost summary for the footer. */
+/**
+ * Prompt-cache hit rate: served-from-cache tokens over the total input-side
+ * tokens (non-cached input + cache reads + cache writes). Mirrors the
+ * computation in `src/api/logCacheStat.ts` so the sidebar number matches the
+ * `[CacheStat:<provider>]` console line. Returns null when there is no cache
+ * activity at all (so callers can omit the segment).
+ */
+export function cacheHitRate(inputTokens: number, cacheReadTokens: number, cacheCreationTokens = 0): number | null {
+    const total = inputTokens + cacheReadTokens + cacheCreationTokens;
+    if (total <= 0 || (cacheReadTokens <= 0 && cacheCreationTokens <= 0)) return null;
+    return Math.round((cacheReadTokens / total) * 100);
+}
+
+/** UI helper: build a one-line cost summary for the footer (FEAT-24-05). */
 export function formatTelemetryFooter(args: {
     inputTokens: number;
     outputTokens: number;
     cacheReadTokens: number;
+    cacheCreationTokens?: number;
     costEur: number;
     /** When true, append "(sub)" -- the user pays a flat subscription, this is the would-be API cost. */
     isSubscription?: boolean;
@@ -149,6 +163,8 @@ export function formatTelemetryFooter(args: {
     const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     let s = `${t}  ·  ${args.inputTokens.toLocaleString()} in · ${args.outputTokens.toLocaleString()} out`;
     if (args.cacheReadTokens > 0) s += ` · ${args.cacheReadTokens.toLocaleString()} cached`;
+    const hit = cacheHitRate(args.inputTokens, args.cacheReadTokens, args.cacheCreationTokens ?? 0);
+    if (hit !== null) s += ` · ${hit}% hit`;
     s += ` · ${formatEur(args.costEur)}`;
     if (args.isSubscription) s += ' (~ via Sub)';
     return s;

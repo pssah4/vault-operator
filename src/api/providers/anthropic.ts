@@ -13,7 +13,7 @@ import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, ContentBlock, MessageParam, ModelInfo } from '../types';
 import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
-import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
 import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
 
@@ -143,16 +143,21 @@ export class AnthropicProvider implements ApiHandler {
                 estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
             },
         );
-        const effectiveTemperature = thinkingEnabled
-            ? 1
-            : Math.min(this.config.temperature ?? 0.2, 1.0);
+        // FIX-04-03-02: Some recent models (Opus 4.7+) reject any temperature
+        // value with a 400. Detect via shared helper and omit the parameter.
+        const supportsTemperature = modelSupportsTemperature(this.config.model);
+        const effectiveTemperature = !supportsTemperature
+            ? undefined
+            : thinkingEnabled
+                ? 1
+                : Math.min(this.config.temperature ?? 0.2, 1.0);
 
         // Create streaming request (pass abort signal for cancellation support)
         const stream = this.client.messages.stream(
             {
                 model: this.config.model,
                 max_tokens: effectiveMaxTokens,
-                temperature: effectiveTemperature,
+                ...(effectiveTemperature !== undefined ? { temperature: effectiveTemperature } : {}),
                 system: systemParam,
                 messages: anthropicMessages,
                 tools: anthropicTools.length > 0 ? anthropicTools : undefined,

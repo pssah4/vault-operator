@@ -391,6 +391,11 @@ export const en: Translations = {
     'settings.loop.infoCondensingBody': 'AI models can only hold a limited amount of text in memory at once. When your conversation approaches that limit, context condensing automatically creates a summary of what was discussed so far, then continues the conversation with that summary instead of all the original messages. This lets you work on very large tasks without hitting context limits.',
     'settings.loop.infoPowerSteeringTitle': 'Power steering',
     'settings.loop.infoPowerSteeringBody': "During long tasks, the agent can gradually lose track of its role and instructions. Power steering periodically re-injects the current mode's system prompt into the conversation, keeping the agent focused on its intended purpose. A frequency of 4 means the reminder is sent every 4 conversation turns.",
+    'settings.loop.headingHelperModel': 'Helper model',
+    'settings.loop.helperModelSelect': 'Model for internal calls',
+    'settings.loop.helperModelSelectDesc': 'A cheap, fast model used for internal helper tasks: context condensing, fast-path planning, presentation planning, and recipe promotion. Leave empty to use the main model for these calls.',
+    'settings.loop.helperModelDefault': 'Use main model',
+    'settings.loop.noModels': 'No models configured. Add and enable a model in the models tab first.',
 
     // =========================================================================
     // Settings — Memory Tab

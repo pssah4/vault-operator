@@ -14,7 +14,7 @@ import type ObsidianAgentPlugin from '../../../main';
 import type { AutoApprovalConfig } from '../../../types/settings';
 
 /** Dot-paths that are writable via update_settings */
-const WRITABLE_PATHS = new Set([
+export const WRITABLE_PATHS = new Set([
     // Auto-approval flags
     'autoApproval.enabled',
     'autoApproval.read',
@@ -39,6 +39,15 @@ const WRITABLE_PATHS = new Set([
     'advancedApi.consecutiveMistakeLimit',
     'advancedApi.rateLimitMs',
     'advancedApi.maxSubtaskDepth',
+    // FEAT-24-02 / ADR-12 Amendment: microcompaction + rolling summary
+    'advancedApi.microcompactionEnabled',
+    'advancedApi.rollingSummaryThreshold',
+    // FEAT-24-04 / ADR-113: per-call token budget for new_task
+    'advancedApi.subtaskTokenBudget',
+    // FEAT-24-07 / ADR-115: helper-model routing for internal LLM calls
+    'helperModelKey',
+    // FEAT-24-05: sidebar cost warning threshold (in EUR)
+    'costWarnThresholdEur',
     // Semantic Index
     'enableSemanticIndex',
     'semanticAutoIndex',

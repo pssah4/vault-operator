@@ -12,7 +12,59 @@ related-imps: []
 
 ## Status
 
-Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 3). Triggernde ASR: EPIC-24 / FEAT-24-07; RESEARCH-36 Abschnitt 8 (Hebel H).
+Accepted (Codebase-Reconciliation 2026-05-13, im /coding fuer FEAT-24-07).
+Vorgaenger-Status: Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 3).
+Triggernde ASR: EPIC-24 / FEAT-24-07; RESEARCH-36 Abschnitt 8 (Hebel H).
+
+### Amendment 2026-05-13 (PLAN-23 Umsetzung): konkrete Call-Site-Liste, Recipe-Migration, classifyText out-of-scope
+
+Codebase-Recon zeigte ein **bestehendes Pattern** fuer Per-Feature-Model-
+Routing: `MemorySettings.memoryModelKey` + `ChatLinkingSettings.titlingModelKey`
+sind eigene Settings, die ueber `plugin.getMemoryModel()` /
+`plugin.getActiveModel()` zu einem `buildApiHandlerForModel(model)` aufgeloest
+werden. Memory-Atomizer, ChatLinking-Titling und Recipe-Promotion nutzen
+dieses Pattern bereits. PLAN-23 erweitert die Konvention mit einem
+catch-all `helperModelKey`:
+
+**Konkret betroffene Call-Sites (4, nicht 5 -- Recipe ist eine Migration):**
+
+1. `condenseHistory` in `AgentTask.ts` (Haupt-API heute -> helper-routed).
+2. `FastPathExecutor` planner + presenter (`createMessage` in einer
+   einzigen Stelle -- Such-/Lese-Planner und Presenter teilen einen
+   Loop).
+3. `plan_presentation` in `PlanPresentationTool.ts` (heute
+   `plugin.getActiveModel()` = Haupt; mit helperModelKey wird der
+   intern-constraint-LLM-Call auf das Hilfs-Modell geroutet).
+4. `RecipePromotionService`-callback in `main.ts` (heute `getMemoryModel`-
+   only -> **helper-first, memory-fallback**, main-fallback). Backwards-
+   kompatibel: User mit nur `memoryModelKey` setzt weiter Memory-Modell;
+   `helperModelKey`-User hat den Helfer als Vorrang.
+
+**Out-of-Scope der PLAN-23-Umsetzung:**
+
+- **Memory-Atomizer / SingleCallExtractor:** nutzt schon `memoryModelKey`,
+  separate Domaene (Memory-Extraktion). Bleibt unangetastet.
+- **ChatLinking-Titling:** nutzt schon `titlingModelKey`, separate
+  Domaene. Bleibt unangetastet.
+- **`classifyText`-Hook in `main.ts:830`:** semantisch passt zum Helper-
+  Modell, aber separater Pfad (Stufe3 Web-Update-PreFilter). Eigene
+  IMP-Row wenn relevant.
+- **`hard-limit-recovery` in `AgentTask.ts:1081`:** Output ist
+  user-facing ("Deliver your final answer NOW"). Bleibt auf Haupt-Modell
+  per ADR-Decision-Driver.
+- **Aktive-Skills-Klassifikator:** seit FEAT-24-09 entfallen (kein Call).
+
+**Settings-Eintrag:** `helperModelKey: string` als Top-Level in
+`ObsidianAgentSettings` (Geschwister von `activeModelKey`), nicht in
+`AdvancedApiSettings`. Begruendung: konsistent mit dem bestehenden
+Per-Feature-Pattern (`memoryModelKey` ist in `MemorySettings`,
+`titlingModelKey` ist in `ChatLinkingSettings`; ein generischer
+`helperModelKey` gehoert als globales Routing-Setting auf die
+Top-Ebene). Default: leer (kein Helper -> alle Calls auf Haupt-API).
+
+**Helper-Function:** `getHelperApi(plugin, fallback)` liefert den
+Helper-Handler ODER `fallback`. Build-Fehler -> `console.warn` +
+fallback. Pro Call-Site: `getHelperApi(plugin, this.api).createMessage(...)`.
 
 ## Kontext
 

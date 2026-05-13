@@ -12,7 +12,29 @@ related-imps: []
 
 ## Status
 
-Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 2). Triggernde ASR: EPIC-24 / FEAT-24-04; RESEARCH-36 Abschnitt 8 (Hebel E).
+Accepted (Codebase-Reconciliation 2026-05-13, im /coding fuer FEAT-24-04).
+Vorgaenger-Status: Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 2).
+Triggernde ASR: EPIC-24 / FEAT-24-04; RESEARCH-36 Abschnitt 8 (Hebel E).
+
+### Amendment 2026-05-13 (PLAN-22 Umsetzung): additiv zu ADR-090
+
+ADR-090 (Cost-Aware Heuristics) hat `new_task` bewusst restriktiv gemacht
+(Tier-4-Eskalation, drei explizite Kategorien `PARALLEL` / `SPECIALIST` /
+`ESCALATION`, `justification_*` required). ADR-113 will `new_task` fuer
+Recherche-Subagents "prominent" machen. Aufloesung im PLAN-22:
+
+- Ein neuer optionaler `profile`-Parameter ist die explizite Auswahl fuer
+  die ADR-113-Faelle. Wenn `profile` gesetzt ist (`'research'` initial),
+  entfaellt die ADR-090-Justification (Profile-Wahl ist die Entscheidung
+  selbst). Wenn `profile` nicht gesetzt ist, bleibt der ADR-090-Tier-4-Pfad
+  vollstaendig unveraendert.
+- Damit ergaenzen sich beide ADRs: ADR-090 deckt "wann ueberhaupt new_task
+  fuer generelle Eskalation", ADR-113 deckt "wenn explorative
+  Teilaufgabe -- nutze ein Profile".
+- Per-Call-Token-Budget gilt fuer beide Pfade (kein Hardcode, Setting
+  `subtaskTokenBudget` mit Default 8000).
+- Profile-Registry startet mit genau einem Profile (`research`,
+  read-only). Erweiterung ist eine Map-Aenderung, kein neues Konzept.
 
 ## Kontext
 

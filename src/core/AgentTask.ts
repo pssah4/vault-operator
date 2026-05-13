@@ -27,6 +27,8 @@ import { logInputBreakdown } from './utils/logInputBreakdown';
 import { microcompactToolResults } from './context/MicroCompactor';
 import { filterShadowedBuiltins } from './tools/shadowedByPlugin';
 import { isDeferredTool } from './tools/toolMetadata';
+import { getSubagentProfile } from './agent/subagent-profiles';
+import { getHelperApi } from './helper-api';
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -95,18 +97,35 @@ export interface AgentTaskRunConfig {
     globalCustomInstructions?: string;
     includeTime?: boolean;
     rulesContent?: string;
-    skillsSection?: string;
+    /**
+     * FEAT-24-09 / ADR-116: stable SKILLS directory for the cached
+     * system-prompt prefix (name + description per skill, plus inventory
+     * lines for self-authored skills). Replaces the per-message-classified
+     * `skillsSection` and the dynamic `selfAuthoredSkillsSection`. The
+     * model loads a skill body on demand via the `read_skill` tool.
+     */
+    skillDirectorySection?: string;
     mcpClient?: McpClient;
     allowedMcpServers?: string[];
     memoryContext?: string;
     pluginSkillsSection?: string;
     recipesSection?: string;
-    selfAuthoredSkillsSection?: string;
     configDir?: string;
-    /** Names of active skills for power steering reminders */
-    activeSkillNames?: string[];
     /** Active conversation ID for chat-linking frontmatter stamping (ADR-022) */
     conversationId?: string;
+    /**
+     * FEAT-24-04 / ADR-113: when set, this subagent runs with a profile
+     * roleDefinition that REPLACES `mode.roleDefinition` in the system
+     * prompt. Used only by spawnSubtask when `new_task` was called with
+     * `profile='...'`.
+     */
+    subagentRoleOverride?: string;
+    /**
+     * FEAT-24-04 / ADR-113: when set, this subagent's tool list is
+     * restricted to these names (subset of the parent's mode tool set).
+     * Used only by spawnSubtask when `new_task` was called with `profile='...'`.
+     */
+    subagentAllowedTools?: ToolName[];
 }
 
 export class AgentTask {
@@ -236,16 +255,16 @@ export class AgentTask {
             globalCustomInstructions,
             includeTime,
             rulesContent,
-            skillsSection,
+            skillDirectorySection,
             mcpClient,
             allowedMcpServers,
             memoryContext,
             pluginSkillsSection,
             recipesSection,
-            selfAuthoredSkillsSection,
             configDir,
-            activeSkillNames,
             conversationId,
+            subagentRoleOverride,
+            subagentAllowedTools,
         } = config;
         // Resolve mode to ModeConfig
         let activeMode: ModeConfig = this.resolveMode(initialMode);
@@ -302,8 +321,8 @@ export class AgentTask {
                     const fpWebEnabled = this.modeService?.isWebEnabled() ?? false;
                     const fpPrompt = buildSystemPromptForMode({
                         mode: activeMode, globalCustomInstructions, includeTime, rulesContent,
-                        skillsSection, mcpClient, allowedMcpServers, memoryContext, pluginSkillsSection,
-                        isSubtask: false, webEnabled: fpWebEnabled, recipesSection, selfAuthoredSkillsSection,
+                        skillDirectorySection, mcpClient, allowedMcpServers, memoryContext, pluginSkillsSection,
+                        isSubtask: false, webEnabled: fpWebEnabled, recipesSection,
                         configDir: configDir ?? this.toolRegistry.plugin.app.vault.configDir,
                     });
                     const fpTools = this.modeService
@@ -409,9 +428,15 @@ export class AgentTask {
         const childDepth = this.depth + 1;
         const childCanSpawn = childDepth < this.maxSubtaskDepth;
 
-        const spawnSubtask = async (childMode: string, childMessage: string): Promise<string> => {
+        const spawnSubtask = async (childMode: string, childMessage: string, profileName?: string): Promise<string> => {
             const childHistory: MessageParam[] = [];
             let childText = '';
+
+            // FEAT-24-04 / ADR-113: optional subagent profile path. When a
+            // profile is set, the subagent gets a lean role + reduced tool
+            // allowlist and the parent's rules / mcp / plugin-skills set is
+            // dropped (the profile is the explicit scope).
+            const profile = profileName ? getSubagentProfile(profileName) : undefined;
 
             const childTask = new AgentTask(
                 this.api,
@@ -453,17 +478,21 @@ export class AgentTask {
             await childTask.run({
                 userMessage: childMessage,
                 taskId: `${taskId}-sub-${Date.now()}`,
-                initialMode: childMode,
+                initialMode: profile ? 'agent' : childMode,
                 history: childHistory,
                 abortSignal,
                 globalCustomInstructions,
                 includeTime,
-                rulesContent,
-                skillsSection,
-                mcpClient,
-                allowedMcpServers,
-                pluginSkillsSection,
-                selfAuthoredSkillsSection,
+                // Profile spawn: drop the parent's rules/mcp/plugin-skills set
+                // entirely. The profile's roleDefinition + allowedTools is the
+                // full scope.
+                rulesContent: profile ? undefined : rulesContent,
+                skillDirectorySection, // subtask-gated to '' inside buildSystemPromptForMode -- pass-through anyway
+                mcpClient: profile ? undefined : mcpClient,
+                allowedMcpServers: profile ? undefined : allowedMcpServers,
+                pluginSkillsSection: profile ? undefined : pluginSkillsSection,
+                subagentRoleOverride: profile?.roleDefinition,
+                subagentAllowedTools: profile?.allowedTools,
                 configDir,
             });
             return childText;
@@ -487,7 +516,7 @@ export class AgentTask {
                 globalCustomInstructions,
                 includeTime,
                 rulesContent,
-                skillsSection,
+                skillDirectorySection,
                 mcpClient,
                 allowedMcpServers,
                 memoryContext,
@@ -495,12 +524,23 @@ export class AgentTask {
                 isSubtask: this.depth > 0,
                 webEnabled,
                 recipesSection,
-                selfAuthoredSkillsSection,
                 configDir: configDir ?? this.toolRegistry.plugin.app.vault.configDir,
+                // FEAT-24-04 / ADR-113: profile-spawn overrides; undefined on non-profile spawns.
+                subagentRoleOverride,
+                subagentAllowedTools,
             });
-            const baseTools = this.modeService
+            let baseTools = this.modeService
                 ? this.modeService.getToolDefinitions(activeMode)
                 : this.toolRegistry.getToolDefinitions();
+
+            // FEAT-24-04 / ADR-113: subagent profile restricts the tool
+            // schemas to the profile allowlist. Applied BEFORE the deferred-
+            // tool and shadowed-builtin filters so the profile's small surface
+            // wins regardless of the other policies.
+            if (subagentAllowedTools && subagentAllowedTools.length > 0) {
+                const allowSet = new Set<string>(subagentAllowedTools);
+                baseTools = baseTools.filter((t) => allowSet.has(t.name));
+            }
 
             // FEATURE-1600: by default hide deferred tools from the prompt.
             // The LLM can activate them via find_tool, which adds them to
@@ -608,12 +648,14 @@ export class AgentTask {
                     && iteration > 0
                     && iteration % this.powerSteeringFrequency === 0
                 ) {
-                    const skillReminder = activeSkillNames && activeSkillNames.length > 0
-                        ? `\n\nACTIVE SKILLS: ${activeSkillNames.join(', ')}. Follow their step-by-step workflows. Do not skip steps.`
-                        : '';
+                    // FEAT-24-09: with the per-message skill classifier gone the
+                    // task no longer ships a list of pre-active skill names. The
+                    // skill the model loaded itself via read_skill is in the
+                    // message stream (until microcompaction prunes it); the model
+                    // can re-call read_skill if it lost the steps.
                     history.push({
                         role: 'user',
-                        content: `[Power Steering Reminder]\n\nYou are operating in **${activeMode.name}** mode.\n\n${activeMode.roleDefinition}${skillReminder}\n\nContinue the task.`,
+                        content: `[Power Steering Reminder]\n\nYou are operating in **${activeMode.name}** mode.\n\n${activeMode.roleDefinition}\n\nContinue the task.`,
                     });
                 }
 
@@ -808,6 +850,18 @@ export class AgentTask {
                     const repCheck = repetitionDetector.check(toolUse.name, toolUse.input);
                     if (repCheck.blocked) {
                         return { content: `<error>${repCheck.reason}</error>`, is_error: true as const };
+                    }
+                    // FIX-24-06-01: deferred-tool execution guard. The schema-side
+                    // filter (rebuildPromptCache) hides deferred tools from the
+                    // model. Without this guard, the model can still call them by
+                    // hallucinating the name from training data or recipe text,
+                    // and the call would run without schema-guided arguments,
+                    // wasting budget on wrong-path retries.
+                    if (isDeferredTool(toolUse.name) && !activatedDeferredTools.has(toolUse.name)) {
+                        const msg =
+                            `Tool "${toolUse.name}" is deferred and must be activated before use. ` +
+                            `Call find_tool({ query: "<what you want to do>" }) first to discover and activate it.`;
+                        return { content: `<error>${msg}</error>`, is_error: true as const };
                     }
                     const toolCallbacks: ToolCallbacks = {
                         pushToolResult: (content) => {
@@ -1419,7 +1473,9 @@ export class AgentTask {
             // the generic sanitize as well so any new edge case is caught.
             const safeCondensingMessages = sanitizeAndLog(condensingMessages, 'condensing');
             logInputBreakdown('condensing', systemPrompt, safeCondensingMessages, []);
-            for await (const chunk of this.api.createMessage(
+            // FEAT-24-07 / ADR-115: route condensing through the optional helper model.
+            const condensingApi = getHelperApi(this.toolRegistry.plugin, this.api);
+            for await (const chunk of condensingApi.createMessage(
                 systemPrompt,
                 safeCondensingMessages,
                 [],

@@ -1,28 +1,26 @@
 /**
- * SkillsManager - Discover and match skills from global storage (Sprint 3.4)
+ * SkillsManager - Discover and read skills from global storage (Sprint 3.4).
  *
  * Skills are stored as Markdown files at:
  *   ~/.obsidian-agent/skills/{name}/SKILL.md
  *
  * SKILL.md frontmatter (required):
- *   name: string        — short identifier (lowercase, hyphens)
- *   description: string — what the skill is for (used for keyword matching)
+ *   name: string        -- short identifier (lowercase, hyphens)
+ *   description: string -- what the skill is for
  *
- * Optional frontmatter:
- *   trigger: string     — regex pattern for fast-path matching (same as bundled skills)
+ * SKILL.md body -- instructions the agent should follow when using this skill.
  *
- * SKILL.md body — instructions the agent should follow when using this skill.
- *
- * Matching priority:
- *   1. Trigger regex (fast path, if `trigger` frontmatter is present)
- *   2. Keyword overlap between description and user message
- *
- * Relevant skills are injected into the system prompt as an <available_skills>
- * block with full content inlined (no read_file round-trip needed).
+ * Since FEAT-24-09 / ADR-116 the agent picks a skill itself from the stable
+ * SKILLS directory in the system prompt and loads its body on demand via
+ * the read_skill tool. The legacy per-message keyword classifier
+ * (getRelevantSkills) was removed in IMP-24-09-01 (AUDIT-019 F-1):
+ * the classifier path in AgentSidebarView had already been deleted as
+ * part of FEAT-24-09, leaving the method as orphan dead code that risked
+ * a silent re-injection of body content into the cached system-prompt
+ * prefix if a future change ever re-wired it.
  */
 
 import type { FileAdapter } from '../storage/types';
-import { safeRegex } from '../utils/safeRegex';
 
 export interface SkillMeta {
     /** Path relative to FileAdapter root (e.g. "skills/my-skill/SKILL.md") */
@@ -82,68 +80,6 @@ export class SkillsManager {
         } catch {
             return [];
         }
-    }
-
-    /**
-     * Get skills relevant to the user's message.
-     * Matching priority:
-     *   1. Trigger regex (fast path) — matches against frontmatter `trigger` field
-     *   2. Keyword overlap — description words vs message words
-     *
-     * Returns a formatted prompt section string with full skill content inlined,
-     * or empty string if no matches.
-     */
-    async getRelevantSkills(userMessage: string, toggles?: Record<string, boolean>): Promise<string> {
-        const allSkills = await this.discoverSkills();
-        // Filter out disabled skills when toggles are provided
-        const skills = toggles
-            ? allSkills.filter((s) => toggles[s.path] !== false)
-            : allSkills;
-        if (skills.length === 0) return '';
-
-        const msgLower = userMessage.toLowerCase();
-        // Word extraction: covers ASCII + common European letters (ä, ö, ü, ß, é, etc.)
-        const wordPattern = /[a-z0-9\u00C0-\u024F_]{3,}/gi;
-        const msgWords = new Set(msgLower.match(wordPattern) ?? []);
-
-        const relevant = skills.filter((s) => {
-            // Priority 1: Trigger regex (fast path)
-            if (s.trigger) {
-                if (safeRegex(s.trigger, 'i').test(msgLower)) return true;
-            }
-            // Priority 2: Keyword overlap on description
-            const descWords = s.description.toLowerCase().match(wordPattern) ?? [];
-            return descWords.some((w) => msgWords.has(w));
-        });
-
-        if (relevant.length === 0) return '';
-
-        const lines: string[] = ['<available_skills>'];
-        for (const s of relevant) {
-            // Read the full SKILL.md content and inline it — no agent read_file needed
-            let fullContent = '';
-            try {
-                const raw = await this.fs.read(s.path);
-                // Strip frontmatter, keep only the body
-                fullContent = raw.replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
-
-                // Cap skill body at 16k to stay within context budget.
-                if (fullContent.length > 16000) fullContent = fullContent.slice(0, 16000) +
-                    '\n…(skill truncated — remaining sections omitted.' +
-                    ' DO NOT call manage_skill read — it is already active.)';
-            } catch {
-                // Fall back to name+description only if file can't be read
-            }
-            lines.push(`  <skill>`);
-            lines.push(`    <name>${this.xmlEscape(s.name)}</name>`);
-            lines.push(`    <description>${this.xmlEscape(s.description)}</description>`);
-            if (fullContent) {
-                lines.push(`    <instructions>${this.xmlEscape(fullContent)}</instructions>`);
-            }
-            lines.push(`  </skill>`);
-        }
-        lines.push('</available_skills>');
-        return lines.join('\n');
     }
 
     /**
@@ -219,13 +155,5 @@ export class SkillsManager {
         if (!description) return null;
 
         return { path: skillPath, name, description, source, trigger };
-    }
-
-    private xmlEscape(s: string): string {
-        return s
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
     }
 }
