@@ -56,8 +56,7 @@ export class FirstRunWizardModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('vault-operator-wizard');
-        this.modalEl.style.maxWidth = '720px';
-
+        this.modalEl.setCssStyles({ maxWidth: '720px' });
         this.headerEl   = contentEl.createDiv({ cls: 'wizard-header' });
         this.progressEl = contentEl.createDiv({ cls: 'wizard-progress' });
         this.bodyEl     = contentEl.createDiv({ cls: 'wizard-body' });
@@ -250,9 +249,9 @@ export class FirstRunWizardModal extends Modal {
         this.addSection(this.bodyEl, 'What this wizard does');
 
         const list = this.bodyEl.createEl('ul');
-        list.style.paddingLeft = '20px';
-        list.style.margin = '4px 0 8px 0';
-        list.style.lineHeight = '1.7';
+        list.setCssStyles({ paddingLeft: '20px' });
+        list.setCssStyles({ margin: '4px 0 8px 0' });
+        list.setCssStyles({ lineHeight: '1.7' });
         const items = [
             'Connects an LLM provider so the agent can answer messages.',
             'Picks an embedding model for semantic search and memory.',
@@ -265,9 +264,9 @@ export class FirstRunWizardModal extends Modal {
         }
 
         const note = this.bodyEl.createDiv();
-        note.style.fontSize = '12px';
-        note.style.color = 'var(--text-muted)';
-        note.style.marginTop = '16px';
+        note.setCssStyles({ fontSize: '12px' });
+        note.setCssStyles({ color: 'var(--text-muted)' });
+        note.setCssStyles({ marginTop: '16px' });
         note.setText('Privacy: nothing leaves your machine until you configure a provider. Then only the messages you send to that provider are transmitted.');
     }
 
@@ -543,7 +542,7 @@ export class FirstRunWizardModal extends Modal {
                     else if (p.id === 'brave') wt.braveApiKey = input.value.trim();
                     await this.plugin.saveSettings();
                 });
-                keyRow.style.display = currentProvider === p.id ? '' : 'none';
+                keyRow.setCssStyles({ display: currentProvider === p.id ? '' : 'none' });
                 keyRowsByProvider[p.id] = keyRow;
             }
 
@@ -554,7 +553,7 @@ export class FirstRunWizardModal extends Modal {
                 wt.enabled = p.id !== 'none';
                 await this.plugin.saveSettings();
                 for (const [pid, row] of Object.entries(keyRowsByProvider)) {
-                    row.style.display = (pid === currentProvider) ? '' : 'none';
+                    row.setCssStyles({ display: (pid === currentProvider) ? '' : 'none' });
                 }
             });
         }
@@ -627,8 +626,8 @@ export class FirstRunWizardModal extends Modal {
                     setIcon(statusEl.createDiv(), 'circle');
                     statusEl.createSpan({ text: 'Not available in this development build' });
                     installBtn.disabled = true;
-                    installBtn.style.display = '';
-                    removeBtn.style.display = 'none';
+                    installBtn.setCssStyles({ display: '' });
+                    removeBtn.setCssStyles({ display: 'none' });
                     return;
                 }
                 const snap = await manager.snapshot(item.spec);
@@ -640,22 +639,22 @@ export class FirstRunWizardModal extends Modal {
                     // clicking it would attempt a fresh download that just
                     // burns bandwidth or hits 404 on releases that do not
                     // ship this asset yet.
-                    installBtn.style.display = 'none';
-                    removeBtn.style.display = '';
+                    installBtn.setCssStyles({ display: 'none' });
+                    removeBtn.setCssStyles({ display: '' });
                 } else if (snap.status === 'outdated') {
                     statusEl.classList.add('is-outdated');
                     setIcon(statusEl.createDiv(), 'circle-alert');
                     statusEl.createSpan({ text: 'Installed but hash differs, re-install to update' });
                     installBtn.setText('Re-install');
-                    installBtn.style.display = '';
-                    removeBtn.style.display = '';
+                    installBtn.setCssStyles({ display: '' });
+                    removeBtn.setCssStyles({ display: '' });
                 } else {
                     statusEl.classList.add('is-missing');
                     setIcon(statusEl.createDiv(), 'circle');
                     statusEl.createSpan({ text: 'Not installed' });
                     installBtn.setText('Install');
-                    installBtn.style.display = '';
-                    removeBtn.style.display = 'none';
+                    installBtn.setCssStyles({ display: '' });
+                    removeBtn.setCssStyles({ display: 'none' });
                 }
             };
             await refreshStatus();

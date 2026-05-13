@@ -28,8 +28,7 @@ export class PluginPatchModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('vault-operator-wizard');
-        this.modalEl.style.maxWidth = '680px';
-
+        this.modalEl.setCssStyles({ maxWidth: '680px' });
         const header = contentEl.createDiv({ cls: 'wizard-header' });
         header.createEl('h2', { text: 'Apply self-development patch' });
         header.createDiv({
@@ -50,29 +49,28 @@ export class PluginPatchModal extends Modal {
             const sec = contentEl.createEl('h3', { cls: 'wizard-section', text: 'Patch summary' });
             sec.setText('What changed');
             const pre = contentEl.createEl('pre');
-            pre.style.background = 'var(--background-secondary)';
-            pre.style.padding = '10px 12px';
-            pre.style.borderRadius = '4px';
-            pre.style.maxHeight = '180px';
-            pre.style.overflow = 'auto';
-            pre.style.fontSize = '12px';
-            pre.style.whiteSpace = 'pre-wrap';
+            pre.setCssStyles({ background: 'var(--background-secondary)' });
+            pre.setCssStyles({ padding: '10px 12px' });
+            pre.setCssStyles({ borderRadius: '4px' });
+            pre.setCssStyles({ maxHeight: '180px' });
+            pre.setCssStyles({ overflow: 'auto' });
+            pre.setCssStyles({ fontSize: '12px' });
+            pre.setCssStyles({ whiteSpace: 'pre-wrap' });
             pre.setText(this.summary);
         }
 
         contentEl.createEl('h3', { cls: 'wizard-section', text: 'Apply the patch' });
 
         const steps = contentEl.createEl('ol');
-        steps.style.paddingLeft = '20px';
-        steps.style.lineHeight = '1.7';
-        steps.style.margin = '4px 0 16px 0';
-
+        steps.setCssStyles({ paddingLeft: '20px' });
+        steps.setCssStyles({ lineHeight: '1.7' });
+        steps.setCssStyles({ margin: '4px 0 16px 0' });
         const pluginPath = this.getPluginFolderPath();
         steps.createEl('li', { text: `Click "Download ${BUNDLE_FILENAME}" below.` });
         const li2 = steps.createEl('li');
         li2.appendText('Replace the file at ');
         const code = li2.createEl('code', { text: pluginPath });
-        code.style.fontSize = '12px';
+        code.setCssStyles({ fontSize: '12px' });
         li2.appendText(' with the downloaded file.');
         steps.createEl('li', { text: 'Click "Reload plugin" to restart Vault Operator with the new code.' });
 
