@@ -108,6 +108,8 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     mark_note_as_memory_source: 'note-edit',
     unmark_note_as_memory_source: 'note-edit',
     list_memory_source_notes: 'read',
+    // IMP-24-06-02: read-only listing of conversations pinned to memory
+    list_pinned_conversations: 'read',
     generate_canvas: 'vault-change',
     create_base: 'vault-change',
     update_base: 'vault-change',

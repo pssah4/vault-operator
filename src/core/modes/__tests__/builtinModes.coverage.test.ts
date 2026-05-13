@@ -38,6 +38,8 @@ const MUST_BE_REACHABLE: ToolName[] = [
     'evaluate_expression', 'manage_source',
     // MCP
     'use_mcp_tool', 'read_mcp_tool',
+    // Vault (memory-related)
+    'list_pinned_conversations',
     // Skill / PAS-1
     'execute_command', 'execute_recipe', 'call_plugin_api',
     'resolve_capability_gap', 'enable_plugin',

@@ -46,4 +46,17 @@ describe('subagent profiles', () => {
         expect(getSubagentProfile('planner')).toBeUndefined();
         expect(getSubagentProfile('')).toBeUndefined();
     });
+
+    // IMP-24-04-01: completion-discipline -- subagent MUST return the
+    // concrete output the parent asked for, not a meta-acknowledgement.
+    it('research profile roleDefinition enforces concrete-output completion (IMP-24-04-01)', () => {
+        const profile = getSubagentProfile('research');
+        const role = profile?.roleDefinition ?? '';
+        // Tells the model that completion must contain the actual answer
+        expect(role).toMatch(/actual answer the\s*parent asked for|MUST contain the actual answer/i);
+        // Anti-pattern guard
+        expect(role).toMatch(/anti-pattern|do NOT write "Found/i);
+        // Compactness means concise wording, NOT content abbreviation
+        expect(role).toMatch(/concise wording, NOT abbreviated|all N items, with/i);
+    });
 });

@@ -555,6 +555,12 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         description: 'List vault notes registered as memory-source. Read-only. Returns path, registration timestamp, last extraction.',
         whenToUse: 'When the user asks which notes feed long-term memory, or to find notes awaiting re-extraction.',
     },
+    list_pinned_conversations: {
+        group: 'read', label: 'List Pinned Chats', icon: 'star',
+        signature: 'list_pinned_conversations(limit?)',
+        description: 'List chat conversations the user pinned to memory (via Star button or mark_for_memory). Read-only. Complementary to list_memory_source_notes.',
+        whenToUse: 'When the user asks which chats are saved to memory, or which conversations contributed facts to long-term memory.',
+    },
     mark_for_memory: {
         group: 'agent', label: 'Mark for Memory', icon: 'bookmark',
         signature: 'mark_for_memory(scope?)',

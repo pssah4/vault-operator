@@ -65,5 +65,12 @@ Neues Tool `list_pinned_conversations`:
 
 ## Status
 
-Backlog. Live entdeckt in MESSLAUF Test 2 Teil D Re-Verify am
-2026-05-13. Kein Blocker fuer EPIC-24 Release.
+Done 2026-05-13. Neues Tool `ListPinnedConversationsTool` registriert
++ in vault-Gruppe + TOOL_METADATA-Eintrag + ToolExecutionPipeline-
+Group-Map + ToolName-Union ergaenzt. 6 Unit-Tests in
+`ListPinnedConversationsTool.test.ts` (empty, render-with-meta,
+orphan-conv, DB-unavailable, query-error, limit-respect). Coverage-
+Test in builtinModes.coverage.test.ts ergaenzt. SC-1..SC-4 unit-
+verifiziert. 1485 Tests gruen (+7 vs 1478), lint 0 errors, tsc
+clean, build+deploy gruen. Manuelle Live-Verifikation nach Reload
+ausstehend.

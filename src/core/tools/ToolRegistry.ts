@@ -31,6 +31,7 @@ import { AntiEchoSearchTool } from './vault/AntiEchoSearchTool';
 import { MarkNoteAsMemorySourceTool } from './vault/MarkNoteAsMemorySourceTool';
 import { UnmarkNoteAsMemorySourceTool } from './vault/UnmarkNoteAsMemorySourceTool';
 import { ListMemorySourceNotesTool } from './vault/ListMemorySourceNotesTool';
+import { ListPinnedConversationsTool } from './vault/ListPinnedConversationsTool';
 // Import tools — vault: intelligence (Phase 1.2)
 import { GetFrontmatterTool } from './vault/GetFrontmatterTool';
 import { UpdateFrontmatterTool } from './vault/UpdateFrontmatterTool';
@@ -164,6 +165,7 @@ export class ToolRegistry {
         this.register(new MarkNoteAsMemorySourceTool(this.plugin));
         this.register(new UnmarkNoteAsMemorySourceTool(this.plugin));
         this.register(new ListMemorySourceNotesTool(this.plugin));
+        this.register(new ListPinnedConversationsTool(this.plugin));
         this.register(new CreateFolderTool(this.plugin));
         this.register(new DeleteFileTool(this.plugin));
         this.register(new MoveFileTool(this.plugin));

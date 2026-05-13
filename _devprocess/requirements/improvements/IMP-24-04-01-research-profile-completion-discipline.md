@@ -85,6 +85,13 @@ Plus optional ein konkretes Anti-Pattern Beispiel im Prompt:
 
 ## Status
 
-Backlog. Polish-Item, kein Blocker fuer EPIC-24 Release. FEAT-24-04
-Infrastruktur (profile-Spawn, Tool-Allowlist, Parent-Kontext flach)
-ist live verifiziert; nur das Subagent-Output-Wording ist suboptimal.
+Done 2026-05-13. roleDefinition in `subagent-profiles.ts` umformuliert
+(11 neue/aenderte Zeilen): explizite Forderung dass attempt_completion
+den konkreten Output enthalten muss, Anti-Pattern-Beispiel, "compact"
+= "concise wording, NOT abbreviated content" Klarstellung. Regression-
+Test in `subagent-profiles.test.ts` pinnt die drei Eigenschaften
+(actual-answer, anti-pattern, compactness-meaning). 1479 Tests gruen
+(+1), tsc clean, build+deploy gruen. Manuelle Live-Verifikation via
+Re-Run von MESSLAUF Test 3 Aktion A ausstehend -- Erwartung: Subagent
+liefert Top-5-Liste direkt in attempt_completion, Parent macht keinen
+Doppel-Lauf.

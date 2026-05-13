@@ -53,6 +53,8 @@ export type ToolName =
     | 'mark_note_as_memory_source'
     | 'unmark_note_as_memory_source'
     | 'list_memory_source_notes'
+    // IMP-24-06-02: pendant to list_memory_source_notes for pinned chats
+    | 'list_pinned_conversations'
     // Web
     | 'web_fetch'
     | 'web_search'
