@@ -2291,3 +2291,78 @@ Keine. Kein Mid-course-Trigger (bug oder requirement) waehrend Implementation.
 
 `/testing` (Gap-Test + Coverage-Check) -> `/security-audit` -> Merge nach `dev`
 ueber `scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`.
+
+---
+
+## FEAT-24-06 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-06
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-06
+
+Branch: `feature/feat-24-06-lazy-loading-tool-schemas` (Commit cc7c609 + Test-Commit).
+
+### Testlage
+
+- `npm test`: **1439 gruen**, 146 Test-Files, 0 Failures (+15 vs dev-Baseline 1424). Die 15 neuen Tests wurden bereits in der /coding-Phase angelegt und entsprechen exakt den SC-1..SC-5 (Mapping siehe BACKLOG-Row + HANDOFFS-Eintrag der /coding-Phase). Keine zusaetzlichen Unit-Tests in dieser /testing-Phase notwendig.
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `npm run lint`: 0 errors, 663 warnings (vorbestehende `security/detect-object-injection`-Findings, nicht FEAT-24-06-bezogen).
+- `/consistency-check` mode A: 89 findings -- **0 echte durch FEAT-24-06** verursacht. Der eine neue Finding (orphan-backlog-row fuer ADR-118) faellt unter den bekannten DIA-Checker-Regex-Bug fuer 3-stellige ADR-IDs (gleiches Pattern wie ADR-116/117/113/114/115).
+
+### SC-Mapping
+
+| SC | Status | Evidence |
+|---|---|---|
+| SC-1 MCP-Description-Cap 200 chars greift | gruen | 4 Tests in `prompts/sections/__tests__/tools.test.ts` (cap-Boundary, Truncation, Suffix mit `read_mcp_tool`-Hint, deterministischer Head-Cut) |
+| SC-2 `read_mcp_tool` liefert Result-Block | gruen | Happy-Path-Test in `tools/mcp/__tests__/ReadMcpToolTool.test.ts` (Header `## MCP TOOL: ...`, volle Description, InputSchema-Summary mit Property-Typen + required-Flags) |
+| SC-3 `read_mcp_tool` an `mcp`-Gruppe gebunden, NICHT deferred | gruen | 2 Assertions in `tools/__tests__/deferredToolLoading.test.ts` (`isDeferredTool('read_mcp_tool') === false`, `TOOL_METADATA['read_mcp_tool'].group === 'mcp'`) |
+| SC-4 Built-in-deferred-Review | gruen | 2 Assertions in `tools/__tests__/deferredToolLoading.test.ts` (`isDeferredTool('inspect_self') === true`, `isDeferredTool('update_settings') === true`) plus Metadata-Vorhandensein |
+| SC-5 Bestehende Funktionalitaet unveraendert | gruen | 1424 vorbestehende Tests gruen, +15 neue gruen, keine Regression |
+| SC-6 Live-Messlauf | `[AWAITING RE]` | Funktionsverifikation gegen verbose MCP-Server (`[SystemPrompt]`-Section-Char-Breakdown fuer Section 4 messbar sinken, `[InputBreakdown:main-loop] toolSchemas=...t/<count>` sinken um den Built-in-deferred-Anteil) -- nicht autonom pruefbar, bleibt fuer manuelle Abnahme |
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-6 Cache-Praefix- und Token-Sicht-Effekte:** Laufzeit-Telemetrie gegen
+  echte Provider mit verbundenen MCP-Servern. Die Logik-Bausteine
+  (`capMcpDescription`, `renderInputSchemaSummary`, `DEFERRED_TOOL_NAMES`-Set,
+  `find_tool`-Ranking) sind einzeln getestet; ein End-to-End-Beleg waere ein
+  Messlauf, kein Unit-Test.
+- **Audit-Vektoren (server-kontrolliertes JSON in Schema-Summary, Quote in
+  Server-Namen im Suffix-String):** sind /security-audit-Fragen, keine
+  funktionalen Regression-Gaps. Mitigation der ersten Sorge laeuft bereits
+  ueber die `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`-Bodenplatte in
+  `ToolExecutionPipeline.capOversizedToolOutput()` aus FEAT-24-03 / PLAN-18.
+  Die zweite Sorge (Quote im Server-Namen) betrifft kosmetische Korrektheit
+  einer User-Setting-induzierten Eingabe, kein Sicherheitsvektor.
+
+### Fuer /security-audit
+
+Aus dem /coding-Handoff uebernommen + ergaenzt:
+
+- **`ReadMcpToolTool` Vertrauensgrenze:** `server` und `name` sind String-
+  Lookup-Keys, kein Filesystem-Pfad-Vektor (analog zu `read_skill` aus FEAT-24-09).
+  Whitelist-Check dupliziert `UseMcpToolTool` Logik 1:1; pruefen, ob die
+  Synchronitaet auch ohne Refactoring stabil bleibt (keine doppelte
+  Owner-Verantwortung).
+- **InputSchema-Summary-Renderer:** server-kontrolliertes JSON wird in den
+  Tool-Result gerendert. Defense-in-Depth: `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`
+  (FEAT-24-03/PLAN-18) kappt am Pipeline-Ausgang. Audit-Frage: ist die
+  Bodenplatte ausreichend, oder braucht der Renderer einen eigenen Cap fuer
+  einzelne Property-Namen / Typen?
+- **MCP-Description-Cap Suffix-String:** `read_mcp_tool({ server: "X", name: "Y" })`
+  wird mit doppelten Anfuehrungszeichen gerendert. Server- und Tool-Namen
+  kommen aus User-Settings und MCP-Server-Discovery; in der Praxis
+  kebab-case ohne Quotes. Falls je ein Name ein `"` enthielte, wuerde die
+  Zeile syntaktisch leicht kaputt -- kosmetisch, kein Sicherheitsimpact.
+- **Hidden-bug-Pattern bei `inspect_self`/`update_settings`:** beide Tools
+  waren in der Registry und im ToolName-Union, aber ohne `TOOL_METADATA`-
+  Eintrag. Das wurde behoben. Audit-Frage: gibt es weitere Tools in derselben
+  Drift-Situation? Grep nach `TOOL_METADATA`-Coverage waere ein eigenes
+  IMP-Item.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-06 / ADR-118. Danach Merge nach `dev` via
+`bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`.
+Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur naechsten Vault-Session.
