@@ -37,7 +37,7 @@ const MUST_BE_REACHABLE: ToolName[] = [
     'read_agent_logs', 'manage_mcp_server', 'manage_skill',
     'evaluate_expression', 'manage_source',
     // MCP
-    'use_mcp_tool',
+    'use_mcp_tool', 'read_mcp_tool',
     // Skill / PAS-1
     'execute_command', 'execute_recipe', 'call_plugin_api',
     'resolve_capability_gap', 'enable_plugin',
@@ -70,6 +70,10 @@ describe('TOOL_GROUP_MAP coverage', () => {
     it('assigns ingest_deep + ingest_triage to the edit group (FIX-19-28)', () => {
         expect(TOOL_GROUP_MAP.edit).toContain('ingest_deep');
         expect(TOOL_GROUP_MAP.edit).toContain('ingest_triage');
+    });
+
+    it('assigns read_mcp_tool to the mcp group (FIX-24-06-03)', () => {
+        expect(TOOL_GROUP_MAP.mcp).toContain('read_mcp_tool');
     });
 
     it('lists every must-reachable tool in at least one group', () => {
