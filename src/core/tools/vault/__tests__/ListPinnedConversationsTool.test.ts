@@ -84,12 +84,13 @@ describe('ListPinnedConversationsTool (IMP-24-06-02)', () => {
         expect(results[0]).toMatch(/Memory database is not available/i);
     });
 
-    it('returns a tool_error when the DB query throws', async () => {
+    it('returns a generic tool_error when the DB query throws (AUDIT-023 L-2: no DB-error leakage)', async () => {
         const tool = new ListPinnedConversationsTool(mockPlugin({ throwOnExec: true }));
         const { ctx: c, results } = ctx();
         await tool.execute({}, c);
         expect(results[0]).toMatch(/Failed to query pinned conversations/i);
-        expect(results[0]).toContain('synthetic db error');
+        // The raw exception message stays in the dev console, NOT in the tool result.
+        expect(results[0]).not.toContain('synthetic db error');
     });
 
     it('respects the limit parameter (passed through to SQL)', async () => {

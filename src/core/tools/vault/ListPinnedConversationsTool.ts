@@ -78,9 +78,11 @@ export class ListPinnedConversationsTool extends BaseTool<'list_pinned_conversat
                 }
             }
         } catch (e) {
-            ctx.callbacks.pushToolResult(this.formatError(
-                `Failed to query pinned conversations: ${e instanceof Error ? e.message : String(e)}`
-            ));
+            // AUDIT-023 L-2: keep the raw exception text in the dev console
+            // for diagnostics but do not surface DB error details (column
+            // / table names) into the tool result.
+            console.warn('[list_pinned_conversations] DB query failed:', e);
+            ctx.callbacks.pushToolResult(this.formatError('Failed to query pinned conversations.'));
             return;
         }
 

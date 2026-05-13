@@ -106,6 +106,10 @@ export function createNodeFetch(): typeof globalThis.fetch {
                 method: init?.method ?? 'GET',
                 headers,
             }, (res: IncomingMessage) => {
+                // AUDIT-023 L-1: clear the connection-level idle timeout once
+                // the server actually starts responding; the stream itself is
+                // driven by res.on('data'/'end'/'error').
+                req.setTimeout(0);
                 // Convert Node.js IncomingMessage to a Web ReadableStream
                 const body = new ReadableStream<Uint8Array>({
                     start(controller) {
@@ -129,6 +133,15 @@ export function createNodeFetch(): typeof globalThis.fetch {
             });
 
             req.on('error', reject);
+
+            // AUDIT-023 L-1: bound idle-time on the socket so a server that
+            // accepts the connection and then never writes does not hang
+            // forever. 120 s matches the upstream chat-loop tolerance; the
+            // AbortSignal path below still cancels earlier on user action.
+            req.setTimeout(120_000, () => {
+                req.destroy(new Error('Request timed out after 120s with no response'));
+                reject(new Error('Request timed out after 120s with no response'));
+            });
 
             if (init?.signal) {
                 init.signal.addEventListener('abort', () => { req.destroy(); reject(new DOMException('Aborted', 'AbortError')); });

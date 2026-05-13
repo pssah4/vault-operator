@@ -143,7 +143,18 @@ function renderProvenance(fact: Fact): string {
     return `\`(${parts.join(', ')})\``;
 }
 
-/** Escape backticks + literal newlines so the bullet item stays single-line. */
+/**
+ * Escape backslashes, backticks, and literal newlines so the bullet item
+ * stays single-line and the surrounding inline-code span is not broken by
+ * a stray backtick or backslash-backtick combination.
+ *
+ * AUDIT-023 L-4 (code-scanning #66): order matters. Escape backslashes
+ * FIRST so the second pass cannot double-process the backslash we just
+ * inserted in front of a backtick.
+ */
 function escapeMarkdown(text: string): string {
-    return text.replace(/\r?\n/g, ' ').replace(/`/g, '\\`');
+    return text
+        .replace(/\r?\n/g, ' ')
+        .replace(/\\/g, '\\\\')
+        .replace(/`/g, '\\`');
 }
