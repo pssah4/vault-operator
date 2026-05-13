@@ -851,6 +851,18 @@ export class AgentTask {
                     if (repCheck.blocked) {
                         return { content: `<error>${repCheck.reason}</error>`, is_error: true as const };
                     }
+                    // FIX-24-06-01: deferred-tool execution guard. The schema-side
+                    // filter (rebuildPromptCache) hides deferred tools from the
+                    // model. Without this guard, the model can still call them by
+                    // hallucinating the name from training data or recipe text,
+                    // and the call would run without schema-guided arguments,
+                    // wasting budget on wrong-path retries.
+                    if (isDeferredTool(toolUse.name) && !activatedDeferredTools.has(toolUse.name)) {
+                        const msg =
+                            `Tool "${toolUse.name}" is deferred and must be activated before use. ` +
+                            `Call find_tool({ query: "<what you want to do>" }) first to discover and activate it.`;
+                        return { content: `<error>${msg}</error>`, is_error: true as const };
+                    }
                     const toolCallbacks: ToolCallbacks = {
                         pushToolResult: (content) => {
                             // Final result also updates the live progress display.

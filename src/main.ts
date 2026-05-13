@@ -1107,6 +1107,17 @@ export default class ObsidianAgentPlugin extends Plugin {
                 console.warn('[Plugin] MemoryDB not available — memory features degraded');
                 this.memoryDB = null;
             }
+            // FIX-24-06-02: ensure MemorySourceStore is initialised once memoryDB
+            // is open. The earlier init attempt around the FrontmatterIndexer
+            // setup runs BEFORE memoryDB opens (init-order is fixed by Obsidian
+            // plugin onload), so memorySourceStore stays null otherwise.
+            // Tools that read this.memorySourceStore (list_memory_source_notes,
+            // mark/unmark_note_as_memory_source) silently failed with
+            // "MemorySourceStore not available" until this second-pass init.
+            if (this.memoryDB?.isOpen() && !this.memorySourceStore) {
+                const { MemorySourceStore } = await import('./core/knowledge/MemorySourceStore');
+                this.memorySourceStore = new MemorySourceStore(this.memoryDB);
+            }
         }
 
         // History DB (FEATURE-0320 Phase 6): per-message keyword + future cosine
