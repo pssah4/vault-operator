@@ -2900,3 +2900,55 @@ Aus dem /coding-Handoff uebernommen + verifiziert via Tests:
 ### Naechster Schritt
 
 `/security-audit` fuer FEAT-24-07 / ADR-115. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`. **Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.** Live-Messlauf-Abnahme von SC-8 bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-07 -- /security-audit (2026-05-13)
+
+triage: FEAT-24-07
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-07
+
+Branch: `feature/feat-24-07-helper-model-routing`. Audit-Report:
+[AUDIT-022-feat-24-07-2026-05-13.md](../analysis/AUDIT-022-feat-24-07-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green. Letztes EPIC-24-Item.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **3 Info-Notes** (alle accepted, keine BACKLOG-Eintraege):
+  F-1 Per-Call-Helper-Build by design (kein Cache; Provider-Konstruktoren billig),
+  F-2 Warn-Log bei kaputtem Setting nicht-fatal aber laestig (Mitigation: once-Wrapper waere Folge-IMP),
+  F-3 settings-corruption defense-in-depth bereits eingebaut (3 Korruptions-Szenarien fail-closed).
+
+### Hauptaudit-Vektoren (alle clean oder mehrfach mitigiert)
+
+- **Vertrauensgrenze:** keine neue User-Eingabe-Surface. Nur Settings-Lookup.
+- **LLM01 Prompt Injection:** Helper-Call erhaelt identischen Inhalt wie der gerouteete Aufrufer; Trust-Boundary identisch.
+- **LLM02 Insecure Output Handling:** Helper-Output durch Pipeline-Caps (FEAT-24-03 60k) und Microcompaction (FEAT-24-02) gedeckt wie heute.
+- **Privilege Escalation:** existiert nicht. `helperModelKey` ist User-Setting; kein Tool-Pfad mutiert es ausser via update_settings (normaler Settings-Aenderungs-Surface).
+- **Mutation-Surface:** `pipeline.getPlugin()` ist read-only accessor, kein Setter.
+- **Race Conditions:** synchroner Lookup + Build; kein async-shared-state.
+- **Out-of-scope-Pfade unangetastet:** ReAct-Hauptloop, hard-limit-recovery, Memory-Atomizer, ChatLinking-Titling, classifyText -- alle behalten ihre heutigen Pfade vollstaendig.
+
+### Positivbefunde
+
+- **Fail-closed-Design durchgaengig** (3 Korruptions-Szenarien getestet).
+- **Vertrauensgrenze enger** als bei Tool-Pfaden mit User-Input.
+- **Konsistenz zum bestehenden Per-Feature-Pattern** (`memoryModelKey` / `titlingModelKey`).
+- **RecipePromotion backwards-kompatibel** zu `memoryModelKey`.
+- **Read-only-accessor** in `ToolExecutionPipeline.getPlugin()`.
+- **No-direct-settings-access-Contract** verifiziert.
+- **Defense-in-Depth bei Settings-Korruption** mehrfach abgefangen.
+- **SCA-Baseline unveraendert**.
+
+### Architektonische Folgepunkte
+
+Keine kritischen. F-1 (Cache spaeter falls Provider-Konstruktor teuer wird) und F-2 (once-Warn-Wrapper falls Log-Spam stoert) sind potenzielle Folge-IMPs, kein heutiger Bedarf.
+
+### Naechster Schritt
+
+Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`
+(User-Trigger). Live-Messlauf-Abnahme von SC-8 in einer naechsten Vault-Session. **Mit dem Merge ist EPIC-24 (Welle 1 + 2 + 3, alle 5 ausgewaehlten Items inkl. FEAT-24-05) inhaltlich abgeschlossen** -- offen bleiben nur die `[AWAITING RE]`-Live-Messlaeufe der 5 FEATs und die Folge-IMPs IMP-24-06-01 (TOOL_METADATA-Drift) und IMP-24-09-01 (Dead Code SkillsManager.getRelevantSkills).
