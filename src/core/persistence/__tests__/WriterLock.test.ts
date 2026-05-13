@@ -34,7 +34,7 @@ describe('WriterLock', () => {
         expect(b.isHeld()).toBe(false);
     });
 
-    it('breaks a stale lock from a dead PID on the same host', async () => {
+    it('breaks a stale lock from a dead PID', async () => {
         // Pick a PID that is essentially never alive: 99999999 is far above any
         // reasonable Linux/macOS PID. process.kill(deadPid, 0) -> ESRCH.
         const deadPid = 99999999;
@@ -43,7 +43,7 @@ describe('WriterLock', () => {
             lockFile,
             JSON.stringify({
                 pid: deadPid,
-                hostname: os.hostname(),
+                writerId: 'foreign-session',
                 startedAt: Date.now() - 10 * 60 * 1000, // 10 min old
             }),
             'utf-8',
@@ -57,6 +57,29 @@ describe('WriterLock', () => {
         // The new lock should record THIS process now.
         const raw = JSON.parse(await fs.promises.readFile(lockFile, 'utf-8'));
         expect(raw.pid).toBe(process.pid);
+    });
+
+    it('reads legacy locks (pre-2.8.2 hostname schema)', async () => {
+        // A lock from an older plugin version carries `hostname` instead of
+        // `writerId`. readLock() must still parse it so acquire() can break
+        // it via the age/PID path. We synthesize a stale legacy entry with a
+        // dead PID; acquire should treat it as foreign+stale and take over.
+        const deadPid = 99999999;
+        const lockFile = path.join(workDir, '.obsilo-lock');
+        await fs.promises.writeFile(
+            lockFile,
+            JSON.stringify({
+                pid: deadPid,
+                hostname: 'legacy-host',
+                startedAt: Date.now() - 10 * 60 * 1000,
+            }),
+            'utf-8',
+        );
+
+        const lock = new WriterLock(workDir);
+        const result = await lock.acquire();
+        expect(result.acquired).toBe(true);
+        expect(result.brokeStale?.pid).toBe(deadPid);
     });
 
     it('release is idempotent', async () => {
@@ -88,13 +111,12 @@ describe('WriterLockHeldError', () => {
     it('carries holder info and renders a German notice message', () => {
         const err = new WriterLockHeldError({
             pid: 4242,
-            hostname: 'macbook-test',
+            writerId: 'session-abc',
             startedAt: 1_700_000_000_000,
         });
         expect(err).toBeInstanceOf(Error);
         expect(err.name).toBe('WriterLockHeldError');
         expect(err.heldBy.pid).toBe(4242);
-        expect(err.message).toContain('macbook-test');
         expect(err.message).toContain('4242');
     });
 });

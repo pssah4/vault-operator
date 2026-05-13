@@ -1,4 +1,5 @@
-import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, requestUrl } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
+import { preWarmProviderConnection } from './api/warmup';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
 import type { CustomModel } from './types/settings';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
@@ -1485,7 +1486,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         // Phase 2.3: command to open the setup wizard manually
         this.addCommand({
             id: 'open-setup-wizard',
-            name: 'Open Setup Wizard',
+            name: 'Open setup wizard',
             callback: async () => {
                 const { FirstRunWizardModal } = await import('./ui/modals/FirstRunWizardModal');
                 new FirstRunWizardModal(this.app, this).open();
@@ -2089,24 +2090,12 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.apiHandler = buildApiHandler(modelToLLMProvider(model));
             console.debug(`[Plugin] API handler initialized: ${model.displayName ?? model.name} (${model.provider})`);
 
-            // Pre-warm the DNS + TLS connection so the FIRST user message isn't delayed
-            // by cold-start network setup (~5-18 s on some systems / networks).
-            // We fire a lightweight HEAD to the provider base URL immediately after the
-            // handler is created.  The server will return an error (no valid payload),
-            // but the TCP/TLS connection is established and Chromium caches it for reuse.
-            // Local providers (ollama, lmstudio) are intentionally skipped.
-            const CLOUD_BASE_URLS: Partial<Record<string, string>> = {
-                anthropic:  'https://api.anthropic.com',
-                openai:     'https://api.openai.com',
-                openrouter: 'https://openrouter.ai',
-                azure:      model.baseUrl ?? '',
-                custom:     model.baseUrl ?? '',
-            };
-            const warmupUrl = CLOUD_BASE_URLS[model.provider];
-            if (warmupUrl && !this.warmupFired) {
+            // Pre-warm the DNS + TLS connection so the FIRST user message isn't
+            // delayed by cold-start network setup (~5-18 s on some systems /
+            // networks). One-shot; helper lives in src/api/warmup.ts.
+            if (!this.warmupFired) {
                 this.warmupFired = true;
-                requestUrl({ url: warmupUrl, method: 'HEAD', throw: false })
-                    .catch(() => { /* expected — we only want the TCP/TLS handshake */ });
+                preWarmProviderConnection(model.provider, model.baseUrl);
             }
         } catch (error) {
             console.error('[Plugin] Failed to initialize API handler:', error);

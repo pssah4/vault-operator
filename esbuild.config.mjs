@@ -122,9 +122,14 @@ function generateInlineAssets() {
     // ---- WASM ----------------------------------------------------------
     // ONNX (12 MB) is NOT inlined anymore -- it ships as an optional
     // download from the plugin's GitHub release, see OptionalAssetManager.
+    //
+    // We deliberately ship ONLY the standard sql.js WASM build. The
+    // browser-specific variant (sql-wasm-browser.wasm, ~860 KB) used to
+    // be inlined alongside but was never imported by any reader and
+    // simply added 860 KB to main.js -- dropping it brings us closer to
+    // the 5 MB Obsidian-Sync ceiling.
     const wasmBlobs = {
-        SQL_WASM_BASE64:          { src: "node_modules/sql.js/dist/sql-wasm.wasm",         kind: "binary" },
-        SQL_WASM_BROWSER_BASE64:  { src: "node_modules/sql.js/dist/sql-wasm-browser.wasm", kind: "binary" },
+        SQL_WASM_BASE64: { src: "node_modules/sql.js/dist/sql-wasm.wasm", kind: "binary" },
     };
     const wasmLines = [
         "// AUTO-GENERATED -- do not edit. Source: esbuild.config.mjs generateInlineAssets().",
@@ -262,6 +267,12 @@ const mainBuildOptions = {
     logLevel: "info",
     sourcemap: prod ? false : "inline",
     treeShaking: true,
+    // Minify on production only. Cuts main.js by 40-60 % which keeps it
+    // closer to Obsidian Sync Standard's 5 MB ceiling without losing any
+    // feature. Stack traces are minified too, but Obsidian users see
+    // them as line:column references and we ship the source bundle as
+    // an optional asset (plugin-source.json) for symbolicated debugging.
+    minify: prod,
     outfile: "main.js",
     plugins: [
         {

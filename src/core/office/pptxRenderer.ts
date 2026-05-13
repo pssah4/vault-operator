@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { detectLibreOffice } from './libreOfficeDetector';
+import { buildSubprocessEnv } from '../subprocess/buildSubprocessEnv';
 
 /** Timeout for LibreOffice conversion (ms) */
 const CONVERSION_TIMEOUT = 120_000;
@@ -155,13 +156,7 @@ function convertToPdf(
         ], {
             shell: false,
             timeout: CONVERSION_TIMEOUT,
-            env: {
-                PATH: process.env.PATH,
-                HOME: process.env.HOME ?? process.env.USERPROFILE,
-                USERPROFILE: process.env.USERPROFILE,
-                LANG: 'en_US.UTF-8',
-                ...(process.platform === 'win32' ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}),
-            },
+            env: buildSubprocessEnv(),
             stdio: ['ignore', 'pipe', 'pipe'],
             windowsHide: true,
         });

@@ -286,7 +286,7 @@ export function buildRerankerSpec(pluginVersion: string, expectedSha256: string)
         description: 'Cross-encoder model that re-ranks semantic-search results by actual relevance. Runs locally on your machine, no API calls.',
         sizeMb: 12,
         expectedSha256,
-        downloadUrl: `https://github.com/pssah4/vault-operator/releases/download/${pluginVersion}/ort-wasm-simd-threaded.wasm`,
+        downloadUrl: `https://github.com/pssah4/vault-operator/releases/download/${pluginVersion}-assets/ort-wasm-simd-threaded.wasm`,
     };
 }
 
@@ -298,6 +298,6 @@ export function buildSelfDevSourceSpec(pluginVersion: string, expectedSha256: st
         description: 'Bundle of the plugin\'s TypeScript source code. Enables the manage_source tool so the agent can read its own code to answer "how does feature X work?" questions and propose code patches.',
         sizeMb: 5,
         expectedSha256,
-        downloadUrl: `https://github.com/pssah4/vault-operator/releases/download/${pluginVersion}/plugin-source.json`,
+        downloadUrl: `https://github.com/pssah4/vault-operator/releases/download/${pluginVersion}-assets/plugin-source.json`,
     };
 }
