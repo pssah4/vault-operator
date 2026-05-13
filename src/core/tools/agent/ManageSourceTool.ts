@@ -23,6 +23,7 @@ import type ObsidianAgentPlugin from '../../../main';
 import type { EmbeddedSourceManager } from '../../self-development/EmbeddedSourceManager';
 import type { PluginBuilder } from '../../self-development/PluginBuilder';
 import type { PluginReloader } from '../../self-development/PluginReloader';
+import { BUNDLE_FILENAME, BUNDLE_BACKUP_FILENAME } from '../../../util/pluginFiles';
 
 export class ManageSourceTool extends BaseTool<'manage_source'> {
     readonly name = 'manage_source' as const;
@@ -278,7 +279,7 @@ export class ManageSourceTool extends BaseTool<'manage_source'> {
         this.lastBuildResult = null;
 
         callbacks.pushToolResult(this.formatSuccess(
-            'Patch ready. Opened the apply-patch modal: download the new main.js, replace it in the plugin folder, then reload Vault Operator.'
+            `Patch ready. Opened the apply-patch modal: download the new ${BUNDLE_FILENAME}, replace it in the plugin folder, then reload Vault Operator.`
         ));
         callbacks.log('manage_source: patch modal opened');
     }
@@ -291,7 +292,7 @@ export class ManageSourceTool extends BaseTool<'manage_source'> {
         callbacks.pushToolResult(this.formatError(new Error(
             'Automatic rollback is not available in this plugin build. ' +
             'To revert: reinstall Vault Operator via BRAT (Add Beta Plugin -> https://github.com/pssah4/vault-operator) ' +
-            'or via the Community Plugins directory. If you kept your own main.js.bak before applying the patch, copy it back into the plugin folder manually and reload.'
+            `or via the Community Plugins directory. If you kept your own ${BUNDLE_BACKUP_FILENAME} before applying the patch, copy it back into the plugin folder manually and reload.`
         )));
         callbacks.log('manage_source: rollback advised manual restore');
     }

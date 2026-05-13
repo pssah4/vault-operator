@@ -12,11 +12,12 @@
 import { TFile, setIcon } from 'obsidian';
 import type { App } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
+import { scheduleRecurring, type RecurringHandle } from '../../util/scheduleRecurring';
 
 export class SuggestionBanner {
     private bannerEl: HTMLElement | null = null;
     private container: HTMLElement | null = null;
-    private pollTimer: number | null = null;
+    private pollTimer: RecurringHandle | null = null;
 
     constructor(
         private plugin: ObsidianAgentPlugin,
@@ -35,12 +36,12 @@ export class SuggestionBanner {
         this.refresh();
 
         if (!this.pollTimer) {
-            this.pollTimer = window.setInterval(() => {
+            this.pollTimer = scheduleRecurring(() => {
                 this.refresh();
             }, 30_000);
             registerCleanup(() => {
                 if (this.pollTimer) {
-                    window.clearInterval(this.pollTimer);
+                    this.pollTimer.stop();
                     this.pollTimer = null;
                 }
             });

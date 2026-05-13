@@ -6,6 +6,7 @@ import { PROVIDER_LABELS, PROVIDER_COLORS } from './constants';
 import type { CustomModel } from '../../types/settings';
 import { getModelKey } from '../../types/settings';
 import type { SemanticIndexService } from '../../core/semantic/SemanticIndexService';
+import { scheduleRecurring } from '../../util/scheduleRecurring';
 import { renderSkipHintIfSkipped } from './skipHints';
 import { t } from '../../i18n';
 
@@ -250,12 +251,12 @@ export class EmbeddingsTab {
         refreshStatus();
 
         // Poll every second so status stays current
-        const pollInterval = window.setInterval(refreshStatus, 1000);
+        const pollHandle = scheduleRecurring(refreshStatus, 1000);
         const observer = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 for (const node of Array.from(m.removedNodes)) {
                     if (node === containerEl || (node as HTMLElement).contains?.(containerEl)) {
-                        window.clearInterval(pollInterval);
+                        pollHandle.stop();
                         observer.disconnect();
                     }
                 }

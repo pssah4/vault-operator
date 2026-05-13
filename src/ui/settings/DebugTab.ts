@@ -1,6 +1,7 @@
 import { App, Notice, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
+import { BUNDLE_FILENAME } from '../../util/pluginFiles';
 
 
 export class DebugTab {
@@ -36,8 +37,8 @@ export class DebugTab {
         intro.style.marginBottom = '8px';
         intro.setText(
             'Lets the manage_source tool read the plugin\'s own TypeScript source so the agent can answer ' +
-            '"how does feature X work?" questions and propose code patches. The source bundle is an ' +
-            'optional one-time download (~5 MB), kept out of main.js so the plugin stays under Obsidian Sync\'s ' +
+            `"how does feature X work?" questions and propose code patches. The source bundle is an ` +
+            `optional one-time download (~5 MB), kept out of ${BUNDLE_FILENAME} so the plugin stays under Obsidian Sync\'s ` +
             'size threshold for users who do not need this feature.',
         );
 

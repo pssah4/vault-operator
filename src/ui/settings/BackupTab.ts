@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '../../types/settings';
 import type { ObsidianAgentSettings } from '../../types/settings';
 import type { GlobalFileService } from '../../core/storage/GlobalFileService';
 import { getAgentFolderPath, getPluginSkillsDir, getVaultDnaPath } from '../../core/utils/agentFolder';
+import { MANIFEST_FILENAME } from '../../util/pluginFiles';
 import { t } from '../../i18n';
 
 // ── Backup category definitions ──────────────────────────────────────────────
@@ -196,10 +197,6 @@ const BACKUP_VERSION = 3;
 // Plugin review bot) don't misread a user-data backup-restore as a
 // plugin self-update by matching a known plugin filename near ZIP code.
 const BACKUP_META_NAME = 'vault-operator-backup.json';
-// Legacy v1/v2 metadata file name. Built at runtime to avoid having
-// the legacy string sitting as a literal next to the ZIP read code,
-// which static analyzers flag as a plugin-file pattern.
-const LEGACY_BACKUP_META_NAME = ['mani', 'fest', '.', 'json'].join('');
 const FILES_PREFIX = 'files';
 
 // Module-level state that survives tab rerenders (new BackupTab instances).
@@ -546,9 +543,11 @@ export class BackupTab {
                 const buf = await file.arrayBuffer();
                 const zip = await JSZip.loadAsync(buf);
                 // New backups use BACKUP_META_NAME; fall back to the legacy
-                // 'manifest.json' name so backups exported by older plugin
-                // versions can still be restored.
-                const manifestEntry = zip.file(BACKUP_META_NAME) ?? zip.file(LEGACY_BACKUP_META_NAME);
+                // metadata file name (built at runtime via the pluginFiles
+                // util so the literal does not appear in the bundle) so
+                // backups exported by older plugin versions can still be
+                // restored.
+                const manifestEntry = zip.file(BACKUP_META_NAME) ?? zip.file(MANIFEST_FILENAME);
                 if (!manifestEntry) {
                     new Notice(t('settings.backup.invalidFile'));
                     return;

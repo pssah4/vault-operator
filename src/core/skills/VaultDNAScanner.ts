@@ -14,6 +14,7 @@ import type { VaultDNA, VaultDNAEntry, PluginClassification, PluginSkillMeta, Pl
 import { CORE_PLUGIN_DEFS, CORE_PLUGIN_IDS } from './CorePluginLibrary';
 import { getPluginSkillsDir, getVaultDnaPath } from '../utils/agentFolder';
 import type { ObsidianAgentSettings } from '../../types/settings';
+import { scheduleRecurring, type RecurringHandle } from '../../util/scheduleRecurring';
 
 /** FEATURE-0507: subset of the plugin used to resolve the configurable agent folder. */
 type AgentFolderHolder = { settings: Pick<ObsidianAgentSettings, 'agentFolderPath'> };
@@ -38,7 +39,7 @@ export class VaultDNAScanner {
     /** FEATURE-0507: vault-relative path, default ".obsidian-agent/vault-dna.json". Mutable (FEATURE-0508). */
     private dnaPath: string;
     private vaultDNA: VaultDNA | null = null;
-    private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+    private pollIntervalId: RecurringHandle | null = null;
     private lastKnownEnabledSet = new Set<string>();
     /** Runtime skill metadata — built after scan */
     private pluginSkills: PluginSkillMeta[] = [];
@@ -829,12 +830,12 @@ export class VaultDNAScanner {
     startSync(): void {
         const enabledPlugins = this.app.plugins?.enabledPlugins;
         this.lastKnownEnabledSet = new Set(enabledPlugins ?? []);
-        this.pollIntervalId = setInterval(() => { void this.checkForChanges(); }, 30_000);
+        this.pollIntervalId = scheduleRecurring(() => { void this.checkForChanges(); }, 30_000);
     }
 
     stopSync(): void {
         if (this.pollIntervalId) {
-            clearInterval(this.pollIntervalId);
+            this.pollIntervalId.stop();
             this.pollIntervalId = null;
         }
     }

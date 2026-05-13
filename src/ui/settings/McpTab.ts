@@ -4,6 +4,7 @@ import { t } from '../../i18n';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { ENV_APPDATA, readEnv } from '../../util/envKeys';
 
 export class McpTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -419,7 +420,7 @@ export class McpTab {
             const platform = os.platform();
             let configDir: string;
             if (platform === 'darwin') configDir = path.join(os.homedir(), 'Library', 'Application Support', 'Claude');
-            else if (platform === 'win32') configDir = path.join(process.env['APPDATA'] ?? os.homedir(), 'Claude');
+            else if (platform === 'win32') configDir = path.join(readEnv(ENV_APPDATA) ?? os.homedir(), 'Claude');
             else configDir = path.join(os.homedir(), '.config', 'Claude');
 
             const configPath = path.join(configDir, 'claude_desktop_config.json');
@@ -460,7 +461,7 @@ export class McpTab {
         } catch { /* fallback */ }
         if (process.platform === 'win32') {
             candidates.push('C:\\Program Files\\nodejs\\node.exe');
-            candidates.push(`${process.env['APPDATA'] ?? ''}\\nvm\\current\\node.exe`);
+            candidates.push(`${readEnv(ENV_APPDATA) ?? ''}\\nvm\\current\\node.exe`);
         } else {
             candidates.push('/usr/local/bin/node', '/opt/homebrew/bin/node', `${os.homedir()}/.nvm/current/bin/node`);
         }

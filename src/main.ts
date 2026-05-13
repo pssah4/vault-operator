@@ -1,5 +1,6 @@
 import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
 import { preWarmProviderConnection } from './api/warmup';
+import { scheduleRecurring } from './util/scheduleRecurring';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
 import type { CustomModel } from './types/settings';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
@@ -147,7 +148,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     autoTriggerObserver: AutoTriggerObserver | null = null;
     topHubBlockGenerator: TopHubBlockGenerator | null = null;
     stufe3PeriodicJob: Stufe3PeriodicJob | null = null;
-    private stufe3IntervalHandle: ReturnType<typeof setInterval> | null = null;
+    private stufe3IntervalHandle: import('./util/scheduleRecurring').RecurringHandle | null = null;
     /** FEAT-19-19: Stufe-2 Activity-Trigger fuer Light-Web-Search-Update-Hints. */
     stufe2ActivityTrigger: Stufe2ActivityTrigger | null = null;
     /** FEAT-03-26: cached state for cooldown-decision and ContextComposer-Hook. */
@@ -171,14 +172,14 @@ export default class ObsidianAgentPlugin extends Plugin {
     memoryService: MemoryService | null = null;
     extractionQueue: ExtractionQueue | null = null;
     memoryV2Telemetry: MemoryV2Telemetry | null = null;
-    /** IMP-03-18-01: Daily-Scheduler-Tick fuer AgingService. setInterval handle. */
-    private agingSchedulerHandle: ReturnType<typeof setInterval> | null = null;
+    /** IMP-03-18-01: Daily-Scheduler-Tick fuer AgingService. */
+    private agingSchedulerHandle: import('./util/scheduleRecurring').RecurringHandle | null = null;
     /** FIX-23-01-01: Living-Document state for Cross-Surface MCP. */
     activeMcpSessions: import('./core/memory/ActiveMcpSessions').ActiveMcpSessions | null = null;
-    private activeMcpSessionsEvictHandle: ReturnType<typeof setInterval> | null = null;
+    private activeMcpSessionsEvictHandle: import('./util/scheduleRecurring').RecurringHandle | null = null;
     /** AUDIT-015 M-1: Sliding-window MCP Rate-Limiter. */
     mcpRateLimiter: import('./mcp/McpRateLimiter').McpRateLimiter | null = null;
-    private mcpRateLimiterCleanupHandle: ReturnType<typeof setInterval> | null = null;
+    private mcpRateLimiterCleanupHandle: import('./util/scheduleRecurring').RecurringHandle | null = null;
     driftBus: DriftEventBus | null = null;
     tokenBudget: TokenBudgetGuard | null = null;
     mcpClient: McpClient;
@@ -897,7 +898,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 );
                 // Wrapper: stuendlich check, run weekly via job's internal
                 // rolloverIfNewWeek + lastRun-Logik (vereinfacht via ClusterMeta-State).
-                this.stufe3IntervalHandle = setInterval(() => {
+                this.stufe3IntervalHandle = scheduleRecurring(() => {
                     if (!this.stufe3PeriodicJob) return;
                     this.stufe3PeriodicJob.rolloverIfNewWeek();
                     // Run heute nur wenn user explicitly enabled; aktuell
@@ -1331,7 +1332,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             // IMP-03-18-01: 6h-Tick damit Aging auch laufen kann, wenn Obsidian
             // tagelang nicht neu gestartet wird. AgingService 24h-Cooldown
             // bleibt aktiv, der Tick prueft nur ob gerade etwas zu tun ist.
-            this.agingSchedulerHandle = setInterval(() => {
+            this.agingSchedulerHandle = scheduleRecurring(() => {
                 this.runAgingSweep().catch((e) =>
                     console.debug('[Plugin] Aging tick failed:', e),
                 );
@@ -1508,7 +1509,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.activeMcpSessions = new ActiveMcpSessions();
             // Eviction-Tick alle 5 Minuten -- entfernt abgelaufene
             // Sessions auch wenn keine MCP-Calls reinkommen.
-            this.activeMcpSessionsEvictHandle = setInterval(() => {
+            this.activeMcpSessionsEvictHandle = scheduleRecurring(() => {
                 const removed = this.activeMcpSessions?.evictExpired() ?? 0;
                 if (removed > 0) {
                     console.debug(`[ActiveMcpSessions] evicted ${removed} expired session(s)`);
@@ -1519,7 +1520,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             // (token, source_interface, rate-class). Cleanup alle 5 min.
             const { McpRateLimiter } = await import('./mcp/McpRateLimiter');
             this.mcpRateLimiter = new McpRateLimiter();
-            this.mcpRateLimiterCleanupHandle = setInterval(() => {
+            this.mcpRateLimiterCleanupHandle = scheduleRecurring(() => {
                 this.mcpRateLimiter?.cleanup();
             }, 5 * 60 * 1000);
 
@@ -1569,7 +1570,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             }
             this.frontmatterIndexerListeners = [];
             if (this.stufe3IntervalHandle) {
-                clearInterval(this.stufe3IntervalHandle);
+                this.stufe3IntervalHandle.stop();
                 this.stufe3IntervalHandle = null;
             }
             if (this.topHubBlockRegenTimer) {
@@ -1592,15 +1593,15 @@ export default class ObsidianAgentPlugin extends Plugin {
         for (const timer of this.autoIndexDebounceTimers.values()) clearTimeout(timer);
         this.autoIndexDebounceTimers.clear();
         if (this.agingSchedulerHandle) {
-            clearInterval(this.agingSchedulerHandle);
+            this.agingSchedulerHandle.stop();
             this.agingSchedulerHandle = null;
         }
         if (this.activeMcpSessionsEvictHandle) {
-            clearInterval(this.activeMcpSessionsEvictHandle);
+            this.activeMcpSessionsEvictHandle.stop();
             this.activeMcpSessionsEvictHandle = null;
         }
         if (this.mcpRateLimiterCleanupHandle) {
-            clearInterval(this.mcpRateLimiterCleanupHandle);
+            this.mcpRateLimiterCleanupHandle.stop();
             this.mcpRateLimiterCleanupHandle = null;
         }
         this.sandboxExecutor?.destroy();
