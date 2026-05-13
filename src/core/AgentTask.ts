@@ -95,16 +95,20 @@ export interface AgentTaskRunConfig {
     globalCustomInstructions?: string;
     includeTime?: boolean;
     rulesContent?: string;
-    skillsSection?: string;
+    /**
+     * FEAT-24-09 / ADR-116: stable SKILLS directory for the cached
+     * system-prompt prefix (name + description per skill, plus inventory
+     * lines for self-authored skills). Replaces the per-message-classified
+     * `skillsSection` and the dynamic `selfAuthoredSkillsSection`. The
+     * model loads a skill body on demand via the `read_skill` tool.
+     */
+    skillDirectorySection?: string;
     mcpClient?: McpClient;
     allowedMcpServers?: string[];
     memoryContext?: string;
     pluginSkillsSection?: string;
     recipesSection?: string;
-    selfAuthoredSkillsSection?: string;
     configDir?: string;
-    /** Names of active skills for power steering reminders */
-    activeSkillNames?: string[];
     /** Active conversation ID for chat-linking frontmatter stamping (ADR-022) */
     conversationId?: string;
 }
@@ -236,15 +240,13 @@ export class AgentTask {
             globalCustomInstructions,
             includeTime,
             rulesContent,
-            skillsSection,
+            skillDirectorySection,
             mcpClient,
             allowedMcpServers,
             memoryContext,
             pluginSkillsSection,
             recipesSection,
-            selfAuthoredSkillsSection,
             configDir,
-            activeSkillNames,
             conversationId,
         } = config;
         // Resolve mode to ModeConfig
@@ -302,8 +304,8 @@ export class AgentTask {
                     const fpWebEnabled = this.modeService?.isWebEnabled() ?? false;
                     const fpPrompt = buildSystemPromptForMode({
                         mode: activeMode, globalCustomInstructions, includeTime, rulesContent,
-                        skillsSection, mcpClient, allowedMcpServers, memoryContext, pluginSkillsSection,
-                        isSubtask: false, webEnabled: fpWebEnabled, recipesSection, selfAuthoredSkillsSection,
+                        skillDirectorySection, mcpClient, allowedMcpServers, memoryContext, pluginSkillsSection,
+                        isSubtask: false, webEnabled: fpWebEnabled, recipesSection,
                         configDir: configDir ?? this.toolRegistry.plugin.app.vault.configDir,
                     });
                     const fpTools = this.modeService
@@ -459,11 +461,10 @@ export class AgentTask {
                 globalCustomInstructions,
                 includeTime,
                 rulesContent,
-                skillsSection,
+                skillDirectorySection, // subtask-gated to '' inside buildSystemPromptForMode -- pass-through anyway
                 mcpClient,
                 allowedMcpServers,
                 pluginSkillsSection,
-                selfAuthoredSkillsSection,
                 configDir,
             });
             return childText;
@@ -487,7 +488,7 @@ export class AgentTask {
                 globalCustomInstructions,
                 includeTime,
                 rulesContent,
-                skillsSection,
+                skillDirectorySection,
                 mcpClient,
                 allowedMcpServers,
                 memoryContext,
@@ -495,7 +496,6 @@ export class AgentTask {
                 isSubtask: this.depth > 0,
                 webEnabled,
                 recipesSection,
-                selfAuthoredSkillsSection,
                 configDir: configDir ?? this.toolRegistry.plugin.app.vault.configDir,
             });
             const baseTools = this.modeService
@@ -608,12 +608,14 @@ export class AgentTask {
                     && iteration > 0
                     && iteration % this.powerSteeringFrequency === 0
                 ) {
-                    const skillReminder = activeSkillNames && activeSkillNames.length > 0
-                        ? `\n\nACTIVE SKILLS: ${activeSkillNames.join(', ')}. Follow their step-by-step workflows. Do not skip steps.`
-                        : '';
+                    // FEAT-24-09: with the per-message skill classifier gone the
+                    // task no longer ships a list of pre-active skill names. The
+                    // skill the model loaded itself via read_skill is in the
+                    // message stream (until microcompaction prunes it); the model
+                    // can re-call read_skill if it lost the steps.
                     history.push({
                         role: 'user',
-                        content: `[Power Steering Reminder]\n\nYou are operating in **${activeMode.name}** mode.\n\n${activeMode.roleDefinition}${skillReminder}\n\nContinue the task.`,
+                        content: `[Power Steering Reminder]\n\nYou are operating in **${activeMode.name}** mode.\n\n${activeMode.roleDefinition}\n\nContinue the task.`,
                     });
                 }
 

@@ -15,17 +15,17 @@
  *   6. Objective
  *   7. Response format
  *   8. Security boundary
+ *   8b. Skill Directory (ADR-116 / FEAT-24-09 — name+description per skill;
+ *       full body loaded on demand via the read_skill tool)
  *   ── CACHE BREAKPOINT ──
  * DYNAMIC (can change per message/session):
  *   9. Plugin Skills
- *  10. Active Skills (LLM-classified per message)
- *  11. User memory
- *  12. Procedural Recipes
- *  13. Self-Authored Skills
- *  14. Custom instructions + Rules
- *  15. Explicit instructions
- *  16. Vault context
- *  17. DateTime (MUST be last -- timestamp invalidates cache)
+ *  10. User memory
+ *  11. Procedural Recipes
+ *  12. Custom instructions + Rules
+ *  13. Explicit instructions
+ *  14. Vault context
+ *  15. DateTime (MUST be last -- timestamp invalidates cache)
  *
  * Adapted from Kilo Code's src/core/prompts/system.ts — modularized for Obsidian.
  */
@@ -46,7 +46,7 @@ import {
     getModeDefinitionSection,
     getCustomInstructionsSection,
     getPluginSkillsSection,
-    getSkillsSection,
+    getSkillDirectorySection,
     getRulesSection,
     getObsidianConventionsSection,
     getCostAwareHeuristicsSection,
@@ -89,7 +89,13 @@ export interface SystemPromptConfig {
     globalCustomInstructions?: string;
     includeTime?: boolean;
     rulesContent?: string;
-    skillsSection?: string;
+    /**
+     * FEAT-24-09 / ADR-116: stable skill directory (name + description per
+     * installed skill, plus inventory lines for self-authored skills). Lives
+     * above the cache breakpoint. Replaces the per-message-classified
+     * `skillsSection` and the dynamic `selfAuthoredSkillsSection`.
+     */
+    skillDirectorySection?: string;
     mcpClient?: McpClient;
     allowedMcpServers?: string[];
     memoryContext?: string;
@@ -98,7 +104,6 @@ export interface SystemPromptConfig {
     webEnabled?: boolean;
     recipesSection?: string;
     configDir: string;
-    selfAuthoredSkillsSection?: string;
 }
 
 /**
@@ -115,7 +120,7 @@ export function buildSystemPromptForMode(
     globalCustomInstructions?: string,
     includeTime?: boolean,
     rulesContent?: string,
-    skillsSection?: string,
+    skillDirectorySection?: string,
     mcpClient?: McpClient,
     allowedMcpServers?: string[],
     memoryContext?: string,
@@ -124,7 +129,6 @@ export function buildSystemPromptForMode(
     webEnabled?: boolean,
     recipesSection?: string,
     configDir?: string,
-    selfAuthoredSkillsSection?: string,
 ): string;
 export function buildSystemPromptForMode(
     configOrMode: SystemPromptConfig | ModeConfig,
@@ -132,7 +136,7 @@ export function buildSystemPromptForMode(
     globalCustomInstructions?: string,
     includeTime?: boolean,
     rulesContent?: string,
-    skillsSection?: string,
+    skillDirectorySection?: string,
     mcpClient?: McpClient,
     allowedMcpServers?: string[],
     memoryContext?: string,
@@ -141,7 +145,6 @@ export function buildSystemPromptForMode(
     webEnabled?: boolean,
     recipesSection?: string,
     configDir?: string,
-    selfAuthoredSkillsSection?: string,
 ): string {
     // Normalize: if first arg has 'slug' and 'toolGroups', it's a ModeConfig (legacy call)
     // If it has 'mode' property, it's a SystemPromptConfig
@@ -153,7 +156,7 @@ export function buildSystemPromptForMode(
         globalCustomInstructions = cfg.globalCustomInstructions;
         includeTime = cfg.includeTime;
         rulesContent = cfg.rulesContent;
-        skillsSection = cfg.skillsSection;
+        skillDirectorySection = cfg.skillDirectorySection;
         mcpClient = cfg.mcpClient;
         allowedMcpServers = cfg.allowedMcpServers;
         memoryContext = cfg.memoryContext;
@@ -162,7 +165,6 @@ export function buildSystemPromptForMode(
         webEnabled = cfg.webEnabled;
         recipesSection = cfg.recipesSection;
         configDir = cfg.configDir;
-        selfAuthoredSkillsSection = cfg.selfAuthoredSkillsSection;
     } else {
         // Legacy positional form
         mode = configOrMode as ModeConfig;
@@ -205,6 +207,14 @@ export function buildSystemPromptForMode(
         // 8. Security boundary
         getSecurityBoundarySection(),
 
+        // 8b. Skill Directory (ADR-116 / FEAT-24-09) — stable, cached.
+        // Lists every installed skill (name + description, plus inventory
+        // lines for self-authored skills). The model loads the full body
+        // on demand via the read_skill tool; the body lives in the message
+        // stream and falls under microcompaction (FEAT-24-02). Subtasks
+        // skip skills entirely (same as the old behaviour).
+        isSubtask ? '' : getSkillDirectorySection(skillDirectorySection),
+
         // ── CACHE BREAKPOINT ────────────────────────────────────────────
         // Real sentinel line (ADR-62 amendment / FEAT-24-01). Providers with an
         // explicit cache marker put it ONLY on everything ABOVE this line; the
@@ -214,29 +224,23 @@ export function buildSystemPromptForMode(
         // 9. Plugin Skills (can change when plugins are enabled/disabled)
         getPluginSkillsSection(pluginSkillsSection),
 
-        // 10. Active Skills (LLM-classified per message — most dynamic)
-        isSubtask ? '' : getSkillsSection(skillsSection),
-
-        // 11. User memory (changes across sessions)
+        // 10. User memory (changes across sessions)
         isSubtask ? '' : getMemorySection(memoryContext),
 
-        // 12. Procedural Recipes (ADR-017, matched per message)
+        // 11. Procedural Recipes (ADR-017, matched per message)
         (isSubtask || !recipesSection) ? '' : recipesSection,
 
-        // 13. Self-Authored Skills
-        (isSubtask || !selfAuthoredSkillsSection) ? '' : `SELF-AUTHORED SKILLS\n\nThe following skills are available. When a user message matches a skill trigger, use its instructions.\nTo manage skills: use the manage_skill tool.\n\n${selfAuthoredSkillsSection}`,
-
-        // 14. Custom instructions + Rules (user-defined, can change)
+        // 12. Custom instructions + Rules (user-defined, can change)
         isSubtask ? '' : getCustomInstructionsSection(globalCustomInstructions, mode.customInstructions),
         getRulesSection(rulesContent),
 
-        // 15. Explicit instructions
+        // 13. Explicit instructions
         getExplicitInstructionsSection(),
 
-        // 16. Vault context (file structure can change between tasks)
+        // 14. Vault context (file structure can change between tasks)
         getVaultContextSection(),
 
-        // 17. DateTime — MUST be last (timestamp invalidates KV-cache!)
+        // 15. DateTime — MUST be last (timestamp invalidates KV-cache!)
         getDateTimeSection(includeTime),
     ];
 
@@ -247,9 +251,9 @@ export function buildSystemPromptForMode(
     // is small to avoid noise on subtask prompts.
     const labels = [
         'mode', 'cost-heuristics', 'capabilities', 'obsidian-conv', 'tools', 'tool-routing',
-        'objective', 'response-format', 'security', 'cache-breakpoint',
-        'plugin-skills', 'active-skills', 'memory', 'recipes',
-        'self-authored-skills', 'custom-instructions', 'rules',
+        'objective', 'response-format', 'security', 'skill-directory', 'cache-breakpoint',
+        'plugin-skills', 'memory', 'recipes',
+        'custom-instructions', 'rules',
         'explicit-instructions', 'vault-context', 'datetime',
     ];
     const merged = sections.filter(Boolean).join('\n');

@@ -57,7 +57,7 @@ describe('systemPrompt section ordering (ADR-062)', () => {
 
     it('should place Security Boundary before Skills', async () => {
         const prompt = await buildTestPrompt({
-            skillsSection: '<available_skills><skill><name>TestSkill</name></skill></available_skills>',
+            skillDirectorySection: '- TestSkill: a test skill',
         });
 
         const securityIndex = prompt.indexOf('SECURITY');
@@ -66,6 +66,23 @@ describe('systemPrompt section ordering (ADR-062)', () => {
         if (securityIndex > -1 && skillsIndex > -1) {
             expect(securityIndex).toBeLessThan(skillsIndex);
         }
+    });
+
+    it('places the Skill Directory in the cached prefix (above the breakpoint)', async () => {
+        const { CACHE_BREAKPOINT_MARKER } = await import('../systemPrompt');
+        // The marker is stripped by splitSystemPromptAtCacheBreakpoint before
+        // sending; the rendered prompt still contains it raw, which is what
+        // we check against.
+        const prompt = await buildTestPrompt({
+            skillDirectorySection: '- TestSkill: a test skill',
+        });
+
+        const skillsIndex = prompt.indexOf('TestSkill');
+        const breakpointIndex = prompt.indexOf(CACHE_BREAKPOINT_MARKER);
+
+        expect(skillsIndex).toBeGreaterThan(-1);
+        expect(breakpointIndex).toBeGreaterThan(-1);
+        expect(skillsIndex).toBeLessThan(breakpointIndex);
     });
 
     it('always includes the calendar date, and the time-of-day only when includeTime is true (ADR-62 amendment)', async () => {
@@ -81,7 +98,7 @@ describe('systemPrompt section ordering (ADR-062)', () => {
     it('should omit Skills and Memory for subtasks', async () => {
         const prompt = await buildTestPrompt({
             isSubtask: true,
-            skillsSection: 'SHOULD_NOT_APPEAR',
+            skillDirectorySection: 'SHOULD_NOT_APPEAR',
             memoryContext: 'MEMORY_SHOULD_NOT_APPEAR',
         });
 
