@@ -71,6 +71,7 @@ import { UpdateTodoListTool } from './agent/UpdateTodoListTool';
 import { SwitchModeTool } from './agent/SwitchModeTool';
 import { NewTaskTool } from './agent/NewTaskTool';
 import { FindToolTool } from './agent/FindToolTool';
+import { ReadSkillTool } from './agent/ReadSkillTool';
 // Plugin Skills (PAS-1)
 import { ExecuteCommandTool } from './agent/ExecuteCommandTool';
 import { ResolveCapabilityGapTool } from './agent/ResolveCapabilityGapTool';
@@ -208,6 +209,9 @@ export class ToolRegistry {
         this.register(new NewTaskTool(this.plugin));
         // FEATURE-1600: meta-tool for activating deferred tools on demand
         this.register(new FindToolTool(this.plugin));
+        // FEAT-24-09 / ADR-116: load a SKILL.md body on demand (always
+        // available; skillLoader is optional and may be wired in later).
+        this.register(new ReadSkillTool(this.plugin, skillLoader ?? null));
         // Plugin Skills (PAS-1)
         this.register(new ExecuteCommandTool(this.plugin));
         this.register(new ResolveCapabilityGapTool(this.plugin));

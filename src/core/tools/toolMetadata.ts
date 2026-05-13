@@ -409,6 +409,18 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'The user asks for something the currently loaded tools do not cover — before giving up, try find_tool with a relevant keyword.',
         commonMistakes: 'Calling find_tool repeatedly for the same query. Once activated, the tool stays available; call it directly on the next turn.',
     },
+    // FEAT-24-09 / ADR-116: load a SKILL.md body on demand. Always available
+    // (group "read", NOT in DEFERRED_TOOL_NAMES) so loading a skill is one
+    // round-trip — extending manage_skill instead would have required
+    // find_tool first because manage_skill itself is deferred.
+    read_skill: {
+        group: 'read', label: 'Read Skill', icon: 'book-open',
+        signature: 'read_skill(name)',
+        description: 'Load the full step-by-step instructions of a skill listed in the SKILLS directory of your system prompt. Returns the workflow body as a tool result; follow it exactly for the current task.',
+        example: 'read_skill({ name: "office-workflow" })',
+        whenToUse: 'BEFORE doing the work when the user\'s task matches a skill\'s purpose (read the SKILLS directory in your system prompt). Skip when no skill applies.',
+        commonMistakes: 'Loading a skill whose description does not match the task. Re-loading the same skill in the same turn — the body is already in the conversation. Calling read_skill for the system tool catalogue (use find_tool for tools, read_skill for skills).',
+    },
     // NOTE: group is 'agent' for mode-level availability (shows in Agent Control tools).
     // The Pipeline classifies this as 'sandbox' ApprovalGroup for approval checks.
     evaluate_expression: {
@@ -422,9 +434,9 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     manage_skill: {
         group: 'agent', label: 'Manage Skill', icon: 'bookmark-plus',
         signature: 'manage_skill(action, name, description?, trigger?, body?)',
-        description: 'Create, update, delete, list, or read skills. Skills are persistent instruction sets (Markdown) that guide the agent for specific task types. They are keyword-matched and injected into the system prompt when relevant.',
-        whenToUse: 'After solving a novel problem: save the approach as a reusable skill with a trigger pattern so you can apply it instantly next time.',
-        commonMistakes: 'Confusing skills with tools. Skills are instructions (how to approach a task), not executable code.',
+        description: 'Create, update, delete, list, validate, or read skill files (the editing/authoring path). Skills are persistent Markdown instruction sets that appear in the SKILLS directory; the agent loads a skill body for a task via the always-available read_skill tool. Use manage_skill only when changing or inspecting the file itself.',
+        whenToUse: 'After solving a novel problem: save the approach as a reusable skill so you can apply it instantly next time. Use read_skill to actually load and follow a skill.',
+        commonMistakes: 'Confusing skills with tools. Skills are instructions (how to approach a task), not executable code. Using manage_skill read to apply a skill -- use read_skill instead.',
     },
     manage_mcp_server: {
         group: 'agent', label: 'Manage MCP', icon: 'plug-2',

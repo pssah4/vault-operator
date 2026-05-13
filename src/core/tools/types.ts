@@ -65,6 +65,8 @@ export type ToolName =
     | 'switch_mode'
     | 'new_task'
     | 'find_tool'
+    // FEAT-24-09 / ADR-116: load a SKILL.md body on demand.
+    | 'read_skill'
     | 'update_todo_list'
     // MCP
     | 'use_mcp_tool'

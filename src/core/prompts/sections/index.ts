@@ -15,7 +15,7 @@ export { getSecurityBoundarySection } from './securityBoundary';
 export { getModeDefinitionSection } from './modeDefinition';
 export { getCustomInstructionsSection } from './customInstructions';
 export { getPluginSkillsSection } from './pluginSkills';
-export { getSkillsSection } from './skills';
+export { getSkillDirectorySection } from './skillDirectory';
 export { getRulesSection } from './rules';
 export { getObsidianConventionsSection } from './obsidianConventions';
 export { getCostAwareHeuristicsSection } from './cost-aware';

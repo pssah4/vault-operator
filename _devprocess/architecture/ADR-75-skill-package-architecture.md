@@ -348,7 +348,8 @@ Die Review gegen die Codebase hat drei Annahmen des Entwurfs praezisiert:
    einen universellen Router, der Single-MD, Folder und `.skill`/`.zip`
    automatisch erkennt. Abstrahiert die Format-Komplexitaet fuer den User.
 3. **Prompt-Integration auf Section-Ebene, nicht Registry.** Der
-   Inventory-Block wird in [src/core/prompts/sections/skills.ts](../../src/core/prompts/sections/skills.ts)
+   Inventory-Block wird in [src/core/prompts/sections/skillDirectory.ts](../../src/core/prompts/sections/skillDirectory.ts)
+   (vor 2026-05-13: `skills.ts`; umbenannt durch FEAT-24-09 / ADR-116)
    und dem Aufrufer in `systemPrompt.ts` ergaenzt, nicht im `SkillRegistry`
    (der nur fuer VaultDNA-Plugin-Skills zustaendig ist).
 4. **`refresh()` Methode.** `SelfAuthoredSkillLoader` bekommt eine
