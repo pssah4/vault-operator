@@ -28,6 +28,32 @@ import type { Plugin } from 'obsidian';
 
 const ASSET_DIR = '.vault-operator/assets';
 
+/**
+ * Hard size cap for install() and installFromBuffer(). The known
+ * assets are 5 to 12 MB, 50 MB gives generous headroom for future
+ * growth and rejects an outright "wrong file" pick (e.g. a multi-GB
+ * video) before we spend memory on a SHA-256 over the whole buffer.
+ * AUDIT-024 L-3.
+ */
+const MAX_ASSET_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Reject filenames that try to traverse out of the assets folder.
+ * Defense-in-depth on top of the hardcoded buildRerankerSpec /
+ * buildSelfDevSourceSpec callers. AUDIT-024 L-2.
+ */
+function assertSafeFilename(filename: string): void {
+    if (
+        filename.length === 0 ||
+        filename.includes('/') ||
+        filename.includes('\\') ||
+        filename.includes('..') ||
+        filename.startsWith('.')
+    ) {
+        throw new Error(`OptionalAssetManager: unsafe asset filename ${JSON.stringify(filename)}`);
+    }
+}
+
 /** Manifest of every optional asset the plugin knows about. */
 export interface AssetSpec {
     /** Unique id, also used as filename in the assets folder. */
@@ -61,10 +87,12 @@ export class OptionalAssetManager {
 
     /** Resolve the absolute vault-adapter path for a given asset id. */
     private filePath(spec: AssetSpec): string {
+        assertSafeFilename(spec.filename);
         return `${ASSET_DIR}/${spec.filename}`;
     }
 
     private shaSidecarPath(spec: AssetSpec): string {
+        assertSafeFilename(spec.filename);
         return `${ASSET_DIR}/${spec.filename}.sha256`;
     }
 
@@ -172,6 +200,13 @@ export class OptionalAssetManager {
         const buffer = response.arrayBuffer;
         onProgress?.(buffer.byteLength);
 
+        if (buffer.byteLength > MAX_ASSET_BYTES) {
+            throw new Error(
+                `Downloaded asset is ${Math.round(buffer.byteLength / 1024 / 1024)} MB, ` +
+                `over the ${MAX_ASSET_BYTES / 1024 / 1024} MB cap. Refusing to install.`,
+            );
+        }
+
         // SHA256 verification before persisting -- a forged or partial
         // download must never become "installed".
         const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -198,6 +233,14 @@ export class OptionalAssetManager {
      */
     async installFromBuffer(spec: AssetSpec, buffer: ArrayBuffer): Promise<void> {
         const adapter = this.plugin.app.vault.adapter;
+
+        if (buffer.byteLength > MAX_ASSET_BYTES) {
+            throw new Error(
+                `Selected file is ${Math.round(buffer.byteLength / 1024 / 1024)} MB, ` +
+                `over the ${MAX_ASSET_BYTES / 1024 / 1024} MB cap. ` +
+                `Make sure you picked the right file for ${spec.label}.`,
+            );
+        }
 
         if (!await adapter.exists(ASSET_DIR)) {
             await adapter.mkdir(ASSET_DIR);

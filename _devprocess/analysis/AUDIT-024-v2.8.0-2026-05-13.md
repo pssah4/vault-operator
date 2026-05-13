@@ -6,6 +6,24 @@ scope: Vollstaendige Codebase nach v2.8.0 Release (Community-Plugin-Directory Re
 overall-risk: Low
 predecessor: AUDIT-023 (EPIC-24 Wave 2/3, 2026-05-12)
 release-recommendation: Green
+fix-status: 4 Findings resolved im Fix-Loop 2026-05-14 (M-1, L-1, L-2, L-3). 2 Info bleiben als Doku-Note offen.
+---
+
+## Fix-Loop Result (2026-05-14)
+
+| Finding | Severity | Resolution |
+|---------|----------|------------|
+| M-1 runtimeWorker Cache-Validierung | Medium | Resolved -- SHA-256 sidecar pattern eingefuehrt, cache hit nur bei matching SHA. runtimeWorker.ts:80-88. |
+| L-1 runtimeWorker Path-Traversal | Low | Resolved -- Whitelist ALLOWED_WORKER_NAMES plus expliziter Slash/Backslash/`..`-Check plus startsWith-Defense. runtimeWorker.ts:35,46-53,68-70. |
+| L-2 OptionalAssetManager Path-Traversal | Low | Resolved -- assertSafeFilename Helper vor filePath() und shaSidecarPath(). OptionalAssetManager.ts:39-53,63-71. |
+| L-3 OptionalAssetManager Size-Cap | Low | Resolved -- MAX_ASSET_BYTES = 50 MB. install() prueft buffer.byteLength nach Download, installFromBuffer() prueft vor SHA. OptionalAssetManager.ts:33-37,177-183,210-217. |
+| I-1 redundanter 404-Handler | Info | Deferred -- Style only, kein Bug. |
+| I-2 PluginPatchModal agent-controlled patch | Info | Deferred -- Per Design, mitigated. PRIVACY.md Eintrag spaeter. |
+
+Re-Audit: tsc clean, build+deploy gruen, npm audit weiter 0 Findings.
+
+Release-Empfehlung bleibt: **Green**.
+
 ---
 
 # AUDIT-024: Vollstaendige Codebase nach v2.8.0 Release
@@ -124,7 +142,7 @@ npm audit gibt 0 Findings in allen Severities (info / low / moderate / high / cr
 **Severity**: Medium
 **CWE-ID**: CWE-345 (Insufficient Verification of Data Authenticity)
 **Location**: src/core/utils/runtimeWorker.ts:48-54
-**Status**: Confirmed
+**Status**: Resolved (2026-05-14, fix-loop)
 
 **Risiko**: Die Cache-Invalidierung in ensureRuntimeWorker prueft nur die Datei-Byte-Length. Ein anderer Process mit Schreibzugriff auf den Vault-Pfad (anderes Obsidian-Plugin, externe Prozesse, OS-Level-Aktoren) koennte die Datei mit gleicher Byte-Length aber anderem Inhalt ueberschreiben. Beim naechsten Plugin-Start wuerde cp.spawn() den forge-code ausfuehren mit den Privilegien des Obsidian-Prozesses.
 
@@ -170,7 +188,7 @@ export function ensureRuntimeWorker(plugin: Plugin, name: string, code: string):
 **Severity**: Low
 **CWE-ID**: CWE-22 (Path Traversal)
 **Location**: src/core/utils/runtimeWorker.ts:46
-**Status**: Confirmed
+**Status**: Resolved (2026-05-14, fix-loop)
 
 **Risiko**: `path.join(dirAbs, name)` ohne Path-Traversal-Check. Aktuell wird `name` immer mit den Konstanten 'sandbox-worker.js' und 'mcp-server-worker.js' aufgerufen. Bei einem zukuenftigen Refactor, der `name` aus User-Input oder Plugin-Settings bildet, koennte ein Pfad wie '../etc/passwd' aus RUNTIME_DIR ausbrechen.
 
@@ -181,7 +199,7 @@ export function ensureRuntimeWorker(plugin: Plugin, name: string, code: string):
 **Severity**: Low
 **CWE-ID**: CWE-22 (Path Traversal)
 **Location**: src/core/assets/OptionalAssetManager.ts:63-69
-**Status**: Confirmed
+**Status**: Resolved (2026-05-14, fix-loop)
 
 **Risiko**: `filePath()` und `shaSidecarPath()` bilden den Pfad via Template-String mit `spec.filename`. Aktuell wird filename in buildRerankerSpec/buildSelfDevSourceSpec hardcoded als 'ort-wasm-simd-threaded.wasm' und 'plugin-source.json'. Bei einem zukuenftigen Refactor, der spec.filename dynamisch bildet, koennte '../../etc/passwd' aus dem assets-Folder ausbrechen.
 
@@ -192,7 +210,7 @@ export function ensureRuntimeWorker(plugin: Plugin, name: string, code: string):
 **Severity**: Low
 **CWE-ID**: CWE-400 (Resource Exhaustion)
 **Location**: src/core/assets/OptionalAssetManager.ts:199
-**Status**: Confirmed
+**Status**: Resolved (2026-05-14, fix-loop)
 
 **Risiko**: installFromBuffer akzeptiert beliebig grosse ArrayBuffer. Bei sehr grossen Files (z.B. 1 GB) wuerde der SHA-256-Digest viel Memory belegen und das Plugin lange blockieren. Aktuell trigger nur File-Picker, der User waehlt die Datei selbst, also kein hostiler Vektor.
 
@@ -242,7 +260,7 @@ Pre-Audit Stand (committed in 2.8.0):
 - 3 Low (L-1, L-2, L-3)
 - 2 Info (I-1, I-2)
 
-Fix-Empfehlung an User: Option B (Fix nur P1, defer P2/P3 zu Backlog). P1 ist hier 0, also keine sofortigen Fixes noetig. M-1 als Backlog-Item, L-1/L-2/L-3 als Backlog-Items (Defense-in-Depth, nicht akut), I-1/I-2 als Doku-Hinweise.
+User-Entscheidung: Bundle-Fix sofort. M-1 + L-1 + L-2 + L-3 alle resolved im fix-loop 2026-05-14 auf feature/audit-2026-05-13 Branch. I-1 + I-2 als Info-Notes belassen (Style/Doku, kein Bug).
 
 ## Release-Empfehlung
 
