@@ -28,7 +28,7 @@ export const TOOL_GROUP_MAP: Readonly<Record<ToolGroup, readonly ToolName[]>> = 
     edit:  ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw', 'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx', 'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage'],
     web:   ['web_fetch', 'web_search'],
     agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'switch_mode', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'manage_skill', 'evaluate_expression', 'manage_source', 'inspect_self'],
-    mcp:   ['use_mcp_tool'],
+    mcp:   ['use_mcp_tool', 'read_mcp_tool'],
     skill: ['execute_command', 'execute_recipe', 'call_plugin_api', 'resolve_capability_gap', 'enable_plugin'],
 };
 
