@@ -676,10 +676,9 @@ export class EmbeddingsTab {
             );
 
         const statusEl = setting.descEl.createDiv({ cls: 'reranker-asset-status' });
-        statusEl.style.marginTop = '6px';
-        statusEl.style.fontSize = '0.85em';
-        statusEl.style.opacity = '0.8';
-
+        statusEl.setCssStyles({ marginTop: '6px' });
+        statusEl.setCssStyles({ fontSize: '0.85em' });
+        statusEl.setCssStyles({ opacity: '0.8' });
         let installBtn: HTMLButtonElement | null = null;
         let removeBtn: HTMLButtonElement | null = null;
 
@@ -688,24 +687,24 @@ export class EmbeddingsTab {
             statusEl.empty();
             if (snap.status === 'installed') {
                 statusEl.setText('Status: Installed');
-                statusEl.style.color = 'var(--text-success)';
-                if (installBtn) installBtn.style.display = 'none';
-                if (removeBtn) removeBtn.style.display = '';
+                statusEl.setCssStyles({ color: 'var(--text-success)' });
+                if (installBtn) installBtn.setCssStyles({ display: 'none' });
+                if (removeBtn) removeBtn.setCssStyles({ display: '' });
             } else if (snap.status === 'outdated') {
                 statusEl.setText('Status: Installed but hash differs, re-install to update');
-                statusEl.style.color = 'var(--text-warning)';
-                if (installBtn) { installBtn.style.display = ''; installBtn.setText('Re-install'); }
-                if (removeBtn) removeBtn.style.display = '';
+                statusEl.setCssStyles({ color: 'var(--text-warning)' });
+                if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Re-install'); }
+                if (removeBtn) removeBtn.setCssStyles({ display: '' });
             } else if (snap.status === 'error') {
                 statusEl.setText(`Status: Error - ${snap.errorMessage ?? 'unknown'}`);
-                statusEl.style.color = 'var(--text-error)';
-                if (installBtn) installBtn.style.display = '';
-                if (removeBtn) removeBtn.style.display = 'none';
+                statusEl.setCssStyles({ color: 'var(--text-error)' });
+                if (installBtn) installBtn.setCssStyles({ display: '' });
+                if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
             } else {
                 statusEl.setText('Status: Not installed - reranker stays disabled');
-                statusEl.style.color = 'var(--text-muted)';
-                if (installBtn) { installBtn.style.display = ''; installBtn.setText('Install'); }
-                if (removeBtn) removeBtn.style.display = 'none';
+                statusEl.setCssStyles({ color: 'var(--text-muted)' });
+                if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Install'); }
+                if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
             }
         };
 

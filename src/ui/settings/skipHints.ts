@@ -47,31 +47,27 @@ export function renderSkipHintIfSkipped(
     if (!message) return false;
 
     const banner = containerEl.createDiv({ cls: 'vault-operator-skip-hint' });
-    banner.style.display = 'flex';
-    banner.style.alignItems = 'flex-start';
-    banner.style.gap = '12px';
-    banner.style.padding = '10px 12px';
-    banner.style.margin = '0 0 12px 0';
-    banner.style.borderLeft = '3px solid var(--interactive-accent)';
-    banner.style.background = 'var(--background-secondary)';
-    banner.style.borderRadius = '4px';
-
+    banner.setCssStyles({ display: 'flex' });
+    banner.setCssStyles({ alignItems: 'flex-start' });
+    banner.setCssStyles({ gap: '12px' });
+    banner.setCssStyles({ padding: '10px 12px' });
+    banner.setCssStyles({ margin: '0 0 12px 0' });
+    banner.setCssStyles({ borderLeft: '3px solid var(--interactive-accent)' });
+    banner.setCssStyles({ background: 'var(--background-secondary)' });
+    banner.setCssStyles({ borderRadius: '4px' });
     const text = banner.createDiv();
-    text.style.flex = '1';
-    text.style.fontSize = '0.9em';
-
+    text.setCssStyles({ flex: '1' });
+    text.setCssStyles({ fontSize: '0.9em' });
     const headline = text.createEl('strong');
     headline.setText('Setup left this for later');
-    headline.style.display = 'block';
-    headline.style.marginBottom = '4px';
-
+    headline.setCssStyles({ display: 'block' });
+    headline.setCssStyles({ marginBottom: '4px' });
     text.createDiv({ text: message });
 
     const actions = banner.createDiv();
-    actions.style.display = 'flex';
-    actions.style.gap = '6px';
-    actions.style.alignItems = 'center';
-
+    actions.setCssStyles({ display: 'flex' });
+    actions.setCssStyles({ gap: '6px' });
+    actions.setCssStyles({ alignItems: 'center' });
     const reopenBtn = actions.createEl('button', { text: 'Reopen wizard' });
     reopenBtn.addEventListener('click', async () => {
         const { FirstRunWizardModal } = await import('../modals/FirstRunWizardModal');

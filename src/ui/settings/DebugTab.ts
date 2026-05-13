@@ -32,9 +32,9 @@ export class DebugTab {
         // ── Self-Development (Phase 2.2: optional source bundle) ────────────
         containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Self-Development' });
         const intro = containerEl.createDiv();
-        intro.style.fontSize = '0.85em';
-        intro.style.opacity = '0.8';
-        intro.style.marginBottom = '8px';
+        intro.setCssStyles({ fontSize: '0.85em' });
+        intro.setCssStyles({ opacity: '0.8' });
+        intro.setCssStyles({ marginBottom: '8px' });
         intro.setText(
             'Lets the manage_source tool read the plugin\'s own TypeScript source so the agent can answer ' +
             `"how does feature X work?" questions and propose code patches. The source bundle is an ` +
@@ -67,9 +67,8 @@ export class DebugTab {
             );
 
         const statusEl = setting.descEl.createDiv({ cls: 'selfdev-asset-status' });
-        statusEl.style.marginTop = '6px';
-        statusEl.style.fontSize = '0.85em';
-
+        statusEl.setCssStyles({ marginTop: '6px' });
+        statusEl.setCssStyles({ fontSize: '0.85em' });
         let installBtn: HTMLButtonElement | null = null;
         let removeBtn: HTMLButtonElement | null = null;
 
@@ -78,24 +77,24 @@ export class DebugTab {
             statusEl.empty();
             if (snap.status === 'installed') {
                 statusEl.setText('Status: Installed');
-                statusEl.style.color = 'var(--text-success)';
-                if (installBtn) installBtn.style.display = 'none';
-                if (removeBtn) removeBtn.style.display = '';
+                statusEl.setCssStyles({ color: 'var(--text-success)' });
+                if (installBtn) installBtn.setCssStyles({ display: 'none' });
+                if (removeBtn) removeBtn.setCssStyles({ display: '' });
             } else if (snap.status === 'outdated') {
                 statusEl.setText('Status: Installed but hash differs, re-install to update');
-                statusEl.style.color = 'var(--text-warning)';
-                if (installBtn) { installBtn.style.display = ''; installBtn.setText('Re-install'); }
-                if (removeBtn) removeBtn.style.display = '';
+                statusEl.setCssStyles({ color: 'var(--text-warning)' });
+                if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Re-install'); }
+                if (removeBtn) removeBtn.setCssStyles({ display: '' });
             } else if (snap.status === 'error') {
                 statusEl.setText(`Status: Error - ${snap.errorMessage ?? 'unknown'}`);
-                statusEl.style.color = 'var(--text-error)';
-                if (installBtn) installBtn.style.display = '';
-                if (removeBtn) removeBtn.style.display = 'none';
+                statusEl.setCssStyles({ color: 'var(--text-error)' });
+                if (installBtn) installBtn.setCssStyles({ display: '' });
+                if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
             } else {
                 statusEl.setText('Status: Not installed - manage_source tool stays disabled');
-                statusEl.style.color = 'var(--text-muted)';
-                if (installBtn) { installBtn.style.display = ''; installBtn.setText('Install'); }
-                if (removeBtn) removeBtn.style.display = 'none';
+                statusEl.setCssStyles({ color: 'var(--text-muted)' });
+                if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Install'); }
+                if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
             }
         };
 

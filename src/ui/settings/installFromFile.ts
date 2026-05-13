@@ -25,7 +25,7 @@ export function pickAndInstallAsset(
         : spec.filename.endsWith('.json')
             ? '.json,application/json'
             : '*/*';
-    input.style.display = 'none';
+    input.setCssStyles({ display: 'none' });
     input.addEventListener('change', async () => {
         const file = input.files?.[0];
         input.remove();
