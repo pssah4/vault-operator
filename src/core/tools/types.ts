@@ -70,6 +70,10 @@ export type ToolName =
     | 'update_todo_list'
     // MCP
     | 'use_mcp_tool'
+    // FEAT-24-06 / ADR-118: read the full description + input-schema summary
+    // of a single MCP tool on demand (companion to the truncated MCP listing
+    // in the system prompt).
+    | 'read_mcp_tool'
     // Skill (PAS-1)
     | 'execute_command'
     | 'resolve_capability_gap'

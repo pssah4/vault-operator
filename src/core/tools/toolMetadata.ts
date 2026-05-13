@@ -448,8 +448,25 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     manage_source: {
         group: 'agent', label: 'Manage Source', icon: 'file-code',
         signature: 'manage_source(action, name?, content?)',
-        description: 'Manage context sources — persistent text blocks injected into every conversation.',
+        description: 'Manage context sources -- persistent text blocks injected into every conversation.',
         whenToUse: 'When the user wants to always include certain context (project rules, style guides).',
+    },
+    // FEAT-24-06 / ADR-118 second pass: rarely-needed introspection + settings
+    // helpers move to the deferred set (see DEFERRED_TOOL_NAMES below). The
+    // metadata entries are required so find_tool can rank and activate them.
+    inspect_self: {
+        group: 'agent', label: 'Inspect Self', icon: 'eye',
+        signature: 'inspect_self(area)',
+        description: 'Live introspection of the running plugin (areas: settings, tools, capabilities, code). Returns a Markdown summary of the actual runtime state -- not guesses.',
+        whenToUse: 'Before claiming a setting/tool/capability exists, especially when the user asks "what can you do" or after a recent code change. Avoids hallucinating features.',
+        commonMistakes: 'Calling inspect_self when a normal read_file or settings tab would answer the question. Calling it on every turn instead of caching the result for the session.',
+    },
+    update_settings: {
+        group: 'agent', label: 'Update Settings', icon: 'sliders-horizontal',
+        signature: 'update_settings(action, path?, value?, preset?)',
+        description: 'Change plugin settings programmatically. action="set" with path+value, or action="apply_preset" with a permissive/balanced/restrictive preset. API keys are NOT writable here -- use configure_model.',
+        whenToUse: 'When the user explicitly asks to toggle an auto-approval flag, switch a feature on/off, or apply a permission preset. Always ask the user before changing a flag that affects safety.',
+        commonMistakes: 'Writing to settings without confirming with the user. Trying to set API keys (use configure_model instead).',
     },
 
     // ── MCP ───────────────────────────────────────────────────────────────
@@ -459,6 +476,15 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         description: 'Call a tool on an MCP server configured in settings.',
         example: 'use_mcp_tool("my-server", "get_data", {"query": "test"})',
         whenToUse: 'For tools provided by configured MCP servers. Check Connected servers list first.',
+    },
+    // FEAT-24-06 / ADR-118: on-demand companion to the truncated MCP listing.
+    read_mcp_tool: {
+        group: 'mcp', label: 'Read MCP Tool', icon: 'help-circle',
+        signature: 'read_mcp_tool(server, name)',
+        description: 'Read the full description and a compact input-schema summary of a single MCP tool. Use when the MCP listing shows a truncated description and you need the full text before calling use_mcp_tool.',
+        example: 'read_mcp_tool("notion", "create_page")',
+        whenToUse: 'When the MCP tool listing shows "... [full description: read_mcp_tool({ server, name })]" and you need the rest of the description or the input schema.',
+        commonMistakes: 'Reading a tool whose short description already covers what you need. Re-reading the same tool more than once per session -- the result stays in the conversation.',
     },
 
     // ── Plugin Skills (PAS-1) ──────────────────────────────────────────
@@ -543,6 +569,9 @@ export const DEFERRED_TOOL_NAMES: ReadonlySet<string> = new Set([
     'manage_source',
     'manage_mcp_server',
     'resolve_capability_gap',
+    // FEAT-24-06 / ADR-118 second pass: rarely-needed introspection + settings.
+    'inspect_self',
+    'update_settings',
 ]);
 
 /** FEATURE-1600: true when a tool is deferred and must be activated via find_tool. */

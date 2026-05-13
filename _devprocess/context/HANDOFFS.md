@@ -2173,3 +2173,281 @@ Keine. Aenderung ist additiv, reduziert eine bestehende Vertrauensgrenze (entfer
 - Live-Messlauf-Abnahme von SC-1/3/4 in einer naechsten Vault-Session (Funktions-, keine Sicherheitsfrage).
 - Optional spaeter: IMP-24-09-01 als eigenes V-Model-Item (kleiner Pass).
 - Danach das naechste EPIC-24-Item starten: FEAT-24-06 / ADR-117 (Lazy-Loading Tool-Schemas, MCP defaultseitig deferred).
+
+---
+
+## FEAT-24-06 -- /coding -> /testing (2026-05-13)
+
+triage: FEAT-24-06
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-06
+
+Branch: `feature/feat-24-06-lazy-loading-tool-schemas` (off `dev` cdd2d70).
+Refs: PLAN-21, ADR-118 (supersediert ADR-117 nach Codebase-Reconciliation).
+
+### Mid-course design discovery
+
+Vor der Implementation pivotiert (Pivot-Commit `e28139f`): ADR-117 nahm an,
+dass MCP-Tools mit vollen Schemas im `tools`-Feld jeder API-Anfrage landen.
+Codebase-Befund: `ToolRegistry.registerMcpTool` ist ein TODO-Stub und wird von
+keinem MCP-Code gerufen; MCP laeuft ueber das eine `use_mcp_tool`-Built-in;
+die MCP-Listung liegt schon im stabilen Praefix-Block (Section 4 in
+`systemPrompt.ts`, vor `CACHE_BREAKPOINT_MARKER` -- via FEAT-24-01).
+ADR-117 -> Superseded by ADR-118; FEAT-24-06 auf den realen Hebel umgehaengt:
+(1) Description-Cap in der MCP-Listung, (2) `read_mcp_tool` als on-demand-
+Companion, (3) Built-in `deferred`-Review fuer den `tools`-Feld-Teil.
+Root-cause-Notiz: `_devprocess/analysis/ADR-117-review.md`.
+
+### Was implementiert wurde
+
+- `src/core/prompts/sections/tools.ts`: neuer Helper `capMcpDescription`
+  (export) + Konstante `MCP_DESCRIPTION_CAP = 200`. Lange MCP-Tool-
+  Descriptions werden auf 200 Zeichen gekappt und enden mit
+  `... [full description: read_mcp_tool({ server: "...", name: "..." })]`.
+  Em-Dash ` — ` in der Listung auf ` -- ` umgestellt (Projekt-Konvention).
+  Header der MCP-Sektion annonciert `read_mcp_tool` als neue Zeile, damit
+  das Modell den Pfad versteht.
+- `src/core/tools/mcp/ReadMcpToolTool.ts` (NEU): NICHT-deferred Tool
+  `read_mcp_tool(server, name)`. Gruppe `mcp`. Validiert Server gegen
+  `activeMcpServers`-Whitelist + Connection-Status + Tool-Existenz.
+  Liefert Tool-Result mit Header `## MCP TOOL: server.name`, voller
+  Description und einem kompakten InputSchema-Summary (Property-Namen
+  mit Typ + `required`-Flag; keine vollen Description-/Example-Felder
+  damit der Result-Stream nicht der naechste Bloat wird). Enum + array
+  werden mit-rendered.
+- `src/core/tools/types.ts`: `'read_mcp_tool'` in `ToolName`-Union.
+- `src/core/tools/toolMetadata.ts`: `read_mcp_tool`-Entry (NICHT deferred);
+  zusaetzlich `inspect_self`- und `update_settings`-Entries angelegt (sie
+  hatten keine, was ein hidden-bug-Pattern war -- ohne Metadata wuerde
+  `find_tool` sie nicht ranken). Beide zusaetzlich in `DEFERRED_TOOL_NAMES`
+  aufgenommen. `manage_mcp_server` war bereits dort.
+- `src/core/tools/ToolRegistry.ts`: `ReadMcpToolTool` neben `UseMcpToolTool`
+  registriert (nur wenn `mcpClient` vorhanden).
+
+### Tests
+
+`npm test`: **1439 gruen** (+15 vs dev-Baseline 1424). 146 Test-Files.
+
+- `src/core/prompts/sections/__tests__/tools.test.ts` (NEU, 4 Tests):
+  kurze Description bleibt unveraendert, lange wird gekappt + Suffix mit
+  korrektem Server + Tool-Namen, Head deterministisch (cache-stabil).
+- `src/core/tools/mcp/__tests__/ReadMcpToolTool.test.ts` (NEU, 7 Tests):
+  leere Inputs, Whitelist-Enforce, Disconnected-Server, Tool-not-found mit
+  Liste, Happy-Path mit Schema-Summary, fehlendes inputSchema, enum-Property-
+  Rendering.
+- `src/core/tools/__tests__/deferredToolLoading.test.ts` (erweitert, +4):
+  `read_mcp_tool` NOT deferred + `group === 'mcp'`; `inspect_self` und
+  `update_settings` deferred mit `TOOL_METADATA`-Eintraegen.
+
+`npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors. `npm run build`
+gruen (tsc + esbuild production + Deploy zur Vault).
+
+### Abweichungen vom Plan
+
+- **Built-in deferred-Pass kleiner als geplant.** PLAN-21 nannte
+  `inspect_self`, `update_settings`, `manage_mcp_server` als Kandidaten;
+  `manage_mcp_server` war schon deferred -> kein Aktionspunkt. Real wirksam:
+  zwei zusaetzliche deferred-Eintraege.
+- **Zwei `TOOL_METADATA`-Luecken geschlossen.** `inspect_self` und
+  `update_settings` waren in `types.ts`/`ToolRegistry` registriert aber
+  ohne `TOOL_METADATA`-Eintrag. Im Plan nicht antizipiert; gefunden und
+  geschlossen, weil `find_tool` ohne Metadata keinen Rank machen kann.
+
+### Bugs/Findings
+
+Keine. Kein Mid-course-Trigger (bug oder requirement) waehrend Implementation.
+
+### Fuer /testing
+
+- Live-Messlauf-SC SC-6 bleibt offen (Vault-Session mit verbosen MCP-
+  Servern noetig): `[SystemPrompt]`-Section-Char-Breakdown fuer Section 4
+  sollte messbar sinken; `[InputBreakdown:main-loop] toolSchemas=...t`
+  sollte um den Built-in-deferred-Anteil leicht sinken.
+- Unit-Test-Lage gruen; ein /testing-Gap-Pass wuerde gegen die SC-1..5
+  unmittelbar Pass haben. Live-Messlauf bleibt User-Aufgabe.
+
+### Fuer /security-audit
+
+- **`ReadMcpToolTool` Path-Traversal-Vektor:** das Tool nimmt `server` und
+  `name` als String und schlaegt sie in `mcpClient.getConnection(server)`
+  bzw. `conn.tools.find(t => t.name === name)` nach. Kein Pfad geht je an
+  ein Filesystem. Vertrauensgrenze identisch zu `use_mcp_tool`.
+- **Whitelist-Check** dupliziert die Logik aus `UseMcpToolTool` -- pruefen
+  ob beide Stellen synchron bleiben (heute identisch).
+- **InputSchema-Summary-Renderer:** `renderInputSchemaSummary` iteriert die
+  vom MCP-Server gelieferten Properties. Robust gegen fehlende `properties`,
+  fehlende `required`, andere Typen; aber server-kontrolliertes JSON in den
+  Tool-Result. Wenn ein boesartiger MCP-Server Property-Namen oder Typen
+  mit Tausenden Zeichen liefert, landet das ungekappt im Result. Cap-Bedarf
+  pruefen.
+- **MCP-Description-Cap:** rein kosmetisch / cache-relevant. Kein neuer
+  Vertrauensgrenzen-Pfad. Pruefen, dass der Suffix-String keine
+  Injection-Vektor enthaelt (Server + Tool-Name werden in JSON-Quote-Wrapper
+  eingesetzt; wenn ein Server-Name ein Quote enthaelt, ist die Zeile leicht
+  kaputt -- aber Server-Namen sind User-Settings, kein Schaden).
+
+### Naechste Schritte
+
+`/testing` (Gap-Test + Coverage-Check) -> `/security-audit` -> Merge nach `dev`
+ueber `scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`.
+
+---
+
+## FEAT-24-06 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-06
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-06
+
+Branch: `feature/feat-24-06-lazy-loading-tool-schemas` (Commit cc7c609 + Test-Commit).
+
+### Testlage
+
+- `npm test`: **1439 gruen**, 146 Test-Files, 0 Failures (+15 vs dev-Baseline 1424). Die 15 neuen Tests wurden bereits in der /coding-Phase angelegt und entsprechen exakt den SC-1..SC-5 (Mapping siehe BACKLOG-Row + HANDOFFS-Eintrag der /coding-Phase). Keine zusaetzlichen Unit-Tests in dieser /testing-Phase notwendig.
+- `npx tsc -noEmit -skipLibCheck`: clean.
+- `npm run lint`: 0 errors, 663 warnings (vorbestehende `security/detect-object-injection`-Findings, nicht FEAT-24-06-bezogen).
+- `/consistency-check` mode A: 89 findings -- **0 echte durch FEAT-24-06** verursacht. Der eine neue Finding (orphan-backlog-row fuer ADR-118) faellt unter den bekannten DIA-Checker-Regex-Bug fuer 3-stellige ADR-IDs (gleiches Pattern wie ADR-116/117/113/114/115).
+
+### SC-Mapping
+
+| SC | Status | Evidence |
+|---|---|---|
+| SC-1 MCP-Description-Cap 200 chars greift | gruen | 4 Tests in `prompts/sections/__tests__/tools.test.ts` (cap-Boundary, Truncation, Suffix mit `read_mcp_tool`-Hint, deterministischer Head-Cut) |
+| SC-2 `read_mcp_tool` liefert Result-Block | gruen | Happy-Path-Test in `tools/mcp/__tests__/ReadMcpToolTool.test.ts` (Header `## MCP TOOL: ...`, volle Description, InputSchema-Summary mit Property-Typen + required-Flags) |
+| SC-3 `read_mcp_tool` an `mcp`-Gruppe gebunden, NICHT deferred | gruen | 2 Assertions in `tools/__tests__/deferredToolLoading.test.ts` (`isDeferredTool('read_mcp_tool') === false`, `TOOL_METADATA['read_mcp_tool'].group === 'mcp'`) |
+| SC-4 Built-in-deferred-Review | gruen | 2 Assertions in `tools/__tests__/deferredToolLoading.test.ts` (`isDeferredTool('inspect_self') === true`, `isDeferredTool('update_settings') === true`) plus Metadata-Vorhandensein |
+| SC-5 Bestehende Funktionalitaet unveraendert | gruen | 1424 vorbestehende Tests gruen, +15 neue gruen, keine Regression |
+| SC-6 Live-Messlauf | `[AWAITING RE]` | Funktionsverifikation gegen verbose MCP-Server (`[SystemPrompt]`-Section-Char-Breakdown fuer Section 4 messbar sinken, `[InputBreakdown:main-loop] toolSchemas=...t/<count>` sinken um den Built-in-deferred-Anteil) -- nicht autonom pruefbar, bleibt fuer manuelle Abnahme |
+
+### Bewusst NICHT unit-getestet (Begruendung)
+
+- **SC-6 Cache-Praefix- und Token-Sicht-Effekte:** Laufzeit-Telemetrie gegen
+  echte Provider mit verbundenen MCP-Servern. Die Logik-Bausteine
+  (`capMcpDescription`, `renderInputSchemaSummary`, `DEFERRED_TOOL_NAMES`-Set,
+  `find_tool`-Ranking) sind einzeln getestet; ein End-to-End-Beleg waere ein
+  Messlauf, kein Unit-Test.
+- **Audit-Vektoren (server-kontrolliertes JSON in Schema-Summary, Quote in
+  Server-Namen im Suffix-String):** sind /security-audit-Fragen, keine
+  funktionalen Regression-Gaps. Mitigation der ersten Sorge laeuft bereits
+  ueber die `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`-Bodenplatte in
+  `ToolExecutionPipeline.capOversizedToolOutput()` aus FEAT-24-03 / PLAN-18.
+  Die zweite Sorge (Quote im Server-Namen) betrifft kosmetische Korrektheit
+  einer User-Setting-induzierten Eingabe, kein Sicherheitsvektor.
+
+### Fuer /security-audit
+
+Aus dem /coding-Handoff uebernommen + ergaenzt:
+
+- **`ReadMcpToolTool` Vertrauensgrenze:** `server` und `name` sind String-
+  Lookup-Keys, kein Filesystem-Pfad-Vektor (analog zu `read_skill` aus FEAT-24-09).
+  Whitelist-Check dupliziert `UseMcpToolTool` Logik 1:1; pruefen, ob die
+  Synchronitaet auch ohne Refactoring stabil bleibt (keine doppelte
+  Owner-Verantwortung).
+- **InputSchema-Summary-Renderer:** server-kontrolliertes JSON wird in den
+  Tool-Result gerendert. Defense-in-Depth: `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`
+  (FEAT-24-03/PLAN-18) kappt am Pipeline-Ausgang. Audit-Frage: ist die
+  Bodenplatte ausreichend, oder braucht der Renderer einen eigenen Cap fuer
+  einzelne Property-Namen / Typen?
+- **MCP-Description-Cap Suffix-String:** `read_mcp_tool({ server: "X", name: "Y" })`
+  wird mit doppelten Anfuehrungszeichen gerendert. Server- und Tool-Namen
+  kommen aus User-Settings und MCP-Server-Discovery; in der Praxis
+  kebab-case ohne Quotes. Falls je ein Name ein `"` enthielte, wuerde die
+  Zeile syntaktisch leicht kaputt -- kosmetisch, kein Sicherheitsimpact.
+- **Hidden-bug-Pattern bei `inspect_self`/`update_settings`:** beide Tools
+  waren in der Registry und im ToolName-Union, aber ohne `TOOL_METADATA`-
+  Eintrag. Das wurde behoben. Audit-Frage: gibt es weitere Tools in derselben
+  Drift-Situation? Grep nach `TOOL_METADATA`-Coverage waere ein eigenes
+  IMP-Item.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-24-06 / ADR-118. Danach Merge nach `dev` via
+`bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`.
+Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-06 -- /security-audit (2026-05-13)
+
+triage: FEAT-24-06
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-06
+
+Branch: `feature/feat-24-06-lazy-loading-tool-schemas`. Audit-Report:
+[AUDIT-020-feat-24-06-2026-05-13.md](../analysis/AUDIT-020-feat-24-06-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **4 Info-Findings**: F-1 TOOL_METADATA-Drift (deferred zu IMP-24-06-01),
+  F-2 Renderer-Cap als optionale Defense-in-Depth (accepted), F-3 Whitelist-
+  Duplikation (accepted), F-4 Suffix-Quote-Robustheit (accepted).
+
+### Hauptaudit-Vektoren (alle clean oder akzeptiert)
+
+- **Path-Traversal in ReadMcpToolTool:** existiert nicht. `server` und
+  `name` sind String-Lookup-Keys in `mcpClient.getConnection(server)` und
+  `conn.tools.find(t => t.name === name)`. Kein Pfad geht je an
+  `readFile`.
+- **Resource-Consumption ueber Schema-Summary-Renderer:** durch
+  `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000` in `ToolExecutionPipeline`
+  (FEAT-24-03 / PLAN-18) am Pipeline-Ausgang gekappt. Ein boesartiger
+  MCP-Server kann den Kontext nicht sprengen. Eigener Renderer-Cap waere
+  reine Defense-in-Depth, kein Muss.
+- **Suffix-Quote-Robustheit:** Server-/Tool-Namen aus User-Settings sind
+  kebab-case ohne Quotes. Kosmetisch, kein Sicherheitsvektor.
+- **Whitelist-Duplikation:** identische Logik in `UseMcpToolTool` und
+  `ReadMcpToolTool`. Code-Smell, kein Privilegien-Eskalations-Pfad.
+
+### Hidden-bug-Pattern-Befund (F-1)
+
+Der statische Drift-Audit ergab **16 weitere Tools** in der ToolName-Union
+ohne `TOOL_METADATA`-Eintrag (`_memory_atomize`, `_memory_single_call`,
+`anti_echo_search`, `configure_model`, `create_canvas`, `ingest_deep`,
+`ingest_triage`, `list_memory_source_notes`, `mark_for_memory`,
+`mark_note_as_memory_source`, `read_agent_logs`, `recall_memory`,
+`search_history`, `switch_mode`, `unmark_note_as_memory_source`,
+`update_soul`) plus 1 Spiegelfall (`check_presentation_quality` in
+`TOOL_METADATA` aber nicht in Union). Kein direkter Sicherheitsimpact
+heute, aber Drift-Risiko fuer zukuenftige Deferred-Pässe: wenn eines
+dieser Tools deferred wird, ist es ueber `find_tool` nicht entdeckbar
+(`if (!meta) continue;` in `FindToolTool.execute`).
+
+Deferred als **IMP-24-06-01** (P3, Source SEC, Ready). Detail-File:
+`_devprocess/requirements/improvements/IMP-24-06-01-toolmetadata-union-drift.md`.
+
+### Positivbefunde
+
+- **Klare Vertrauensgrenze** in `ReadMcpToolTool` (String-Lookup, kein
+  Pfad). Analog zum read_skill-Pattern.
+- **Whitelist + Connection-Status-Check fail-closed.**
+- **Defense-in-Depth durch Pipeline-Cap** (HARD_TOOL_OUTPUT_CAP_CHARS 60k).
+- **Konsistenz zum ADR-116-Pattern**: Verzeichnis stabil, Detail on-demand;
+  read_skill (FEAT-24-09) und read_mcp_tool (FEAT-24-06) folgen demselben
+  Muster.
+- **Cache-stabiler Cut:** `capMcpDescription` kuerzt deterministisch bei
+  200 chars (mit `trimEnd()`); der gecachte Praefix bleibt stable.
+- **Reduzierte tools-Feld-Surface:** `inspect_self` + `update_settings`
+  sind jetzt deferred -- ihre Schemas verschwinden aus jedem API-Call.
+- **Tests-Verankerung:** SC-3 + SC-4 als Regression-Assertions in
+  `deferredToolLoading.test.ts` festgezurrt.
+- **SCA-Baseline unveraendert** gegenueber AUDIT-019 (keine neuen
+  Dependencies; `mermaid` Moderate bleibt vorbestehend, DEBT-SCA-2026-05-12).
+
+### Architektonische Folgepunkte
+
+- IMP-24-06-01: TOOL_METADATA-Drift-Cleanup als eigenes V-Model-Item.
+- Mittelfristig: TypeScript-Type oder Vitest-Assertion fuer
+  Union/Metadata-Konsistenz (im IMP-24-06-01 mit-erwaegen, nicht
+  zwingend Teil davon).
+
+### Naechster Schritt
+
+Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`
+(User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-Abnahme
+von SC-6 in einer naechsten Vault-Session.

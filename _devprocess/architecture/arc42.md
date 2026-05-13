@@ -962,7 +962,8 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-114](ADR-114-autonomie-governance.md) | Autonomie-Governance: Token-/Kosten-Budget pro Task, Steering-Hook, Exploration-Limits (EPIC-24) |
 | [ADR-115](ADR-115-helper-model-routing.md) | Internes Hilfs-Modell-Routing fuer Agent-interne LLM-Calls (EPIC-24) |
 | [ADR-116](ADR-116-active-skills-on-demand.md) | Active Skills: model-getriebenes On-demand-Laden statt Klassifikator-Inject (EPIC-24) |
-| [ADR-117](ADR-117-lazy-loading-tool-schemas.md) | Lazy-Loading von Tool-Schemas: Built-in und MCP (per-Server-Katalog, Schema on-demand, EPIC-24) |
+| [ADR-117](ADR-117-lazy-loading-tool-schemas.md) | Lazy-Loading von Tool-Schemas: Built-in und MCP (per-Server-Katalog, Schema on-demand, EPIC-24) -- **Superseded by ADR-118 (2026-05-13)** nach Codebase-Reconciliation |
+| [ADR-118](ADR-118-mcp-listing-cap-and-builtin-deferred-review.md) | MCP-Tool-Listing-Cap, read_mcp_tool, und Built-in deferred-Review (EPIC-24, supersediert ADR-117) |
 
 ---
 
