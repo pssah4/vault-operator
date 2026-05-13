@@ -41,17 +41,25 @@ jobs:
           cp main.js manifest.json styles.css release-assets/
 
           # Optional assets (Phase 2) -- downloaded on demand by users
-          # via Settings, never auto-installed. Shipped here so the
-          # OptionalAssetManager has a stable per-version URL to pull.
+          # via Settings, never auto-installed. Published to a SEPARATE
+          # release tag (${version}-assets) so the main plugin release
+          # contains only the three files Obsidian itself supports
+          # (main.js, manifest.json, styles.css). Keeping them on a
+          # separate tag avoids confusing the Community Plugin review
+          # bot's "extra files in release" recommendation while still
+          # giving OptionalAssetManager a stable per-version URL.
+          mkdir -p optional-assets
           if [ -f "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm" ]; then
-            cp node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm release-assets/
+            cp node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm optional-assets/
           fi
           if [ -f "plugin-source.json" ]; then
-            cp plugin-source.json release-assets/
+            cp plugin-source.json optional-assets/
           fi
 
-          echo "=== Release assets ==="
+          echo "=== Plugin release assets ==="
           ls -lh release-assets/
+          echo "=== Optional assets (separate tag) ==="
+          ls -lh optional-assets/
 
       - name: Verify build output
         run: |
@@ -59,8 +67,8 @@ jobs:
           echo "manifest version: $(jq -r .version release-assets/manifest.json)"
           echo "Optional assets:"
           for f in ort-wasm-simd-threaded.wasm plugin-source.json; do
-            if [ -f "release-assets/$f" ]; then
-              echo "  $f  $(ls -lh release-assets/$f | awk '{print $5}')  sha256=$(shasum -a 256 release-assets/$f | cut -d' ' -f1)"
+            if [ -f "optional-assets/$f" ]; then
+              echo "  $f  $(ls -lh optional-assets/$f | awk '{print $5}')  sha256=$(shasum -a 256 optional-assets/$f | cut -d' ' -f1)"
             fi
           done
 
@@ -70,10 +78,10 @@ jobs:
           subject-path: |
             release-assets/main.js
             release-assets/styles.css
-            release-assets/ort-wasm-simd-threaded.wasm
-            release-assets/plugin-source.json
+            optional-assets/ort-wasm-simd-threaded.wasm
+            optional-assets/plugin-source.json
 
-      - name: Create GitHub Release with assets
+      - name: Create GitHub Release (plugin)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.version }}
@@ -88,11 +96,38 @@ jobs:
             Or install manually:
             1. Download `main.js`, `manifest.json`, `styles.css` into `.obsidian/plugins/vault-operator/`
             2. Reload Obsidian
+
+            ### Optional assets
+            Two optional downloads (semantic reranker, self-development source bundle)
+            are published as a separate tag `${{ inputs.version }}-assets` and
+            installed on demand from the plugin's Settings, never silently.
           files: |
             release-assets/main.js
             release-assets/manifest.json
             release-assets/styles.css
-            release-assets/ort-wasm-simd-threaded.wasm
-            release-assets/plugin-source.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release (optional assets)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}-assets
+          name: ${{ inputs.version }} -- Optional assets
+          body: |
+            Optional assets for Vault Operator v${{ inputs.version }}.
+
+            These files are downloaded on demand by the plugin only after
+            an explicit user click in Settings:
+
+            - `ort-wasm-simd-threaded.wasm` -- semantic reranker (~12 MB)
+            - `plugin-source.json` -- self-development source bundle (~5 MB)
+
+            They are NOT part of the plugin's main release tag so the
+            Obsidian plugin installer never sees them. SHA-256 hashes are
+            pinned in the plugin code (`assetHashes.ts`) and verified
+            before any file is persisted.
+          files: |
+            optional-assets/ort-wasm-simd-threaded.wasm
+            optional-assets/plugin-source.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
