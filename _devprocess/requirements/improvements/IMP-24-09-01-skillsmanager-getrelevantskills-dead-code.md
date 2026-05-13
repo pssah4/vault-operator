@@ -52,4 +52,8 @@ noetig (keine neue Vertrauensgrenze).
 
 ## Status
 
-Ready (Backlog).
+Done 2026-05-13 (commit 85b8399 auf branch
+`chore/imp-24-09-01-skillsmanager-deadcode`). `getRelevantSkills` +
+`xmlEscape` + `safeRegex`-Import aus `src/core/context/SkillsManager.ts`
+entfernt; File-Doc-Comment angepasst. -63 LOC. 1464 Tests gruen
+(unveraendert, kein Caller in `src/`). lint 0 errors, tsc clean.
