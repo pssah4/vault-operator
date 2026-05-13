@@ -10,6 +10,20 @@ import type { ToolGroup } from '../../../types/settings';
 import type { McpClient } from '../../mcp/McpClient';
 import { buildToolPromptSection } from '../../tools/toolMetadata';
 
+/**
+ * FEAT-24-06 / ADR-118: cap MCP tool descriptions at 200 chars so a verbose
+ * MCP server (long JSON-schema examples in the description) does not bloat
+ * the cached system-prompt prefix. The model can pull the full description
+ * on demand via `read_mcp_tool({ server, name })`.
+ */
+export const MCP_DESCRIPTION_CAP = 200;
+
+export function capMcpDescription(description: string, server: string, name: string): string {
+    if (description.length <= MCP_DESCRIPTION_CAP) return description;
+    const head = description.slice(0, MCP_DESCRIPTION_CAP).trimEnd();
+    return `${head} ... [full description: read_mcp_tool({ server: "${server}", name: "${name}" })]`;
+}
+
 export function getToolsSection(
     toolGroups: ToolGroup[],
     mcpClient?: McpClient,
@@ -43,12 +57,16 @@ export function getToolsSection(
                 ? rawMcpTools.filter(({ serverName }) => allowedMcpServers.includes(serverName))
                 : rawMcpTools;
             if (allMcpTools.length > 0) {
-                const toolLines = allMcpTools.map(({ serverName, tool }) =>
-                    `  - ${serverName}: ${tool.name}${tool.description ? ' — ' + tool.description : ''}`
-                ).join('\n');
+                const toolLines = allMcpTools.map(({ serverName, tool }) => {
+                    const desc = tool.description
+                        ? ' -- ' + capMcpDescription(tool.description, serverName, tool.name)
+                        : '';
+                    return `  - ${serverName}: ${tool.name}${desc}`;
+                }).join('\n');
                 parts.push(
                     `**MCP Tools (via use_mcp_tool):**\n` +
-                    `- use_mcp_tool(server_name, tool_name, arguments): Call a tool on a connected MCP server.\n\n` +
+                    `- use_mcp_tool(server_name, tool_name, arguments): Call a tool on a connected MCP server.\n` +
+                    `- read_mcp_tool(server, name): Read the full description and input-schema summary of a single MCP tool (use when the listing below shows a truncated description).\n\n` +
                     `Connected servers and their tools:\n${toolLines}`
                 );
             } else {

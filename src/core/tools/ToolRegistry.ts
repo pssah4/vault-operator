@@ -84,6 +84,7 @@ import { UpdateSettingsTool } from './agent/UpdateSettingsTool';
 import { ConfigureModelTool } from './agent/ConfigureModelTool';
 // MCP tool
 import { UseMcpToolTool } from './mcp/UseMcpToolTool';
+import { ReadMcpToolTool } from './mcp/ReadMcpToolTool';
 import type { McpClient } from '../mcp/McpClient';
 // Self-Development (Phase 1)
 import { ReadAgentLogsTool } from './agent/ReadAgentLogsTool';
@@ -127,6 +128,9 @@ export class ToolRegistry {
         );
         if (mcpClient) {
             this.register(new UseMcpToolTool(this.plugin, mcpClient));
+            // FEAT-24-06 / ADR-118: on-demand companion to the truncated MCP
+            // listing in the system prompt. NOT in DEFERRED_TOOL_NAMES.
+            this.register(new ReadMcpToolTool(this.plugin, mcpClient));
         }
     }
 
