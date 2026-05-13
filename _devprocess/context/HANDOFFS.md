@@ -2129,3 +2129,47 @@ Coverage-Tooling im Projekt nicht installiert (`@vitest/coverage-v8` fehlt, kein
 ### Naechster Schritt
 
 `/security-audit` fuer FEAT-24-09 / ADR-116. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand`. Live-Messlauf-Abnahme von SC-1/3/4 (gemeinsam mit den `[AWAITING RE]`-SC aus FEAT-24-01..03) bleibt offen bis zur naechsten Vault-Session.
+
+---
+
+## FEAT-24-09 -- /testing -> /security-audit (2026-05-13)
+
+triage: FEAT-24-09
+triage_kind: feature
+epic: EPIC-24
+feature: FEAT-24-09
+
+Branch: `feature/feat-24-09-active-skills-on-demand`. Audit-Report:
+[AUDIT-019-feat-24-09-2026-05-13.md](../analysis/AUDIT-019-feat-24-09-2026-05-13.md).
+
+### Verdikt
+
+**Overall risk: Low. Release recommendation: Green.**
+
+- **0 Critical, 0 High, 0 Medium.**
+- **1 Info-Finding** (F-1): Dead Code `SkillsManager.getRelevantSkills` -- nach Klassifikator-Entfernung aus FEAT-24-09 ist die Methode nicht mehr von `src/` aufgerufen. Kein direkter Sicherheitsimpact heute, mittelbares Drift-Risiko bei versehentlicher Re-Aktivierung. Defered als IMP-24-09-01 (Source SEC, P3, Status Ready).
+
+### Hauptaudit-Vektor (CLEAN)
+
+Path-Traversal beim Skill-Lookup geprueft -- Verdikt: existiert nicht. `ReadSkillTool` nimmt nur einen String-`name`; Lookup laeuft ueber In-Memory-Map (`SelfAuthoredSkillLoader.getSkill`) bzw. `Array.find` auf `discoverSkills()`-Output. `meta.path` wird in `SkillsManager.discoverSkills` aus `fs.list(this.skillsDir)` konstruiert; `skillsDir` ist konstant `'skills'` und nicht Modell-/User-beeinflussbar. Symlink-Ausbruch wird durch Obsidian-Vault-API verhindert. Kein vom Modell kontrollierter Pfad geht je an `readFile`.
+
+### Positivbefunde
+
+- **Reduzierte Prompt-Injection-Surface** -- `classifySkillsWithLlm` + `activeSkillNames`-Power-Steering entfernt; eine LLM-Sekundaer-Injektion entfaellt vollstaendig.
+- **Stable Cache-Praefix** -- Skill-Verzeichnis oberhalb `CACHE_BREAKPOINT_MARKER`, deterministisch aus den Loadern, kein per-Message-Roundtrip.
+- **Defense-in-Depth Layer 1+2** -- `MAX_SKILL_BODY_CHARS = 24_000` im Tool plus die `HARD_TOOL_OUTPUT_CAP_CHARS = 60_000`-Bodenplatte aus FEAT-24-03/PLAN-18. Auch boesartig grosse Skill-Files oder 1MB-`name`-Strings koennen den Kontext nicht sprengen.
+- **SC-5 Regression-getestet** -- `isDeferredTool('read_skill') === false` + `TOOL_METADATA['read_skill'].group === 'read'` als Tests verankert. Drift-Schutz.
+- **Microcompaction-Compliant** -- Skill-Bodies sind Tool-Results und unterliegen FEAT-24-02-Pruning; keine History-Akkumulation.
+- **Vertrauensgrenze klar** -- Modell-Input `name` ist Lookup-Key, kein Pfad.
+- **SCA-Baseline unveraendert** -- keine neuen Runtime-Dependencies; `mermaid` Moderate (DEBT-SCA-2026-05-12) bleibt vorbestehend.
+
+### Architektonische Folgepunkte
+
+Keine. Aenderung ist additiv, reduziert eine bestehende Vertrauensgrenze (entfernter Klassifikator-Call), kein neues Vertrauensgrenzen-Redesign.
+
+### Naechster Schritt
+
+- Merge nach `dev`: `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand` (User-Trigger; Memory-Konvention: nicht autonom mergen ohne Bestaetigung).
+- Live-Messlauf-Abnahme von SC-1/3/4 in einer naechsten Vault-Session (Funktions-, keine Sicherheitsfrage).
+- Optional spaeter: IMP-24-09-01 als eigenes V-Model-Item (kleiner Pass).
+- Danach das naechste EPIC-24-Item starten: FEAT-24-06 / ADR-117 (Lazy-Loading Tool-Schemas, MCP defaultseitig deferred).
