@@ -148,6 +148,75 @@ function generateInlineAssets() {
     console.log(`[inline-assets] Emitted ${workersN} workers, ${skillCount} skills, ${pptxCount} PPTX templates, ${noteCount} note templates, ${wasmN} WASM as TS consts`);
 }
 
+/**
+ * Generate plugin-source.json (optional asset for Self-Development) and
+ * src/_generated/source-hash.ts (SHA256 of the JSON, bundled into
+ * main.js so EmbeddedSourceManager can verify the downloaded file).
+ *
+ * Must run BEFORE the main esbuild bundle because esbuild reads
+ * source-hash.ts at compile time. The previous implementation ran in
+ * an onEnd hook which meant main.js always shipped the SHA of the
+ * PREVIOUS build (or an empty string on a fresh checkout).
+ */
+async function generateSourceBundle() {
+    const { createHash } = await import("crypto");
+    const srcDir = join(__dirname, "src");
+    const files = {};
+
+    function walkDir(dir) {
+        const entries = readdirSync(dir);
+        for (const entry of entries) {
+            const fullPath = join(dir, entry);
+            const stat = statSync(fullPath);
+            if (stat.isDirectory()) {
+                if (entry === "node_modules" || entry === "__tests__" || entry === "test" || entry === "_generated") continue;
+                walkDir(fullPath);
+            } else if (entry.endsWith(".ts") || entry.endsWith(".tsx")) {
+                const relPath = "src/" + relative(srcDir, fullPath).replace(/\\/g, "/");
+                const content = readFileSync(fullPath, "utf-8");
+                files[relPath] = Buffer.from(content).toString("base64");
+            }
+        }
+    }
+    walkDir(srcDir);
+
+    const pkg = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8"));
+    const manifest = JSON.parse(readFileSync(join(__dirname, "manifest.json"), "utf-8"));
+    const bundle = {
+        version: manifest.version || pkg.version || "0.0.0",
+        files,
+        buildConfig: {
+            format: "cjs",
+            target: "es2022",
+            external: [
+                "obsidian", "electron",
+                "@codemirror/autocomplete", "@codemirror/collab",
+                "@codemirror/commands", "@codemirror/language",
+                "@codemirror/lint", "@codemirror/search",
+                "@codemirror/state", "@codemirror/view",
+                "@lezer/common", "@lezer/highlight", "@lezer/lr",
+            ],
+        },
+    };
+
+    const json = JSON.stringify(bundle);
+    writeFileSync(join(__dirname, "plugin-source.json"), json);
+
+    const sha = createHash("sha256").update(json).digest("hex");
+    const outDir = join(__dirname, "src/_generated");
+    if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+    writeFileSync(
+        join(outDir, "source-hash.ts"),
+        "// AUTO-GENERATED -- do not edit. Source: esbuild generateSourceBundle().\n" +
+        "/* eslint-disable */\n\n" +
+        `export const SELF_DEV_SOURCE_SHA256 = "${sha}";\n`,
+    );
+
+    const fileCount = Object.keys(files).length;
+    const sizeKB = Math.round(json.length / 1024);
+    console.log(`[source-bundle] plugin-source.json: ${fileCount} files, ${sizeKB} KB, sha=${sha.slice(0, 16)}...`);
+}
+
 // Path to the Obsidian vault plugin folder (auto-deploy on build)
 // Set PLUGIN_DIR in your .env or shell environment
 // Load .env file if it exists (for PLUGIN_DIR with iCloud paths containing spaces)
@@ -163,7 +232,10 @@ try {
 } catch { /* .env not found — use shell environment */ }
 const VAULT_PLUGIN_DIR = process.env.PLUGIN_DIR || "";
 
-const context = await esbuild.context({
+// Main context creation is deferred to after generateSourceBundle()
+// runs, so esbuild reads the freshly written SHA from
+// src/_generated/source-hash.ts instead of an empty placeholder.
+const mainBuildOptions = {
     banner: {
         js: banner,
     },
@@ -227,86 +299,15 @@ const context = await esbuild.context({
                 });
             }
         },
-        {
-            // Phase 2.2: emit plugin-source.json as a SEPARATE file (no
-            // longer injected into main.js as a global constant). The
-            // EmbeddedSourceManager loads it lazily from the user's
-            // vault, and only when the Self-Development feature has
-            // been explicitly installed via Settings.
-            //
-            // Also emits src/_generated/source-hash.ts containing the
-            // SHA256 of the JSON, so the plugin can verify the
-            // downloaded file at install time.
-            name: "emit-source-bundle",
-            setup(build) {
-                if (!prod) return; // Only emit source bundle in production builds
-
-                build.onEnd(async (result) => {
-                    if (result.errors.length > 0) return; // Skip on build errors
-
-                    try {
-                        const { createHash } = await import("crypto");
-                        const srcDir = join(__dirname, "src");
-                        const files = {};
-
-                        function walkDir(dir) {
-                            const entries = readdirSync(dir);
-                            for (const entry of entries) {
-                                const fullPath = join(dir, entry);
-                                const stat = statSync(fullPath);
-                                if (stat.isDirectory()) {
-                                    // Skip test dirs, node_modules, and auto-generated bundles
-                                    if (entry === "node_modules" || entry === "__tests__" || entry === "test" || entry === "_generated") continue;
-                                    walkDir(fullPath);
-                                } else if (entry.endsWith(".ts") || entry.endsWith(".tsx")) {
-                                    const relPath = "src/" + relative(srcDir, fullPath).replace(/\\/g, "/");
-                                    const content = readFileSync(fullPath, "utf-8");
-                                    files[relPath] = Buffer.from(content).toString("base64");
-                                }
-                            }
-                        }
-                        walkDir(srcDir);
-
-                        const pkg = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8"));
-                        const manifest = JSON.parse(readFileSync(join(__dirname, "manifest.json"), "utf-8"));
-                        const bundle = {
-                            version: manifest.version || pkg.version || "0.0.0",
-                            files,
-                            buildConfig: {
-                                format: "cjs",
-                                target: "es2022",
-                                external: [
-                                    "obsidian", "electron",
-                                    "@codemirror/autocomplete", "@codemirror/collab",
-                                    "@codemirror/commands", "@codemirror/language",
-                                    "@codemirror/lint", "@codemirror/search",
-                                    "@codemirror/state", "@codemirror/view",
-                                    "@lezer/common", "@lezer/highlight", "@lezer/lr",
-                                ],
-                            },
-                        };
-
-                        const json = JSON.stringify(bundle);
-                        writeFileSync(join(__dirname, "plugin-source.json"), json);
-
-                        const sha = createHash("sha256").update(json).digest("hex");
-                        const hashFile = join(__dirname, "src/_generated/source-hash.ts");
-                        writeFileSync(
-                            hashFile,
-                            "// AUTO-GENERATED -- do not edit. Source: esbuild emit-source-bundle.\n" +
-                            "/* eslint-disable */\n\n" +
-                            `export const SELF_DEV_SOURCE_SHA256 = "${sha}";\n`,
-                        );
-
-                        const fileCount = Object.keys(files).length;
-                        const sizeKB = Math.round(json.length / 1024);
-                        console.log(`[emit-source-bundle] plugin-source.json: ${fileCount} files, ${sizeKB} KB, sha=${sha.slice(0, 16)}...`);
-                    } catch (e) {
-                        console.warn("[emit-source-bundle] Failed:", e.message);
-                    }
-                });
-            }
-        },
+        // emit-source-bundle was an esbuild plugin running in onEnd which
+        // meant it wrote source-hash.ts AFTER main.js had already been
+        // bundled. Result: main.js always contained the previous build's
+        // SHA (or an empty string on the very first build), and
+        // EmbeddedSourceManager rejected every freshly downloaded source
+        // bundle as "hash mismatch". The bundle generation is now a
+        // standalone function called BEFORE context.rebuild(); see
+        // generateSourceBundle() at module scope and its invocation in
+        // the prod / dev branches below.
         {
             name: "vault-deploy",
             setup(build) {
@@ -329,7 +330,7 @@ const context = await esbuild.context({
             }
         }
     ],
-});
+};
 
 // Sandbox worker — separate OS process (ADR-021)
 const workerContext = await esbuild.context({
@@ -365,10 +366,16 @@ if (prod) {
     await mcpWorkerContext.rebuild();
     // Emit src/_generated/bundled-*.ts files which the readers import.
     generateInlineAssets();
-    await context.rebuild();
+    // Emit plugin-source.json + source-hash.ts BEFORE the main esbuild
+    // context is created so esbuild reads the freshly written SHA.
+    await generateSourceBundle();
+    // Single-shot build with up-to-date generated files
+    await esbuild.build(mainBuildOptions);
     process.exit(0);
 } else {
     try { generateInlineAssets(); } catch { /* workers not yet built — will be generated on first rebuild */ }
+    try { await generateSourceBundle(); } catch { /* non-fatal during watch */ }
+    const context = await esbuild.context(mainBuildOptions);
     await context.watch();
     await workerContext.watch();
     await mcpWorkerContext.watch();
