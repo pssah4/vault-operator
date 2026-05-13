@@ -18,6 +18,7 @@ import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } f
 import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { ChatGptOAuthService } from '../../core/auth/ChatGptOAuthService';
+import { modelSupportsTemperature } from '../../types/model-registry';
 
 void OpenAI; // retained: Errors instance kept for compatibility but not actively used
 
@@ -135,7 +136,8 @@ export class ChatGptOAuthProvider implements ApiHandler {
             body.tools = this.convertTools(tools);
             body.parallel_tool_calls = false;
         }
-        if (this.config.temperature !== undefined) {
+        // FIX-04-03-02: omit temperature for default-only models (e.g. GPT-5.x)
+        if (this.config.temperature !== undefined && modelSupportsTemperature(this.config.model)) {
             body.temperature = Math.min(this.config.temperature, 2.0);
         }
 

@@ -5,6 +5,7 @@ import {
     getModelMaxTokens,
     resolveOutputBudget,
     estimatePromptTokens,
+    modelSupportsTemperature,
 } from '../model-registry';
 
 describe('normalizeModelId', () => {
@@ -133,5 +134,37 @@ describe('estimatePromptTokens', () => {
         const messages = [{ content: [{ type: 'image', source: { data: huge } }] }];
         // ~1500 tokens, not 100k.
         expect(estimatePromptTokens('', messages)).toBe(1_500);
+    });
+});
+
+describe('modelSupportsTemperature (FIX-04-03-02)', () => {
+    it('flags Anthropic Opus 4.7 as default-only', () => {
+        expect(modelSupportsTemperature('claude-opus-4-7')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-7-20260415')).toBe(false);
+    });
+
+    it('flags Opus 4.7 across normalized aliases (OpenRouter, Bedrock)', () => {
+        expect(modelSupportsTemperature('anthropic/claude-opus-4-7')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-7-v1')).toBe(false);
+    });
+
+    it('flags GPT-5 family as default-only', () => {
+        expect(modelSupportsTemperature('gpt-5')).toBe(false);
+        expect(modelSupportsTemperature('gpt-5.5')).toBe(false);
+        expect(modelSupportsTemperature('gpt-5-turbo')).toBe(false);
+        expect(modelSupportsTemperature('openai/gpt-5.5')).toBe(false);
+    });
+
+    it('allows temperature on older Claude + GPT-4 lineage', () => {
+        expect(modelSupportsTemperature('claude-opus-4-6')).toBe(true);
+        expect(modelSupportsTemperature('claude-sonnet-4-6')).toBe(true);
+        expect(modelSupportsTemperature('claude-haiku-4-5-20251001')).toBe(true);
+        expect(modelSupportsTemperature('gpt-4o')).toBe(true);
+        expect(modelSupportsTemperature('gpt-4.1')).toBe(true);
+    });
+
+    it('does not flag unknown local model names', () => {
+        expect(modelSupportsTemperature('llama-3.1-70b')).toBe(true);
+        expect(modelSupportsTemperature('qwen3.5:9b')).toBe(true);
     });
 });

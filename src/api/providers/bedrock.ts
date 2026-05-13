@@ -43,7 +43,7 @@ import type {
 } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { truncatedToolInputError } from '../types';
-import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
 import { getCacheCapability } from '../capabilities';
 import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
@@ -183,7 +183,11 @@ export class BedrockProvider implements ApiHandler {
             this.config.maxTokens,
             { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages) },
         );
-        const temperature = this.config.temperature ?? 0.2;
+        // FIX-04-03-02: omit temperature for default-only models (Opus 4.7+,
+        // GPT-5.x on Bedrock if it ever ships there); Bedrock surfaces the
+        // same provider 400 as direct calls when temperature is rejected.
+        const supportsTemperature = modelSupportsTemperature(this.config.model);
+        const temperature = supportsTemperature ? (this.config.temperature ?? 0.2) : undefined;
 
         const command = new ConverseStreamCommand({
             modelId: this.config.model,
@@ -191,7 +195,7 @@ export class BedrockProvider implements ApiHandler {
             system,
             inferenceConfig: {
                 maxTokens,
-                temperature,
+                ...(temperature !== undefined ? { temperature } : {}),
             },
             toolConfig,
         });

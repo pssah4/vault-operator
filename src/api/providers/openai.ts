@@ -12,7 +12,7 @@ import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } f
 import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import type { IncomingMessage } from 'http';
-import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
 
 // ---------------------------------------------------------------------------
@@ -64,17 +64,27 @@ interface ToolCallAccumulator {
 // ---------------------------------------------------------------------------
 
 /**
- * Creates a fetch-compatible function using Node.js https module.
+ * Creates a fetch-compatible function using Node.js http(s) module.
  * Used for providers where Electron's CORS enforcement blocks globalThis.fetch
- * (e.g. Google's generativelanguage.googleapis.com, chatgpt.com/backend-api).
+ * (e.g. Google's generativelanguage.googleapis.com, chatgpt.com/backend-api,
+ * and FIX-04-03-03 custom OpenAI-compatible servers like opencode go on
+ * localhost).
+ *
+ * Picks the http or https module based on the URL protocol so plain-HTTP
+ * local dev servers also work, not just HTTPS endpoints.
  */
 export function createNodeFetch(): typeof globalThis.fetch {
     return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         const parsed = new URL(url);
+        const isHttps = parsed.protocol === 'https:';
 
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node.js https only available via dynamic require in Electron renderer
-        const https = require('https') as typeof import('https');
+        // Node.js http(s) only available via dynamic require in Electron renderer
+        const httpModule = isHttps
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require for Electron renderer
+            ? (require('https') as typeof import('https'))
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require for Electron renderer
+            : (require('http') as unknown as typeof import('https'));
 
         return new Promise<Response>((resolve, reject) => {
             const headers: Record<string, string> = {};
@@ -88,9 +98,10 @@ export function createNodeFetch(): typeof globalThis.fetch {
                 }
             }
 
-            const req = https.request({
+            const defaultPort = isHttps ? 443 : 80;
+            const req = httpModule.request({
                 hostname: parsed.hostname,
-                port: parsed.port || 443,
+                port: parsed.port || defaultPort,
                 path: parsed.pathname + parsed.search,
                 method: init?.method ?? 'GET',
                 headers,
@@ -166,10 +177,18 @@ export class OpenAiProvider implements ApiHandler {
             baseURL,
             dangerouslyAllowBrowser: true,
             defaultHeaders,
-            // Gemini: use Node.js https to bypass CORS restrictions in Electron renderer.
-            // Obsidian's Electron renderer enforces CORS on globalThis.fetch, but Node.js
-            // https module (available via nodeIntegration) is not subject to CORS.
-            ...(config.type === 'gemini' ? { fetch: createNodeFetch() } : {}),
+            // Bypass Electron's CORS enforcement for providers whose endpoints
+            // do not set the right Access-Control-Allow-Origin headers. Obsidian
+            // renderer enforces CORS on globalThis.fetch; Node.js http(s) is not
+            // subject to CORS.
+            // - 'gemini' (always blocked by Google):
+            // - 'custom' (FIX-04-03-03): generic OpenAI-compatible servers like
+            //   opencode go on localhost rarely send CORS headers.
+            // - 'ollama' / 'lmstudio' on localhost: same class of local server,
+            //   safer to bypass CORS than to rely on the server config.
+            ...((['gemini', 'custom', 'ollama', 'lmstudio'] as const).includes(config.type as never)
+                ? { fetch: createNodeFetch() }
+                : {}),
         });
     }
 
@@ -196,14 +215,19 @@ export class OpenAiProvider implements ApiHandler {
         const openAiMessages = this.convertMessages(systemPrompt, messages);
         const openAiTools = tools.length > 0 ? this.convertTools(tools) : undefined;
 
-        // Temperature handling — three cases:
+        // Temperature handling — four cases:
         // 1. o-series (o1, o3, o4-mini, etc.) enforce temperature=1 API-side -> omit entirely
-        // 2. Explicitly configured temperature -> always respect it
-        // 3. No explicit config -> use 0.2 default for deterministic agent behavior,
+        // 2. FIX-04-03-02: GPT-5.x and other default-only models reject any
+        //    explicit temperature with a 400 -> omit entirely (detected via
+        //    shared helper modelSupportsTemperature so the same rule covers
+        //    OpenRouter aliases and gateway names too).
+        // 3. Explicitly configured temperature -> always respect it
+        // 4. No explicit config -> use 0.2 default for deterministic agent behavior,
         //    EXCEPT for Azure where deployment names are opaque (may hide o-series models)
         const isOSeries = /^o[1-9]/.test(this.config.model);
+        const supportsTemperature = modelSupportsTemperature(this.config.model);
         let temperature: number | undefined;
-        if (isOSeries) {
+        if (isOSeries || !supportsTemperature) {
             temperature = undefined;
         } else if (this.config.temperature !== undefined) {
             temperature = this.config.temperature;

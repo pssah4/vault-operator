@@ -16,7 +16,7 @@ import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } f
 import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { KiloAuthService } from '../../core/security/KiloAuthService';
-import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
 
 // ---------------------------------------------------------------------------
@@ -98,9 +98,11 @@ export class KiloGatewayProvider implements ApiHandler {
         const openAiMessages = this.convertMessages(systemPrompt, messages);
         const openAiTools = tools.length > 0 ? this.convertTools(tools) : undefined;
 
-        // Temperature: o-series weglassen, sonst Config oder 0.2-Default
+        // Temperature: o-series weglassen, default-only Modelle (Opus 4.7,
+        // GPT-5.x; FIX-04-03-02) ebenfalls weglassen, sonst Config oder 0.2.
         const isOSeries = /^o[1-9]/.test(this.config.model);
-        const temperature: number | undefined = isOSeries
+        const supportsTemperature = modelSupportsTemperature(this.config.model);
+        const temperature: number | undefined = (isOSeries || !supportsTemperature)
             ? undefined
             : (this.config.temperature ?? 0.2);
 
