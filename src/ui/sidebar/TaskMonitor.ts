@@ -54,17 +54,27 @@ const SUBSCRIPTION_PROVIDERS = new Set(['github-copilot', 'chatgpt-oauth']);
 export class TaskMonitor {
     constructor(private opts: TaskMonitorOptions) {}
 
-    /** Live usage update -- compute cost, render footer. Called per turn. */
+    /**
+     * Live usage update -- compute cost, render footer. Called per turn.
+     *
+     * v2.10.2: the optional `actualModelId` argument lets the caller report
+     * the model that *actually* served the call. Without it we fall back
+     * to the configured main-model id, which is wrong when TaskRouter has
+     * routed the task onto the helper model and the call actually ran on
+     * Haiku or Sonnet. The footer now prices the call on the correct
+     * model and resolves provider / subscription state from the same id.
+     */
     onUsage(
         inputTokens: number,
         outputTokens: number,
         cacheReadTokens?: number,
         cacheCreationTokens?: number,
+        actualModelId?: string,
     ): void {
         const cR = cacheReadTokens ?? 0;
         const cW = cacheCreationTokens ?? 0;
-        const modelId = this.modelIdForCost();
-        const provider = this.providerForCost();
+        const modelId = actualModelId ?? this.modelIdForCost();
+        const provider = this.providerFor(modelId);
         const cost = computeCost(modelId, inputTokens, outputTokens, cR, cW);
         const isSubscription = provider !== undefined && SUBSCRIPTION_PROVIDERS.has(provider);
 
@@ -130,9 +140,32 @@ export class TaskMonitor {
         return this.opts.apiHandler?.getModel().id ?? '';
     }
 
-    private providerForCost(): string | undefined {
-        return this.opts.plugin.settings.activeModels.find(
-            (m) => getModelKey(m) === this.opts.getEffectiveModelKey(),
-        )?.provider;
+    /**
+     * Resolve provider from a model id. v2.10.2: looks the model up by its
+     * concrete id (the `id` field on CustomModel, after normalisation)
+     * rather than via getEffectiveModelKey(). When TaskRouter has routed
+     * to the helper model, the model id we see at usage-report time
+     * belongs to the helper, not to the user-selected main model.
+     */
+    private providerFor(modelId: string): string | undefined {
+        if (!modelId) {
+            return this.opts.plugin.settings.activeModels.find(
+                (m) => getModelKey(m) === this.opts.getEffectiveModelKey(),
+            )?.provider;
+        }
+        const idLower = modelId.toLowerCase();
+        const match = this.opts.plugin.settings.activeModels.find((m) => {
+            // Match if the provider's runtime id equals or substring-matches
+            // the configured model name (provider id strings differ across
+            // vendors, e.g. bedrock prefixes with "eu.anthropic.").
+            const candidate = (m.name || '').toLowerCase();
+            return candidate.length > 0 && (
+                idLower === candidate ||
+                idLower.endsWith(candidate) ||
+                candidate.endsWith(idLower) ||
+                idLower.includes(candidate)
+            );
+        });
+        return match?.provider;
     }
 }

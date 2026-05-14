@@ -165,6 +165,11 @@ export function formatTelemetryFooter(args: {
     if (args.cacheReadTokens > 0) s += ` · ${args.cacheReadTokens.toLocaleString()} cached`;
     const hit = cacheHitRate(args.inputTokens, args.cacheReadTokens, args.cacheCreationTokens ?? 0);
     if (hit !== null) s += ` · ${hit}% hit`;
+    // v2.10.2: always show the EUR cost, even on subscription providers.
+    // User asked for visibility into "what would this cost normally" so
+    // they can spot expensive calls regardless of where they're billed.
+    // The "(~ via Sub)" suffix flags that the displayed cost is the
+    // would-be API spend, not what the user actually pays.
     s += ` · ${formatEur(args.costEur)}`;
     if (args.isSubscription) s += ' (~ via Sub)';
     return s;
