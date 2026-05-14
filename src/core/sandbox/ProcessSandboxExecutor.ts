@@ -31,7 +31,7 @@ import {
 interface PendingExecution {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
-    timeout: ReturnType<typeof setTimeout>;
+    timeout: number;
 }
 
 /** Messages FROM the worker TO the plugin (typed union) */
@@ -113,7 +113,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
         const id = this.generateId();
 
         return new Promise<unknown>((resolve, reject) => {
-            const timeout = setTimeout(() => {
+            const timeout = window.setTimeout(() => {
                 this.pending.delete(id);
                 reject(new Error('Sandbox execution timeout (30s)'));
             }, 30000);
@@ -132,7 +132,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
         this.readyPromise = null;
 
         for (const p of this.pending.values()) {
-            clearTimeout(p.timeout);
+            window.clearTimeout(p.timeout);
             p.reject(new Error('Sandbox destroyed'));
         }
         this.pending.clear();
@@ -202,7 +202,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
             this.readyPromise = null;
             // Reject all pending executions
             for (const p of this.pending.values()) {
-                clearTimeout(p.timeout);
+                window.clearTimeout(p.timeout);
                 p.reject(new Error('Worker process exited unexpectedly'));
             }
             this.pending.clear();
@@ -211,7 +211,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
         // Wait for sandbox-ready with 10s timeout
         await new Promise<void>((resolve, reject) => {
             const INIT_TIMEOUT_MS = 10000;
-            const timeout = setTimeout(() => {
+            const timeout = window.setTimeout(() => {
                 this.gracefulKill(this.worker!);
                 this.worker = null;
                 this.readyPromise = null;
@@ -220,7 +220,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
 
             const readyHandler = (msg: unknown) => {
                 if (msg && typeof msg === 'object' && (msg as Record<string, unknown>)['type'] === 'sandbox-ready') {
-                    clearTimeout(timeout);
+                    window.clearTimeout(timeout);
                     this.worker?.removeListener('message', readyHandler);
                     resolve();
                 }
@@ -253,7 +253,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
             const id = msg.id;
             const p = this.pending.get(id);
             if (!p) return;
-            clearTimeout(p.timeout);
+            window.clearTimeout(p.timeout);
             this.pending.delete(id);
             if (msg.type === 'error') {
                 p.reject(new Error(msg.message));
@@ -343,7 +343,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
         try {
             proc.kill('SIGTERM');
         } catch { /* already dead */ }
-        setTimeout(() => {
+        window.setTimeout(() => {
             try {
                 if (!proc.killed) proc.kill('SIGKILL');
             } catch { /* already dead */ }

@@ -1,6 +1,6 @@
 {
   "name": "vault-operator",
-  "version": "2.8.4",
+  "version": "2.8.5",
   "description": "Agentic AI operating layer for your vault. Discovers and uses installed plugins, maintains persistent unified memory, and adapts to your workflows, skills and tools with full safety controls.",
   "main": "main.js",
   "scripts": {
@@ -36,7 +36,6 @@
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
-    "builtin-modules": "3.3.0",
     "esbuild": "^0.27.3",
     "eslint": "^9.39.3",
     "eslint-plugin-no-unsanitized": "^4.1.5",
@@ -69,7 +68,6 @@
     "graphology-communities-louvain": "^2.0.2",
     "isomorphic-git": "^1.37.1",
     "jszip": "^3.10.1",
-    "lodash.debounce": "^4.0.8",
     "openai": "^4.0.0",
     "p-wait-for": "^5.0.0",
     "pdfjs-dist": "^4.4.168",

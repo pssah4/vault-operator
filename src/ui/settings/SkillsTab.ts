@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { App, Notice, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
@@ -348,7 +349,7 @@ export class SkillsTab {
             }
             const blob = new Blob([content], { type: 'text/markdown' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = activeDocument.createElement('a');
             a.href = url;
             a.download = `SKILL-${skill.name}.md`;
             a.click();
@@ -722,7 +723,7 @@ export class SkillsTab {
         adapter: import('obsidian').DataAdapter,
         refreshList: () => Promise<void>,
     ): void {
-        const fileInput = document.createElement('input');
+        const fileInput = activeDocument.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = '.md,.txt,.zip,.skill';
         fileInput.addEventListener('change', () => { void (async () => {

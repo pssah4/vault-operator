@@ -95,7 +95,7 @@ export class McpClient {
             await Promise.race([
                 client.connect(transport),
                 new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error(`Connection to "${name}" timed out`)), timeoutMs)
+                    window.setTimeout(() => reject(new Error(`Connection to "${name}" timed out`)), timeoutMs)
                 ),
             ]);
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { App, Notice, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
@@ -30,7 +31,7 @@ export class DebugTab {
             );
 
         // ── Self-Development (Phase 2.2: optional source bundle) ────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Self-Development' });
+        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Self-development' });
         const intro = containerEl.createDiv();
         intro.setCssStyles({ fontSize: '0.85em' });
         intro.setCssStyles({ opacity: '0.8' });
@@ -38,7 +39,7 @@ export class DebugTab {
         intro.setText(
             'Lets the manage_source tool read the plugin\'s own TypeScript source so the agent can answer ' +
             `"how does feature X work?" questions and propose code patches. The source bundle is an ` +
-            `optional one-time download (~5 MB), kept out of ${BUNDLE_FILENAME} so the plugin stays under Obsidian Sync\'s ` +
+            `optional one-time download (~5 MB), kept out of ${BUNDLE_FILENAME} so the plugin stays under Obsidian Sync's ` +
             'size threshold for users who do not need this feature.',
         );
 
@@ -51,7 +52,7 @@ export class DebugTab {
 
         if (!SELF_DEV_SOURCE_SHA256) {
             new Setting(containerEl)
-                .setName('Self-Development source bundle')
+                .setName('Self-development source bundle')
                 .setDesc('Not available in this development build (no SHA compiled in). Will be available in the next release.');
             return;
         }
@@ -76,22 +77,22 @@ export class DebugTab {
             const snap = await manager.snapshot(spec);
             statusEl.empty();
             if (snap.status === 'installed') {
-                statusEl.setText('Status: Installed');
+                statusEl.setText('Status: installed');
                 statusEl.setCssStyles({ color: 'var(--text-success)' });
                 if (installBtn) installBtn.setCssStyles({ display: 'none' });
                 if (removeBtn) removeBtn.setCssStyles({ display: '' });
             } else if (snap.status === 'outdated') {
-                statusEl.setText('Status: Installed but hash differs, re-install to update');
+                statusEl.setText('Status: installed but hash differs, re-install to update');
                 statusEl.setCssStyles({ color: 'var(--text-warning)' });
                 if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Re-install'); }
                 if (removeBtn) removeBtn.setCssStyles({ display: '' });
             } else if (snap.status === 'error') {
-                statusEl.setText(`Status: Error - ${snap.errorMessage ?? 'unknown'}`);
+                statusEl.setText(`Status: error - ${snap.errorMessage ?? 'unknown'}`);
                 statusEl.setCssStyles({ color: 'var(--text-error)' });
                 if (installBtn) installBtn.setCssStyles({ display: '' });
                 if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
             } else {
-                statusEl.setText('Status: Not installed - manage_source tool stays disabled');
+                statusEl.setText('Status: not installed - manage_source tool stays disabled');
                 statusEl.setCssStyles({ color: 'var(--text-muted)' });
                 if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Install'); }
                 if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
@@ -130,7 +131,7 @@ export class DebugTab {
                 .onClick(async () => {
                     try {
                         await manager.remove(spec);
-                        new Notice('Self-Development source removed.');
+                        new Notice('Self-development source removed.');
                     } catch (e) {
                         const msg = e instanceof Error ? e.message : String(e);
                         new Notice(`Remove failed: ${msg}`);

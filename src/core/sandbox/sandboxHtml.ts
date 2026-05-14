@@ -27,7 +27,7 @@ var callCounter = 0;
 function bridgeCall(type, payload) {
     return new Promise(function(resolve, reject) {
         var callId = 'bc_' + (++callCounter);
-        var timeout = setTimeout(function() {
+        var timeout = window.setTimeout(function() {
             pendingCalls.delete(callId);
             reject(new Error('Bridge call timeout'));
         }, 15000);
@@ -60,7 +60,7 @@ window.addEventListener('message', function(event) {
     // Bridge-Response
     if (msg.callId && pendingCalls.has(msg.callId)) {
         var p = pendingCalls.get(msg.callId);
-        clearTimeout(p.timeout);
+        window.clearTimeout(p.timeout);
         pendingCalls.delete(msg.callId);
         if (msg.error) { p.reject(new Error(msg.error)); }
         else { p.resolve(msg.result); }

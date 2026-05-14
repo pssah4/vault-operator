@@ -104,10 +104,10 @@ export class CodeImportModal extends Modal {
         });
 
         // Auto-parse on debounced input
-        let timer: ReturnType<typeof setTimeout>;
+        let timer: number;
         textarea.addEventListener('input', () => {
-            clearTimeout(timer);
-            timer = setTimeout(() => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
                 if (textarea.value.trim().length > 15) {
                     this.runParse(textarea.value);
                 } else {

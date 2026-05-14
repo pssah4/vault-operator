@@ -220,7 +220,7 @@ export class McpTab {
                             } else if (this.plugin.mcpBridge) {
                                 void this.plugin.mcpBridge.connectRelay();
                             }
-                            setTimeout(() => this.rerender(), 1000);
+                            window.setTimeout(() => this.rerender(), 1000);
                         });
                     });
 

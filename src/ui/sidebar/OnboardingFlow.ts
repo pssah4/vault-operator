@@ -246,7 +246,7 @@ export class OnboardingFlow {
             this.selectedProvider = null;
             callbacks.updateModelButton();
             if (!this.plugin.settings.onboarding.completed) {
-                setTimeout(() => callbacks.startOnboardingChat(), 800);
+                window.setTimeout(() => callbacks.startOnboardingChat(), 800);
             }
         } else {
             callbacks.addAssistantMessage(t('onboarding.test.failed'));

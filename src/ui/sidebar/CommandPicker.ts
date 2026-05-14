@@ -45,7 +45,7 @@ export class CommandPicker {
         this.hide();
         this.activeIdx = 0;
 
-        this.containerEl = document.body.createDiv('vault-file-picker command-picker');
+        this.containerEl = activeDocument.body.createDiv('vault-file-picker command-picker');
 
         const positionPopover = () => {
             if (!this.containerEl) return;
@@ -133,10 +133,10 @@ export class CommandPicker {
         const closeOnOutside = (e: MouseEvent) => {
             if (this.containerEl && !this.containerEl.contains(e.target as Node)) {
                 this.hide();
-                document.removeEventListener('mousedown', closeOnOutside);
+                activeDocument.removeEventListener('mousedown', closeOnOutside);
             }
         };
-        document.addEventListener('mousedown', closeOnOutside);
+        activeDocument.addEventListener('mousedown', closeOnOutside);
 
         this.renderList();
         window.setTimeout(() => this.searchInput?.focus(), 0);

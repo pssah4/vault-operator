@@ -31,29 +31,29 @@ export function scheduleRecurring(
     everyMs: number,
 ): RecurringHandle {
     let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timer: number | null = null;
 
     const tick = (): void => {
         if (stopped) return;
         try {
             const result = fn();
-            if (result && typeof (result as Promise<void>).then === 'function') {
-                (result as Promise<void>).catch(() => { /* swallow */ });
+            if (result && typeof result.then === 'function') {
+                result.catch(() => { /* swallow */ });
             }
         } catch {
             // Swallow: a single failing tick must not break the recurrence.
         }
         if (stopped) return;
-        timer = setTimeout(tick, everyMs);
+        timer = window.setTimeout(tick, everyMs);
     };
 
-    timer = setTimeout(tick, everyMs);
+    timer = window.setTimeout(tick, everyMs);
 
     return {
         stop(): void {
             stopped = true;
             if (timer !== null) {
-                clearTimeout(timer);
+                window.clearTimeout(timer);
                 timer = null;
             }
         },

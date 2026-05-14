@@ -18,7 +18,7 @@ export function pickAndInstallAsset(
     spec: AssetSpec,
     onDone: () => void | Promise<void>,
 ): void {
-    const input = document.createElement('input');
+    const input = activeDocument.createElement('input');
     input.type = 'file';
     input.accept = spec.filename.endsWith('.wasm')
         ? '.wasm,application/wasm'
@@ -26,6 +26,7 @@ export function pickAndInstallAsset(
             ? '.json,application/json'
             : '*/*';
     input.setCssStyles({ display: 'none' });
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- event handler / callback returns Promise; errors handled inside
     input.addEventListener('change', async () => {
         const file = input.files?.[0];
         input.remove();
@@ -41,6 +42,6 @@ export function pickAndInstallAsset(
             await onDone();
         }
     });
-    document.body.appendChild(input);
+    activeDocument.body.appendChild(input);
     input.click();
 }

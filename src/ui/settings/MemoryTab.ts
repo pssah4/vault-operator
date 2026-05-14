@@ -29,7 +29,6 @@ import {
     type SyncMode,
     type PerProviderSyncOverride,
     type SourceInterface,
-    type CrossSurfaceSettings,
 } from '../../core/memory/SourceInterface';
 
 export class MemoryTab {

@@ -28,7 +28,7 @@ export class ToolPickerPopover {
         const mode = this.modeService.getMode(slug);
         if (!mode) return;
 
-        const popover = document.createElement('div');
+        const popover = activeDocument.createElement('div');
         popover.className = 'tool-picker-popover';
         this.popoverEl = popover;
 
@@ -303,7 +303,7 @@ export class ToolPickerPopover {
             left = Math.max(left, cr.left + pad);
             popover.setCssProps({ '--tp-left': `${left}px` });
         };
-        document.body.appendChild(popover);
+        activeDocument.body.appendChild(popover);
         positionPopover();
 
         // Re-position on window resize so the popover tracks its anchor
@@ -455,12 +455,12 @@ export class ToolPickerPopover {
                 this.close();
             }
         };
-        setTimeout(() => document.addEventListener('mousedown', this.closeHandler!), 50);
+        window.setTimeout(() => activeDocument.addEventListener('mousedown', this.closeHandler!), 50);
     }
 
     close(): void {
         if (this.closeHandler) {
-            document.removeEventListener('mousedown', this.closeHandler);
+            activeDocument.removeEventListener('mousedown', this.closeHandler);
             this.closeHandler = null;
         }
         if (this.resizeHandler) {

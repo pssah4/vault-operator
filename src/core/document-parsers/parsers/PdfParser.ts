@@ -4,10 +4,10 @@
  * Runs in fake-worker mode (no Web Worker) for Obsidian/Electron compatibility.
  * Returns empty text for encrypted, image-only, or unreadable PDFs.
  *
- * IMPORTANT: Importing pdfjs-dist/build/pdf.worker.mjs sets globalThis.pdfjsWorker
+ * IMPORTANT: Importing pdfjs-dist/build/pdf.worker.mjs sets window.pdfjsWorker
  * as an irreversible side effect. Obsidian ships its own PDF.js (v5.x) and detects
  * this stale v4.x worker, causing "API version does not match Worker version".
- * We save/restore globalThis.pdfjsWorker around every usage to prevent this.
+ * We save/restore window.pdfjsWorker around every usage to prevent this.
  *
  * Refactored from SemanticIndexService.extractPdfText().
  */
@@ -36,7 +36,7 @@ export async function parsePdf(data: ArrayBuffer): Promise<ParseResult> {
 
     // Save global state that pdfjs-dist pollutes on import.
     // Obsidian's own PDF viewer (v5.x) breaks if it finds our v4.x worker here.
-    const savedPdfjsWorker = (globalThis as Record<string, unknown>).pdfjsWorker;
+    const savedPdfjsWorker = ((window as unknown) as Record<string, unknown>).pdfjsWorker;
     const savedWorkerSrc = pdfjsLib.GlobalWorkerOptions?.workerSrc;
 
     // Disable the web worker — pdfjs falls back to in-process (fake-worker) mode.
@@ -82,9 +82,9 @@ export async function parsePdf(data: ArrayBuffer): Promise<ParseResult> {
     } finally {
         // Restore Obsidian's global state so its PDF viewer keeps working.
         if (savedPdfjsWorker === undefined) {
-            delete (globalThis as Record<string, unknown>).pdfjsWorker;
+            delete ((window as unknown) as Record<string, unknown>).pdfjsWorker;
         } else {
-            (globalThis as Record<string, unknown>).pdfjsWorker = savedPdfjsWorker;
+            ((window as unknown) as Record<string, unknown>).pdfjsWorker = savedPdfjsWorker;
         }
         if (pdfjsLib.GlobalWorkerOptions && savedWorkerSrc !== undefined) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = savedWorkerSrc;

@@ -686,12 +686,12 @@ export class EmbeddingsTab {
             const snap = await manager.snapshot(spec);
             statusEl.empty();
             if (snap.status === 'installed') {
-                statusEl.setText('Status: Installed');
+                statusEl.setText('Status: installed');
                 statusEl.setCssStyles({ color: 'var(--text-success)' });
                 if (installBtn) installBtn.setCssStyles({ display: 'none' });
                 if (removeBtn) removeBtn.setCssStyles({ display: '' });
             } else if (snap.status === 'outdated') {
-                statusEl.setText('Status: Installed but hash differs, re-install to update');
+                statusEl.setText('Status: installed but hash differs, re-install to update');
                 statusEl.setCssStyles({ color: 'var(--text-warning)' });
                 if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Re-install'); }
                 if (removeBtn) removeBtn.setCssStyles({ display: '' });
@@ -701,7 +701,7 @@ export class EmbeddingsTab {
                 if (installBtn) installBtn.setCssStyles({ display: '' });
                 if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
             } else {
-                statusEl.setText('Status: Not installed - reranker stays disabled');
+                statusEl.setText('Status: not installed - reranker stays disabled');
                 statusEl.setCssStyles({ color: 'var(--text-muted)' });
                 if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Install'); }
                 if (removeBtn) removeBtn.setCssStyles({ display: 'none' });

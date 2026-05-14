@@ -324,7 +324,7 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     ingest_document: {
         group: 'edit', label: 'Ingest document', icon: 'file-input',
         signature: 'ingest_document(output_path, header_content, source_path?, attachment_index?)',
-        description: 'Create a Markdown source note from a PDF/Office document. You write the frontmatter + overview, the tool appends the full original text automatically.',
+        description: 'Create a Markdown source note from a PDF/Office activeDocument. You write the frontmatter + overview, the tool appends the full original text automatically.',
         example: 'ingest_document("Notes/Webb-2026_Report.md", "---\\nKategorie: Quelle\\n---\\n## Ueberblick\\n...", "Attachements/report.pdf")',
         whenToUse: 'For converting PDFs and Office documents into Markdown source notes. Bypasses output token limits by appending the full document text programmatically.',
         commonMistakes: 'Using write_file for PDF ingest (hits token limit for long documents). Not providing source_path or attachment_index.',

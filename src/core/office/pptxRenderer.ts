@@ -167,12 +167,12 @@ function convertToPdf(
             if (stderr.length > 10_000) stderr = stderr.slice(-10_000);
         });
 
-        const killTimer = setTimeout(() => {
+        const killTimer = window.setTimeout(() => {
             try { child.kill('SIGKILL'); } catch { /* already exited */ }
         }, CONVERSION_TIMEOUT + 5_000);
 
         child.on('close', (code: number | null) => {
-            clearTimeout(killTimer);
+            window.clearTimeout(killTimer);
             if (code === 0) {
                 const baseName = path.basename(pptxPath, path.extname(pptxPath));
                 const pdfPath = path.join(outDir, `${baseName}.pdf`);
@@ -190,7 +190,7 @@ function convertToPdf(
         });
 
         child.on('error', (err: Error) => {
-            clearTimeout(killTimer);
+            window.clearTimeout(killTimer);
             reject(err);
         });
     });
@@ -227,7 +227,7 @@ async function renderPdfToImages(pdfData: Buffer): Promise<RenderedSlide[]> {
     };
 
     // Save global state — see PdfParser.ts for full explanation.
-    const savedPdfjsWorker = (globalThis as Record<string, unknown>).pdfjsWorker;
+    const savedPdfjsWorker = ((window as unknown) as Record<string, unknown>).pdfjsWorker;
     const savedWorkerSrc = pdfjsLib.GlobalWorkerOptions?.workerSrc;
 
     // Disable web worker — fake-worker fallback
@@ -250,7 +250,7 @@ async function renderPdfToImages(pdfData: Buffer): Promise<RenderedSlide[]> {
             const viewport = page.getViewport({ scale: RENDER_SCALE });
 
             // Create canvas for rendering
-            const canvas = document.createElement('canvas');
+            const canvas = activeDocument.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             const ctx = canvas.getContext('2d');
@@ -281,9 +281,9 @@ async function renderPdfToImages(pdfData: Buffer): Promise<RenderedSlide[]> {
     } finally {
         // Restore Obsidian's global state so its PDF viewer keeps working.
         if (savedPdfjsWorker === undefined) {
-            delete (globalThis as Record<string, unknown>).pdfjsWorker;
+            delete ((window as unknown) as Record<string, unknown>).pdfjsWorker;
         } else {
-            (globalThis as Record<string, unknown>).pdfjsWorker = savedPdfjsWorker;
+            ((window as unknown) as Record<string, unknown>).pdfjsWorker = savedPdfjsWorker;
         }
         if (pdfjsLib.GlobalWorkerOptions && savedWorkerSrc !== undefined) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = savedWorkerSrc;

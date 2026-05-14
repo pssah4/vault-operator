@@ -97,7 +97,7 @@ export class EnablePluginTool extends BaseTool<'enable_plugin'> {
             if (enable) {
                 await plugins.enablePlugin(pluginId);
                 // Brief pause for command registration
-                await new Promise<void>((r) => setTimeout(r, 500));
+                await new Promise<void>((r) => window.setTimeout(r, 500));
 
                 // Immediately update VaultDNA so .skill.md is current
                 const scanner = this.plugin.vaultDNAScanner;

@@ -38,7 +38,7 @@ const VAULT_OPERATOR_IGNORE_WORDS = [
 
 export default tseslint.config(
     eslint.configs.recommended,
-    ...tseslint.configs.recommended,
+    ...tseslint.configs.recommendedTypeChecked,
     security.configs.recommended,
     {
         files: ['src/**/*.ts'],

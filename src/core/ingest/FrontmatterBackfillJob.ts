@@ -12,7 +12,7 @@
  * pro-Note-Result-Records.
  */
 
-import { TFile, type App, type Vault } from 'obsidian';
+import { TFile, type App } from 'obsidian';
 import { FrontmatterWriter, type FrontmatterPatch, type FrontmatterWriterOptions, type WriteResult } from './FrontmatterWriter';
 import { FrontmatterIndexer, type SummaryGeneratorFn } from './FrontmatterIndexer';
 import type { NoteSummaryStore } from '../knowledge/NoteSummaryStore';
@@ -164,5 +164,5 @@ export class FrontmatterBackfillJob {
 }
 
 function sleep(ms: number): Promise<void> {
-    return new Promise((res) => setTimeout(res, ms));
+    return new Promise((res) => window.setTimeout(res, ms));
 }

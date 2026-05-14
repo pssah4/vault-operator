@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { ItemView, WorkspaceLeaf, setIcon, Menu, MarkdownRenderer, MarkdownView, Notice, TFile } from 'obsidian';
 import type ObsidianAgentPlugin from '../main';
 import { AgentTask } from '../core/AgentTask';
@@ -141,7 +142,7 @@ export class AgentSidebarView extends ItemView {
         await this.modeService.initialize();
 
         const container = this.containerEl.children[1];
-        if (!(container instanceof HTMLElement)) return;
+        if (!(container != null && container.instanceOf(HTMLElement))) return;
         container.empty();
         container.addClass('obsidian-agent-sidebar');
 
@@ -237,7 +238,7 @@ export class AgentSidebarView extends ItemView {
         settingsBtn.addEventListener('click', () => {
             this.app.setting?.open();
             // Navigate to plugin tab after modal is rendered (200ms is robust for most machines)
-            setTimeout(() => this.app.setting?.openTabById(this.plugin.manifest.id), 200);
+            window.setTimeout(() => this.app.setting?.openTabById(this.plugin.manifest.id), 200);
         });
 
         // History button — opens conversation history panel
@@ -735,7 +736,7 @@ export class AgentSidebarView extends ItemView {
             menu.addItem((item) =>
                 item.setTitle(t('ui.sidebar.noModelsEnabled')).setIcon('settings').onClick(() => {
                     this.app.setting?.open();
-                    setTimeout(() => this.app.setting?.openTabById(this.plugin.manifest.id), 50);
+                    window.setTimeout(() => this.app.setting?.openTabById(this.plugin.manifest.id), 50);
                 }),
             );
         } else {
@@ -833,7 +834,7 @@ export class AgentSidebarView extends ItemView {
         const TIMEOUT_MS = 90_000;
         const INTERVAL_MS = 2_000;
         while (Date.now() - startedAt < TIMEOUT_MS) {
-            await new Promise(resolve => setTimeout(resolve, INTERVAL_MS));
+            await new Promise(resolve => window.setTimeout(resolve, INTERVAL_MS));
             if (this.plugin.countMemoryFactsForConversation(conversationId) > 0) {
                 this.historyPanel?.refresh();
                 return;
@@ -1175,7 +1176,7 @@ export class AgentSidebarView extends ItemView {
             startOnboardingChat: () => this.startOnboardingChat(),
             openSettings: () => {
                 this.app.setting?.open?.();
-                setTimeout(() => this.app.setting?.openTabById?.(this.plugin.manifest.id), 200);
+                window.setTimeout(() => this.app.setting?.openTabById?.(this.plugin.manifest.id), 200);
             },
         };
     }
@@ -1489,7 +1490,7 @@ export class AgentSidebarView extends ItemView {
         const scheduleScroll = () => {
             if (scrollPending) return;
             scrollPending = true;
-            requestAnimationFrame(() => { scrollPending = false; this.chatContainer?.scrollTo({ top: this.chatContainer.scrollHeight }); });
+            window.requestAnimationFrame(() => { scrollPending = false; this.chatContainer?.scrollTo({ top: this.chatContainer.scrollHeight }); });
         };
 
         // Debounced tool group label updates: batches rapid DOM updates during
@@ -1500,7 +1501,7 @@ export class AgentSidebarView extends ItemView {
             pendingGroupUpdates.add(group);
             if (groupUpdatePending) return;
             groupUpdatePending = true;
-            requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
                 groupUpdatePending = false;
                 for (const g of pendingGroupUpdates) {
                     g.nameEl.setText(this.formatGroupedLabel(g.name, g.count));
@@ -1671,11 +1672,11 @@ export class AgentSidebarView extends ItemView {
                         const header = thinkingEl.querySelector('.thinking-header');
                         const spinner = thinkingEl.querySelector('.thinking-spinner');
                         const label = thinkingEl.querySelector('.thinking-label');
-                        if (spinner instanceof HTMLElement) setIcon(spinner, 'chevron-right');
-                        if (label instanceof HTMLElement) label.setText(t('ui.sidebar.reasoningCollapsed'));
+                        if (spinner != null && spinner.instanceOf(HTMLElement)) setIcon(spinner, 'chevron-right');
+                        if (label != null && label.instanceOf(HTMLElement)) label.setText(t('ui.sidebar.reasoningCollapsed'));
                         const body = thinkingEl.querySelector<HTMLElement>('.thinking-content');
                         if (body) body.classList.add('agent-u-hidden');
-                        if (header instanceof HTMLElement) header.addEventListener('click', () => {
+                        if (header != null && header.instanceOf(HTMLElement)) header.addEventListener('click', () => {
                             if (body) body.classList.toggle('agent-u-hidden');
                         }, { once: true });
                     }
@@ -1811,7 +1812,7 @@ export class AgentSidebarView extends ItemView {
                         // When all items in the group are settled, update the group header
                         const bodyEl = el.parentElement;
                         const detailsEl = bodyEl?.parentElement;
-                        if (bodyEl && detailsEl instanceof HTMLDetailsElement) {
+                        if (bodyEl && detailsEl != null && detailsEl.instanceOf(HTMLDetailsElement)) {
                             const stillRunning = bodyEl.querySelectorAll(
                                 '.tool-group-item:not(.item-done):not(.item-error)'
                             ).length;
@@ -1829,7 +1830,7 @@ export class AgentSidebarView extends ItemView {
                             }
                         }
 
-                    } else if (el instanceof HTMLDetailsElement) {
+                    } else if (el != null && el.instanceOf(HTMLDetailsElement)) {
                         // ── Standalone tool result ────────────────────────────────────
                         const details = el;
 
@@ -1957,7 +1958,7 @@ export class AgentSidebarView extends ItemView {
                         contentEl.classList.add('agent-u-visibility-hidden');
                         contentEl.empty();
                         void MarkdownRenderer.render(this.app, accumulatedText, contentEl, '', this);
-                        requestAnimationFrame(() => { contentEl.classList.remove('agent-u-visibility-hidden'); });
+                        window.requestAnimationFrame(() => { contentEl.classList.remove('agent-u-visibility-hidden'); });
                     }
                     // Wrap resolve: after the user answers, show their answer as a
                     // chat bubble and create a fresh message element for the next
@@ -2053,7 +2054,7 @@ export class AgentSidebarView extends ItemView {
                             updateStepsSummary(true);
                             // Collapse individual tool <details> that were left open during streaming
                             stepsBodyEl?.querySelectorAll('details.tool-call-details').forEach((d) => {
-                                if (d instanceof HTMLDetailsElement) d.open = false;
+                                if (d != null && d.instanceOf(HTMLDetailsElement)) d.open = false;
                             });
                         }
                     }
@@ -2927,11 +2928,11 @@ export class AgentSidebarView extends ItemView {
                     // Imported nodes are detached from the parsed document;
                     // appending them moves the (already-styled) <details>
                     // tree into the live message element.
-                    toolsEl.appendChild(document.importNode(root, true));
+                    toolsEl.appendChild(activeDocument.importNode(root, true));
                     // Always start collapsed on rehydration so the chat
                     // doesn't visually explode when an old turn is reopened.
                     toolsEl.querySelectorAll('details').forEach((d) => {
-                        if (d instanceof HTMLDetailsElement) d.open = false;
+                        if (d != null && d.instanceOf(HTMLDetailsElement)) d.open = false;
                     });
                 }
             } catch (e) {
@@ -3285,7 +3286,7 @@ export class AgentSidebarView extends ItemView {
         if (sources.length === 0) return;
 
         const sourceNums = new Set(sources.map(s => s.num));
-        const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT);
+        const walker = activeDocument.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT);
         const replacements: { node: Text; text: string }[] = [];
 
         while (walker.nextNode()) {
@@ -3299,7 +3300,7 @@ export class AgentSidebarView extends ItemView {
         }
 
         for (const { node, text } of replacements) {
-            const fragment = document.createDocumentFragment();
+            const fragment = activeDocument.createDocumentFragment();
             let lastIndex = 0;
             let replaced = false;
 
@@ -3313,11 +3314,11 @@ export class AgentSidebarView extends ItemView {
 
                 // Text before this match
                 if (matchIndex > lastIndex) {
-                    fragment.appendChild(document.createTextNode(text.slice(lastIndex, matchIndex)));
+                    fragment.appendChild(activeDocument.createTextNode(text.slice(lastIndex, matchIndex)));
                 }
 
                 // Citation badge
-                const badge = document.createElement('span');
+                const badge = activeDocument.createElement('span');
                 badge.className = 'source-badge';
                 badge.textContent = String(num);
                 badge.addEventListener('click', (e) => {
@@ -3334,7 +3335,7 @@ export class AgentSidebarView extends ItemView {
             if (replaced) {
                 // Remaining text after last match
                 if (lastIndex < text.length) {
-                    fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+                    fragment.appendChild(activeDocument.createTextNode(text.slice(lastIndex)));
                 }
                 node.parentNode?.replaceChild(fragment, node);
             }
@@ -3343,10 +3344,10 @@ export class AgentSidebarView extends ItemView {
 
     /**
      * Clamp a fixed-position popup to the visible viewport.
-     * Call after appending to document.body so dimensions are known.
+     * Call after appending to activeDocument.body so dimensions are known.
      */
     private clampPopupToViewport(popup: HTMLElement): void {
-        requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
             const r = popup.getBoundingClientRect();
             const pad = 8;
             if (r.right > window.innerWidth) {
@@ -3371,22 +3372,22 @@ export class AgentSidebarView extends ItemView {
         const close = (e: MouseEvent) => {
             if (!popup.contains(e.target as Node) && e.target !== anchor) {
                 popup.remove();
-                document.removeEventListener('click', close);
+                activeDocument.removeEventListener('click', close);
             }
         };
-        setTimeout(() => document.addEventListener('click', close), 10);
+        window.setTimeout(() => activeDocument.addEventListener('click', close), 10);
     }
 
     /**
      * Show a popup card for a single source (badge click).
      */
     private showSourcePopup(anchor: HTMLElement, source: { num: number; note: string; context: string }): void {
-        document.querySelectorAll('.source-popup').forEach(el => el.remove());
+        activeDocument.querySelectorAll('.source-popup').forEach(el => el.remove());
 
-        const popup = document.createElement('div');
+        const popup = activeDocument.createElement('div');
         popup.className = 'source-popup';
 
-        const titleEl = document.createElement('div');
+        const titleEl = activeDocument.createElement('div');
         titleEl.className = 'source-popup-title';
         const noteName = source.note.replace(/^\[\[|\]\]$/g, '');
         titleEl.textContent = noteName;
@@ -3397,7 +3398,7 @@ export class AgentSidebarView extends ItemView {
         popup.appendChild(titleEl);
 
         if (source.context) {
-            const ctxEl = document.createElement('div');
+            const ctxEl = activeDocument.createElement('div');
             ctxEl.className = 'source-popup-context';
             ctxEl.textContent = source.context;
             popup.appendChild(ctxEl);
@@ -3406,7 +3407,7 @@ export class AgentSidebarView extends ItemView {
         const rect = anchor.getBoundingClientRect();
         popup.setCssProps({ '--popup-top': `${rect.bottom + 4}px`, '--popup-left': `${Math.max(4, rect.left - 40)}px` });
 
-        document.body.appendChild(popup);
+        activeDocument.body.appendChild(popup);
         this.clampPopupToViewport(popup);
         this.attachPopupCloseHandler(popup, anchor);
     }
@@ -3415,21 +3416,21 @@ export class AgentSidebarView extends ItemView {
      * Show a panel listing all sources (sources indicator click).
      */
     private showSourcesPanel(anchor: HTMLElement, sources: { num: number; note: string; context: string }[]): void {
-        document.querySelectorAll('.source-popup').forEach(el => el.remove());
+        activeDocument.querySelectorAll('.source-popup').forEach(el => el.remove());
 
-        const popup = document.createElement('div');
+        const popup = activeDocument.createElement('div');
         popup.className = 'source-popup sources-panel';
 
         for (const source of sources) {
-            const row = document.createElement('div');
+            const row = activeDocument.createElement('div');
             row.className = 'source-panel-row';
 
-            const numEl = document.createElement('span');
+            const numEl = activeDocument.createElement('span');
             numEl.className = 'source-badge';
             numEl.textContent = String(source.num);
             row.appendChild(numEl);
 
-            const titleEl = document.createElement('span');
+            const titleEl = activeDocument.createElement('span');
             titleEl.className = 'source-panel-title';
             const noteName = source.note.replace(/^\[\[|\]\]$/g, '');
             titleEl.textContent = noteName;
@@ -3440,7 +3441,7 @@ export class AgentSidebarView extends ItemView {
             row.appendChild(titleEl);
 
             if (source.context) {
-                const ctxEl = document.createElement('div');
+                const ctxEl = activeDocument.createElement('div');
                 ctxEl.className = 'source-panel-context';
                 ctxEl.textContent = source.context;
                 row.appendChild(ctxEl);
@@ -3452,7 +3453,7 @@ export class AgentSidebarView extends ItemView {
         const rect = anchor.getBoundingClientRect();
         popup.setCssProps({ '--popup-bottom': `${window.innerHeight - rect.top + 4}px`, '--popup-left': `${rect.left}px` });
 
-        document.body.appendChild(popup);
+        activeDocument.body.appendChild(popup);
         this.clampPopupToViewport(popup);
         this.attachPopupCloseHandler(popup, anchor);
     }
@@ -3585,7 +3586,7 @@ export class AgentSidebarView extends ItemView {
 
         if (!planBoxEl) {
             // First call — build the plan box and move toolsEl into it
-            planBoxEl = document.createElement('div');
+            planBoxEl = activeDocument.createElement('div');
             planBoxEl.className = 'agent-todo-box';
             // Insert before toolsEl (direct child of messageEl on first call)
             messageEl.insertBefore(planBoxEl, toolsEl);

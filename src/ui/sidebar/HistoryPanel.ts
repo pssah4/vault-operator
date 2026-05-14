@@ -103,14 +103,14 @@ export class HistoryPanel {
         this.memoryOnly = false;
         this.render();
         this.panelEl.classList.remove('agent-u-hidden');
-        requestAnimationFrame(() => this.panelEl?.addClass('history-panel-open'));
+        window.requestAnimationFrame(() => this.panelEl?.addClass('history-panel-open'));
     }
 
     close(): void {
         if (!this.panelEl) return;
         this.isOpen = false;
         this.panelEl.removeClass('history-panel-open');
-        setTimeout(() => {
+        window.setTimeout(() => {
             if (!this.isOpen && this.panelEl) this.panelEl.classList.add('agent-u-hidden');
         }, 200); // match CSS transition
     }

@@ -33,7 +33,7 @@ export class VaultFilePicker {
         this.activeIdx = 0;
 
         // ── Container ────────────────────────────────────────────────
-        this.containerEl = document.body.createDiv('vault-file-picker');
+        this.containerEl = activeDocument.body.createDiv('vault-file-picker');
 
         const positionPopover = () => {
             if (!this.containerEl) return;
@@ -138,16 +138,16 @@ export class VaultFilePicker {
         const closeOnOutside = (e: MouseEvent) => {
             if (this.containerEl && !this.containerEl.contains(e.target as Node)) {
                 this.hide();
-                document.removeEventListener('mousedown', closeOnOutside);
+                activeDocument.removeEventListener('mousedown', closeOnOutside);
             }
         };
-        document.addEventListener('mousedown', closeOnOutside);
+        activeDocument.addEventListener('mousedown', closeOnOutside);
 
         this.renderList();
         this.updateCount();
 
         // Focus search input after mount
-        setTimeout(() => this.searchInput?.focus(), 0);
+        window.setTimeout(() => this.searchInput?.focus(), 0);
     }
 
     hide(): void {

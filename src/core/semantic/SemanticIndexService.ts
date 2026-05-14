@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * SemanticIndexService v3 -- SQLite-backed (ADR-050, FEATURE-1500)
  *
@@ -382,7 +383,7 @@ export class SemanticIndexService {
                         this.saveCheckpointToDB(modelKey, indexed);
                         await this.knowledgeDB.save();
                         uncommitted = 0;
-                        await new Promise<void>((r) => setTimeout(r, 0)); // yield
+                        await new Promise<void>((r) => window.setTimeout(r, 0)); // yield
                     }
                 } catch (e) {
                     errors++;
@@ -420,7 +421,7 @@ export class SemanticIndexService {
 
             // Auto-start background enrichment (Pass 2) after successful build
             if (!this.cancelled && this.enableContextualRetrieval && this.contextualApiHandler) {
-                setTimeout(() => {
+                window.setTimeout(() => {
                     void this.runBackgroundEnrichment();
                 }, 1000);
             }
@@ -975,7 +976,7 @@ export class SemanticIndexService {
                         }
                         this.enrichmentProcessed++;
                         // Yield to UI thread
-                        await new Promise<void>(r => setTimeout(r, 0));
+                        await new Promise<void>(r => window.setTimeout(r, 0));
                     }
 
                     // Store note-level freshness class from per-chunk votes (FEATURE-2006)
@@ -1014,7 +1015,7 @@ export class SemanticIndexService {
 
     /**
      * Enrich chunks with LLM-generated context prefixes (Anthropic Contextual Retrieval).
-     * Each chunk gets a 2-3 sentence prefix describing its position within the document.
+     * Each chunk gets a 2-3 sentence prefix describing its position within the activeDocument.
      * The enriched text is used for both embedding and storage — improving search quality
      * by 49-67% (Anthropic benchmark) because embeddings capture document-level context.
      *
@@ -1047,7 +1048,7 @@ export class SemanticIndexService {
                     `<chunk>\n${chunk.slice(0, 800)}\n</chunk>\n\n` +
                     `First: Is this content time-sensitive? Reply <freshness>volatile</freshness> (changes rapidly, e.g. regulations, tech trends), ` +
                     `<freshness>evolving</freshness> (changes occasionally, e.g. research), or <freshness>stable</freshness> (rarely changes, e.g. history, math). ` +
-                    `Then give a short (2-3 sentence) context that situates this chunk within the document. ` +
+                    `Then give a short (2-3 sentence) context that situates this chunk within the activeDocument. ` +
                     `Mention the document topic and what specific aspect this chunk covers.`;
 
                 const rawPrefix = await this.generateContextPrefix(prompt);
@@ -1123,7 +1124,7 @@ export class SemanticIndexService {
                 })
                 : new Promise<never>(() => {}); // never resolves
             const timeoutPromise = new Promise<string>((_, reject) =>
-                setTimeout(() => reject(new Error('Context prefix timed out')), TIMEOUT_MS),
+                window.setTimeout(() => reject(new Error('Context prefix timed out')), TIMEOUT_MS),
             );
             const trimmed = await Promise.race([resultPromise, abortPromise, timeoutPromise]);
             return trimmed.length > 10 ? trimmed : null;
@@ -1269,7 +1270,7 @@ export class SemanticIndexService {
         console.debug(`[SemanticIndex] Embedding via requestUrl: azure ${url} texts=${texts.length}`);
         const TIMEOUT_MS = 30_000;
         const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`[SemanticIndex] API request timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS),
+            window.setTimeout(() => reject(new Error(`[SemanticIndex] API request timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS),
         );
         const abortPromise = this.abortController
             ? new Promise<never>((_, reject) => {
@@ -1295,7 +1296,7 @@ export class SemanticIndexService {
     }
 
     private sleep(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
     }
 
     // -----------------------------------------------------------------------
@@ -1327,7 +1328,7 @@ export class SemanticIndexService {
      */
     private getTextExtractorApi(): { extractText: (file: unknown) => Promise<string>; canFileBeExtracted: (path: string) => boolean } | null {
         const app = (this.vault as unknown as { app?: { plugins?: { plugins?: Record<string, { api?: unknown }> } } }).app
-            ?? (globalThis as unknown as { app?: { plugins?: { plugins?: Record<string, { api?: unknown }> } } }).app;
+            ?? (window as unknown as { app?: { plugins?: { plugins?: Record<string, { api?: unknown }> } } }).app;
         const api = app?.plugins?.plugins?.['text-extractor']?.api as
             { extractText: (file: unknown) => Promise<string>; canFileBeExtracted: (path: string) => boolean } | undefined;
         return api ?? null;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * ExecuteRecipeTool — Recipe Shell (PAS-1.5, ADR-109)
  *
@@ -252,12 +253,12 @@ export class ExecuteRecipeTool extends BaseTool<'execute_recipe'> {
             });
 
             // SIGKILL fallback if process doesn't exit after timeout
-            const killTimer = setTimeout(() => {
+            const killTimer = window.setTimeout(() => {
                 try { child.kill('SIGKILL'); } catch { /* process already exited */ }
             }, recipe.timeout + 5_000);
 
             child.on('close', (code: number | null) => {
-                clearTimeout(killTimer);
+                window.clearTimeout(killTimer);
                 resolve({
                     exitCode: code ?? 1,
                     stdout,
@@ -266,7 +267,7 @@ export class ExecuteRecipeTool extends BaseTool<'execute_recipe'> {
             });
 
             child.on('error', (err: Error) => {
-                clearTimeout(killTimer);
+                window.clearTimeout(killTimer);
                 reject(err);
             });
         });

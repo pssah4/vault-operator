@@ -294,10 +294,10 @@ export class ModelConfigModal extends Modal {
                         groups.get(grp)!.push(m);
                     });
                     groups.forEach((items, grp) => {
-                        const og = document.createElement('optgroup');
+                        const og = activeDocument.createElement('optgroup');
                         og.label = grp;
                         items.forEach((m) => {
-                            const opt = document.createElement('option');
+                            const opt = activeDocument.createElement('option');
                             opt.value = m.id;
                             opt.text = `${m.label}  (${m.id})`;
                             og.appendChild(opt);
@@ -639,10 +639,10 @@ export class ModelConfigModal extends Modal {
                 this.suggestSelEl.querySelectorAll('optgroup').forEach((og) => og.remove());
                 const groups = [...new Set(suggestions.map((s) => s.group))];
                 groups.forEach((grp) => {
-                    const og = document.createElement('optgroup');
+                    const og = activeDocument.createElement('optgroup');
                     og.label = grp;
                     suggestions.filter((s) => s.group === grp).forEach((s) => {
-                        const opt = document.createElement('option');
+                        const opt = activeDocument.createElement('option');
                         opt.value = s.id;
                         opt.text = `${s.label}  (${s.id})`;
                         og.appendChild(opt);

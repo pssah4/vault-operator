@@ -34,7 +34,7 @@ export class PluginReloader {
         }
 
         await plugins.disablePlugin(id);
-        await new Promise<void>((resolve) => setTimeout(resolve, 500));
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
         await plugins.enablePlugin(id);
     }
 }
