@@ -45,6 +45,18 @@
     color: var(--text-normal);
 }
 
+/* Sidebar header wordmark. The PNG is black-on-transparent; in dark mode
+ * we invert so it reads on dark backgrounds. Height tuned so the "Vault
+ * Operator" glyphs sit at the same optical size as the previous text. */
+.agent-title-logo {
+    display: block;
+    height: 47px;
+    width: auto;
+}
+.theme-dark .agent-title-logo {
+    filter: invert(1);
+}
+
 /* Vault Health Badge (FEATURE-1901 / BUG-025 2026-04-19):
  * The badge is now a header-button styled like its neighbours. Colour comes
  * from the severity-* class and drives the lucide heart-pulse icon via
@@ -123,8 +135,7 @@
 .vault-health-note-link {
     color: var(--text-accent);
     cursor: pointer;
-    text-decoration-line: underline;
-    text-decoration-style: dotted;
+    border-bottom: 1px dotted currentColor;
 }
 .vault-health-note-link:hover {
     color: var(--text-accent-hover);
@@ -801,11 +812,12 @@
 }
 
 /* Prevent themes from adding a focus ring/border-color change that creates a
-   visible line between the chips area and the textarea */
-.chat-input-wrapper:focus-within {
-    border-color: var(--background-modifier-border) !important;
-    outline: none !important;
-    box-shadow: none !important;
+   visible line between the chips area and the textarea. Class-repetition
+   bumps specificity (0,3,0) so we don't need !important. */
+.chat-input-wrapper.chat-input-wrapper:focus-within {
+    border-color: var(--background-modifier-border);
+    outline: none;
+    box-shadow: none;
 }
 
 /* Textarea */
@@ -2601,16 +2613,19 @@
     color: var(--interactive-accent);
     background: var(--background-modifier-hover);
 }
-.followup-item {
+/* Class-repetition (.followup-item.followup-item) bumps specificity to
+   (0,2,0) so we override default button/list-item styles without
+   needing !important on white-space and height. */
+.followup-item.followup-item {
     position: relative;
     display: block;
     width: 100%;
     box-sizing: border-box;
     text-align: left;
-    white-space: normal !important;
+    white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    height: auto !important;
+    height: auto;
     min-height: 0;
     max-width: 100%;
     overflow: visible;

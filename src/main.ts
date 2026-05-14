@@ -1356,7 +1356,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 3. Register UI views (registerView moved to synchronous onload())
 
         // Ribbon icon in left activity bar (using built-in lucide icon)
-        this.addRibbonIcon('bot', 'Vault Operator', () => {
+        this.addRibbonIcon('square-slash', 'Vault Operator', () => {
             void this.activateView();
         });
 
