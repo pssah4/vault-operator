@@ -269,6 +269,19 @@
   display: none !important;
 }
 
+/* ── Navbar logo ────────────────────────────────────────────────── */
+
+/* Logo asset is black-on-white. Invert flips it to white-on-black, then
+   mix-blend-mode: lighten drops the (now-black) background into the
+   dark navbar so only the white text/icon shows. */
+.VPNavBarTitle .logo {
+  height: 28px;
+  width: auto;
+  filter: invert(1);
+  mix-blend-mode: lighten;
+  margin-right: 0;
+}
+
 /* ── Print styles ──────────────────────────────────────────────── */
 
 @media print {

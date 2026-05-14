@@ -140,7 +140,8 @@ export default withMermaid(
     lang: 'en',
 
     themeConfig: {
-      siteTitle: 'Vault Operator',
+      siteTitle: false,
+      logo: '/vault-operator-logo.png',
       nav: [
         { text: 'Tutorials', link: '/tutorials/getting-started', activeMatch: '/tutorials/' },
         { text: 'Guides', link: '/guides/capabilities', activeMatch: '/guides/' },
