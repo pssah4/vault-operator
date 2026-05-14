@@ -44,7 +44,7 @@ export interface AgentTaskCallbacks {
     /** Called with intermediate progress messages from long-running tools (e.g. ingest_template phase banners) */
     onToolProgress?: (name: string, content: string) => void;
     /** Called with cumulative token usage just before onComplete (Feature 6) */
-    onUsage?: (inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheCreationTokens?: number) => void;
+    onUsage?: (inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheCreationTokens?: number, modelId?: string) => void;
     /** Called when the task is complete (attempt_completion or natural end) */
     onComplete: () => void;
     /** Called when attempt_completion fires — triggers todo auto-complete */
@@ -292,6 +292,11 @@ export class AgentTask {
         // top-level task (subtasks inherit the parent's api). Falls back
         // to the main api when the router is disabled, no helper model
         // is configured, or classification is not 'simple'.
+        //
+        // Logging is deliberately verbose: every code path that ends with
+        // "no routing" emits an explanatory line so users can tell from
+        // the console why routing did not happen (toggle off, no helper
+        // model, classified as complex, etc).
         const mainApi = this.api;
         let routerDecision: 'simple' | 'complex' | 'unknown' | 'disabled' = 'disabled';
         if (this.depth === 0) {
@@ -299,7 +304,11 @@ export class AgentTask {
                 const plugin = this.toolRegistry.plugin;
                 const routerEnabled = plugin.settings.autoTaskRouter?.enabled ?? true;
                 const helperModel = plugin.getHelperModel();
-                if (routerEnabled && helperModel) {
+                if (!routerEnabled) {
+                    console.debug('[TaskRouter] disabled (Settings > Loop > Auto-route simple tasks is off). Staying on main model.');
+                } else if (!helperModel) {
+                    console.debug('[TaskRouter] no helper model configured (Settings > Loop > Helper Model). Staying on main model.');
+                } else {
                     const { TaskRouter } = await import('./routing/TaskRouter');
                     const router = new TaskRouter();
                     const promptText = typeof userMessage === 'string'
@@ -317,7 +326,7 @@ export class AgentTask {
                             '-- routing this task to helper model. Escalates back to main on >= 2 errors.',
                         );
                     } else {
-                        console.debug(`[TaskRouter] classification=${routerDecision} model=main -- staying on main model.`);
+                        console.debug(`[TaskRouter] classification=${routerDecision} model=main(${this.api.getModel().id}) -- staying on main model.`);
                     }
                 }
             } catch (e) {
@@ -498,14 +507,16 @@ export class AgentTask {
                     },
                     onComplete: () => { /* handled via Promise resolution */ },
                     onError: (err) => { throw err; },
-                    onUsage: (i, o, cr, cc) => {
+                    onUsage: (i, o, cr, cc, mid) => {
                         // Akkumuliere Subtask-Tokens in Parent-Totals
                         totalInputTokens += i;
                         totalOutputTokens += o;
                         totalCacheReadTokens += cr ?? 0;
                         totalCacheCreationTokens += cc ?? 0;
-                        // Forward für UI-Update (wird später vom Parent-Final-Call überschrieben)
-                        this.taskCallbacks.onUsage?.(i, o, cr, cc);
+                        // Forward für UI-Update (wird später vom Parent-Final-Call überschrieben).
+                        // Subtask inherits parent api so its modelId reflects whatever the
+                        // task is actually running on (main or routed-to-helper).
+                        this.taskCallbacks.onUsage?.(i, o, cr, cc, mid);
                     },
                     // K-1: Forward parent approval callback so subtask write ops are not
                     // auto-rejected by the fail-closed fallback in ToolExecutionPipeline.
@@ -1159,13 +1170,17 @@ export class AgentTask {
                 }
             }
 
-            // Feature 6: Report total token usage before completing
+            // Feature 6: Report total token usage before completing.
+            // v2.10.2: pass the model id from the api that actually served
+            // this task so TaskMonitor can price the call correctly even
+            // when TaskRouter routed it onto the helper model.
             if (totalInputTokens > 0 || totalOutputTokens > 0) {
                 this.taskCallbacks.onUsage?.(
                     totalInputTokens,
                     totalOutputTokens,
                     totalCacheReadTokens > 0 ? totalCacheReadTokens : undefined,
                     totalCacheCreationTokens > 0 ? totalCacheCreationTokens : undefined,
+                    this.api.getModel().id,
                 );
             }
 
