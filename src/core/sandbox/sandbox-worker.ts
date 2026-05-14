@@ -34,6 +34,7 @@ let callCounter = 0;
 function bridgeCall(type: string, payload: Record<string, unknown>): Promise<unknown> {
     return new Promise((resolve, reject) => {
         const callId = 'bc_' + (++callCounter);
+        // eslint-disable-next-line obsidianmd/platform/use-window-setTimeout -- Runs in Node child_process; no DOM/window context
         const timeout = setTimeout(() => {
             pendingCalls.delete(callId);
             reject(new Error('Bridge call timeout (15s)'));
@@ -133,6 +134,7 @@ process.on('message', (msg: unknown) => {
     if (typeof m['callId'] === 'string' && pendingCalls.has(m['callId'])) {
         const callId = m['callId'];
         const p = pendingCalls.get(callId)!;
+        // eslint-disable-next-line obsidianmd/platform/use-window-clearTimeout -- Runs in Node child_process; no DOM/window context
         clearTimeout(p.timeout);
         pendingCalls.delete(callId);
         if (typeof m['error'] === 'string') {

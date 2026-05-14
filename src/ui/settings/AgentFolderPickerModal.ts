@@ -99,4 +99,4 @@ export async function pickAgentFolder(app: App): Promise<PickResult> {
     return { kind: 'absolute', path: chosen };
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

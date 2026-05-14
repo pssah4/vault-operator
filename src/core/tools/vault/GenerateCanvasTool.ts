@@ -267,4 +267,4 @@ export class GenerateCanvasTool extends BaseTool<'generate_canvas'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

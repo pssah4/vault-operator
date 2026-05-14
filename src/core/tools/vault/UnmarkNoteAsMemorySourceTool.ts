@@ -91,4 +91,4 @@ export class UnmarkNoteAsMemorySourceTool extends BaseTool<'unmark_note_as_memor
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

@@ -123,4 +123,4 @@ export class SearchByTagTool extends BaseTool<'search_by_tag'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

@@ -110,4 +110,4 @@ export class GetVaultStatsTool extends BaseTool<'get_vault_stats'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

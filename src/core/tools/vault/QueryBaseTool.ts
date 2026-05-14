@@ -274,4 +274,4 @@ export class QueryBaseTool extends BaseTool<'query_base'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

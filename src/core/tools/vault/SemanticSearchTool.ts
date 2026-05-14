@@ -363,4 +363,4 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

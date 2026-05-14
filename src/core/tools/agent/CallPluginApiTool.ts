@@ -252,4 +252,4 @@ export class CallPluginApiTool extends BaseTool<'call_plugin_api'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

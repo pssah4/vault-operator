@@ -273,4 +273,4 @@ export class ExtractionQueue {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */
