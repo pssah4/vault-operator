@@ -173,4 +173,4 @@ function messageOf(e: unknown): string {
     return 'unknown error';
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

@@ -734,4 +734,4 @@ function maxTemperature(provider: ProviderType): number {
 
 export { testModelConnection, testEmbeddingConnection, fetchProviderModels, fetchOllamaModels, fetchEmbeddingModels, isTemperatureFixed, maxTemperature };
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

@@ -205,4 +205,4 @@ function lookupPrimaryCluster(db: ReturnType<NonNullable<ObsidianAgentPlugin['kn
     return r[0].values[0][0] as string;
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

@@ -228,4 +228,4 @@ export class CreateXlsxTool extends BaseTool<'create_xlsx'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

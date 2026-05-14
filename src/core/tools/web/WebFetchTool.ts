@@ -380,4 +380,4 @@ export class WebFetchTool extends BaseTool<'web_fetch'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

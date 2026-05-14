@@ -253,4 +253,4 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

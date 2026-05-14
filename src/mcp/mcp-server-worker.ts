@@ -102,4 +102,4 @@ async function forwardToVaultOperator(request: unknown, expectResponse = true): 
 process.stdin.resume();
 process.stderr.write('[mcp-proxy] Vault Operator MCP proxy started\n');
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

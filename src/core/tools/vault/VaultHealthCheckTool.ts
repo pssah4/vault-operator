@@ -146,4 +146,4 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

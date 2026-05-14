@@ -3021,4 +3021,4 @@ function deepMergeSettings<T extends Record<string, unknown>>(defaults: T, saved
     return merged as T;
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */
