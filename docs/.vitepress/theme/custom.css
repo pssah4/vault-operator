@@ -285,9 +285,10 @@
   filter: invert(1);
 }
 
-/* Don't let VitePress' grid clip the wider wordmark logo. */
-.VPNavBarTitle {
-  width: auto !important;
+/* Don't let VitePress' grid clip the wider wordmark logo.
+   Class-repetition bumps specificity above VitePress' .VPNavBarTitle. */
+.VPNavBarTitle.VPNavBarTitle {
+  width: auto;
 }
 
 /* Give the navbar enough height so the 56px wordmark breathes. */
@@ -297,9 +298,10 @@
 
 /* ── Navbar search box ─────────────────────────────────────────── */
 
-/* Wider search bar, nudged away from the logo, with a subtle border. */
-.VPNavBarSearch {
-  flex-grow: 0 !important;
+/* Wider search bar, nudged away from the logo, with a subtle border.
+   Class-repetition beats VitePress default .VPNavBarSearch (flex-grow: 1). */
+.VPNavBarSearch.VPNavBarSearch {
+  flex-grow: 0;
   padding-left: 32px;
 }
 
@@ -318,10 +320,15 @@
 /* ── Print styles ──────────────────────────────────────────────── */
 
 @media print {
-  .VPNav, .VPSidebar, .VPFooter, .edit-link, .prev-next {
-    display: none !important;
+  /* Class-repetition keeps print-mode hides without !important. */
+  .VPNav.VPNav,
+  .VPSidebar.VPSidebar,
+  .VPFooter.VPFooter,
+  .edit-link.edit-link,
+  .prev-next.prev-next {
+    display: none;
   }
-  .VPContent {
-    padding: 0 !important;
+  .VPContent.VPContent {
+    padding: 0;
   }
 }
