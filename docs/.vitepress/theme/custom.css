@@ -3,19 +3,24 @@
    Extends VitePress default theme with brand identity and polish.
    ================================================================= */
 
-/* ── Brand Colors ──────────────────────────────────────────────── */
+/* ── Brand Colors & Design Tokens ─────────────────────────────── */
 
 :root {
+  /* Font stacks */
   --vp-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --vp-font-family-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
-}
 
-/* Light mode: darker purple for sufficient contrast on white */
-:root {
+  /* Light mode: darker purple for sufficient contrast on white */
   --vp-c-brand-1: #7c3aed;
   --vp-c-brand-2: #6d28d9;
   --vp-c-brand-3: #5b21b6;
   --vp-c-brand-soft: rgba(124, 58, 237, 0.14);
+
+  /* Hero gradients and effects */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #c4b5fd 0%, #7c3aed 50%, #5b21b6 100%);
+  --vp-home-hero-image-background-image: linear-gradient(135deg, rgba(124, 58, 237, 0.25) 0%, rgba(91, 33, 182, 0.12) 100%);
+  --vp-home-hero-image-filter: blur(56px);
 }
 
 /* Dark mode: lighter purple for readability on dark backgrounds */
@@ -27,13 +32,6 @@
 }
 
 /* ── Hero Section ──────────────────────────────────────────────── */
-
-:root {
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(135deg, #c4b5fd 0%, #7c3aed 50%, #5b21b6 100%);
-  --vp-home-hero-image-background-image: linear-gradient(135deg, rgba(124, 58, 237, 0.25) 0%, rgba(91, 33, 182, 0.12) 100%);
-  --vp-home-hero-image-filter: blur(56px);
-}
 
 /* Radial glow behind hero like original */
 .VPHero {
@@ -52,16 +50,18 @@
   margin: 0 auto;
 }
 
-.VPHero .text {
-  font-size: clamp(2.2rem, 5vw, 3.2rem) !important;
+/* Specificity bump (.VPHero.VPHero) beats VitePress default .VPHero .text
+   so we no longer need !important here. */
+.VPHero.VPHero .text {
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-weight: 800;
   white-space: pre-line;
 }
 
-.VPHero .tagline {
-  font-size: 1rem !important;
+.VPHero.VPHero .tagline {
+  font-size: 1rem;
   line-height: 1.7;
   max-width: 640px;
   color: var(--vp-c-text-2);
@@ -74,8 +74,8 @@
 }
 
 @media (max-width: 768px) {
-  .VPHero .text {
-    font-size: 1.8rem !important;
+  .VPHero.VPHero .text {
+    font-size: 1.8rem;
   }
 }
 
@@ -260,26 +260,58 @@
 
 /* ── Hide VitePress built-in extra menu (replaced by custom buttons) ── */
 
-.VPNavBarExtra {
-  display: none !important;
+/* Specificity bump via class repetition beats VitePress default rule
+   (.VPNav .VPNavBarExtra) and removes the need for !important. */
+.VPNavBarExtra.VPNavBarExtra {
+  display: none;
 }
 
 /* Also hide VitePress built-in appearance toggle (we have our own) */
-.VPNavBarAppearance {
-  display: none !important;
+.VPNavBarAppearance.VPNavBarAppearance {
+  display: none;
 }
 
 /* ── Navbar logo ────────────────────────────────────────────────── */
 
-/* Logo asset is black-on-white. Invert flips it to white-on-black, then
-   mix-blend-mode: lighten drops the (now-black) background into the
-   dark navbar so only the white text/icon shows. */
+/* Logo asset is black-on-white. Per-mode blend modes drop the white
+   background so only the glyph/text shows on either navbar color.
+   Light: multiply (white * white = invisible, black * white = black).
+   Dark:  invert + lighten (white -> black -> invisible; black -> white). */
 .VPNavBarTitle .logo {
-  height: 28px;
+  height: 40px;
   width: auto;
+  margin-right: 0;
+  mix-blend-mode: multiply;
+}
+
+.dark .VPNavBarTitle .logo {
   filter: invert(1);
   mix-blend-mode: lighten;
-  margin-right: 0;
+}
+
+/* Don't let VitePress' grid clip the wider wordmark logo. */
+.VPNavBarTitle {
+  width: auto !important;
+}
+
+/* ── Navbar search box ─────────────────────────────────────────── */
+
+/* Wider search bar, nudged away from the logo, with a subtle border. */
+.VPNavBarSearch {
+  flex-grow: 0 !important;
+  padding-left: 32px;
+}
+
+.VPNavBarSearch .DocSearch-Button {
+  width: 260px;
+  border: 1px solid var(--vp-c-divider);
+  background: transparent;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.VPNavBarSearch .DocSearch-Button:hover {
+  border-color: var(--vp-c-brand-1);
+  background: var(--vp-c-bg-soft);
 }
 
 /* ── Print styles ──────────────────────────────────────────────── */
