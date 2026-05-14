@@ -97,8 +97,17 @@ export class OptionalAssetManager {
     }
 
     /**
-     * Read the installed asset as an ArrayBuffer. Returns null if missing
-     * or if the SHA sidecar doesn't match `spec.expectedSha256`.
+     * Read the installed asset as an ArrayBuffer. Returns null if missing,
+     * if the SHA sidecar does not match `spec.expectedSha256`, or if the
+     * binary content itself does not hash to `spec.expectedSha256`.
+     *
+     * The double check (sidecar + content) closes a TOCTOU window: if an
+     * attacker with vault-write access swaps the binary but leaves the
+     * sidecar untouched, the sidecar still matches the build-time pinned
+     * hash. Hashing the binary on every load guarantees that BundleLoader
+     * only evaluates code whose bytes actually hash to the pinned value.
+     * The sidecar check remains as a cheap pre-filter that short-circuits
+     * the hashing work when the asset is obviously out-of-date.
      */
     async load(spec: AssetSpec): Promise<ArrayBuffer | null> {
         const adapter = this.plugin.app.vault.adapter;
@@ -106,9 +115,18 @@ export class OptionalAssetManager {
         const shaPath = this.shaSidecarPath(spec);
         try {
             if (!await adapter.exists(path)) return null;
-            const sha = (await adapter.read(shaPath).catch(() => '')).trim();
-            if (sha !== spec.expectedSha256) return null;
-            return await adapter.readBinary(path);
+            const sidecarSha = (await adapter.read(shaPath).catch(() => '')).trim();
+            if (sidecarSha !== spec.expectedSha256) return null;
+            const buffer = await adapter.readBinary(path);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            const contentSha = Array.from(new Uint8Array(hashBuffer))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            if (contentSha !== spec.expectedSha256) {
+                console.warn(`[OptionalAssetManager] Content hash mismatch for ${spec.filename}; refusing to load.`);
+                return null;
+            }
+            return buffer;
         } catch {
             return null;
         }
