@@ -104,4 +104,4 @@ export class MarkNoteAsMemorySourceTool extends BaseTool<'mark_note_as_memory_so
     }
 }
 
-/* eslint-enable */
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */
