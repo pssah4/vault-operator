@@ -67,7 +67,19 @@ export class TaskRouter {
      * can decide whether to invoke the (slower) LLM fallback.
      */
     classifyByRegex(prompt: string): TaskClassification {
-        const text = prompt.trim();
+        // AgentSidebarView appends <context>...</context> and
+        // <vault_context>...</vault_context> blocks to every user message
+        // (active file, vault stats). Those blocks routinely push the
+        // raw prompt past 300 chars and contain words like "files",
+        // "folder" that have nothing to do with intent. Strip them and
+        // classify only what the user actually typed.
+        const userTextOnly = prompt
+            .replace(/<context>[\s\S]*?<\/context>/gi, '')
+            .replace(/<vault_context>[\s\S]*?<\/vault_context>/gi, '')
+            // Also strip an unterminated tag opening, in case the
+            // appended block was truncated.
+            .replace(/<(?:context|vault_context)>[\s\S]*$/i, '');
+        const text = userTextOnly.trim();
         if (text.length === 0) return 'unknown';
 
         // Strong complex signals win first
