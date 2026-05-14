@@ -58,6 +58,31 @@ describe('TaskRouter.classifyByRegex', () => {
         // "such" should win over "erstelle ... xlsx".
         expect(router.classifyByRegex('such mir alle xlsx dateien im vault')).toBe('complex');
     });
+
+    it('strips <context> and <vault_context> blocks before classifying', () => {
+        // Real prompts from AgentSidebarView include these blocks;
+        // they routinely push the raw prompt past 300 chars.
+        const promptWithContext =
+            'erstelle mir eine xlsx mit zwei Spalten und drei Zeilen ' +
+            '<context>\nActive file in editor: Inbox/Untitled.md\n</context>' +
+            '<vault_context>\nNotes: 794\nTop-level folders: Attachements, Inbox, Notes, ' +
+            'Templates, _devprocess, _global, _memory, .obsidian\n' +
+            'Models: anthropic, openrouter, openai, gemini\n</vault_context>';
+        // Without the strip, length > 300 -> 'complex'. With strip -> 'simple'.
+        expect(router.classifyByRegex(promptWithContext)).toBe('simple');
+
+        // Same for the docx case from Sebastian's smoke test.
+        expect(router.classifyByRegex(
+            'erstelle ein docx mit Titel Foo ' +
+            '<context>\nActive file in editor: Inbox/Untitled.md\n</context>'
+        )).toBe('simple');
+
+        // And research stays complex even with the context block appended.
+        expect(router.classifyByRegex(
+            'such mir alle notizen zu TDD ' +
+            '<context>\nActive file in editor: Inbox/Untitled.md\n</context>'
+        )).toBe('complex');
+    });
 });
 
 describe('TaskRouter.classifyWithFallback', () => {
