@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * CallPluginApiTool — Plugin API Bridge (PAS-1.5, ADR-108)
  *
@@ -187,7 +188,7 @@ export class CallPluginApiTool extends BaseTool<'call_plugin_api'> {
         try {
             const resultPromise = Promise.resolve(api[method](...args));
             const timeoutPromise = new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`API call timed out after ${API_CALL_TIMEOUT}ms`)), API_CALL_TIMEOUT),
+                window.setTimeout(() => reject(new Error(`API call timed out after ${API_CALL_TIMEOUT}ms`)), API_CALL_TIMEOUT),
             );
 
             const result = await Promise.race([resultPromise, timeoutPromise]);

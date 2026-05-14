@@ -291,7 +291,7 @@ async function removeWithRetry(fs: FileAdapter, path: string): Promise<void> {
     const delays = [0, 150, 500];
     let lastError: unknown = null;
     for (const delay of delays) {
-        if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+        if (delay > 0) await new Promise((r) => window.setTimeout(r, delay));
         try {
             await fs.remove(path);
             return;

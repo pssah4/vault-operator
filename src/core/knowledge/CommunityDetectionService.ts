@@ -13,7 +13,7 @@ import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
 import type { KnowledgeDB } from './KnowledgeDB';
 import type { GraphStore } from './GraphStore';
-import type { OntologyStore, OntologyEntry, OntologySource } from './OntologyStore';
+import type { OntologyStore, OntologyEntry } from './OntologyStore';
 
 // ---------------------------------------------------------------------------
 // Types

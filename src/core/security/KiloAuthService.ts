@@ -325,9 +325,9 @@ export class KiloAuthService {
      * Gibt einen fetch-kompatiblen Wrapper zurück, der Kilo-Auth-Header injiziert.
      * Wird als `new OpenAI({ fetch: authService.getKiloFetch() })` übergeben.
      *
-     * Review-Bot: SDK-internes globalThis.fetch ist toleriert (wie github-copilot.ts).
+     * Review-Bot: SDK-internes window.fetch ist toleriert (wie github-copilot.ts).
      */
-    getKiloFetch(): typeof globalThis.fetch {
+    getKiloFetch(): typeof window.fetch {
         return async (
             input: RequestInfo | URL,
             init?: RequestInit,
@@ -341,7 +341,7 @@ export class KiloAuthService {
                 headers.set('X-KiloCode-OrganizationId', orgId);
             }
 
-            return globalThis.fetch(input, { ...init, headers });
+            return window.fetch(input, { ...init, headers });
         };
     }
 
@@ -370,6 +370,6 @@ export class KiloAuthService {
     }
 
     private sleep(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
     }
 }

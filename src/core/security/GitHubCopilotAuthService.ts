@@ -395,9 +395,9 @@ export class GitHubCopilotAuthService {
      *  1. Calls getCopilotToken() (auto-refresh)
      *  2. Replaces Authorization header with Copilot token
      *  3. Adds required Copilot headers
-     *  4. Delegates to globalThis.fetch (SDK-internal, Review-Bot tolerated)
+     *  4. Delegates to window.fetch (SDK-internal, Review-Bot tolerated)
      */
-    getCopilotFetch(): typeof globalThis.fetch {
+    getCopilotFetch(): typeof window.fetch {
         return async (
             input: RequestInfo | URL,
             init?: RequestInit,
@@ -414,7 +414,7 @@ export class GitHubCopilotAuthService {
                 }
             }
 
-            return globalThis.fetch(input, { ...init, headers });
+            return window.fetch(input, { ...init, headers });
         };
     }
 
@@ -433,6 +433,6 @@ export class GitHubCopilotAuthService {
     }
 
     private sleep(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
     }
 }

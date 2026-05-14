@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { App, Notice, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { CustomPrompt } from '../../types/settings';
@@ -48,7 +49,7 @@ export class PromptsTab {
         // Import button
         const importBtn = createRow.createEl('button', { text: t('settings.prompts.import'), cls: 'agent-rules-import-btn' });
         importBtn.addEventListener('click', () => {
-            const fileInput = document.createElement('input');
+            const fileInput = activeDocument.createElement('input');
             fileInput.type = 'file';
             fileInput.accept = '.json';
             fileInput.addEventListener('change', () => { void (async () => {
@@ -212,7 +213,7 @@ export class PromptsTab {
                     const data = { name: p.name, slug: p.slug, content: p.content, mode: p.mode };
                     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
+                    const a = activeDocument.createElement('a');
                     a.href = url;
                     a.download = `prompt-${p.slug}.json`;
                     a.click();

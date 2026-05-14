@@ -128,7 +128,7 @@ export class ImplicitConnectionService {
                             this.cancelled = true;
                             break;
                         }
-                        await new Promise<void>(r => setTimeout(r, 0));
+                        await new Promise<void>(r => window.setTimeout(r, 0));
                     }
                 }
             }

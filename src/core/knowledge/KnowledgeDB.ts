@@ -235,7 +235,7 @@ export class KnowledgeDB {
     private absolutePath: string;       // Absolute FS path (for global: fs.promises)
     private vaultRelativePath: string;  // Vault-relative path (for local/sync: vault.adapter)
     private dirty = false;
-    private saveTimer: ReturnType<typeof setTimeout> | null = null;
+    private saveTimer: number | null = null;
     private saving = false;
     /** ADR-079 Cloud-Sync-Abwehr: only set in obsidian-sync setup. */
     private writerLock: WriterLock | null = null;
@@ -340,7 +340,7 @@ export class KnowledgeDB {
     private async loadWasmBinary(): Promise<ArrayBuffer> {
         const { SQL_WASM_BASE64 } = await import('../../_generated/bundled-wasm');
         const bytes = Uint8Array.from(atob(SQL_WASM_BASE64), c => c.charCodeAt(0));
-        return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+        return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     }
 
     /** Check if the DB is open and ready. */
@@ -382,7 +382,7 @@ export class KnowledgeDB {
     /** Close the DB and persist final state. Call on plugin unload. */
     async close(): Promise<void> {
         if (this.saveTimer) {
-            clearTimeout(this.saveTimer);
+            window.clearTimeout(this.saveTimer);
             this.saveTimer = null;
         }
         await this.save();
@@ -701,7 +701,7 @@ export class KnowledgeDB {
 
     private scheduleSave(): void {
         if (this.saveTimer) return; // already scheduled
-        this.saveTimer = setTimeout(() => {
+        this.saveTimer = window.setTimeout(() => {
             this.saveTimer = null;
             void this.save();
         }, 2000); // 2s debounce

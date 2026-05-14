@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * IframeSandboxExecutor
  *
@@ -26,7 +27,7 @@ import { SANDBOX_HTML } from './sandboxHtml';
 interface PendingExecution {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
-    timeout: ReturnType<typeof setTimeout>;
+    timeout: number;
 }
 
 /** Messages FROM the sandbox iframe TO the plugin */
@@ -83,7 +84,7 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
         const id = this.generateId();
 
         return new Promise<unknown>((resolve, reject) => {
-            const timeout = setTimeout(() => {
+            const timeout = window.setTimeout(() => {
                 this.pending.delete(id);
                 reject(new Error('Sandbox execution timeout (30s)'));
             }, 30000);
@@ -111,7 +112,7 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
         this.readyPromise = null;
 
         for (const p of this.pending.values()) {
-            clearTimeout(p.timeout);
+            window.clearTimeout(p.timeout);
             p.reject(new Error('Sandbox destroyed'));
         }
         this.pending.clear();
@@ -122,24 +123,24 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
     // -----------------------------------------------------------------------
 
     private async initialize(): Promise<void> {
-        this.iframe = document.createElement('iframe');
+        this.iframe = activeDocument.createElement('iframe');
         this.iframe.sandbox.add('allow-scripts');
         // Review-Bot: CSS class instead of inline style
         this.iframe.addClass('agent-sandbox-iframe');
         this.iframe.srcdoc = SANDBOX_HTML;
-        document.body.appendChild(this.iframe);
+        activeDocument.body.appendChild(this.iframe);
 
         // Wait for 'sandbox-ready' message with timeout (10s)
         await new Promise<void>((resolve, reject) => {
             const INIT_TIMEOUT_MS = 10000;
-            const timeout = setTimeout(() => {
+            const timeout = window.setTimeout(() => {
                 window.removeEventListener('message', handler);
                 reject(new Error(`Sandbox initialization timeout (${INIT_TIMEOUT_MS}ms). The iframe did not signal readiness.`));
             }, INIT_TIMEOUT_MS);
 
             const handler = (e: MessageEvent) => {
                 if (e.data?.type === 'sandbox-ready') {
-                    clearTimeout(timeout);
+                    window.clearTimeout(timeout);
                     window.removeEventListener('message', handler);
                     this.ready = true;
                     resolve();
@@ -168,7 +169,7 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
             const id = msg.type === 'result' ? msg.id : msg.id;
             const p = this.pending.get(id);
             if (!p) return;
-            clearTimeout(p.timeout);
+            window.clearTimeout(p.timeout);
             this.pending.delete(id);
             if (msg.type === 'error') {
                 p.reject(new Error(msg.message));

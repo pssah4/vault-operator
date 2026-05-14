@@ -34,7 +34,7 @@ export class ContentEditorModal extends Modal {
         });
         cancelBtn.addEventListener('click', () => this.close());
 
-        setTimeout(() => {
+        window.setTimeout(() => {
             textarea.focus();
             textarea.setSelectionRange(textarea.value.length, textarea.value.length);
         }, 50);

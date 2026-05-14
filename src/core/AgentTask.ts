@@ -639,7 +639,7 @@ export class AgentTask {
 
                 // Phase B: rate limiting — pause between iterations (skip on first)
                 if (iteration > 0 && this.rateLimitMs > 0) {
-                    await new Promise<void>((r) => setTimeout(r, this.rateLimitMs));
+                    await new Promise<void>((r) => window.setTimeout(r, this.rateLimitMs));
                 }
 
                 // Power Steering: inject a mode-role reminder on every Nth iteration
@@ -1214,7 +1214,7 @@ export class AgentTask {
                 const waitSec = Math.round(waitMs / 1000);
                 console.warn(`[AgentTask] Rate limit hit — retry ${rateLimitRetries}/${RATE_LIMIT_MAX_RETRIES} in ${waitSec}s`);
                 this.taskCallbacks.onText(`\n\n*Rate limit reached -- automatically retrying in ${waitSec} seconds (${rateLimitRetries}/${RATE_LIMIT_MAX_RETRIES})...*\n\n`);
-                await new Promise<void>((r) => setTimeout(r, waitMs));
+                await new Promise<void>((r) => window.setTimeout(r, waitMs));
                 // Check if cancelled during wait
                 if (abortSignal?.aborted) {
                     console.debug('[AgentTask] Abort signal detected during rate limit wait');

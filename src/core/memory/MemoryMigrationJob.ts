@@ -27,7 +27,7 @@
  */
 
 import type { FileAdapter } from '../storage/types';
-import type { FactStore, FactKind } from './FactStore';
+import type { FactStore } from './FactStore';
 import type { CommunicationStyleStore } from './CommunicationStyleStore';
 import type { MemoryAtomizer, FactCandidate } from './MemoryAtomizer';
 

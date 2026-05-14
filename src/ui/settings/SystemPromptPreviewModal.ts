@@ -21,7 +21,7 @@ export class SystemPromptPreviewModal extends Modal {
         copyBtn.addEventListener('click', () => { void (async () => {
             await navigator.clipboard.writeText(this.prompt);
             copyBtn.setText(t('modal.promptPreview.copied'));
-            setTimeout(() => copyBtn.setText(t('modal.promptPreview.copy')), 2000);
+            window.setTimeout(() => copyBtn.setText(t('modal.promptPreview.copy')), 2000);
         })(); });
 
         const pre = contentEl.createEl('pre', { cls: 'system-prompt-preview-pre' });

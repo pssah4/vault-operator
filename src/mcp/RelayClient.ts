@@ -149,7 +149,7 @@ export class RelayClient {
                 }
 
                 // Short-poll interval: see POLL_INTERVAL_MS (FIX-14-03-01)
-                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+                await new Promise(resolve => window.setTimeout(resolve, POLL_INTERVAL_MS));
             } catch (err) {
                 if (!this.shouldReconnect) break;
 
@@ -177,7 +177,7 @@ export class RelayClient {
                     this.noticeShownForCurrentOutage = true;
                 }
 
-                await new Promise(resolve => setTimeout(resolve, this.reconnectDelay));
+                await new Promise(resolve => window.setTimeout(resolve, this.reconnectDelay));
                 this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
             }
         }

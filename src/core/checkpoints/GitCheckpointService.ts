@@ -412,13 +412,13 @@ export class GitCheckpointService {
 
     private async withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
         return new Promise<T>((resolve, reject) => {
-            const timer = setTimeout(
+            const timer = window.setTimeout(
                 () => reject(new Error(`Timeout: ${label}`)),
                 this.timeoutMs
             );
             promise.then(
-                (val) => { clearTimeout(timer); resolve(val); },
-                (err) => { clearTimeout(timer); reject(err instanceof Error ? err : new Error(String(err))); }
+                (val) => { window.clearTimeout(timer); resolve(val); },
+                (err) => { window.clearTimeout(timer); reject(err instanceof Error ? err : new Error(String(err))); }
             );
         });
     }

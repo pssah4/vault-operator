@@ -72,6 +72,7 @@ export class PluginPatchModal extends Modal {
         const code = li2.createEl('code', { text: pluginPath });
         code.setCssStyles({ fontSize: '12px' });
         li2.appendText(' with the downloaded file.');
+        // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Reload plugin" is the literal button label users will click; keep its capitalization
         steps.createEl('li', { text: 'Click "Reload plugin" to restart Vault Operator with the new code.' });
 
         const cautionWrap = contentEl.createDiv({ cls: 'wizard-skip-list' });
@@ -94,7 +95,7 @@ export class PluginPatchModal extends Modal {
         const downloadBtn = right.createEl('button', { cls: 'mod-cta', text: `Download ${BUNDLE_FILENAME}` });
         downloadBtn.addEventListener('click', () => this.triggerDownload());
 
-        const reloadBtn = right.createEl('button', { text: 'Reload plugin' });
+        const reloadBtn = right.createEl('button', { text: 'Reload' });
         reloadBtn.addEventListener('click', () => { void this.reloadPlugin(); });
 
         const closeBtn = right.createEl('button', { text: 'Close' });
@@ -108,14 +109,14 @@ export class PluginPatchModal extends Modal {
     private triggerDownload(): void {
         const blob = new Blob([this.compiledJs], { type: 'application/javascript' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
+        const link = activeDocument.createElement('a');
         link.href = url;
         link.download = BUNDLE_FILENAME;
-        document.body.appendChild(link);
+        activeDocument.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        activeDocument.body.removeChild(link);
         // Free the blob after the click has flushed.
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         new Notice(`Downloaded. Replace ${BUNDLE_FILENAME} in the plugin folder, then click "Reload plugin".`);
     }
 
@@ -140,7 +141,7 @@ export class PluginPatchModal extends Modal {
         }
         try {
             await plugins.disablePlugin(id);
-            await new Promise<void>((resolve) => setTimeout(resolve, 400));
+            await new Promise<void>((resolve) => window.setTimeout(resolve, 400));
             await plugins.enablePlugin(id);
             new Notice('Plugin reloaded.');
             this.close();

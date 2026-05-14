@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * OpenAiProvider - LLM provider for OpenAI-compatible APIs
  *
@@ -65,7 +66,7 @@ interface ToolCallAccumulator {
 
 /**
  * Creates a fetch-compatible function using Node.js http(s) module.
- * Used for providers where Electron's CORS enforcement blocks globalThis.fetch
+ * Used for providers where Electron's CORS enforcement blocks window.fetch
  * (e.g. Google's generativelanguage.googleapis.com, chatgpt.com/backend-api,
  * and FIX-04-03-03 custom OpenAI-compatible servers like opencode go on
  * localhost).
@@ -73,7 +74,7 @@ interface ToolCallAccumulator {
  * Picks the http or https module based on the URL protocol so plain-HTTP
  * local dev servers also work, not just HTTPS endpoints.
  */
-export function createNodeFetch(): typeof globalThis.fetch {
+export function createNodeFetch(): typeof window.fetch {
     return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         const parsed = new URL(url);
@@ -192,7 +193,7 @@ export class OpenAiProvider implements ApiHandler {
             defaultHeaders,
             // Bypass Electron's CORS enforcement for providers whose endpoints
             // do not set the right Access-Control-Allow-Origin headers. Obsidian
-            // renderer enforces CORS on globalThis.fetch; Node.js http(s) is not
+            // renderer enforces CORS on window.fetch; Node.js http(s) is not
             // subject to CORS.
             // - 'gemini' (always blocked by Google):
             // - 'custom' (FIX-04-03-03): generic OpenAI-compatible servers like

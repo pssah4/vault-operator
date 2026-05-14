@@ -202,7 +202,7 @@ export class AutocompleteHandler {
 
         if (!this.dropdownEl) {
             this.dropdownEl = inputArea.createDiv('autocomplete-dropdown');
-            document.addEventListener('click', (e) => {
+            activeDocument.addEventListener('click', (e) => {
                 if (this.dropdownEl && !this.dropdownEl.contains(e.target as Node)) {
                     this.hide();
                 }

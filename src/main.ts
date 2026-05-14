@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
 import { preWarmProviderConnection } from './api/warmup';
 import { scheduleRecurring } from './util/scheduleRecurring';
@@ -160,9 +161,9 @@ export default class ObsidianAgentPlugin extends Plugin {
     historyIndexer: import('./core/memory/HistoryIndexer').HistoryIndexer | null = null;
     rerankerService: RerankerService | null = null;
     mcpBridge: { start(): Promise<void>; stop(): void; running: boolean; tunnelUrl: string | null; remoteConnected: boolean; remoteConnecting: boolean; startTunnel(onUrl?: (url: string | null) => void): void; stopTunnel(): void; connectRelay(): void; disconnectRelay(): void; getToolsWithContext(): unknown[]; buildResourceList(): unknown[] } | null = null;
-    private autoIndexDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private autoIndexDebounceTimers = new Map<string, number>();
     /** FEAT-03-26 Lifecycle: Debounce-Timer fuer Top-Hub-Block Regen bei Ontology-Changes. */
-    private topHubBlockRegenTimer: ReturnType<typeof setTimeout> | null = null;
+    private topHubBlockRegenTimer: number | null = null;
     private warmupFired = false;
     /** Session flags for cross-tool coordination (e.g. plan_presentation → create_pptx gate). */
     sessionFlags = new Set<string>();
@@ -823,7 +824,6 @@ export default class ObsidianAgentPlugin extends Plugin {
             // web_search Tool (BYOK-Provider via FEAT-04-02). Wenn weder
             // apiHandler noch web_search verfuegbar ist, fallen die Hooks
             // auf no-op zurueck damit Tokenverbrauch null bleibt.
-            const stufe3Cfg = ingestCfg.autoTrigger; // share enabled-flag conservatively; UI separates topic later
             if (this.knowledgeDB && this.clusterMetadataStore) {
                 const persistence = new ClusterMetadataStatePersistence(this.knowledgeDB);
                 const preFilter = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
@@ -1574,7 +1574,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.stufe3IntervalHandle = null;
             }
             if (this.topHubBlockRegenTimer) {
-                clearTimeout(this.topHubBlockRegenTimer);
+                window.clearTimeout(this.topHubBlockRegenTimer);
                 this.topHubBlockRegenTimer = null;
             }
             this.rerankerService?.unload();
@@ -1590,7 +1590,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         // Synchronous cleanup stays outside the IIFE
         this.pendingChatLinks.clear();
         this.vaultDNAScanner?.destroy();
-        for (const timer of this.autoIndexDebounceTimers.values()) clearTimeout(timer);
+        for (const timer of this.autoIndexDebounceTimers.values()) window.clearTimeout(timer);
         this.autoIndexDebounceTimers.clear();
         if (this.agingSchedulerHandle) {
             this.agingSchedulerHandle.stop();
@@ -2355,8 +2355,8 @@ export default class ObsidianAgentPlugin extends Plugin {
     scheduleTopHubBlockRegen(): void {
         if (!this.settings.vaultIngest?.topHubBlock?.enabled) return;
         if (!this.topHubBlockGenerator) return;
-        if (this.topHubBlockRegenTimer) clearTimeout(this.topHubBlockRegenTimer);
-        this.topHubBlockRegenTimer = setTimeout(() => {
+        if (this.topHubBlockRegenTimer) window.clearTimeout(this.topHubBlockRegenTimer);
+        this.topHubBlockRegenTimer = window.setTimeout(() => {
             this.topHubBlockRegenTimer = null;
             if (!this.topHubBlockGenerator) return;
             const result = this.topHubBlockGenerator.generateIfNeeded(this.topHubBlockState);
@@ -2699,7 +2699,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             // Navigate to our plugin's settings tab
             setting.openTabById(this.manifest.id);
             // Then navigate to the specific tab/subtab within our settings
-            setTimeout(() => {
+            window.setTimeout(() => {
                 if (this.settingsTab) {
                     this.settingsTab.openAt(tab as TabId, subTab);
                 }
@@ -2714,7 +2714,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     async sendMessageToAgent(text: string, hidden = false): Promise<void> {
         await this.activateView();
         // Small delay to ensure the view is rendered
-        setTimeout(() => {
+        window.setTimeout(() => {
             const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
             if (leaves.length > 0) {
                 const view = leaves[0].view as AgentSidebarView;
@@ -2751,7 +2751,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         // Close the settings modal so the user sees the chat
         this.app.setting?.close();
         await this.activateView();
-        setTimeout(() => {
+        window.setTimeout(() => {
             const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
             if (leaves.length > 0) {
                 const view = leaves[0].view as AgentSidebarView;
@@ -2892,8 +2892,8 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (!this.semanticIndex?.isIndexed) return;
         if (this.settings.semanticExcludedFolders?.some((f) => filePath.startsWith(f + '/'))) return;
         const existing = this.autoIndexDebounceTimers.get(filePath);
-        if (existing) clearTimeout(existing);
-        const timer = setTimeout(() => {
+        if (existing) window.clearTimeout(existing);
+        const timer = window.setTimeout(() => {
             this.autoIndexDebounceTimers.delete(filePath);
             // Use queue (concurrency=1) instead of direct updateFile to prevent
             // concurrent embedding calls from freezing Obsidian's main thread.

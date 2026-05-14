@@ -79,12 +79,12 @@ export class LogTab {
             }
             const blob = new Blob([raw], { type: 'application/jsonl' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = activeDocument.createElement('a');
             a.href = url;
             a.download = `vault-operator-log-${date}.jsonl`;
-            document.body.appendChild(a);
+            activeDocument.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
+            activeDocument.body.removeChild(a);
             URL.revokeObjectURL(url);
             new Notice(t('settings.log.downloaded', { date }));
         })(); });

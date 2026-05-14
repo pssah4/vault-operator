@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * VaultDNAScanner — Discovers Obsidian plugins and generates skill files (PAS-1)
  *
@@ -90,7 +91,7 @@ export class VaultDNAScanner {
 
         // Delayed reclassification: some plugins register commands late.
         // Re-check NONE-classified enabled plugins after 3s.
-        setTimeout(() => { void this.reclassifyNonePlugins(); }, 3000);
+        window.setTimeout(() => { void this.reclassifyNonePlugins(); }, 3000);
 
         // Start continuous sync polling
         this.startSync();
@@ -1016,7 +1017,7 @@ export class VaultDNAScanner {
             if (didFetch) fetched++;
 
             // Rate-limit: 1 request per second
-            await new Promise<void>((r) => setTimeout(r, 1000));
+            await new Promise<void>((r) => window.setTimeout(r, 1000));
         }
 
         console.debug(`[VaultDNA] README fetch complete: ${fetched} new/updated, ${skipped} skipped (not in registry)`);

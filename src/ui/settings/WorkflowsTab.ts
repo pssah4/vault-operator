@@ -37,7 +37,7 @@ export class WorkflowsTab {
         // Import button
         const importBtn = createRow.createEl('button', { text: t('settings.workflows.import'), cls: 'agent-rules-import-btn' });
         importBtn.addEventListener('click', () => {
-            const fileInput = document.createElement('input');
+            const fileInput = activeDocument.createElement('input');
             fileInput.type = 'file';
             fileInput.accept = '.md,.txt';
             fileInput.addEventListener('change', () => { void (async () => {
@@ -95,7 +95,7 @@ export class WorkflowsTab {
                     const content = await workflowLoader.readFile(wf.path);
                     const blob = new Blob([content], { type: 'text/markdown' });
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
+                    const a = activeDocument.createElement('a');
                     a.href = url;
                     a.download = `${wf.slug}.md`;
                     a.click();

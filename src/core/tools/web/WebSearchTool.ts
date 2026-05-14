@@ -156,7 +156,7 @@ export class WebSearchTool extends BaseTool<'web_search'> {
                 throw: false,
             }),
             new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Brave search timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
+                window.setTimeout(() => reject(new Error(`Brave search timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
             ),
         ]);
 
@@ -210,7 +210,7 @@ export class WebSearchTool extends BaseTool<'web_search'> {
                 throw: false,
             }),
             new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Tavily search timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
+                window.setTimeout(() => reject(new Error(`Tavily search timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
             ),
         ]);
 

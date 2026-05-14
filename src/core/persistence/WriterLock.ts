@@ -61,7 +61,7 @@ export class WriterLockHeldError extends Error {
 
 /** Generate a random writer-id. Uses crypto.randomUUID when available, falls back to a simple random hex string for older runtimes / non-secure contexts. */
 function newWriterId(): string {
-    const g = globalThis as { crypto?: { randomUUID?: () => string } };
+    const g = window as { crypto?: { randomUUID?: () => string } };
     if (g.crypto && typeof g.crypto.randomUUID === 'function') {
         return g.crypto.randomUUID();
     }

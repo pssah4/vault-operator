@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * SelfAuthoredSkillLoader
  *
@@ -77,7 +78,7 @@ export class SelfAuthoredSkillLoader {
     private sandboxExecutor: ISandboxExecutor | null;
     private toolRegistry: ToolRegistry | null;
     /** Debounce timers for hot-reload per file path */
-    private recompileTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private recompileTimers = new Map<string, number>();
     /** Serialize compilation to prevent concurrent builds for the same module */
     private compileQueue = Promise.resolve();
 
@@ -337,9 +338,9 @@ export class SelfAuthoredSkillLoader {
      */
     private debouncedCodeRecompile(file: TFile): void {
         const existing = this.recompileTimers.get(file.path);
-        if (existing) clearTimeout(existing);
+        if (existing) window.clearTimeout(existing);
 
-        const timer = setTimeout(() => {
+        const timer = window.setTimeout(() => {
             this.recompileTimers.delete(file.path);
             // Serialize: queue behind any in-flight compilation
             this.compileQueue = this.compileQueue

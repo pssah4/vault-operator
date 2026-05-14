@@ -69,12 +69,14 @@ export function renderSkipHintIfSkipped(
     actions.setCssStyles({ gap: '6px' });
     actions.setCssStyles({ alignItems: 'center' });
     const reopenBtn = actions.createEl('button', { text: 'Reopen wizard' });
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- event handler / callback returns Promise; errors handled inside
     reopenBtn.addEventListener('click', async () => {
         const { FirstRunWizardModal } = await import('../modals/FirstRunWizardModal');
         new FirstRunWizardModal(plugin.app, plugin).open();
     });
 
     const dismissBtn = actions.createEl('button', { text: 'Dismiss' });
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- event handler / callback returns Promise; errors handled inside
     dismissBtn.addEventListener('click', async () => {
         const arr = plugin.settings.onboarding.skippedSteps as string[];
         const idx = arr.indexOf(stepId);

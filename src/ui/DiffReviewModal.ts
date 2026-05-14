@@ -140,7 +140,7 @@ export class DiffReviewModal extends Modal {
 
         // Hide Obsidian's default close button — user must use footer actions
         const closeBtn = this.modalEl.querySelector('.modal-close-button');
-        if (closeBtn instanceof HTMLElement) closeBtn.addClass('agent-u-hidden');
+        if (closeBtn != null && closeBtn.instanceOf(HTMLElement)) closeBtn.addClass('agent-u-hidden');
 
         // Show loading state immediately so the modal feels responsive
         titleEl.setText(
@@ -152,7 +152,7 @@ export class DiffReviewModal extends Modal {
         loadingEl.setText('...');
 
         // Defer heavy computation + rendering to next frame
-        requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
             loadingEl.remove();
 
             // Compute diffs + semantic groups for all files
@@ -546,7 +546,7 @@ export class DiffReviewModal extends Modal {
         if (hunkRanges.length === 0) return;
 
         // Build all DOM into a fragment, then append once (avoids per-element reflow)
-        const frag = document.createDocumentFragment();
+        const frag = activeDocument.createDocumentFragment();
 
         for (let hi = 0; hi < hunkRanges.length; hi++) {
             const range = hunkRanges[hi];
