@@ -276,7 +276,7 @@
 /* Logo is pre-processed to black on transparent.
    Light mode: shows as-is. Dark mode: simple invert flips to white. */
 .VPNavBarTitle .logo {
-  height: 44px;
+  height: 56px;
   width: auto;
   margin-right: 0;
 }
@@ -290,9 +290,9 @@
   width: auto !important;
 }
 
-/* Give the navbar a touch more height so the 44px logo breathes. */
+/* Give the navbar enough height so the 56px wordmark breathes. */
 :root {
-  --vp-nav-height: 72px;
+  --vp-nav-height: 80px;
 }
 
 /* ── Navbar search box ─────────────────────────────────────────── */
