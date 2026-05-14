@@ -76,7 +76,15 @@ describe('AdapterRegistry (PLAN-004 task 7)', () => {
 
         it('returns null when adapter.canHandle says no', async () => {
             const reg = new AdapterRegistry();
-            const adapter = new StubAdapter('https', uri => uri.startsWith('https://allowed.com'));
+            // AUDIT-025 H-3 (GitHub code-scanning alert #68,
+            // js/incomplete-url-substring-sanitization): match the host via
+            // URL().hostname instead of String.startsWith. The .startsWith
+            // form let a hostile URL like https://denied.com.allowed.com/x
+            // slip through; the URL-parser form does an exact hostname check.
+            const adapter = new StubAdapter('https', uri => {
+                try { return new URL(uri).hostname === 'allowed.com'; }
+                catch { return false; }
+            });
             reg.register(adapter);
             expect(await reg.resolve('https://denied.com/x')).toBeNull();
             expect(adapter.resolved).toEqual([]); // canHandle gated it

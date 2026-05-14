@@ -88,10 +88,15 @@ function generateId(): string {
     // YYYY-MM-DD-Prefix fuer Sortier-/Browse-Komfort und nehmen die
     // ersten 12 hex-chars der UUID (48 Bit Entropie pro Tag, > 16M
     // mehr als die alte Variante).
+    //
+    // AUDIT-025 H-2 (GitHub code-scanning alert #67): Math.random()-Fallback
+    // entfernt. Obsidian laeuft auf Electron (Chromium >= v85), wo
+    // crypto.randomUUID() Teil der Standard Web Crypto API ist und immer
+    // verfuegbar. Der Fallback war defensive coding gegen ein Szenario,
+    // das in dieser Runtime nicht eintritt; CodeQL flagged ihn trotzdem
+    // als js/insecure-randomness in einem security context.
     const date = new Date().toISOString().slice(0, 10);
-    const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID)
-        ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
-        : Math.random().toString(36).slice(2, 14);
+    const uuid = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
     return `${date}-${uuid}`;
 }
 
