@@ -123,7 +123,8 @@
 .vault-health-note-link {
     color: var(--text-accent);
     cursor: pointer;
-    text-decoration: underline dotted;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
 }
 .vault-health-note-link:hover {
     color: var(--text-accent-hover);
@@ -241,15 +242,16 @@
     min-height: 0;
 }
 
-/* Chat Messages */
+/* Chat Messages (compact layout: padding/gap merged from former duplicate
+   "Compact chat" section so the selector appears only once) */
 .chat-messages {
     height: 100%;
     overflow-y: auto;
-    padding: 16px;
+    padding: 10px 12px;
     padding-bottom: 140px;  /* Safety margin: Input-Container ist ~120px hoch */
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 6px;
 }
 
 .message {
@@ -259,10 +261,13 @@
 }
 
 .message-content {
-    padding: 12px;
+    padding: 7px 10px;
     border-radius: 8px;
     max-width: 100%;
-    line-height: 1.5;
+    line-height: 1.45;
+    font-size: 13px;
+    user-select: text;
+    cursor: text;
     transition: opacity 150ms ease-out;
 }
 
@@ -380,12 +385,19 @@
     color: var(--text-on-accent);
     align-self: flex-end;
     max-width: 85%;
+    border-radius: 12px 12px 4px 12px;
+    padding: 6px 11px;
+    font-size: 13px;
+    cursor: text;
 }
 
 .assistant-message .message-content {
-    background: var(--background-secondary);
-    border: 1px solid var(--background-modifier-border);
+    background: transparent;
+    border: none;
     color: var(--text-normal);
+    padding: 2px 0 4px;
+    font-size: 13px;
+    cursor: text;
 }
 
 .message-section {
@@ -422,8 +434,9 @@
 
 .tool-status {
     margin-top: 8px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
+    flex-shrink: 0;
 }
 
 .tool-status.approved {
@@ -1202,15 +1215,9 @@
     font-family: var(--font-monospace);
 }
 
-.context-condensed-badge {
-    font-size: 10px;
-    color: var(--text-muted);
-    background: var(--background-modifier-hover);
-    border-radius: 4px;
-    padding: 1px 5px;
-    margin-left: 6px;
-    font-style: italic;
-}
+/* .context-condensed-badge: superseded by the later definition near the
+   Timeline section. Dead in cascade order; kept only as a placeholder
+   comment so the rule is defined exactly once in this file. */
 
 .tool-call-input,
 .tool-call-output {
@@ -1266,11 +1273,6 @@
     color: var(--text-muted);
     white-space: pre-wrap;
     word-break: break-all;
-}
-
-.tool-status {
-    font-size: 11px;
-    flex-shrink: 0;
 }
 
 .tool-status.tool-running {
@@ -1347,14 +1349,19 @@
 
 .assistant-message .message-content pre {
     background: var(--code-background);
+    border: 1px solid var(--background-modifier-border);
     border-radius: 4px;
-    padding: 8px 12px;
+    padding: 6px 10px;
+    font-size: 12px;
     overflow-x: auto;
 }
 
 .assistant-message .message-content code {
     font-family: var(--font-monospace);
-    font-size: 13px;
+    font-size: 12px;
+    background: var(--code-background);
+    padding: 1px 4px;
+    border-radius: 3px;
 }
 
 /* Disabled textarea during generation */
@@ -2289,39 +2296,16 @@
     padding: 2px 0;
 }
 
-/* ── Compact chat ─────────────────────────────────────────────────────── */
-.chat-messages {
-    padding: 10px 12px;
-    padding-bottom: 140px;  /* Gleicher Safety-Margin wie Normal-Mode */
-    gap: 6px;
-}
-
-.message-content {
-    padding: 7px 10px;
-    font-size: 13px;
-    line-height: 1.45;
-    user-select: text;
-    cursor: text;
-}
+/* ── Compact chat (overrides merged into earlier blocks; only context-
+   specific selectors below remain unique to this section) ──────────── */
 
 /* User message: right-aligned pill, compact */
 .user-message {
     align-items: flex-end;
 }
 
-.user-message .message-content {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    max-width: 85%;
-    border-radius: 12px 12px 4px 12px;
-    padding: 6px 11px;
-    font-size: 13px;
-    cursor: text;
-}
-
-/* user-select is granted by the consolidated rule on
-   .obsidian-agent-sidebar .user-message .message-content (line 260
-   area); no duplication needed here. */
+/* user-message .message-content base styles merged into the earlier
+   block (line 383 area); only context-specific selectors remain below. */
 
 /* Visible selection highlighting for user messages (white background on blue) */
 .user-message .message-content::selection,
@@ -2350,20 +2334,9 @@
     opacity: 1;
 }
 
-/* Assistant message: no heavy bubble */
-.assistant-message .message-content {
-    background: transparent;
-    border: none;
-    padding: 2px 0 4px;
-    font-size: 13px;
-    color: var(--text-normal);
-    cursor: text;
-    /* user-select is granted by the consolidated rule on
-       .obsidian-agent-sidebar .assistant-message .message-content. */
-}
-
-/* user-select on .assistant-message .message-content * is covered by the
-   consolidated rule at the top of this file (line 260 area). */
+/* Assistant-message bubble styles merged into the earlier block
+   (line 390 area). user-select is granted by the consolidated rule
+   .obsidian-agent-sidebar .assistant-message .message-content. */
 
 /* Visible selection highlighting for assistant messages */
 .assistant-message .message-content::selection,
@@ -2378,23 +2351,8 @@
     color: var(--text-normal);
 }
 
-/* Keep code blocks readable inside assistant messages */
-.assistant-message .message-content pre {
-    background: var(--code-background);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 12px;
-    overflow-x: auto;
-}
-
-.assistant-message .message-content code {
-    font-family: var(--font-monospace);
-    font-size: 12px;
-    background: var(--code-background);
-    padding: 1px 4px;
-    border-radius: 3px;
-}
+/* Assistant-message pre/code styles merged into the earlier block
+   (line 1349 area). */
 
 /* Tool calls now live inside .message-tools wrapper */
 .message-tools {
@@ -5376,6 +5334,7 @@
     font-size: 12px;
     color: var(--text-normal);
     flex: 1;
+    font-weight: 600;
 }
 
 .tp-subcat-body {
@@ -5615,10 +5574,7 @@
     background: var(--background-secondary);
 }
 
-/* Sub-category label: bold */
-.tp-subcat-label {
-    font-weight: 600;
-}
+/* Sub-category label font-weight merged into earlier .tp-subcat-label block. */
 
 /* ── ContentEditorModal ──────────────────────────────────────────────────── */
 .content-editor-modal {
@@ -6085,12 +6041,7 @@
     opacity: 1;
 }
 
-/* Memory-pinned star: always visible (status indicator), accent
-   colour, outline-only star icon. */
-.history-row-action.history-row-action-pinned {
-    opacity: 1;
-    color: var(--text-accent);
-}
+/* Memory-pinned star styles already defined earlier (line 3081 area). */
 
 .history-row-action:hover {
     color: var(--text-normal);
@@ -6177,7 +6128,6 @@
 
 /* ── Utility classes ──────────────────────────────────────────────────── */
 .agent-u-hidden        { display: none !important; }
-.agent-u-visible       { display: '' !important; }
 .agent-u-visibility-hidden {
     opacity: 0 !important;
     pointer-events: none !important;

@@ -191,6 +191,7 @@ This plugin makes network requests depending on your configuration:
 - **LLM API calls**: every message is sent to the configured model provider (Anthropic, OpenAI, Google, AWS Bedrock, OpenRouter, Azure, GitHub Copilot, ChatGPT-OAuth, Kilo Gateway, or a local server like Ollama / LM Studio). No data is sent without a configured provider.
 - **Web search** (optional): when using `web_search`, requests go to the configured search API (Brave or Tavily). Disabled by default.
 - **MCP servers** (optional): connected MCP servers may make additional network requests depending on their configuration. Vault Operator can also expose your vault as a remote MCP server (cross-surface workflows with ChatGPT, Claude, Perplexity); the remote-MCP path is opt-in and uses a token-protected Cloudflare relay.
+- **Sandbox npm CDN** (only when you run custom agent code): the EvaluateExpression sandbox can load npm packages on demand from `esm.sh` (with `jsdelivr` as fallback). Triggered only when an agent script or `evaluate_expression` call declares dependencies. Packages are cached locally and pinned by version. No requests are made unless user-initiated sandbox code declares a dependency.
 - **No telemetry**: The plugin does not collect analytics, usage data, or crash reports.
 - **API key storage**: API keys are encrypted via Electron's safeStorage API when available. On systems without safeStorage support, keys fall back to Obsidian's plugin settings (`data.json`), which is not encrypted. If you use Obsidian Sync, your settings will be synced.
 
