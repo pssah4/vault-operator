@@ -273,25 +273,26 @@
 
 /* ── Navbar logo ────────────────────────────────────────────────── */
 
-/* Logo asset is black-on-white. Per-mode blend modes drop the white
-   background so only the glyph/text shows on either navbar color.
-   Light: multiply (white * white = invisible, black * white = black).
-   Dark:  invert + lighten (white -> black -> invisible; black -> white). */
+/* Logo is pre-processed to black on transparent.
+   Light mode: shows as-is. Dark mode: simple invert flips to white. */
 .VPNavBarTitle .logo {
-  height: 40px;
+  height: 44px;
   width: auto;
   margin-right: 0;
-  mix-blend-mode: multiply;
 }
 
 .dark .VPNavBarTitle .logo {
   filter: invert(1);
-  mix-blend-mode: lighten;
 }
 
 /* Don't let VitePress' grid clip the wider wordmark logo. */
 .VPNavBarTitle {
   width: auto !important;
+}
+
+/* Give the navbar a touch more height so the 44px logo breathes. */
+:root {
+  --vp-nav-height: 72px;
 }
 
 /* ── Navbar search box ─────────────────────────────────────────── */
