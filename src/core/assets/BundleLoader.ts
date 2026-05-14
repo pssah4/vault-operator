@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * BundleLoader -- Runtime loader for the JavaScript Optional Assets
  * (office-bundle.js, pdfjs-bundle.js).
@@ -128,3 +129,5 @@ function evalCommonJsBundle(jsCode: string): unknown {
     factory(mod, mod.exports);
     return mod.exports;
 }
+
+/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

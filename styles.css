@@ -123,8 +123,7 @@
 .vault-health-note-link {
     color: var(--text-accent);
     cursor: pointer;
-    text-decoration: underline;
-    text-decoration-style: dotted;
+    text-decoration: underline dotted;
 }
 .vault-health-note-link:hover {
     color: var(--text-accent-hover);
@@ -3334,7 +3333,7 @@
 }
 .memory-viewer-wipe {
     background: var(--background-modifier-error);
-    color: var(--text-on-accent, #fff);
+    color: var(--text-on-accent, #ffffff);
     border: 1px solid var(--background-modifier-error);
     padding: 6px 14px;
     border-radius: 4px;

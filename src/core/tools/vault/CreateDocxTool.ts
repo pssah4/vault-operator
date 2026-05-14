@@ -208,7 +208,11 @@ export class CreateDocxTool extends BaseTool<'create_docx'> {
             return;
         }
         const docx = office.docx;
-        const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, ShadingType, LevelFormat } = docx;
+        // Only the symbols actually used in execute() are destructured here.
+        // buildTable() does its own destructuring of the table-specific
+        // exports (Table, TableRow, TableCell, WidthType, BorderStyle,
+        // ShadingType) so they do not need to live at this scope.
+        const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, LevelFormat } = docx;
         const headingLevelMap = buildHeadingLevelMap(docx);
 
         try {

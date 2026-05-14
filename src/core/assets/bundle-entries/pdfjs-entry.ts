@@ -18,4 +18,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs';
 
 export const pdfjs = pdfjsLib;
-export const worker = pdfjsWorker;
+// The worker module is imported for its self-registration side effect on
+// the main thread. We re-export it as `unknown` so the consumer cannot
+// rely on any untyped surface of pdf.worker.mjs.
+export const worker: unknown = pdfjsWorker;
