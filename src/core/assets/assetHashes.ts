@@ -15,3 +15,9 @@ export const RERANKER_WASM_SHA256 = 'f4f290847a4df02d0b93cdbf39b4b0e71acefbe8057
 
 // SELF_DEV_SOURCE_SHA256 lives in src/_generated/source-hash.ts,
 // regenerated on every build by generateSourceBundle().
+
+// OFFICE_BUNDLE_SHA256 + PDFJS_BUNDLE_SHA256 live in
+// src/_generated/asset-bundle-hashes.ts, regenerated on every build by
+// generateOfficeBundles(). Re-exported here so the rest of the codebase
+// imports asset SHAs from one place.
+export { OFFICE_BUNDLE_SHA256, PDFJS_BUNDLE_SHA256 } from '../../_generated/asset-bundle-hashes';

@@ -21,7 +21,7 @@
  * - Layout types: title, section, content, closing
  */
 
-import PptxGenJS from 'pptxgenjs';
+import type PptxGenJS from 'pptxgenjs';
 import { TFile } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
@@ -166,8 +166,19 @@ export class CreatePptxTool extends BaseTool<'create_pptx'> {
         const textColor = toHex(theme.text_color, DEFAULT_TEXT);
         const font = theme.font_family?.trim() || DEFAULT_FONT;
 
+        const office = await this.plugin.bundleLoader?.loadOfficeBundle();
+        if (!office) {
+            callbacks.pushToolResult(this.formatError(new Error(
+                'Office Document Support is not installed. ' +
+                'Open Settings > Vault Operator > Optional Assets to install (~1.5 MB), ' +
+                'then retry this tool. The plugin works without it but cannot create pptx files.'
+            )));
+            return;
+        }
+        const PptxGenJSCtor = office.PptxGenJS;
+
         try {
-            const pres = new PptxGenJS();
+            const pres = new PptxGenJSCtor();
             pres.defineLayout({ name: 'WIDE', width: SLIDE_W, height: SLIDE_H });
             pres.layout = 'WIDE';
             if (presTitle) pres.title = presTitle;

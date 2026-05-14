@@ -575,12 +575,12 @@ export class FirstRunWizardModal extends Modal {
         this.addInfoBanner(
             this.bodyEl,
             'download',
-            'Two optional one-time downloads',
-            'Files land in your vault under .vault-operator/assets/ and are SHA256-verified before they are used. Both run locally, no API calls, no subscription.',
+            'Optional one-time downloads',
+            'Files land in your vault under .vault-operator/assets/ and are SHA256-verified before they are used. Skip what you do not need now and install later from Settings > Optional Assets.',
         );
 
-        const { OptionalAssetManager, buildRerankerSpec, buildSelfDevSourceSpec } = await import('../../core/assets/OptionalAssetManager');
-        const { RERANKER_WASM_SHA256 } = await import('../../core/assets/assetHashes');
+        const { OptionalAssetManager, buildRerankerSpec, buildSelfDevSourceSpec, buildOfficeBundleSpec, buildPdfjsBundleSpec } = await import('../../core/assets/OptionalAssetManager');
+        const { RERANKER_WASM_SHA256, OFFICE_BUNDLE_SHA256, PDFJS_BUNDLE_SHA256 } = await import('../../core/assets/assetHashes');
         const { SELF_DEV_SOURCE_SHA256 } = await import('../../_generated/source-hash');
 
         const manager = new OptionalAssetManager(this.plugin);
@@ -592,6 +592,22 @@ export class FirstRunWizardModal extends Modal {
             sha: string;
             spec: ReturnType<typeof buildRerankerSpec>;
         }[] = [
+            {
+                label: 'Office Document Support',
+                recommended: true,
+                what: 'Lets the agent create DOCX, XLSX, and PPTX files. Without it the create_docx / create_xlsx / create_pptx tools report "not installed"; everything else works.',
+                size: '1.7 MB',
+                sha: OFFICE_BUNDLE_SHA256,
+                spec: buildOfficeBundleSpec(this.plugin.manifest.version, OFFICE_BUNDLE_SHA256),
+            },
+            {
+                label: 'PDF Parser',
+                recommended: true,
+                what: 'Lets the agent read PDF files (attached PDFs in chat, PDFs in your vault). Without it PDFs are skipped during ingestion with a clear notice; other document formats still work.',
+                size: '1.6 MB',
+                sha: PDFJS_BUNDLE_SHA256,
+                spec: buildPdfjsBundleSpec(this.plugin.manifest.version, PDFJS_BUNDLE_SHA256),
+            },
             {
                 label: 'Semantic Reranker',
                 recommended: true,

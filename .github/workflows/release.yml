@@ -55,6 +55,12 @@ jobs:
           if [ -f "plugin-source.json" ]; then
             cp plugin-source.json optional-assets/
           fi
+          if [ -f "office-bundle.js" ]; then
+            cp office-bundle.js optional-assets/
+          fi
+          if [ -f "pdfjs-bundle.js" ]; then
+            cp pdfjs-bundle.js optional-assets/
+          fi
 
           echo "=== Plugin release assets ==="
           ls -lh release-assets/
@@ -66,7 +72,7 @@ jobs:
           ls -lh release-assets/main.js release-assets/manifest.json release-assets/styles.css
           echo "manifest version: $(jq -r .version release-assets/manifest.json)"
           echo "Optional assets:"
-          for f in ort-wasm-simd-threaded.wasm plugin-source.json; do
+          for f in ort-wasm-simd-threaded.wasm plugin-source.json office-bundle.js pdfjs-bundle.js; do
             if [ -f "optional-assets/$f" ]; then
               echo "  $f  $(ls -lh optional-assets/$f | awk '{print $5}')  sha256=$(shasum -a 256 optional-assets/$f | cut -d' ' -f1)"
             fi
@@ -80,6 +86,8 @@ jobs:
             release-assets/styles.css
             optional-assets/ort-wasm-simd-threaded.wasm
             optional-assets/plugin-source.json
+            optional-assets/office-bundle.js
+            optional-assets/pdfjs-bundle.js
 
       - name: Create GitHub Release (plugin)
         uses: softprops/action-gh-release@v2
@@ -98,9 +106,12 @@ jobs:
             2. Reload Obsidian
 
             ### Optional assets
-            Two optional downloads (semantic reranker, self-development source bundle)
-            are published as a separate tag `${{ inputs.version }}-assets` and
-            installed on demand from the plugin's Settings, never silently.
+            Four optional downloads (semantic reranker, self-development source
+            bundle, office document support, PDF parser) are published as a
+            separate tag `${{ inputs.version }}-assets` and installed on demand
+            from the plugin's Settings, never silently. The plugin works
+            without any of them; the affected tool reports "not installed"
+            until you click Install.
           files: |
             release-assets/main.js
             release-assets/manifest.json
@@ -121,6 +132,8 @@ jobs:
 
             - `ort-wasm-simd-threaded.wasm` -- semantic reranker (~12 MB)
             - `plugin-source.json` -- self-development source bundle (~5 MB)
+            - `office-bundle.js` -- exceljs + docx + pptxgenjs (~1.7 MB)
+            - `pdfjs-bundle.js` -- pdfjs-dist + worker (~1.6 MB)
 
             They are NOT part of the plugin's main release tag so the
             Obsidian plugin installer never sees them. SHA-256 hashes are
@@ -129,5 +142,7 @@ jobs:
           files: |
             optional-assets/ort-wasm-simd-threaded.wasm
             optional-assets/plugin-source.json
+            optional-assets/office-bundle.js
+            optional-assets/pdfjs-bundle.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

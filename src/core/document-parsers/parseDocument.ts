@@ -6,6 +6,7 @@
  */
 
 import type { ParseResult } from './types';
+import type ObsidianAgentPlugin from '../../main';
 import { parsePptx } from './parsers/PptxParser';
 import { parseXlsx } from './parsers/XlsxParser';
 import { parseDocx } from './parsers/DocxParser';
@@ -15,17 +16,19 @@ import { parseCsv } from './parsers/CsvParser';
 /**
  * Parse a document from binary data.
  *
- * @param data - Raw file content as ArrayBuffer
+ * @param data      - Raw file content as ArrayBuffer
  * @param extension - File extension without dot (e.g. "pptx", "pdf")
- * @returns Structured text with metadata
+ * @param plugin    - Plugin instance; required only for PDF parsing (loads
+ *                    pdfjs-dist via the Optional-Asset BundleLoader). Other
+ *                    formats use pure ooxml/jszip helpers and do not need it.
  */
-export async function parseDocument(data: ArrayBuffer, extension: string): Promise<ParseResult> {
+export async function parseDocument(data: ArrayBuffer, extension: string, plugin?: ObsidianAgentPlugin): Promise<ParseResult> {
     switch (extension.toLowerCase()) {
         case 'pptx':
         case 'potx': return parsePptx(data);
         case 'xlsx': return parseXlsx(data);
         case 'docx': return parseDocx(data);
-        case 'pdf':  return parsePdf(data);
+        case 'pdf':  return parsePdf(data, plugin);
         case 'csv':  return parseCsv(data);
         case 'json': return parseJson(data);
         case 'xml':  return parseXml(data);

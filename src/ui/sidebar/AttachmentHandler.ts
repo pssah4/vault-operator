@@ -1,6 +1,7 @@
 import { setIcon, TFile, Notice } from 'obsidian';
 import type { ContentBlock, ImageMediaType } from '../../api/types';
 import type { Vault, FileSystemAdapter } from 'obsidian';
+import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
 import { parseDocument } from '../../core/document-parsers/parseDocument';
 import {
@@ -66,6 +67,7 @@ export class AttachmentHandler {
     constructor(
         private vault: Vault,
         private chipBar: HTMLElement,
+        private plugin?: ObsidianAgentPlugin,
     ) {}
 
     openFilePicker(): void {
@@ -127,7 +129,7 @@ export class AttachmentHandler {
             // Document attachment — parse via document parser
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                const result = await parseDocument(arrayBuffer, ext);
+                const result = await parseDocument(arrayBuffer, ext, this.plugin);
 
                 if (result.text.length > LARGE_DOCUMENT_CHAR_THRESHOLD) {
                     new Notice(t('ui.attachment.largeDocument', { name: displayName }));
@@ -193,7 +195,7 @@ export class AttachmentHandler {
             if (BINARY_DOCUMENT_EXTENSIONS.has(ext)) {
                 // Binary document — parse via document parser
                 const data = await this.vault.readBinary(file);
-                const result = await parseDocument(data, ext);
+                const result = await parseDocument(data, ext, this.plugin);
 
                 if (result.text.length > LARGE_DOCUMENT_CHAR_THRESHOLD) {
                     new Notice(t('ui.attachment.largeDocument', { name: file.path }));
@@ -222,7 +224,7 @@ export class AttachmentHandler {
                 // CSV — read as text, parse to Markdown table
                 const content = await this.vault.read(file);
                 const data = new TextEncoder().encode(content).buffer;
-                const result = await parseDocument(data, ext);
+                const result = await parseDocument(data, ext, this.plugin);
                 const contextText = this.truncateTextFileForContext(result.text, file.path);
 
                 this.pending.push({

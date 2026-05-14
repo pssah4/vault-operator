@@ -7,21 +7,7 @@
  * Uses the 'docx' library for generation.
  */
 
-import {
-    Document,
-    Packer,
-    Paragraph,
-    TextRun,
-    HeadingLevel,
-    Table,
-    TableRow,
-    TableCell,
-    WidthType,
-    BorderStyle,
-    AlignmentType,
-    ShadingType,
-    LevelFormat,
-} from 'docx';
+import type * as DocxNs from 'docx';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
@@ -54,14 +40,17 @@ interface ThemeInput {
 
 const DEFAULT_FONT = 'Calibri';
 const DEFAULT_PRIMARY = '2B579A';
-const HEADING_LEVEL_MAP: Record<number, (typeof HeadingLevel)[keyof typeof HeadingLevel]> = {
-    1: HeadingLevel.HEADING_1,
-    2: HeadingLevel.HEADING_2,
-    3: HeadingLevel.HEADING_3,
-    4: HeadingLevel.HEADING_4,
-    5: HeadingLevel.HEADING_5,
-    6: HeadingLevel.HEADING_6,
-};
+type HeadingLevelType = (typeof DocxNs.HeadingLevel)[keyof typeof DocxNs.HeadingLevel];
+function buildHeadingLevelMap(docx: typeof DocxNs): Record<number, HeadingLevelType> {
+    return {
+        1: docx.HeadingLevel.HEADING_1,
+        2: docx.HeadingLevel.HEADING_2,
+        3: docx.HeadingLevel.HEADING_3,
+        4: docx.HeadingLevel.HEADING_4,
+        5: docx.HeadingLevel.HEADING_5,
+        6: docx.HeadingLevel.HEADING_6,
+    };
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helper: resolve color                                             */
@@ -208,8 +197,21 @@ export class CreateDocxTool extends BaseTool<'create_docx'> {
         const primaryColor = resolveHexColor(theme.primary_color);
         const fontFamily = theme.font_family?.trim() || DEFAULT_FONT;
 
+        const office = await this.plugin.bundleLoader?.loadOfficeBundle();
+        if (!office) {
+            callbacks.pushToolResult(this.formatError(new Error(
+                'Office Document Support is not installed. ' +
+                'Open Settings > Vault Operator > Optional Assets to install (~1.5 MB), ' +
+                'then retry this tool. The plugin works without it but cannot create docx files.'
+            )));
+            return;
+        }
+        const docx = office.docx;
+        const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, ShadingType, LevelFormat } = docx;
+        const headingLevelMap = buildHeadingLevelMap(docx);
+
         try {
-            const children: (Paragraph | Table)[] = [];
+            const children: (DocxNs.Paragraph | DocxNs.Table)[] = [];
 
             // Title page
             if (docTitle) {
@@ -239,7 +241,7 @@ export class CreateDocxTool extends BaseTool<'create_docx'> {
                     children.push(
                         new Paragraph({
                             text: section.heading,
-                            heading: HEADING_LEVEL_MAP[level] ?? HeadingLevel.HEADING_1,
+                            heading: headingLevelMap[level] ?? HeadingLevel.HEADING_1,
                             spacing: { before: 240, after: 120 },
                         }),
                     );
@@ -310,7 +312,7 @@ export class CreateDocxTool extends BaseTool<'create_docx'> {
 
                 // Table
                 if (section.table) {
-                    const table = this.buildTable(section.table, primaryColor, fontFamily);
+                    const table = this.buildTable(docx, section.table, primaryColor, fontFamily);
                     if (table) {
                         children.push(table);
                         children.push(new Paragraph({ spacing: { after: 200 } }));
@@ -380,11 +382,13 @@ export class CreateDocxTool extends BaseTool<'create_docx'> {
     /* -------------------------------------------------------------- */
 
     private buildTable(
+        docx: typeof DocxNs,
         tableInput: NonNullable<SectionInput['table']>,
         primaryColor: string,
         fontFamily: string,
-    ): Table | null {
-        const allRows: TableRow[] = [];
+    ): DocxNs.Table | null {
+        const { Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, ShadingType } = docx;
+        const allRows: DocxNs.TableRow[] = [];
         const colCount = Math.max(
             tableInput.headers?.length ?? 0,
             tableInput.rows?.[0]?.length ?? 0,

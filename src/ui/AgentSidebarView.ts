@@ -358,7 +358,7 @@ export class AgentSidebarView extends ItemView {
 
         // Attachment chip bar (below context chips, above textarea)
         const chipBar = inputWrapper.createDiv('chat-attachment-chips');
-        this.attachments = new AttachmentHandler(this.app.vault, chipBar);
+        this.attachments = new AttachmentHandler(this.app.vault, chipBar, this.plugin);
 
         this.textarea = inputWrapper.createEl('textarea', {
             cls: 'chat-textarea',

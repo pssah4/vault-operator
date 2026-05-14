@@ -53,6 +53,8 @@ dist/
 build/
 src/_generated/
 plugin-source.json
+office-bundle.js
+pdfjs-bundle.js
 
 # Environment variables
 .env

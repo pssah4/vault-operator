@@ -160,6 +160,7 @@ export default class ObsidianAgentPlugin extends Plugin {
     historyDB: import('./core/knowledge/HistoryDB').HistoryDB | null = null;
     historyIndexer: import('./core/memory/HistoryIndexer').HistoryIndexer | null = null;
     rerankerService: RerankerService | null = null;
+    bundleLoader: import('./core/assets/BundleLoader').BundleLoader | null = null;
     mcpBridge: { start(): Promise<void>; stop(): void; running: boolean; tunnelUrl: string | null; remoteConnected: boolean; remoteConnecting: boolean; startTunnel(onUrl?: (url: string | null) => void): void; stopTunnel(): void; connectRelay(): void; disconnectRelay(): void; getToolsWithContext(): unknown[]; buildResourceList(): unknown[] } | null = null;
     private autoIndexDebounceTimers = new Map<string, number>();
     /** FEAT-03-26 Lifecycle: Debounce-Timer fuer Top-Hub-Block Regen bei Ontology-Changes. */
@@ -339,6 +340,13 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // 0a. Initialize SafeStorageService (must happen before loadSettings)
         this.safeStorage = new SafeStorageService();
+
+        // 0a-bis. BundleLoader for office / pdfjs Optional Assets. Has no
+        // side effects on construction; first .load*Bundle() call goes to
+        // OptionalAssetManager. Tools that need exceljs/docx/pptxgenjs/
+        // pdfjs-dist read through this loader.
+        const { BundleLoader } = await import('./core/assets/BundleLoader');
+        this.bundleLoader = new BundleLoader(this);
 
         // 0b. Pre-init folder rename: legacy `.obsidian-agent` -> `obsilo-vault`
         //     (vault-local) and `.obsidian-agent` -> `obsilo-shared` (vault-parent).
@@ -1578,6 +1586,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.topHubBlockRegenTimer = null;
             }
             this.rerankerService?.unload();
+            this.bundleLoader?.reset();
             this.mcpBridge?.stop();
             // Close databases (final save + cleanup)
             await this.memoryDB?.close().catch((e) =>

@@ -30,136 +30,71 @@ export class DebugTab {
                 }),
             );
 
-        // ── Self-Development (Phase 2.2: optional source bundle) ────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Self-development' });
-        const intro = containerEl.createDiv();
-        intro.setCssStyles({ fontSize: '0.85em' });
-        intro.setCssStyles({ opacity: '0.8' });
-        intro.setCssStyles({ marginBottom: '8px' });
-        intro.setText(
-            'Lets the manage_source tool read the plugin\'s own TypeScript source so the agent can answer ' +
-            `"how does feature X work?" questions and propose code patches. The source bundle is an ` +
-            `optional one-time download (~5 MB), kept out of ${BUNDLE_FILENAME} so the plugin stays under Obsidian Sync's ` +
-            'size threshold for users who do not need this feature.',
+        // ── Optional Assets ────────────────────────────────────────────────
+        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Optional assets' });
+        const optIntro = containerEl.createDiv();
+        optIntro.setCssStyles({ fontSize: '0.85em' });
+        optIntro.setCssStyles({ opacity: '0.8' });
+        optIntro.setCssStyles({ marginBottom: '8px' });
+        optIntro.setText(
+            'Optional one-time downloads kept out of ' + BUNDLE_FILENAME +
+            ' so the plugin stays under Obsidian Sync\'s 5 MB threshold. Each ' +
+            'asset is SHA256-verified before use; the plugin works without any ' +
+            'of them (the corresponding tool reports "not installed" until you ' +
+            'click Install). Files land in <vault>/.vault-operator/assets/.',
         );
 
-        void this.renderSourceAssetBlock(containerEl);
+        void this.renderOptionalAssetSections(containerEl);
     }
 
-    private async renderSourceAssetBlock(containerEl: HTMLElement): Promise<void> {
-        const { OptionalAssetManager, buildSelfDevSourceSpec } = await import('../../core/assets/OptionalAssetManager');
+    private async renderOptionalAssetSections(containerEl: HTMLElement): Promise<void> {
+        const {
+            buildSelfDevSourceSpec,
+            buildOfficeBundleSpec,
+            buildPdfjsBundleSpec,
+        } = await import('../../core/assets/OptionalAssetManager');
+        const { OFFICE_BUNDLE_SHA256, PDFJS_BUNDLE_SHA256 } = await import('../../core/assets/assetHashes');
         const { SELF_DEV_SOURCE_SHA256 } = await import('../../_generated/source-hash');
+        const { renderOptionalAssetBlock } = await import('./renderOptionalAssetBlock');
 
-        if (!SELF_DEV_SOURCE_SHA256) {
-            new Setting(containerEl)
-                .setName('Self-development source bundle')
-                .setDesc('Not available in this development build (no SHA compiled in). Will be available in the next release.');
-            return;
-        }
+        const version = this.plugin.manifest.version;
 
-        const manager = new OptionalAssetManager(this.plugin);
-        const spec = buildSelfDevSourceSpec(this.plugin.manifest.version, SELF_DEV_SOURCE_SHA256);
-
-        const setting = new Setting(containerEl)
-            .setName(`${spec.label} (~${spec.sizeMb} MB)`)
-            .setDesc(
-                spec.description +
-                ' Stored in <vault>/.vault-operator/assets/. Downloaded from this plugin\'s GitHub release, verified by SHA256.',
-            );
-
-        const statusEl = setting.descEl.createDiv({ cls: 'selfdev-asset-status' });
-        statusEl.setCssStyles({ marginTop: '6px' });
-        statusEl.setCssStyles({ fontSize: '0.85em' });
-        let installBtn: HTMLButtonElement | null = null;
-        let removeBtn: HTMLButtonElement | null = null;
-
-        const renderStatus = async (): Promise<void> => {
-            const snap = await manager.snapshot(spec);
-            statusEl.empty();
-            if (snap.status === 'installed') {
-                statusEl.setText('Status: installed');
-                statusEl.setCssStyles({ color: 'var(--text-success)' });
-                if (installBtn) installBtn.setCssStyles({ display: 'none' });
-                if (removeBtn) removeBtn.setCssStyles({ display: '' });
-            } else if (snap.status === 'outdated') {
-                statusEl.setText('Status: installed but hash differs, re-install to update');
-                statusEl.setCssStyles({ color: 'var(--text-warning)' });
-                if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Re-install'); }
-                if (removeBtn) removeBtn.setCssStyles({ display: '' });
-            } else if (snap.status === 'error') {
-                statusEl.setText(`Status: error - ${snap.errorMessage ?? 'unknown'}`);
-                statusEl.setCssStyles({ color: 'var(--text-error)' });
-                if (installBtn) installBtn.setCssStyles({ display: '' });
-                if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
-            } else {
-                statusEl.setText('Status: not installed - manage_source tool stays disabled');
-                statusEl.setCssStyles({ color: 'var(--text-muted)' });
-                if (installBtn) { installBtn.setCssStyles({ display: '' }); installBtn.setText('Install'); }
-                if (removeBtn) removeBtn.setCssStyles({ display: 'none' });
-            }
-        };
-
-        setting.addButton((btn) => {
-            installBtn = btn.buttonEl;
-            btn.setButtonText('Install')
-                .setCta()
-                .onClick(async () => {
-                    btn.setDisabled(true);
-                    btn.setButtonText('Downloading...');
-                    try {
-                        await manager.install(spec);
-                        new Notice(`${spec.label} installed.`);
-                        if (this.plugin.embeddedSourceManager) {
-                            const { EmbeddedSourceManager } = await import('../../core/self-development/EmbeddedSourceManager');
-                            this.plugin.embeddedSourceManager = new EmbeddedSourceManager(this.plugin);
-                            void this.plugin.embeddedSourceManager.load();
-                        }
-                    } catch (e) {
-                        const msg = e instanceof Error ? e.message : String(e);
-                        new Notice(`Install failed: ${msg}`, 10_000);
-                    } finally {
-                        btn.setDisabled(false);
-                        await renderStatus();
-                    }
-                });
+        renderOptionalAssetBlock({
+            plugin: this.plugin,
+            containerEl,
+            spec: buildOfficeBundleSpec(version, OFFICE_BUNDLE_SHA256),
+            notInstalledStatus: 'Status: not installed - create_docx / create_xlsx / create_pptx tools stay disabled',
+            onPostInstall: async () => {
+                this.plugin.bundleLoader?.reset();
+                await Promise.resolve();
+            },
         });
 
-        setting.addButton((btn) => {
-            removeBtn = btn.buttonEl;
-            btn.setButtonText('Remove')
-                .setWarning()
-                .onClick(async () => {
-                    try {
-                        await manager.remove(spec);
-                        new Notice('Self-development source removed.');
-                    } catch (e) {
-                        const msg = e instanceof Error ? e.message : String(e);
-                        new Notice(`Remove failed: ${msg}`);
-                    } finally {
-                        await renderStatus();
-                    }
-                });
+        renderOptionalAssetBlock({
+            plugin: this.plugin,
+            containerEl,
+            spec: buildPdfjsBundleSpec(version, PDFJS_BUNDLE_SHA256),
+            notInstalledStatus: 'Status: not installed - PDF files are skipped during ingestion',
+            onPostInstall: async () => {
+                this.plugin.bundleLoader?.reset();
+                await Promise.resolve();
+            },
         });
 
-        // File-picker fallback: useful when the GitHub release does not
-        // ship the asset yet (e.g. local plugin-dev workflow).
-        setting.addExtraButton((btn) => {
-            btn.setIcon('upload')
-                .setTooltip('Install from local file (fallback if download fails)')
-                .onClick(async () => {
-                    const { pickAndInstallAsset } = await import('./installFromFile');
-                    pickAndInstallAsset(manager, spec, async () => {
-                        if (this.plugin.embeddedSourceManager) {
-                            const { EmbeddedSourceManager } = await import('../../core/self-development/EmbeddedSourceManager');
-                            this.plugin.embeddedSourceManager = new EmbeddedSourceManager(this.plugin);
-                            void this.plugin.embeddedSourceManager.load();
-                        }
-                        await renderStatus();
-                    });
-                });
+        renderOptionalAssetBlock({
+            plugin: this.plugin,
+            containerEl,
+            spec: buildSelfDevSourceSpec(version, SELF_DEV_SOURCE_SHA256),
+            notInstalledStatus: 'Status: not installed - manage_source tool stays disabled',
+            allowInstallFromFile: true,
+            onPostInstall: async () => {
+                if (this.plugin.embeddedSourceManager) {
+                    const { EmbeddedSourceManager } = await import('../../core/self-development/EmbeddedSourceManager');
+                    this.plugin.embeddedSourceManager = new EmbeddedSourceManager(this.plugin);
+                    void this.plugin.embeddedSourceManager.load();
+                }
+            },
         });
-
-        await renderStatus();
     }
 }
 

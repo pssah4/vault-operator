@@ -57,7 +57,7 @@ function assertSafeFilename(filename: string): void {
 /** Manifest of every optional asset the plugin knows about. */
 export interface AssetSpec {
     /** Unique id, also used as filename in the assets folder. */
-    id: 'reranker-onnx' | 'self-development-source';
+    id: 'reranker-onnx' | 'self-development-source' | 'office-bundle' | 'pdfjs-bundle';
     /** Filename written to disk. */
     filename: string;
     /** Human-readable label for the Settings UI. */
@@ -299,5 +299,29 @@ export function buildSelfDevSourceSpec(pluginVersion: string, expectedSha256: st
         sizeMb: 5,
         expectedSha256,
         downloadUrl: `https://github.com/pssah4/vault-operator/releases/download/${pluginVersion}-assets/plugin-source.json`,
+    };
+}
+
+export function buildOfficeBundleSpec(pluginVersion: string, expectedSha256: string): AssetSpec {
+    return {
+        id: 'office-bundle',
+        filename: 'office-bundle.js',
+        label: 'Office Document Support',
+        description: 'JavaScript bundle of exceljs, docx, and pptxgenjs. Powers the create_xlsx / create_docx / create_pptx tools and the DOCX/XLSX/PPTX document parsers. The plugin works without it; only the affected tools report "not installed".',
+        sizeMb: 2,
+        expectedSha256,
+        downloadUrl: `https://github.com/pssah4/vault-operator/releases/download/${pluginVersion}-assets/office-bundle.js`,
+    };
+}
+
+export function buildPdfjsBundleSpec(pluginVersion: string, expectedSha256: string): AssetSpec {
+    return {
+        id: 'pdfjs-bundle',
+        filename: 'pdfjs-bundle.js',
+        label: 'PDF Parser',
+        description: 'JavaScript bundle of pdfjs-dist plus its worker module. Powers PDF text extraction for the document-ingestion pipeline. The plugin works without it; PDF files are simply skipped during ingestion until installed.',
+        sizeMb: 2,
+        expectedSha256,
+        downloadUrl: `https://github.com/pssah4/vault-operator/releases/download/${pluginVersion}-assets/pdfjs-bundle.js`,
     };
 }

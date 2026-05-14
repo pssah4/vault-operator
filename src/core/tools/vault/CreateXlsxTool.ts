@@ -6,7 +6,7 @@
  * and optional formulas. Uses exceljs for generation.
  */
 
-import ExcelJS from 'exceljs';
+import type ExcelJSNs from 'exceljs';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
@@ -128,6 +128,17 @@ export class CreateXlsxTool extends BaseTool<'create_xlsx'> {
         }
 
         const sheets = rawSheets.slice(0, 20);
+
+        const office = await this.plugin.bundleLoader?.loadOfficeBundle();
+        if (!office) {
+            callbacks.pushToolResult(this.formatError(new Error(
+                'Office Document Support is not installed. ' +
+                'Open Settings > Vault Operator > Optional Assets to install (~1.5 MB), ' +
+                'then retry this tool. The plugin works without it but cannot create xlsx files.'
+            )));
+            return;
+        }
+        const ExcelJS: typeof ExcelJSNs = office.ExcelJS;
 
         try {
             const workbook = new ExcelJS.Workbook();

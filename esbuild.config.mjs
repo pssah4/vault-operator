@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import process from "process";
 import { builtinModules as builtins } from "node:module";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
+import { createHash } from "crypto";
 import { join, dirname, relative } from "path";
 import { fileURLToPath } from "url";
 
@@ -222,6 +223,80 @@ async function generateSourceBundle() {
     console.log(`[source-bundle] plugin-source.json: ${fileCount} files, ${sizeKB} KB, sha=${sha.slice(0, 16)}...`);
 }
 
+/**
+ * Build the two Optional-Asset library bundles:
+ *
+ *   - office-bundle.js  exceljs + docx + pptxgenjs           (~1.7 MB raw)
+ *   - pdfjs-bundle.js   pdfjs-dist + pdf.worker.mjs          (~1.6 MB raw)
+ *
+ * These libraries are marked `external` in the main bundle, so they would
+ * otherwise be missing at runtime. BundleLoader fetches them from the
+ * {version}-assets GitHub release on demand and evaluates them via the
+ * indirect Function-constructor pattern (Pattern G from the review-bot skill).
+ *
+ * Emits two output files in the project root (alongside main.js) and writes
+ * SHA256 constants to src/_generated/asset-bundle-hashes.ts so main.js can
+ * verify the downloaded asset against the build-time hash.
+ *
+ * Must run BEFORE the main esbuild build because main.js reads
+ * asset-bundle-hashes.ts at compile time.
+ */
+async function generateOfficeBundles() {
+    const externals = [
+        "obsidian", "electron",
+        ...builtins, ...builtins.map(m => "node:" + m),
+    ];
+
+    const targets = [
+        {
+            id: "office",
+            entry: "src/core/assets/bundle-entries/office-entry.ts",
+            outfile: "office-bundle.js",
+            constName: "OFFICE_BUNDLE_SHA256",
+        },
+        {
+            id: "pdfjs",
+            entry: "src/core/assets/bundle-entries/pdfjs-entry.ts",
+            outfile: "pdfjs-bundle.js",
+            constName: "PDFJS_BUNDLE_SHA256",
+        },
+    ];
+
+    const hashes = {};
+    for (const t of targets) {
+        await esbuild.build({
+            entryPoints: [t.entry],
+            bundle: true,
+            format: "cjs",
+            platform: "browser",
+            target: "es2022",
+            external: externals,
+            minify: true,
+            legalComments: "none",
+            treeShaking: true,
+            outfile: t.outfile,
+            logLevel: "warning",
+        });
+        const code = readFileSync(join(__dirname, t.outfile));
+        const sha = createHash("sha256").update(code).digest("hex");
+        hashes[t.constName] = sha;
+        const sizeKB = Math.round(code.length / 1024);
+        console.log(`[office-bundles] ${t.outfile}: ${sizeKB} KB, sha=${sha.slice(0, 16)}...`);
+    }
+
+    const outDir = join(__dirname, "src/_generated");
+    if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+    const lines = [
+        "// AUTO-GENERATED -- do not edit. Source: esbuild generateOfficeBundles().",
+        "/* eslint-disable -- generated build artifact */",
+        "",
+    ];
+    for (const t of targets) {
+        lines.push(`export const ${t.constName} = "${hashes[t.constName]}";`);
+    }
+    writeFileSync(join(outDir, "asset-bundle-hashes.ts"), lines.join("\n") + "\n");
+}
+
 // Path to the Obsidian vault plugin folder (auto-deploy on build)
 // Set PLUGIN_DIR in your .env or shell environment
 // Load .env file if it exists (for PLUGIN_DIR with iCloud paths containing spaces)
@@ -260,6 +335,15 @@ const mainBuildOptions = {
         "@lezer/common",
         "@lezer/highlight",
         "@lezer/lr",
+        // Office Document libraries — bundled separately as Optional Assets
+        // (office-bundle.js, pdfjs-bundle.js) by generateOfficeBundles() above.
+        // Loaded at runtime via BundleLoader / OptionalAssetManager. Plugin
+        // works without them (tools gracefully report "not installed").
+        "exceljs",
+        "docx",
+        "pptxgenjs",
+        "pdfjs-dist",
+        "pdfjs-dist/build/pdf.worker.mjs",
         ...builtins,
     ],
     format: "cjs",
@@ -364,6 +448,24 @@ const mainBuildOptions = {
                             copyFileSync("styles.css", `${VAULT_PLUGIN_DIR}/styles.css`);
                             copyFileSync("manifest.json", `${VAULT_PLUGIN_DIR}/manifest.json`);
                             console.log(`[vault-deploy] → ${VAULT_PLUGIN_DIR}`);
+
+                            // Dev convenience: also publish the Optional-Asset
+                            // bundles into the vault so the running plugin can
+                            // load them without going through the install flow.
+                            // VAULT_PLUGIN_DIR ends with .obsidian/plugins/<id>/
+                            // so the vault root is three levels up.
+                            const vaultRoot = join(VAULT_PLUGIN_DIR, "..", "..", "..");
+                            const assetDir = join(vaultRoot, ".vault-operator", "assets");
+                            if (!existsSync(assetDir)) mkdirSync(assetDir, { recursive: true });
+                            for (const name of ["office-bundle.js", "pdfjs-bundle.js"]) {
+                                if (!existsSync(name)) continue;
+                                copyFileSync(name, join(assetDir, name));
+                                const sha = createHash("sha256")
+                                    .update(readFileSync(name))
+                                    .digest("hex");
+                                writeFileSync(join(assetDir, name + ".sha256"), sha);
+                            }
+                            console.log(`[vault-deploy] optional assets → ${assetDir}`);
                         } catch (e) {
                             console.warn("[vault-deploy] Copy failed:", e.message);
                         }
@@ -411,12 +513,16 @@ if (prod) {
     // Emit plugin-source.json + source-hash.ts BEFORE the main esbuild
     // context is created so esbuild reads the freshly written SHA.
     await generateSourceBundle();
+    // Build office-bundle.js + pdfjs-bundle.js + asset-bundle-hashes.ts
+    // BEFORE main bundle, so main.js sees the fresh SHAs.
+    await generateOfficeBundles();
     // Single-shot build with up-to-date generated files
     await esbuild.build(mainBuildOptions);
     process.exit(0);
 } else {
     try { generateInlineAssets(); } catch { /* workers not yet built — will be generated on first rebuild */ }
     try { await generateSourceBundle(); } catch { /* non-fatal during watch */ }
+    try { await generateOfficeBundles(); } catch (e) { console.warn("[office-bundles] dev build skipped:", e.message); }
     const context = await esbuild.context(mainBuildOptions);
     await context.watch();
     await workerContext.watch();
