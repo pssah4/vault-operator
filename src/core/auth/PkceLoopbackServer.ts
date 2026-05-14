@@ -107,11 +107,11 @@ export async function startPkceLoopbackServer(
         rejectCallback = reject;
     });
 
-    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    let timeoutHandle: number | null = null;
     let settled = false;
 
     const cleanup = () => {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (timeoutHandle) window.clearTimeout(timeoutHandle);
         timeoutHandle = null;
         if (server) {
              
@@ -181,7 +181,7 @@ export async function startPkceLoopbackServer(
         cleanup();
     });
 
-    timeoutHandle = setTimeout(() => {
+    timeoutHandle = window.setTimeout(() => {
         if (!settled) {
             settled = true;
             rejectCallback(new Error('OAuth callback timed out after 5 minutes'));

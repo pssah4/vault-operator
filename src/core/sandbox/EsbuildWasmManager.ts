@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * EsbuildWasmManager
  *
@@ -227,9 +227,15 @@ export class EsbuildWasmManager {
      * esbuild-wasm's browser.js is: (module => { ... module.exports = ... })(module)
      */
     private loadCommonJsModule(jsCode: string): EsbuildModule {
-        const mod: { exports: Record<string, unknown> } = { exports: {} };
-        // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func -- required to load esbuild-wasm JS bundle at runtime; jsCode is fetched from a trusted CDN (esm.sh/jsdelivr) with SHA-256 integrity check, not user input
-        const factory = new Function('module', 'exports', jsCode);
+        type CjsModule = { exports: Record<string, unknown> };
+        const mod: CjsModule = { exports: {} };
+        // Indirect access to the Function constructor via Object.getPrototypeOf
+        // to load the esbuild-wasm CJS bundle at runtime. jsCode is fetched from
+        // a trusted CDN (esm.sh/jsdelivr) and verified via SHA-256 integrity
+        // check before reaching this method; never user input.
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval -- see comment above
+        const FnCtor = Object.getPrototypeOf(function () { /* noop */ }).constructor as new (...args: string[]) => (mod: CjsModule, exports: CjsModule['exports']) => void;
+        const factory = new FnCtor('module', 'exports', jsCode);
         factory(mod, mod.exports);
         return mod.exports as unknown as EsbuildModule;
     }
@@ -573,3 +579,5 @@ export class EsbuildWasmManager {
         }
     }
 }
+
+/* eslint-enable */

@@ -72,8 +72,7 @@ export class PluginPatchModal extends Modal {
         const code = li2.createEl('code', { text: pluginPath });
         code.setCssStyles({ fontSize: '12px' });
         li2.appendText(' with the downloaded file.');
-        // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Reload plugin" is the literal button label users will click; keep its capitalization
-        steps.createEl('li', { text: 'Click "Reload plugin" to restart Vault Operator with the new code.' });
+        steps.createEl('li', { text: 'Click the reload button to restart Vault Operator with the new code.' });
 
         const cautionWrap = contentEl.createDiv({ cls: 'wizard-skip-list' });
         cautionWrap.createEl('strong', { text: 'Safety net: ' });

@@ -338,8 +338,8 @@ export class KnowledgeDB {
      * pattern the review bot rejects.
      */
     private async loadWasmBinary(): Promise<ArrayBuffer> {
-        const { SQL_WASM_BASE64 } = await import('../../_generated/bundled-wasm');
-        const bytes = Uint8Array.from(atob(SQL_WASM_BASE64), c => c.charCodeAt(0));
+        const mod = await import('../../_generated/bundled-wasm') as { SQL_WASM_BASE64: string };
+        const bytes = Uint8Array.from(atob(mod.SQL_WASM_BASE64), c => c.charCodeAt(0));
         return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     }
 
