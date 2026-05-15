@@ -18,6 +18,7 @@ import type {
     ProviderConfig,
     ProviderType,
 } from '../../types/settings';
+import { getDefaultBaseUrlForProvider } from '../../types/settings';
 import { PROVIDER_LABELS } from './constants';
 import { t } from '../../i18n';
 
@@ -174,7 +175,9 @@ export class ProviderDetailModal extends Modal {
             return;
         }
 
-        // API-key based providers (anthropic, openai, gemini, openrouter, azure, custom)
+        // API-key based providers (anthropic, openai, gemini, openrouter, azure,
+        // custom, kilo-gateway, ollama, lmstudio). Local providers don't strictly
+        // need a key, but the field stays in case the user runs a gateway with auth.
         new Setting(parent)
             .setName(t('settings.providers.apiKey'))
             .setDesc(t('settings.providers.apiKeyDesc'))
@@ -187,17 +190,22 @@ export class ProviderDetailModal extends Modal {
                     });
             });
 
-        if (LOCAL_PROVIDER_TYPES.includes(provider.type) || provider.type === 'azure') {
-            new Setting(parent)
-                .setName(t('settings.providers.baseUrl'))
-                .setDesc(t('settings.providers.baseUrlDesc'))
-                .addText((text) => {
-                    text.setValue(provider.baseUrl ?? '')
-                        .onChange(async (v) => {
-                            await this.patch((p) => { p.baseUrl = v.trim() || undefined; });
-                        });
-                });
-        }
+        // BaseURL: visible for every API-key path so power users can point at
+        // proxies, self-hosted gateways, or alternate regions. The default
+        // (`getDefaultBaseUrlForProvider`) is shown as placeholder; an empty
+        // value falls back to the SDK default at request time. Hidden only
+        // for OAuth providers (fixed endpoints) -- Bedrock handled separately.
+        const defaultBaseUrl = getDefaultBaseUrlForProvider(provider.type) ?? '';
+        new Setting(parent)
+            .setName(t('settings.providers.baseUrl'))
+            .setDesc(t('settings.providers.baseUrlDesc'))
+            .addText((text) => {
+                text.setPlaceholder(defaultBaseUrl || t('settings.providers.baseUrlSdkDefault'))
+                    .setValue(provider.baseUrl ?? '')
+                    .onChange(async (v) => {
+                        await this.patch((p) => { p.baseUrl = v.trim() || undefined; });
+                    });
+            });
 
         if (provider.type === 'azure') {
             new Setting(parent)
