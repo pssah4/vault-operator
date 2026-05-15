@@ -45,16 +45,14 @@
     color: var(--text-normal);
 }
 
-/* Sidebar header wordmark. The PNG is black-on-transparent; in dark mode
- * we invert so it reads on dark backgrounds. Height tuned so the "Vault
- * Operator" glyphs sit at the same optical size as the previous text. */
-.agent-title-logo {
-    display: block;
-    height: 47px;
-    width: auto;
-}
-.theme-dark .agent-title-logo {
-    filter: invert(1);
+/* Sidebar header wordmark: monospace text in the form "/ Vault Operator". */
+.agent-title-wordmark {
+    display: inline-block;
+    font-family: Consolas, "SF Mono", Menlo, Monaco, "Courier New", monospace;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--text-normal);
 }
 
 /* Vault Health Badge (FEATURE-1901 / BUG-025 2026-04-19):

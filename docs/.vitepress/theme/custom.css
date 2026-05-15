@@ -271,29 +271,20 @@
   display: none;
 }
 
-/* ── Navbar logo ────────────────────────────────────────────────── */
+/* ── Navbar wordmark ──────────────────────────────────────────────── */
 
-/* Logo is pre-processed to black on transparent.
-   Light mode: shows as-is. Dark mode: simple invert flips to white. */
-.VPNavBarTitle .logo {
-  height: 56px;
-  width: auto;
-  margin-right: 0;
+/* Monospace site title "/ Vault Operator" replaces the image logo. */
+.VPNavBarTitle .title {
+  font-family: Consolas, "SF Mono", Menlo, Monaco, "Courier New", monospace;
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
 }
 
-.dark .VPNavBarTitle .logo {
-  filter: invert(1);
-}
-
-/* Don't let VitePress' grid clip the wider wordmark logo.
+/* Don't let VitePress' grid clip the wordmark.
    Class-repetition bumps specificity above VitePress' .VPNavBarTitle. */
 .VPNavBarTitle.VPNavBarTitle {
   width: auto;
-}
-
-/* Give the navbar enough height so the 56px wordmark breathes. */
-:root {
-  --vp-nav-height: 80px;
 }
 
 /* ── Navbar search box ─────────────────────────────────────────── */
