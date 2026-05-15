@@ -7,7 +7,8 @@ import type { MessageParam, ContentBlock } from '../api/types';
 import { getModelKey, getFirstEnabledModelKey, modelToLLMProvider } from '../types/settings';
 import { buildApiHandler, buildApiHandlerForModel } from '../api/index';
 import { ToolPickerPopover } from './sidebar/ToolPickerPopover';
-import { buildChatModelDropdownOptions, resolveOverrideModel } from './sidebar/chatModelDropdown';
+import { ChatModelPickerPopover } from './sidebar/ChatModelPickerPopover';
+import { resolveOverrideModel } from './sidebar/chatModelDropdown';
 import { providerConfigToCustomModel, resolveActiveProvider } from '../core/routing/tierResolution';
 import { TOOL_METADATA } from '../core/tools/toolMetadata';
 import { AttachmentHandler } from './sidebar/AttachmentHandler';
@@ -60,6 +61,8 @@ export class AgentSidebarView extends ItemView {
      * Reset to null when the active provider changes.
      */
     private chatModelOverride: string | null = null;
+    /** EPIC-26 / FEAT-26-05: searchable popover for picking the chat-header model. */
+    private chatModelPicker: ChatModelPickerPopover | null = null;
     private sendButton: HTMLElement | null = null;
     private stopButton: HTMLElement | null = null;
     private contextBadgeContainer: HTMLElement | null = null;
@@ -843,38 +846,25 @@ export class AgentSidebarView extends ItemView {
     }
 
     /**
-     * EPIC-26 / FEAT-26-05: dropdown when a provider is active. Auto is
-     * the first option (advisor pattern via tier-resolved main loop),
-     * followed by all discovered models on the active provider as
-     * per-turn overrides.
+     * EPIC-26 / FEAT-26-05: searchable popover when a provider is active.
+     * Bedrock and OpenRouter routinely list 50+ models -- a plain Menu
+     * was not scrollable enough; ChatModelPickerPopover adds a filter
+     * input matching the ToolPicker pattern.
      */
     private showProviderModelMenu(event: MouseEvent, provider: import('../types/settings').ProviderConfig): void {
-        const menu = new Menu();
-        const options = buildChatModelDropdownOptions({
-            provider,
-            autoLabel: t('ui.sidebar.modelAuto'),
-            advisorDisabledLabel: t('ui.sidebar.modelAdvisorDisabled'),
-        });
-
-        const current = this.chatModelOverride;
-
-        for (const option of options) {
-            menu.addItem((item) =>
-                item
-                    .setTitle(option.label)
-                    .setChecked(
-                        option.kind === 'auto'
-                            ? current === null
-                            : current === option.id,
-                    )
-                    .onClick(() => {
-                        this.chatModelOverride = option.kind === 'auto' ? null : option.id;
-                        this.updateModelButton();
-                    }),
-            );
+        if (!this.modelButton) return;
+        if (!this.chatModelPicker) this.chatModelPicker = new ChatModelPickerPopover();
+        if (this.chatModelPicker.isOpen()) {
+            this.chatModelPicker.close();
+            return;
         }
-
-        menu.showAtMouseEvent(event);
+        this.chatModelPicker.show(event, this.modelButton, this.containerEl, provider, {
+            getCurrent: () => this.chatModelOverride,
+            onSelect: (overrideId) => {
+                this.chatModelOverride = overrideId;
+                this.updateModelButton();
+            },
+        });
     }
 
     private updateModeButton(): void {

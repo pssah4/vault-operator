@@ -1534,7 +1534,10 @@ export const en: Translations = {
 
     // EPIC-26 / FEAT-26-05 -- chat-header model dropdown
     'ui.sidebar.modelAuto': 'Auto',
-    'ui.sidebar.modelAutoTitle': 'Auto -- advisor pattern: main loop on the mid tier, escalation via consult_flagship.',
+    'ui.sidebar.modelAutoTitle': 'Advisor pattern: main loop on the mid tier, on-demand flagship escalation.',
     'ui.sidebar.modelOverrideTitle': 'Override -- this turn runs on {{label}}. consult_flagship is disabled.',
     'ui.sidebar.modelAdvisorDisabled': 'advisor pattern disabled',
+    'ui.sidebar.modelPickerTitle': '{{provider}} models',
+    'ui.sidebar.modelPickerSearch': 'Filter models…',
+    'ui.sidebar.modelPickerNoModels': 'No discovered models yet. Open Settings -> Providers -> Refresh.',
 };

@@ -5457,6 +5457,69 @@
     padding: 4px 10px 4px 28px;
 }
 
+/* EPIC-26 / FEAT-26-05 -- chat-header model picker rows.
+   Flat list (no category indentation) + vertical label/desc stack. */
+.chat-model-picker .tp-item-row.chat-model-picker-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    gap: 10px;
+}
+.chat-model-picker .tp-item-label-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+.chat-model-picker .tp-item-label {
+    font-size: 12px;
+    color: var(--text-normal);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chat-model-picker .tp-item-desc {
+    /* override the auto-flex from .tp-item-desc so the description
+       sits below the label, not in a wide flex cell to the right */
+    flex: 0 0 auto;
+}
+.chat-model-picker .tp-item-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+}
+.chat-model-picker .tp-item-icon svg { width: 14px; height: 14px; }
+
+.chat-model-picker-check {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-accent);
+    margin-left: auto;
+}
+.chat-model-picker-check svg { width: 14px; height: 14px; }
+
+/* Tier badge -- small pill next to the model name */
+.chat-model-picker-tier {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: 8px;
+    color: var(--text-on-accent, white);
+    background: var(--text-muted);
+}
+.chat-model-picker-tier-fast     { background: #5c6bc0; }
+.chat-model-picker-tier-mid      { background: #2e7d32; }
+.chat-model-picker-tier-flagship { background: #c27c4a; }
+
+.chat-model-picker-auto {
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 4px;
+}
+
 /* Footer */
 .tool-picker-footer {
     border-top: 1px solid var(--background-modifier-border);
