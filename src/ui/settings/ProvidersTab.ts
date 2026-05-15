@@ -1,19 +1,18 @@
 /**
  * EPIC-26 / FEAT-26-03 -- Provider-only Settings tab.
  *
- * Overview list of providers. One row per provider with:
- *  - Provider name (+ "Active" badge when this is the default)
- *  - Tier summary text (e.g. "12 models · Opus / Sonnet / Haiku")
- *  - Star button to set as active
+ * Overview list of providers using the same `.model-table` row layout as
+ * ModelsTab so the two settings pages feel visually consistent. Columns:
+ *  - Provider (name + small tier-summary sub-line)
+ *  - Key (check icon when credentials set, minus otherwise)
  *  - Enable toggle
- *  - Cog button to open the per-provider configuration modal
+ *  - Default radio (which provider drives the chat)
+ *  - Actions (cog opens ProviderDetailModal, trash removes)
  *
- * All detail configuration (auth, refresh, tier mapping, remove) lives
- * in `ProviderDetailModal.ts`. Visual design follows Obsidian's native
- * Setting API to match the rest of the settings pages.
+ * All detail configuration lives in `ProviderDetailModal.ts`.
  */
 
-import { App, Notice, setIcon, Setting } from 'obsidian';
+import { App, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { ModelTier, ProviderConfig, ProviderType } from '../../types/settings';
 import { PROVIDER_LABELS } from './constants';
@@ -40,7 +39,7 @@ export class ProvidersTab {
     ) {}
 
     build(containerEl: HTMLElement): void {
-        // Intro banner -- matches the McpTab pattern
+        // Intro banner -- matches ModelsTab pattern
         const intro = containerEl.createDiv({ cls: 'agent-settings-info-banner' });
         const introIcon = intro.createSpan({ cls: 'agent-settings-info-icon' });
         setIcon(introIcon, 'server');
@@ -48,100 +47,129 @@ export class ProvidersTab {
         introText.createEl('strong', { text: t('settings.providers.title') });
         introText.createDiv({ text: t('settings.providers.intro') });
 
-        const providers = this.plugin.settings.providerConfigs ?? [];
+        // Table with same .model-table layout as ModelsTab for visual parity.
+        // The extra `.providers-table` class trims the grid to 5 columns
+        // (no Provider column since the row IS a provider).
+        const table = containerEl.createDiv('model-table providers-table');
+        const header = table.createDiv('model-row model-row-header');
+        header.createDiv({ cls: 'mc-name', text: t('settings.providers.headerProvider') });
+        header.createDiv({ cls: 'mc-key', text: t('settings.providers.headerKey') });
+        header.createDiv({ cls: 'mc-enable', text: t('settings.providers.headerEnable') });
+        header.createDiv({ cls: 'mc-default', text: t('settings.providers.headerDefault') });
+        header.createDiv({ cls: 'mc-actions' });
 
-        // Provider list (one Setting row per provider). When list is empty
-        // we skip the list and surface the "add provider" picker only.
-        if (providers.length > 0) {
-            for (const p of providers) {
-                this.renderProviderRow(containerEl, p);
-            }
+        const providers = this.plugin.settings.providerConfigs ?? [];
+        if (providers.length === 0) {
+            table.createDiv({ cls: 'model-table-empty', text: t('settings.providers.empty') });
         } else {
-            containerEl.createEl('p', {
-                cls: 'agent-settings-desc',
-                text: t('settings.providers.empty'),
-            });
+            for (const p of providers) this.renderProviderRow(table, p);
         }
 
-        // Add provider picker -- always at the bottom of the list
-        this.renderAddProviderRow(containerEl);
+        // Add provider footer (dropdown picker + button), same shape as ModelsTab footer.
+        this.renderAddProviderFooter(containerEl);
     }
 
-    private renderProviderRow(containerEl: HTMLElement, provider: ProviderConfig): void {
+    private renderProviderRow(table: HTMLElement, provider: ProviderConfig): void {
         const isActive = this.plugin.settings.activeProviderId === provider.id;
-        const label = provider.displayName ?? this.providerLabel(provider.type);
+        const hasKey = this.providerHasCredentials(provider);
 
-        const setting = new Setting(containerEl)
-            .setName(this.renderRowName(label, isActive))
-            .setDesc(this.renderRowSummary(provider));
+        const rowCls = [
+            'model-row',
+            isActive ? 'model-row-active' : '',
+            !provider.enabled ? 'model-row-disabled' : '',
+        ].filter(Boolean).join(' ');
+        const row = table.createDiv(rowCls);
 
-        // Star/radio: set as active. Filled star = currently active.
-        setting.addExtraButton((btn) => {
-            btn.setIcon(isActive ? 'star' : 'star-off')
-                .setTooltip(isActive
-                    ? t('settings.providers.activeBadge')
-                    : t('settings.providers.activeLabel'))
-                .onClick(async () => {
-                    if (!provider.enabled) {
-                        new Notice(t('settings.providers.rowSummaryDisabled'));
-                        return;
-                    }
-                    this.plugin.settings.activeProviderId = isActive ? null : provider.id;
-                    await this.plugin.saveSettings();
-                    this.rerender();
-                });
+        // Name column: provider label + small tier-summary sub-line
+        const nameEl = row.createDiv('mc-name');
+        nameEl.createSpan({
+            text: provider.displayName ?? this.providerLabel(provider.type),
+            cls: 'mc-name-text',
         });
+        const summaryText = this.rowSummary(provider);
+        if (summaryText) {
+            const sub = nameEl.createDiv({ cls: 'mc-name-sub' });
+            sub.setText(summaryText);
+        }
 
-        // Enable toggle
-        setting.addToggle((toggle) => {
-            toggle.setValue(provider.enabled).onChange(async (v) => {
-                provider.enabled = v;
-                if (!v && this.plugin.settings.activeProviderId === provider.id) {
-                    // Disabling the active provider clears the activeProviderId.
-                    this.plugin.settings.activeProviderId = null;
-                }
+        // Key indicator
+        const keyEl = row.createDiv('mc-key');
+        const keyIcon = keyEl.createSpan('mc-key-icon');
+        setIcon(keyIcon, hasKey ? 'check' : 'minus');
+        keyEl.addClass(hasKey ? 'mc-key-ok' : 'mc-key-missing');
+
+        // Enable toggle (same .mc-toggle markup as ModelsTab)
+        const enableEl = row.createDiv('mc-enable');
+        const toggleLabel = enableEl.createEl('label', { cls: 'mc-toggle' });
+        const toggleInput = toggleLabel.createEl('input', { attr: { type: 'checkbox' } });
+        toggleLabel.createSpan({ cls: 'mc-toggle-track' });
+        toggleInput.checked = provider.enabled;
+        toggleInput.addEventListener('change', () => { void (async () => {
+            provider.enabled = toggleInput.checked;
+            // If we just disabled the active provider, clear the default.
+            if (!toggleInput.checked && this.plugin.settings.activeProviderId === provider.id) {
+                this.plugin.settings.activeProviderId = null;
+            }
+            await this.plugin.saveSettings();
+            this.rerender();
+        })(); });
+
+        // Default radio
+        const defaultEl = row.createDiv('mc-default');
+        const defaultRadio = defaultEl.createEl('input', {
+            attr: { type: 'radio', name: 'active-provider' },
+        });
+        defaultRadio.checked = isActive;
+        defaultRadio.disabled = !provider.enabled;
+        defaultRadio.addEventListener('change', () => { void (async () => {
+            if (defaultRadio.checked) {
+                this.plugin.settings.activeProviderId = provider.id;
                 await this.plugin.saveSettings();
                 this.rerender();
-            });
+            }
+        })(); });
+
+        // Actions: gear (configure) + trash (remove)
+        const actionsEl = row.createDiv('mc-actions');
+
+        const configBtn = actionsEl.createEl('button', {
+            cls: 'mc-action-btn',
+            attr: { title: t('settings.providers.configure') },
+        });
+        setIcon(configBtn, 'settings');
+        configBtn.addEventListener('click', () => {
+            new ProviderDetailModal(
+                this.app,
+                this.plugin,
+                provider.id,
+                () => this.rerender(),
+            ).open();
         });
 
-        // Cog button: open detail modal
-        setting.addExtraButton((btn) => {
-            btn.setIcon('settings-2')
-                .setTooltip(t('settings.providers.configure'))
-                .onClick(() => {
-                    new ProviderDetailModal(
-                        this.app,
-                        this.plugin,
-                        provider.id,
-                        () => this.rerender(),
-                    ).open();
-                });
+        const delBtn = actionsEl.createEl('button', {
+            cls: 'mc-action-btn mc-action-del',
+            attr: { title: t('settings.providers.remove') },
         });
+        setIcon(delBtn, 'trash');
+        delBtn.addEventListener('click', () => { void (async () => {
+            const ok = window.confirm(t('settings.providers.removeConfirm', {
+                name: provider.displayName ?? this.providerLabel(provider.type),
+            }));
+            if (!ok) return;
+            this.plugin.settings.providerConfigs =
+                (this.plugin.settings.providerConfigs ?? []).filter((p) => p.id !== provider.id);
+            if (this.plugin.settings.activeProviderId === provider.id) {
+                this.plugin.settings.activeProviderId = null;
+            }
+            await this.plugin.saveSettings();
+            this.rerender();
+        })(); });
     }
 
-    private renderRowName(label: string, isActive: boolean): DocumentFragment {
-        // Use a DocumentFragment so we can mix text + a styled "Active" badge.
-        const frag = document.createDocumentFragment();
-        frag.createSpan({ text: label });
-        if (isActive) {
-            const badge = frag.createSpan({
-                cls: 'agent-provider-active-badge',
-                text: t('settings.providers.activeBadge'),
-            });
-            badge.style.setProperty('margin-left', '0.5em');
-        }
-        return frag;
-    }
-
-    private renderRowSummary(provider: ProviderConfig): string {
-        if (!provider.enabled) {
-            return t('settings.providers.rowSummaryDisabled');
-        }
+    private rowSummary(provider: ProviderConfig): string {
+        if (!provider.enabled) return t('settings.providers.rowSummaryDisabled');
         const count = provider.discoveredModels?.length ?? 0;
-        if (count === 0) {
-            return t('settings.providers.rowSummaryEmpty');
-        }
+        if (count === 0) return t('settings.providers.rowSummaryEmpty');
         return t('settings.providers.rowSummary', {
             count,
             flagship: this.tierShortLabel(provider, 'flagship'),
@@ -157,56 +185,69 @@ export class ProvidersTab {
         return m?.displayName ?? id;
     }
 
-    private renderAddProviderRow(containerEl: HTMLElement): void {
-        const setting = new Setting(containerEl)
-            .setName(t('settings.providers.addProviderLabel'))
-            .setDesc(t('settings.providers.addProviderDesc'));
+    private providerHasCredentials(provider: ProviderConfig): boolean {
+        if (LOCAL_PROVIDER_TYPES.includes(provider.type)) {
+            // Local endpoints don't need a key; a BaseURL counts.
+            return !!provider.baseUrl;
+        }
+        if (provider.type === 'bedrock') {
+            return !!provider.awsApiKey || !!(provider.awsAccessKey && provider.awsSecretKey);
+        }
+        if (OAUTH_PROVIDER_TYPES.includes(provider.type)) {
+            return !!provider.oauthToken
+                || (provider.type === 'github-copilot' && !!this.plugin.settings.githubCopilotAccessToken)
+                || (provider.type === 'chatgpt-oauth' && !!this.plugin.settings.chatgptOAuthAccessToken);
+        }
+        return !!provider.apiKey;
+    }
 
-        let pickerValue: ProviderType | '' = '';
-        setting.addDropdown((dd) => {
-            dd.addOption('', t('settings.providers.choosePicker'));
-            for (const type of ALL_PROVIDER_TYPES) {
-                dd.addOption(type, this.providerLabel(type));
+    private renderAddProviderFooter(containerEl: HTMLElement): void {
+        const footer = containerEl.createDiv('model-table-footer');
+
+        const pickerWrap = footer.createDiv({ cls: 'provider-add-wrap' });
+        const select = pickerWrap.createEl('select', { cls: 'dropdown' });
+        select.createEl('option', { text: t('settings.providers.choosePicker'), value: '' });
+        for (const type of ALL_PROVIDER_TYPES) {
+            select.createEl('option', { text: this.providerLabel(type), value: type });
+        }
+
+        const addBtn = pickerWrap.createEl('button', {
+            cls: 'mod-cta model-add-btn',
+            text: t('settings.providers.addProvider'),
+        });
+        addBtn.addEventListener('click', () => { void (async () => {
+            const type = select.value as ProviderType | '';
+            if (!type) return;
+            const id = this.allocateInstanceId(type);
+            const provider: ProviderConfig = {
+                id,
+                type,
+                displayName: this.providerLabel(type),
+                enabled: true,
+                discoveredModels: [],
+                lastRefreshAt: 0,
+                tierMapping: {},
+                tierOverrides: {},
+            };
+            this.plugin.settings.providerConfigs = [
+                ...(this.plugin.settings.providerConfigs ?? []),
+                provider,
+            ];
+            if (this.plugin.settings.activeProviderId === null) {
+                this.plugin.settings.activeProviderId = id;
             }
-            dd.setValue('');
-            dd.onChange((v) => { pickerValue = (v as ProviderType | ''); });
-        });
-
-        setting.addButton((btn) => {
-            btn.setButtonText(t('settings.providers.addProvider'))
-                .setCta()
-                .onClick(async () => {
-                    if (!pickerValue) return;
-                    const id = this.allocateInstanceId(pickerValue);
-                    const provider: ProviderConfig = {
-                        id,
-                        type: pickerValue,
-                        displayName: this.providerLabel(pickerValue),
-                        enabled: true,
-                        discoveredModels: [],
-                        lastRefreshAt: 0,
-                        tierMapping: {},
-                        tierOverrides: {},
-                    };
-                    this.plugin.settings.providerConfigs = [
-                        ...(this.plugin.settings.providerConfigs ?? []),
-                        provider,
-                    ];
-                    // First provider becomes active automatically.
-                    if (this.plugin.settings.activeProviderId === null) {
-                        this.plugin.settings.activeProviderId = id;
-                    }
-                    await this.plugin.saveSettings();
-                    this.rerender();
-                    // Open detail modal so the user can immediately add credentials.
-                    new ProviderDetailModal(
-                        this.app,
-                        this.plugin,
-                        id,
-                        () => this.rerender(),
-                    ).open();
-                });
-        });
+            await this.plugin.saveSettings();
+            this.rerender();
+            // Reset picker
+            select.value = '';
+            // Open the modal so the user can immediately add credentials.
+            new ProviderDetailModal(
+                this.app,
+                this.plugin,
+                id,
+                () => this.rerender(),
+            ).open();
+        })(); });
     }
 
     private allocateInstanceId(type: ProviderType): string {

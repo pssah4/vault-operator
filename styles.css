@@ -1669,6 +1669,21 @@
     grid-template-columns: 1fr 100px 36px 66px 48px;
 }
 
+/* EPIC-26 / FEAT-26-03 -- Providers table: name | key | enable | default | actions */
+.providers-table .model-row {
+    grid-template-columns: 1fr 36px 75px 66px 88px;
+}
+
+/* Two-line provider row: large label + tier summary sub-line */
+.mc-name-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .model-row:last-child { border-bottom: none; }
 
 .model-row-header {
@@ -6145,7 +6160,6 @@
     opacity: 0 !important;
     pointer-events: none !important;
 }
-.agent-u-height-auto   { height: auto !important; }
 .agent-u-cursor-pointer { cursor: pointer; }
 
 /* Copy button spacing (SystemPromptPreviewModal) */
