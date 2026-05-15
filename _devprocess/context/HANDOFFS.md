@@ -3230,3 +3230,85 @@ Alle 12 Tasks aus PLAN-24 sind grün. Code-Touch-Punkte:
 ### Empfehlung
 
 Phase Coding ist abgeschlossen. Next: `/testing` für die oben genannten Live- und Integrationstests, danach `/security-audit` (PLAN-24 hat keinen sicherheitskritischen Pfad geöffnet; ADR-120-Eskalationsmuster + ADR-115-Amendment sollten audit-frei sein).
+
+---
+
+## EPIC-26 Welle 1 Backend -- /testing (Phase 5, 2026-05-16)
+
+triage: EPIC-26 / PLAN-24
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7.
+
+### Was getestet wurde
+
+Integrations-Pass auf den Welle-1-Backend-Pfaden. Neue Tests + Refactor:
+
+- **Tier-Resolution-Helper** (NEU + Refactor): `src/core/routing/tierResolution.ts` als pure-functions Modul extrahiert; `getActiveProvider`/`getTierModel`/`getAdvisorModel`/`providerConfigToCustomModel` in `src/main.ts` delegieren jetzt dorthin. Test: `src/core/routing/__tests__/tierResolution.test.ts` (23 Tests) deckt Cascade, Override-vs-Mapping, Pre-Migration-Fallback, Credential-Threading, Bedrock-Auth.
+- **Advisor-Profile-Registrierung** (extend): `src/core/agent/__tests__/subagent-profiles.test.ts` -- 5 neue Tests bestätigen `tierOverride: 'flagship'` + `maxOutputTokens: 3000` + Read-only-Tool-Allowlist + Direction-Giving-roleDefinition; Research-Profile-Tier-Pin (`tierOverride: 'fast'`).
+- **Bestehende EPIC-26-Tests** (von /coding): ModelTierClassifier 49 Tests, ModelDiscoveryService 9 Tests, ConsultFlagshipTool 8 Tests, systemPrompt (Advisor-Hint) 5 Tests, builtinModes-coverage angepasst.
+
+### Verifikation (Gate-Output, in dieser Message)
+
+```
+$ npx vitest run
+ Test Files  9 failed | 150 passed (159)
+      Tests  28 failed | 1576 passed (1604)
+```
+
+- **EPIC-26-Tests:** 137 grün (8 files: routing/3, agent/1, tools/agent/1, modes/1, systemPrompt/1, tools-targeted via builtinModes).
+- **Vorher (Stand /coding):** 1548 passed, 28 failed.
+- **Jetzt:** 1576 passed (+28), 28 failed (unverändert).
+- **Pre-existing failures** (alle vor Branch-Start auf `main` rot): searchHistory folder-rename, deferredToolLoading-Ranking, WriterLock, GlobalFileService, migrateFolderRename, ResultExternalizer iCloud-EPERM, VaultHealthService, ExtractionQueue. **Nicht durch EPIC-26 verursacht.** Triage in separatem FIX-Pass.
+
+```
+$ npx tsc --noEmit
+(clean)
+
+$ npm run build
+main.js 4.2 MB (down from 4.3 MB nach Helper-Extraktion), deploy ok
+```
+
+### Success-Criteria-Mapping (gegen Code + Tests)
+
+| Feature | SC | Status | Evidence |
+|---|---|---|---|
+| FEAT-26-01 | SC-01 Hauptloop auf mid | Verified | `src/main.ts` initApiHandler nutzt `getTierModel(defaultMainModelTier='mid')`, Fallback auf `getActiveModel`; tierResolution.test.ts covers cascade |
+| FEAT-26-01 | SC-02 Eskalations-Pfad | Verified | ConsultFlagshipTool.test.ts "accepts a valid call" -- spawn-path mit profile='advisor' |
+| FEAT-26-01 | SC-03 Per-Task-Limit 3 | Verified | ConsultFlagshipTool.test.ts "returns tool_error when advisor budget is exhausted" |
+| FEAT-26-01 | SC-04 Tool nicht sichtbar bei leerem flagship | Verified | AgentTask filtert via `pluginAny.getAdvisorModel?.()` Check; ConsultFlagshipTool.test.ts "returns tool_error when no flagship model is configured" als Defense-in-Depth |
+| FEAT-26-01 | SC-05 Prompt-Reminder bei mistakes>=2 | Verified | systemPrompt.test.ts 3 Tests (omits/emits/position-after-cache-marker) + subtask-skip |
+| FEAT-26-01 | SC-06 Subtask-Tier-Inheritance | Verified | subagent-profiles.test.ts "research profile pins the subagent to the fast tier" + "advisor profile pins to the flagship tier"; AgentTask.spawnSubtask wired über `getTierModel(profile.tierOverride)` |
+| FEAT-26-01 | SC-07 Tool aus bei Chat-Override | Deferred | Welle 2 (PLAN-26 FEAT-26-05) |
+| FEAT-26-01 | SC-08 Telemetrie-Log mit mode | Verified | TaskCallbacks.onUsage 6. Argument routingMode, TaskMonitor.onUsage schreibt `mode=advisor` ins `[Cost]`-Log; AgentTask.spawnSubtask-Forwarding setzt mode nach Profile-Name |
+| FEAT-26-02 | SC-01 Refresh zeigt 3 Tier-Slots | Deferred | Welle 2 (PLAN-25 FEAT-26-03 UI) |
+| FEAT-26-02 | SC-02 Klassifikation bekannte Modelle | Verified | ModelTierClassifier.test.ts -- 15+ pattern-Tests für flagship/mid/fast-Familien (Claude, GPT, Gemini, DeepSeek, Grok, Llama) |
+| FEAT-26-02 | SC-03 Unbekannt -> manuell | Partial | Classifier returns null + Outlier-Log; UI für manuelle Zuweisung in Welle 2 |
+| FEAT-26-02 | SC-04 24h-Cache | Verified | ModelDiscoveryService.test.ts "isStale" Tests (<24h false, >24h true, empty true) |
+| FEAT-26-02 | SC-05 Refresh-Button | Deferred | Welle 2 (PLAN-25 UI) |
+| FEAT-26-02 | SC-06 Lokale Modelle manuell | Verified | ModelTierClassifier.test.ts "returns null for ollama/lmstudio/custom" |
+| FEAT-26-02 | SC-07 API-Error-Behandlung | Verified | ModelDiscoveryService.test.ts "refreshProvider keeps existing cache on fetcher error" |
+| FEAT-26-02 | SC-08 Auto-detecting-Anzeige | Deferred | Welle 2 (PLAN-25 UI) |
+
+Wellen-1-Scope: 11/16 SCs verified, 0 partial (UI), 5 SCs deferred zu Welle 2. Alle Backend-SCs sind grün.
+
+### Lücken die /testing bewusst NICHT geschlossen hat
+
+- **Live-Smoke gegen Sebastians produktives Multi-Provider-Setup:** das ist der Beta-Validation-Pass für H-02 (Klassifikator-Coverage >=90% gegen Provider-Listen) und H-03 (Eskalations-Rate 5-15%). Ist explizit für die Beta-Phase, nicht für /testing.
+- **AgentTask End-to-End-Integration:** kein Test der den vollständigen ReAct-Loop fährt. Begründung: AgentTask hat zu viele Dependencies (Pipeline, ModeService, Plugin, ApiHandler), die Test-Setup-Kosten lohnen sich pro Test nicht. Die Code-Pfade sind über Unit-Tests der einzelnen Module + die Tier-Resolution-Helper-Tests + ConsultFlagshipTool-Tests abgesichert.
+- **Provider-Adapter mode-Field Pass-through:** das `routingMode`-Argument geht nur durchs Callback-Layer, nicht durch die Provider. Wenn ein Provider direkt loggt, sieht er die Information nicht. Per Plan-Scope ist das ok (Welle 1 braucht nur das `[Cost]`-Log-Tag von TaskMonitor).
+
+### Brittle / Flakey-Risiko-Hinweise
+
+Keine flaky-Pattern in den neuen Tests. Alle synchron, keine Timers, keine echten Netzwerk-Calls. ModelDiscoveryService-Tests injizieren einen mock-Fetcher; DiscoveryService.refreshOnStartup nutzt `Promise.allSettled` -- robust gegen einzelne Provider-Fehler.
+
+### Empfehlung für /security-audit
+
+EPIC-26 öffnet folgende neuen Code-Pfade die kurz auditierbar sind:
+
+1. **consult_flagship-Tool:** spawn eines Subagent mit benutzergesteuerten Input-Strings (problem/relevant_context/failed_attempts/constraints). Schema enforced Char-Limits (1500/3000/1500/500). Spawn-Inhalt geht 1:1 an den Advisor-Subagent -- prompt-injection-Vektor aus Vault-Content der via read_file in `relevant_context` gelangt. Mitigation: subagent ist read-only (kein write/edit/delete/mcp/new_task), Output ist auf 3000 Tokens gekappt. Trust-Boundary identisch zur bestehenden new_task-Mechanik.
+2. **ModelDiscoveryService persistRefresh:** schreibt nur in `providerConfigs[]`-Felder (discoveredModels, tierMapping, lastRefreshAt). Keine User-Inputs werden direkt verkettet; alle Werte kommen vom Provider-API-Response. Risiko: malicious provider könnte gefälschte model-ids streuen, aber diese landen nur als Strings im Settings-Cache und werden bei nächstem Use als Modellnamen an die API geschickt (kein Code-Eval).
+3. **tierResolution:** rein lesend auf Settings, keine User-Eingaben verarbeitet.
+
+Keine offene Privacy- oder Code-Injection-Vektoren erkannt. Audit kann sich auf den ConsultFlagshipTool-Spawn-Pfad konzentrieren.

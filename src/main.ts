@@ -4,6 +4,7 @@ import { preWarmProviderConnection } from './api/warmup';
 import { scheduleRecurring } from './util/scheduleRecurring';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
 import type { CustomModel, ModelTier, ProviderConfig } from './types/settings';
+import { resolveActiveProvider, resolveAdvisorModel, resolveTierModel } from './core/routing/tierResolution';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
 import { AgentSettingsTab, type TabId } from './ui/AgentSettingsTab';
 import { ToolRegistry } from './core/tools/ToolRegistry';
@@ -1942,84 +1943,32 @@ export default class ObsidianAgentPlugin extends Plugin {
     /**
      * EPIC-26 / ADR-122: return the currently active provider config,
      * or null when no provider was selected yet (pre-migration / fresh
-     * install).
+     * install). Pure logic lives in
+     * `src/core/routing/tierResolution.ts` so it stays unit-testable
+     * without booting the full plugin shell.
      */
     getActiveProvider(): ProviderConfig | null {
-        const id = this.settings.activeProviderId;
-        if (!id) return null;
-        const provider = (this.settings.providerConfigs ?? []).find((p) => p.id === id);
-        return provider && provider.enabled ? provider : null;
+        return resolveActiveProvider(this.settings);
     }
 
     /**
      * EPIC-26 / ADR-120: resolve a tier slot (fast / mid / flagship) on
      * the active provider into a concrete CustomModel ready to feed the
-     * API handler layer. Resolution order:
-     *  1. tierOverrides[tier]  (user-pinned, wins)
-     *  2. tierMapping[tier]    (auto-classified)
-     *  3. cascade upward: missing flagship -> mid -> fast
-     * Returns null when no provider is active or no model fills the
-     * tier chain.
+     * API handler layer. Cascade: tierOverrides[tier] -> tierMapping[tier]
+     * -> next lower tier. Returns null when nothing in the cascade is
+     * populated.
      */
     getTierModel(tier: ModelTier): CustomModel | null {
-        const provider = this.getActiveProvider();
-        if (!provider) return null;
-
-        const cascade: ModelTier[] =
-            tier === 'flagship' ? ['flagship', 'mid', 'fast']
-            : tier === 'mid' ? ['mid', 'fast']
-            : ['fast'];
-
-        for (const t of cascade) {
-            const modelId = provider.tierOverrides?.[t] ?? provider.tierMapping?.[t];
-            if (!modelId) continue;
-            const discovered = (provider.discoveredModels ?? []).find((m) => m.id === modelId);
-            return this.providerConfigToCustomModel(provider, modelId, discovered);
-        }
-        return null;
+        return resolveTierModel(this.settings, tier);
     }
 
     /**
      * EPIC-26 / ADR-120: convenience wrapper for the consult_flagship
      * tool. Returns the flagship-tier model on the active provider, or
-     * null when no flagship slot is filled.
+     * null when no flagship slot is filled (does NOT cascade down).
      */
     getAdvisorModel(): CustomModel | null {
-        const provider = this.getActiveProvider();
-        if (!provider) return null;
-        const modelId = provider.tierOverrides?.flagship ?? provider.tierMapping?.flagship;
-        if (!modelId) return null;
-        const discovered = (provider.discoveredModels ?? []).find((m) => m.id === modelId);
-        return this.providerConfigToCustomModel(provider, modelId, discovered);
-    }
-
-    /**
-     * EPIC-26: build a CustomModel from a ProviderConfig + model id,
-     * pulling auth credentials from the provider entry. Keeps the rest
-     * of the plugin on the existing CustomModel-shaped API surface so
-     * Welle 1 stays minimally invasive.
-     */
-    private providerConfigToCustomModel(
-        provider: ProviderConfig,
-        modelId: string,
-        discovered?: import('./types/settings').DiscoveredModel,
-    ): CustomModel {
-        return {
-            name: modelId,
-            provider: provider.type,
-            displayName: discovered?.displayName ?? modelId,
-            apiKey: provider.apiKey,
-            baseUrl: provider.baseUrl,
-            apiVersion: provider.apiVersion,
-            enabled: true,
-            maxTokens: discovered?.maxOutputTokens,
-            awsRegion: provider.awsRegion,
-            awsAuthMode: provider.awsAuthMode,
-            awsApiKey: provider.awsApiKey,
-            awsAccessKey: provider.awsAccessKey,
-            awsSecretKey: provider.awsSecretKey,
-            awsSessionToken: provider.awsSessionToken,
-        };
+        return resolveAdvisorModel(this.settings);
     }
 
     /** Return the active embedding CustomModel, or null if none configured or disabled */

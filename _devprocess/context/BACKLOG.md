@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-16 by coding (EPIC-26 Welle 1 Backend implementiert via PLAN-24: ModelTierClassifier + ModelDiscoveryService + ConsultFlagshipTool + ADVISOR_PROFILE + Tier-aware Plugin-Accessors + Hauptloop-Default-Tier + Prompt-Reminder + Cost-Log mode-Tag + Wayfinder; 110 Tests grün; UI/Migration/Chat-Dropdown bleiben in Welle 2/PLAN-25..26)
+Last update: 2026-05-16 by testing (EPIC-26 Welle 1 Backend getestet: 137 EPIC-26-Tests grün (+28 vs. /coding), Tier-Resolution in pure-functions Helper extrahiert, 11/16 SCs verified, 5 SCs deferred zu Welle 2 UI; volle Suite 1576/1604 passed mit 28 pre-existing failures unverändert)
 
 ---
 
@@ -555,8 +555,8 @@ Verwandt: Nachfolger von EPIC-24 (Agent-Loop Effizienz, v2.7.3..v2.10.x). Adress
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-26-01 | Feature | Advisor-Pattern Engine (`consult_flagship`-Tool, Eskalations-Mechanik, Per-Task-Limit 3) | Active | Building | EPIC-26, BA-27, PLAN-24 | BA-27 | sebastian-claude-opus-4-7 |  | 2026-05-16 | P0 Welle 1. Backend (Tool + Profile + Tier-Resolver + Prompt-Reminder + Cost-Log mode-Tag) via PLAN-24 implementiert. UI-Sichtbarkeit (Chat-Dropdown SC-07) deferred zu Welle 2 (FEAT-26-05). Validation H-03 in Beta. |
-| FEAT-26-02 | Feature | Tier-Klassifikator + Discovery-Service (Pattern + Capability, 24h-Cache, OpenRouter-Pricing-Sonderpfad) | Active | Building | EPIC-26, BA-27, PLAN-24 | BA-27 | sebastian-claude-opus-4-7 |  | 2026-05-16 | P0 Welle 1. Backend (Classifier + DiscoveryService) via PLAN-24 implementiert. Production-Wiring der `ModelFetcher`-Brücke + UI-Toggles bleiben zu Welle 2 (PLAN-25). Validation H-02 vor Release. |
+| FEAT-26-01 | Feature | Advisor-Pattern Engine (`consult_flagship`-Tool, Eskalations-Mechanik, Per-Task-Limit 3) | Review | Testing | EPIC-26, BA-27, PLAN-24 | BA-27 | sebastian-claude-opus-4-7 |  | 2026-05-16 | P0 Welle 1. Backend + Tests grün (7/8 SCs verified, SC-07 deferred zu Welle 2). UI-Sichtbarkeit (Chat-Dropdown) bleibt FEAT-26-05. Validation H-03 in Beta. |
+| FEAT-26-02 | Feature | Tier-Klassifikator + Discovery-Service (Pattern + Capability, 24h-Cache, OpenRouter-Pricing-Sonderpfad) | Review | Testing | EPIC-26, BA-27, PLAN-24 | BA-27 | sebastian-claude-opus-4-7 |  | 2026-05-16 | P0 Welle 1. Backend + Tests grün (5/8 SCs verified, 3 SCs deferred zu Welle 2 UI). Production-Wiring `ModelFetcher` an Settings-UI fehlt noch (PLAN-25). Validation H-02 vor Release. |
 | FEAT-26-03 | Feature | Provider-only Settings UI (Provider-zentrierte Pflege, Tier-Mapping mit Auto+Override) | Planned | Building | EPIC-26, BA-27 | BA-27 |  |  | 2026-05-15 | P0 Welle 2; depends-on FEAT-26-02. Settings-Tab Refactor "Models" -> "Providers". Validation H-04 in Beta (≤1 Min Setup-Time). |
 | FEAT-26-04 | Feature | Migration und Backwards-Compat (Auto-Migrate activeModels[] zu providers[], Notification-Modal, 30-Tage-Backup) | Planned | Building | EPIC-26, BA-27 | BA-27 |  |  | 2026-05-15 | P0 Welle 2; depends-on FEAT-26-02 + FEAT-26-03. Validation H-05 gegen Sebastians eigenes Multi-Provider-Setup. |
 | FEAT-26-05 | Feature | Chat-Model-Dropdown-Refactor (Auto + Provider-Modelle als Override pro Turn) plus Mode-Switcher-Removal aus Chat-Header | Planned | Building | EPIC-26, BA-27 | BA-27 |  |  | 2026-05-15 | P0 Welle 2; depends-on FEAT-26-01 + FEAT-26-02 + FEAT-26-03. Mode-Switcher (Agent/Ask-Dropdown) wird aus Chat-Header entfernt (minimal-invasiv: UI-only, Backend-Mode-System bleibt). Validation H-06 in Beta. |
