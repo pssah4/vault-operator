@@ -2089,6 +2089,43 @@
     border-top: 1px solid var(--background-modifier-border);
 }
 
+/* EPIC-26 / FEAT-26-03 -- section header inside .mcm-form */
+.mcm-section {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 14px 0 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.mcm-form > .mcm-section:first-child { margin-top: 4px; }
+
+/* Inline warning row inside the form (e.g. "Advisor disabled") */
+.mcm-warn {
+    grid-template-columns: 1fr !important;
+    color: var(--text-warning, var(--text-accent));
+    font-size: 12px;
+    padding: 6px 8px;
+    background: var(--background-modifier-error-hover, var(--background-secondary));
+    border-radius: 4px;
+}
+.mcm-warn-icon { display: inline-flex; align-items: center; vertical-align: middle; }
+.mcm-warn-icon svg { width: 14px; height: 14px; }
+
+/* Danger-style button (matches mod-warning convention) */
+.mcm-btn-danger {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-error, var(--text-error));
+    border-radius: 4px;
+    color: var(--text-error);
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.mcm-btn-danger:hover { background: var(--background-modifier-error-hover, var(--background-modifier-hover)); }
+
 .mcm-btn-test {
     background: var(--background-secondary);
     border: 1px solid var(--background-modifier-border);

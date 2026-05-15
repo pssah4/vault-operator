@@ -15,7 +15,7 @@
 import { App, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { ModelTier, ProviderConfig, ProviderType } from '../../types/settings';
-import { PROVIDER_LABELS } from './constants';
+import { getProviderBrandLabel } from '../../types/settings';
 import { ProviderDetailModal } from './ProviderDetailModal';
 import { t } from '../../i18n';
 
@@ -260,6 +260,6 @@ export class ProvidersTab {
     }
 
     private providerLabel(type: ProviderType): string {
-        return PROVIDER_LABELS[type] ?? type;
+        return getProviderBrandLabel(type);
     }
 }

@@ -427,6 +427,22 @@ export default class ObsidianAgentPlugin extends Plugin {
             console.warn('[Plugin] EPIC-26 migration failed (non-fatal):', e);
         }
 
+        // 1b-fixup. EPIC-26 follow-up: early-migration users got the lowercase
+        // provider type as displayName (e.g. "openrouter", "github-copilot").
+        // Replace with the human-readable brand label when the displayName
+        // matches the type string. Idempotent.
+        {
+            const { getProviderBrandLabel } = await import('./types/settings');
+            let changed = false;
+            for (const p of this.settings.providerConfigs ?? []) {
+                if (!p.displayName || p.displayName === p.type) {
+                    p.displayName = getProviderBrandLabel(p.type);
+                    changed = true;
+                }
+            }
+            if (changed) await this.saveSettings();
+        }
+
         // 1c. EPIC-26 / FEAT-26-02 -- ModelDiscoveryService for the new
         //     provider-only settings. Wraps fetchProviderModels with the
         //     classifier + 24h cache.

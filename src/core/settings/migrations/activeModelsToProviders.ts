@@ -15,6 +15,7 @@ import type {
     ProviderConfig,
     ProviderType,
 } from '../../../types/settings';
+import { getProviderBrandLabel } from '../../../types/settings';
 import { classifyModelTier } from '../../routing/ModelTierClassifier';
 
 export type MigrationAnomalyKind =
@@ -140,7 +141,7 @@ function buildProviderConfigFromGroup(
     return {
         id: providerId,
         type: providerType,
-        displayName: providerType,
+        displayName: getProviderBrandLabel(providerType),
         enabled: true,
         apiKey: head.apiKey,
         baseUrl: head.baseUrl,

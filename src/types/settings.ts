@@ -54,6 +54,30 @@ export interface CustomModel {
     awsSessionToken?: string;
 }
 
+/**
+ * Brand labels for provider types. Used by the settings UI and the
+ * EPIC-26 migration so display names are consistently the human-readable
+ * brand string, not the lowercase enum value.
+ */
+const PROVIDER_BRAND_LABELS: Record<ProviderType, string> = {
+    anthropic:        'Anthropic',
+    openai:           'OpenAI',
+    gemini:           'Google Gemini',
+    ollama:           'Ollama',
+    lmstudio:         'LM Studio',
+    openrouter:       'OpenRouter',
+    azure:            'Azure OpenAI',
+    'github-copilot': 'GitHub Copilot',
+    'kilo-gateway':   'Kilo Gateway',
+    bedrock:          'Amazon Bedrock',
+    'chatgpt-oauth':  'ChatGPT (OAuth)',
+    custom:           'Custom',
+};
+
+export function getProviderBrandLabel(provider: ProviderType): string {
+    return PROVIDER_BRAND_LABELS[provider] ?? provider;
+}
+
 /** Provider-level default base URLs used for setup UX and built-in models. */
 export function getDefaultBaseUrlForProvider(provider: ProviderType): string | undefined {
     switch (provider) {

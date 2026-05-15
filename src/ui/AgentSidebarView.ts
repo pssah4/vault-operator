@@ -720,8 +720,15 @@ export class AgentSidebarView extends ItemView {
                 title = t('ui.sidebar.modelAutoTitle');
             } else {
                 const m = resolveOverrideModel(activeProvider, this.chatModelOverride);
-                label = m?.displayName ?? this.chatModelOverride;
-                title = t('ui.sidebar.modelOverrideTitle', { label });
+                // Chat-header is narrow -- keep the label short:
+                // displayName when available, otherwise the bare model name
+                // (normalized to strip vendor/region/version prefixes so e.g.
+                // "anthropic/claude-opus-4-6" or "eu.anthropic.claude-opus-4-6-v1"
+                // collapses to "claude-opus-4-6"). Full id stays in the tooltip.
+                const shortName = m?.displayName
+                    ?? this.shortenModelId(this.chatModelOverride);
+                label = shortName;
+                title = t('ui.sidebar.modelOverrideTitle', { label: this.chatModelOverride });
             }
         } else {
             // Legacy / pre-migration path: read the flat activeModels[] selection.
@@ -817,6 +824,22 @@ export class AgentSidebarView extends ItemView {
         }
 
         menu.showAtMouseEvent(event);
+    }
+
+    /**
+     * EPIC-26 / FEAT-26-05: short-label helper for the chat-header model
+     * button. Strips OpenRouter vendor prefix ("anthropic/...") and
+     * Bedrock region + vendor + version wrappers so the button stays
+     * narrow. Display name is preferred upstream of this helper; this
+     * runs as a last-resort fallback.
+     */
+    private shortenModelId(id: string): string {
+        let s = id;
+        if (s.includes('/')) s = s.split('/').pop() ?? s;
+        const m = s.match(/(?:^|\.)(?:anthropic|amazon|meta|mistral|cohere|ai21|stability|deepseek|writer|qwen)\.(.+)$/i);
+        if (m) s = m[1];
+        s = s.replace(/-v\d+(?::\d+)?$/i, '').replace(/:\d+$/, '');
+        return s;
     }
 
     /**
