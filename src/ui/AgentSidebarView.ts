@@ -14,7 +14,6 @@ import { AutocompleteHandler } from './sidebar/AutocompleteHandler';
 import { VaultFilePicker } from './sidebar/VaultFilePicker';
 import { CommandPicker, type CommandPickerItem } from './sidebar/CommandPicker';
 import { resolveObsidianDraggedFiles } from './sidebar/dragManagerBridge';
-import { VAULT_OPERATOR_LOGO_DATA_URI } from './vaultOperatorLogo';
 import { HistoryPanel } from './sidebar/HistoryPanel';
 import type { UiMessage } from '../core/history/ConversationStore';
 import { MemoryRetriever } from '../core/memory/MemoryRetriever';
@@ -208,12 +207,9 @@ export class AgentSidebarView extends ItemView {
         const header = container.createDiv('agent-header');
 
         const titleRow = header.createDiv('agent-title');
-        titleRow.createEl('img', {
-            cls: 'agent-title-logo',
-            attr: {
-                src: VAULT_OPERATOR_LOGO_DATA_URI,
-                alt: t('ui.sidebar.title'),
-            },
+        titleRow.createSpan({
+            cls: 'agent-title-wordmark',
+            text: '/ Vault Operator',
         });
 
         const headerRight = header.createDiv('agent-header-right');
