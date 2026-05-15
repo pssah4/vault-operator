@@ -160,6 +160,54 @@ describe('systemPrompt section ordering (ADR-062)', () => {
         });
         expect(prompt).not.toContain('Advisor Hint');
     });
+
+    // EPIC-26 / FEAT-26-06: prompt-slim cost-heuristics lean variant
+    it('renders the full cost-heuristics section by default', async () => {
+        const prompt = await buildTestPrompt({});
+        expect(prompt).toContain('COST-AWARE EXECUTION (read this BEFORE choosing tools)');
+        expect(prompt).not.toContain('COST-AWARE EXECUTION (lean mode)');
+    });
+
+    it('renders the lean cost-heuristics section when costHeuristicsLean is true', async () => {
+        const prompt = await buildTestPrompt({ costHeuristicsLean: true });
+        expect(prompt).toContain('COST-AWARE EXECUTION (lean mode)');
+        expect(prompt).not.toContain('COST-AWARE EXECUTION (read this BEFORE choosing tools)');
+    });
+
+    it('lean cost-heuristics is materially shorter than the full variant', async () => {
+        const full = await buildTestPrompt({});
+        const lean = await buildTestPrompt({ costHeuristicsLean: true });
+        // The lean variant should remove ~1000+ characters.
+        expect(lean.length).toBeLessThan(full.length - 500);
+    });
+
+    // EPIC-26 / FEAT-26-06: prompt-slim plugin-skills lean variant
+    it('renders the full plugin-skills section when pluginSkillsLean is false', async () => {
+        const prompt = await buildTestPrompt({
+            pluginSkillsSection: 'FULL_PLUGIN_SKILLS_MARKER',
+            pluginSkillsLean: false,
+        });
+        expect(prompt).toContain('FULL_PLUGIN_SKILLS_MARKER');
+    });
+
+    it('renders the lean plugin-skills hint when pluginSkillsLean is true', async () => {
+        const prompt = await buildTestPrompt({
+            pluginSkillsSection: 'FULL_PLUGIN_SKILLS_MARKER',
+            pluginSkillsLean: true,
+        });
+        expect(prompt).not.toContain('FULL_PLUGIN_SKILLS_MARKER');
+        expect(prompt).toContain('PLUGIN SKILLS:');
+        expect(prompt).toContain('find_tool');
+    });
+
+    it('lean plugin-skills lives below the cache breakpoint', async () => {
+        const { CACHE_BREAKPOINT_MARKER } = await import('../systemPrompt');
+        const prompt = await buildTestPrompt({ pluginSkillsLean: true });
+        const breakIdx = prompt.indexOf(CACHE_BREAKPOINT_MARKER);
+        const skillsIdx = prompt.indexOf('PLUGIN SKILLS:');
+        expect(breakIdx).toBeGreaterThan(-1);
+        expect(skillsIdx).toBeGreaterThan(breakIdx);
+    });
 });
 
 // ──────────────────────────────────────────────────────────────────────────────

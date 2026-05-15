@@ -1495,4 +1495,10 @@ export const en: Translations = {
     'settings.providers.tier.autoDetected': 'auto-detected',
     'settings.providers.tier.manuallySet': 'manually set',
     'settings.providers.tier.differentTier': 'different tier',
+
+    // EPIC-26 / FEAT-26-05 -- chat-header model dropdown
+    'ui.sidebar.modelAuto': 'Auto',
+    'ui.sidebar.modelAutoTitle': 'Auto -- advisor pattern: main loop on the mid tier, escalation via consult_flagship.',
+    'ui.sidebar.modelOverrideTitle': 'Override -- this turn runs on {label}. consult_flagship is disabled.',
+    'ui.sidebar.modelAdvisorDisabled': 'advisor pattern disabled',
 };

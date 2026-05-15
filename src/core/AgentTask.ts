@@ -182,6 +182,14 @@ export class AgentTask {
      * sessions are never touched.
      */
     private rollingSummaryThreshold: number;
+    /**
+     * EPIC-26 / FEAT-26-05 / ADR-120: per-turn user override active.
+     * When true, the loop runs on an explicitly-chosen chat model
+     * (not the tier-resolved default) AND `consult_flagship` is filtered
+     * out of the tool schema for this task. Cost-log mode-tag becomes
+     * `override`.
+     */
+    private modelOverrideActive: boolean;
 
     constructor(
         api: ApiHandler,
@@ -198,6 +206,7 @@ export class AgentTask {
         maxSubtaskDepth = 2,
         microcompactionEnabled = true,
         rollingSummaryThreshold = 50,
+        modelOverrideActive = false,
     ) {
         this.api = api;
         this.toolRegistry = toolRegistry;
@@ -213,6 +222,7 @@ export class AgentTask {
         this.maxSubtaskDepth = maxSubtaskDepth;
         this.microcompactionEnabled = microcompactionEnabled;
         this.rollingSummaryThreshold = rollingSummaryThreshold;
+        this.modelOverrideActive = modelOverrideActive;
     }
 
     /**
@@ -640,6 +650,12 @@ export class AgentTask {
                 subagentAllowedTools,
                 consultFlagshipReminderActive: consecutiveMistakes >= 2,
                 consultFlagshipAvailable: advisorAvailable,
+                // EPIC-26 / FEAT-26-06: prompt-slim. Lean cost-heuristics when
+                // running on auto-mode (no override active). Lean plugin-skills
+                // until a skill-group tool is actually invoked. Subtasks always
+                // see lean cost-heuristics (their prompts are small anyway).
+                costHeuristicsLean: !this.modelOverrideActive,
+                pluginSkillsLean: !recentPluginSkillUsage,
             });
             let baseTools = this.modeService
                 ? this.modeService.getToolDefinitions(activeMode)
@@ -681,10 +697,13 @@ export class AgentTask {
             // provider. The tool itself defends against this too (Task 7), but
             // dropping it here keeps the prompt clean and stops the model from
             // even considering it on pre-migration installs.
+            // EPIC-26 / FEAT-26-05 extension: also hide when the chat-header
+            // override is active (the user is explicitly running on a different
+            // model for this turn, advisor pattern off by design).
             const pluginAny = this.toolRegistry.plugin as unknown as {
                 getAdvisorModel?: () => unknown;
             };
-            if (!pluginAny.getAdvisorModel?.()) {
+            if (this.modelOverrideActive || !pluginAny.getAdvisorModel?.()) {
                 cachedTools = cachedTools.filter((t) => t.name !== 'consult_flagship');
             }
 
@@ -733,6 +752,23 @@ export class AgentTask {
         const ADVISOR_LIMIT = 3;
         let advisorCallsUsed = 0;
         let lastReminderState = false;
+
+        // EPIC-26 / FEAT-26-06: plugin-skill usage tracking. Starts false,
+        // flips true on first invocation of a skill-group tool or when the
+        // initial user message carries an @-plugin-mention. Once true, the
+        // system prompt switches from lean to full plugin-skills section.
+        const SKILL_GROUP_TOOLS = new Set<string>([
+            'execute_command', 'execute_recipe', 'call_plugin_api',
+            'resolve_capability_gap', 'enable_plugin',
+        ]);
+        let recentPluginSkillUsage = false;
+        // Heuristic: detect @plugin-id mentions in the FIRST user message.
+        // Conservative regex; the lean->full flip is fail-safe (false neg
+        // just keeps the lean section longer).
+        const firstUserMessage = history.find((m) => m.role === 'user')?.content;
+        if (typeof firstUserMessage === 'string' && /@[a-z][a-z0-9-]{2,}/i.test(firstUserMessage)) {
+            recentPluginSkillUsage = true;
+        }
         const consumeAdvisorSlot = () => {
             if (advisorCallsUsed >= ADVISOR_LIMIT) {
                 return { ok: false, used: advisorCallsUsed, limit: ADVISOR_LIMIT };
@@ -1060,6 +1096,13 @@ export class AgentTask {
                             iteration,
                         );
                     }
+                    // EPIC-26 / FEAT-26-06: flip plugin-skills lean -> full
+                    // the first time a skill-group tool is invoked in this
+                    // task. The next rebuildPromptCache picks up the change.
+                    if (!recentPluginSkillUsage && SKILL_GROUP_TOOLS.has(toolUse.name)) {
+                        recentPluginSkillUsage = true;
+                        cacheInvalidated = true;
+                    }
                     return result;
                 };
 
@@ -1274,6 +1317,11 @@ export class AgentTask {
                     totalCacheReadTokens > 0 ? totalCacheReadTokens : undefined,
                     totalCacheCreationTokens > 0 ? totalCacheCreationTokens : undefined,
                     this.api.getModel().id,
+                    // EPIC-26 / FEAT-26-05: cost-log mode-tag at the root-task
+                    // boundary. Subtask onUsage already tags advisor/subagent
+                    // calls separately; here we mark whether the main loop ran
+                    // on the chat-override path or the default tier-resolved path.
+                    this.modelOverrideActive ? 'override' : 'auto',
                 );
             }
 

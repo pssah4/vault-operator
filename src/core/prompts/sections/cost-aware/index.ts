@@ -40,3 +40,28 @@ export function getCostAwareHeuristicsSection(): string {
         '', // trailing newline
     ].join('\n\n');
 }
+
+/**
+ * EPIC-26 / FEAT-26-06 -- lean variant (<=500 tokens) for Auto-mode runs
+ * on the mid tier. Drops the long anti-overthinking / sub-agent gating /
+ * error-recovery / budget-awareness sections; keeps the load-bearing
+ * Plan-First + Tool-Tiers + Stop-Condition. Cache-stable because it
+ * lands BEFORE the cache breakpoint -- the lean/full choice is decided
+ * at task-start time, so the prompt prefix stays stable inside one task.
+ */
+const LEAN_HEADER = `====
+
+COST-AWARE EXECUTION (lean mode)
+
+Plan before acting. Use the cheapest tool that answers the question. Stop when the answer is in the response.`;
+
+export function getCostAwareHeuristicsSectionLean(): string {
+    return [
+        LEAN_HEADER,
+        getPlanFirstSection(),
+        getToolTiersSection(),
+        getStopConditionSection(),
+        FOOTER,
+        '',
+    ].join('\n\n');
+}

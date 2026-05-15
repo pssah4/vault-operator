@@ -3312,3 +3312,63 @@ EPIC-26 öffnet folgende neuen Code-Pfade die kurz auditierbar sind:
 3. **tierResolution:** rein lesend auf Settings, keine User-Eingaben verarbeitet.
 
 Keine offene Privacy- oder Code-Injection-Vektoren erkannt. Audit kann sich auf den ConsultFlagshipTool-Spawn-Pfad konzentrieren.
+
+---
+
+## EPIC-26 Welle 2+3 -- /coding (alles durchziehen, 2026-05-16)
+
+triage: EPIC-26 / PLAN-25 + PLAN-26
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7. **EPIC-26 KOMPLETT.**
+
+### PLAN-25 -- Provider-only Settings UI + Migration
+
+- **Migration:** `src/core/settings/migrations/activeModelsToProviders.ts` (pure function, idempotent, 12 Tests). onload-Wiring in `main.ts` Section 1b, non-fatal try/catch. `legacy_active_models_backup` für Recovery. schemaVersion `'2026.5.15'` als Trigger-Guard.
+- **MigrationNotificationModal:** `src/ui/settings/MigrationNotificationModal.ts` mit Summary + Anomalie-Liste + "Open settings"/"OK"-Buttons. Trigger nach `workspace.onLayoutReady`.
+- **ProvidersTab:** `src/ui/settings/ProvidersTab.ts` mit Provider-Block-Layout, Active-Provider-Selector, Type-spezifischen Auth-Feldern (API-Key / Bedrock-Region+Auth-Mode / Custom-BaseURL / OAuth-Stub mit Redirect), Refresh-Button mit Loading-State, Tier-Slot-Tabelle mit Auto+Override-Dropdown, Advisor-disabled-Hinweis, Add/Remove-Aktionen.
+- **Production-ModelFetcher:** wrappt `fetchProviderModels()` aus testModelConnection.ts; `plugin.modelDiscovery` exposed; `refreshOnStartup()` non-blocking.
+- **39 neue i18n-Keys** unter `settings.providers.*`.
+- **Tab-Registrierung:** "Providers" als erster Sub-Tab, "Models" umbenannt zu "Models (legacy)".
+
+### PLAN-26 -- Chat-Dropdown + Mode-Switcher-Removal + Prompt-Slim
+
+- **Chat-Dropdown:** `src/ui/sidebar/chatModelDropdown.ts` (pure function, 10 Tests) + `AgentSidebarView.showProviderModelMenu`. Auto + Provider-Modelle; Advisor-disabled-Hinweis im Auto-Eintrag bei leerem Flagship-Slot.
+- **Per-Turn-Override:** `chatModelOverride: string | null` Sidebar-State. Override -> `buildApiHandlerForModel(providerConfigToCustomModel(...))`. AgentTask neuer Konstruktor-Param `modelOverrideActive`; filtert `consult_flagship` zusätzlich; Root-Cost-Log mode-Tag `override` bei Override sonst `auto`.
+- **Mode-Switcher-Removal:** modeButton wird nicht mehr gerendert. Backend (ModeService, switch_mode, currentMode-Setting, modeModelKeys) unverändert.
+- **Cost-Heuristics Lean:** `getCostAwareHeuristicsSectionLean()` (Plan-First + Tool-Tiers + Stop-Condition, ~500 Tokens vs. 1435 voll). Aktiviert wenn `!modelOverrideActive`.
+- **Plugin-Skills Lean:** `getPluginSkillsSectionLean()` (~30 Tokens). AgentTask trackt `recentPluginSkillUsage`; Flip auf voll bei Skill-Group-Tool-Call oder `@plugin-id`-Mention in erster User-Message; cache-invalidiert beim Flip; Section unter CACHE_BREAKPOINT_MARKER -> stabiler Prefix bleibt cached.
+
+### Verifikation (in dieser Message)
+
+```
+$ npx tsc --noEmit
+(clean)
+
+$ npx vitest run
+ Test Files  9 failed | 152 passed (161)
+      Tests  28 failed | 1604 passed (1632)
+
+$ npm run build
+main.js 4.3 MB, deploy ok
+```
+
+- **Vorher (Stand /testing):** 1576 passed, 28 failed
+- **Jetzt:** 1604 passed (+28: 12 Migration + 10 ChatDropdown + 6 systemPrompt prompt-slim), 28 failed (unverändert pre-existing)
+
+### Status nach Welle 2+3
+
+- **EPIC-26 KOMPLETT** als Code -- alle 6 FEAT-26-* auf Backlog-Status `Review`.
+- **Open für /testing:** Live-Smoke gegen Sebastians produktives Setup (Migration durchspielen, Modal prüfen, Provider-Tab navigieren, Chat-Dropdown Auto+Override testen, Prompt-Größe im Debug-Log verifizieren).
+- **Open für /security-audit:** ProvidersTab persistiert User-Inputs (API-Keys, BaseURLs, AWS-Credentials) -- nutzt bestehende `saveSettings()` mit Encryption über SafeStorageService; keine neuen Code-Eval-Pfade. ConsultFlagshipTool-Spawn-Vektor unverändert von Welle 1.
+- **Open für Beta-Validation:** H-01..H-06 in Sebastians täglicher Nutzung.
+
+### Strategische Cuts (alle dokumentiert in PLAN-25/26 Implementation Notes)
+
+- OAuth-Sign-In-Button als Stub mit Redirect zum legacy ModelsTab (FEAT-26-03 SC-06)
+- Restore-Legacy-Action via data.json statt UI (FEAT-26-04 SC-08)
+- OpenRouter-Pricing-Enrichment zurückgestellt (Pattern-Match reicht)
+- tool-routing-Slim deferred zu separatem IMP (FEAT-26-06 partial)
+- chat-dropdown UI-Tests beschränkt auf pure-function-Extraktion
+
