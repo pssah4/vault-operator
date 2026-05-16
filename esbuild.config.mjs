@@ -16,6 +16,58 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === "production");
 
+/**
+ * Inline esbuild plugin that replaces the `setimmediate` and `immediate`
+ * polyfills (pulled in transitively by jszip / exceljs / pptxgenjs) with
+ * microtask-based shims. The upstream packages ship a dead IE 6/7
+ * `document.createElement("script") + onreadystatechange` branch that the
+ * Obsidian review bot's bundle heuristic flags as "dynamic script element
+ * creation". Modern Electron has native queueMicrotask, so the shim is a
+ * straight functional replacement.
+ *
+ * Kept inline (no external file) so the public mirror's sync-CI -- which
+ * strips `scripts/` -- still produces a buildable tree.
+ */
+function pollyfillShimPlugin() {
+    const setimmediateSrc = `
+if (typeof globalThis.setImmediate === 'undefined') {
+    globalThis.setImmediate = function setImmediate(callback) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        var fn = typeof callback === 'function' ? callback : Function('' + callback);
+        queueMicrotask(function () { fn.apply(undefined, args); });
+        return 0;
+    };
+    globalThis.clearImmediate = function clearImmediate() {};
+}
+module.exports = globalThis.setImmediate;
+`;
+    const immediateSrc = `
+module.exports = function immediate(task) { queueMicrotask(task); };
+`;
+    return {
+        name: "polyfill-shim",
+        setup(build) {
+            build.onResolve({ filter: /^setimmediate$/ }, () => ({
+                path: "polyfill-shim:setimmediate",
+                namespace: "polyfill-shim",
+            }));
+            build.onResolve({ filter: /^immediate$/ }, () => ({
+                path: "polyfill-shim:immediate",
+                namespace: "polyfill-shim",
+            }));
+            build.onLoad({ filter: /.*/, namespace: "polyfill-shim" }, (args) => {
+                if (args.path === "polyfill-shim:setimmediate") {
+                    return { contents: setimmediateSrc, loader: "js" };
+                }
+                if (args.path === "polyfill-shim:immediate") {
+                    return { contents: immediateSrc, loader: "js" };
+                }
+                return null;
+            });
+        },
+    };
+}
+
 
 /**
  * Phase 1: Replacement for generateEmbeddedAssets that emits separate
@@ -292,10 +344,7 @@ async function generateOfficeBundles() {
             // Replace the `setimmediate` polyfill (transitive via jszip / exceljs)
             // with a microtask-based shim so the bot's bundle heuristic stops
             // flagging the polyfill's dead `createElement("script")` branch.
-            alias: {
-                setimmediate: join(__dirname, "scripts/setimmediate-shim.cjs"),
-                immediate: join(__dirname, "scripts/immediate-shim.cjs"),
-            },
+            plugins: [pollyfillShimPlugin()],
             minify: true,
             legalComments: "none",
             treeShaking: true,
@@ -371,14 +420,12 @@ const mainBuildOptions = {
         "pdfjs-dist/build/pdf.worker.mjs",
         ...builtins,
     ],
-    // Replace polyfills whose dead IE6/7 `createElement("script")` branches
-    // would otherwise trigger the bot's bundle heuristic. jszip is also
-    // re-pointed at its source entry because its `browser` field would
+    // Re-point jszip at its source entry because its `browser` field would
     // otherwise load the prebuilt `dist/jszip.min.js`, which has its own
-    // inlined copy of the `immediate` polyfill and would bypass our alias.
+    // inlined copy of the `immediate` polyfill and would bypass the shim
+    // plugin below (the prebuilt bundle has no module boundaries left to
+    // intercept).
     alias: {
-        setimmediate: join(__dirname, "scripts/setimmediate-shim.cjs"),
-        immediate: join(__dirname, "scripts/immediate-shim.cjs"),
         jszip: join(__dirname, "node_modules/jszip/lib/index.js"),
     },
     format: "cjs",
@@ -394,6 +441,7 @@ const mainBuildOptions = {
     minify: prod,
     outfile: "main.js",
     plugins: [
+        pollyfillShimPlugin(),
         {
             // Resolve "node:xyz" imports → mark them external (Electron provides them)
             name: "node-builtins",
