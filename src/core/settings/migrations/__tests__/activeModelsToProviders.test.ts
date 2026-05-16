@@ -243,3 +243,171 @@ describe('migrateActiveModelsToProviders -- displayName brand labels', () => {
         }
     });
 });
+
+// H-05 Validation: real-world standard setup variants beyond
+// single-Anthropic and 3-way Multi-Provider. Each fixture is a shape
+// users in the wild actually run; H-05 wants >95% error-free migration.
+describe('H-05 standard setup variants (EPIC-26 / FEAT-26-04)', () => {
+    it('Bedrock-only setup with access-key auth: opus + sonnet + haiku ARN-style ids', () => {
+        const settings = makeInputSettings({
+            activeModels: [
+                {
+                    name: 'eu.anthropic.claude-opus-4-7-v1:0',
+                    provider: 'bedrock',
+                    enabled: true,
+                    awsAuthMode: 'access-key',
+                    awsRegion: 'eu-central-1',
+                    awsAccessKey: 'AKIA-test',
+                    awsSecretKey: 'sk-secret',
+                },
+                {
+                    name: 'eu.anthropic.claude-sonnet-4-6-v1:0',
+                    provider: 'bedrock',
+                    enabled: true,
+                    awsAuthMode: 'access-key',
+                    awsRegion: 'eu-central-1',
+                    awsAccessKey: 'AKIA-test',
+                    awsSecretKey: 'sk-secret',
+                },
+                {
+                    name: 'eu.anthropic.claude-haiku-4-5-v1:0',
+                    provider: 'bedrock',
+                    enabled: true,
+                    awsAuthMode: 'access-key',
+                    awsRegion: 'eu-central-1',
+                    awsAccessKey: 'AKIA-test',
+                    awsSecretKey: 'sk-secret',
+                },
+            ],
+            activeModelKey: 'eu.anthropic.claude-sonnet-4-6-v1:0|bedrock',
+        });
+
+        const result = migrateActiveModelsToProviders(settings);
+
+        expect(result.didMigrate).toBe(true);
+        expect(result.providerConfigs).toHaveLength(1);
+        const bedrock = result.providerConfigs[0];
+        expect(bedrock.type).toBe('bedrock');
+        expect(bedrock.awsAuthMode).toBe('access-key');
+        expect(bedrock.awsRegion).toBe('eu-central-1');
+        expect(bedrock.awsAccessKey).toBe('AKIA-test');
+        expect(bedrock.awsSecretKey).toBe('sk-secret');
+        // All three Bedrock-prefixed ARNs classify via normalizeModelId
+        expect(bedrock.tierMapping.flagship).toBe('eu.anthropic.claude-opus-4-7-v1:0');
+        expect(bedrock.tierMapping.mid).toBe('eu.anthropic.claude-sonnet-4-6-v1:0');
+        expect(bedrock.tierMapping.fast).toBe('eu.anthropic.claude-haiku-4-5-v1:0');
+        expect(result.activeProviderId).toBe(bedrock.id);
+        expect(result.summary.anomalies).toEqual([]);
+    });
+
+    it('OpenRouter-only setup with vendor-prefixed ids: one config, all three tier slots filled', () => {
+        const settings = makeInputSettings({
+            activeModels: [
+                makeModel({
+                    name: 'anthropic/claude-opus-4-6',
+                    provider: 'openrouter',
+                    apiKey: 'sk-or-test',
+                }),
+                makeModel({
+                    name: 'anthropic/claude-sonnet-4-6',
+                    provider: 'openrouter',
+                    apiKey: 'sk-or-test',
+                }),
+                makeModel({
+                    name: 'anthropic/claude-haiku-4-5',
+                    provider: 'openrouter',
+                    apiKey: 'sk-or-test',
+                }),
+                // Extra non-Anthropic models in the same OpenRouter account
+                makeModel({
+                    name: 'openai/gpt-4o',
+                    provider: 'openrouter',
+                    apiKey: 'sk-or-test',
+                }),
+                makeModel({
+                    name: 'google/gemini-2.5-pro',
+                    provider: 'openrouter',
+                    apiKey: 'sk-or-test',
+                }),
+            ],
+            activeModelKey: 'anthropic/claude-sonnet-4-6|openrouter',
+        });
+
+        const result = migrateActiveModelsToProviders(settings);
+
+        expect(result.didMigrate).toBe(true);
+        expect(result.providerConfigs).toHaveLength(1);
+        const or = result.providerConfigs[0];
+        expect(or.type).toBe('openrouter');
+        expect(or.discoveredModels).toHaveLength(5);
+        // Tier slots get filled by at least one model each (vendor-prefix
+        // is stripped by normalizeModelId before pattern matching).
+        expect(or.tierMapping.flagship).toBeDefined();
+        expect(or.tierMapping.mid).toBeDefined();
+        expect(or.tierMapping.fast).toBeDefined();
+        expect(result.activeProviderId).toBe(or.id);
+        // Should not trigger missing-flagship or manual-tier-required
+        const blocking = result.summary.anomalies.filter(
+            (a) => a.kind === 'missing-flagship' || a.kind === 'manual-tier-required',
+        );
+        expect(blocking).toEqual([]);
+    });
+
+    it('Mixed real-world setup (Anthropic + Bedrock + OpenRouter, single auth per provider): 3 configs, active resolves to bedrock', () => {
+        const settings = makeInputSettings({
+            activeModels: [
+                makeModel({ name: 'claude-opus-4-7', provider: 'anthropic', apiKey: 'sk-ant' }),
+                makeModel({ name: 'claude-sonnet-4-6', provider: 'anthropic', apiKey: 'sk-ant' }),
+                makeModel({ name: 'claude-haiku-4-5-20251001', provider: 'anthropic', apiKey: 'sk-ant' }),
+                {
+                    name: 'eu.anthropic.claude-opus-4-7-v1:0',
+                    provider: 'bedrock',
+                    enabled: true,
+                    awsAuthMode: 'access-key',
+                    awsRegion: 'eu-central-1',
+                    awsAccessKey: 'AKIA',
+                    awsSecretKey: 'sec',
+                },
+                {
+                    name: 'eu.anthropic.claude-sonnet-4-6-v1:0',
+                    provider: 'bedrock',
+                    enabled: true,
+                    awsAuthMode: 'access-key',
+                    awsRegion: 'eu-central-1',
+                    awsAccessKey: 'AKIA',
+                    awsSecretKey: 'sec',
+                },
+                makeModel({ name: 'anthropic/claude-opus-4-6', provider: 'openrouter', apiKey: 'sk-or' }),
+                makeModel({ name: 'anthropic/claude-sonnet-4-6', provider: 'openrouter', apiKey: 'sk-or' }),
+                makeModel({ name: 'anthropic/claude-haiku-4-5', provider: 'openrouter', apiKey: 'sk-or' }),
+            ],
+            activeModelKey: 'eu.anthropic.claude-sonnet-4-6-v1:0|bedrock',
+        });
+
+        const result = migrateActiveModelsToProviders(settings);
+
+        expect(result.didMigrate).toBe(true);
+        expect(result.providerConfigs).toHaveLength(3);
+        const types = result.providerConfigs.map((p) => p.type).sort();
+        expect(types).toEqual(['anthropic', 'bedrock', 'openrouter']);
+
+        const bedrock = result.providerConfigs.find((p) => p.type === 'bedrock')!;
+        expect(result.activeProviderId).toBe(bedrock.id);
+
+        // No multi-auth: each provider has exactly one auth config
+        const multiAuth = result.summary.anomalies.filter((a) => a.kind === 'multi-auth');
+        expect(multiAuth).toEqual([]);
+
+        // Anthropic config keeps full Opus + Sonnet + Haiku slots
+        const anthropic = result.providerConfigs.find((p) => p.type === 'anthropic')!;
+        expect(anthropic.tierMapping.flagship).toBe('claude-opus-4-7');
+        expect(anthropic.tierMapping.mid).toBe('claude-sonnet-4-6');
+        expect(anthropic.tierMapping.fast).toBe('claude-haiku-4-5-20251001');
+
+        // Bedrock keeps awsAuthMode + region
+        expect(bedrock.awsAuthMode).toBe('access-key');
+        expect(bedrock.awsRegion).toBe('eu-central-1');
+        expect(bedrock.tierMapping.flagship).toBeDefined();
+        expect(bedrock.tierMapping.mid).toBeDefined();
+    });
+});
