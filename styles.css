@@ -6321,10 +6321,12 @@
 }
 
 /* ── Utility classes ──────────────────────────────────────────────────── */
-.agent-u-hidden        { display: none !important; }
-.agent-u-visibility-hidden {
-    opacity: 0 !important;
-    pointer-events: none !important;
+/* Class repetition raises specificity to (0,2,0) so plain theme styles do
+   not override these utilities without needing !important. */
+.agent-u-hidden.agent-u-hidden { display: none; }
+.agent-u-visibility-hidden.agent-u-visibility-hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 .agent-u-cursor-pointer { cursor: pointer; }
 

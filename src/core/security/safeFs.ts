@@ -13,7 +13,7 @@
  * Symlinks are not resolved -- that is deliberate, since resolving would
  * extend the allowlist to whatever the real filesystem points at.
  *
- * See SECURITY.md and FEAT-27-01-safefs-wrapper.md for the threat model.
+ * See REVIEWER_NOTES.md and FEAT-27-01-safefs-wrapper.md for the threat model.
  */
 
 /* eslint-disable @typescript-eslint/no-require-imports -- this is the *one* file that owns the fs module wrapper */

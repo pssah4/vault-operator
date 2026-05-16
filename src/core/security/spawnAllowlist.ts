@@ -12,7 +12,7 @@
  * `shell: true` is rejected. `cp.exec`/`cp.execSync` are not re-exported -- they
  * accept a shell string and have no place in a sandboxed agent plugin.
  *
- * See SECURITY.md and FEAT-27-02-spawn-allowlist.md for the threat model.
+ * See REVIEWER_NOTES.md and FEAT-27-02-spawn-allowlist.md for the threat model.
  */
 
 /* eslint-disable @typescript-eslint/no-require-imports, security/detect-child-process -- this is the *one* file that owns the child_process module wrapper; all other call sites go through this wrapper */
