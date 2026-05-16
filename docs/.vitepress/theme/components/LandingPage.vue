@@ -175,8 +175,8 @@ onMounted(() => {
 <template>
   <section class="landing-hero">
     <a href="https://github.com/pssah4/vault-operator/releases" class="landing-badge" target="_blank" rel="noopener">
-      <span class="landing-badge-version">v2.11.3</span>
-      <span>Provider polish + GPT-5 codex test connection fix + checkpoint snapshot path traversal guard + safeFs surface narrowed</span>
+      <span class="landing-badge-version">v2.11.4</span>
+      <span>Reviewer-ready docs split (REVIEWER_NOTES.md verified against code) + CSS lint cleanup (class-repetition specificity replaces !important)</span>
     </a>
 
     <h1 class="landing-title">Your Obsidian vault,<br>with a real AI Agent.</h1>
