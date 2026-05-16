@@ -16,7 +16,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs';
+import * as safeFs from '../security/safeFs';
 import type { App } from 'obsidian';
 import {
     DEFAULT_AGENT_FOLDER, LEGACY_AGENT_FOLDERS,
@@ -95,10 +95,10 @@ export async function migrateFolderRename(
         const parent = path.dirname(vaultBasePath);
         const oldGlobal = path.join(parent, LEGACY_GLOBAL_DIR_NAME);
         const newGlobal = path.join(parent, NEW_GLOBAL_DIR_NAME);
-        const oldExists = fs.existsSync(oldGlobal);
-        const newExists = fs.existsSync(newGlobal);
+        const oldExists = safeFs.existsSync(oldGlobal);
+        const newExists = safeFs.existsSync(newGlobal);
         if (oldExists && !newExists) {
-            await fs.promises.rename(oldGlobal, newGlobal);
+            await safeFs.promises.rename(oldGlobal, newGlobal);
             report.globalRenamed = true;
         } else if (oldExists && newExists) {
             report.globalReason =

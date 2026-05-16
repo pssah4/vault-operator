@@ -12,8 +12,8 @@
  * RenderPresentationTool (standalone visual inspection).
  */
 
-import { spawn } from 'child_process';
-import * as fs from 'fs';
+import * as safeFs from '../security/safeFs';
+import { spawnAllowed } from '../security/spawnAllowlist';
 import * as path from 'path';
 import * as os from 'os';
 import { detectLibreOffice } from './libreOfficeDetector';
@@ -68,7 +68,7 @@ export async function renderPptxToImages(
     }
 
     // 2. Verify input file exists
-    if (!fs.existsSync(absolutePptxPath)) {
+    if (!safeFs.existsSync(absolutePptxPath)) {
         return {
             success: false,
             slides: [],
@@ -78,7 +78,7 @@ export async function renderPptxToImages(
     }
 
     // 3. Create temp directory
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'obsilo-render-'));
+    const tempDir = safeFs.mkdtempSync(path.join(os.tmpdir(), 'obsilo-render-'));
 
     try {
         // 4. Copy PPTX to temp (LibreOffice writes output next to input).
@@ -86,13 +86,13 @@ export async function renderPptxToImages(
         // but LibreOffice headless may fail on them; rename to .pptx before conversion.
         const baseName = path.basename(absolutePptxPath).replace(/\.pot[xm]$/i, '.pptx');
         const tempPptx = path.join(tempDir, baseName);
-        fs.copyFileSync(absolutePptxPath, tempPptx);
+        safeFs.copyFileSync(absolutePptxPath, tempPptx);
 
         // 5. PPTX → PDF (LibreOffice headless)
         const tempPdfPath = await convertToPdf(libreOffice.path, tempPptx, tempDir);
 
         // 6. PDF → PNGs (pdf.js in-process via Canvas API)
-        const pdfData = fs.readFileSync(tempPdfPath);
+        const pdfData = safeFs.readFileSync(tempPdfPath);
         const allSlides = await renderPdfToImages(pdfData);
 
         if (allSlides.length === 0) {
@@ -131,7 +131,7 @@ export async function renderPptxToImages(
     } finally {
         // Cleanup temp directory
         try {
-            fs.rmSync(tempDir, { recursive: true, force: true });
+            safeFs.rmSync(tempDir, { recursive: true, force: true });
         } catch {
             // Non-fatal: temp files will be cleaned up by OS
         }
@@ -148,13 +148,12 @@ function convertToPdf(
     outDir: string,
 ): Promise<string> {
     return new Promise((resolve, reject) => {
-        const child = spawn(sofficePath, [
+        const child = spawnAllowed(sofficePath, [
             '--headless',
             '--convert-to', 'pdf',
             '--outdir', outDir,
             pptxPath,
         ], {
-            shell: false,
             timeout: CONVERSION_TIMEOUT,
             env: buildSubprocessEnv(),
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -162,7 +161,8 @@ function convertToPdf(
         });
 
         let stderr = '';
-        child.stderr.on('data', (data: Buffer) => {
+        // stdio is ['ignore', 'pipe', 'pipe'] above, so stderr cannot be null here.
+        child.stderr?.on('data', (data: Buffer) => {
             stderr += data.toString();
             if (stderr.length > 10_000) stderr = stderr.slice(-10_000);
         });
@@ -176,7 +176,7 @@ function convertToPdf(
             if (code === 0) {
                 const baseName = path.basename(pptxPath, path.extname(pptxPath));
                 const pdfPath = path.join(outDir, `${baseName}.pdf`);
-                if (fs.existsSync(pdfPath)) {
+                if (safeFs.existsSync(pdfPath)) {
                     resolve(pdfPath);
                 } else {
                     reject(new Error('LibreOffice PPTX-to-PDF conversion produced no output file.'));

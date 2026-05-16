@@ -41,7 +41,7 @@ const FLAGSHIP_PATTERNS: RegExp[] = [
     /\bo1(?!-mini)\b/i,
     /\bo3(?!-mini)\b/i,
     /\bo4(?!-mini)\b/i,
-    /\bgemini-(?:2\.5|2\.0|3)-pro\b/i,
+    /\bgemini-(?:1\.5|2\.0|2\.5|3)-pro\b/i,
     /\bgemini-pro\b/i,
     /\bdeepseek-(?:reasoner|r1)\b/i,
     /\bgrok-4(?!-mini)\b/i,
@@ -67,6 +67,7 @@ const MID_PATTERNS: RegExp[] = [
 const FAST_PATTERNS: RegExp[] = [
     /\bclaude.*haiku\b/i,
     /\bhaiku-[34](?:[-.]|$)/i,
+    /\bgpt-5-(?:mini|nano)\b/i,
     /\bgpt-4o-mini\b/i,
     /\bgpt-4\.1-(?:mini|nano)\b/i,
     /\bgpt-3\.5\b/i,

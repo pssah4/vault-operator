@@ -6,6 +6,7 @@ export default defineConfig({
         environment: 'node',
         include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
         globals: false,
+        setupFiles: [path.resolve(__dirname, 'src/__test-stubs__/safeFsSetup.ts')],
     },
     resolve: {
         alias: {

@@ -5,7 +5,7 @@
  * Used by RenderPresentationTool and Visual Intelligence Settings Tab.
  */
 
-import { spawn } from 'child_process';
+import { spawnAllowed } from '../security/spawnAllowlist';
 
 export interface LibreOfficeStatus {
     found: boolean;
@@ -37,13 +37,13 @@ let cachedResult: LibreOfficeStatus | null = null;
 function resolveBinary(name: string): Promise<string | null> {
     const cmd = process.platform === 'win32' ? 'where' : 'which';
     return new Promise((resolve) => {
-        const child = spawn(cmd, [name], {
-            shell: false,
+        const child = spawnAllowed(cmd, [name], {
             timeout: 5_000,
             stdio: ['ignore', 'pipe', 'pipe'],
         });
         let stdout = '';
-        child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+        // stdio is ['ignore', 'pipe', 'pipe'] above, so stdout/stderr cannot be null here.
+        child.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
         child.on('close', (code: number | null) => {
             if (code === 0 && stdout.trim()) {
                 resolve(stdout.trim().split('\n')[0]);
@@ -58,8 +58,7 @@ function resolveBinary(name: string): Promise<string | null> {
 /** Check if a file exists by trying to spawn a version check */
 function checkPath(path: string): Promise<boolean> {
     return new Promise((resolve) => {
-        const child = spawn(path, ['--version'], {
-            shell: false,
+        const child = spawnAllowed(path, ['--version'], {
             timeout: 5_000,
             stdio: ['ignore', 'pipe', 'pipe'],
         });

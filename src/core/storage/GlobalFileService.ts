@@ -13,7 +13,7 @@
  */
 
 import type { FileAdapter } from './types';
-import fsModule from 'fs';
+import * as fsModule from '../security/safeFs';
 import osModule from 'os';
 import pathModule from 'path';
 
@@ -42,9 +42,12 @@ export class GlobalFileService implements FileAdapter {
         const baseDir = vaultBasePath ? pathModule.dirname(vaultBasePath) : osModule.homedir();
 
         // Prefer existing legacy folders if they exist (preserves user data).
+        // probePathExists is the documented bypass for this case -- the
+        // candidate paths live in the vault-parent and may not be in the
+        // allowlist on every install layout.
         for (const legacy of LEGACY_GLOBAL_DIR_NAMES) {
             const candidate = pathModule.join(baseDir, legacy);
-            if (fsModule.existsSync(candidate)) {
+            if (fsModule.probePathExists(candidate)) {
                 this.root = candidate;
                 return;
             }

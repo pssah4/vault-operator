@@ -15,7 +15,7 @@
  *   7. Audit trail (OperationLogger)
  */
 
-import { spawn } from 'child_process';
+import { spawnAllowed } from '../../security/spawnAllowlist';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
@@ -28,13 +28,13 @@ async function resolveBinary(name: string): Promise<string | null> {
     const cmd = process.platform === 'win32' ? 'where' : 'which';
 
     return new Promise((resolve) => {
-        const child = spawn(cmd, [name], {
-            shell: false,
+        const child = spawnAllowed(cmd, [name], {
             timeout: 5_000,
             stdio: ['ignore', 'pipe', 'pipe'],
         });
         let stdout = '';
-        child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+        // stdio is ['ignore', 'pipe', 'pipe'], so child.stdout cannot be null.
+        child.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
         child.on('close', (code: number | null) => {
             if (code === 0 && stdout.trim()) {
                 resolve(stdout.trim().split('\n')[0]); // First result
@@ -215,9 +215,8 @@ export class ExecuteRecipeTool extends BaseTool<'execute_recipe'> {
         recipe: { timeout: number; maxOutputSize: number },
     ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
         return new Promise((resolve, reject) => {
-            const child = spawn(binaryPath, args, {
+            const child = spawnAllowed(binaryPath, args, {
                 cwd: vaultRoot,
-                shell: false,
                 timeout: recipe.timeout,
                 env: buildSubprocessEnv(),
                 stdio: ['ignore', 'pipe', 'pipe'],
@@ -230,7 +229,8 @@ export class ExecuteRecipeTool extends BaseTool<'execute_recipe'> {
             let stderrSize = 0;
             const maxSize = recipe.maxOutputSize;
 
-            child.stdout.on('data', (data: Buffer) => {
+            // stdio is ['ignore', 'pipe', 'pipe'], so stdout/stderr cannot be null.
+            child.stdout?.on('data', (data: Buffer) => {
                 if (stdoutSize < maxSize) {
                     const chunk = data.toString();
                     stdout += chunk;
@@ -241,7 +241,7 @@ export class ExecuteRecipeTool extends BaseTool<'execute_recipe'> {
                 }
             });
 
-            child.stderr.on('data', (data: Buffer) => {
+            child.stderr?.on('data', (data: Buffer) => {
                 if (stderrSize < maxSize) {
                     const chunk = data.toString();
                     stderr += chunk;

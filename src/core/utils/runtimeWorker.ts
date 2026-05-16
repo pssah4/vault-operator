@@ -25,7 +25,7 @@
  */
 
 import type { Plugin } from 'obsidian';
-import * as fs from 'fs';
+import * as safeFs from '../security/safeFs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
@@ -71,16 +71,16 @@ export function ensureRuntimeWorker(plugin: Plugin, name: string, code: string):
     // Cache hit: sidecar matches the SHA of the inlined code AND the
     // worker file is still on disk. Both conditions cheap to check.
     try {
-        const installedSha = fs.readFileSync(sidecarAbs, 'utf-8').trim();
-        if (installedSha === expectedSha && fs.existsSync(fileAbs)) {
+        const installedSha = safeFs.readFileSync(sidecarAbs, 'utf-8').trim();
+        if (installedSha === expectedSha && safeFs.existsSync(fileAbs)) {
             return fileAbs;
         }
     } catch {
         // sidecar missing or unreadable -- fall through to rewrite
     }
 
-    fs.mkdirSync(dirAbs, { recursive: true });
-    fs.writeFileSync(fileAbs, code, 'utf-8');
-    fs.writeFileSync(sidecarAbs, expectedSha, 'utf-8');
+    safeFs.mkdirSync(dirAbs, { recursive: true });
+    safeFs.writeFileSync(fileAbs, code, 'utf-8');
+    safeFs.writeFileSync(sidecarAbs, expectedSha, 'utf-8');
     return fileAbs;
 }

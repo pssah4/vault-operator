@@ -17,6 +17,8 @@ import { handleToolCall } from './tools/index';
 import { RelayClient } from './RelayClient';
 import { buildPrompts } from './prompts/systemContext';
 import { validateMcpVaultPath } from './tools/mcpPathValidation';
+import * as safeFs from '../core/security/safeFs';
+import { spawnAllowed, spawnAllowedSync } from '../core/security/spawnAllowlist';
 
 const DEFAULT_PORT = 27182;
 
@@ -401,17 +403,15 @@ export class McpBridge {
      */
     private writeMcpTokenFile(): void {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports -- fs only via dynamic require in Electron renderer
-            const fs = require('fs') as typeof import('fs');
-            // eslint-disable-next-line @typescript-eslint/no-require-imports -- path only via dynamic require in Electron renderer
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- path/os are pure helpers; fs surface is via safeFs
             const nodePath = require('path') as typeof import('path');
-            // eslint-disable-next-line @typescript-eslint/no-require-imports -- os only via dynamic require in Electron renderer
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- path/os are pure helpers
             const os = require('os') as typeof import('os');
             const tokenDir = nodePath.join(os.homedir(), '.obsidian-agent');
-            if (!fs.existsSync(tokenDir)) fs.mkdirSync(tokenDir, { recursive: true });
+            if (!safeFs.existsSync(tokenDir)) safeFs.mkdirSync(tokenDir, { recursive: true });
             // mode 0o600: owner-only read/write on Unix; silently ignored on Windows
             // (Windows relies on user-profile directory ACLs for protection)
-            fs.writeFileSync(
+            safeFs.writeFileSync(
                 nodePath.join(tokenDir, 'mcp-token'),
                 this.plugin.settings.mcpServerToken,
                 { mode: 0o600 },
@@ -459,20 +459,18 @@ export class McpBridge {
         if (this.tunnelProcess) return;
         this.onTunnelUrl = onUrl ?? null;
 
-        // eslint-disable-next-line @typescript-eslint/no-require-imports, security/detect-child-process -- child_process in Electron
-        const cp = require('child_process') as typeof import('child_process');
-
-        // Check if cloudflared is available
-        try {
-            const which = process.platform === 'win32' ? 'where' : 'which';
-            cp.execSync(`${which} cloudflared`, { encoding: 'utf-8', timeout: 3000 });
-        } catch {
+        // Check if cloudflared is available. All child_process access goes through
+        // spawnAllowlist (FEAT-28-02), which enforces shell: false and rejects
+        // any binary outside the seven-entry allowlist.
+        const which = process.platform === 'win32' ? 'where' : 'which';
+        const probe = spawnAllowedSync(which, ['cloudflared'], { encoding: 'utf-8', timeout: 3000 });
+        if (probe.status !== 0) {
             console.warn('[McpBridge] cloudflared not found. Install via: brew install cloudflared');
             return;
         }
 
         console.debug('[McpBridge] Starting Cloudflare Tunnel...');
-        this.tunnelProcess = cp.spawn('cloudflared', ['tunnel', '--url', `http://127.0.0.1:${this.port}`], {
+        this.tunnelProcess = spawnAllowed('cloudflared', ['tunnel', '--url', `http://127.0.0.1:${this.port}`], {
             stdio: ['ignore', 'pipe', 'pipe'],
         });
 

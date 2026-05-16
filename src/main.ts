@@ -19,6 +19,7 @@ import { ToolExecutionPipeline } from './core/tool-execution/ToolExecutionPipeli
 import { IgnoreService } from './core/governance/IgnoreService';
 import { OperationLogger } from './core/governance/OperationLogger';
 import { GlobalFileService } from './core/storage/GlobalFileService';
+import * as safeFs from './core/security/safeFs';
 import { getPluginSkillsDir } from './core/utils/agentFolder';
 import { GlobalSettingsService } from './core/storage/GlobalSettingsService';
 import { GlobalMigrationService } from './core/storage/GlobalMigrationService';
@@ -334,6 +335,46 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.ringBuffer.install();
 
         console.debug('Loading Vault Operator plugin');
+
+        // 0-pre-pre. safeFs allowlist. Every fs operation in the plugin goes
+        // through src/core/security/safeFs.ts; this initialise call defines
+        // the five categories of paths the plugin is allowed to touch. See
+        // SECURITY.md for the threat model and FEAT-28-01 for the spec.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- one-time path/os import for safeFs allowlist construction; the rest of the plugin uses safeFs and not direct fs
+        const nodePath = require('path') as typeof import('path');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- one-time os import for safeFs allowlist construction
+        const nodeOs = require('os') as typeof import('os');
+        const safeFsVaultRoot = (this.app.vault.adapter as unknown as { getBasePath?(): string }).getBasePath?.() ?? '';
+        const homeDir = nodeOs.homedir();
+        const appData = process.env.APPDATA ?? '';
+        const desktopConfigDirs = [
+            nodePath.join(homeDir, '.config', 'Claude'),
+            nodePath.join(homeDir, 'Library', 'Application Support', 'Claude'),
+            appData ? nodePath.join(appData, 'Claude') : '',
+            nodePath.join(homeDir, '.obsidian-agent'),
+            nodePath.join(homeDir, 'vault-operator-shared'),
+        ].filter((p): p is string => p.length > 0);
+        // Fallback: when vaultBasePath is unavailable (mobile, headless,
+        // FileSystemAdapter missing) the plugin still needs SOME root the
+        // wrapper can validate against. Use the home dir as a coarse fallback;
+        // the plugin is desktop-only so this path is rare.
+        const effectiveVaultRoot = safeFsVaultRoot || homeDir;
+        const vaultParent = safeFsVaultRoot ? nodePath.dirname(safeFsVaultRoot) : homeDir;
+        safeFs.initialize({
+            vaultRoot: effectiveVaultRoot,
+            pluginDataDir: nodePath.join(effectiveVaultRoot, this.app.vault.configDir, 'plugins', this.manifest.id),
+            agentConfigDir: nodePath.join(effectiveVaultRoot, '.obsilo-vault'),
+            systemTempDir: nodeOs.tmpdir(),
+            desktopConfigDirs,
+            extraRoots: [
+                // Cross-vault shared dir lives at {vault-parent}/<name>/ (FEATURE-1508).
+                // Fresh installs use `vault-operator-shared`; legacy names are
+                // detected at runtime by GlobalFileService and kept in place.
+                nodePath.join(vaultParent, 'vault-operator-shared'),
+                nodePath.join(vaultParent, 'obsilo-shared'),
+                nodePath.join(vaultParent, '.obsidian-agent'),
+            ],
+        });
 
         // 0-pre. Rebrand migration: the plugin id changed from `obsilo-agent` to
         // `vault-operator` (the Obsidian community-plugin review bot rejects any
@@ -3042,11 +3083,9 @@ export default class ObsidianAgentPlugin extends Plugin {
      * and knowledge.db to {vault}/.obsidian-agent/. One-time, idempotent.
      */
     private async migrateToParentDir(vaultBasePath: string): Promise<void> {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic import('fs') fails in Electron ("Failed to resolve module specifier 'fs'"), FIX-17
-        const fs = require('fs') as typeof import('fs');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- FIX-17
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- path/os are pure helpers, no fs surface
         const path = require('path') as typeof import('path');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- FIX-17
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- path/os are pure helpers
         const os = require('os') as typeof import('os');
 
         const oldRoot = path.join(os.homedir(), '.obsidian-agent');
@@ -3057,7 +3096,7 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Skip if old root doesn't exist
         try {
-            await fs.promises.access(oldRoot);
+            await safeFs.promises.access(oldRoot);
         } catch {
             console.debug('[Plugin] No legacy ~/.obsidian-agent/ found — skip migration');
             // Still clean up legacy vault dirs
@@ -3066,7 +3105,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         }
 
         console.debug(`[Plugin] Migrating storage: ${oldRoot} -> ${newRoot}`);
-        await fs.promises.mkdir(newRoot, { recursive: true });
+        await safeFs.promises.mkdir(newRoot, { recursive: true });
 
         // Copy directories
         const dirsToMigrate = ['memory', 'history', 'logs', 'rules', 'skills', 'workflows'];
@@ -3075,10 +3114,10 @@ export default class ObsidianAgentPlugin extends Plugin {
             const src = path.join(oldRoot, dir);
             const dst = path.join(newRoot, dir);
             try {
-                await fs.promises.access(src);
+                await safeFs.promises.access(src);
                 // Only copy if destination doesn't exist (don't overwrite)
-                try { await fs.promises.access(dst); } catch {
-                    await fs.promises.cp(src, dst, { recursive: true });
+                try { await safeFs.promises.access(dst); } catch {
+                    await safeFs.promises.cp(src, dst, { recursive: true });
                     migrated++;
                 }
             } catch { /* source dir doesn't exist — skip */ }
@@ -3090,9 +3129,9 @@ export default class ObsidianAgentPlugin extends Plugin {
             const src = path.join(oldRoot, file);
             const dst = path.join(newRoot, file);
             try {
-                await fs.promises.access(src);
-                try { await fs.promises.access(dst); } catch {
-                    await fs.promises.copyFile(src, dst);
+                await safeFs.promises.access(src);
+                try { await safeFs.promises.access(dst); } catch {
+                    await safeFs.promises.copyFile(src, dst);
                     migrated++;
                 }
             } catch { /* skip */ }
@@ -3102,10 +3141,10 @@ export default class ObsidianAgentPlugin extends Plugin {
         const oldKnowledgeDb = path.join(oldRoot, 'knowledge.db');
         const newKnowledgeDb = path.join(vaultBasePath, '.obsilo-vault', 'knowledge.db');
         try {
-            await fs.promises.access(oldKnowledgeDb);
-            await fs.promises.mkdir(path.dirname(newKnowledgeDb), { recursive: true });
-            try { await fs.promises.access(newKnowledgeDb); } catch {
-                await fs.promises.copyFile(oldKnowledgeDb, newKnowledgeDb);
+            await safeFs.promises.access(oldKnowledgeDb);
+            await safeFs.promises.mkdir(path.dirname(newKnowledgeDb), { recursive: true });
+            try { await safeFs.promises.access(newKnowledgeDb); } catch {
+                await safeFs.promises.copyFile(oldKnowledgeDb, newKnowledgeDb);
                 migrated++;
                 console.debug('[Plugin] Migrated knowledge.db to vault-local');
             }
@@ -3117,9 +3156,9 @@ export default class ObsidianAgentPlugin extends Plugin {
         //  We fall through with whichever path actually exists.)
         const newMemoryDb = path.join(newRoot, 'memory.db');
         try {
-            await fs.promises.access(oldMemoryDb);
-            try { await fs.promises.access(newMemoryDb); } catch {
-                await fs.promises.copyFile(oldMemoryDb, newMemoryDb);
+            await safeFs.promises.access(oldMemoryDb);
+            try { await safeFs.promises.access(newMemoryDb); } catch {
+                await safeFs.promises.copyFile(oldMemoryDb, newMemoryDb);
                 migrated++;
                 console.debug('[Plugin] Migrated memory.db to vault-parent');
             }

@@ -3,7 +3,8 @@ import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
 import * as path from 'path';
 import * as os from 'os';
-import * as fs from 'fs';
+import * as safeFs from '../../core/security/safeFs';
+import { spawnAllowedSync } from '../../core/security/spawnAllowlist';
 import { ENV_APPDATA, readEnv } from '../../util/envKeys';
 
 export class McpTab {
@@ -425,14 +426,14 @@ export class McpTab {
 
             const configPath = path.join(configDir, 'claude_desktop_config.json');
             let config: Record<string, unknown> = {};
-            try { config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* new file */ }
+            try { config = JSON.parse(safeFs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* new file */ }
 
             const servers = (config['mcpServers'] ?? {}) as Record<string, unknown>;
             servers['Vault Operator'] = { command: this.findNodePath(), args: [this.getWorkerPath()] };
             config['mcpServers'] = servers;
 
-            fs.mkdirSync(configDir, { recursive: true });
-            fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+            safeFs.mkdirSync(configDir, { recursive: true });
+            safeFs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
             new Notice('Configuration saved. Restart your desktop client to connect.');
         } catch (e) {
             new Notice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -448,15 +449,12 @@ export class McpTab {
     }
 
     private findNodePath(): string {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports, security/detect-child-process -- child_process needed for node path discovery in Electron
-        const cp = require('child_process') as typeof import('child_process');
         const which = process.platform === 'win32' ? 'where' : 'which';
         const candidates: string[] = [];
         try {
-            // AUDIT-007 M-5: Use spawnSync with args array instead of execSync shell string
-            const result = cp.spawnSync(which, ['node'], { encoding: 'utf-8', timeout: 3000, shell: false });
+            const result = spawnAllowedSync(which, ['node'], { encoding: 'utf-8', timeout: 3000 });
             if (result.status === 0 && result.stdout) {
-                candidates.push(result.stdout.trim().split('\n')[0].trim());
+                candidates.push(String(result.stdout).trim().split('\n')[0].trim());
             }
         } catch { /* fallback */ }
         if (process.platform === 'win32') {
@@ -466,12 +464,13 @@ export class McpTab {
             candidates.push('/usr/local/bin/node', '/opt/homebrew/bin/node', `${os.homedir()}/.nvm/current/bin/node`);
         }
         for (const c of candidates) {
-            if (!c || !fs.existsSync(c)) continue;
-            // M-6: Validate the binary is actually Node.js
+            // Candidate paths live outside the safeFs allowlist (system bin dirs).
+            // probeBinaryExists is the documented bypass for that exact case
+            // and returns a boolean only.
+            if (!c || !safeFs.probeBinaryExists(c)) continue;
             try {
-                // AUDIT-007 M-5: Use spawnSync instead of execSync
-                const versionResult = cp.spawnSync(c, ['--version'], { encoding: 'utf-8', timeout: 3000, shell: false });
-                const version = versionResult.stdout?.trim() ?? '';
+                const versionResult = spawnAllowedSync(c, ['--version'], { encoding: 'utf-8', timeout: 3000 });
+                const version = String(versionResult.stdout ?? '').trim();
                 if (version.startsWith('v')) return c;
             } catch { /* not a valid node binary */ }
         }

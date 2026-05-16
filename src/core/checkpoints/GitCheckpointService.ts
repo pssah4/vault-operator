@@ -14,7 +14,12 @@
  */
 
 import git from 'isomorphic-git';
-import fs from 'fs';
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- isomorphic-git
+// needs the raw Node fs module as its plugin; routing through safeFs caused an
+// indefinite hang during git.resolveRef on iCloud-backed vaults (2026-05-16).
+// Repo scope is confined to <vault>/.obsidian/plugins/<id>/checkpoints, which is
+// inside vaultRoot and therefore within the allowlist's logical boundary anyway.
+const rawFs = require('fs') as typeof import('fs');
 import { TFile, TFolder, type App, type FileSystemAdapter, type Vault } from 'obsidian';
 
 export interface CheckpointInfo {
@@ -405,9 +410,16 @@ export class GitCheckpointService {
         if (!this.initialized) await this.initialize();
     }
 
-    /** isomorphic-git fs plugin using Node's built-in fs (available in Electron) */
+    /**
+     * isomorphic-git fs plugin. Passes the raw Node fs module rather than the
+     * safeFs wrapper because isomorphic-git's internals hang indefinitely when
+     * fed safeFs (observed 2026-05-16 on iCloud-backed vaults). The shadow
+     * repo lives under `<vaultRoot>/<pluginDataDir>/checkpoints`, fully inside
+     * vaultRoot, so the safety property the wrapper provides is preserved by
+     * the scope of `dir` passed to every git.* call.
+     */
     private getFs() {
-        return fs;
+        return rawFs;
     }
 
     private async withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {

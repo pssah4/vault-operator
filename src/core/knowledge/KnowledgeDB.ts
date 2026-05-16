@@ -19,7 +19,7 @@
 
 import type { Vault } from 'obsidian';
 import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from '../security/safeFs';
 import { WriterLock, WriterLockHeldError } from '../persistence/WriterLock';
 
 export { WriterLockHeldError } from '../persistence/WriterLock';

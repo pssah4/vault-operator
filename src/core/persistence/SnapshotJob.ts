@@ -16,7 +16,7 @@
  * ADR-079, FEATURE-0314.
  */
 
-import * as fs from 'fs';
+import * as fs from '../security/safeFs';
 import * as path from 'path';
 
 const SNAPSHOT_DIR = '.bak';

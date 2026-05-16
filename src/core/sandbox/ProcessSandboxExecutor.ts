@@ -15,6 +15,8 @@ import type { ChildProcess } from 'child_process';
 import type ObsidianAgentPlugin from '../../main';
 import type { ISandboxExecutor } from './ISandboxExecutor';
 import { SandboxBridge } from './SandboxBridge';
+import * as safeFs from '../security/safeFs';
+import { spawnAllowed, spawnAllowedSync } from '../security/spawnAllowlist';
 import {
     ENV_HOME,
     ENV_USERPROFILE,
@@ -148,14 +150,10 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
             throw new Error(`Sandbox worker failed to start after ${ProcessSandboxExecutor.MAX_RESPAWNS} attempts`);
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-require-imports, security/detect-child-process -- child_process only via dynamic require in Electron renderer (same pattern as SafeStorageService)
-        const cp = require('child_process') as typeof import('child_process');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- fs only via dynamic require in Electron renderer context
-        const fs = require('fs') as typeof import('fs');
         const workerPath = this.getWorkerPath();
         console.debug(`[ProcessSandbox] Spawning worker: ${workerPath}`);
 
-        if (!fs.existsSync(workerPath)) {
+        if (!safeFs.existsSync(workerPath)) {
             this.readyPromise = null;
             throw new Error(`Sandbox worker not found: ${workerPath}`);
         }
@@ -163,10 +161,10 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
         // Obsidian's binary is a custom wrapper that ignores ELECTRON_RUN_AS_NODE=1,
         // so fork() (which uses process.execPath) doesn't work. Use spawn() with
         // system node binary instead. IPC channel via stdio 'ipc' slot.
-        const nodePath = this.findNodeBinary(cp);
+        const nodePath = this.findNodeBinary();
         console.debug(`[ProcessSandbox] Using node: ${nodePath}`);
 
-        this.worker = cp.spawn(nodePath, [
+        this.worker = spawnAllowed(nodePath, [
             `--max-old-space-size=${ProcessSandboxExecutor.HEAP_LIMIT_MB}`,
             workerPath,
         ], {
@@ -299,19 +297,20 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
         }
     }
 
-    private findNodeBinary(cp: typeof import('child_process')): string {
-        // Try common locations — Obsidian's process.execPath is a custom wrapper
-        // that ignores ELECTRON_RUN_AS_NODE, so we need the real node binary.
+    private findNodeBinary(): string {
+        // Obsidian's process.execPath is a custom wrapper that ignores
+        // ELECTRON_RUN_AS_NODE, so we need the real node binary. Discovery is
+        // via the spawn-allowlist (which / where), and the existence probe on
+        // fallback candidates goes through the documented safeFs binary-probe.
         const which = process.platform === 'win32' ? 'where' : 'which';
         try {
-            const result = cp.execSync(`${which} node`, { encoding: 'utf-8', timeout: 3000 });
-            const nodePath = result.trim().split('\n')[0].trim(); // 'where' on Windows may return multiple lines
-            if (nodePath) return nodePath;
+            const result = spawnAllowedSync(which, ['node'], { encoding: 'utf-8', timeout: 3000 });
+            if (result.status === 0 && result.stdout) {
+                const nodePath = String(result.stdout).trim().split('\n')[0].trim();
+                if (nodePath) return nodePath;
+            }
         } catch { /* which/where failed */ }
 
-        // Fallback: platform-specific common paths
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- fs only via dynamic require in Electron renderer context
-        const fs = require('fs') as typeof import('fs');
         const homedir = readEnv(ENV_HOME) ?? readEnv(ENV_USERPROFILE) ?? '';
         const candidates = process.platform === 'win32'
             ? [
@@ -325,7 +324,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
                 `${homedir}/.nvm/current/bin/node`,
             ];
         for (const c of candidates) {
-            if (c && fs.existsSync(c)) return c;
+            if (c && safeFs.probeBinaryExists(c)) return c;
         }
 
         throw new Error('Node.js binary not found. ProcessSandbox requires node in PATH.');

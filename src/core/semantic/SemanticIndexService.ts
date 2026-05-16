@@ -22,7 +22,7 @@ import type { KnowledgeDB } from '../knowledge/KnowledgeDB';
 import type { VectorStore } from '../knowledge/VectorStore';
 import type { ApiHandler } from '../../api/types';
 import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from '../security/safeFs';
 
 // ---------------------------------------------------------------------------
 // Public interfaces

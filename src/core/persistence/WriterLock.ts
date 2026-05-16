@@ -23,7 +23,7 @@
  * ADR-079 Cloud-Sync-Abwehr, FEATURE-0314.
  */
 
-import * as fs from 'fs';
+import * as fs from '../security/safeFs';
 import * as path from 'path';
 
 const LOCK_FILENAME = '.obsilo-lock';
