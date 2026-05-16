@@ -1,6 +1,6 @@
 {
   "name": "vault-operator",
-  "version": "2.10.4",
+  "version": "2.11.0",
   "description": "Agentic AI operating layer for your vault. Discovers and uses installed plugins, maintains persistent unified memory, and adapts to your workflows, skills and tools with full safety controls.",
   "main": "main.js",
   "scripts": {

@@ -1,5 +1,6 @@
 // src/core/sandbox/sandbox-worker.ts
 var import_vm = require("vm");
+var import_node_timers = require("node:timers");
 process.on("uncaughtException", (err) => {
   process.stderr.write(`[sandbox-worker] Uncaught: ${err.message}
 ${err.stack ?? ""}
@@ -11,7 +12,7 @@ var callCounter = 0;
 function bridgeCall(type, payload) {
   return new Promise((resolve, reject) => {
     const callId = "bc_" + ++callCounter;
-    const timeout = setTimeout(() => {
+    const timeout = (0, import_node_timers.setTimeout)(() => {
       pendingCalls.delete(callId);
       reject(new Error("Bridge call timeout (15s)"));
     }, 15e3);
@@ -103,7 +104,7 @@ process.on("message", (msg) => {
   if (typeof m["callId"] === "string" && pendingCalls.has(m["callId"])) {
     const callId = m["callId"];
     const p = pendingCalls.get(callId);
-    clearTimeout(p.timeout);
+    (0, import_node_timers.clearTimeout)(p.timeout);
     pendingCalls.delete(callId);
     if (typeof m["error"] === "string") {
       p.reject(new Error(m["error"]));

@@ -7,6 +7,9 @@ import type { MessageParam, ContentBlock } from '../api/types';
 import { getModelKey, getFirstEnabledModelKey, modelToLLMProvider } from '../types/settings';
 import { buildApiHandler, buildApiHandlerForModel } from '../api/index';
 import { ToolPickerPopover } from './sidebar/ToolPickerPopover';
+import { ChatModelPickerPopover } from './sidebar/ChatModelPickerPopover';
+import { resolveOverrideModel } from './sidebar/chatModelDropdown';
+import { providerConfigToCustomModel, resolveActiveProvider } from '../core/routing/tierResolution';
 import { TOOL_METADATA } from '../core/tools/toolMetadata';
 import { AttachmentHandler } from './sidebar/AttachmentHandler';
 import type { AttachmentItem } from './sidebar/AttachmentHandler';
@@ -14,7 +17,6 @@ import { AutocompleteHandler } from './sidebar/AutocompleteHandler';
 import { VaultFilePicker } from './sidebar/VaultFilePicker';
 import { CommandPicker, type CommandPickerItem } from './sidebar/CommandPicker';
 import { resolveObsidianDraggedFiles } from './sidebar/dragManagerBridge';
-import { VAULT_OPERATOR_LOGO_DATA_URI } from './vaultOperatorLogo';
 import { HistoryPanel } from './sidebar/HistoryPanel';
 import type { UiMessage } from '../core/history/ConversationStore';
 import { MemoryRetriever } from '../core/memory/MemoryRetriever';
@@ -52,6 +54,15 @@ export class AgentSidebarView extends ItemView {
     private textarea: HTMLTextAreaElement | null = null;
     private modeButton: HTMLElement | null = null;
     private modelButton: HTMLButtonElement | null = null;
+    /**
+     * EPIC-26 / FEAT-26-05: per-turn chat-header override.
+     * null  -> Auto (advisor pattern, tier-resolved main loop)
+     * string -> explicit model id on the active provider (advisor off for this turn)
+     * Reset to null when the active provider changes.
+     */
+    private chatModelOverride: string | null = null;
+    /** EPIC-26 / FEAT-26-05: searchable popover for picking the chat-header model. */
+    private chatModelPicker: ChatModelPickerPopover | null = null;
     private sendButton: HTMLElement | null = null;
     private stopButton: HTMLElement | null = null;
     private contextBadgeContainer: HTMLElement | null = null;
@@ -208,12 +219,9 @@ export class AgentSidebarView extends ItemView {
         const header = container.createDiv('agent-header');
 
         const titleRow = header.createDiv('agent-title');
-        titleRow.createEl('img', {
-            cls: 'agent-title-logo',
-            attr: {
-                src: VAULT_OPERATOR_LOGO_DATA_URI,
-                alt: t('ui.sidebar.title'),
-            },
+        titleRow.createSpan({
+            cls: 'agent-title-wordmark',
+            text: '/ Vault Operator',
         });
 
         const headerRight = header.createDiv('agent-header-right');
@@ -463,13 +471,13 @@ export class AgentSidebarView extends ItemView {
         const toolbarLeft = toolbar.createDiv('chat-toolbar-left');
         const toolbarRight = toolbar.createDiv('chat-toolbar-right');
 
-        // Mode button (left)
-        this.modeButton = toolbarLeft.createEl('button', {
-            cls: 'toolbar-button mode-button',
-            attr: { 'aria-label': t('ui.sidebar.selectMode') },
-        });
-        this.updateModeButton();
-        this.modeButton.addEventListener('click', (e) => this.showModeMenu(e));
+        // EPIC-26 / FEAT-26-05: Mode switcher removed from the chat header.
+        // The Agent/Ask dropdown was never used in practice (see memory
+        // `feedback_modes_unused.md`); skills + Provider-only setup cover
+        // the surface area better. The mode backend stays functional --
+        // currentMode setting, ModeService, switch_mode tool are unchanged
+        // -- only the UI trigger goes away. Default mode is Agent.
+        this.modeButton = null;
 
         // Model button (left, after mode)
         this.modelButton = toolbarLeft.createEl('button', {
@@ -704,15 +712,41 @@ export class AgentSidebarView extends ItemView {
     private updateModelButton(): void {
         if (!this.modelButton) return;
         this.modelButton.empty();
-        const effectiveKey = this.getEffectiveModelKey();
-        const model = this.plugin.settings.activeModels.find((m) => getModelKey(m) === effectiveKey);
-        const label = model ? (model.displayName ?? model.name) : t('ui.sidebar.noModel');
-        const hasModeOverride = !!this.plugin.settings.modeModelKeys?.[this.plugin.settings.currentMode];
+        // EPIC-26 / FEAT-26-05: when a provider is active, the button
+        // shows either "Auto" (default) or the explicit override id.
+        const activeProvider = resolveActiveProvider(this.plugin.settings);
+        let label: string;
+        let title: string;
+        if (activeProvider) {
+            if (this.chatModelOverride === null) {
+                label = t('ui.sidebar.modelAuto');
+                title = t('ui.sidebar.modelAutoTitle');
+            } else {
+                const m = resolveOverrideModel(activeProvider, this.chatModelOverride);
+                // Chat-header is narrow -- keep the label short:
+                // displayName when available, otherwise the bare model name
+                // (normalized to strip vendor/region/version prefixes so e.g.
+                // "anthropic/claude-opus-4-6" or "eu.anthropic.claude-opus-4-6-v1"
+                // collapses to "claude-opus-4-6"). Full id stays in the tooltip.
+                const shortName = m?.displayName
+                    ?? this.shortenModelId(this.chatModelOverride);
+                label = shortName;
+                title = t('ui.sidebar.modelOverrideTitle', { label: this.chatModelOverride });
+            }
+        } else {
+            // Legacy / pre-migration path: read the flat activeModels[] selection.
+            const effectiveKey = this.getEffectiveModelKey();
+            const model = this.plugin.settings.activeModels.find((m) => getModelKey(m) === effectiveKey);
+            label = model ? (model.displayName ?? model.name) : t('ui.sidebar.noModel');
+            const hasModeOverride = !!this.plugin.settings.modeModelKeys?.[this.plugin.settings.currentMode];
+            title = hasModeOverride ? t('ui.sidebar.modeOverride', { label }) : label;
+        }
         this.modelButton.createSpan('model-label').setText(label);
         setIcon(this.modelButton.createSpan('mode-chevron'), 'chevron-down');
-        this.modelButton.title = hasModeOverride
-            ? t('ui.sidebar.modeOverride', { label })
-            : label;
+        this.modelButton.title = title;
+        // Use the effective key for context-tracker logic below.
+        const effectiveKey = this.getEffectiveModelKey();
+        const model = this.plugin.settings.activeModels.find((m) => getModelKey(m) === effectiveKey);
 
         // Update context tracker when model changes
         if (this.contextTracker && model) {
@@ -732,6 +766,15 @@ export class AgentSidebarView extends ItemView {
     }
 
     private showModelMenu(event: MouseEvent): void {
+        // EPIC-26 / FEAT-26-05: when a provider is active, show Auto + the
+        // provider's discovered models. Otherwise (pre-migration / fresh
+        // install) fall back to the legacy flat model list.
+        const activeProvider = resolveActiveProvider(this.plugin.settings);
+        if (activeProvider) {
+            this.showProviderModelMenu(event, activeProvider);
+            return;
+        }
+
         const enabled = this.plugin.settings.activeModels.filter((m) => m.enabled);
         const menu = new Menu();
         const modeSlug = this.plugin.settings.currentMode;
@@ -784,6 +827,44 @@ export class AgentSidebarView extends ItemView {
         }
 
         menu.showAtMouseEvent(event);
+    }
+
+    /**
+     * EPIC-26 / FEAT-26-05: short-label helper for the chat-header model
+     * button. Strips OpenRouter vendor prefix ("anthropic/...") and
+     * Bedrock region + vendor + version wrappers so the button stays
+     * narrow. Display name is preferred upstream of this helper; this
+     * runs as a last-resort fallback.
+     */
+    private shortenModelId(id: string): string {
+        let s = id;
+        if (s.includes('/')) s = s.split('/').pop() ?? s;
+        const m = s.match(/(?:^|\.)(?:anthropic|amazon|meta|mistral|cohere|ai21|stability|deepseek|writer|qwen)\.(.+)$/i);
+        if (m) s = m[1];
+        s = s.replace(/-v\d+(?::\d+)?$/i, '').replace(/:\d+$/, '');
+        return s;
+    }
+
+    /**
+     * EPIC-26 / FEAT-26-05: searchable popover when a provider is active.
+     * Bedrock and OpenRouter routinely list 50+ models -- a plain Menu
+     * was not scrollable enough; ChatModelPickerPopover adds a filter
+     * input matching the ToolPicker pattern.
+     */
+    private showProviderModelMenu(event: MouseEvent, provider: import('../types/settings').ProviderConfig): void {
+        if (!this.modelButton) return;
+        if (!this.chatModelPicker) this.chatModelPicker = new ChatModelPickerPopover();
+        if (this.chatModelPicker.isOpen()) {
+            this.chatModelPicker.close();
+            return;
+        }
+        this.chatModelPicker.show(event, this.modelButton, this.containerEl, provider, {
+            getCurrent: () => this.chatModelOverride,
+            onSelect: (overrideId) => {
+                this.chatModelOverride = overrideId;
+                this.updateModelButton();
+            },
+        });
     }
 
     private updateModeButton(): void {
@@ -1440,13 +1521,32 @@ export class AgentSidebarView extends ItemView {
             }
         }
 
-        // Resolve mode-specific model (Sticky Models: each mode remembers its last-used model)
+        // EPIC-26 / FEAT-26-05: per-turn override -- when the chat-header
+        // dropdown has an explicit model picked, build a fresh api handler
+        // for it. Falls through to the legacy mode-model resolution when
+        // override is null (Auto).
+        const activeProvider = resolveActiveProvider(this.plugin.settings);
+        let resolvedApiHandler = this.plugin.apiHandler;
+        let modelOverrideActive = false;
+        if (activeProvider && this.chatModelOverride) {
+            const m = resolveOverrideModel(activeProvider, this.chatModelOverride);
+            if (m) {
+                try {
+                    const cm = providerConfigToCustomModel(activeProvider, m.id, m);
+                    resolvedApiHandler = buildApiHandlerForModel(cm);
+                    modelOverrideActive = true;
+                } catch {
+                    resolvedApiHandler = this.plugin.apiHandler;
+                }
+            }
+        }
+
+        // Legacy mode-specific model resolution (only when no chat override).
         const currentModeSlug = this.modeService.getActiveMode().slug;
         const modeModelKey = this.resolveEnabledModelKey(currentModeSlug);
         const resolvedModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === modeModelKey);
 
-        let resolvedApiHandler = this.plugin.apiHandler;
-        if (resolvedModel && modeModelKey !== this.plugin.settings.activeModelKey) {
+        if (!modelOverrideActive && resolvedModel && modeModelKey !== this.plugin.settings.activeModelKey) {
             // Mode has a different model — build a fresh handler for it
             try {
                 resolvedApiHandler = buildApiHandler(modelToLLMProvider(resolvedModel));
@@ -2231,6 +2331,7 @@ export class AgentSidebarView extends ItemView {
             this.plugin.settings.advancedApi.maxSubtaskDepth ?? 2,
             this.plugin.settings.advancedApi.microcompactionEnabled ?? true,
             this.plugin.settings.advancedApi.rollingSummaryThreshold ?? 50,
+            modelOverrideActive,
         );
 
         // Load enabled rules for this task (Sprint 3.2)

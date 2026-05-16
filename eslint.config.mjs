@@ -24,7 +24,16 @@ const VAULT_OPERATOR_BRANDS = [
     'Marker-Block', 'Frontmatter-Backfill-Job', 'Inbox-Triage', 'MOC-Pflege',
     'MOC-Marker', 'Auto-Trigger-Property', 'Cluster-Kandidaten',
 ];
-const VAULT_OPERATOR_ACRONYMS = [...DEFAULT_ACRONYMS, 'AWS', 'IAM', 'SSO', 'STS', 'EU', 'US', 'OS', 'VPC', 'ARN', 'MOC', 'MOCs', 'BA-25', 'BA-26', 'MCP', 'DB'];
+// EPIC-26: not adding provider names like OpenAI / OpenRouter / Ollama /
+// Anthropic to the brand list -- the rule does CASE-INSENSITIVE matching
+// (collectBrandMatches uses /gi), so "openai.com" in a URL would be flagged
+// as needing brand-canonical "OpenAI" casing. Pre-existing locale strings
+// reference these names via lowercase domains (openai.com, ollama.ai,
+// openrouter.ai). EPIC-26 strings avoid mid-sentence brand mentions instead.
+const VAULT_OPERATOR_ACRONYMS = [...DEFAULT_ACRONYMS, 'AWS', 'IAM', 'SSO', 'STS', 'EU', 'US', 'OS', 'VPC', 'ARN', 'MOC', 'MOCs', 'BA-25', 'BA-26', 'MCP', 'DB',
+    // EPIC-26 -- AI provider acronyms referenced in the new UI copy.
+    'LLM', 'SDK',
+];
 // Proper nouns that should keep their casing in Bedrock-related UI copy but
 // don't belong in the general brand list (they are not branded products).
 // Includes German technical compound nouns (German grammar capitalises all
@@ -34,6 +43,8 @@ const VAULT_OPERATOR_IGNORE_WORDS = [
     'Stores', 'Konsole', 'Cluster', 'Ontologie', 'Settings', 'Plugin',
     'Off', 'On', 'Toggle', 'Refresh', 'Plus', 'Pro',
     'Days', 'Map', 'I', 'DELETE',
+    // EPIC-26: AWS region identifiers used as placeholders.
+    'eu-central-1', 'us-east-1', 'us-west-2',
 ];
 
 export default tseslint.config(

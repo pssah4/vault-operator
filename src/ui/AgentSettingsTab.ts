@@ -4,6 +4,7 @@ import { t } from '../i18n';
 
 // ─── Extracted modules ────────────────────────────────────────────────────────
 import { ModelsTab }      from './settings/ModelsTab';
+import { ProvidersTab }   from './settings/ProvidersTab';
 import { EmbeddingsTab }  from './settings/EmbeddingsTab';
 import { WebSearchTab }   from './settings/WebSearchTab';
 import { ModesTab }       from './settings/ModesTab';
@@ -35,7 +36,7 @@ const HELP_URL = 'https://pssah4.github.io/vault-operator/';
 export class AgentSettingsTab extends PluginSettingTab {
     plugin: ObsidianAgentPlugin;
     private activeTab: TabId = 'providers';
-    private activeProvidersSubTab: string = 'models';
+    private activeProvidersSubTab: string = 'providers';
     private activeAgentSubTab: string = 'modes';
     private activeAdvancedSubTab: string = 'interface';
 
@@ -167,10 +168,15 @@ export class AgentSettingsTab extends PluginSettingTab {
     // ---------------------------------------------------------------------------
 
     private buildProvidersTab(container: HTMLElement): void {
+        // EPIC-26 / FEAT-26-03: the legacy "Models" tab is hidden from the
+        // sub-tab nav. ModelsTab still renders when subTab === 'models'
+        // (e.g. when the OAuth Sign-In flow redirects there), so users
+        // mid-migration are not stranded; the tab simply is not a
+        // first-class entry in the navigation anymore.
         this.buildSubTabNav(
             container,
             [
-                { id: 'models',      label: t('settings.tab.models')     },
+                { id: 'providers',   label: t('settings.tab.providers') },
                 { id: 'embeddings',  label: t('settings.tab.embeddings') },
                 { id: 'web-search',  label: t('settings.tab.webSearch') },
                 { id: 'mcp-servers', label: t('settings.tab.mcp')        },
@@ -180,6 +186,7 @@ export class AgentSettingsTab extends PluginSettingTab {
         );
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
         const rerender = () => this.display();
+        if (this.activeProvidersSubTab === 'providers')   new ProvidersTab(this.plugin, this.app, rerender).build(content);
         if (this.activeProvidersSubTab === 'models')      new ModelsTab(this.plugin, this.app, rerender).build(content);
         if (this.activeProvidersSubTab === 'embeddings')  new EmbeddingsTab(this.plugin, this.app, rerender).build(content);
         if (this.activeProvidersSubTab === 'web-search')  new WebSearchTab(this.plugin, this.app, rerender).build(content);

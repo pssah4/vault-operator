@@ -50,6 +50,8 @@ import {
     getRulesSection,
     getObsidianConventionsSection,
     getCostAwareHeuristicsSection,
+    getCostAwareHeuristicsSectionLean,
+    getPluginSkillsSectionLean,
 } from './prompts/sections';
 
 /**
@@ -117,6 +119,35 @@ export interface SystemPromptConfig {
      * subagent's tool surface as small as the profile demands.
      */
     subagentAllowedTools?: string[];
+    /**
+     * EPIC-26 / FEAT-26-01 / ADR-120: when true AND `consult_flagship` is
+     * available, injects a single-line reminder AFTER the cache breakpoint
+     * marker. Triggered by the AgentTask when consecutiveMistakes >= 2 so
+     * the agent considers escalating instead of looping on the same
+     * mistake.
+     */
+    consultFlagshipReminderActive?: boolean;
+    /**
+     * EPIC-26 / FEAT-26-01: marks that the active tool schema contains
+     * `consult_flagship`. Used together with `consultFlagshipReminderActive`
+     * so the reminder is silent on installs that have no flagship slot.
+     */
+    consultFlagshipAvailable?: boolean;
+    /**
+     * EPIC-26 / FEAT-26-06: render the lean variant of cost-heuristics
+     * (~500 tokens vs the full ~1435). Active when the task runs on the
+     * mid tier without an explicit flagship override. Falls back to the
+     * full variant when not set (backwards-compat for subtask spawns and
+     * tests that build a prompt without the EPIC-26 plumbing).
+     */
+    costHeuristicsLean?: boolean;
+    /**
+     * EPIC-26 / FEAT-26-06: render the lean variant of plugin-skills
+     * (~30 tokens vs the full ~5000). Active when no plugin-skill tool
+     * has been invoked yet in this task and the user message has no
+     * `@`-plugin-mention. Falls back to full on miss.
+     */
+    pluginSkillsLean?: boolean;
 }
 
 /**
@@ -164,6 +195,10 @@ export function buildSystemPromptForMode(
     let mode: ModeConfig;
     let subagentRoleOverride: string | undefined;
     let subagentAllowedTools: string[] | undefined;
+    let consultFlagshipReminderActive = false;
+    let consultFlagshipAvailable = false;
+    let costHeuristicsLean = false;
+    let pluginSkillsLean = false;
     if ('mode' in configOrMode && 'slug' in configOrMode.mode) {
         // Config object form
         const cfg = configOrMode;
@@ -182,6 +217,10 @@ export function buildSystemPromptForMode(
         configDir = cfg.configDir;
         subagentRoleOverride = cfg.subagentRoleOverride;
         subagentAllowedTools = cfg.subagentAllowedTools;
+        consultFlagshipReminderActive = cfg.consultFlagshipReminderActive ?? false;
+        consultFlagshipAvailable = cfg.consultFlagshipAvailable ?? false;
+        costHeuristicsLean = cfg.costHeuristicsLean ?? false;
+        pluginSkillsLean = cfg.pluginSkillsLean ?? false;
     } else {
         // Legacy positional form
         mode = configOrMode as ModeConfig;
@@ -200,7 +239,11 @@ export function buildSystemPromptForMode(
         //     anti-overthinking, sub-agent gating, error recovery, stop
         //     condition, budget awareness). Placed early so the agent reads
         //     the cost rules BEFORE the tool catalogue.
-        getCostAwareHeuristicsSection(),
+        // EPIC-26 / FEAT-26-06: lean variant on auto-mode mid-tier loops
+        // (~500 tokens). Decided at task start; cache-stable per task.
+        costHeuristicsLean
+            ? getCostAwareHeuristicsSectionLean()
+            : getCostAwareHeuristicsSection(),
 
         // 2. Capabilities (compact summary)
         getCapabilitiesSection(webEnabled),
@@ -239,8 +282,19 @@ export function buildSystemPromptForMode(
         // volatile tail below gets no marker. The line is stripped before send.
         CACHE_BREAKPOINT_MARKER,
 
+        // 8c. EPIC-26 / ADR-120: advisor reminder. Below the cache marker so
+        // toggling it on/off does not invalidate the stable prefix.
+        (consultFlagshipReminderActive && consultFlagshipAvailable && !isSubtask)
+            ? '[Advisor Hint] You have had repeated failures. If this problem needs deeper synthesis (architecture / subtle bug / ambiguous spec), consider one consult_flagship call. Budget: 3 per task.'
+            : '',
+
         // 9. Plugin Skills (can change when plugins are enabled/disabled)
-        getPluginSkillsSection(pluginSkillsSection),
+        // EPIC-26 / FEAT-26-06: lean ~30-token replacement when no plugin
+        // skill has been invoked in this task; flips to full once usage
+        // is observed (AgentTask `recentPluginSkillUsage` + @-mention).
+        pluginSkillsLean
+            ? getPluginSkillsSectionLean()
+            : getPluginSkillsSection(pluginSkillsSection),
 
         // 10. User memory (changes across sessions)
         isSubtask ? '' : getMemorySection(memoryContext),
@@ -270,7 +324,7 @@ export function buildSystemPromptForMode(
     const labels = [
         'mode', 'cost-heuristics', 'capabilities', 'obsidian-conv', 'tools', 'tool-routing',
         'objective', 'response-format', 'security', 'skill-directory', 'cache-breakpoint',
-        'plugin-skills', 'memory', 'recipes',
+        'advisor-hint', 'plugin-skills', 'memory', 'recipes',
         'custom-instructions', 'rules',
         'explicit-instructions', 'vault-context', 'datetime',
     ];

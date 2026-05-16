@@ -12,9 +12,45 @@ related-imps: []
 
 ## Status
 
-Accepted (Codebase-Reconciliation 2026-05-13, im /coding fuer FEAT-24-07).
-Vorgaenger-Status: Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 3).
-Triggernde ASR: EPIC-24 / FEAT-24-07; RESEARCH-36 Abschnitt 8 (Hebel H).
+Accepted with Amendment (2026-05-15, EPIC-26 Welle 1, fuer FEAT-26-01).
+Vorgaenger-Status: Accepted (Codebase-Reconciliation 2026-05-13, im /coding fuer FEAT-24-07). Proposed (Architecture-Pass 2026-05-12, EPIC-24 Welle 3).
+Triggernde ASR: EPIC-24 / FEAT-24-07; EPIC-26 / FEAT-26-01; RESEARCH-36 Abschnitt 8 (Hebel H).
+
+### Amendment 2026-05-15 (EPIC-26 Welle 1): Hauptloop-Default-Tier und Tier-Semantik
+
+EPIC-26 erweitert das Helper-Modell-Konzept aus FEAT-24-07. Bisher routet `helperModelKey` vier interne LLM-Calls (condenseHistory, FastPath planner/presenter, plan_presentation, RecipePromotion) auf ein separat konfiguriertes Hilfs-Modell. Der **Hauptloop** lief weiterhin auf dem `activeModelKey`.
+
+Mit dem Advisor-Pattern (ADR-120) wird der Hauptloop selbst auf ein Tier-konfiguriertes Modell umgestellt. Damit ändert sich die Semantik der bestehenden Modell-Settings:
+
+**Tier-Semantik nach EPIC-26:**
+
+- `fast`-Tier: schnelles, günstiges Modell. Wird von den vier internen LLM-Calls aus FEAT-24-07 genutzt. `helperModelKey` wird semantisch zum fast-Tier-Alias.
+- `mid`-Tier: ausgewogenes Modell, Default für den Hauptloop bei "Auto"-Modus im Chat-Dropdown.
+- `flagship`-Tier: stärkstes Modell. Wird vom neuen `consult_flagship`-Tool als Eskalations-Ziel genutzt.
+
+**Backwards-Kompatibilität:** `helperModelKey` als explizite Setting-Pfad bleibt erhalten. Die Default-Resolution-Logik wird erweitert:
+
+1. Wenn `providers[activeProviderId].tierMapping.fast` gesetzt ist und EPIC-26 migriert ist: Plugin verwendet das fast-Tier-Modell des aktiven Providers als Helper.
+2. Wenn ein expliziter `helperModelKey` gesetzt ist: dieser Override gewinnt (auch nach Migration). User-Wahl bleibt respektiert.
+3. Wenn weder Tier-Mapping noch `helperModelKey`: Plugin fällt auf Main-Modell zurück (heutiges Verhalten).
+
+**Subtask-Tier-Inheritance (neu in EPIC-26):**
+
+- Subtasks aus `new_task` ohne expliziten Profile-Override erben das aktuelle Hauptloop-Tier (typisch mid bei Auto-Modus, override-Modell bei explizitem Override).
+- Subtasks mit `profile: 'research'` (FEAT-24-04) laufen explizit auf fast-Tier statt nur auf `helperModelKey`. Die research-Mechanik bleibt unverändert, nur die Tier-Quelle wird aktualisiert.
+- Subtasks mit `profile: 'advisor'` (neu in FEAT-26-01) laufen auf flagship-Tier mit 3000-Token-Budget.
+
+**Out-of-Scope (bleibt):**
+
+- Memory-Atomizer (`memoryModelKey`) und ChatLinking-Titling (`titlingModelKey`) bleiben eigene Settings. Die EPIC-24-Amendment-Logik (fallback auf `helperModelKey` wenn nicht gesetzt) ist nicht betroffen und greift unverändert.
+- `classifyText`-Hook in `main.ts` bleibt out-of-scope (siehe Amendment 2026-05-13).
+- ReAct-Hauptloop-Logik selbst bleibt unverändert. Nur die Modell-Auflösung wird durch Tier-Slots erweitert.
+
+**Konsequenzen des Amendments:**
+
+- Settings-Migration in ADR-123 setzt das Tier-Mapping aus dem heutigen `activeModels[]`. Bestehende `helperModelKey`-Settings bleiben erhalten und gewinnen über das fast-Tier-Mapping (Override-Disziplin).
+- Plugin-Code-Pfade, die heute `getHelperApi(plugin, fallback)` rufen, brauchen keine Änderung. Die Resolution-Logik wird intern erweitert (zuerst expliziter `helperModelKey`, dann fast-Tier des aktiven Providers, dann Fallback).
+- Test-Surface wächst: zusätzlich zur No-Config-Fallback-Logik gibt es jetzt zwei Resolution-Schichten (Tier-Mapping plus explizite Override).
 
 ### Amendment 2026-05-13 (PLAN-23 Umsetzung): konkrete Call-Site-Liste, Recipe-Migration, classifyText out-of-scope
 

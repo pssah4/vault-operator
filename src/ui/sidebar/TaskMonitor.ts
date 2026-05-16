@@ -70,6 +70,7 @@ export class TaskMonitor {
         cacheReadTokens?: number,
         cacheCreationTokens?: number,
         actualModelId?: string,
+        routingMode?: 'auto' | 'override' | 'advisor' | 'subagent',
     ): void {
         const cR = cacheReadTokens ?? 0;
         const cW = cacheCreationTokens ?? 0;
@@ -77,9 +78,13 @@ export class TaskMonitor {
         const provider = this.providerFor(modelId);
         const cost = computeCost(modelId, inputTokens, outputTokens, cR, cW);
         const isSubscription = provider !== undefined && SUBSCRIPTION_PROVIDERS.has(provider);
+        // EPIC-26 / FEAT-26-01 / ADR-120: tag the [Cost] line with the
+        // routing mode so it is easy to scan for advisor/subagent calls
+        // when validating Welle 1 cost numbers.
+        const modeTag = routingMode ?? 'auto';
 
         console.debug(
-            `[Cost] model="${modelId}" provider=${provider ?? '?'} ` +
+            `[Cost] model="${modelId}" provider=${provider ?? '?'} mode=${modeTag} ` +
             `in=${inputTokens} out=${outputTokens} cacheR=${cR} cacheW=${cW} ` +
             `usd=${cost.totalUsd.toFixed(4)} eur=${cost.totalEur.toFixed(4)} subscription=${isSubscription}`,
         );

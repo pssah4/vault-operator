@@ -170,7 +170,13 @@ export interface ContextExtensions {
     /** Switch the active mode (called by switch_mode tool) */
     switchMode?: (slug: string) => void;
     /** Spawn a child task (called by new_task tool) */
-    spawnSubtask?: (mode: string, message: string) => Promise<string>;
+    spawnSubtask?: (mode: string, message: string, profileName?: string) => Promise<string>;
+    /**
+     * EPIC-26 / FEAT-26-01 / ADR-120: try to acquire one of the per-task
+     * advisor slots. Used by ConsultFlagshipTool to enforce the 3-call
+     * budget before spawning the flagship subagent.
+     */
+    consumeAdvisorSlot?: () => { ok: boolean; used: number; limit: number };
     /** Notify UI about a new checkpoint after a write operation */
     onCheckpoint?: (checkpoint: import('../checkpoints/GitCheckpointService').CheckpointInfo) => void;
     /** Invalidate cached tool definitions (e.g. after webTools.enabled changes) */
@@ -382,6 +388,7 @@ export class ToolExecutionPipeline {
                 updateTodos: extensions?.updateTodos,
                 switchMode: extensions?.switchMode,
                 spawnSubtask: extensions?.spawnSubtask,
+                consumeAdvisorSlot: extensions?.consumeAdvisorSlot,
                 invalidateToolCache: extensions?.invalidateToolCache,
                 activateDeferredTool: extensions?.activateDeferredTool,
                 getReadFiles: extensions?.readFiles ? () => extensions.readFiles! : undefined,

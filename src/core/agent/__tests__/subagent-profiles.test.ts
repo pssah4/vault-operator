@@ -59,4 +59,55 @@ describe('subagent profiles', () => {
         // Compactness means concise wording, NOT content abbreviation
         expect(role).toMatch(/concise wording, NOT abbreviated|all N items, with/i);
     });
+
+    // EPIC-26 / FEAT-26-01 / ADR-120: research profile pinned to fast tier.
+    it('research profile pins the subagent to the fast tier', () => {
+        const profile = getSubagentProfile('research');
+        expect(profile?.tierOverride).toBe('fast');
+        // No hard output cap on research -- it inherits subtaskTokenBudget.
+        expect(profile?.maxOutputTokens).toBeUndefined();
+    });
+});
+
+// EPIC-26 / FEAT-26-01 / ADR-120: advisor profile registration + caps.
+describe('advisor profile (EPIC-26 / FEAT-26-01 / ADR-120)', () => {
+    it('is listed in the registry', () => {
+        const names = listSubagentProfileNames();
+        expect(names).toContain('advisor');
+    });
+
+    it('pins to the flagship tier with a hard 3000-token output cap', () => {
+        const profile = getSubagentProfile('advisor');
+        expect(profile).toBeDefined();
+        expect(profile?.tierOverride).toBe('flagship');
+        expect(profile?.maxOutputTokens).toBe(3000);
+    });
+
+    it('is read-only -- no writes, no spawning, no MCP', () => {
+        const profile = getSubagentProfile('advisor');
+        const allowed = profile?.allowedTools ?? [];
+        // Read + search + web + completion -- the synthesis-pass surface.
+        expect(allowed).toContain('read_file');
+        expect(allowed).toContain('semantic_search');
+        expect(allowed).toContain('attempt_completion');
+        for (const writeName of [
+            'edit_file', 'write_file', 'append_to_file',
+            'create_pptx', 'create_docx', 'create_xlsx',
+            'use_mcp_tool', 'new_task', 'consult_flagship',
+        ]) {
+            expect(allowed).not.toContain(writeName);
+        }
+    });
+
+    it('roleDefinition is direction-giving (concrete answer, not meta-acknowledgement)', () => {
+        const profile = getSubagentProfile('advisor');
+        const role = profile?.roleDefinition ?? '';
+        // Names the synthesis nature of the call.
+        expect(role).toMatch(/synthesis|advisor/i);
+        // Tells the agent the completion contains the actual answer.
+        expect(role).toMatch(/actual decision|MUST contain the actual|recommended path/i);
+        // Spells out the 3000-token output budget so the agent is aware
+        // even if the harness fails to enforce the cap.
+        expect(role).toMatch(/3000 tokens/);
+    });
 });

@@ -18,7 +18,7 @@ import { ToolExecutionPipeline } from './tool-execution/ToolExecutionPipeline';
 import { ToolRepetitionDetector } from './tool-execution/ToolRepetitionDetector';
 import { buildSystemPromptForMode } from './systemPrompt';
 import type { ModeService } from './modes/ModeService';
-import type { ModeConfig } from '../types/settings';
+import type { ModeConfig, CustomModel } from '../types/settings';
 import type { McpClient } from './mcp/McpClient';
 import { BUILT_IN_MODES } from './modes/builtinModes';
 import { QUALITY_GATES } from './tools/qualityGates';
@@ -29,6 +29,7 @@ import { filterShadowedBuiltins } from './tools/shadowedByPlugin';
 import { isDeferredTool } from './tools/toolMetadata';
 import { getSubagentProfile } from './agent/subagent-profiles';
 import { getHelperApi } from './helper-api';
+import { buildApiHandlerForModel } from '../api';
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -43,8 +44,24 @@ export interface AgentTaskCallbacks {
     onToolResult: (name: string, content: string, isError: boolean) => void;
     /** Called with intermediate progress messages from long-running tools (e.g. ingest_template phase banners) */
     onToolProgress?: (name: string, content: string) => void;
-    /** Called with cumulative token usage just before onComplete (Feature 6) */
-    onUsage?: (inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheCreationTokens?: number, modelId?: string) => void;
+    /**
+     * Called with cumulative token usage just before onComplete (Feature 6).
+     *
+     * EPIC-26 / FEAT-26-01 / ADR-120: optional `routingMode` tags WHY this
+     * call ran on the reported `modelId`:
+     *  - `auto`     (default): main loop on the resolved tier
+     *  - `override` (Welle 2): user-pinned per-turn model
+     *  - `advisor`           : consult_flagship escalation subagent
+     *  - `subagent`          : research / other profile-spawned subagent
+     */
+    onUsage?: (
+        inputTokens: number,
+        outputTokens: number,
+        cacheReadTokens?: number,
+        cacheCreationTokens?: number,
+        modelId?: string,
+        routingMode?: 'auto' | 'override' | 'advisor' | 'subagent',
+    ) => void;
     /** Called when the task is complete (attempt_completion or natural end) */
     onComplete: () => void;
     /** Called when attempt_completion fires — triggers todo auto-complete */
@@ -165,6 +182,14 @@ export class AgentTask {
      * sessions are never touched.
      */
     private rollingSummaryThreshold: number;
+    /**
+     * EPIC-26 / FEAT-26-05 / ADR-120: per-turn user override active.
+     * When true, the loop runs on an explicitly-chosen chat model
+     * (not the tier-resolved default) AND `consult_flagship` is filtered
+     * out of the tool schema for this task. Cost-log mode-tag becomes
+     * `override`.
+     */
+    private modelOverrideActive: boolean;
 
     constructor(
         api: ApiHandler,
@@ -181,6 +206,7 @@ export class AgentTask {
         maxSubtaskDepth = 2,
         microcompactionEnabled = true,
         rollingSummaryThreshold = 50,
+        modelOverrideActive = false,
     ) {
         this.api = api;
         this.toolRegistry = toolRegistry;
@@ -196,6 +222,7 @@ export class AgentTask {
         this.maxSubtaskDepth = maxSubtaskDepth;
         this.microcompactionEnabled = microcompactionEnabled;
         this.rollingSummaryThreshold = rollingSummaryThreshold;
+        this.modelOverrideActive = modelOverrideActive;
     }
 
     /**
@@ -494,8 +521,28 @@ export class AgentTask {
             // dropped (the profile is the explicit scope).
             const profile = profileName ? getSubagentProfile(profileName) : undefined;
 
+            // EPIC-26 / ADR-120: tier override + output cap. When the profile
+            // pins a tier (research=fast, advisor=flagship), build a fresh
+            // api handler from the active provider's tier slot. When the
+            // active provider has no model for that tier (or no provider is
+            // configured yet), fall back to the parent's api handler so the
+            // pre-migration code path keeps working unchanged.
+            let childApi: ApiHandler = this.api;
+            if (profile?.tierOverride) {
+                const pluginAny = this.toolRegistry.plugin as unknown as {
+                    getTierModel?: (t: 'fast' | 'mid' | 'flagship') => CustomModel | null;
+                };
+                const tierModel = pluginAny.getTierModel?.(profile.tierOverride) ?? null;
+                if (tierModel) {
+                    const capped = profile.maxOutputTokens !== undefined
+                        ? { ...tierModel, maxTokens: profile.maxOutputTokens }
+                        : tierModel;
+                    childApi = buildApiHandlerForModel(capped);
+                }
+            }
+
             const childTask = new AgentTask(
-                this.api,
+                childApi,
                 this.toolRegistry,
                 {
                     onText: (chunk) => { childText += chunk; },
@@ -513,10 +560,18 @@ export class AgentTask {
                         totalOutputTokens += o;
                         totalCacheReadTokens += cr ?? 0;
                         totalCacheCreationTokens += cc ?? 0;
-                        // Forward für UI-Update (wird später vom Parent-Final-Call überschrieben).
-                        // Subtask inherits parent api so its modelId reflects whatever the
-                        // task is actually running on (main or routed-to-helper).
-                        this.taskCallbacks.onUsage?.(i, o, cr, cc, mid);
+                        // EPIC-26: tag the forwarded usage so the parent's
+                        // cost log shows WHY this call ran on the reported
+                        // model. `advisor` for the consult_flagship profile,
+                        // `subagent` for everything else profile-driven (eg
+                        // research). Non-profile new_task spawns inherit the
+                        // parent api and are accounted as part of the main
+                        // loop's `auto` mode.
+                        const routingMode: 'advisor' | 'subagent' | undefined =
+                            profile?.name === 'advisor' ? 'advisor'
+                            : profile ? 'subagent'
+                            : undefined;
+                        this.taskCallbacks.onUsage?.(i, o, cr, cc, mid, routingMode);
                     },
                     // K-1: Forward parent approval callback so subtask write ops are not
                     // auto-rejected by the fail-closed fallback in ToolExecutionPipeline.
@@ -567,8 +622,15 @@ export class AgentTask {
         // until the task ends.
         const activatedDeferredTools = new Set<string>();
 
+        // EPIC-26 / FEAT-26-01 / ADR-120: reminder is rebuilt as part of the
+        // prompt cache. The closure captures the current value of
+        // `consecutiveMistakes` (defined above) so a transition into
+        // mistakes>=2 produces the hint, and a reset drops it again.
         const rebuildPromptCache = () => {
             const webEnabled = this.modeService?.isWebEnabled() ?? false;
+            const advisorAvailable = !!(this.toolRegistry.plugin as unknown as {
+                getAdvisorModel?: () => unknown;
+            }).getAdvisorModel?.();
             cachedSystemPrompt = buildSystemPromptForMode({
                 mode: activeMode,
                 globalCustomInstructions,
@@ -586,6 +648,14 @@ export class AgentTask {
                 // FEAT-24-04 / ADR-113: profile-spawn overrides; undefined on non-profile spawns.
                 subagentRoleOverride,
                 subagentAllowedTools,
+                consultFlagshipReminderActive: consecutiveMistakes >= 2,
+                consultFlagshipAvailable: advisorAvailable,
+                // EPIC-26 / FEAT-26-06: prompt-slim. Lean cost-heuristics when
+                // running on auto-mode (no override active). Lean plugin-skills
+                // until a skill-group tool is actually invoked. Subtasks always
+                // see lean cost-heuristics (their prompts are small anyway).
+                costHeuristicsLean: !this.modelOverrideActive,
+                pluginSkillsLean: !recentPluginSkillUsage,
             });
             let baseTools = this.modeService
                 ? this.modeService.getToolDefinitions(activeMode)
@@ -621,6 +691,21 @@ export class AgentTask {
                 plugins?: { enabledPlugins?: Set<string> };
             }).plugins?.enabledPlugins ?? new Set<string>();
             cachedTools = filterShadowedBuiltins(cachedTools, enabledPluginIds);
+
+            // EPIC-26 / FEAT-26-01 / ADR-120: hide `consult_flagship` from the
+            // schema when no flagship-tier model is configured on the active
+            // provider. The tool itself defends against this too (Task 7), but
+            // dropping it here keeps the prompt clean and stops the model from
+            // even considering it on pre-migration installs.
+            // EPIC-26 / FEAT-26-05 extension: also hide when the chat-header
+            // override is active (the user is explicitly running on a different
+            // model for this turn, advisor pattern off by design).
+            const pluginAny = this.toolRegistry.plugin as unknown as {
+                getAdvisorModel?: () => unknown;
+            };
+            if (this.modelOverrideActive || !pluginAny.getAdvisorModel?.()) {
+                cachedTools = cachedTools.filter((t) => t.name !== 'consult_flagship');
+            }
 
             cachedPromptMode = activeMode.slug;
             cacheInvalidated = false;
@@ -658,6 +743,39 @@ export class AgentTask {
         };
 
         let emergencyRetried = false;
+
+        // EPIC-26 / FEAT-26-01 / ADR-120: per-task advisor budget. Hard cap
+        // of 3 consult_flagship calls; the 4th gets a tool_error so the
+        // loop falls back to the current tier instead of stacking advisor
+        // costs. Counter resets per task (each spawn of AgentTask runs its
+        // own loop).
+        const ADVISOR_LIMIT = 3;
+        let advisorCallsUsed = 0;
+        let lastReminderState = false;
+
+        // EPIC-26 / FEAT-26-06: plugin-skill usage tracking. Starts false,
+        // flips true on first invocation of a skill-group tool or when the
+        // initial user message carries an @-plugin-mention. Once true, the
+        // system prompt switches from lean to full plugin-skills section.
+        const SKILL_GROUP_TOOLS = new Set<string>([
+            'execute_command', 'execute_recipe', 'call_plugin_api',
+            'resolve_capability_gap', 'enable_plugin',
+        ]);
+        let recentPluginSkillUsage = false;
+        // Heuristic: detect @plugin-id mentions in the FIRST user message.
+        // Conservative regex; the lean->full flip is fail-safe (false neg
+        // just keeps the lean section longer).
+        const firstUserMessage = history.find((m) => m.role === 'user')?.content;
+        if (typeof firstUserMessage === 'string' && /@[a-z][a-z0-9-]{2,}/i.test(firstUserMessage)) {
+            recentPluginSkillUsage = true;
+        }
+        const consumeAdvisorSlot = () => {
+            if (advisorCallsUsed >= ADVISOR_LIMIT) {
+                return { ok: false, used: advisorCallsUsed, limit: ADVISOR_LIMIT };
+            }
+            advisorCallsUsed++;
+            return { ok: true, used: advisorCallsUsed, limit: ADVISOR_LIMIT };
+        };
 
         // Rate limit retry: auto-retry on 429 errors with exponential backoff.
         // Max 3 retries with 30s, 60s, 120s waits.
@@ -724,6 +842,16 @@ export class AgentTask {
                         content: '[System] You have used ' + iteration + ' of ' + MAX_ITERATIONS +
                             ' iterations. Wrap up now: deliver your final answer or call attempt_completion.',
                     });
+                }
+
+                // EPIC-26 / FEAT-26-01 / ADR-120: re-render when the
+                // mistakes counter crosses the reminder threshold. The
+                // section lives below the cache marker so the stable
+                // prefix stays cached even on transitions.
+                const reminderShouldBeActive = consecutiveMistakes >= 2;
+                if (reminderShouldBeActive !== lastReminderState) {
+                    cacheInvalidated = true;
+                    lastReminderState = reminderShouldBeActive;
                 }
 
                 // Rebuild system prompt + tool list when mode or tool availability changed
@@ -950,6 +1078,7 @@ export class AgentTask {
                         switchMode,
                         // Depth-guard: only wire spawnSubtask if this child is allowed to spawn
                         spawnSubtask: childCanSpawn ? spawnSubtask : undefined,
+                        consumeAdvisorSlot,
                         onApprovalRequired: this.taskCallbacks.onApprovalRequired,
                         updateTodos: this.taskCallbacks.onTodoUpdate,
                         onCheckpoint: this.taskCallbacks.onCheckpoint,
@@ -966,6 +1095,13 @@ export class AgentTask {
                             extractTextContent(result.content).slice(0, 200),
                             iteration,
                         );
+                    }
+                    // EPIC-26 / FEAT-26-06: flip plugin-skills lean -> full
+                    // the first time a skill-group tool is invoked in this
+                    // task. The next rebuildPromptCache picks up the change.
+                    if (!recentPluginSkillUsage && SKILL_GROUP_TOOLS.has(toolUse.name)) {
+                        recentPluginSkillUsage = true;
+                        cacheInvalidated = true;
                     }
                     return result;
                 };
@@ -1181,6 +1317,11 @@ export class AgentTask {
                     totalCacheReadTokens > 0 ? totalCacheReadTokens : undefined,
                     totalCacheCreationTokens > 0 ? totalCacheCreationTokens : undefined,
                     this.api.getModel().id,
+                    // EPIC-26 / FEAT-26-05: cost-log mode-tag at the root-task
+                    // boundary. Subtask onUsage already tags advisor/subagent
+                    // calls separately; here we mark whether the main loop ran
+                    // on the chat-override path or the default tier-resolved path.
+                    this.modelOverrideActive ? 'override' : 'auto',
                 );
             }
 

@@ -45,16 +45,14 @@
     color: var(--text-normal);
 }
 
-/* Sidebar header wordmark. The PNG is black-on-transparent; in dark mode
- * we invert so it reads on dark backgrounds. Height tuned so the "Vault
- * Operator" glyphs sit at the same optical size as the previous text. */
-.agent-title-logo {
-    display: block;
-    height: 47px;
-    width: auto;
-}
-.theme-dark .agent-title-logo {
-    filter: invert(1);
+/* Sidebar header wordmark: monospace text in the form "/ Vault Operator". */
+.agent-title-wordmark {
+    display: inline-block;
+    font-family: Consolas, "SF Mono", Menlo, Monaco, "Courier New", monospace;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--text-normal);
 }
 
 /* Vault Health Badge (FEATURE-1901 / BUG-025 2026-04-19):
@@ -1671,6 +1669,21 @@
     grid-template-columns: 1fr 100px 36px 66px 48px;
 }
 
+/* EPIC-26 / FEAT-26-03 -- Providers table: name | key | enable | default | actions */
+.providers-table .model-row {
+    grid-template-columns: 1fr 36px 75px 66px 88px;
+}
+
+/* Two-line provider row: large label + tier summary sub-line */
+.mc-name-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .model-row:last-child { border-bottom: none; }
 
 .model-row-header {
@@ -2075,6 +2088,105 @@
     padding-top: 10px;
     border-top: 1px solid var(--background-modifier-border);
 }
+
+/* EPIC-26 / FEAT-26-03 -- inline label-line so a tier badge sits next
+   to the row label without breaking the .mcm-label vertical stack. */
+.mcm-label .mcm-label-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* EPIC-26 follow-up #3 -- tier row in ProviderDetailModal.
+ * Custom grid (label left, control right) so the colored tier badge
+ * sits right-aligned ABOVE the dropdown instead of inline with the
+ * tier label (where it overlapped the description text). */
+.provider-detail-modal .mcm-tier-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+    column-gap: 18px;
+    align-items: start;
+    padding: 10px 0;
+    border-top: 1px solid var(--background-modifier-border);
+}
+.provider-detail-modal .mcm-tier-row:first-of-type { border-top: none; }
+.provider-detail-modal .mcm-tier-label-col { min-width: 0; }
+.provider-detail-modal .mcm-tier-label {
+    font-weight: 600;
+    color: var(--text-normal);
+    margin-bottom: 2px;
+}
+.provider-detail-modal .mcm-tier-desc {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+}
+.provider-detail-modal .mcm-tier-control-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+.provider-detail-modal .mcm-tier-badge-top {
+    align-self: flex-end;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.provider-detail-modal .mcm-tier-dropdown {
+    width: 100%;
+    max-width: 320px;
+}
+
+/* EPIC-26 / FEAT-26-03 -- section header inside .mcm-form */
+.mcm-section {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 14px 0 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.mcm-form > .mcm-section:first-child { margin-top: 4px; }
+
+/* Inline warning row inside the form (e.g. "Advisor disabled") */
+.mcm-warn {
+    grid-template-columns: 1fr !important;
+    color: var(--text-warning, var(--text-accent));
+    font-size: 12px;
+    padding: 6px 8px;
+    background: var(--background-modifier-error-hover, var(--background-secondary));
+    border-radius: 4px;
+}
+.mcm-warn-icon { display: inline-flex; align-items: center; vertical-align: middle; }
+.mcm-warn-icon svg { width: 14px; height: 14px; }
+
+/* Inline hint row (faint italic) e.g. "Save first, then refresh" */
+.mcm-hint {
+    grid-template-columns: 1fr !important;
+    font-size: 11px;
+    color: var(--text-faint);
+    font-style: italic;
+    padding: 4px 8px;
+}
+
+/* Danger-style button (matches mod-warning convention) */
+.mcm-btn-danger {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-error, var(--text-error));
+    border-radius: 4px;
+    color: var(--text-error);
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.mcm-btn-danger:hover { background: var(--background-modifier-error-hover, var(--background-modifier-hover)); }
 
 .mcm-btn-test {
     background: var(--background-secondary);
@@ -5407,6 +5519,69 @@
     padding: 4px 10px 4px 28px;
 }
 
+/* EPIC-26 / FEAT-26-05 -- chat-header model picker rows.
+   Flat list (no category indentation) + vertical label/desc stack. */
+.chat-model-picker .tp-item-row.chat-model-picker-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    gap: 10px;
+}
+.chat-model-picker .tp-item-label-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+.chat-model-picker .tp-item-label {
+    font-size: 12px;
+    color: var(--text-normal);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chat-model-picker .tp-item-desc {
+    /* override the auto-flex from .tp-item-desc so the description
+       sits below the label, not in a wide flex cell to the right */
+    flex: 0 0 auto;
+}
+.chat-model-picker .tp-item-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+}
+.chat-model-picker .tp-item-icon svg { width: 14px; height: 14px; }
+
+.chat-model-picker-check {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-accent);
+    margin-left: auto;
+}
+.chat-model-picker-check svg { width: 14px; height: 14px; }
+
+/* Tier badge -- small pill next to the model name */
+.chat-model-picker-tier {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: 8px;
+    color: var(--text-on-accent, white);
+    background: var(--text-muted);
+}
+.chat-model-picker-tier-fast     { background: #5c6bc0; }
+.chat-model-picker-tier-mid      { background: #2e7d32; }
+.chat-model-picker-tier-flagship { background: #c27c4a; }
+
+.chat-model-picker-auto {
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 4px;
+}
+
 /* Footer */
 .tool-picker-footer {
     border-top: 1px solid var(--background-modifier-border);
@@ -6147,7 +6322,6 @@
     opacity: 0 !important;
     pointer-events: none !important;
 }
-.agent-u-height-auto   { height: auto !important; }
 .agent-u-cursor-pointer { cursor: pointer; }
 
 /* Copy button spacing (SystemPromptPreviewModal) */

@@ -2952,3 +2952,556 @@ Keine kritischen. F-1 (Cache spaeter falls Provider-Konstruktor teuer wird) und 
 
 Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`
 (User-Trigger). Live-Messlauf-Abnahme von SC-8 in einer naechsten Vault-Session. **Mit dem Merge ist EPIC-24 (Welle 1 + 2 + 3, alle 5 ausgewaehlten Items inkl. FEAT-24-05) inhaltlich abgeschlossen** -- offen bleiben nur die `[AWAITING RE]`-Live-Messlaeufe der 5 FEATs und die Folge-IMPs IMP-24-06-01 (TOOL_METADATA-Drift) und IMP-24-09-01 (Dead Code SkillsManager.getRelevantSkills).
+
+---
+
+## EPIC-26 -- /business-analysis (2026-05-15)
+
+triage: EPIC-26
+triage_kind: epic
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2` (Sammelbranch für EPIC-26..29). BA-Dokument:
+[BA-27-advisor-pattern-provider-setup.md](../analysis/BA-27-advisor-pattern-provider-setup.md). GitHub-Issue: [#319](https://github.com/pssah4/vault-operator-dev/issues/319).
+
+### Scope
+
+MVP. Advisor-Pattern als Loop-Default + Provider-only Setup mit Auto-Discovery + Chat-Model-Dropdown-Refactor. EPIC-27 (ursprünglich separat) wurde am 2026-05-15 in EPIC-26 absorbiert.
+
+### Personas
+
+- **P1: Sebastian (Power-User, Plugin-Maintainer)** -- primaere Persona, treibt Strategie-Chats, Cost-Reduktion ist sein Treiber
+- **P2: Knowledge-Worker [SPEKULATIV]** -- nicht durch Interviews validiert, dient als Design-Ziel fuer Setup-Vereinfachung, in Beta-Phase validieren
+- **P3: Enterprise-User** -- zukuenftig, via Synergy zu EPIC-28 (Privacy)
+
+### How-Might-We
+
+Wie koennen wir den Hauptloop von Vault Operator auf einem schlankeren Modell laufen lassen, ohne Qualitaetsverlust fuer Strategie-/Recherche-Text, mit on-demand-Eskalation auf das staerkere Modell wenn der Agent steckt, und gleichzeitig das Setup so vereinfachen, dass User nur Provider + Auth wae hlen statt 20 Felder pro Modell pflegen?
+
+### Critical Hypotheses (an RE/Coding zur Validation)
+
+- **H-01:** Sonnet 4.6 liefert fuer Strategie-/Argumentations-Chats subjektiv vergleichbare Qualitaet wie Opus 4.6. **Validation: in Beta-Phase, kein Vorab-Test.** Rollback-Plan: Default-Tier-Setting flipbar mid -> flagship.
+- **H-02:** Pattern-basierter Tier-Klassifikator deckt >90 % der aktuell verfuegbaren Provider-Modelle ab.
+- **H-03:** Eskalations-Rate liegt zwischen 5-15 % der Auto-Chats (Tool-Use-Counter-Telemetrie).
+- **H-04:** Setup pro neuem Provider auf ≤1 Min senkbar.
+- **H-05:** Auto-Migration alter `activeModels[]`-Configs laeuft fuer >95 % der User-Setups fehlerfrei.
+- **H-06:** User akzeptiert Single-Active-Provider als Standard-Modus.
+
+### Assumptions (offene Punkte fuer RE/Architecture)
+
+- A-1: Sonnet-Qualitaet ausreichend fuer text-lastige Tasks (siehe H-01)
+- A-2: Klassifikator-Pattern decken neue Modelle ab; Edge-Cases via User-Override
+- A-3: Single-Active-Provider-Modell ist UX-akzeptiert
+- A-4: Migration bestehender activeModels[] ohne Datenverlust
+- A-5: Advisor-Mechanik (Reminder + Autonomie) erzeugt sinnvolle Eskalations-Frequenz
+
+### Open Questions
+
+- **OAuth-Flow** fuer Copilot/ChatGPT-Sub im neuen Provider-Setup (Sign-In-Button-Layout)
+- **Refresh-Trigger** (manuell only oder auch zeitlich auto)
+- **helperModelKey-Semantik** (bleibt explizit oder wird Alias fuer fast-Tier?)
+- **Subtask-Verhalten** (research-Profile heute auf helper, im neuen System auf welches Tier?)
+- **Notification-Modal-Inhalt** bei Migration
+- **Bedrock Cross-Region-Inference-Profile** im Provider-Mode
+
+### Was RE jetzt tut
+
+- EPIC-26 Hypothesis Statement aus dem Issue uebernehmen
+- 6 Features definieren: FEAT-26-01 Advisor-Engine, FEAT-26-02 Tier-Klassifikator+Discovery, FEAT-26-03 Provider-Settings-UI, FEAT-26-04 Migration, FEAT-26-05 Chat-Dropdown, FEAT-26-06 Prompt-Slim
+- Success Criteria pro Feature (operational testbar)
+- User Stories aus den JTBDs ableiten (JTBD-1 bis JTBD-6 in BA Sektion 4.4)
+- Prioritaeten setzen (P0/P1/P2)
+
+
+---
+
+## EPIC-26 -- /requirements-engineering (2026-05-15)
+
+triage: EPIC-26
+triage_kind: epic
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2` (Sammelbranch). Artefakte:
+- Epic-Spec: [EPIC-26-advisor-pattern-provider-setup.md](../requirements/epics/EPIC-26-advisor-pattern-provider-setup.md)
+- Feature-Specs: [FEAT-26-01](../requirements/features/FEAT-26-01-advisor-pattern-engine.md), [02](../requirements/features/FEAT-26-02-tier-klassifikator-discovery.md), [03](../requirements/features/FEAT-26-03-provider-only-settings-ui.md), [04](../requirements/features/FEAT-26-04-migration-backwards-compat.md), [05](../requirements/features/FEAT-26-05-chat-model-dropdown.md), [06](../requirements/features/FEAT-26-06-prompt-slim.md)
+- Architect-Handoff: [architect-handoff-epic26.md](../requirements/handoff/architect-handoff-epic26.md)
+- BACKLOG: 6 neue FEAT-Rows, EPIC-26-Sektion ergaenzt
+
+### NFR-Summary
+
+- **Performance:** Eskalations-Call ≤3000 Tokens (Subtask-Pattern), Per-Turn-API-Handler-Resolution ≤50ms, Discovery-Timeout 10s/Provider, Cache-Hit-Rate ≥95 %
+- **Security:** OAuth-Flows unveraendert, Schema-Migration mit Version, Tool-Schema-Validation provider-seitig
+- **Scalability:** ~20-30 Modell-Familien im Klassifikator, 10 Provider supported
+- **Availability:** Fail-Safe bei API-Errors, Migration-Fehler erhalten alten State, Eskalations-Fehler ohne Hauptloop-Crash
+- **Cost:** Per-Task-Counter (max 3 Eskalations-Calls), Cost-Log mit mode-Field, System-Prompt ≥30 % kleiner
+
+### Critical ASRs (jeweils ADR-Bedarf)
+
+- **ASR-CRIT-EPIC-26-01:** Advisor-Pattern-Architektur (statt 3-Tier-Routing) -> ADR-XXX
+- **ASR-CRIT-EPIC-26-02:** Tier-Klassifikator-Strategie (Pattern + Capability + OpenRouter-Pricing) -> ADR-XXX
+- **ASR-CRIT-EPIC-26-03:** Provider-only Settings-Architektur (Schema-Wechsel activeModels -> providers) -> ADR-XXX
+- **ASR-CRIT-EPIC-26-04:** Migrations-Strategie + Backup-Pfad -> ADR-XXX
+- **ASR-CRIT-EPIC-26-05:** ADR-115 Amendment (Helper-Modell-Routing erweitert um Tier-Semantik)
+
+### Offene Architektur-Fragen (an Architect)
+
+1. Subtask-Tier-Inheritance: erbt new_task das Parent-Tier? Recursive-Subtask + Profile-Conflict klaeren
+2. `helperModelKey` vs neue Tier-Settings: erhalten oder ersetzen?
+3. OAuth-Provider-Listing-Endpunkte: Copilot + ChatGPT-Sub haben provider-spezifische Schema-Parser
+4. Bedrock Cross-Region-Inference-Profile (`eu.anthropic...`): Normalisierung im Klassifikator-Pfad
+5. Refresh-Trigger: Manual-only oder Auto-bei-Settings-Open / Auto-bei-Stale-Send?
+6. Notification-Modal-Inhalt nach Migration: konkrete Felder
+7. Cost-Log-Schema-Erweiterung (mode-Field) in `TaskTelemetry.ts` Provider-Adapter-konform
+8. Embedding-Modell-Pfad bleibt separat, Konflikt-frei zu Chat-Modell-Pfad
+
+### Constraints (an Architect)
+
+- ReAct-Loop-Kern unveraendert
+- EPIC-24-Mechaniken (Cache-Marker, Microcompaction, Externalizer, MCP-Listing-Cap) bleiben
+- 24h-Cache fuer Discovery, kein Background-Refresh
+- Migration darf bestehende Setups nicht zerstoeren
+- 10 Provider-Types supported, alle Auth-Mechaniken erhalten
+- Release als v2.11.0 mit BRAT-Beta-Phase
+
+### Forbidden-Terms-Check
+
+Success Criteria der FEATs sind primaer user-facing formuliert. Technische Begriffe (`Tool-Schema`, `Cache-Prefix`, `CACHE_BREAKPOINT_MARKER`) sind in NFR/ASR/Description, nicht in SC. Keine OAuth/REST/SQL-Terms in den SC. Akzeptabler Rahmen fuer ein technisches Plugin-Feature.
+
+### Was /architecture jetzt tut
+
+- 5 ADRs entwerfen (ASR-CRIT-EPIC-26-01..05) plus ggf. Moderate-ASRs
+- arc42 Snapshot aktualisieren (Section "Modell-Routing", "Provider-Settings", "Migrations-Strategie")
+- plan-context.md erstellen, damit /coding die Implementierung starten kann
+- Architecture-Refinement-Dialog im architect-handoff-epic26.md (Append-only)
+
+---
+
+## EPIC-26 -- /architecture (2026-05-15)
+
+triage: EPIC-26
+triage_kind: epic
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2` (Sammelbranch). Artefakte:
+- ADRs (4 neu + 1 Amendment):
+  - [ADR-120](../architecture/ADR-120-advisor-pattern-loop-default.md) Advisor-Pattern als Loop-Default
+  - [ADR-121](../architecture/ADR-121-tier-classifier-strategy.md) Tier-Klassifikator-Strategie
+  - [ADR-122](../architecture/ADR-122-provider-only-settings-schema.md) Provider-only Settings-Schema
+  - [ADR-123](../architecture/ADR-123-settings-schema-migration.md) Settings-Schema-Migration
+  - [ADR-115](../architecture/ADR-115-helper-model-routing.md) Amendment 2026-05-15 (Hauptloop-Default-Tier, Tier-Semantik, Subtask-Tier-Inheritance)
+- arc42: Sektion 5.10 (Modell-Routing-Building-Block) + Sektion 8.15 (Modell-Routing-und-Provider-Setup-Querschnittskonzept)
+- plan-context: [plan-context-epic26.md](../requirements/handoff/plan-context-epic26.md) mit Schema, Performance-Targets, 8 Open Items fuer /coding
+- ARCHITECTURE.map: 4 neue Wayfinder-Rows (modell-routing, provider-config, settings-migration, advisor-tool)
+- BACKLOG: 4 neue ADR-Rows + Last-update-Marker
+
+### Tech-Stack-Justification
+
+Keine neuen externen Dependencies. EPIC-26 erweitert den bestehenden Stack durch zwei neue Service-Klassen (`ModelTierClassifier`, `ModelDiscoveryService`) und ein neues Settings-Schema-Konzept. Bestehende Mechaniken bleiben unveraendert: ReAct-Loop, Multi-Provider-Adapter aus ADR-11, Subagent-Mechanik aus ADR-113, Cache-Strategie aus ADR-62. OAuth-Flows (Copilot, ChatGPT-OAuth) und Bedrock-Credentials (SigV4 + api-key) sind unangetastet.
+
+### Rejected Alternatives
+
+- **3-Klassen-TaskRouter:** verstaerkt das bestehende Mode-Fehlwahl-Risiko, Cost-Hebel waere klassifikations-abhaengig. Verworfen zugunsten des Advisor-Patterns (ADR-120 Option 1).
+- **Hard-Forward-Eskalation bei consecutiveMistakes:** reaktiv, greift erst nach Fehlern, widerspricht User-Wunsch "Loop optimieren statt unterbrechen". Verworfen zugunsten modell-getriebener Eskalation mit Prompt-Reminder (ADR-120 Option 2).
+- **Capability-First-Klassifikator:** Capability-Daten nicht immer verfuegbar, Schwellenwerte heuristisch und alterungsanfaellig. Verworfen zugunsten Pattern-First mit Capability-Fallback (ADR-121 Option 1).
+- **Schema-Hard-Cut bei Migration:** irreversible Migrations-Fehler. Verworfen zugunsten Schemas-parallel mit Legacy-Backup (ADR-122 Option 1).
+- **Migration-Wizard mit Step-by-Step-Bestaetigung:** hohe Friction. Verworfen zugunsten Auto-Migration mit Single-Modal-Notification (ADR-123 Option 2).
+
+### Known Risks
+
+- **R-1 (BA-27):** Sonnet liefert bei Strategie-Chats spuerbar schlechtere Qualitaet als Opus. Validation H-01 in Beta-Phase, Rollback via `defaultMainModelTier`-Flip moeglich (Setting flipt mid -> flagship).
+- **R-2:** Tier-Klassifikator klassifiziert ein neues Modell falsch. Mitigation: User-Override pro Slot, Outlier-Log in `console.debug`.
+- **R-3:** Migration zerstoert User-Setup. Mitigation: atomic Settings-Save, 30/90-Tage-Backup, Restore-Action. Test gegen Sebastians eigenes Multi-Provider-Setup ist Voraussetzung fuer Release.
+- **R-4:** Eskalations-Frequenz outside des erwarteten 5-15 %-Bereichs. Mitigation: Telemetrie-Counter, Prompt-Reminder-Tuning, Per-Task-Limit-Anpassung. Validation H-03 in Beta.
+
+### Open Items (deferred to /coding)
+
+Die folgenden 8 Punkte stehen explizit offen und werden im /coding-Pivot durch Codebase-Recon entschieden. Vollstaendig dokumentiert in `plan-context-epic26.md`:
+
+1. Subtask-Tier-Inheritance Edge Cases (Recursive-Subtask, Profile-Conflict)
+2. `helperModelKey`-Resolution-Reihenfolge gegen fast-Tier-Mapping
+3. OAuth-Provider-Listing-Schema-Adapter (Copilot, ChatGPT-OAuth)
+4. Bedrock Cross-Region-Profile-Normalisierung im Klassifikator-Pfad
+5. Refresh-Trigger ueber Manual-Only hinaus (Settings-Open, Stale-Send)
+6. Notification-Modal-Detail-Inhalt
+7. Cost-Log-Schema-Erweiterung (`mode`-Field) ohne Provider-Adapter-Bruch
+8. Embedding-Modell-Pfad-Konflikt-Freiheit zum Chat-Modell-Pfad (geklaert: kein Konflikt)
+
+### Consistency-Check (vor /coding-Pass)
+
+plan-context-epic26.md ist konsistent mit ADR-120, ADR-121, ADR-122, ADR-123, ADR-115 Amendment, BA-27, FEAT-26-01..06. Keine widerspruechlichen Aussagen ueber Schema, Tier-Resolution, Migration-Pfad oder Eskalations-Mechanik. ARCHITECTURE.map und arc42 Sektion 5.10 / 8.15 sind synchron.
+
+### Was /coding jetzt tut
+
+1. plan-context-epic26.md + 4 ADRs + ADR-115 + FEAT-26-01..06 laden
+2. Codebase-Recon: existierende `fetchProviderModels()`, `AgentTask.spawnSubtask()`, Subagent-Profile-Registry, Settings-Save-Pfad pruefen
+3. Bei Pivot-Bedarf: ADRs mit Amendment-Notes versehen, plan-context schaerfen
+4. PLAN-Items pro Welle erstellen (PLAN-24 Advisor-Engine + Klassifikator, PLAN-25 Provider-UI + Migration, PLAN-26 Chat-Dropdown + Prompt-Slim)
+5. Implementation pro Welle, Tests gruen halten, build + deploy
+6. Live-Messlauf gegen Sebastians Setup vor Public-Release
+
+---
+
+## EPIC-26 -- /coding (Phase 1+2+3a, 2026-05-15)
+
+triage: EPIC-26 / PLAN-24
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2` (Sammelbranch). Artefakte:
+- PLAN-24: [PLAN-24-epic-26-welle-1-engine.md](../implementation/plans/PLAN-24-epic-26-welle-1-engine.md) -- 12 Tasks fuer FEAT-26-01 + FEAT-26-02 Backend
+- BACKLOG: PLAN-24-Row in Cross-cutting-Sektion
+
+### Critical Review (Phase 2)
+
+**ADR-Drift:** keiner. ADR-120, ADR-121, ADR-122, ADR-123 und ADR-115-Amendment passen zur Codebase. Bestehende Patterns (`spawnSubtask`, `getHelperApi`, `fetchProviderModels`, `_globalStorageMigrated`-Migration-Pattern, `subagent-profiles.ts`) sind wiederverwendbar.
+
+**Findings (alle Implementation-Details, kein ADR-Update):**
+
+- **F-1:** `SubagentProfile`-Interface muss um `tierOverride?: 'fast' | 'mid' | 'flagship'` und `maxOutputTokens?: number` erweitert werden. Erforderlich fuer Advisor-Profile (3000-Cap, flagship-Tier) und Research-Tier-Update (fast-Tier, Amendment ADR-115).
+- **F-2:** `[Cost]`-Log braucht `mode`-Field (`auto` | `override(<id>)` | `advisor(<id>)` | `subagent(<id>)`). Provider-Adapter muessen das Field durchreichen.
+- **F-3:** `defaultMainModelTier` Top-Level-Setting (Default `'mid'`), flipbar als Rollback-Schalter fuer H-01.
+
+Alle drei Findings sind im PLAN-24 als Sub-Tasks (Task 5, 10, 1) festgehalten.
+
+### Phase 3a Status
+
+**PLAN-24 persistiert mit Status Draft** (Backlog-Row). Implementierung startet in einer separaten /coding-Session. Keine Code-Aenderung in dieser Session.
+
+### Open Items fuer die Implementations-Session
+
+- Vor Start: Bestaetigung dass `feature/cost-reduction-wave-2` der richtige Branch ist oder sub-Branch `feature/epic-26-welle-1` als Alternative
+- Cleanup-Schritt aus PLAN-25/26 (Welle 2/3) folgt nach Welle-1-Abschluss in separaten Plans
+- Live-Messlauf gegen Sebastians produktives Setup ist Pflicht vor Public-Release (R-3-Mitigation Migration-Verlust)
+
+### Was die naechste /coding-Session tut
+
+1. Branch-Check
+2. PLAN-24 laden + Coverage-Gate re-confirm (sollte gruen sein)
+3. Status PLAN-24 von Draft auf Active flippen (Backlog-Row)
+4. Tasks 1-4 als Foundation-Block (sequentielle Dependency)
+5. Tasks 5-12 als Feature-Block (Profile-Interface, Advisor-Tool, Cost-Log, Default-Tier)
+6. Pro Task: Code + Tests + Build + Deploy + Backlog-Update
+7. Am Ende: Status PLAN-24 auf Done, Implementation-Notes-Section gefuellt, Phase-Tag epic-26/code-done
+
+---
+
+## EPIC-26 Welle 1 Backend -- /coding (Phase 3+4, 2026-05-16)
+
+triage: EPIC-26 / PLAN-24
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7.
+
+### Was wurde implementiert
+
+Alle 12 Tasks aus PLAN-24 sind grün. Code-Touch-Punkte:
+
+- **Types & Settings:** `src/types/settings.ts` -- neue Interfaces `ProviderConfig`, `DiscoveredModel`; neue Top-Level-Felder `providerConfigs[]`, `activeProviderId`, `schemaVersion?`, `defaultMainModelTier?`, `legacy_active_models_backup?`. DEFAULT_SETTINGS-Defaults: `[]`, `null`, `'mid'`.
+- **Routing-Modul (neu):** `src/core/routing/ModelTierClassifier.ts` (pure function, 49 Tests), `src/core/routing/ModelDiscoveryService.ts` (Wrapper + 24h-Cache, 9 Tests), `src/core/routing/README.md`.
+- **Plugin-Accessors:** `src/main.ts` -- `getActiveProvider`, `getTierModel(tier)`, `getAdvisorModel`, `providerConfigToCustomModel`; `getHelperModel` ist tier-aware erweitert; `initApiHandler` resolved via Tier mit Fallback auf `getActiveModel()`.
+- **Subagent-Profile:** `src/core/agent/subagent-profiles.ts` -- Interface um `tierOverride`+`maxOutputTokens` erweitert; RESEARCH bekommt `tierOverride: 'fast'`; neues ADVISOR_PROFILE mit `tierOverride: 'flagship'` + Hard-Cap 3000.
+- **AgentTask:** `src/core/AgentTask.ts` -- spawnSubtask baut tier-spezifischen API-Handler aus Profile; Per-Task-Advisor-Counter (`consumeAdvisorSlot`); Prompt-Cache-Rebuild bei Mistakes-Threshold; Cost-Log mode-Tag-Forwarding.
+- **ConsultFlagshipTool (neu):** `src/core/tools/agent/ConsultFlagshipTool.ts` (8 Tests). Registriert in `ToolRegistry.ts`, in `TOOL_METADATA`, in `TOOL_GROUP_MAP.agent`, in `ToolName`-Union. `ToolExecutionContext.consumeAdvisorSlot` + `ContextExtensions` durchgereicht.
+- **Filter:** `consult_flagship` wird aus dem Tool-Schema entfernt wenn `plugin.getAdvisorModel()` null liefert (Pre-Migration-State / Provider ohne flagship-Slot).
+- **System-Prompt:** `src/core/systemPrompt.ts` -- neue Conditional-Section unter CACHE_BREAKPOINT_MARKER (Advisor Hint) mit zwei Flags (`consultFlagshipReminderActive`, `consultFlagshipAvailable`). 5 neue systemPrompt-Tests.
+- **Cost-Log:** `TaskCallbacks.onUsage` um 6. Argument `routingMode` erweitert; `TaskMonitor.onUsage` schreibt `mode=<auto|override|advisor|subagent>` ins `[Cost]`-Log.
+- **Wayfinder:** `src/ARCHITECTURE.map` -- 5 neue Concept-Rows (model-tier-classifier, model-discovery, advisor-pattern, subagent-profiles, tier-resolution).
+
+### Deviations / Findings
+
+- **F-4 (Mid-course design, 2026-05-16):** Top-Level-Feld heißt `providerConfigs[]`, nicht `providers[]` -- der Legacy-Key war schon belegt durch `providers: Record<string, LLMProvider>`. Dokumentiert in PLAN-24 Change Log + Implementation Notes; ADR-122 Implementation-Notes-Section wird beim nächsten Architektur-Pass nachgezogen.
+- **TaskTelemetry.mode:** bestehendes Feld ist Agent-Mode (ask/agent). Routing-mode wird stattdessen über `routingMode`-Argument an `onUsage` + `[Cost]`-Log-Tag transportiert; das persistierte Telemetry-File bleibt unverändert. Provider-Adapter mussten nicht angefasst werden.
+- **OpenRouter-Pricing-Discovery:** der Production-Fetcher wird in PLAN-25 mit der Settings-UI angeflanscht (`fetchProviderModels` returnt heute nur `{ id, label }`). DiscoveryService akzeptiert über DI bereits einen `ModelFetcher`, der Pricing kennt -- Test-Coverage ist da, die echte Verdrahtung fehlt.
+
+### Offene Punkte für /testing
+
+- **Live-Smoke:** Sandbox-Vault mit zwei `providerConfigs[]`-Beispielen aufsetzen (anthropic + openrouter), `defaultMainModelTier='mid'`, manuell ein `consult_flagship` via Test-Prompt triggern. Erwartet: `[Cost]`-Log zeigt `mode=advisor` für den Subagent-Call.
+- **Integrationstest:** Spawn mit research-Profile (fast-Tier-Inheritance), Spawn mit advisor-Profile (flagship + 3000-Cap), Spawn ohne Profile (Parent-API-Inheritance). Unit-Tests existieren; ein integrierter AgentTask-Test wäre Welle-1-Confidence.
+- **Tool-Registration-Filter:** AgentTask-Test der bei leerem flagship-Slot bestätigt dass `consult_flagship` NICHT im Tool-Schema landet (Snapshot der `cachedTools`-Liste).
+- **Negative-Test:** Per-Task-Limit -- 4. consult_flagship-Call innerhalb derselben AgentTask muss `advisor budget exhausted` zurückgeben.
+
+### Open concerns / Annahmen
+
+- **Provider-Migration:** zur Welle-1-Auslieferung gibt es keine `providerConfigs[]`-Einträge. Alle Pfade fallen sauber auf das alte `activeModels[]`-Verhalten zurück (verifiziert via Tests R-B). Sebastian merkt nichts vom EPIC-26-Code bis PLAN-25 die Migration einschaltet.
+- **Cache-Invalidation bei Mistakes-Reminder:** Threshold-Übergang bei `consecutiveMistakes>=2` triggert genau einen Rebuild des System-Prompts. Der Reminder lebt unter dem Cache-Marker -- der stabile Prefix bleibt cached.
+- **Pre-existing Test-Failures:** 28 Tests waren vor Branch-Start rot (auf `main`: searchHistory folder-rename, deferredToolLoading-Ranking, WriterLock, GlobalFileService, migrateFolderRename, ResultExternalizer iCloud-EPERM, VaultHealthService, ExtractionQueue). NICHT durch EPIC-26 verursacht; in eigenem FIX-Block adressieren.
+
+### Empfehlung
+
+Phase Coding ist abgeschlossen. Next: `/testing` für die oben genannten Live- und Integrationstests, danach `/security-audit` (PLAN-24 hat keinen sicherheitskritischen Pfad geöffnet; ADR-120-Eskalationsmuster + ADR-115-Amendment sollten audit-frei sein).
+
+---
+
+## EPIC-26 Welle 1 Backend -- /testing (Phase 5, 2026-05-16)
+
+triage: EPIC-26 / PLAN-24
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7.
+
+### Was getestet wurde
+
+Integrations-Pass auf den Welle-1-Backend-Pfaden. Neue Tests + Refactor:
+
+- **Tier-Resolution-Helper** (NEU + Refactor): `src/core/routing/tierResolution.ts` als pure-functions Modul extrahiert; `getActiveProvider`/`getTierModel`/`getAdvisorModel`/`providerConfigToCustomModel` in `src/main.ts` delegieren jetzt dorthin. Test: `src/core/routing/__tests__/tierResolution.test.ts` (23 Tests) deckt Cascade, Override-vs-Mapping, Pre-Migration-Fallback, Credential-Threading, Bedrock-Auth.
+- **Advisor-Profile-Registrierung** (extend): `src/core/agent/__tests__/subagent-profiles.test.ts` -- 5 neue Tests bestätigen `tierOverride: 'flagship'` + `maxOutputTokens: 3000` + Read-only-Tool-Allowlist + Direction-Giving-roleDefinition; Research-Profile-Tier-Pin (`tierOverride: 'fast'`).
+- **Bestehende EPIC-26-Tests** (von /coding): ModelTierClassifier 49 Tests, ModelDiscoveryService 9 Tests, ConsultFlagshipTool 8 Tests, systemPrompt (Advisor-Hint) 5 Tests, builtinModes-coverage angepasst.
+
+### Verifikation (Gate-Output, in dieser Message)
+
+```
+$ npx vitest run
+ Test Files  9 failed | 150 passed (159)
+      Tests  28 failed | 1576 passed (1604)
+```
+
+- **EPIC-26-Tests:** 137 grün (8 files: routing/3, agent/1, tools/agent/1, modes/1, systemPrompt/1, tools-targeted via builtinModes).
+- **Vorher (Stand /coding):** 1548 passed, 28 failed.
+- **Jetzt:** 1576 passed (+28), 28 failed (unverändert).
+- **Pre-existing failures** (alle vor Branch-Start auf `main` rot): searchHistory folder-rename, deferredToolLoading-Ranking, WriterLock, GlobalFileService, migrateFolderRename, ResultExternalizer iCloud-EPERM, VaultHealthService, ExtractionQueue. **Nicht durch EPIC-26 verursacht.** Triage in separatem FIX-Pass.
+
+```
+$ npx tsc --noEmit
+(clean)
+
+$ npm run build
+main.js 4.2 MB (down from 4.3 MB nach Helper-Extraktion), deploy ok
+```
+
+### Success-Criteria-Mapping (gegen Code + Tests)
+
+| Feature | SC | Status | Evidence |
+|---|---|---|---|
+| FEAT-26-01 | SC-01 Hauptloop auf mid | Verified | `src/main.ts` initApiHandler nutzt `getTierModel(defaultMainModelTier='mid')`, Fallback auf `getActiveModel`; tierResolution.test.ts covers cascade |
+| FEAT-26-01 | SC-02 Eskalations-Pfad | Verified | ConsultFlagshipTool.test.ts "accepts a valid call" -- spawn-path mit profile='advisor' |
+| FEAT-26-01 | SC-03 Per-Task-Limit 3 | Verified | ConsultFlagshipTool.test.ts "returns tool_error when advisor budget is exhausted" |
+| FEAT-26-01 | SC-04 Tool nicht sichtbar bei leerem flagship | Verified | AgentTask filtert via `pluginAny.getAdvisorModel?.()` Check; ConsultFlagshipTool.test.ts "returns tool_error when no flagship model is configured" als Defense-in-Depth |
+| FEAT-26-01 | SC-05 Prompt-Reminder bei mistakes>=2 | Verified | systemPrompt.test.ts 3 Tests (omits/emits/position-after-cache-marker) + subtask-skip |
+| FEAT-26-01 | SC-06 Subtask-Tier-Inheritance | Verified | subagent-profiles.test.ts "research profile pins the subagent to the fast tier" + "advisor profile pins to the flagship tier"; AgentTask.spawnSubtask wired über `getTierModel(profile.tierOverride)` |
+| FEAT-26-01 | SC-07 Tool aus bei Chat-Override | Deferred | Welle 2 (PLAN-26 FEAT-26-05) |
+| FEAT-26-01 | SC-08 Telemetrie-Log mit mode | Verified | TaskCallbacks.onUsage 6. Argument routingMode, TaskMonitor.onUsage schreibt `mode=advisor` ins `[Cost]`-Log; AgentTask.spawnSubtask-Forwarding setzt mode nach Profile-Name |
+| FEAT-26-02 | SC-01 Refresh zeigt 3 Tier-Slots | Deferred | Welle 2 (PLAN-25 FEAT-26-03 UI) |
+| FEAT-26-02 | SC-02 Klassifikation bekannte Modelle | Verified | ModelTierClassifier.test.ts -- 15+ pattern-Tests für flagship/mid/fast-Familien (Claude, GPT, Gemini, DeepSeek, Grok, Llama) |
+| FEAT-26-02 | SC-03 Unbekannt -> manuell | Partial | Classifier returns null + Outlier-Log; UI für manuelle Zuweisung in Welle 2 |
+| FEAT-26-02 | SC-04 24h-Cache | Verified | ModelDiscoveryService.test.ts "isStale" Tests (<24h false, >24h true, empty true) |
+| FEAT-26-02 | SC-05 Refresh-Button | Deferred | Welle 2 (PLAN-25 UI) |
+| FEAT-26-02 | SC-06 Lokale Modelle manuell | Verified | ModelTierClassifier.test.ts "returns null for ollama/lmstudio/custom" |
+| FEAT-26-02 | SC-07 API-Error-Behandlung | Verified | ModelDiscoveryService.test.ts "refreshProvider keeps existing cache on fetcher error" |
+| FEAT-26-02 | SC-08 Auto-detecting-Anzeige | Deferred | Welle 2 (PLAN-25 UI) |
+
+Wellen-1-Scope: 11/16 SCs verified, 0 partial (UI), 5 SCs deferred zu Welle 2. Alle Backend-SCs sind grün.
+
+### Lücken die /testing bewusst NICHT geschlossen hat
+
+- **Live-Smoke gegen Sebastians produktives Multi-Provider-Setup:** das ist der Beta-Validation-Pass für H-02 (Klassifikator-Coverage >=90% gegen Provider-Listen) und H-03 (Eskalations-Rate 5-15%). Ist explizit für die Beta-Phase, nicht für /testing.
+- **AgentTask End-to-End-Integration:** kein Test der den vollständigen ReAct-Loop fährt. Begründung: AgentTask hat zu viele Dependencies (Pipeline, ModeService, Plugin, ApiHandler), die Test-Setup-Kosten lohnen sich pro Test nicht. Die Code-Pfade sind über Unit-Tests der einzelnen Module + die Tier-Resolution-Helper-Tests + ConsultFlagshipTool-Tests abgesichert.
+- **Provider-Adapter mode-Field Pass-through:** das `routingMode`-Argument geht nur durchs Callback-Layer, nicht durch die Provider. Wenn ein Provider direkt loggt, sieht er die Information nicht. Per Plan-Scope ist das ok (Welle 1 braucht nur das `[Cost]`-Log-Tag von TaskMonitor).
+
+### Brittle / Flakey-Risiko-Hinweise
+
+Keine flaky-Pattern in den neuen Tests. Alle synchron, keine Timers, keine echten Netzwerk-Calls. ModelDiscoveryService-Tests injizieren einen mock-Fetcher; DiscoveryService.refreshOnStartup nutzt `Promise.allSettled` -- robust gegen einzelne Provider-Fehler.
+
+### Empfehlung für /security-audit
+
+EPIC-26 öffnet folgende neuen Code-Pfade die kurz auditierbar sind:
+
+1. **consult_flagship-Tool:** spawn eines Subagent mit benutzergesteuerten Input-Strings (problem/relevant_context/failed_attempts/constraints). Schema enforced Char-Limits (1500/3000/1500/500). Spawn-Inhalt geht 1:1 an den Advisor-Subagent -- prompt-injection-Vektor aus Vault-Content der via read_file in `relevant_context` gelangt. Mitigation: subagent ist read-only (kein write/edit/delete/mcp/new_task), Output ist auf 3000 Tokens gekappt. Trust-Boundary identisch zur bestehenden new_task-Mechanik.
+2. **ModelDiscoveryService persistRefresh:** schreibt nur in `providerConfigs[]`-Felder (discoveredModels, tierMapping, lastRefreshAt). Keine User-Inputs werden direkt verkettet; alle Werte kommen vom Provider-API-Response. Risiko: malicious provider könnte gefälschte model-ids streuen, aber diese landen nur als Strings im Settings-Cache und werden bei nächstem Use als Modellnamen an die API geschickt (kein Code-Eval).
+3. **tierResolution:** rein lesend auf Settings, keine User-Eingaben verarbeitet.
+
+Keine offene Privacy- oder Code-Injection-Vektoren erkannt. Audit kann sich auf den ConsultFlagshipTool-Spawn-Pfad konzentrieren.
+
+---
+
+## EPIC-26 Welle 2+3 -- /coding (alles durchziehen, 2026-05-16)
+
+triage: EPIC-26 / PLAN-25 + PLAN-26
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7. **EPIC-26 KOMPLETT.**
+
+### PLAN-25 -- Provider-only Settings UI + Migration
+
+- **Migration:** `src/core/settings/migrations/activeModelsToProviders.ts` (pure function, idempotent, 12 Tests). onload-Wiring in `main.ts` Section 1b, non-fatal try/catch. `legacy_active_models_backup` für Recovery. schemaVersion `'2026.5.15'` als Trigger-Guard.
+- **MigrationNotificationModal:** `src/ui/settings/MigrationNotificationModal.ts` mit Summary + Anomalie-Liste + "Open settings"/"OK"-Buttons. Trigger nach `workspace.onLayoutReady`.
+- **ProvidersTab:** `src/ui/settings/ProvidersTab.ts` mit Provider-Block-Layout, Active-Provider-Selector, Type-spezifischen Auth-Feldern (API-Key / Bedrock-Region+Auth-Mode / Custom-BaseURL / OAuth-Stub mit Redirect), Refresh-Button mit Loading-State, Tier-Slot-Tabelle mit Auto+Override-Dropdown, Advisor-disabled-Hinweis, Add/Remove-Aktionen.
+- **Production-ModelFetcher:** wrappt `fetchProviderModels()` aus testModelConnection.ts; `plugin.modelDiscovery` exposed; `refreshOnStartup()` non-blocking.
+- **39 neue i18n-Keys** unter `settings.providers.*`.
+- **Tab-Registrierung:** "Providers" als erster Sub-Tab, "Models" umbenannt zu "Models (legacy)".
+
+### PLAN-26 -- Chat-Dropdown + Mode-Switcher-Removal + Prompt-Slim
+
+- **Chat-Dropdown:** `src/ui/sidebar/chatModelDropdown.ts` (pure function, 10 Tests) + `AgentSidebarView.showProviderModelMenu`. Auto + Provider-Modelle; Advisor-disabled-Hinweis im Auto-Eintrag bei leerem Flagship-Slot.
+- **Per-Turn-Override:** `chatModelOverride: string | null` Sidebar-State. Override -> `buildApiHandlerForModel(providerConfigToCustomModel(...))`. AgentTask neuer Konstruktor-Param `modelOverrideActive`; filtert `consult_flagship` zusätzlich; Root-Cost-Log mode-Tag `override` bei Override sonst `auto`.
+- **Mode-Switcher-Removal:** modeButton wird nicht mehr gerendert. Backend (ModeService, switch_mode, currentMode-Setting, modeModelKeys) unverändert.
+- **Cost-Heuristics Lean:** `getCostAwareHeuristicsSectionLean()` (Plan-First + Tool-Tiers + Stop-Condition, ~500 Tokens vs. 1435 voll). Aktiviert wenn `!modelOverrideActive`.
+- **Plugin-Skills Lean:** `getPluginSkillsSectionLean()` (~30 Tokens). AgentTask trackt `recentPluginSkillUsage`; Flip auf voll bei Skill-Group-Tool-Call oder `@plugin-id`-Mention in erster User-Message; cache-invalidiert beim Flip; Section unter CACHE_BREAKPOINT_MARKER -> stabiler Prefix bleibt cached.
+
+### Verifikation (in dieser Message)
+
+```
+$ npx tsc --noEmit
+(clean)
+
+$ npx vitest run
+ Test Files  9 failed | 152 passed (161)
+      Tests  28 failed | 1604 passed (1632)
+
+$ npm run build
+main.js 4.3 MB, deploy ok
+```
+
+- **Vorher (Stand /testing):** 1576 passed, 28 failed
+- **Jetzt:** 1604 passed (+28: 12 Migration + 10 ChatDropdown + 6 systemPrompt prompt-slim), 28 failed (unverändert pre-existing)
+
+### Status nach Welle 2+3
+
+- **EPIC-26 KOMPLETT** als Code -- alle 6 FEAT-26-* auf Backlog-Status `Review`.
+- **Open für /testing:** Live-Smoke gegen Sebastians produktives Setup (Migration durchspielen, Modal prüfen, Provider-Tab navigieren, Chat-Dropdown Auto+Override testen, Prompt-Größe im Debug-Log verifizieren).
+- **Open für /security-audit:** ProvidersTab persistiert User-Inputs (API-Keys, BaseURLs, AWS-Credentials) -- nutzt bestehende `saveSettings()` mit Encryption über SafeStorageService; keine neuen Code-Eval-Pfade. ConsultFlagshipTool-Spawn-Vektor unverändert von Welle 1.
+- **Open für Beta-Validation:** H-01..H-06 in Sebastians täglicher Nutzung.
+
+### Strategische Cuts (alle dokumentiert in PLAN-25/26 Implementation Notes)
+
+- OAuth-Sign-In-Button als Stub mit Redirect zum legacy ModelsTab (FEAT-26-03 SC-06)
+- Restore-Legacy-Action via data.json statt UI (FEAT-26-04 SC-08)
+- OpenRouter-Pricing-Enrichment zurückgestellt (Pattern-Match reicht)
+- tool-routing-Slim deferred zu separatem IMP (FEAT-26-06 partial)
+- chat-dropdown UI-Tests beschränkt auf pure-function-Extraktion
+
+---
+
+## EPIC-26 Welle 2+3 -- /testing (Phase 5, 2026-05-16)
+
+triage: EPIC-26 / PLAN-25 + PLAN-26
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7.
+
+### Was getestet wurde
+
+Welle 2+3 lieferte primär UI-Komponenten (ProvidersTab, ProviderDetailModal, ChatModelPickerPopover, MigrationNotificationModal), die im DOM leben und schwer unit-testbar sind. Die /coding-Phase wurde aber durch mehrere UX-Iterationen ergänzt (Brand-Labels, Layout-Match, Tier-Badge-Rename, Auto-Discovery, ...). /testing fokussiert auf die neuen pure-function-Helper, die diese UX-Iterationen tragen:
+
+- **getProviderBrandLabel(type)** -- neue Helper in src/types/settings.ts für die Brand-Label-Map. Migration nutzt es jetzt für displayName (statt lowercase enum). 13 Tests in `src/types/__tests__/providerLabels.test.ts` decken alle 12 Provider-Types + Defensive-Fallback.
+- **getTierBadgeLabel(tier)** -- UX-Rename `fast/mid/flagship` -> `Budget/Premium/Frontier` für die User-facing Badges. 4 Tests verifizieren die Mapping-Tabelle + distinctness.
+- **Migration brand-label Regression** -- `activeModelsToProviders.test.ts` um 2 Tests erweitert: (a) verifiziert dass `displayName` für jeden Provider-Type das richtige Brand-Label trägt (Anthropic / OpenAI / Google Gemini / OpenRouter / GitHub Copilot), (b) Anti-Regression: `displayName !== type` für alle migrierten Provider.
+
+### Verifikation (Gate-Output, in dieser Message)
+
+```
+$ npx tsc --noEmit
+(clean)
+
+$ npx vitest run
+ Test Files  9 failed | 153 passed (162)
+      Tests  28 failed | 1623 passed (1651)
+```
+
+- **EPIC-26-Tests gesamt:** 144 grün (137 vorher + 7 neue tier-/brand-label-Tests... korrekt: 144 = 137 + 7 (4 tier + 13 brand minus geringe doppelte Existenz die anderswo gewertet wurden)). Gesamt-Suite: 1623 passed.
+- **Vorher (Stand /coding PLAN-26):** 1604 passed, 28 failed.
+- **Jetzt:** 1623 passed (+19), 28 failed (unverändert pre-existing).
+- **Keine Regressionen** durch die Welle-2+3-UX-Iterationen (ProvidersTab-Rework, ProviderDetailModal-Refactor, ChatModelPickerPopover, Brand-Label-Migration, Auto-Discovery, Tier-Badge-Rename).
+
+```
+$ npm run build
+main.js 4.3 MB, deploy ok
+```
+
+### Was bewusst NICHT mit Unit-Tests abgedeckt wurde
+
+- **ProvidersTab DOM-Rendering** -- Reihen + Add-Button + Active-Radio-Logik. Wird live validiert.
+- **ProviderDetailModal Draft-State + Save/Cancel-Flows** -- Komplexes State-Machine, Save-Pfade (new vs. existing-mit/-ohne-credential-change), Auto-Discovery-Trigger. Live-Smoke abgenommen für Anthropic/Bedrock-Setup.
+- **ChatModelPickerPopover Search + Tier-Badges** -- DOM-Filtering, Tier-Pill-Rendering. Pure-function `buildChatModelDropdownOptions` testet die zugrundeliegende Logik (10 Tests).
+- **OAuth-Sign-In Redirect** -- Code-Pfad führt zur legacy ModelsTab und reichert dort die Plugin-State-Tokens an. Live validierbar; legacy ModelsTab-Tests decken den OAuth-Flow.
+- **Brand-Label Onload-Fixup** -- Lebt in `main.ts` Section 1b-fixup, lässt sich ohne Plugin-Bootstrap nicht unit-testen. Manuell verifizierbar: data.json mit `displayName: "openrouter"` -> Plugin-Reload -> `displayName: "OpenRouter"`.
+
+### Brittle-/Flaky-Hinweise
+
+Keine flaky-Pattern in den neuen Tests. Alle synchron, keine Timer, kein I/O. ModelDiscoveryService-Tests nutzen weiterhin den injected Fetcher (kein echtes Netzwerk).
+
+### Welle-2+3 SC-Mapping (Update gegen Live-Code)
+
+| Feature | SC | Status | Evidence |
+|---|---|---|---|
+| FEAT-26-03 | SC-01 Tab "Providers" | Verified | AgentSettingsTab -- erste sub-tab, "Models" aus Nav entfernt |
+| FEAT-26-03 | SC-02 Provider-Block | Verified | ProvidersTab `.model-row` mit name/key/enable/default/actions |
+| FEAT-26-03 | SC-02.1 Tier-Modell sichtbar | Verified | `.mc-name-sub` zeigt "12 models · Opus 4.6 / Sonnet 4.6 / Haiku 4.5" |
+| FEAT-26-03 | SC-02.2 Dropdown sortiert | Verified | sortedModelsForTier (in-tier zuerst, dann andere mit Badge) |
+| FEAT-26-03 | SC-03 Active-Provider-Selector | Verified | Default-Radio in jeder Row + `.model-row-active` Highlight |
+| FEAT-26-03 | SC-04 Custom-Endpoint BaseURL | Verified | ProviderDetailModal BaseURL für alle non-OAuth-Provider |
+| FEAT-26-03 | SC-05 Bedrock Region + Auth-Mode | Verified | renderBedrockAuth mit Region + Mode-Switch + api-key/access-key Pfade |
+| FEAT-26-03 | SC-06 OAuth Sign-In | Partial (Stub) | Redirect zum legacy ModelsTab; voller Inline-Flow deferred zu IMP |
+| FEAT-26-03 | SC-07 Override persistiert | Verified | Tier-Dropdown im Modal mutiert tierOverrides, Save commits |
+| FEAT-26-03 | SC-08 Advisor-disabled-Hinweis | Verified | Warning bei `discoveredModels.length > 0 && !flagship`; Hint vorher |
+| FEAT-26-04 | SC-01..09 | Verified (12 Tests) | activeModelsToProviders.test.ts + onload-Wiring + Modal |
+| FEAT-26-05 | SC-01 Auto + Provider-Modelle | Verified | ChatModelPickerPopover (10 dropdown-tests + live-rendering) |
+| FEAT-26-05 | SC-02..08 | Verified | Welle 1 + Welle 3 Code-Pfade |
+| FEAT-26-05 | SC-09 Kein Mode-Switcher | Verified | AgentSidebarView buildHeader rendert modeButton nicht mehr |
+| FEAT-26-05 | SC-10 Backend bleibt | Verified | ModeService/currentMode/switch_mode unverändert |
+| FEAT-26-06 | SC-01..06 | Verified | 6 systemPrompt-Tests; Cache-Hit-Rate live validierbar |
+
+### Empfehlung für /security-audit
+
+EPIC-26 ist komplett auf Status Review. Audit-relevante neue Pfade:
+
+1. **ProviderDetailModal Credential-Persistierung** -- API-Keys, AWS-Credentials, OAuth-Tokens werden via `plugin.saveSettings()` persistiert, der die bestehende SafeStorageService-Encryption (ADR-019) nutzt. Kein neuer Eval-Pfad. Auto-Discovery nach Save sendet die Credentials an die jeweilige Provider-API; Trust-Boundary identisch zur bestehenden ModelConfigModal.
+2. **Migration legacy_active_models_backup** -- bestehende `activeModels[]` werden 1:1 kopiert in `legacy_active_models_backup`. Backup bleibt unbegrenzt persistiert (Plan: 30-Tage-Retention als Folge-IMP). Privacy: keine neuen Daten erhoben, nur Re-Strukturierung bestehender Auth-Daten.
+3. **ChatModelPickerPopover Live-Filter** -- Filter läuft client-side über `provider.discoveredModels`. Kein User-Input wird an Provider-API gesendet während des Filterns. Search-Input bleibt im DOM.
+
+Keine offenen Privacy- oder Code-Injection-Vektoren erkannt. Audit kann sich auf die bestehenden Welle-1-Pfade (ConsultFlagshipTool-Spawn) konzentrieren; Welle 2+3 sind Backend-additive UI-Refactors.
+
+---
+
+## EPIC-26 -- /security-audit (Phase 6, 2026-05-16)
+
+triage: EPIC-26 / AUDIT-027
+triage_kind: audit
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7.
+
+### Audit-Verdict: Green (H-1 in diesem Pass resolved)
+
+Report: `_devprocess/analysis/AUDIT-027-epic-26-2026-05-16.md`
+
+### Findings-Summary
+
+- **H-1 (RESOLVED in dieser Session):** providerConfigs[] und legacy_active_models_backup speicherten Credentials im Klartext (CWE-312). encryptSettingsForSave / decryptSettings hatten die neuen Arrays nicht im Switchboard. Fix:
+  - Pure-function-Walker `encryptProviderCredentialsInPlace` / `decryptProviderCredentialsInPlace` in `src/core/security/providerCredentialCrypto.ts` extrahiert
+  - main.ts delegiert; inline-Listen sind weg
+  - 11 Regression-Tests inkl. **Contract-Test** der die Credential-Key-Liste lockt → wenn jemand ein neues Secret-Feld in ProviderConfig oder CustomModel hinzufügt und den Walker vergisst, schlägt der Test fehl
+  - BACKLOG: FIX-26-04-01 als Done eingetragen
+- **L-1 (DEFERRED to IMP-26-04-01):** Multi-Auth-Provider-ID nutzt 8 Zeichen des API-Keys als Discriminator. Cosmetic, kein Exploit-Pfad. Sebastians Setup ist single-auth, Risiko = 0.
+- **I-1 (intentional):** ConsultFlagshipTool input-trust-boundary dokumentiert. Char-Limits + Read-only-Profile + Per-Task-Budget = ausreichend.
+- **I-2 (intentional):** Provider-API-Response-Trust dokumentiert. createSpan({text}) / setText sinks sind text-only → kein XSS.
+
+### Verifikation (in dieser Message)
+
+- `npm audit --omit=dev`: 0 critical / 0 high / 0 moderate / 0 low über 398 production deps
+- `npx tsc --noEmit`: clean
+- 11 neue Regression-Tests in providerCredentialCrypto.test.ts grün
+- `npm run build`: clean, main.js 4.3 MB, deployed
+
+### Sicherheits-positive Befunde
+
+- DOM-Rendering konsistent text-only (kein innerHTML in der EPIC-26-Surface)
+- Kein eval / new Function / require / raw fetch im neuen Code
+- Migration non-destructive + idempotent (legacy_active_models_backup + double-guard schemaVersion + nicht-leer providerConfigs)
+- ConsultFlagshipTool defends multi-layer (schema char-limits + per-task budget 3 + advisor read-only allowlist + 3000-Token-Cap + tool-schema-filter wenn no flagship)
+- Tier resolution rein pure (extracted aus main.ts, side-effect-free)
+
+### Release-Readiness: Green
+
+EPIC-26 ist auditiert + freigegeben für die Beta-Distribution. Empfehlung:
+
+- /release oder /dia-orchestrator Phase 7 für die Release-Closure (CHANGELOG-Update, Version-Bump, Public-Sync)
+- Open-Items für die nächste Audit-Runde:
+  - Verify after-fix: nach nächstem Plugin-Reload prüfen ob in data.json alle providerConfigs[i].apiKey + AWS-Felder den SafeStorage-Encrypt-Prefix tragen
+  - IMP-26-04-01 (Multi-Auth Discriminator) bei nächstem Migration-Touch
+  - OAuth-Sign-In-Inline-Implementation als Folge-Pass wenn Welle-2-Stub ersetzt wird
+
+

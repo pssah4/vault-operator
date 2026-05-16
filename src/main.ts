@@ -3,7 +3,15 @@ import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
 import { preWarmProviderConnection } from './api/warmup';
 import { scheduleRecurring } from './util/scheduleRecurring';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
-import type { CustomModel } from './types/settings';
+import type { CustomModel, ModelTier, ProviderConfig } from './types/settings';
+import { resolveActiveProvider, resolveAdvisorModel, resolveTierModel } from './core/routing/tierResolution';
+import { migrateActiveModelsToProviders, type MigrationSummary } from './core/settings/migrations/activeModelsToProviders';
+import {
+    encryptProviderCredentialsInPlace,
+    decryptProviderCredentialsInPlace,
+} from './core/security/providerCredentialCrypto';
+import { ModelDiscoveryService, type RawDiscoveredModel } from './core/routing/ModelDiscoveryService';
+import { fetchProviderModels } from './ui/settings/testModelConnection';
 import { AgentSidebarView, VIEW_TYPE_AGENT_SIDEBAR } from './ui/AgentSidebarView';
 import { AgentSettingsTab, type TabId } from './ui/AgentSettingsTab';
 import { ToolRegistry } from './core/tools/ToolRegistry';
@@ -116,6 +124,17 @@ export default class ObsidianAgentPlugin extends Plugin {
     settings: ObsidianAgentSettings;
     toolRegistry: ToolRegistry;
     apiHandler: ApiHandler | null = null;
+    /**
+     * EPIC-26 / FEAT-26-04: when a one-shot migration ran during onload
+     * its summary lives here until the sidebar consumes it for the
+     * notification modal. Cleared after first display.
+     */
+    pendingMigrationSummary: MigrationSummary | null = null;
+    /**
+     * EPIC-26 / FEAT-26-02: discovery service for provider model lists.
+     * Wired in onload after settings load. ProvidersTab consumes it.
+     */
+    modelDiscovery: ModelDiscoveryService | null = null;
     ignoreService: IgnoreService;
     operationLogger: OperationLogger;
     checkpointService: GitCheckpointService;
@@ -385,6 +404,156 @@ export default class ObsidianAgentPlugin extends Plugin {
             || this.settings.agentFolderPath === 'obsilo-vault') {
             this.settings.agentFolderPath = '.obsilo-vault';
             await this.saveSettings();
+        }
+
+        // 1b. EPIC-26 / FEAT-26-04 / ADR-123 -- one-shot migration from
+        //     legacy activeModels[] to providerConfigs[]. Idempotent (no-op
+        //     when schemaVersion is already set or providerConfigs is non-empty).
+        //     Anomalies are stashed for the MigrationNotificationModal which
+        //     the sidebar opens on first display.
+        try {
+            const migration = migrateActiveModelsToProviders(this.settings);
+            if (migration.didMigrate) {
+                this.settings.providerConfigs = migration.providerConfigs;
+                this.settings.activeProviderId = migration.activeProviderId;
+                this.settings.legacy_active_models_backup = migration.legacyBackup;
+                this.settings.schemaVersion = migration.schemaVersion;
+                // EPIC-26 follow-up: after a successful migration, clear the
+                // legacy `activeModels[]` and the per-mode model key map. The
+                // new path reads from `providerConfigs[]` exclusively; leaving
+                // the old arrays populated created duplicate state that the
+                // user could not delete (delete a provider in the new tab,
+                // legacy entry stayed, OAuth tokens stayed). Backup in
+                // `legacy_active_models_backup` is the 30-day safety net.
+                this.settings.activeModels = [];
+                this.settings.activeModelKey = '';
+                this.settings.modeModelKeys = {};
+                // `helperModelKey` is now derived from the active provider's
+                // fast tier (Stage 2 in getHelperModel). The legacy explicit
+                // key would mask that fallback indefinitely.
+                this.settings.helperModelKey = '';
+                await this.saveSettings();
+                this.pendingMigrationSummary = migration.summary;
+                console.debug(
+                    `[Plugin] EPIC-26 migration: ${migration.summary.providersCreated} providers, `
+                    + `${migration.summary.modelsClassified} models, `
+                    + `${migration.summary.anomalies.length} anomalies; `
+                    + 'legacy activeModels + activeModelKey + modeModelKeys + helperModelKey cleared',
+                );
+            }
+        } catch (e) {
+            // Non-fatal: keep legacy setup functional, log the failure.
+            console.warn('[Plugin] EPIC-26 migration failed (non-fatal):', e);
+        }
+
+        // 1b-fixup. EPIC-26 follow-up: early-migration users got the lowercase
+        // provider type as displayName (e.g. "openrouter", "github-copilot").
+        // Replace with the human-readable brand label when the displayName
+        // matches the type string. Idempotent.
+        {
+            const { getProviderBrandLabel } = await import('./types/settings');
+            let changed = false;
+            for (const p of this.settings.providerConfigs ?? []) {
+                if (!p.displayName || p.displayName === p.type) {
+                    p.displayName = getProviderBrandLabel(p.type);
+                    changed = true;
+                }
+            }
+            if (changed) await this.saveSettings();
+        }
+
+        // 1b-orphan-purge. EPIC-26 follow-up #2: users who migrated under
+        // earlier code and then removed an OAuth/gateway provider in the
+        // new tab had no purge step, so their plugin-level OAuth tokens
+        // lingered with no matching ProviderConfig. The next "Add
+        // provider" flow then reported "Signed in" against the
+        // orphan token. Idempotent: clears tokens whose provider type
+        // is no longer represented in providerConfigs[]. Also clears
+        // any leftover activeModels[] / activeModelKey / modeModelKeys
+        // / helperModelKey if providerConfigs[] is already populated,
+        // covering the case where migration ran under earlier code
+        // that did not clear them.
+        {
+            const { purgeProviderLegacyState } = await import(
+                './core/security/providerLegacyPurge'
+            );
+            const types: Array<'github-copilot' | 'chatgpt-oauth' | 'kilo-gateway'> = [
+                'github-copilot', 'chatgpt-oauth', 'kilo-gateway',
+            ];
+            const before = JSON.stringify({
+                gh: this.settings.githubCopilotAccessToken ?? '',
+                cgpt: this.settings.chatgptOAuthAccessToken ?? '',
+                kilo: this.settings.kiloToken ?? '',
+                am: this.settings.activeModels?.length ?? 0,
+            });
+            for (const t of types) {
+                purgeProviderLegacyState(this.settings, t);
+            }
+            if ((this.settings.providerConfigs ?? []).length > 0) {
+                if ((this.settings.activeModels?.length ?? 0) > 0) {
+                    this.settings.activeModels = [];
+                }
+                if (this.settings.activeModelKey) {
+                    this.settings.activeModelKey = '';
+                }
+                if (Object.keys(this.settings.modeModelKeys ?? {}).length > 0) {
+                    this.settings.modeModelKeys = {};
+                }
+                if (this.settings.helperModelKey) {
+                    this.settings.helperModelKey = '';
+                }
+            }
+            const after = JSON.stringify({
+                gh: this.settings.githubCopilotAccessToken ?? '',
+                cgpt: this.settings.chatgptOAuthAccessToken ?? '',
+                kilo: this.settings.kiloToken ?? '',
+                am: this.settings.activeModels?.length ?? 0,
+            });
+            if (before !== after) {
+                await this.saveSettings();
+                console.debug('[Plugin] EPIC-26 orphan-purge: cleared stale legacy state');
+            }
+        }
+
+        // 1c. EPIC-26 / FEAT-26-02 -- ModelDiscoveryService for the new
+        //     provider-only settings. Wraps fetchProviderModels with the
+        //     classifier + 24h cache.
+        this.modelDiscovery = new ModelDiscoveryService(
+            {
+                getProviderConfigs: () => this.settings.providerConfigs ?? [],
+                saveProviderConfigs: async (next) => {
+                    this.settings.providerConfigs = next;
+                    await this.saveSettings();
+                },
+            },
+            async (provider) => {
+                // Build the bedrock-credentials object only for bedrock.
+                const bedrockCreds = provider.type === 'bedrock' ? {
+                    authMode: provider.awsAuthMode,
+                    apiKey: provider.awsApiKey,
+                    accessKey: provider.awsAccessKey,
+                    secretKey: provider.awsSecretKey,
+                    sessionToken: provider.awsSessionToken,
+                    region: provider.awsRegion,
+                } : undefined;
+                const raw = await fetchProviderModels(
+                    provider.type,
+                    provider.apiKey ?? '',
+                    provider.baseUrl,
+                    provider.apiVersion,
+                    bedrockCreds,
+                );
+                return raw.map((r): RawDiscoveredModel => ({
+                    id: r.id,
+                    displayName: r.label,
+                }));
+            },
+        );
+        // Refresh stale provider lists in the background -- non-blocking.
+        if ((this.settings.providerConfigs ?? []).length > 0) {
+            void this.modelDiscovery.refreshOnStartup().catch((e) =>
+                console.warn('[Plugin] EPIC-26 startup discovery failed:', e),
+            );
         }
 
         // 2. Initialize core services
@@ -1559,6 +1728,31 @@ export default class ObsidianAgentPlugin extends Plugin {
         const { getPricingAgeWarning } = await import('./core/pricing/ModelPricing');
         const pricingWarn = getPricingAgeWarning();
         if (pricingWarn) console.warn(pricingWarn);
+
+        // EPIC-26 / FEAT-26-04: open the one-shot migration notification
+        // modal after the workspace is ready. Cleared from
+        // pendingMigrationSummary on first display so it never re-opens.
+        if (this.pendingMigrationSummary) {
+            this.app.workspace.onLayoutReady(() => {
+                void this.showPendingMigrationModal();
+            });
+        }
+    }
+
+    /**
+     * EPIC-26 / FEAT-26-04: show the migration notification modal once
+     * after a successful migration. No-op when no summary is pending.
+     */
+    private async showPendingMigrationModal(): Promise<void> {
+        const summary = this.pendingMigrationSummary;
+        if (!summary) return;
+        // Clear immediately so re-entrancy never opens a second modal.
+        this.pendingMigrationSummary = null;
+        const { MigrationNotificationModal } = await import('./ui/settings/MigrationNotificationModal');
+        new MigrationNotificationModal(this.app, summary, {
+            onOpenSettings: () => this.openSettingsAt('agent', 'providers'),
+            onDismiss: () => { /* nothing to do */ },
+        }).open();
     }
 
     /**
@@ -1918,17 +2112,56 @@ export default class ObsidianAgentPlugin extends Plugin {
     }
 
     /**
-     * FEAT-24-07 / ADR-115: return the helper-model CustomModel for
-     * agent-internal LLM calls (condensing, fast-path planner/presenter,
-     * plan_presentation, recipe-promotion), or null if none configured
-     * or disabled. Consumed via getHelperApi() in src/core/helper-api.ts.
+     * FEAT-24-07 / ADR-115 (extended by EPIC-26 / ADR-120):
+     * return the helper-model CustomModel for agent-internal LLM
+     * calls (condensing, fast-path planner/presenter, plan_presentation,
+     * recipe-promotion), or null if none.
+     *
+     * Resolution order:
+     *  1. Explicit `helperModelKey` setting (legacy, wins for backwards
+     *     compatibility).
+     *  2. Active provider's `tierMapping.fast` slot (EPIC-26 path).
+     *  3. null (caller falls back to main model).
      */
     getHelperModel(): CustomModel | null {
         const key = this.settings.helperModelKey;
-        if (!key) return null;
-        const model = this.settings.activeModels.find((m) => getModelKey(m) === key);
-        if (!model || !model.enabled) return null;
-        return model;
+        if (key) {
+            const model = this.settings.activeModels.find((m) => getModelKey(m) === key);
+            if (model && model.enabled) return model;
+        }
+        // EPIC-26 fallback: active provider's fast tier.
+        return this.getTierModel('fast');
+    }
+
+    /**
+     * EPIC-26 / ADR-122: return the currently active provider config,
+     * or null when no provider was selected yet (pre-migration / fresh
+     * install). Pure logic lives in
+     * `src/core/routing/tierResolution.ts` so it stays unit-testable
+     * without booting the full plugin shell.
+     */
+    getActiveProvider(): ProviderConfig | null {
+        return resolveActiveProvider(this.settings);
+    }
+
+    /**
+     * EPIC-26 / ADR-120: resolve a tier slot (fast / mid / flagship) on
+     * the active provider into a concrete CustomModel ready to feed the
+     * API handler layer. Cascade: tierOverrides[tier] -> tierMapping[tier]
+     * -> next lower tier. Returns null when nothing in the cascade is
+     * populated.
+     */
+    getTierModel(tier: ModelTier): CustomModel | null {
+        return resolveTierModel(this.settings, tier);
+    }
+
+    /**
+     * EPIC-26 / ADR-120: convenience wrapper for the consult_flagship
+     * tool. Returns the flagship-tier model on the active provider, or
+     * null when no flagship slot is filled (does NOT cascade down).
+     */
+    getAdvisorModel(): CustomModel | null {
+        return resolveAdvisorModel(this.settings);
     }
 
     /** Return the active embedding CustomModel, or null if none configured or disabled */
@@ -1952,6 +2185,9 @@ export default class ObsidianAgentPlugin extends Plugin {
         for (const model of settings.embeddingModels ?? []) {
             if (model.apiKey) model.apiKey = this.safeStorage.decrypt(model.apiKey);
         }
+        // AUDIT-027 H-1 mirror: decrypt per-provider credentials so the
+        // in-memory settings carry plaintext for the API handler layer.
+        decryptProviderCredentialsInPlace(settings, this.safeStorage);
         if (settings.webTools) {
             if (settings.webTools.braveApiKey) {
                 settings.webTools.braveApiKey = this.safeStorage.decrypt(settings.webTools.braveApiKey);
@@ -2015,6 +2251,13 @@ export default class ObsidianAgentPlugin extends Plugin {
                 model.apiKey = this.safeStorage.encrypt(model.apiKey);
             }
         }
+        // AUDIT-027 H-1: per-provider credentials in the EPIC-26
+        // providerConfigs[] array + the legacy_active_models_backup
+        // snapshot must be encrypted on the same pass; otherwise the
+        // migration would write plaintext API keys + AWS credentials
+        // into data.json (CWE-312). Pure walker lives in
+        // src/core/security/providerCredentialCrypto.ts.
+        encryptProviderCredentialsInPlace(copy, this.safeStorage);
         if (copy.webTools) {
             if (copy.webTools.braveApiKey && !this.safeStorage.isEncrypted(copy.webTools.braveApiKey)) {
                 copy.webTools.braveApiKey = this.safeStorage.encrypt(copy.webTools.braveApiKey);
@@ -2084,7 +2327,15 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Called on load and whenever settings change.
      */
     initApiHandler(): void {
-        const model = this.getActiveModel();
+        // EPIC-26 / ADR-115 amendment / ADR-120: try the active provider's
+        // configured tier slot first. The default tier is `mid` (Advisor-
+        // Pattern Hauptloop), with `flagship` as the rollback escape hatch
+        // for H-01 validation. Pre-migration installs (`activeProviderId`
+        // null or no provider config) fall back to the legacy
+        // `getActiveModel()` path so nothing breaks before Welle 2 runs.
+        const defaultTier = this.settings.defaultMainModelTier ?? 'mid';
+        const tierModel = this.getTierModel(defaultTier);
+        const model = tierModel ?? this.getActiveModel();
 
         if (!model) {
             if (this.settings.debugMode) {

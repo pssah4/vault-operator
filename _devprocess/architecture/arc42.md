@@ -477,6 +477,45 @@ ADR: [ADR-14](ADR-14-vault-dna-plugin-discovery.md). Feature-Spec: `FEAT-02-04-l
 
 ---
 
+### 5.10 Ebene 2: Modell-Routing (EPIC-26, Welle 1)
+
+```
+Plugin-Start
+  │
+  ├── ModelDiscoveryService (24h-Cache pro Provider)
+  │     │
+  │     ├── refreshOnStartup() → asynchron, blockiert UI nicht
+  │     └── refreshProvider(id) → on-demand via Refresh-Button
+  │
+  └── ModelTierClassifier (Pattern-First + Capability-Fallback + OpenRouter-Pricing-Sonderpfad)
+        │
+        └── classify(discoveredModels) → { fast, mid, flagship }
+
+Settings: providers[].tierMapping
+  │
+  └── Pro Send:
+        │
+        ├── Chat-Dropdown-Override?
+        │     ├── "Auto" → Hauptloop auf mid-Tier, consult_flagship-Tool registriert
+        │     └── Explizites Modell → Loop fix auf Wahl, consult_flagship NICHT registriert
+        │
+        └── AgentTask.run()
+              │
+              ├── Hauptloop ruft Tools auf mid (oder Override-Modell)
+              │
+              └── Tool: consult_flagship({problem, relevant_context, failed_attempts, constraints})
+                    │
+                    └── Subagent (Profile: advisor) auf flagship-Tier, 3000-Token-Budget
+                          │
+                          └── Text-Antwort → Tool-Result an Hauptloop
+```
+
+ADRs: [ADR-120](ADR-120-advisor-pattern-loop-default.md) (Advisor-Pattern als Loop-Default), [ADR-121](ADR-121-tier-classifier-strategy.md) (Tier-Klassifikator-Strategie), [ADR-122](ADR-122-provider-only-settings-schema.md) (Provider-only Settings-Schema), [ADR-123](ADR-123-settings-schema-migration.md) (Settings-Schema-Migration), [ADR-115](ADR-115-helper-model-routing.md) Amendment 2026-05-15 (Helper-Modell-Routing erweitert um Tier-Semantik). Feature-Specs: `FEAT-26-01..06`.
+
+Pflicht-Schema des `consult_flagship`-Tools: `problem` (max 1500 chars), `relevant_context` (max 3000 chars), `failed_attempts` (max 1500 chars), `constraints` (max 500 chars). Per-Task-Limit: 3 Eskalations-Calls. Prompt-Reminder bei `consecutiveMistakes >= 2`.
+
+---
+
 ## 6. Laufzeitsicht
 
 ### 6.1 Normaler Agent-Zyklus
@@ -850,6 +889,20 @@ MCP-Server-Architektur fuer externen Zugriff auf Vault Operator-Funktionen:
 - **Sicherheit (AUDIT-015 / AUDIT-016)**: per-message + transcript caps; sanitizeVaultContentForLLM mit Prompt-Injection-Filter; strictSourceIsolation Setting fuer Cross-Source-ACL; LIKE-wildcard escaping in search_history; crypto.randomUUID statt Math.random fuer ConversationStore-IDs.
 
 ADRs: [ADR-53](ADR-53-mcp-server-architecture.md), [ADR-54](ADR-54-mcp-tool-mapping.md), [ADR-55](ADR-55-remote-relay.md), [ADR-107](ADR-107-mcp-memory-tools-versionierung.md), [ADR-108](ADR-108-source-interface-tagging.md), [ADR-110](ADR-110-living-documents-cross-interface-threads.md).
+
+### 8.15 Modell-Routing und Provider-Setup (EPIC-26)
+
+Provider-zentriertes Settings-Schema und automatisches Modell-Tier-Routing:
+
+- **Settings-Schema:** `providers: ProviderConfig[]` mit `activeProviderId`-Wahl ersetzt funktional `activeModels[]`. Jeder `ProviderConfig` enthält Auth-Daten, `discoveredModels` (Cache), `tierMapping` (auto-detected) und `tierOverrides` (User-Wahl). Schema-Versionierung über `schemaVersion`-Feld. Provider-only-Disziplin: genau ein Provider aktiv, Wechsel über Settings.
+- **Tier-Klassifikator:** Pattern-First für bekannte Modell-Familien (`claude.*opus`, `gpt-5`, `gemini.*flash` etc.), Capability-Fallback (`contextWindow`, `maxOutputTokens`) für unbekannte Modelle, OpenRouter-Sonderpfad mit API-Pricing. Lokale Provider (Ollama, LMStudio) bleiben manuell.
+- **Discovery-Service:** wrappt bestehendes `fetchProviderModels()` mit 24h-Cache pro Provider, manueller Refresh-Button, asynchroner Auto-Refresh beim Plugin-Start wenn Cache abgelaufen.
+- **Advisor-Pattern:** Hauptloop läuft auf `tierMapping.mid`. Bei schwierigen Synthese-Schritten ruft das Modell selbst das `consult_flagship`-Tool, das einen Subagenten auf `tierMapping.flagship` mit Pflicht-Schema und hartem 3000-Token-Budget spawnt. Per-Task-Limit 3 Calls, Prompt-Reminder bei consecutiveMistakes >= 2.
+- **Chat-Header-Override:** Dropdown mit `Auto`-Default und Modellen des aktiven Providers als Override-Optionen pro Turn. Bei Override wird `consult_flagship` für den Turn nicht registriert. Mode-Switcher (Agent/Ask) wurde aus dem Chat-Header entfernt (Backend-Mode-System bleibt unverändert).
+- **Migration:** Auto-Migration von `activeModels[]` zu `providers[]` beim ersten Start nach Upgrade, mit Notification-Modal und Anomalien-Liste. `legacy_active_models_backup` wird für 30-90 Tage gehalten als Recovery-Pfad. Schema-Versionierung schützt vor Doppel-Migration.
+- **Backwards-Kompatibilität:** explizite `helperModelKey`-Settings gewinnen über das fast-Tier-Mapping (User-Override-Disziplin). `memoryModelKey` und `titlingModelKey` bleiben separate Settings.
+
+ADRs: [ADR-120](ADR-120-advisor-pattern-loop-default.md), [ADR-121](ADR-121-tier-classifier-strategy.md), [ADR-122](ADR-122-provider-only-settings-schema.md), [ADR-123](ADR-123-settings-schema-migration.md), [ADR-115](ADR-115-helper-model-routing.md) Amendment 2026-05-15. Feature-Specs: `FEAT-26-01..06`. BA: `BA-27`.
 
 ---
 

@@ -391,6 +391,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'Only for 5+ step tasks that benefit from context isolation or parallel processing.',
         commonMistakes: 'Delegating simple 1-4 step tasks — do those yourself with your own tools.',
     },
+    consult_flagship: {
+        group: 'agent', label: 'Consult Flagship', icon: 'lightbulb',
+        signature: 'consult_flagship(problem, relevant_context, failed_attempts, constraints)',
+        description: 'Escalate ONE hard synthesis step to a flagship-tier advisor subagent (read-only, 3000-token answer cap, max 3 calls per task). Use when the main loop is stuck on a problem that needs a stronger model.',
+        example: 'consult_flagship({ problem: "How should I structure the cache invalidation here?", relevant_context: "...", failed_attempts: "...", constraints: "no new deps" })',
+        whenToUse: 'A genuinely hard architecture / synthesis question where the current tier keeps producing weak answers. NOT for routine reads or small clarifications.',
+        commonMistakes: 'Calling on every uncertainty -- the advisor budget is 3 per task. Use it for the hardest one or two steps, not for every doubt.',
+    },
 
     find_tool: {
         group: 'agent', label: 'Find Tool', icon: 'search',

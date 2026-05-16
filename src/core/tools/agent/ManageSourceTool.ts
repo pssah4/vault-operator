@@ -284,6 +284,7 @@ export class ManageSourceTool extends BaseTool<'manage_source'> {
         callbacks.log('manage_source: patch modal opened');
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- async required by callsite signature; body is synchronous after Phase-3 cleanup
     private async handleRollback(callbacks: ToolCallbacks): Promise<void> {
         // Phase 3: rollback used to restore a plugin-written main.js.bak.
         // The plugin no longer writes into its own folder, so there is no

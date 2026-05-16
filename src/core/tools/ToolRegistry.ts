@@ -71,6 +71,7 @@ import { AttemptCompletionTool } from './agent/AttemptCompletionTool';
 import { UpdateTodoListTool } from './agent/UpdateTodoListTool';
 import { SwitchModeTool } from './agent/SwitchModeTool';
 import { NewTaskTool } from './agent/NewTaskTool';
+import { ConsultFlagshipTool } from './agent/ConsultFlagshipTool';
 import { FindToolTool } from './agent/FindToolTool';
 import { ReadSkillTool } from './agent/ReadSkillTool';
 // Plugin Skills (PAS-1)
@@ -213,6 +214,10 @@ export class ToolRegistry {
         this.register(new UpdateTodoListTool(this.plugin));
         this.register(new SwitchModeTool(this.plugin));
         this.register(new NewTaskTool(this.plugin));
+        // EPIC-26 / FEAT-26-01 / ADR-120: advisor-pattern escalation tool.
+        // Filtered out of the prompt schema by AgentTask when no flagship
+        // slot is configured on the active provider.
+        this.register(new ConsultFlagshipTool(this.plugin));
         // FEATURE-1600: meta-tool for activating deferred tools on demand
         this.register(new FindToolTool(this.plugin));
         // FEAT-24-09 / ADR-116: load a SKILL.md body on demand (always

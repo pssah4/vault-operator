@@ -65,6 +65,8 @@ export type ToolName =
     | 'attempt_completion'
     | 'switch_mode'
     | 'new_task'
+    // EPIC-26 / FEAT-26-01 / ADR-120: on-demand flagship escalation.
+    | 'consult_flagship'
     | 'find_tool'
     // FEAT-24-09 / ADR-116: load a SKILL.md body on demand.
     | 'read_skill'
@@ -248,6 +250,16 @@ export interface ToolExecutionContext {
      * instead of inheriting the parent's mode/rules/skills set.
      */
     spawnSubtask?: (mode: string, message: string, profileName?: string) => Promise<string>;
+
+    /**
+     * EPIC-26 / FEAT-26-01 / ADR-120: try to acquire one of the per-task
+     * advisor slots (default limit: 3). Returns `{ ok: true, used, limit }`
+     * when the slot was granted; the tool then proceeds with the spawn.
+     * Returns `{ ok: false, used, limit }` when the budget is exhausted;
+     * the tool reports a tool_error and the loop continues without the
+     * advisor result.
+     */
+    consumeAdvisorSlot?: () => { ok: boolean; used: number; limit: number };
 
     /**
      * Invalidate the cached system prompt and tool definitions.
