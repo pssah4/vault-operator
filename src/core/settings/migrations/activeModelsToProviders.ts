@@ -56,11 +56,9 @@ export interface MigrationResult {
 /** The schema-version stamp written into settings after a successful migration. */
 export const SCHEMA_VERSION = '2026.5.15';
 
-interface MigrationInputSettings extends Pick<ObsidianAgentSettings,
+type MigrationInputSettings = Pick<ObsidianAgentSettings,
     'activeModels' | 'activeModelKey' | 'providerConfigs' | 'schemaVersion'
-> {
-    // narrow shape -- helper accepts anything that has these fields
-}
+>;
 
 function shouldMigrate(settings: MigrationInputSettings): boolean {
     if (settings.schemaVersion) return false; // already migrated

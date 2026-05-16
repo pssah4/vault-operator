@@ -17,6 +17,7 @@ import type ObsidianAgentPlugin from '../../main';
 import type { ModelTier, ProviderConfig, ProviderType } from '../../types/settings';
 import { getProviderBrandLabel } from '../../types/settings';
 import { ProviderDetailModal } from './ProviderDetailModal';
+import { confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
 
 const OAUTH_PROVIDER_TYPES: ProviderType[] = ['github-copilot', 'chatgpt-oauth'];
@@ -143,9 +144,14 @@ export class ProvidersTab {
         });
         setIcon(delBtn, 'trash');
         delBtn.addEventListener('click', () => { void (async () => {
-            const ok = window.confirm(t('settings.providers.removeConfirm', {
-                name: provider.displayName ?? this.providerLabel(provider.type),
-            }));
+            const ok = await confirmModal(this.app, {
+                title: t('settings.providers.removeProvider'),
+                message: t('settings.providers.removeConfirm', {
+                    name: provider.displayName ?? this.providerLabel(provider.type),
+                }),
+                confirmLabel: t('settings.providers.remove'),
+                destructive: true,
+            });
             if (!ok) return;
             this.plugin.settings.providerConfigs =
                 (this.plugin.settings.providerConfigs ?? []).filter((p) => p.id !== provider.id);

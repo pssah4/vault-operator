@@ -29,7 +29,7 @@ export class MigrationNotificationModal extends Modal {
         const header = contentEl.createDiv({ cls: 'mig-modal-header' });
         const icon = header.createSpan({ cls: 'mig-modal-icon' });
         setIcon(icon, 'sparkles');
-        header.createEl('h2', { text: 'Setup migrated to the new Provider format' });
+        header.createEl('h2', { text: 'Setup migrated to the new provider format' });
 
         // Body summary
         const body = contentEl.createDiv({ cls: 'mig-modal-body' });

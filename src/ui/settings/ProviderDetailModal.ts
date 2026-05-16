@@ -18,6 +18,7 @@
 
 import { App, Modal, Notice, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
+import { confirmModal } from '../modals/PromptModal';
 import type {
     DiscoveredModel,
     ModelTier,
@@ -376,9 +377,14 @@ export class ProviderDetailModal extends Modal {
     }
 
     private async handleRemove(): Promise<void> {
-        const ok = window.confirm(t('settings.providers.removeConfirm', {
-            name: this.formDisplayName || getProviderBrandLabel(this.formType),
-        }));
+        const ok = await confirmModal(this.app, {
+            title: t('settings.providers.removeProvider'),
+            message: t('settings.providers.removeConfirm', {
+                name: this.formDisplayName || getProviderBrandLabel(this.formType),
+            }),
+            confirmLabel: t('settings.providers.remove'),
+            destructive: true,
+        });
         if (!ok) return;
         const list = this.plugin.settings.providerConfigs ?? [];
         this.plugin.settings.providerConfigs = list.filter((p) => p.id !== this.originalId);
@@ -488,7 +494,7 @@ export class ProviderDetailModal extends Modal {
         );
         const regInput = regRow.createEl('input', {
             cls: 'mcm-input',
-            attr: { type: 'text', placeholder: 'eu-central-1' },
+            attr: { type: 'text', placeholder: 'AWS region (eu-central-1)' },
         });
         regInput.value = this.formAwsRegion;
         regInput.addEventListener('input', () => { this.formAwsRegion = regInput.value; });
@@ -556,7 +562,11 @@ export class ProviderDetailModal extends Modal {
             // when the draft drifts from the persisted state.
             if (!this.originalId) return;
             if (this.hasUnsavedAuthChanges()) {
-                const ok = window.confirm(t('settings.providers.modal.refreshDirtyConfirm'));
+                const ok = await confirmModal(this.app, {
+                    title: t('settings.providers.refresh'),
+                    message: t('settings.providers.modal.refreshDirtyConfirm'),
+                    confirmLabel: t('settings.providers.refresh'),
+                });
                 if (!ok) return;
             }
             const discovery = this.plugin.modelDiscovery;
