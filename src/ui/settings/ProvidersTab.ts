@@ -207,7 +207,7 @@ export class ProvidersTab {
         const footer = containerEl.createDiv('model-table-footer');
         const addBtn = footer.createEl('button', {
             cls: 'mod-cta model-add-btn',
-            text: t('settings.providers.addProvider'),
+            text: '+ ' + t('settings.providers.addProvider'),
         });
         addBtn.addEventListener('click', () => {
             new ProviderDetailModal(

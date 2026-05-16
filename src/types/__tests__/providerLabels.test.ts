@@ -45,7 +45,7 @@ describe('getProviderBrandLabel (EPIC-26 / FEAT-26-03)', () => {
 describe('getTierBadgeLabel (EPIC-26 / FEAT-26-02)', () => {
     it.each<['fast' | 'mid' | 'flagship', string]>([
         ['fast',     'Budget'],
-        ['mid',      'Premium'],
+        ['mid',      'Main'],
         ['flagship', 'Frontier'],
     ])('maps %s to %s', (tier, expected) => {
         expect(getTierBadgeLabel(tier)).toBe(expected);

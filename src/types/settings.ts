@@ -87,7 +87,7 @@ export function getProviderBrandLabel(provider: ProviderType): string {
  */
 const TIER_BADGE_LABELS: Record<'fast' | 'mid' | 'flagship', string> = {
     fast:     'Budget',
-    mid:      'Premium',
+    mid:      'Main',
     flagship: 'Frontier',
 };
 
