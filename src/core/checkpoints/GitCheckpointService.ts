@@ -14,6 +14,7 @@
  */
 
 import git from 'isomorphic-git';
+import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- isomorphic-git
 // needs the raw Node fs module as its plugin; routing through safeFs caused an
 // indefinite hang during git.resolveRef on iCloud-backed vaults (2026-05-16).
@@ -106,6 +107,17 @@ export class GitCheckpointService {
         const newFiles: string[] = [];
         for (const vaultRelPath of filePaths) {
             try {
+                // AUDIT-028 L-1 defense-in-depth: reject path-traversal segments
+                // and absolute paths up front. filePaths arrives from LLM
+                // tool-call input (ToolExecutionPipeline.ts:338 passes
+                // toolCall.input.path) and the shadow-repo write below uses raw
+                // fs (FIX-28-00-02), so upstream tool validation is the only
+                // boundary. The check here mirrors the vault-file recipe
+                // validator and keeps sub-paths (forward slashes) intact.
+                if (vaultRelPath.includes('..') || path.isAbsolute(vaultRelPath) || vaultRelPath.includes('\0')) {
+                    console.warn(`[Checkpoints] Rejected non-vault-relative path: ${vaultRelPath}`);
+                    continue;
+                }
                 const repoRelative = vaultRelPath;
 
                 // Check if file exists before reading (write_file may create new files)

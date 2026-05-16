@@ -31,6 +31,7 @@ import {
 import { purgeProviderLegacyState } from '../../core/security/providerLegacyPurge';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
 import { ChatGptOAuthService } from '../../core/auth/ChatGptOAuthService';
+import { isOpenAIChatCompletionModel } from './testModelConnection';
 import { t } from '../../i18n';
 
 const TIER_ORDER: ModelTier[] = ['fast', 'mid', 'flagship'];
@@ -84,7 +85,12 @@ export class ProviderDetailModal extends Modal {
         this.formDisplayName = seed.displayName ?? '';
         this.formEnabled = seed.enabled;
         this.formApiKey = seed.apiKey ?? '';
-        this.formBaseUrl = seed.baseUrl ?? '';
+        // Local providers (ollama, lmstudio) only work with a concrete base URL.
+        // The placeholder-only pattern that cloud providers use leaves an empty
+        // draft, and Discovery then falls back to the wrong default port. Seed
+        // the field with the known local default so Refresh works out-of-the-box.
+        this.formBaseUrl = seed.baseUrl
+            ?? (this.isNew ? getDefaultBaseUrlForProvider(seed.type) ?? '' : '');
         this.formApiVersion = seed.apiVersion ?? '';
         this.formAwsRegion = seed.awsRegion ?? '';
         this.formAwsAuthMode = seed.awsAuthMode ?? 'api-key';
@@ -152,7 +158,11 @@ export class ProviderDetailModal extends Modal {
                     this.formType = v as ProviderType;
                     const prevDefault = getDefaultBaseUrlForProvider(previous) ?? '';
                     if (!this.formBaseUrl || this.formBaseUrl === prevDefault) {
-                        this.formBaseUrl = '';
+                        // For local providers prefill the well-known endpoint so
+                        // Discovery has a target URL without the user typing.
+                        this.formBaseUrl = LOCAL_PROVIDER_TYPES.includes(this.formType)
+                            ? getDefaultBaseUrlForProvider(this.formType) ?? ''
+                            : '';
                     }
                     this.render();
                 });
@@ -402,11 +412,30 @@ export class ProviderDetailModal extends Modal {
     }
 
     private pickModelForTest(): string {
+        // Collect tier candidates in priority order, then fall back to the
+        // discovered list. For OpenAI we additionally filter out IDs that
+        // are not callable via /v1/chat/completions (realtime, tts, audio,
+        // image, search, deep-research, *-pro, *-codex). Without this the
+        // test-connection picks a polluted tier entry from before the
+        // EXCLUDE_RE was tightened, fires chat.completions, and returns
+        // a confusing 404 / 400.
+        const candidates: string[] = [];
         for (const tier of (['flagship', 'mid', 'fast'] as ModelTier[])) {
             const id = this.tierOverrides?.[tier] ?? this.tierMapping?.[tier];
-            if (id) return id;
+            if (id) candidates.push(id);
         }
-        if (this.discoveredModels.length > 0) return this.discoveredModels[0].id;
+        for (const m of this.discoveredModels) candidates.push(m.id);
+        const accept = this.formType === 'openai'
+            ? isOpenAIChatCompletionModel
+            : (_: string) => true;
+        const picked = candidates.find(accept);
+        if (picked) return picked;
+        // ChatGPT OAuth has no `/v1/models` endpoint, so the legacy
+        // "test-probe" fallback would surface the placeholder to the Codex
+        // backend (HTTP 400 "model not found"). Use a known-good Codex model
+        // instead so Test Connection still works right after sign-in, before
+        // the background discovery has populated tierMapping/discoveredModels.
+        if (this.formType === 'chatgpt-oauth') return 'gpt-5';
         // Provider-default placeholder for fresh drafts -- enough to ping the
         // /v1/models endpoint via testModelConnection which calls fetchProviderModels.
         return 'test-probe';

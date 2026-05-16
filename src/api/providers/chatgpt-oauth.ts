@@ -40,16 +40,37 @@ const CODEX_HEADERS: Record<string, string> = {
     'Accept': 'text/event-stream',
 };
 
-/** Known Codex models. Hardcoded per ADR-088. */
+/**
+ * Codex models reachable via the ChatGPT Plus/Pro OAuth backend. Hardcoded
+ * because the Codex endpoint has no `/v1/models` listing -- the only source
+ * of truth is the Codex CLI bundled lineup (mirrored from
+ * forked-kilocode/packages/types/src/providers/openai-codex.ts, 2026 release).
+ *
+ * @see ADR-088
+ */
 const KNOWN_MODELS: Record<string, ModelInfo> = {
-    'gpt-5.5':          { contextWindow: 256_000, supportsTools: true, supportsStreaming: true },
-    'gpt-5':            { contextWindow: 256_000, supportsTools: true, supportsStreaming: true },
-    'gpt-5-codex':      { contextWindow: 200_000, supportsTools: true, supportsStreaming: true },
-    'gpt-5-codex-mini': { contextWindow: 200_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5':                 { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5.1':               { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5.2':               { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5-codex':           { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5-codex-mini':      { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5.1-codex':         { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5.1-codex-mini':    { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5.1-codex-max':     { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5.2-codex':         { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
+    'gpt-5.3-codex':         { contextWindow: 400_000, supportsTools: true, supportsStreaming: true },
 };
 
+/** Test-Connection fallback when no tier mapping / discovered list exists yet. */
+export const CHATGPT_OAUTH_DEFAULT_TEST_MODEL = 'gpt-5';
+
+/** Exposed for the Refresh path -- Codex has no `/v1/models` to discover from. */
+export function listKnownChatGptOAuthModels(): { id: string; label: string }[] {
+    return Object.keys(KNOWN_MODELS).map((id) => ({ id, label: id }));
+}
+
 const DEFAULT_MODEL_INFO: ModelInfo = {
-    contextWindow: 200_000,
+    contextWindow: 400_000,
     supportsTools: true,
     supportsStreaming: true,
 };
@@ -90,6 +111,8 @@ interface ResponsesTool {
     parameters: Record<string, unknown>;
 }
 
+type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+
 interface ResponsesRequestBody {
     model: string;
     instructions?: string;
@@ -98,7 +121,22 @@ interface ResponsesRequestBody {
     stream: true;
     parallel_tool_calls?: boolean;
     store?: boolean;
+    /** Required for GPT-5* models on the Codex backend; omitting it yields HTTP 400. */
+    reasoning?: { effort: ReasoningEffort; summary?: 'auto' };
+    include?: string[];
     [extra: string]: unknown;
+}
+
+/**
+ * GPT-5* are reasoning models; the chatgpt.com Codex backend rejects requests
+ * for them with HTTP 400 when the `reasoning` field is missing. "low" is the
+ * narrowest effort accepted by both `gpt-5` (minimal/low/medium/high) and the
+ * stricter codex variants (low/medium/high), so it is the safe default for
+ * connection tests and short calls. Verified against
+ * forked-kilocode/packages/types/src/providers/openai-codex.ts (supportsReasoningEffort matrix).
+ */
+function isGpt5Family(modelId: string): boolean {
+    return /^gpt-5(\b|[.-])/i.test(modelId);
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +174,10 @@ export class ChatGptOAuthProvider implements ApiHandler {
             body.tools = this.convertTools(tools);
             body.parallel_tool_calls = false;
         }
+        if (isGpt5Family(this.config.model)) {
+            body.reasoning = { effort: 'low', summary: 'auto' };
+            body.include = ['reasoning.encrypted_content'];
+        }
         // FIX-04-03-02: omit temperature for default-only models (e.g. GPT-5.x)
         if (this.config.temperature !== undefined && modelSupportsTemperature(this.config.model)) {
             body.temperature = Math.min(this.config.temperature, 2.0);
@@ -161,6 +203,9 @@ export class ChatGptOAuthProvider implements ApiHandler {
             stream: true,
             store: false,
         };
+        if (isGpt5Family(this.config.model)) {
+            body.reasoning = { effort: 'low', summary: 'auto' };
+        }
         const response = await this.streamRequest(body, abortSignal);
         if (response.status >= 400) {
             const detail = await readBody(response);

@@ -213,16 +213,20 @@ Vault Operator runs on desktop Obsidian and uses several Node.js APIs that go be
 
 ```
 <vault>/
-├── .obsidian-agent/
+├── .vault-operator/      # User-facing agent state (renamed from legacy
+│   │                     # `.obsidian-agent` / `.obsilo-vault`, auto-migrated
+│   │                     # on first launch)
 │   ├── rules/            # Permanent system prompt instructions
 │   ├── workflows/        # Slash-command workflow files
-│   └── skills/           # Keyword-matched skill instructions
+│   ├── skills/           # Keyword-matched skill instructions
+│   ├── plugin-skills/    # Discovered plugin API skills (VaultDNA cache)
+│   └── knowledge.db      # Local sql.js knowledge database (vectors, edges,
+│                         # tags, memory) -- atomic writes, daily snapshots
 │
 └── .obsidian/plugins/vault-operator/
     ├── checkpoints/      # Shadow git repo (automatic undo)
-    ├── logs/             # JSONL operation audit trail
-    ├── memory/           # Agent memory files (session, long-term, soul)
-    └── semantic-index/   # Local vector index
+    ├── data.json         # Plugin settings (API keys encrypted via OS keychain)
+    └── dynamic-tools/    # User-authored sandbox skill code
 ```
 
 ---

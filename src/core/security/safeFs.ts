@@ -269,12 +269,13 @@ export const promises = {
     async open(p: string, flags: string | number, mode?: string | number | null): Promise<FsModule.promises.FileHandle> {
         return fs().promises.open(assertAllowed(p), flags, mode ?? undefined);
     },
-    async readlink(p: string): Promise<string> {
-        return fs().promises.readlink(assertAllowed(p));
-    },
-    async symlink(target: string, p: string, type?: FsModule.symlink.Type): Promise<void> {
-        await fs().promises.symlink(target, assertAllowed(p), type);
-    },
+    // symlink and readlink intentionally not exported. AUDIT-028 L-2 + AUDIT-029
+    // closure: the wrapper resolves paths lexically (path.resolve, not
+    // path.realpath) and therefore cannot validate a symlink target. Allowing
+    // promises.symlink would have let any caller drop a trapdoor link inside an
+    // allowed root that points outside it, and a subsequent read would have
+    // passed the lexical allowlist check while reading the off-allowlist target.
+    // Zero callers existed; the methods are removed rather than guarded.
     async chmod(p: string, mode: string | number): Promise<void> {
         await fs().promises.chmod(assertAllowed(p), mode);
     },

@@ -1,13 +1,13 @@
 ---
 title: Providers & Models
-description: Setup guides for all supported AI providers. Anthropic, OpenAI, Google Gemini, Copilot, Kilo, Ollama, and more.
+description: Setup guides for all supported AI providers. Anthropic, OpenAI, Google Gemini, ChatGPT-OAuth, Copilot, Kilo, Ollama, and more.
 ---
 
 # Providers & models
 
-Vault Operator supports 11 AI providers. Setup instructions for each one follow.
+Vault Operator supports 12 AI providers. Setup instructions for each one follow.
 
-For all providers, open **Settings > Vault Operator > Models**, click **"+ add model"**, and select your provider.
+For all providers, open **Settings > Vault Operator > Providers**, click **"+ Add provider"**, and pick your provider type.
 
 ## Cloud providers
 
@@ -137,6 +137,31 @@ Bedrock bills per-token directly through your AWS account. There is no free tier
 
 ## Gateway providers
 
+### ChatGPT (OAuth)
+
+| | |
+|---|---|
+| What you need | An active ChatGPT Plus or Pro subscription |
+| Available models | gpt-5, gpt-5.1, gpt-5.2, gpt-5-codex, gpt-5-codex-mini, gpt-5.1-codex variants, gpt-5.2-codex, gpt-5.3-codex (Codex-backend lineup) |
+| Embedding | Not available |
+
+Setup (OAuth PKCE loopback flow, desktop only):
+1. In Vault Operator, select **ChatGPT (OAuth)** as provider
+2. Click **"Sign in with ChatGPT"**. The browser opens with `auth.openai.com`.
+3. Sign in with the same account that holds your ChatGPT Plus / Pro subscription
+4. After approval the browser redirects to a `localhost` callback the plugin opened for the duration of the flow. The tab closes itself.
+5. Click **"Refresh"** to load the Codex model lineup, then map the tiers (Budget / Main / Frontier)
+
+Behind the scenes the plugin routes requests through `chatgpt.com/backend-api/codex/responses`, the same endpoint that the Codex CLI uses. Tokens are stored encrypted via your OS keychain (`safeStorage`). Refresh tokens auto-renew before expiry.
+
+:::tip Covered by your subscription
+ChatGPT-OAuth bills against your existing Plus / Pro plan, not against an OpenAI API key. There is no per-token cost; rate limits follow the subscription tier. The plugin still tracks the equivalent API cost in the sidebar footer for transparency.
+:::
+
+:::warning Reasoning effort fixed at `low`
+GPT-5 family models require a `reasoning` block in every request. Vault Operator sends `reasoning: { effort: 'low' }`, the narrowest value accepted across the family. This minimises latency and cost. Higher reasoning effort is not currently exposed as a setting; if you need it for a specific task, use the OpenAI API provider with a `gpt-5*-pro` model via the standard `/v1/responses` endpoint.
+:::
+
 ### GitHub Copilot
 
 | | |
@@ -189,7 +214,8 @@ Setup:
 1. Install Ollama from [ollama.ai](https://ollama.ai)
 2. Pull a model: `ollama pull qwen2.5:7b`
 3. In Vault Operator, select **Ollama** as provider. No API key needed.
-4. The model list auto-detects running models
+4. The Base URL field pre-fills with `http://localhost:11434`; adjust only if you run Ollama on a non-default port.
+5. Click **"Refresh"** to populate the model list from Ollama's native `/api/tags` endpoint.
 
 :::tip Privacy
 With Ollama, no data leaves your machine. Good for sensitive vaults.
@@ -208,6 +234,7 @@ Setup:
 2. Download a model from the catalog and load it
 3. Start the **local server** (LM Studio > Developer tab)
 4. In Vault Operator, select **LM Studio** as provider. No API key needed.
+5. The Base URL field pre-fills with `http://localhost:1234`; adjust only if you changed the server port.
 
 ### Custom endpoint
 
@@ -235,6 +262,7 @@ This works with any server that implements the OpenAI chat completions API: vLLM
 | OpenRouter | API key | Pay-per-use | Cloud | No | Model variety |
 | Azure OpenAI | API key + endpoint | Enterprise | Enterprise tenant | Yes | Compliance |
 | Amazon Bedrock | IAM access key | Pay-per-use via AWS | Cloud (your AWS account) | No | EU data residency via eu-central-1 |
+| ChatGPT (OAuth) | OAuth (PKCE) | Plus / Pro subscription | Cloud | No | Existing ChatGPT subscribers, Codex-line models |
 | GitHub Copilot | OAuth | Subscription | Cloud | No | Existing subscribers |
 | Kilo Gateway | Device auth / token | Organization | Cloud | No | Team deployments |
 | Ollama | None | Free | Fully local | Yes | Privacy, offline |

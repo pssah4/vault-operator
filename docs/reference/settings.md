@@ -7,20 +7,25 @@ description: Every Vault Operator setting explained, organized by tab with defau
 
 All Vault Operator settings are in **Obsidian Settings > Vault Operator**. This page documents every section.
 
-## Models
+## Providers
 
-Configure AI models and providers. You can add multiple models and switch between them.
+Configure AI providers. Each provider exposes its own model list and is mapped into three tiers (Budget, Main, Frontier) that the agent picks from based on the current task.
 
 | Setting | What it does | Default | Recommendation |
 |---------|-------------|---------|----------------|
-| Model list | All configured models with provider, name, and status | Empty | Add at least one model to start |
-| Active model | The model used for conversations | First added | Use a strong model (Claude Sonnet, GPT-4o) |
-| + add model | Opens the model configuration dialog | n/a | Start with one cloud + one local model |
-| Import from code | Import model configurations shared as code snippets | n/a | Useful for team setups |
-| Test connection | Verify that a model's API key and endpoint work | n/a | Always test after adding a new model |
+| Provider list | All configured providers with type, display name, sign-in status, and tier mapping | Empty | Add at least one provider to start |
+| Active provider | The provider used for chat by default | First added | Pick the one with the strongest Main tier (Claude Sonnet 4.x, GPT-5, Gemini 2.x) |
+| + Add provider | Opens the provider detail modal | n/a | Start with one cloud and optionally one local |
+| Refresh | Pulls the provider's model list and auto-classifies the models into tiers | n/a | Click after sign-in; rerun if the provider releases new models |
+| Tier mapping | Manual override for Budget / Main / Frontier slots | Auto-classified | Keep auto unless you want a specific model |
+| Test connection | Verifies the provider's credentials and endpoint with a minimal request | n/a | Always test after adding or rotating credentials |
 
-:::tip Multiple models
-Add several models and assign them to different modes. Use a fast, cheap model for Ask mode and a stronger one for Agent mode.
+:::tip Tiers and overrides
+The Main tier drives chat by default. The agent escalates to Frontier on hard synthesis steps via the `consult_flagship` tool (budget: 3 calls per task, 3000 tokens per call). The chat-header model picker lets you pin a specific provider/model for a single task without changing the active provider.
+:::
+
+:::info Local capabilities and providers
+Ollama and LM Studio prefill their Base URL field with the well-known default port. The Refresh button uses Ollama's native `/api/tags` endpoint to enumerate installed models. ChatGPT (OAuth) bills against your existing Plus or Pro subscription instead of a per-token API key.
 :::
 
 ## Embeddings
@@ -230,7 +235,7 @@ Daily audit trail of every tool call. Each tool invocation is appended to a JSON
 | Clear all | Delete every log file from disk | n/a | Use sparingly. Logs are the only post-hoc record of what the agent did |
 
 :::info Where logs live
-Logs are stored under the agent folder (`Settings > Vault > Agent folder`, default `.obsidian-agent/logs/`). Each day is a separate JSONL file. Logs do not contain conversation content, only tool calls.
+Logs are stored under the agent folder (`Settings > Vault > Agent folder`, default `.vault-operator/logs/`). Each day is a separate JSONL file. Logs do not contain conversation content, only tool calls.
 :::
 
 ## Debug

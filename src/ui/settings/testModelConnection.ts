@@ -49,6 +49,49 @@ interface AzureDeploymentEntry {
 }
 
 // ---------------------------------------------------------------------------
+// OpenAI chat-completion model filter
+// ---------------------------------------------------------------------------
+
+/**
+ * OpenAI's `/v1/models` returns every model the account has access to,
+ * including modalities that are NOT callable through `/v1/chat/completions`:
+ *
+ *   - Realtime / Audio / TTS / Transcribe (different endpoints + payloads)
+ *   - Image generation (DALL-E, gpt-image-*)
+ *   - Search-tuned variants (gpt-4o-search-preview, gpt-5-search-api)
+ *   - Deep Research (Responses API)
+ *   - Codex (legacy completions or Responses)
+ *   - Pro variants (gpt-5-pro, gpt-5.x-pro, o1-pro, o3-pro) -- Responses API only
+ *   - Embeddings (text-embedding-*) -- excluded by the prefix check
+ *
+ * Picking one of these for tier mapping leads to a Test-Connection failure
+ * with a confusing "model not supported in v1/chat/completions" error.
+ * Filter them out so the tier classifier only sees real chat models.
+ */
+const CHAT_PREFIX_RE = /^(gpt-|o[1-9]|chatgpt-|codex-)/;
+
+const NONCHAT_EXCLUDE_RE = new RegExp([
+    // Legacy / fine-tune / 32k variants
+    String.raw`-(instruct|vision-preview|0314|0301|0613|0914|32k)$`,
+    String.raw`:ft-`,
+    // Non-chat modalities anywhere in the id (token-bounded by `-` or end)
+    String.raw`(?:^|-)(?:realtime|audio|tts|transcribe|whisper|image|search-preview|search-api|deep-research)(?:-|$)`,
+    // Responses-API-only "pro" variants: gpt-5-pro, gpt-5.2-pro, o3-pro-2025-..., o1-pro
+    String.raw`(?:^|-)pro(?:-\d|$)`,
+    // Codex models route through a different endpoint
+    String.raw`-codex(?:-|$)`,
+    // chatgpt-image-latest, chatgpt-realtime-*, etc.
+    String.raw`^chatgpt-(?:image|realtime|audio|tts)`,
+].join('|'), 'i');
+
+export function isOpenAIChatCompletionModel(id: string): boolean {
+    if (!id) return false;
+    if (!CHAT_PREFIX_RE.test(id)) return false;
+    if (NONCHAT_EXCLUDE_RE.test(id)) return false;
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // Test helper
 // ---------------------------------------------------------------------------
 
@@ -432,11 +475,8 @@ async function fetchProviderModels(
         if (res.status === 401) throw new Error('Invalid API key (401 Unauthorized)');
         if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
         const data = res.json;
-        // Keep only chat-capable models; exclude fine-tunes, TTS, embeddings, DALL-E
-        const CHAT_RE = /^(gpt-|o[1-9]|chatgpt-|codex-)/;
-        const EXCLUDE_RE = /-(instruct|vision-preview|0314|0301|0613|0914|32k)$|:ft-/;
         return ((data.data ?? []) as ApiModelEntry[])
-            .filter((m) => CHAT_RE.test(m.id ?? '') && !EXCLUDE_RE.test(m.id ?? ''))
+            .filter((m) => isOpenAIChatCompletionModel(m.id ?? ''))
             .sort((a, b) => (b.created ?? 0) - (a.created ?? 0))
             .map((m) => ({ id: m.id as string, label: m.id as string }));
     }
@@ -469,12 +509,32 @@ async function fetchProviderModels(
             .sort((a, b) => a.id.localeCompare(b.id));
     }
 
+    // ollama — native /api/tags lists locally installed models (preferred over
+    // the OpenAI-compat /v1/models layer, which Ollama only serves when the
+    // user has explicitly enabled it). Reuses fetchOllamaModels so the legacy
+    // ModelConfigModal browser and the EPIC-26 discovery service stay aligned.
+    if (provider === 'ollama') {
+        const names = await fetchOllamaModels(baseUrl || 'http://localhost:11434');
+        return names.map((id) => ({ id, label: id }));
+    }
+
     // GitHub Copilot — uses auth service for token
     if (provider === 'github-copilot') {
         const authService = GitHubCopilotAuthService.getInstance();
         if (!authService.isAuthenticated()) throw new Error('Not authenticated. Sign in with GitHub first.');
         const models = await authService.listModels();
         return models.map((m) => ({ id: m.id, label: (m.name ?? m.id) }));
+    }
+
+    // ChatGPT OAuth (Codex backend) — there is no `/v1/models` endpoint on
+    // chatgpt.com/backend-api/codex, so the only authoritative source is the
+    // static Codex CLI lineup the provider hardcodes. Without this branch the
+    // generic "custom" fallback below tries http://localhost:1234/v1/models
+    // (network error) and discovery returns empty; the test-connection then
+    // falls back to a placeholder model id and the Codex backend 400s.
+    if (provider === 'chatgpt-oauth') {
+        const { listKnownChatGptOAuthModels } = await import('../../api/providers/chatgpt-oauth');
+        return listKnownChatGptOAuthModels();
     }
 
     // Kilo Gateway — dynamic model list via KiloMetadataService

@@ -459,8 +459,7 @@
     margin-top: 8px;
 }
 
-.approve-btn,
-.deny-btn {
+.approve-btn {
     flex: 1;
     padding: 6px 12px;
     border-radius: 6px;
@@ -468,9 +467,6 @@
     cursor: pointer;
     font-weight: 600;
     transition: all 0.2s;
-}
-
-.approve-btn {
     background: var(--color-green);
     color: white;
 }
@@ -480,6 +476,13 @@
 }
 
 .deny-btn {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
     background: var(--color-red);
     color: white;
 }
@@ -6392,24 +6395,25 @@
     position: relative;
 }
 
-.context-segment-current,
-.context-segment-reserved,
-.context-segment-available {
+.context-segment-current {
     height: 100%;
     width: var(--ctx-seg-w, 0%);
     transition: width 0.3s ease-out;
-}
-
-.context-segment-current {
     background: var(--text-normal);
 }
 
 .context-segment-reserved {
+    height: 100%;
+    width: var(--ctx-seg-w, 0%);
+    transition: width 0.3s ease-out;
     background: var(--text-muted);
     opacity: 0.5;
 }
 
 .context-segment-available {
+    height: 100%;
+    width: var(--ctx-seg-w, 0%);
+    transition: width 0.3s ease-out;
     background: transparent;
 }
 

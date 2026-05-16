@@ -326,7 +326,11 @@ export default class ObsidianAgentPlugin extends Plugin {
             (leaf) => new AgentSidebarView(leaf, this)
         );
 
-        void this.doLoad().finally(() => markReady());
+        void this.doLoad()
+            .catch((err) => {
+                console.error('[Boot] doLoad threw before completion:', err);
+            })
+            .finally(() => markReady());
     }
 
     private async doLoad(): Promise<void> {
@@ -553,6 +557,55 @@ export default class ObsidianAgentPlugin extends Plugin {
             if (before !== after) {
                 await this.saveSettings();
                 console.debug('[Plugin] EPIC-26 orphan-purge: cleared stale legacy state');
+            }
+        }
+
+        // 1b-openai-cleanup. EPIC-26 follow-up: early refreshes of OpenAI
+        //     captured non-chat-completion modalities (realtime, tts, audio,
+        //     image, search-preview, deep-research, *-pro, *-codex) because
+        //     fetchProviderModels filtered them only by prefix. The tier
+        //     classifier then mapped flagship to gpt-5.5-pro-* (Responses-API
+        //     only) and Test Connection 404'd. Strip the polluted entries
+        //     from discoveredModels, drop any tierMapping/tierOverrides slot
+        //     that referenced one, and zero lastRefreshAt so the background
+        //     refresh re-discovers the cleaned list. Idempotent: a clean
+        //     state produces no changes.
+        {
+            const { isOpenAIChatCompletionModel } = await import(
+                './ui/settings/testModelConnection'
+            );
+            let changed = false;
+            for (const p of this.settings.providerConfigs ?? []) {
+                if (p.type !== 'openai') continue;
+                const before = p.discoveredModels?.length ?? 0;
+                const cleaned = (p.discoveredModels ?? []).filter(
+                    (m) => isOpenAIChatCompletionModel(m.id),
+                );
+                if (cleaned.length !== before) {
+                    p.discoveredModels = cleaned;
+                    p.lastRefreshAt = 0;
+                    changed = true;
+                }
+                const validIds = new Set(cleaned.map((m) => m.id));
+                for (const tier of ['flagship', 'mid', 'fast'] as const) {
+                    const mapId = p.tierMapping?.[tier];
+                    if (mapId && !validIds.has(mapId)) {
+                        delete p.tierMapping?.[tier];
+                        changed = true;
+                    }
+                    const ovrId = p.tierOverrides?.[tier];
+                    if (ovrId && !isOpenAIChatCompletionModel(ovrId)) {
+                        delete p.tierOverrides?.[tier];
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) {
+                await this.saveSettings();
+                console.debug(
+                    '[Plugin] EPIC-26 openai cleanup: stripped non-chat modalities '
+                    + 'and stale tier slots; refreshOnStartup will re-discover',
+                );
             }
         }
 

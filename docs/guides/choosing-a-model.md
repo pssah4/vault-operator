@@ -63,15 +63,17 @@ Models run on your machine. No data leaves your device. Free, but needs decent h
 
 ## How to add a model in Vault Operator
 
-1. Open **Settings > Vault Operator > Models**
-2. Click **"+ add model"**
-3. Select a **provider** from the dropdown
+1. Open **Settings > Vault Operator > Providers**
+2. Click **"+ Add provider"**
+3. Select a **provider type** from the dropdown
 4. Follow the provider-specific instructions:
-   - API key providers: Paste your key, select or enter a model ID
+   - API key providers: Paste your key
    - GitHub Copilot: Click "Sign in with GitHub", complete the device flow
+   - ChatGPT (OAuth): Click "Sign in with ChatGPT", complete the browser PKCE flow
    - Kilo Gateway: Click "Sign in" or paste a token
-   - Local providers: Enter the base URL, click "Browse installed models" to pick one
-5. Optionally set a display name and adjust temperature and max tokens
+   - Local providers (Ollama, LM Studio): the Base URL pre-fills with the default port; adjust if needed
+5. Click **"Refresh"** to discover the provider's model list. Vault Operator classifies each model into one of three tiers (Budget / Main / Frontier) automatically; you can override the tier mapping per slot.
+6. Optionally pick a display name. The active provider radio drives chat by default; the chat-header model picker can override per-task.
 6. Click **Add**
 
 :::info Quick pick
