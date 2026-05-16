@@ -206,3 +206,40 @@ describe('migrateActiveModelsToProviders -- non-mutation', () => {
         expect(settings).toEqual(snapshot);
     });
 });
+
+// EPIC-26 / FEAT-26-03 -- regression: early migrations set displayName to
+// the lowercase enum value ("openrouter", "github-copilot"). The migration
+// now writes the human-readable brand label instead.
+describe('migrateActiveModelsToProviders -- displayName brand labels', () => {
+    it('sets displayName to the brand label, not the lowercase type enum', () => {
+        const settings = makeInputSettings({
+            activeModels: [
+                makeModel({ name: 'claude-opus-4-6', provider: 'anthropic' }),
+                makeModel({ name: 'gpt-5', provider: 'openai', apiKey: 'sk-o' }),
+                makeModel({ name: 'gemini-2.5-pro', provider: 'gemini', apiKey: 'sk-g' }),
+                makeModel({ name: 'claude-3-opus-20240229', provider: 'openrouter', apiKey: 'sk-r' }),
+                makeModel({ name: 'claude-sonnet-4', provider: 'github-copilot', apiKey: '' }),
+            ],
+        });
+        const result = migrateActiveModelsToProviders(settings);
+        const byType = new Map(result.providerConfigs.map((p) => [p.type, p.displayName]));
+        expect(byType.get('anthropic')).toBe('Anthropic');
+        expect(byType.get('openai')).toBe('OpenAI');
+        expect(byType.get('gemini')).toBe('Google Gemini');
+        expect(byType.get('openrouter')).toBe('OpenRouter');
+        expect(byType.get('github-copilot')).toBe('GitHub Copilot');
+    });
+
+    it('never sets displayName to the bare type id (would defeat the UX rename)', () => {
+        const settings = makeInputSettings({
+            activeModels: [
+                makeModel({ name: 'claude-opus-4-6', provider: 'anthropic' }),
+                makeModel({ name: 'gpt-5', provider: 'openai', apiKey: 'sk-o' }),
+            ],
+        });
+        const result = migrateActiveModelsToProviders(settings);
+        for (const p of result.providerConfigs) {
+            expect(p.displayName).not.toBe(p.type);
+        }
+    });
+});

@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-16 by coding (EPIC-26 KOMPLETT: PLAN-24 Welle 1 + PLAN-25 Welle 2 (Provider-UI + Migration) + PLAN-26 Welle 3 (Chat-Dropdown + Mode-Switcher-Removal + Prompt-Slim). 1604/1632 Tests grün (28 pre-existing), tsc + build clean, deployed. Alle 6 FEAT-26-* auf Status Review; Live-Validation H-01..H-06 in Beta-Phase ausstehend.)
+Last update: 2026-05-16 by testing (EPIC-26 Welle 2+3 getestet: 1623/1651 Tests grün (+19 vs. /coding); 28 pre-existing failures unverändert; UX-Rework abgeschlossen: ProvidersTab im model-table-Layout, ProviderDetailModal mit Save/Cancel + Provider-Type-Dropdown + Auto-Discovery nach Save, Brand-Label-Migration, Tier-Badges Budget/Premium/Frontier, ChatModelPicker mit Search, Mode-Switcher-Removal, Prompt-Slim. Bereit für /security-audit.)
 
 ---
 

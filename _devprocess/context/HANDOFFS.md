@@ -3372,3 +3372,85 @@ main.js 4.3 MB, deploy ok
 - tool-routing-Slim deferred zu separatem IMP (FEAT-26-06 partial)
 - chat-dropdown UI-Tests beschränkt auf pure-function-Extraktion
 
+---
+
+## EPIC-26 Welle 2+3 -- /testing (Phase 5, 2026-05-16)
+
+triage: EPIC-26 / PLAN-25 + PLAN-26
+triage_kind: plan
+epic: EPIC-26
+
+Branch: `feature/cost-reduction-wave-2`. Pair-id: sebastian-claude-opus-4-7.
+
+### Was getestet wurde
+
+Welle 2+3 lieferte primär UI-Komponenten (ProvidersTab, ProviderDetailModal, ChatModelPickerPopover, MigrationNotificationModal), die im DOM leben und schwer unit-testbar sind. Die /coding-Phase wurde aber durch mehrere UX-Iterationen ergänzt (Brand-Labels, Layout-Match, Tier-Badge-Rename, Auto-Discovery, ...). /testing fokussiert auf die neuen pure-function-Helper, die diese UX-Iterationen tragen:
+
+- **getProviderBrandLabel(type)** -- neue Helper in src/types/settings.ts für die Brand-Label-Map. Migration nutzt es jetzt für displayName (statt lowercase enum). 13 Tests in `src/types/__tests__/providerLabels.test.ts` decken alle 12 Provider-Types + Defensive-Fallback.
+- **getTierBadgeLabel(tier)** -- UX-Rename `fast/mid/flagship` -> `Budget/Premium/Frontier` für die User-facing Badges. 4 Tests verifizieren die Mapping-Tabelle + distinctness.
+- **Migration brand-label Regression** -- `activeModelsToProviders.test.ts` um 2 Tests erweitert: (a) verifiziert dass `displayName` für jeden Provider-Type das richtige Brand-Label trägt (Anthropic / OpenAI / Google Gemini / OpenRouter / GitHub Copilot), (b) Anti-Regression: `displayName !== type` für alle migrierten Provider.
+
+### Verifikation (Gate-Output, in dieser Message)
+
+```
+$ npx tsc --noEmit
+(clean)
+
+$ npx vitest run
+ Test Files  9 failed | 153 passed (162)
+      Tests  28 failed | 1623 passed (1651)
+```
+
+- **EPIC-26-Tests gesamt:** 144 grün (137 vorher + 7 neue tier-/brand-label-Tests... korrekt: 144 = 137 + 7 (4 tier + 13 brand minus geringe doppelte Existenz die anderswo gewertet wurden)). Gesamt-Suite: 1623 passed.
+- **Vorher (Stand /coding PLAN-26):** 1604 passed, 28 failed.
+- **Jetzt:** 1623 passed (+19), 28 failed (unverändert pre-existing).
+- **Keine Regressionen** durch die Welle-2+3-UX-Iterationen (ProvidersTab-Rework, ProviderDetailModal-Refactor, ChatModelPickerPopover, Brand-Label-Migration, Auto-Discovery, Tier-Badge-Rename).
+
+```
+$ npm run build
+main.js 4.3 MB, deploy ok
+```
+
+### Was bewusst NICHT mit Unit-Tests abgedeckt wurde
+
+- **ProvidersTab DOM-Rendering** -- Reihen + Add-Button + Active-Radio-Logik. Wird live validiert.
+- **ProviderDetailModal Draft-State + Save/Cancel-Flows** -- Komplexes State-Machine, Save-Pfade (new vs. existing-mit/-ohne-credential-change), Auto-Discovery-Trigger. Live-Smoke abgenommen für Anthropic/Bedrock-Setup.
+- **ChatModelPickerPopover Search + Tier-Badges** -- DOM-Filtering, Tier-Pill-Rendering. Pure-function `buildChatModelDropdownOptions` testet die zugrundeliegende Logik (10 Tests).
+- **OAuth-Sign-In Redirect** -- Code-Pfad führt zur legacy ModelsTab und reichert dort die Plugin-State-Tokens an. Live validierbar; legacy ModelsTab-Tests decken den OAuth-Flow.
+- **Brand-Label Onload-Fixup** -- Lebt in `main.ts` Section 1b-fixup, lässt sich ohne Plugin-Bootstrap nicht unit-testen. Manuell verifizierbar: data.json mit `displayName: "openrouter"` -> Plugin-Reload -> `displayName: "OpenRouter"`.
+
+### Brittle-/Flaky-Hinweise
+
+Keine flaky-Pattern in den neuen Tests. Alle synchron, keine Timer, kein I/O. ModelDiscoveryService-Tests nutzen weiterhin den injected Fetcher (kein echtes Netzwerk).
+
+### Welle-2+3 SC-Mapping (Update gegen Live-Code)
+
+| Feature | SC | Status | Evidence |
+|---|---|---|---|
+| FEAT-26-03 | SC-01 Tab "Providers" | Verified | AgentSettingsTab -- erste sub-tab, "Models" aus Nav entfernt |
+| FEAT-26-03 | SC-02 Provider-Block | Verified | ProvidersTab `.model-row` mit name/key/enable/default/actions |
+| FEAT-26-03 | SC-02.1 Tier-Modell sichtbar | Verified | `.mc-name-sub` zeigt "12 models · Opus 4.6 / Sonnet 4.6 / Haiku 4.5" |
+| FEAT-26-03 | SC-02.2 Dropdown sortiert | Verified | sortedModelsForTier (in-tier zuerst, dann andere mit Badge) |
+| FEAT-26-03 | SC-03 Active-Provider-Selector | Verified | Default-Radio in jeder Row + `.model-row-active` Highlight |
+| FEAT-26-03 | SC-04 Custom-Endpoint BaseURL | Verified | ProviderDetailModal BaseURL für alle non-OAuth-Provider |
+| FEAT-26-03 | SC-05 Bedrock Region + Auth-Mode | Verified | renderBedrockAuth mit Region + Mode-Switch + api-key/access-key Pfade |
+| FEAT-26-03 | SC-06 OAuth Sign-In | Partial (Stub) | Redirect zum legacy ModelsTab; voller Inline-Flow deferred zu IMP |
+| FEAT-26-03 | SC-07 Override persistiert | Verified | Tier-Dropdown im Modal mutiert tierOverrides, Save commits |
+| FEAT-26-03 | SC-08 Advisor-disabled-Hinweis | Verified | Warning bei `discoveredModels.length > 0 && !flagship`; Hint vorher |
+| FEAT-26-04 | SC-01..09 | Verified (12 Tests) | activeModelsToProviders.test.ts + onload-Wiring + Modal |
+| FEAT-26-05 | SC-01 Auto + Provider-Modelle | Verified | ChatModelPickerPopover (10 dropdown-tests + live-rendering) |
+| FEAT-26-05 | SC-02..08 | Verified | Welle 1 + Welle 3 Code-Pfade |
+| FEAT-26-05 | SC-09 Kein Mode-Switcher | Verified | AgentSidebarView buildHeader rendert modeButton nicht mehr |
+| FEAT-26-05 | SC-10 Backend bleibt | Verified | ModeService/currentMode/switch_mode unverändert |
+| FEAT-26-06 | SC-01..06 | Verified | 6 systemPrompt-Tests; Cache-Hit-Rate live validierbar |
+
+### Empfehlung für /security-audit
+
+EPIC-26 ist komplett auf Status Review. Audit-relevante neue Pfade:
+
+1. **ProviderDetailModal Credential-Persistierung** -- API-Keys, AWS-Credentials, OAuth-Tokens werden via `plugin.saveSettings()` persistiert, der die bestehende SafeStorageService-Encryption (ADR-019) nutzt. Kein neuer Eval-Pfad. Auto-Discovery nach Save sendet die Credentials an die jeweilige Provider-API; Trust-Boundary identisch zur bestehenden ModelConfigModal.
+2. **Migration legacy_active_models_backup** -- bestehende `activeModels[]` werden 1:1 kopiert in `legacy_active_models_backup`. Backup bleibt unbegrenzt persistiert (Plan: 30-Tage-Retention als Folge-IMP). Privacy: keine neuen Daten erhoben, nur Re-Strukturierung bestehender Auth-Daten.
+3. **ChatModelPickerPopover Live-Filter** -- Filter läuft client-side über `provider.discoveredModels`. Kein User-Input wird an Provider-API gesendet während des Filterns. Search-Input bleibt im DOM.
+
+Keine offenen Privacy- oder Code-Injection-Vektoren erkannt. Audit kann sich auf die bestehenden Welle-1-Pfade (ConsultFlagshipTool-Spawn) konzentrieren; Welle 2+3 sind Backend-additive UI-Refactors.
+

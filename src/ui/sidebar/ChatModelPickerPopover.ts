@@ -16,6 +16,7 @@
 
 import { setIcon } from 'obsidian';
 import type { DiscoveredModel, ProviderConfig } from '../../types/settings';
+import { getTierBadgeLabel } from '../../types/settings';
 import { t } from '../../i18n';
 
 export interface ChatModelPickerCallbacks {
@@ -194,9 +195,9 @@ export class ChatModelPickerPopover {
         if (m.autoTier) {
             const tier = labelLine.createSpan({
                 cls: `chat-model-picker-tier chat-model-picker-tier-${m.autoTier}`,
-                text: m.autoTier,
+                text: getTierBadgeLabel(m.autoTier),
             });
-            tier.setAttr('aria-label', `tier: ${m.autoTier}`);
+            tier.setAttr('aria-label', `tier: ${getTierBadgeLabel(m.autoTier)}`);
         }
         if (m.displayName && m.displayName !== m.id) {
             labelWrap.createDiv({ cls: 'tp-item-desc', text: m.id });

@@ -78,6 +78,23 @@ export function getProviderBrandLabel(provider: ProviderType): string {
     return PROVIDER_BRAND_LABELS[provider] ?? provider;
 }
 
+/**
+ * EPIC-26 / FEAT-26-02 -- user-facing labels for the three model tiers.
+ * The internal ids (`fast` / `mid` / `flagship`) stay because they are
+ * keyed in settings, profiles, telemetry, and the consult_flagship tool
+ * name -- renaming them would be a breaking change. Only the display
+ * labels switch to a more product-y "Budget / Premium / Frontier" framing.
+ */
+const TIER_BADGE_LABELS: Record<'fast' | 'mid' | 'flagship', string> = {
+    fast:     'Budget',
+    mid:      'Premium',
+    flagship: 'Frontier',
+};
+
+export function getTierBadgeLabel(tier: 'fast' | 'mid' | 'flagship'): string {
+    return TIER_BADGE_LABELS[tier];
+}
+
 /** Provider-level default base URLs used for setup UX and built-in models. */
 export function getDefaultBaseUrlForProvider(provider: ProviderType): string | undefined {
     switch (provider) {
