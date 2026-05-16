@@ -343,7 +343,7 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 0-pre-pre. safeFs allowlist. Every fs operation in the plugin goes
         // through src/core/security/safeFs.ts; this initialise call defines
         // the five categories of paths the plugin is allowed to touch. See
-        // SECURITY.md for the threat model and FEAT-28-01 for the spec.
+        // REVIEWER_NOTES.md for the threat model and FEAT-28-01 for the spec.
         // eslint-disable-next-line @typescript-eslint/no-require-imports -- one-time path/os import for safeFs allowlist construction; the rest of the plugin uses safeFs and not direct fs
         const nodePath = require('path') as typeof import('path');
         // eslint-disable-next-line @typescript-eslint/no-require-imports -- one-time os import for safeFs allowlist construction
