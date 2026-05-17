@@ -13,7 +13,7 @@
  * fresh draft has no model list to map).
  */
 
-import { App, Modal, Notice, Setting, setIcon } from 'obsidian';
+import { App, Modal, Notice, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { confirmModal } from '../modals/PromptModal';
 import type {
@@ -129,6 +129,95 @@ export class ProviderDetailModal extends Modal {
         parent.createEl('h4', { cls: 'mcm-section', text: title });
     }
 
+    /**
+     * Compact form row matching ModelConfigModal's `.mcm-row` layout:
+     * 110px label column + 1fr control column, 12px font, tight spacing.
+     * Replaces Obsidian's `new Setting(...)` (which is too wide for this
+     * modal). The returned div has the control as its second child so
+     * callers can append inputs/buttons/dropdowns directly via the
+     * `build` callback.
+     */
+    private compactRow(
+        parent: HTMLElement,
+        opts: { label: string; desc?: string; build: (controlEl: HTMLElement) => void },
+    ): HTMLDivElement {
+        const row = parent.createDiv('mcm-row');
+        const labelEl = row.createDiv('mcm-label');
+        labelEl.createSpan({ cls: 'mcm-label-line', text: opts.label });
+        if (opts.desc) labelEl.createDiv({ cls: 'mcm-desc', text: opts.desc });
+        const controlEl = row.createDiv('mcm-control');
+        opts.build(controlEl);
+        return row;
+    }
+
+    /** Helper: text/password input matching `.mcm-input` styling. */
+    private compactInput(
+        parent: HTMLElement,
+        opts: {
+            type?: 'text' | 'password';
+            value: string;
+            placeholder?: string;
+            onInput: (v: string) => void;
+        },
+    ): HTMLInputElement {
+        const input = parent.createEl('input', {
+            cls: 'mcm-input',
+            attr: { type: opts.type ?? 'text' },
+        });
+        input.value = opts.value;
+        if (opts.placeholder) input.placeholder = opts.placeholder;
+        input.addEventListener('input', () => opts.onInput(input.value));
+        return input;
+    }
+
+    /** Helper: select dropdown matching `.mcm-select` styling. */
+    private compactSelect(
+        parent: HTMLElement,
+        opts: {
+            value: string;
+            options: Array<{ value: string; label: string }>;
+            onChange: (v: string) => void;
+        },
+    ): HTMLSelectElement {
+        const select = parent.createEl('select', { cls: 'mcm-select' });
+        for (const o of opts.options) {
+            select.createEl('option', { value: o.value, text: o.label });
+        }
+        select.value = opts.value;
+        select.addEventListener('change', () => opts.onChange(select.value));
+        return select;
+    }
+
+    /** Helper: native checkbox toggle that visually matches `.mcm-toggle`. */
+    private compactToggle(
+        parent: HTMLElement,
+        opts: { value: boolean; onChange: (v: boolean) => void },
+    ): HTMLInputElement {
+        const label = parent.createEl('label', { cls: 'mc-toggle' });
+        const input = label.createEl('input', { attr: { type: 'checkbox' } });
+        label.createSpan({ cls: 'mc-toggle-track' });
+        input.checked = opts.value;
+        input.addEventListener('change', () => opts.onChange(input.checked));
+        return input;
+    }
+
+    /** Helper: button matching the compact ModelConfigModal action buttons. */
+    private compactButton(
+        parent: HTMLElement,
+        opts: {
+            text: string;
+            variant?: 'default' | 'cta' | 'warning';
+            onClick: (btn: HTMLButtonElement) => void;
+        },
+    ): HTMLButtonElement {
+        const cls = ['mcm-btn'];
+        if (opts.variant === 'cta') cls.push('mod-cta');
+        if (opts.variant === 'warning') cls.push('mod-warning');
+        const btn = parent.createEl('button', { cls: cls.join(' '), text: opts.text });
+        btn.addEventListener('click', () => opts.onClick(btn));
+        return btn;
+    }
+
     private render(): void {
         const { contentEl } = this;
         contentEl.empty();
@@ -143,88 +232,95 @@ export class ProviderDetailModal extends Modal {
                 }),
         });
 
-        // ── Identity section ─────────────────────────────────────────────
-        this.mkSection(contentEl, t('settings.providers.modal.section.identity'));
+        // Wrap the form in `.mcm-form` so row spacing matches
+        // ModelConfigModal's compact layout (12px font, 8px gap).
+        const form = contentEl.createDiv('mcm-form');
 
-        new Setting(contentEl)
-            .setName(t('settings.providers.modal.providerType'))
-            .addDropdown((dd) => {
-                for (const type of ALL_PROVIDER_TYPES) {
-                    dd.addOption(type, getProviderBrandLabel(type));
-                }
-                dd.setValue(this.formType);
-                dd.onChange((v) => {
+        // ── Identity section ─────────────────────────────────────────────
+        this.mkSection(form, t('settings.providers.modal.section.identity'));
+
+        this.compactRow(form, {
+            label: t('settings.providers.modal.providerType'),
+            build: (ctrl) => this.compactSelect(ctrl, {
+                value: this.formType,
+                options: ALL_PROVIDER_TYPES.map((type) => ({
+                    value: type,
+                    label: getProviderBrandLabel(type),
+                })),
+                onChange: (v) => {
                     const previous = this.formType;
                     this.formType = v as ProviderType;
                     const prevDefault = getDefaultBaseUrlForProvider(previous) ?? '';
                     if (!this.formBaseUrl || this.formBaseUrl === prevDefault) {
-                        // For local providers prefill the well-known endpoint so
-                        // Discovery has a target URL without the user typing.
                         this.formBaseUrl = LOCAL_PROVIDER_TYPES.includes(this.formType)
                             ? getDefaultBaseUrlForProvider(this.formType) ?? ''
                             : '';
                     }
                     this.render();
-                });
-            });
+                },
+            }),
+        });
 
-        new Setting(contentEl)
-            .setName(t('settings.providers.modal.displayName'))
-            .setDesc(t('settings.providers.modal.displayNameDesc'))
-            .addText((text) => {
-                text.setPlaceholder(getProviderBrandLabel(this.formType))
-                    .setValue(this.formDisplayName)
-                    .onChange((v) => { this.formDisplayName = v; });
-            });
+        this.compactRow(form, {
+            label: t('settings.providers.modal.displayName'),
+            desc: t('settings.providers.modal.displayNameDesc'),
+            build: (ctrl) => this.compactInput(ctrl, {
+                value: this.formDisplayName,
+                placeholder: getProviderBrandLabel(this.formType),
+                onInput: (v) => { this.formDisplayName = v; },
+            }),
+        });
 
-        new Setting(contentEl)
-            .setName(t('settings.providers.enabled'))
-            .addToggle((toggle) => {
-                toggle.setValue(this.formEnabled)
-                    .onChange((v) => { this.formEnabled = v; });
-            });
+        this.compactRow(form, {
+            label: t('settings.providers.enabled'),
+            build: (ctrl) => this.compactToggle(ctrl, {
+                value: this.formEnabled,
+                onChange: (v) => { this.formEnabled = v; },
+            }),
+        });
 
         // ── Authentication section ──────────────────────────────────────
-        this.mkSection(contentEl, t('settings.providers.modal.section.auth'));
-        this.renderAuthSection(contentEl);
+        this.mkSection(form, t('settings.providers.modal.section.auth'));
+        this.renderAuthSection(form);
 
         // Discovery + Tier mapping only for already-saved providers.
         if (!this.isNew) {
-            this.mkSection(contentEl, t('settings.providers.modal.section.discovery'));
-            this.renderDiscoverySection(contentEl);
+            this.mkSection(form, t('settings.providers.modal.section.discovery'));
+            this.renderDiscoverySection(form);
 
-            this.mkSection(contentEl, t('settings.providers.modal.section.tiers'));
+            this.mkSection(form, t('settings.providers.modal.section.tiers'));
             // Tier-mapping intro infobox -- mirrors the settings-tab info-banner
             // pattern so the user understands what these three slots are for.
-            this.renderTierInfoBanner(contentEl);
+            this.renderTierInfoBanner(form);
             for (const tier of TIER_ORDER) {
-                this.renderTierRow(contentEl, tier);
+                this.renderTierRow(form, tier);
             }
             // Advisor-disabled callout when refresh ran but flagship slot is still empty.
             if (this.discoveredModels.length === 0) {
-                contentEl.createDiv({
+                form.createDiv({
                     cls: 'mcm-hint',
                     text: t('settings.providers.modal.tiersAfterRefresh'),
                 });
             } else if (!this.resolveDraftTierSlot('flagship')) {
-                const warn = contentEl.createDiv({ cls: 'mcm-warn' });
+                const warn = form.createDiv({ cls: 'mcm-warn' });
                 const icon = warn.createSpan({ cls: 'mcm-warn-icon' });
                 setIcon(icon, 'alert-triangle');
                 warn.createSpan({ text: ' ' + t('settings.providers.advisorDisabled') });
             }
 
-            this.mkSection(contentEl, t('settings.providers.modal.section.danger'));
-            new Setting(contentEl)
-                .setName(t('settings.providers.removeProvider'))
-                .setDesc(t('settings.providers.removeDesc'))
-                .addButton((btn) => {
-                    btn.setButtonText(t('settings.providers.removeProvider'))
-                        .setWarning()
-                        .onClick(() => { void this.handleRemove(); });
-                });
+            this.mkSection(form, t('settings.providers.modal.section.danger'));
+            this.compactRow(form, {
+                label: t('settings.providers.removeProvider'),
+                desc: t('settings.providers.removeDesc'),
+                build: (ctrl) => this.compactButton(ctrl, {
+                    text: t('settings.providers.removeProvider'),
+                    variant: 'warning',
+                    onClick: () => { void this.handleRemove(); },
+                }),
+            });
         } else {
-            this.mkSection(contentEl, t('settings.providers.modal.section.discovery'));
-            contentEl.createDiv({
+            this.mkSection(form, t('settings.providers.modal.section.discovery'));
+            form.createDiv({
                 cls: 'mcm-hint',
                 text: t('settings.providers.modal.discoveryAfterSave'),
             });
@@ -490,83 +586,87 @@ export class ProviderDetailModal extends Modal {
             return;
         }
 
-        new Setting(parent)
-            .setName(t('settings.providers.apiKey'))
-            .setDesc(t('settings.providers.apiKeyDesc'))
-            .addText((text) => {
-                text.inputEl.type = 'password';
-                text.setPlaceholder('••••••')
-                    .setValue(this.formApiKey)
-                    .onChange((v) => { this.formApiKey = v; });
-            });
+        this.compactRow(parent, {
+            label: t('settings.providers.apiKey'),
+            desc: t('settings.providers.apiKeyDesc'),
+            build: (ctrl) => this.compactInput(ctrl, {
+                type: 'password',
+                value: this.formApiKey,
+                placeholder: '••••••',
+                onInput: (v) => { this.formApiKey = v; },
+            }),
+        });
 
         const defaultBaseUrl = getDefaultBaseUrlForProvider(this.formType) ?? '';
-        new Setting(parent)
-            .setName(t('settings.providers.baseUrl'))
-            .setDesc(t('settings.providers.baseUrlDesc'))
-            .addText((text) => {
-                text.setPlaceholder(defaultBaseUrl || t('settings.providers.baseUrlSdkDefault'))
-                    .setValue(this.formBaseUrl)
-                    .onChange((v) => { this.formBaseUrl = v; });
-            });
+        this.compactRow(parent, {
+            label: t('settings.providers.baseUrl'),
+            desc: t('settings.providers.baseUrlDesc'),
+            build: (ctrl) => this.compactInput(ctrl, {
+                value: this.formBaseUrl,
+                placeholder: defaultBaseUrl || t('settings.providers.baseUrlSdkDefault'),
+                onInput: (v) => { this.formBaseUrl = v; },
+            }),
+        });
 
         if (this.formType === 'azure') {
-            new Setting(parent)
-                .setName(t('settings.providers.apiVersion'))
-                .setDesc(t('settings.providers.apiVersionDesc'))
-                .addText((text) => {
-                    text.setPlaceholder('2024-10-21')
-                        .setValue(this.formApiVersion)
-                        .onChange((v) => { this.formApiVersion = v; });
-                });
+            this.compactRow(parent, {
+                label: t('settings.providers.apiVersion'),
+                desc: t('settings.providers.apiVersionDesc'),
+                build: (ctrl) => this.compactInput(ctrl, {
+                    value: this.formApiVersion,
+                    placeholder: '2024-10-21',
+                    onInput: (v) => { this.formApiVersion = v; },
+                }),
+            });
         }
 
         this.renderTestConnectionRow(parent);
     }
 
     private renderTestConnectionRow(parent: HTMLElement): void {
-        new Setting(parent)
-            .setName(t('settings.providers.modal.testConnection'))
-            .setDesc(t('settings.providers.modal.testConnectionDesc'))
-            .addButton((btn) => {
-                btn.setButtonText(t('settings.providers.modal.testConnection'))
-                    .onClick(() => { void this.handleTestConnection(btn.buttonEl); });
-            });
+        this.compactRow(parent, {
+            label: t('settings.providers.modal.testConnection'),
+            desc: t('settings.providers.modal.testConnectionDesc'),
+            build: (ctrl) => this.compactButton(ctrl, {
+                text: t('settings.providers.modal.testConnection'),
+                onClick: (btn) => { void this.handleTestConnection(btn); },
+            }),
+        });
     }
 
     private renderOAuthAuth(parent: HTMLElement): void {
         const isAuthed = (this.formType === 'github-copilot' && !!this.plugin.settings.githubCopilotAccessToken)
             || (this.formType === 'chatgpt-oauth' && !!this.plugin.settings.chatgptOAuthAccessToken);
-        const setting = new Setting(parent)
-            .setName(t('settings.providers.oauthStatus'))
-            .setDesc(isAuthed
+        this.compactRow(parent, {
+            label: t('settings.providers.oauthStatus'),
+            desc: isAuthed
                 ? t('settings.providers.oauthAuthed')
-                : t('settings.providers.oauthNotAuthed'));
-        if (!isAuthed) {
-            setting.addButton((btn) => {
-                btn.setButtonText(t('settings.providers.oauthSignIn'))
-                    .setCta()
-                    .onClick(() => { void this.handleOAuthSignIn(btn.buttonEl); });
-            });
-        } else {
-            setting.addButton((btn) => {
-                btn.setButtonText(t('settings.providers.oauthSignOut'))
-                    .setWarning()
-                    .onClick(() => { void this.handleOAuthSignOut(); });
-            });
-        }
+                : t('settings.providers.oauthNotAuthed'),
+            build: (ctrl) => isAuthed
+                ? this.compactButton(ctrl, {
+                    text: t('settings.providers.oauthSignOut'),
+                    variant: 'warning',
+                    onClick: () => { void this.handleOAuthSignOut(); },
+                })
+                : this.compactButton(ctrl, {
+                    text: t('settings.providers.oauthSignIn'),
+                    variant: 'cta',
+                    onClick: (btn) => { void this.handleOAuthSignIn(btn); },
+                }),
+        });
         if (this.formType === 'github-copilot') {
-            new Setting(parent)
-                .setName(t('settings.providers.copilotClientId'))
-                .setDesc(t('settings.providers.copilotClientIdDesc'))
-                .addText((text) => {
-                    text.setPlaceholder(t('settings.providers.copilotClientIdPlaceholder'))
-                        .setValue(this.plugin.settings.githubCopilotCustomClientId ?? '')
-                        .onChange((v) => { void (async () => {
-                            this.plugin.settings.githubCopilotCustomClientId = v.trim();
-                            await this.plugin.saveSettings();
-                        })(); });
-                });
+            this.compactRow(parent, {
+                label: t('settings.providers.copilotClientId'),
+                desc: t('settings.providers.copilotClientIdDesc'),
+                build: (ctrl) => this.compactInput(ctrl, {
+                    value: this.plugin.settings.githubCopilotCustomClientId ?? '',
+                    placeholder: t('settings.providers.copilotClientIdPlaceholder'),
+                    onInput: (v) => { void (async () => {
+                        this.plugin.settings.githubCopilotCustomClientId = v.trim();
+                        await this.plugin.saveSettings();
+                    })(); },
+                }),
+            });
         }
         this.renderTestConnectionRow(parent);
     }
@@ -651,51 +751,58 @@ export class ProviderDetailModal extends Modal {
     }
 
     private renderBedrockAuth(parent: HTMLElement): void {
-        new Setting(parent)
-            .setName(t('settings.providers.bedrockRegion'))
-            .setDesc(t('settings.providers.bedrockRegionDesc'))
-            .addText((text) => {
-                text.setPlaceholder('AWS region (eu-central-1)')
-                    .setValue(this.formAwsRegion)
-                    .onChange((v) => { this.formAwsRegion = v; });
-            });
+        this.compactRow(parent, {
+            label: t('settings.providers.bedrockRegion'),
+            desc: t('settings.providers.bedrockRegionDesc'),
+            build: (ctrl) => this.compactInput(ctrl, {
+                value: this.formAwsRegion,
+                placeholder: 'AWS region (eu-central-1)',
+                onInput: (v) => { this.formAwsRegion = v; },
+            }),
+        });
 
-        new Setting(parent)
-            .setName(t('settings.providers.bedrockAuthMode'))
-            .setDesc(t('settings.providers.bedrockAuthModeDesc'))
-            .addDropdown((dd) => {
-                dd.addOption('api-key', 'API key (bearer)');
-                dd.addOption('access-key', 'Access key + secret');
-                dd.setValue(this.formAwsAuthMode);
-                dd.onChange((v) => {
+        this.compactRow(parent, {
+            label: t('settings.providers.bedrockAuthMode'),
+            desc: t('settings.providers.bedrockAuthModeDesc'),
+            build: (ctrl) => this.compactSelect(ctrl, {
+                value: this.formAwsAuthMode,
+                options: [
+                    { value: 'api-key', label: 'API key (bearer)' },
+                    { value: 'access-key', label: 'Access key + secret' },
+                ],
+                onChange: (v) => {
                     this.formAwsAuthMode = v as 'api-key' | 'access-key';
                     this.render();
-                });
-            });
+                },
+            }),
+        });
 
         if (this.formAwsAuthMode === 'api-key') {
-            new Setting(parent)
-                .setName(t('settings.providers.bedrockApiKey'))
-                .addText((text) => {
-                    text.inputEl.type = 'password';
-                    text.setValue(this.formAwsApiKey)
-                        .onChange((v) => { this.formAwsApiKey = v; });
-                });
+            this.compactRow(parent, {
+                label: t('settings.providers.bedrockApiKey'),
+                build: (ctrl) => this.compactInput(ctrl, {
+                    type: 'password',
+                    value: this.formAwsApiKey,
+                    onInput: (v) => { this.formAwsApiKey = v; },
+                }),
+            });
         } else {
-            new Setting(parent)
-                .setName(t('settings.providers.bedrockAccessKey'))
-                .addText((text) => {
-                    text.inputEl.type = 'password';
-                    text.setValue(this.formAwsAccessKey)
-                        .onChange((v) => { this.formAwsAccessKey = v; });
-                });
-            new Setting(parent)
-                .setName(t('settings.providers.bedrockSecretKey'))
-                .addText((text) => {
-                    text.inputEl.type = 'password';
-                    text.setValue(this.formAwsSecretKey)
-                        .onChange((v) => { this.formAwsSecretKey = v; });
-                });
+            this.compactRow(parent, {
+                label: t('settings.providers.bedrockAccessKey'),
+                build: (ctrl) => this.compactInput(ctrl, {
+                    type: 'password',
+                    value: this.formAwsAccessKey,
+                    onInput: (v) => { this.formAwsAccessKey = v; },
+                }),
+            });
+            this.compactRow(parent, {
+                label: t('settings.providers.bedrockSecretKey'),
+                build: (ctrl) => this.compactInput(ctrl, {
+                    type: 'password',
+                    value: this.formAwsSecretKey,
+                    onInput: (v) => { this.formAwsSecretKey = v; },
+                }),
+            });
         }
     }
 
@@ -709,14 +816,15 @@ export class ProviderDetailModal extends Modal {
         const desc = count > 0
             ? t('settings.providers.discoveryDesc', { count, stamp })
             : t('settings.providers.discoveryEmpty');
-        new Setting(parent)
-            .setName(t('settings.providers.discovery'))
-            .setDesc(desc)
-            .addButton((btn) => {
-                btn.setButtonText(t('settings.providers.refresh'))
-                    .setCta()
-                    .onClick(() => { void this.handleRefresh(btn.buttonEl); });
-            });
+        this.compactRow(parent, {
+            label: t('settings.providers.discovery'),
+            desc,
+            build: (ctrl) => this.compactButton(ctrl, {
+                text: t('settings.providers.refresh'),
+                variant: 'cta',
+                onClick: (btn) => { void this.handleRefresh(btn); },
+            }),
+        });
     }
 
     private async handleRefresh(btn: HTMLButtonElement): Promise<void> {

@@ -2167,6 +2167,56 @@
     border-top: 1px solid var(--background-modifier-border);
 }
 
+/* EPIC-26 / FEAT-26-03 Welle A follow-up: compact form-control wrapper
+   used by ProviderDetailModal so each row matches ModelConfigModal's
+   12px / 110px-label layout. Right-aligns buttons + toggles in the
+   same column as inputs/selects. */
+.provider-detail-modal .mcm-control {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+}
+
+.provider-detail-modal .mcm-control .mcm-input,
+.provider-detail-modal .mcm-control .mcm-select {
+    flex: 1 1 auto;
+}
+
+.provider-detail-modal .mcm-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: var(--background-modifier-form-field);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    color: var(--text-normal);
+    cursor: pointer;
+}
+
+.provider-detail-modal .mcm-btn:hover {
+    background: var(--background-modifier-hover);
+}
+
+.provider-detail-modal .mcm-btn.mod-cta {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: transparent;
+}
+
+.provider-detail-modal .mcm-btn.mod-cta:hover {
+    background: var(--interactive-accent-hover, var(--interactive-accent));
+}
+
+.provider-detail-modal .mcm-btn.mod-warning {
+    color: var(--text-error, var(--color-red));
+    border-color: var(--background-modifier-border);
+}
+
+.provider-detail-modal .mcm-btn.mod-warning:hover {
+    background: var(--background-modifier-error-hover, var(--background-modifier-hover));
+}
+
 /* EPIC-26 / FEAT-26-03 -- inline label-line so a tier badge sits next
    to the row label without breaking the .mcm-label vertical stack. */
 .mcm-label .mcm-label-line {
