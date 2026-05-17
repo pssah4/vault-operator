@@ -23,11 +23,15 @@ import { ModelConfigModal } from '../settings/ModelConfigModal';
 import type { CustomModel } from '../../types/settings';
 import { getModelKey } from '../../types/settings';
 
+// FEAT-24-08 Welle A follow-up (2026-05-18): the dedicated 'role-models'
+// wizard step was removed. The 4 role-model dropdowns (titling, internal,
+// memory, contextual) all enumerated the legacy `activeModels[]` which is
+// empty after the EPIC-26 migration; the resolvers now auto-fall-back to
+// the active provider's fast tier, so the step had nothing to configure.
 type StepId =
     | 'welcome'
     | 'llm-model'
     | 'embedding-model'
-    | 'role-models'
     | 'search-provider'
     | 'optional-downloads'
     | 'done';
@@ -36,7 +40,6 @@ const STEPS: { id: StepId; title: string; canSkip: boolean }[] = [
     { id: 'welcome',            title: 'Welcome',             canSkip: false },
     { id: 'llm-model',          title: 'LLM model',           canSkip: true  },
     { id: 'embedding-model',    title: 'Embedding model',     canSkip: true  },
-    { id: 'role-models',        title: 'Role models',         canSkip: true  },
     { id: 'search-provider',    title: 'Search provider',     canSkip: true  },
     { id: 'optional-downloads', title: 'Optional downloads',  canSkip: true  },
     { id: 'done',               title: 'Done',                canSkip: false },
@@ -233,7 +236,6 @@ export class FirstRunWizardModal extends Modal {
             case 'welcome':             return this.renderWelcome();
             case 'llm-model':           return this.renderLlmStep();
             case 'embedding-model':     return this.renderEmbeddingStep();
-            case 'role-models':         return this.renderRoleModelsStep();
             case 'search-provider':     return this.renderSearchProviderStep();
             case 'optional-downloads':  return this.renderOptionalDownloadsStep();
             case 'done':                return this.renderDoneStep();
@@ -398,87 +400,6 @@ export class FirstRunWizardModal extends Modal {
                 refresh();
             }, true).open();
         });
-    }
-
-    private renderRoleModelsStep(): void {
-        this.addInfoBanner(
-            this.bodyEl,
-            'split',
-            'Save cost with role-specific models',
-            'Background tasks (titling, internal classification, memory extraction, contextual retrieval) can run on a smaller, cheaper model. Leave on "Use main LLM" if you do not care about the cost split.',
-        );
-
-        const llmModels = this.plugin.settings.activeModels.filter(m => m.enabled);
-        if (llmModels.length === 0) {
-            const empty = this.bodyEl.createDiv({ cls: 'wizard-status is-empty' });
-            const iconWrap = empty.createDiv({ cls: 'wizard-status-icon' });
-            setIcon(iconWrap, 'circle-alert');
-            empty.createDiv({ text: 'Go back to the LLM step and add at least one model. Then this step can offer you choices.' });
-            return;
-        }
-
-        const options: Record<string, string> = { '': 'Use main LLM' };
-        for (const m of llmModels) {
-            options[getModelKey(m)] = `${m.displayName ?? m.name} (${m.provider})`;
-        }
-
-        this.addSection(this.bodyEl, 'Role assignments');
-
-        new Setting(this.bodyEl)
-            .setName('Titling')
-            .setDesc('Generates chat titles and semantic titles for notes the agent edited.')
-            .addDropdown((d) => {
-                // eslint-disable-next-line @typescript-eslint/no-misused-promises -- event handler / callback returns Promise; errors handled inside
-                Object.entries(options).forEach(([k, label]) => d.addOption(k, label));
-                d.setValue(this.plugin.settings.chatLinking?.titlingModelKey ?? '');
-                d.onChange(async (v) => {
-                    if (this.plugin.settings.chatLinking) {
-                        this.plugin.settings.chatLinking.titlingModelKey = v;
-                        await this.plugin.saveSettings();
-                    }
-                });
-            });
-
-        new Setting(this.bodyEl)
-            .setName('Internal calls')
-            .setDesc('Plugin-internal classification, context condensing, fast-path planner, recipe promotion.')
-            .addDropdown((d) => {
-                // eslint-disable-next-line @typescript-eslint/no-misused-promises -- event handler / callback returns Promise; errors handled inside
-                Object.entries(options).forEach(([k, label]) => d.addOption(k, label));
-                d.setValue(this.plugin.settings.helperModelKey ?? '');
-                d.onChange(async (v) => {
-                    this.plugin.settings.helperModelKey = v;
-                    await this.plugin.saveSettings();
-                });
-            });
-
-        new Setting(this.bodyEl)
-            .setName('Memory extraction')
-            .setDesc('Extracts long-term facts from your conversation history.')
-            .addDropdown((d) => {
-                // eslint-disable-next-line @typescript-eslint/no-misused-promises -- event handler / callback returns Promise; errors handled inside
-                Object.entries(options).forEach(([k, label]) => d.addOption(k, label));
-                d.setValue(this.plugin.settings.memory?.memoryModelKey ?? '');
-                d.onChange(async (v) => {
-                    if (this.plugin.settings.memory) {
-                        this.plugin.settings.memory.memoryModelKey = v;
-                        await this.plugin.saveSettings();
-                    }
-                });
-            });
-
-        new Setting(this.bodyEl)
-            .setName('Contextual retrieval')
-            .setDesc('Adds context-aware embeddings during semantic indexing.')
-            .addDropdown((d) => {
-                // eslint-disable-next-line @typescript-eslint/no-misused-promises -- event handler / callback returns Promise; errors handled inside
-                Object.entries(options).forEach(([k, label]) => d.addOption(k, label));
-                d.setValue(this.plugin.settings.contextualModelKey ?? '');
-                d.onChange(async (v) => {
-                    this.plugin.settings.contextualModelKey = v;
-                    await this.plugin.saveSettings();
-                });
-            });
     }
 
     private renderSearchProviderStep(): void {

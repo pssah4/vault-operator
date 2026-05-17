@@ -398,6 +398,8 @@ export const en: Translations = {
     'settings.loop.helperModelSelectDesc': 'A cheap, fast model used for internal helper tasks: context condensing, fast-path planning, presentation planning, and recipe promotion. Leave empty to use the main model for these calls.',
     'settings.loop.helperModelDefault': 'Use main model',
     'settings.loop.noModels': 'No models configured. Add and enable a model in the models tab first.',
+    'settings.loop.autoTaskRouterName': 'Auto-route simple tasks to budget tier',
+    'settings.loop.autoTaskRouterDesc': 'When on, the agent routes single-step prompts (create xlsx/docx/pptx, read or write one file) to the active provider\'s fast tier instead of the main loop model. Research and multi-step prompts stay on the main model. The router escalates back to the main model after 2 consecutive tool errors so a weaker model never gets stuck.',
 
     // =========================================================================
     // Settings — Memory Tab

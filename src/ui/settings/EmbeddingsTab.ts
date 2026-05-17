@@ -171,29 +171,12 @@ export class EmbeddingsTab {
                 }),
             );
 
-        const ctxModels = this.plugin.settings.activeModels.filter((m) => m.enabled);
-        if (ctxModels.length > 0) {
-            new Setting(containerEl)
-                .setName(t('settings.embeddings.contextualModel'))
-                .setDesc(t('settings.embeddings.contextualModelDesc'))
-                .addDropdown((d) => {
-                    d.addOption('', t('settings.embeddings.contextualModelPlaceholder'));
-                    for (const m of ctxModels) {
-                        d.addOption(getModelKey(m), m.displayName ?? m.name);
-                    }
-                    d.setValue(this.plugin.settings.contextualModelKey ?? '');
-                    d.onChange(async (v) => {
-                        this.plugin.settings.contextualModelKey = v;
-                        await this.plugin.saveSettings();
-                        // Model changed: reset enrichment status and restart
-                        if (v && this.plugin.vectorStore) {
-                            getIdx()?.cancelEnrichment();
-                            this.plugin.vectorStore.resetEnrichmentStatus();
-                            void this.triggerEnrichmentIfReady();
-                        }
-                    });
-                });
-        }
+        // FEAT-24-08 Welle A follow-up (2026-05-18): the explicit
+        // Contextual-Model dropdown was removed. `getContextualModel()`
+        // falls back to the active provider's fast tier when no override
+        // is set; the legacy `activeModels[]` it used to enumerate from
+        // is empty after the EPIC-26 migration. The setting field
+        // `contextualModelKey` is preserved as a data field.
 
         const buildSetting = new Setting(containerEl)
             .setName(t('settings.embeddings.buildIndexName'))

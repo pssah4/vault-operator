@@ -1,7 +1,6 @@
 import { App, Notice, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { OnboardingService } from '../../core/memory/OnboardingService';
-import { getModelKey } from '../../types/settings';
 import { t } from '../../i18n';
 
 
@@ -135,27 +134,12 @@ export class InterfaceTab {
                 }),
             );
 
-        const models = this.plugin.settings.activeModels.filter((m) => m.enabled);
-        if (models.length === 0) {
-            new Setting(containerEl)
-                .setName(t('settings.interface.chatLinkingModel'))
-                .setDesc(t('settings.interface.chatLinkingNoModels'));
-        } else {
-            new Setting(containerEl)
-                .setName(t('settings.interface.chatLinkingModel'))
-                .setDesc(t('settings.interface.chatLinkingModelDesc'))
-                .addDropdown((d) => {
-                    d.addOption('', t('settings.interface.chatLinkingSelectModel'));
-                    for (const m of models) {
-                        d.addOption(getModelKey(m), m.displayName ?? m.name);
-                    }
-                    d.setValue(cl.titlingModelKey);
-                    d.onChange(async (v) => {
-                        this.plugin.settings.chatLinking.titlingModelKey = v;
-                        await this.plugin.saveSettings();
-                    });
-                });
-        }
+        // FEAT-24-08 Welle A follow-up (2026-05-18): the explicit
+        // titling-model dropdown was removed. `getTitlingModel()` falls
+        // back to the active provider's fast tier when no override is
+        // set; the legacy `activeModels[]` it used to enumerate from is
+        // empty after the EPIC-26 migration. The setting field
+        // `chatLinking.titlingModelKey` is preserved as a data field.
     }
 
 }

@@ -2,7 +2,6 @@ import { App, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
 import { addInfoButton } from './utils';
-import { getModelKey } from '../../types/settings';
 
 export class LoopTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -131,45 +130,25 @@ export class LoopTab {
                     }),
             );
 
-        // FIX-24-07-02: helperModelKey UI (FEAT-24-07 / ADR-115)
+        // FEAT-24-08 Welle A follow-up (2026-05-18): the explicit
+        // Helper-Model dropdown was removed. Since Welle A the resolver
+        // `getHelperModel()` falls back to the active provider's `fast`
+        // tier when no override is set, and the UI dropdown only listed
+        // entries from the legacy `activeModels[]` which is empty after
+        // the EPIC-26 migration. The underlying `helperModelKey` setting
+        // is preserved as a data field so power users can still set an
+        // explicit override via `update_settings` if they want.
         containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.loop.headingHelperModel') });
 
-        const enabledModels = this.plugin.settings.activeModels.filter((m) => m.enabled);
-        const helperSetting = new Setting(containerEl)
-            .setName(t('settings.loop.helperModelSelect'))
-            .setDesc(t('settings.loop.helperModelSelectDesc'));
-
-        if (enabledModels.length === 0) {
-            helperSetting.setDesc(t('settings.loop.noModels'));
-        }
-
-        helperSetting.addDropdown((d) => {
-            d.addOption('', t('settings.loop.helperModelDefault'));
-            for (const m of enabledModels) {
-                d.addOption(getModelKey(m), m.displayName ?? m.name);
-            }
-            d.setValue(this.plugin.settings.helperModelKey ?? '');
-            d.onChange(async (v) => {
-                this.plugin.settings.helperModelKey = v;
-                await this.plugin.saveSettings();
-            });
-        });
-
-        // v2.10.0: TaskRouter toggle. When enabled (and a helper model is set
-        // above), simple tool tasks like "create xlsx" or "read note.md" go
-        // to the helper model instead of the main model. Research and multi-
-        // step prompts stay on the main model. The router escalates back to
-        // main on >= 2 consecutive tool errors so a weaker model never gets
-        // stuck.
+        // v2.10.0: TaskRouter toggle. When enabled, simple tool tasks
+        // (create xlsx/docx/pptx, read or write one file) route to the
+        // active provider's fast tier (the helper slot) instead of the
+        // main loop model. Research and multi-step prompts stay on the
+        // main model. The router escalates back to main on >= 2 consecutive
+        // tool errors so a weaker model never gets stuck.
         new Setting(containerEl)
-            .setName('Auto-route simple tasks to helper model')
-            .setDesc(
-                'When on, the agent routes single-step prompts (create xlsx/docx/pptx, ' +
-                'read or write one file) to the helper model selected above. Research ' +
-                'and multi-step prompts stay on the main model. The router escalates ' +
-                'back to the main model after 2 consecutive tool errors. ' +
-                'Has no effect when no helper model is selected.',
-            )
+            .setName(t('settings.loop.autoTaskRouterName'))
+            .setDesc(t('settings.loop.autoTaskRouterDesc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.autoTaskRouter?.enabled ?? true)

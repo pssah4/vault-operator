@@ -137,29 +137,13 @@ export class MemoryTab {
             const manualHint = containerEl.createEl('div', { cls: 'agent-settings-hint' });
             manualHint.setText(t('settings.memory.manualAlwaysHint'));
 
-            // ─── Memory Model ─────────────────────────────────────────
-            containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingModel') });
-
-            const models = this.plugin.settings.activeModels.filter((m) => m.enabled);
-            const modelSetting = new Setting(containerEl)
-                .setName(t('settings.memory.modelSelect'))
-                .setDesc(t('settings.memory.modelSelectDesc'));
-
-            if (models.length === 0) {
-                modelSetting.setDesc(t('settings.memory.noModels'));
-            }
-
-            modelSetting.addDropdown((d) => {
-                d.addOption('', t('settings.memory.selectModel'));
-                for (const m of models) {
-                    d.addOption(getModelKey(m), m.displayName ?? m.name);
-                }
-                d.setValue(mem.memoryModelKey);
-                d.onChange(async (v) => {
-                    this.plugin.settings.memory.memoryModelKey = v;
-                    await this.plugin.saveSettings();
-                });
-            });
+            // FEAT-24-08 Welle A follow-up (2026-05-18): the explicit
+            // memory-model dropdown was removed. `getMemoryModel()` falls
+            // back to the active provider's fast tier when no override is
+            // set; the legacy `activeModels[]` it used to enumerate from
+            // is empty after the EPIC-26 migration. The setting field
+            // `memory.memoryModelKey` is preserved for `update_settings`
+            // power-user override.
 
             // ─── Cross-Surface Sync (BA-26 / FEAT-23-04) ──────────────
             this.buildCrossSurfaceSection(containerEl);
