@@ -892,6 +892,11 @@ export const en: Translations = {
     'ui.sidebar.copy': 'Copy',
     'ui.sidebar.editResend': 'Edit & resend',
     'ui.sidebar.currentFile': 'Current',
+    // FEAT-24-08 / ADR-114 Steering-Hook
+    'ui.sidebar.steeringLabel': 'Steering',
+    'ui.sidebar.steeringQueued': 'queued for next iteration',
+    'ui.sidebar.steeringDelivered': 'delivered at iteration {{iteration}}',
+    'ui.sidebar.steeringDiscarded': 'not delivered (task ended before drain)',
     'ui.sidebar.insertAtCursor': 'Insert at cursor',
     'ui.sidebar.createNote': 'Create note from response',
     'ui.sidebar.synthesisZettel': 'Create synthesis note',

@@ -80,8 +80,12 @@ export interface AgentTaskCallbacks {
      * to the conversation history before the next assistant turn. Each entry
      * becomes its own user-role message so message order is preserved.
      * Empty array means no steering pending.
+     *
+     * The iteration index is passed in so the UI can show the user which
+     * iteration actually picked up their correction (pending -> delivered
+     * state flip on the steering bubble).
      */
-    consumeSteeringMessages?: () => string[];
+    consumeSteeringMessages?: (iteration: number) => string[];
     /** Called when the conversation history was condensed (context summarized) - includes token counts before/after */
     onContextCondensed?: (prevTokens?: number, newTokens?: number) => void;
     /** Called when a checkpoint is saved before a write tool */
@@ -856,8 +860,11 @@ export class AgentTask {
                 // mid-run messages and prepend them to the next assistant
                 // turn. Order is preserved (one history entry per queued
                 // message). Cache is invalidated because the volatile tail
-                // changed (stable prefix is unaffected per ADR-62).
-                const steering = this.taskCallbacks.consumeSteeringMessages?.() ?? [];
+                // changed (stable prefix is unaffected per ADR-62). The
+                // iteration index is passed to the callback so the UI can
+                // flip the steering bubble from "queued" to "delivered at
+                // iteration N".
+                const steering = this.taskCallbacks.consumeSteeringMessages?.(iteration) ?? [];
                 if (steering.length > 0) {
                     for (const msg of steering) {
                         history.push({ role: 'user', content: msg });

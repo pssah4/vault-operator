@@ -400,6 +400,81 @@
     cursor: text;
 }
 
+/* FEAT-24-08 / ADR-114 Steering-Hook: distinct visual for mid-run
+   corrections so the user can spot them in the chat history and tell
+   apart queued vs delivered vs discarded. */
+.chat-message-steering {
+    align-items: flex-end;
+}
+
+.chat-message-steering .steering-marker {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    align-self: flex-end;
+    padding-right: 4px;
+}
+
+.chat-message-steering .steering-marker-icon {
+    display: inline-flex;
+    align-items: center;
+    --icon-size: 12px;
+}
+
+.chat-message-steering .steering-marker-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+.chat-message-steering .message-content {
+    border-left: 3px solid var(--interactive-accent-hover, var(--interactive-accent));
+    background: var(--background-modifier-form-field, var(--background-secondary));
+    color: var(--text-normal);
+    border-radius: 12px 12px 4px 12px;
+}
+
+.chat-message-steering .steering-footer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    align-self: flex-end;
+    padding-right: 4px;
+}
+
+.chat-message-steering .steering-footer-icon {
+    display: inline-flex;
+    align-items: center;
+}
+
+.chat-message-steering .steering-footer-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+.chat-message-steering.steering-pending .steering-footer {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.chat-message-steering.steering-delivered .steering-footer {
+    color: var(--text-success, var(--color-green));
+}
+
+.chat-message-steering.steering-discarded .message-content {
+    opacity: 0.6;
+    border-left-color: var(--text-error, var(--color-red));
+}
+
+.chat-message-steering.steering-discarded .steering-footer {
+    color: var(--text-error, var(--color-red));
+}
+
 .assistant-message .message-content {
     background: transparent;
     border: none;

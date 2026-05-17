@@ -79,8 +79,10 @@ export class AgentSidebarView extends ItemView {
 
     // FEAT-24-08 / ADR-114 Steering-Hook: user-typed mid-run messages
     // queue up while a task is running and get drained by AgentTask at the
-    // start of the next iteration via consumeSteeringMessages.
-    private steeringQueue: string[] = [];
+    // start of the next iteration via consumeSteeringMessages. The bubbleEl
+    // reference lets the sidebar flip the UI from "queued" to
+    // "delivered at iteration N" the moment AgentTask consumes the entry.
+    private steeringQueue: Array<{ text: string; bubbleEl: HTMLElement }> = [];
 
     // Context: tracks whether user dismissed the auto-injected file for this turn
     private userDismissedContext = false;
@@ -1390,12 +1392,11 @@ export class AgentSidebarView extends ItemView {
         // next real turn.
         if (this.currentAbortController) {
             if (!text) return;
-            this.steeringQueue.push(text);
-            // Render the steering bubble immediately so the user sees it
-            // landed; AgentTask will pick it up at the next iteration via
-            // consumeSteeringMessages. Same visual style as a regular user
-            // bubble per design decision.
-            this.addUserMessage(text, [], null);
+            // Render the steering bubble in "pending" state and keep a
+            // reference so consumeSteeringMessages can flip it to
+            // "delivered at iteration N" when AgentTask actually drains it.
+            const bubbleEl = this.addSteeringMessage(text);
+            this.steeringQueue.push({ text, bubbleEl });
             this.uiMessages.push({ role: 'user', text, ts: new Date().toISOString() });
             this.textarea.value = '';
             this.autoResizeTextarea();
@@ -1601,7 +1602,13 @@ export class AgentSidebarView extends ItemView {
         this.currentAbortController = new AbortController();
         // FEAT-24-08 Steering: clear any stale entries before a new task
         // starts so leftover mid-run messages from a previous run cannot
-        // leak into a fresh conversation.
+        // leak into a fresh conversation. Any pending bubbles that never
+        // got drained (e.g. typed during the very last iteration before
+        // attempt_completion fired) are flipped to "discarded" so the user
+        // can see they were not applied.
+        for (const entry of this.steeringQueue) {
+            this.markSteeringDiscarded(entry.bubbleEl);
+        }
         this.steeringQueue = [];
         this.setRunningState(true);
 
@@ -2072,12 +2079,20 @@ export class AgentSidebarView extends ItemView {
                 },
                 // FEAT-24-08 / ADR-114 Steering-Hook: drain the queue and
                 // hand mid-run steering messages to AgentTask. Called by
-                // AgentTask once per iteration. Order preserved.
-                consumeSteeringMessages: () => {
+                // AgentTask once per iteration. Order preserved. Each
+                // drained bubble is flipped to "delivered at iteration N"
+                // so the user can see exactly when their correction landed
+                // in the conversation history.
+                consumeSteeringMessages: (iteration: number) => {
                     if (this.steeringQueue.length === 0) return [];
                     const drained = this.steeringQueue;
                     this.steeringQueue = [];
-                    return drained;
+                    const texts: string[] = [];
+                    for (const entry of drained) {
+                        texts.push(entry.text);
+                        this.markSteeringDelivered(entry.bubbleEl, iteration);
+                    }
+                    return texts;
                 },
                 onModeSwitch: (newModeSlug) => {
                     // Explicitly sync settings before refreshing the button.
@@ -2585,6 +2600,13 @@ export class AgentSidebarView extends ItemView {
     private handleStop(): void {
         this.currentAbortController?.abort();
         this.currentAbortController = null;
+        // FEAT-24-08 Steering: pending bubbles never reached the agent --
+        // flip them to "discarded" so the user knows the correction was
+        // never applied.
+        for (const entry of this.steeringQueue) {
+            this.markSteeringDiscarded(entry.bubbleEl);
+        }
+        this.steeringQueue = [];
         this.setRunningState(false);
     }
 
@@ -3126,6 +3148,64 @@ export class AgentSidebarView extends ItemView {
         }
         this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
         return msgEl;
+    }
+
+    /**
+     * FEAT-24-08 / ADR-114 Steering-Hook: render a mid-run user correction
+     * as a distinct bubble. Three lifecycle states tracked via CSS classes:
+     *
+     *   - `steering-pending`    queued, waiting for next iteration
+     *   - `steering-delivered`  picked up by AgentTask at iteration N
+     *   - `steering-discarded`  task ended (Stop or completion) before drain
+     *
+     * Returns the bubble element so the queue can update its state later.
+     */
+    private addSteeringMessage(text: string): HTMLElement {
+        const msgEl = this.chatContainer!.createDiv('message user-message chat-message-steering steering-pending');
+        // Marker row above the content: small arrow icon + "Steering" label
+        const markerRow = msgEl.createDiv('steering-marker');
+        setIcon(markerRow.createSpan('steering-marker-icon'), 'corner-down-right');
+        markerRow.createSpan('steering-marker-label').setText(t('ui.sidebar.steeringLabel'));
+        // Bubble content
+        msgEl.createDiv('message-content').setText(text);
+        // Status footer (pending now, will be replaced on delivery / discard)
+        const footer = msgEl.createDiv('steering-footer');
+        setIcon(footer.createSpan('steering-footer-icon'), 'clock');
+        footer.createSpan('steering-footer-text').setText(t('ui.sidebar.steeringQueued'));
+        this.chatContainer!.scrollTop = this.chatContainer!.scrollHeight;
+        return msgEl;
+    }
+
+    /**
+     * Flip a steering bubble to "delivered" state once AgentTask has
+     * consumed it. Updates icon (clock -> check) and footer label
+     * ("queued" -> "delivered at iteration N").
+     */
+    private markSteeringDelivered(bubbleEl: HTMLElement, iteration: number): void {
+        bubbleEl.classList.remove('steering-pending');
+        bubbleEl.classList.add('steering-delivered');
+        const footer = bubbleEl.querySelector<HTMLElement>('.steering-footer');
+        if (!footer) return;
+        footer.empty();
+        setIcon(footer.createSpan('steering-footer-icon'), 'check');
+        footer.createSpan('steering-footer-text').setText(
+            t('ui.sidebar.steeringDelivered', { iteration: String(iteration) }),
+        );
+    }
+
+    /**
+     * Flip a steering bubble to "discarded" state when the task ended
+     * (Stop or natural completion) before the queue entry was drained.
+     * Updates icon (clock -> x) and footer label ("queued" -> "not delivered").
+     */
+    private markSteeringDiscarded(bubbleEl: HTMLElement): void {
+        bubbleEl.classList.remove('steering-pending');
+        bubbleEl.classList.add('steering-discarded');
+        const footer = bubbleEl.querySelector<HTMLElement>('.steering-footer');
+        if (!footer) return;
+        footer.empty();
+        setIcon(footer.createSpan('steering-footer-icon'), 'x');
+        footer.createSpan('steering-footer-text').setText(t('ui.sidebar.steeringDiscarded'));
     }
 
     private addUserMessage(text: string, attachments: AttachmentItem[] = [], activeFile?: TFile | null): void {
