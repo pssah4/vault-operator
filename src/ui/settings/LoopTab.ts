@@ -1,7 +1,7 @@
 import { App, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
-import { addInfoButton } from './utils';
+import { addInfoButton, addSliderInput } from './utils';
 
 export class LoopTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -25,63 +25,53 @@ export class LoopTab {
             .setName(t('settings.loop.errorLimit'))
             .setDesc(t('settings.loop.errorLimitDesc'));
         addInfoButton(errorLimitSetting, t('settings.loop.errorLimit'), t('settings.loop.errorLimitInfo'));
-        errorLimitSetting.addText((c) =>
-            c
-                .setValue(String(this.plugin.settings.advancedApi.consecutiveMistakeLimit))
-                .onChange(async (v) => {
-                    const n = parseInt(v);
-                    if (!isNaN(n) && n >= 0) {
-                        this.plugin.settings.advancedApi.consecutiveMistakeLimit = n;
-                        await this.plugin.saveSettings();
-                    }
-                }),
-        );
+        addSliderInput(errorLimitSetting, {
+            min: 0, max: 10, step: 1,
+            value: this.plugin.settings.advancedApi.consecutiveMistakeLimit ?? 3,
+            onChange: async (v) => {
+                this.plugin.settings.advancedApi.consecutiveMistakeLimit = v;
+                await this.plugin.saveSettings();
+            },
+        });
 
         const rateLimitSetting = new Setting(containerEl)
             .setName(t('settings.loop.rateLimit'))
             .setDesc(t('settings.loop.rateLimitDesc'));
         addInfoButton(rateLimitSetting, t('settings.loop.rateLimit'), t('settings.loop.rateLimitInfo'));
-        rateLimitSetting.addText((c) =>
-            c
-                .setValue(String(this.plugin.settings.advancedApi.rateLimitMs))
-                .onChange(async (v) => {
-                    const n = parseInt(v);
-                    if (!isNaN(n) && n >= 0) {
-                        this.plugin.settings.advancedApi.rateLimitMs = n;
-                        await this.plugin.saveSettings();
-                    }
-                }),
-        );
+        addSliderInput(rateLimitSetting, {
+            min: 0, max: 3000, step: 100,
+            value: this.plugin.settings.advancedApi.rateLimitMs ?? 0,
+            onChange: async (v) => {
+                this.plugin.settings.advancedApi.rateLimitMs = v;
+                await this.plugin.saveSettings();
+            },
+        });
 
         const maxIterSetting = new Setting(containerEl)
             .setName(t('settings.loop.maxIterations'))
             .setDesc(t('settings.loop.maxIterationsDesc'));
         addInfoButton(maxIterSetting, t('settings.loop.maxIterations'), t('settings.loop.maxIterationsInfo'));
-        maxIterSetting.addSlider((s) =>
-            s
-                .setLimits(5, 50, 5)
-                .setValue(this.plugin.settings.advancedApi.maxIterations ?? 25)
-                .setDynamicTooltip()
-                .onChange(async (v) => {
-                    this.plugin.settings.advancedApi.maxIterations = v;
-                    await this.plugin.saveSettings();
-                }),
-        );
+        addSliderInput(maxIterSetting, {
+            min: 5, max: 50, step: 5,
+            value: this.plugin.settings.advancedApi.maxIterations ?? 25,
+            onChange: async (v) => {
+                this.plugin.settings.advancedApi.maxIterations = v;
+                await this.plugin.saveSettings();
+            },
+        });
 
         const maxDepthSetting = new Setting(containerEl)
             .setName(t('settings.loop.maxSubtaskDepth'))
             .setDesc(t('settings.loop.maxSubtaskDepthDesc'));
         addInfoButton(maxDepthSetting, t('settings.loop.maxSubtaskDepth'), t('settings.loop.maxSubtaskDepthInfo'));
-        maxDepthSetting.addSlider((s) =>
-            s
-                .setLimits(1, 3, 1)
-                .setValue(this.plugin.settings.advancedApi.maxSubtaskDepth ?? 2)
-                .setDynamicTooltip()
-                .onChange(async (v) => {
-                    this.plugin.settings.advancedApi.maxSubtaskDepth = v;
-                    await this.plugin.saveSettings();
-                }),
-        );
+        addSliderInput(maxDepthSetting, {
+            min: 1, max: 3, step: 1,
+            value: this.plugin.settings.advancedApi.maxSubtaskDepth ?? 2,
+            onChange: async (v) => {
+                this.plugin.settings.advancedApi.maxSubtaskDepth = v;
+                await this.plugin.saveSettings();
+            },
+        });
 
         // ── Auto-summarise ──────────────────────────────────────────────
         containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.loop.headingCondensing') });
@@ -102,16 +92,14 @@ export class LoopTab {
             .setName(t('settings.loop.condensingThreshold'))
             .setDesc(t('settings.loop.condensingThresholdDesc'));
         addInfoButton(thresholdSetting, t('settings.loop.condensingThreshold'), t('settings.loop.condensingThresholdInfo'));
-        thresholdSetting.addSlider((s) =>
-            s
-                .setLimits(50, 95, 5)
-                .setValue(this.plugin.settings.advancedApi.condensingThreshold ?? 80)
-                .setDynamicTooltip()
-                .onChange(async (v) => {
-                    this.plugin.settings.advancedApi.condensingThreshold = v;
-                    await this.plugin.saveSettings();
-                }),
-        );
+        addSliderInput(thresholdSetting, {
+            min: 50, max: 95, step: 5,
+            value: this.plugin.settings.advancedApi.condensingThreshold ?? 80,
+            onChange: async (v) => {
+                this.plugin.settings.advancedApi.condensingThreshold = v;
+                await this.plugin.saveSettings();
+            },
+        });
         thresholdSetting.settingEl.classList.toggle('agent-u-hidden',
             !(this.plugin.settings.advancedApi.condensingEnabled ?? false));
 
@@ -122,17 +110,14 @@ export class LoopTab {
             .setName(t('settings.loop.powerSteeringFreq'))
             .setDesc(t('settings.loop.powerSteeringFreqDesc'));
         addInfoButton(powerSteeringSetting, t('settings.loop.powerSteeringFreq'), t('settings.loop.powerSteeringFreqInfo'));
-        powerSteeringSetting.addText((c) =>
-            c
-                .setValue(String(this.plugin.settings.advancedApi.powerSteeringFrequency ?? 0))
-                .onChange(async (v) => {
-                    const n = parseInt(v);
-                    if (!isNaN(n) && n >= 0) {
-                        this.plugin.settings.advancedApi.powerSteeringFrequency = n;
-                        await this.plugin.saveSettings();
-                    }
-                }),
-        );
+        addSliderInput(powerSteeringSetting, {
+            min: 0, max: 10, step: 1,
+            value: this.plugin.settings.advancedApi.powerSteeringFrequency ?? 0,
+            onChange: async (v) => {
+                this.plugin.settings.advancedApi.powerSteeringFrequency = v;
+                await this.plugin.saveSettings();
+            },
+        });
 
         // ── Task routing ────────────────────────────────────────────────
         containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.loop.headingHelperModel') });

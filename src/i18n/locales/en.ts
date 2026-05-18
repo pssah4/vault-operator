@@ -366,35 +366,35 @@ export const en: Translations = {
 
     // Limits & retries
     'settings.loop.errorLimit': 'Error limit',
-    'settings.loop.errorLimitDesc': 'Stop the task after this many tool errors in a row.',
-    'settings.loop.errorLimitInfo': 'Each time the agent calls a tool and the tool returns an error, that counts as one. When the counter reaches this limit, the run stops so the agent does not burn through tokens in a retry loop. Set to 0 to never stop automatically. Default: 3. Increase only if you have a flaky external service that often fails on the first try.',
+    'settings.loop.errorLimitDesc': 'Stop after this many tool errors in a row.',
+    'settings.loop.errorLimitInfo': 'Default 3. Prevents the agent from burning tokens in a retry loop. Set 0 to never stop. Raise if you use a flaky external service that often fails on the first call.',
     'settings.loop.rateLimit': 'Pause between requests',
     'settings.loop.rateLimitDesc': 'Milliseconds to wait between API calls.',
-    'settings.loop.rateLimitInfo': 'Most users keep this at 0. Add a pause (e.g. 500-1500 ms) only if your provider rate-limits you on bursts. Symptoms: the chat shows repeated 429 errors. Most providers handle pacing automatically; this is the manual fallback.',
+    'settings.loop.rateLimitInfo': 'Default 0. Add 500-1500 ms only if your provider returns repeated 429 errors on bursts. Most providers handle pacing themselves.',
     'settings.loop.maxIterations': 'Steps per message',
-    'settings.loop.maxIterationsDesc': 'How many tool-call rounds the agent may take for a single user message.',
-    'settings.loop.maxIterationsInfo': 'One step = the agent generates a response, calls one or more tools, and waits for the results. Multi-step tasks (research, refactors, deep ingests) need many steps. Default: 25 covers almost every workflow. Raise to 50 only if you regularly hit "max iterations reached" notices on complex tasks.',
+    'settings.loop.maxIterationsDesc': 'How many tool-call rounds the agent may take for one message.',
+    'settings.loop.maxIterationsInfo': 'Default 25, covers nearly every workflow. One step = generate response, call tools, wait for results. Raise to 50 only if you regularly see "max iterations reached" notices on complex tasks.',
     'settings.loop.maxSubtaskDepth': 'Sub-agent depth',
     'settings.loop.maxSubtaskDepthDesc': 'How deeply sub-agents may nest.',
-    'settings.loop.maxSubtaskDepthInfo': 'Sub-agents are spawned via the new_task tool. 1 = the main agent can spawn sub-agents but those cannot spawn further sub-agents. 2 (default) = one extra level. Keep this low; deeper trees rarely improve results and multiply cost. Each level eats fresh tokens because every sub-agent gets its own system prompt.',
+    'settings.loop.maxSubtaskDepthInfo': 'Default 2. 1 = sub-agents cannot spawn further sub-agents. Each level multiplies token cost because every sub-agent gets its own system prompt. Deeper rarely improves results.',
 
     // Auto-summarise
     'settings.loop.enableCondensing': 'Auto-summarise long chats',
     'settings.loop.enableCondensingDesc': 'Replaces older messages with a summary once the conversation gets long.',
-    'settings.loop.enableCondensingInfo': 'AI models hold a limited amount of text in memory at once. As your chat grows, the agent gets closer to that ceiling. With auto-summarise on, the older parts of the conversation are condensed into a recap once the chat fills a configurable share of the window, and the agent continues from that recap. Lets you work on very large tasks without restarting. Default: on.',
+    'settings.loop.enableCondensingInfo': 'Default on. Lets you keep one chat going on very large tasks. Tradeoff: everything earlier than the most recent few turns is paraphrased, not verbatim.',
     'settings.loop.condensingThreshold': 'Trigger threshold',
-    'settings.loop.condensingThresholdDesc': "Summarise when the chat reaches this percentage of the model's memory limit.",
-    'settings.loop.condensingThresholdInfo': 'Lower (60-70 %): summarises more often, keeps responses snappy but loses detail faster, useful for cheap models with small windows. Higher (85-95 %): waits longer, keeps more raw context for nuanced tasks but risks hitting a hard limit and erroring out. Default: 80 % balances both. Most users leave this alone.',
+    'settings.loop.condensingThresholdDesc': "Summarise when the chat reaches this share of the model's memory limit.",
+    'settings.loop.condensingThresholdInfo': 'Default 80 %. Lower = more frequent summaries, faster but loses detail sooner. Higher = waits longer, more raw context but closer to hard-limit errors.',
 
     // Power steering
     'settings.loop.powerSteeringFreq': 'Refresh frequency',
     'settings.loop.powerSteeringFreqDesc': 'Re-send the agent\'s role every N turns to keep it focused.',
-    'settings.loop.powerSteeringFreqInfo': 'On very long tasks, the agent can drift away from its original instructions because the system prompt is far back in the conversation. Power steering periodically re-injects the current agent\'s system prompt so the role stays fresh. 4 (default) = the role is repeated every 4 turns. Set 0 to disable entirely. Increase if you observe the agent forgetting its persona late in a task.',
+    'settings.loop.powerSteeringFreqInfo': 'Default 4. The system prompt sits at the start of the conversation and drifts out of view on long tasks. Re-injecting it every N turns keeps the role fresh. Set 0 to disable.',
 
     // Task routing
     'settings.loop.autoTaskRouterName': 'Route simple tasks to the cheap tier',
     'settings.loop.autoTaskRouterDesc': 'Send single-step prompts to your cheaper budget-tier model.',
-    'settings.loop.autoTaskRouterInfo': 'Tasks like "create one xlsx", "summarise this note", "rename this folder" rarely need a flagship model. With this on, those prompts route to the active provider\'s fast tier (the "fast" slot you mapped under Providers). Research, planning, and multi-step prompts stay on the main loop model. Safety net: if the cheap tier fails 2 tool calls in a row, the next call escalates back to the main model.',
+    'settings.loop.autoTaskRouterInfo': 'Default on. Single-step prompts (create xlsx, summarise one note, rename a folder) use the active provider\'s fast tier instead of the main model. Saves cost on routine work. Falls back to the main model after 2 consecutive tool errors.',
 
     // =========================================================================
     // Settings — Memory Tab
