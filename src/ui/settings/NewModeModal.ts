@@ -3,7 +3,6 @@ import type ObsidianAgentPlugin from '../../main';
 import type { ModeService } from '../../core/modes/ModeService';
 import type { ModeConfig, ToolGroup } from '../../types/settings';
 import { BUILT_IN_MODES } from '../../core/modes/builtinModes';
-import { TOOL_GROUP_META } from './constants';
 import { GlobalModeStore } from '../../core/modes/GlobalModeStore';
 import { t } from '../../i18n';
 
@@ -30,29 +29,20 @@ export class NewModeModal extends Modal {
         let description = '';
         let roleDefinition = '';
         let customInstructions = '';
-        const selectedGroups: Set<string> = new Set(['read', 'vault', 'agent']);
+        // New agents get the full toolset by default. Per-tool filtering
+        // lives in the chat-header pocket knife and persists via
+        // modeToolOverrides.
+        const selectedGroups: Set<string> = new Set(['read', 'vault', 'edit', 'web', 'agent', 'mcp', 'skill']);
         let saveLocation: 'vault' | 'global' = 'vault';
 
         // ── Name ──────────────────────────────────────────────────────────────
-        let slugInput: HTMLInputElement | null = null;
         new Setting(contentEl)
             .setName(t('modal.newMode.name'))
             .setDesc(t('modal.newMode.nameDesc'))
             .addText((cb) => cb.onChange((v) => {
                 name = v;
-                const computed = v.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-                slug = computed;
-                if (slugInput) slugInput.value = computed;
+                slug = v.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             }));
-
-        // ── Slug ──────────────────────────────────────────────────────────────
-        const slugSetting = new Setting(contentEl)
-            .setName(t('modal.newMode.slug'))
-            .setDesc(t('modal.newMode.slugDesc'));
-        slugSetting.addText((cb) => {
-            slugInput = cb.inputEl;
-            cb.onChange((v) => { slug = v; });
-        });
 
         // ── Short description ─────────────────────────────────────────────────
         contentEl.createEl('div', { cls: 'new-mode-field-label', text: t('modal.newMode.shortDesc') });
@@ -63,24 +53,6 @@ export class NewModeModal extends Modal {
         });
         descTextarea.rows = 2;
         descTextarea.addEventListener('input', () => { description = descTextarea.value; });
-
-        // ── Available Tools ───────────────────────────────────────────────────
-        const toolsWrap = contentEl.createDiv('new-mode-groups');
-        toolsWrap.createEl('label', { cls: 'new-mode-groups-label', text: t('modal.newMode.availableTools') });
-        const groupGrid = toolsWrap.createDiv('new-mode-groups-grid');
-
-        for (const [group, meta] of Object.entries(TOOL_GROUP_META)) {
-            const row = groupGrid.createDiv('new-mode-group-row');
-            const cb = row.createEl('input', { type: 'checkbox' });
-            cb.checked = selectedGroups.has(group);
-            cb.addEventListener('change', () => {
-                if (cb.checked) selectedGroups.add(group);
-                else selectedGroups.delete(group);
-            });
-            const label = row.createEl('label');
-            label.createEl('strong', { text: meta.label });
-            label.createEl('span', { text: `, ${meta.desc}`, cls: 'modes-group-desc' });
-        }
 
         // ── Role Definition ───────────────────────────────────────────────────
         contentEl.createEl('label', { cls: 'new-mode-field-label', text: t('modal.newMode.roleDefinition') });

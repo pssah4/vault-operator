@@ -1,10 +1,9 @@
 import { App, Notice, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
-import type { ModeConfig, ToolGroup } from '../../types/settings';
+import type { ModeConfig } from '../../types/settings';
 import { BUILT_IN_MODES } from '../../core/modes/builtinModes';
 import { buildSystemPromptForMode } from '../../core/systemPrompt';
 import { GlobalModeStore } from '../../core/modes/GlobalModeStore';
-import { TOOL_LABEL_MAP, TOOL_GROUP_META } from './constants';
 import { SystemPromptPreviewModal } from './SystemPromptPreviewModal';
 import { NewModeModal } from './NewModeModal';
 import { t } from '../../i18n';
@@ -155,11 +154,6 @@ export class ModesTab {
                     }
                 });
 
-            // ── Slug (always read-only) ───────────────────────────────────────
-            new Setting(formArea)
-                .setName(t('settings.modes.slug'))
-                .addText((txt) => { txt.setValue(mode.slug); txt.inputEl.disabled = true; });
-
             // ── Short description ─────────────────────────────────────────────
             const descWrap = formArea.createDiv('modes-field');
             descWrap.createEl('div', { cls: 'modes-field-label', text: t('settings.modes.shortDesc') });
@@ -175,201 +169,6 @@ export class ModesTab {
 
             // 2026-05-18: "When to use" field removed -- it was Kilo-Code
             // legacy, never consumed by the system prompt or any other path.
-
-            // ── Available Tools ───────────────────────────────────────────────
-            const toolsWrap = formArea.createDiv('modes-field');
-            const toolsHeaderRow = toolsWrap.createDiv('modes-tools-header');
-            toolsHeaderRow.createEl('div', { cls: 'modes-field-label', text: t('settings.modes.availableTools') });
-            toolsWrap.createEl('div', { cls: 'modes-field-desc', text: t('settings.modes.availableToolsHint') });
-
-            let toolsEditMode = false;
-            const toolsBody = toolsWrap.createDiv('modes-tools-body');
-
-            const renderToolsReadOnly = () => {
-                toolsBody.empty();
-                const enabled = mode.toolGroups.filter((g) => g in TOOL_GROUP_META);
-                if (enabled.length === 0) {
-                    toolsBody.createEl('span', { cls: 'modes-tools-none', text: t('settings.modes.noTools') });
-                } else {
-                    toolsBody.createEl('span', {
-                        cls: 'modes-tools-list',
-                        text: enabled.map((g) => TOOL_GROUP_META[g]?.label ?? g).join(', '),
-                    });
-                }
-            };
-
-            const renderToolsEdit = () => {
-                toolsBody.empty();
-                // Current per-tool override for this mode (if any)
-                const currentOverride: string[] | undefined =
-                    this.plugin.settings.modeToolOverrides?.[slug];
-
-                // Collect all tool checkboxes per group for accurate counting
-                const groupToolCbs = new Map<string, { name: string; cb: HTMLInputElement }[]>();
-                // Group-level UI elements per group key
-                const groupUi = new Map<string, { groupCb: HTMLInputElement; badgeEl: HTMLElement; details: HTMLElement }>();
-
-                const countChecked = (grp: string): string => {
-                    const cbs = groupToolCbs.get(grp) ?? [];
-                    const checked = cbs.filter((t) => t.cb.checked).length;
-                    return `${checked} / ${cbs.length}`;
-                };
-
-                /** Sync group checkbox + toolGroups based on children state */
-                const syncGroupState = (group: string) => {
-                    const ui = groupUi.get(group);
-                    if (!ui) return;
-                    const cbs = groupToolCbs.get(group) ?? [];
-                    const checkedCount = cbs.filter((t) => t.cb.checked).length;
-                    const allChecked = checkedCount === cbs.length;
-                    const noneChecked = checkedCount === 0;
-
-                    ui.groupCb.checked = !noneChecked;
-                    ui.groupCb.indeterminate = !allChecked && !noneChecked;
-                    ui.badgeEl.setText(countChecked(group));
-
-                    // Sync toolGroups: group active if any tool is checked
-                    const editable = getOrCreateEditable();
-                    if (noneChecked) {
-                        editable.toolGroups = editable.toolGroups.filter((g) => g !== group);
-                    } else if (!editable.toolGroups.includes(group as ToolGroup)) {
-                        editable.toolGroups.push(group as ToolGroup);
-                    }
-                    mode.toolGroups = [...editable.toolGroups];
-                };
-
-                // Persist all checked tools across all groups as override
-                const persistOverride = () => {
-                    // Start from current override to preserve hidden runtime tools
-                    const base = new Set<string>(
-                        this.plugin.settings.modeToolOverrides?.[slug]
-                        ?? this.modeService?.getToolNames(mode) ?? [],
-                    );
-                    // Sync visible tools with checkbox state
-                    for (const [, cbs] of groupToolCbs) {
-                        for (const { name, cb } of cbs) {
-                            if (cb.checked) base.add(name);
-                            else base.delete(name);
-                        }
-                    }
-                    if (!this.plugin.settings.modeToolOverrides) this.plugin.settings.modeToolOverrides = {};
-                    this.plugin.settings.modeToolOverrides[slug] = [...base];
-                    void this.plugin.saveSettings();
-                };
-
-                for (const [group, meta] of Object.entries(TOOL_GROUP_META)) {
-                    groupToolCbs.set(group, []);
-
-                    // Determine initial checked state per tool
-                    const groupInMode = mode.toolGroups.includes(group as ToolGroup);
-
-                    // --- Group accordion ---
-                    const details = toolsBody.createEl('details', { cls: 'modes-tool-group-accordion' });
-                    if (groupInMode) details.open = true;
-
-                    const summary = details.createEl('summary', { cls: 'modes-tool-group-summary' });
-
-                    // Group checkbox — reflects children state, acts as select-all/none
-                    const groupCb = summary.createEl('input', { type: 'checkbox' });
-                    groupCb.addEventListener('click', (e) => e.stopPropagation()); // prevent accordion toggle
-                    groupCb.addEventListener('change', () => {
-                        const checked = groupCb.checked;
-                        groupCb.indeterminate = false;
-                        // Set all children
-                        for (const { cb } of groupToolCbs.get(group) ?? []) {
-                            cb.checked = checked;
-                        }
-                        if (checked) details.open = true;
-                        persistOverride();
-                        syncGroupState(group);
-                        void saveMode();
-                    });
-
-                    summary.createEl('span', { cls: 'modes-tool-group-label', text: meta.label });
-                    const badgeEl = summary.createEl('span', { cls: 'modes-tool-count-badge' });
-
-                    groupUi.set(group, { groupCb, badgeEl, details });
-
-                    // --- Individual tool checkboxes ---
-                    const toolsGrid = details.createDiv('modes-tool-checkboxes');
-                    for (const toolName of meta.tools) {
-                        const row = toolsGrid.createDiv('modes-tool-row');
-                        const toolCb = row.createEl('input', { type: 'checkbox' });
-                        // Initial state: group must be in mode AND tool in override (or no override = all)
-                        const toolInOverride = !currentOverride || currentOverride.includes(toolName);
-                        toolCb.checked = groupInMode && toolInOverride;
-
-                        groupToolCbs.get(group)!.push({ name: toolName, cb: toolCb });
-
-                        const toolMeta = TOOL_LABEL_MAP[toolName];
-                        const labelEl = row.createEl('label', { cls: 'modes-tool-name' });
-                        labelEl.createSpan({ cls: 'modes-tool-label-text', text: toolMeta?.label ?? toolName });
-                        if (toolMeta?.desc) {
-                            labelEl.createSpan({ cls: 'modes-tool-label-desc', text: toolMeta.desc });
-                        }
-
-                        toolCb.addEventListener('change', () => {
-                            persistOverride();
-                            syncGroupState(group);
-                            void saveMode();
-                        });
-                    }
-
-                    // Set initial group checkbox + badge from children state
-                    syncGroupState(group);
-                }
-            };
-
-            renderToolsReadOnly();
-
-            // "Edit tools" button — hidden for Ask mode (protected)
-            if (slug !== 'ask') {
-                const editToolsBtn = toolsHeaderRow.createEl('button', {
-                    text: t('settings.modes.editTools'),
-                    cls: 'modes-edit-tools-btn',
-                });
-                editToolsBtn.addEventListener('click', () => {
-                    toolsEditMode = !toolsEditMode;
-                    editToolsBtn.setText(toolsEditMode ? t('settings.modes.done') : t('settings.modes.editTools'));
-                    if (toolsEditMode) renderToolsEdit();
-                    else renderToolsReadOnly();
-                });
-            }
-
-            // ── Allowed MCP Servers ──────────────────────────────────────────
-            const mcpServerNames = Object.keys(this.plugin.settings.mcpServers ?? {});
-            if (mcpServerNames.length > 0) {
-                const mcpWrap = formArea.createDiv('modes-field');
-                mcpWrap.createEl('div', { cls: 'modes-field-label', text: t('settings.modes.allowedMcpServers') });
-                mcpWrap.createEl('div', {
-                    cls: 'modes-field-desc',
-                    text: t('settings.modes.allowedMcpServersHint'),
-                });
-                const mcpCbList = mcpWrap.createDiv('modes-skills-list');
-                const modeMcpAllowed = this.plugin.settings.modeMcpServers?.[slug];
-                // undefined or empty = all allowed
-                const allowedSet = new Set<string>(modeMcpAllowed && modeMcpAllowed.length > 0 ? modeMcpAllowed : mcpServerNames);
-                for (const serverName of mcpServerNames) {
-                    const row = mcpCbList.createDiv('modes-skills-row');
-                    const cb = row.createEl('input', { type: 'checkbox' });
-                    cb.checked = allowedSet.has(serverName);
-                    row.createEl('label', { cls: 'modes-skills-label', text: serverName });
-                    cb.addEventListener('change', () => { void (async () => {
-                        if (!this.plugin.settings.modeMcpServers) this.plugin.settings.modeMcpServers = {};
-                        const cur = new Set<string>(
-                            this.plugin.settings.modeMcpServers[slug]?.length
-                                ? this.plugin.settings.modeMcpServers[slug]
-                                : mcpServerNames
-                        );
-                        if (cb.checked) cur.add(serverName);
-                        else cur.delete(serverName);
-                        // If all are checked, store empty array (= no restriction)
-                        const next = [...cur];
-                        this.plugin.settings.modeMcpServers[slug] = next.length === mcpServerNames.length ? [] : next;
-                        await this.plugin.saveSettings();
-                    })(); });
-                }
-            }
 
             // ── Role Definition ───────────────────────────────────────────────
             const roleWrap = formArea.createDiv('modes-field');
@@ -442,7 +241,10 @@ export class ModesTab {
                     : undefined;
                 const skillDirectorySection = await this.plugin.buildSkillDirectoryForMode(slug);
                 const pluginSkillsSection = this.plugin.skillRegistry?.getPluginSkillsPromptSection();
-                const allowedMcpServers = this.plugin.settings.modeMcpServers?.[slug];
+                // Preview shows the unrestricted MCP catalogue; per-agent
+                // filtering was removed (chat-header pocket knife now toggles
+                // activeMcpServers globally instead).
+                const allowedMcpServers: string[] | undefined = undefined;
                 const memoryStub = '[Conversation-dependent: filled with relevant memory facts at runtime.]';
                 const recipesStub = '[Conversation-dependent: filled with matched procedural recipes at runtime.]';
                 const prompt = buildSystemPromptForMode({
@@ -548,7 +350,17 @@ export class ModesTab {
         // is freely editable.
         dupBtn.addEventListener('click', () => { void (async () => {
             const source = getAllModes().find((m) => m.slug === selectedSlug);
-            if (!source) return;
+            if (!source) {
+                new Notice(t('settings.modes.duplicateFailed'));
+                return;
+            }
+            // If the user has previously edited a built-in agent, that
+            // vault override holds the live customisation. Prefer it as
+            // the duplicate source so edits do not disappear.
+            const liveOverride = this.plugin.settings.customModes.find(
+                (m) => m.slug === source.slug && m.source === 'vault' && !m.slug.endsWith('__custom'),
+            );
+            const effectiveSource = liveOverride ?? source;
             const baseSlug = `${source.slug}-copy`;
             const allSlugs = new Set([
                 ...BUILT_IN_MODES.map((m) => m.slug),
@@ -558,13 +370,15 @@ export class ModesTab {
             let n = 2;
             while (allSlugs.has(newSlug)) { newSlug = `${baseSlug}-${n++}`; }
             const dup: ModeConfig = {
-                ...source,
+                ...effectiveSource,
                 slug: newSlug,
-                name: `${source.name} (copy)`,
+                name: `${effectiveSource.name} (copy)`,
                 source: 'vault',
             };
             this.plugin.settings.customModes.push(dup);
+            this.plugin.settings.currentMode = newSlug;
             await this.plugin.saveSettings();
+            new Notice(t('settings.modes.duplicated', { name: dup.name }));
             this.rerender();
         })(); });
 

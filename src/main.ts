@@ -2012,19 +2012,20 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.settings.customModes = (this.settings.customModes ?? []).filter(
             (m) => m.slug !== 'ask' && m.slug !== 'ask__custom',
         );
-        // Drop modeModelKey + modeToolOverrides + modeMcpServers for 'ask'.
+        // Drop modeModelKey + modeToolOverrides for 'ask'.
         for (const map of [
             this.settings.modeModelKeys,
             this.settings.modeToolOverrides,
-            this.settings.modeMcpServers,
         ]) {
             if (map && typeof map === 'object' && 'ask' in map) delete (map as Record<string, unknown>).ask;
         }
-        // 2026-05-18: modeSkillAllowList removed. Per-mode skill filtering was
-        // redundant with toolGroups (skills can't call tools the mode lacks)
-        // and confused users. All skills are now exposed to every agent;
-        // global manualSkillToggles still toggles individual skills.
+        // 2026-05-18: modeSkillAllowList + modeMcpServers removed. Per-mode
+        // skill / MCP allow-listing was redundant with toolGroups (skills
+        // cannot call tools the mode lacks) and the chat-header pocket-knife
+        // now toggles both globally via activeMcpServers and per-tool via
+        // modeToolOverrides.
         this.settings.modeSkillAllowList = {};
+        this.settings.modeMcpServers = {};
         // Migrate source: 'custom' → 'vault' (introduced in Phase 3.1+)
         this.settings.globalCustomInstructions = this.settings.globalCustomInstructions ?? '';
         this.settings.modeModelKeys = this.settings.modeModelKeys ?? {};

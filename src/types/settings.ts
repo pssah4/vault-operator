@@ -753,8 +753,10 @@ export interface ObsidianAgentSettings {
      */
     forcedWorkflow: Record<string, string>;
     /**
-     * Per-mode MCP server whitelist: maps mode slug → allowed server names.
-     * Missing entry or empty array = all configured servers allowed.
+     * @deprecated Removed 2026-05-18. Per-agent MCP allow-listing was
+     * replaced by the global `activeMcpServers` toggle in the chat-header
+     * pocket knife. Field stays for back-compat with old data.json files;
+     * loadSettings clears it to `{}` on every load.
      */
     modeMcpServers: Record<string, string[]>;
 

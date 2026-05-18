@@ -2393,7 +2393,11 @@ export class AgentSidebarView extends ItemView {
         const pluginSkillsSection = isOnboarding ? undefined
             : this.plugin.skillRegistry?.getPluginSkillsPromptSection();
 
-        const allowedMcpServers = this.plugin.settings.modeMcpServers?.[activeMode.slug];
+        // 2026-05-18: per-mode MCP allow-list removed. The chat-header pocket
+        // knife now toggles activeMcpServers globally instead. The systemprompt
+        // tool-section honours activeMcpServers as the source of truth via
+        // McpBridge, so passing undefined here means "no per-agent restriction".
+        const allowedMcpServers: string[] | undefined = undefined;
 
         // Memory v2 is the only path. The legacy v1 MD-file pipeline was
         // removed once the upgrade orchestrator landed -- existing users
