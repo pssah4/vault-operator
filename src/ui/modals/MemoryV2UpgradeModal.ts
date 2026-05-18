@@ -71,7 +71,7 @@ class MemoryV2UpgradeModalImpl extends Modal {
         safety.appendText(
             'Originals are copied into memory-v1-backup/{timestamp}/ before any ' +
             'change. Backups stay accessible under Settings → Advanced → Backups. ' +
-            'New installs never see this dialog -- they ship on the new engine ' +
+            'New installs never see this dialog; they ship on the new engine ' +
             'from minute one.',
         );
 

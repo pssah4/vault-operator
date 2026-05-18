@@ -359,7 +359,7 @@ export class MemoryTab {
         } else if (status === 'skipped') {
             bannerText.createEl('strong', { text: 'Upgrade skipped. ' });
             bannerText.appendText(
-                'You chose "Later" in the announcement. The upgrade is a one-time event -- ' +
+                'You chose "Later" in the announcement. The upgrade is a one-time event; ' +
                 'once it runs, this section disappears.',
             );
         }

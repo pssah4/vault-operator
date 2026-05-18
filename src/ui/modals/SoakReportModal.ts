@@ -56,7 +56,7 @@ export class SoakReportModal extends Modal {
                         // user can still copy manually with Cmd/Ctrl+C, or
                         // use "Save to vault" instead.
                         ta.focus();
-                        new Notice('Copy blocked -- select the text and press Cmd/Ctrl+C, or use Save to vault.');
+                        new Notice('Copy blocked. Select the text and press Cmd/Ctrl+C, or use Save to vault.');
                     }
                 }))
             .addButton((btn) => btn
@@ -67,7 +67,7 @@ export class SoakReportModal extends Modal {
                         new Notice(`Soak report saved: ${path}`);
                     } catch (e) {
                         console.warn('[SoakReportModal] Save to vault failed:', e);
-                        new Notice('Save to vault failed -- see console.');
+                        new Notice('Save to vault failed. See console.');
                     }
                 }))
             .addButton((btn) => btn
