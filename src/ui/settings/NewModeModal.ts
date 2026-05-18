@@ -2,7 +2,6 @@ import { App, Modal, Notice, Setting } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { ModeService } from '../../core/modes/ModeService';
 import type { ModeConfig, ToolGroup } from '../../types/settings';
-import { getModelKey } from '../../types/settings';
 import { BUILT_IN_MODES } from '../../core/modes/builtinModes';
 import { TOOL_GROUP_META } from './constants';
 import { GlobalModeStore } from '../../core/modes/GlobalModeStore';
@@ -29,26 +28,10 @@ export class NewModeModal extends Modal {
         let name = '';
         const icon = 'sparkles';
         let description = '';
-        let whenToUse = '';
         let roleDefinition = '';
         let customInstructions = '';
         const selectedGroups: Set<string> = new Set(['read', 'vault', 'agent']);
-        let modelKey = '';
         let saveLocation: 'vault' | 'global' = 'vault';
-
-        // ── Model ─────────────────────────────────────────────────────────────
-        const modelSetting = new Setting(contentEl)
-            .setName(t('modal.newMode.model'))
-            .setDesc(t('modal.newMode.modelDesc'));
-        modelSetting.addDropdown((dd) => {
-            dd.addOption('', t('modal.newMode.useGlobalModel'));
-            for (const m of this.plugin.settings.activeModels) {
-                const key = getModelKey(m);
-                dd.addOption(key, m.displayName ?? m.name);
-            }
-            dd.setValue(modelKey);
-            dd.onChange((v) => { modelKey = v; });
-        });
 
         // ── Name ──────────────────────────────────────────────────────────────
         let slugInput: HTMLInputElement | null = null;
@@ -80,16 +63,6 @@ export class NewModeModal extends Modal {
         });
         descTextarea.rows = 2;
         descTextarea.addEventListener('input', () => { description = descTextarea.value; });
-
-        // ── When to Use ───────────────────────────────────────────────────────
-        contentEl.createEl('div', { cls: 'new-mode-field-label', text: t('modal.newMode.whenToUse') });
-        contentEl.createEl('div', { cls: 'new-mode-field-desc', text: t('modal.newMode.whenToUseHint') });
-        const wtuTextarea = contentEl.createEl('textarea', {
-            cls: 'new-mode-textarea',
-            attr: { placeholder: t('modal.newMode.whenToUsePlaceholder') },
-        });
-        wtuTextarea.rows = 3;
-        wtuTextarea.addEventListener('input', () => { whenToUse = wtuTextarea.value; });
 
         // ── Available Tools ───────────────────────────────────────────────────
         const toolsWrap = contentEl.createDiv('new-mode-groups');
@@ -169,7 +142,6 @@ export class NewModeModal extends Modal {
                 name: name.trim(),
                 icon: icon.trim() || 'sparkles',
                 description: description.trim(),
-                whenToUse: whenToUse.trim() || undefined,
                 roleDefinition: roleDefinition.trim(),
                 customInstructions: customInstructions.trim() || undefined,
                 toolGroups: Array.from(selectedGroups) as ToolGroup[],
@@ -181,12 +153,6 @@ export class NewModeModal extends Modal {
                 if (this.modeService) await this.modeService.reloadGlobalModes();
             } else {
                 this.plugin.settings.customModes.push(newMode);
-                await this.plugin.saveSettings();
-            }
-
-            if (modelKey) {
-                if (!this.plugin.settings.modeModelKeys) this.plugin.settings.modeModelKeys = {};
-                this.plugin.settings.modeModelKeys[finalSlug] = modelKey;
                 await this.plugin.saveSettings();
             }
 
