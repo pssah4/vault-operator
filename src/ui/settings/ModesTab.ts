@@ -303,12 +303,18 @@ export class ModesTab {
                 })(); });
             }
 
-            // Delete (non-built-in modes only)
-            if (!isBuiltIn) {
-                const deleteBtn = bottomBar.createEl('button', {
-                    text: t('settings.modes.delete'),
-                    cls: 'mod-warning modes-delete-btn',
-                });
+            // Delete button: visible for every agent so the action surface
+            // is consistent. Disabled for built-in agents (cannot remove
+            // the default agent without breaking fallback paths).
+            const deleteBtn = bottomBar.createEl('button', {
+                text: t('settings.modes.delete'),
+                cls: 'mod-warning modes-delete-btn',
+            });
+            if (isBuiltIn) {
+                deleteBtn.disabled = true;
+                deleteBtn.setAttribute('aria-disabled', 'true');
+                deleteBtn.setAttribute('title', t('settings.modes.deleteBuiltInTooltip'));
+            } else {
                 deleteBtn.addEventListener('click', () => { void (async () => {
                     if (isGlobal) {
                         await GlobalModeStore.removeMode(slug);
@@ -320,9 +326,10 @@ export class ModesTab {
                         await this.plugin.saveSettings();
                     }
                     if (this.plugin.settings.currentMode === slug) {
-                        this.plugin.settings.currentMode = 'ask';
+                        this.plugin.settings.currentMode = 'agent';
                         await this.plugin.saveSettings();
                     }
+                    new Notice(t('settings.modes.deleted', { name: mode.name }));
                     this.rerender();
                 })(); });
             }

@@ -266,6 +266,8 @@ export const en: Translations = {
     'settings.modes.export': 'Export',
     'settings.modes.restoreDefaults': 'Restore defaults',
     'settings.modes.delete': 'Delete',
+    'settings.modes.deleteBuiltInTooltip': 'The default agent cannot be deleted. Duplicate it and edit the copy instead.',
+    'settings.modes.deleted': 'Deleted "{{name}}".',
     'settings.modes.name': 'Name',
     'settings.modes.shortDesc': 'Description',
     'settings.modes.shortDescHint': 'Visible to the LLM via the switch_agent tool when it decides whether to switch. Not shown to you in the chat.',
@@ -1041,6 +1043,7 @@ export const en: Translations = {
     // ToolPicker Popover
     // =========================================================================
     'ui.toolPicker.title': 'Tools & skills',
+    'ui.toolPicker.openFailed': 'Could not open the tools picker. See the developer console for details.',
     'ui.toolPicker.selected': '{{count}} selected',
     'ui.toolPicker.filter': 'Filter\u2026',
     'ui.toolPicker.builtIn': 'Built-in tools',

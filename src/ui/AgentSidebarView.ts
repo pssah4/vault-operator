@@ -518,6 +518,34 @@ export class AgentSidebarView extends ItemView {
                 .setTitle(t('ui.sidebar.selectTools'))
                 .setIcon('pocket-knife')
                 .onClick(() => this.toolPicker.show(e, ellipsisBtn, this.containerEl)));
+            // MCP servers — one menu item per configured server with a check mark.
+            // Clicking flips the server's active state and re-opens the menu
+            // so the user can toggle several without round-tripping.
+            const mcpServers = Object.keys(this.plugin.settings.mcpServers ?? {});
+            if (mcpServers.length > 0) {
+                menu.addSeparator();
+                const activeMcp: string[] = this.plugin.settings.activeMcpServers ?? [];
+                const isActive = (name: string) => activeMcp.length === 0 || activeMcp.includes(name);
+                for (const serverName of mcpServers) {
+                    const active = isActive(serverName);
+                    menu.addItem(item => item
+                        .setTitle(serverName)
+                        .setIcon(active ? 'check' : 'plug-2')
+                        .onClick(() => { void (async () => {
+                            const cur: string[] = this.plugin.settings.activeMcpServers ?? [];
+                            const allServers = Object.keys(this.plugin.settings.mcpServers ?? {});
+                            if (cur.length === 0) {
+                                this.plugin.settings.activeMcpServers = allServers.filter((s) => s !== serverName);
+                            } else if (active) {
+                                this.plugin.settings.activeMcpServers = cur.filter((s) => s !== serverName);
+                            } else {
+                                this.plugin.settings.activeMcpServers = [...cur, serverName];
+                            }
+                            await this.plugin.saveSettings();
+                        })(); }));
+                }
+                menu.addSeparator();
+            }
             // Web search toggle
             const webEnabled = this.plugin.settings.webTools?.enabled ?? false;
             menu.addItem(item => item

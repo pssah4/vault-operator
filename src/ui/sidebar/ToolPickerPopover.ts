@@ -1,4 +1,4 @@
-import { setIcon } from 'obsidian';
+import { Notice, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { ModeService } from '../../core/modes/ModeService';
 import type { ToolGroup } from '../../types/settings';
@@ -23,10 +23,36 @@ export class ToolPickerPopover {
 
     show(event: MouseEvent, anchorBtn: HTMLElement, containerEl: HTMLElement): void {
         this.close();
+        try {
+            this.renderPopover(anchorBtn, containerEl);
+        } catch (err) {
+            console.error('[ToolPicker] failed to open:', err);
+            new Notice(t('ui.toolPicker.openFailed'));
+            this.close();
+        }
+    }
 
+    private renderPopover(anchorBtn: HTMLElement, containerEl: HTMLElement): void {
         const slug = this.plugin.settings.currentMode;
-        const mode = this.modeService.getMode(slug);
-        if (!mode) return;
+        let resolvedMode = this.modeService.getMode(slug);
+        if (!resolvedMode) {
+            console.warn(`[ToolPicker] currentMode "${slug}" is unknown, falling back to "agent".`);
+            this.plugin.settings.currentMode = 'agent';
+            void this.plugin.saveSettings();
+            resolvedMode = this.modeService.getMode('agent');
+            if (!resolvedMode) {
+                console.error('[ToolPicker] default "agent" mode is missing; cannot open picker.');
+                new Notice(t('ui.toolPicker.openFailed'));
+                return;
+            }
+        }
+        // Guard against half-migrated custom modes that lost their toolGroups
+        // array (would crash .filter()/.flatMap() below).
+        if (!Array.isArray(resolvedMode.toolGroups)) {
+            console.warn(`[ToolPicker] mode "${resolvedMode.slug}" has no toolGroups; defaulting to read+vault+agent.`);
+            resolvedMode = { ...resolvedMode, toolGroups: ['read', 'vault', 'agent'] };
+        }
+        const mode = resolvedMode;
 
         const popover = activeDocument.createElement('div');
         popover.className = 'tool-picker-popover';
