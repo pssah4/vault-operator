@@ -740,9 +740,11 @@ export interface ObsidianAgentSettings {
      */
     forcedSkills: Record<string, string[]>;
     /**
-     * Per-mode skill allow-list: maps mode slug → allowed skill names.
-     * Missing entry or empty array = all skills allowed (default).
-     * Non-empty array = only listed skills are available in that mode.
+     * @deprecated Removed 2026-05-18. Per-mode skill filtering was redundant
+     * with toolGroups (a skill cannot call tools its mode lacks) and added
+     * UI surface without value. Field is kept for back-compat (loaded as
+     * `{}` by the migration in main.ts loadSettings) so existing data.json
+     * files do not error.
      */
     modeSkillAllowList: Record<string, string[]>;
     /**

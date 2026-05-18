@@ -2012,15 +2012,19 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.settings.customModes = (this.settings.customModes ?? []).filter(
             (m) => m.slug !== 'ask' && m.slug !== 'ask__custom',
         );
-        // Drop modeModelKey + modeToolOverrides + modeMcpServers + modeSkillAllowList for 'ask'.
+        // Drop modeModelKey + modeToolOverrides + modeMcpServers for 'ask'.
         for (const map of [
             this.settings.modeModelKeys,
             this.settings.modeToolOverrides,
             this.settings.modeMcpServers,
-            this.settings.modeSkillAllowList,
         ]) {
             if (map && typeof map === 'object' && 'ask' in map) delete (map as Record<string, unknown>).ask;
         }
+        // 2026-05-18: modeSkillAllowList removed. Per-mode skill filtering was
+        // redundant with toolGroups (skills can't call tools the mode lacks)
+        // and confused users. All skills are now exposed to every agent;
+        // global manualSkillToggles still toggles individual skills.
+        this.settings.modeSkillAllowList = {};
         // Migrate source: 'custom' → 'vault' (introduced in Phase 3.1+)
         this.settings.globalCustomInstructions = this.settings.globalCustomInstructions ?? '';
         this.settings.modeModelKeys = this.settings.modeModelKeys ?? {};
@@ -2324,31 +2328,19 @@ export default class ObsidianAgentPlugin extends Plugin {
      * can show the user exactly what gets injected for THIS agent.
      * Respects per-mode allow-list + global manualSkillToggles.
      */
-    async buildSkillDirectoryForMode(modeSlug: string): Promise<string | undefined> {
+    async buildSkillDirectoryForMode(_modeSlug: string): Promise<string | undefined> {
         const skillsManager = this.skillsManager;
         const selfLoader = this.selfAuthoredSkillLoader;
-        const modeAllowed = this.settings.modeSkillAllowList?.[modeSlug];
-        const allowedSet = modeAllowed && modeAllowed.length > 0
-            ? new Set(modeAllowed)
-            : null;
 
-        const toggles = { ...(this.settings.manualSkillToggles ?? {}) };
+        const toggles = this.settings.manualSkillToggles ?? {};
         const userSkills = skillsManager ? await skillsManager.discoverSkills() : [];
-        if (allowedSet) {
-            for (const skill of userSkills) {
-                if (!allowedSet.has(skill.name)) toggles[skill.path] = false;
-            }
-        }
         const filteredUserSkills = Object.keys(toggles).length > 0
             ? userSkills.filter(s => toggles[s.path] !== false)
             : userSkills;
 
-        const selfAuthoredAllowed = allowedSet ?? undefined;
-        const selfAuthoredBlock = selfLoader?.getMetadataSummary(selfAuthoredAllowed) ?? '';
+        const selfAuthoredBlock = selfLoader?.getMetadataSummary() ?? '';
         const selfAuthoredNames = new Set(
-            (selfLoader?.getAllSkills() ?? [])
-                .filter(s => !allowedSet || allowedSet.has(s.name))
-                .map(s => s.name),
+            (selfLoader?.getAllSkills() ?? []).map(s => s.name),
         );
         const userLines = filteredUserSkills
             .filter(s => !selfAuthoredNames.has(s.name))

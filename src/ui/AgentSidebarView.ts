@@ -1138,36 +1138,22 @@ export class AgentSidebarView extends ItemView {
      * itself based on the directory and loads its body via the read_skill
      * tool. Replaces the previous classifier-driven body injection.
      *
-     * Honours the manual skill toggles and the per-mode allow-list so the
-     * directory matches what the user actually exposes.
+     * Honours the manual skill toggles so the directory matches what the
+     * user actually exposes.
      */
-    private async buildSkillDirectory(allowedSkillNames?: string[]): Promise<string | undefined> {
+    private async buildSkillDirectory(): Promise<string | undefined> {
         const skillsManager = this.plugin.skillsManager;
         const selfLoader = this.plugin.selfAuthoredSkillLoader;
 
-        // Effective toggles for user-skill paths (per-mode allow-list narrows them).
-        const toggles = { ...(this.plugin.settings.manualSkillToggles ?? {}) };
-        const allowedSet = allowedSkillNames ? new Set(allowedSkillNames) : null;
-
+        const toggles = this.plugin.settings.manualSkillToggles ?? {};
         const userSkills = skillsManager ? await skillsManager.discoverSkills() : [];
-        if (allowedSet) {
-            for (const skill of userSkills) {
-                if (!allowedSet.has(skill.name)) toggles[skill.path] = false;
-            }
-        }
         const filteredUserSkills = Object.keys(toggles).length > 0
             ? userSkills.filter(s => toggles[s.path] !== false)
             : userSkills;
 
-        // Self-authored / bundled skills (carries the inventory render).
-        const selfAuthoredAllowed = allowedSet ?? undefined;
-        const selfAuthoredBlock = selfLoader?.getMetadataSummary(selfAuthoredAllowed) ?? '';
-
-        // Names already covered by self-authored block to avoid duplicates.
+        const selfAuthoredBlock = selfLoader?.getMetadataSummary() ?? '';
         const selfAuthoredNames = new Set(
-            (selfLoader?.getAllSkills() ?? [])
-                .filter(s => !allowedSet || allowedSet.has(s.name))
-                .map(s => s.name),
+            (selfLoader?.getAllSkills() ?? []).map(s => s.name),
         );
 
         const userLines = filteredUserSkills
@@ -2383,10 +2369,7 @@ export class AgentSidebarView extends ItemView {
         const isOnboarding = isActiveOnboardingFlow(this.plugin.settings);
         let skillDirectorySection: string | undefined;
         if (!isOnboarding) {
-            const modeAllowed = this.plugin.settings.modeSkillAllowList?.[activeMode.slug];
-            // empty/undefined = all allowed; non-empty = only those skill names
-            const allowedSkillNames = modeAllowed && modeAllowed.length > 0 ? modeAllowed : undefined;
-            skillDirectorySection = await this.buildSkillDirectory(allowedSkillNames);
+            skillDirectorySection = await this.buildSkillDirectory();
         }
 
         // Apply forced workflow from tool picker (when message doesn't start with slash command)
