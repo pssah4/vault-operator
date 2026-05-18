@@ -2,7 +2,7 @@
 import { App, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
-import { BUNDLE_FILENAME } from '../../util/pluginFiles';
+import { addSectionHeading } from './utils';
 
 
 export class DebugTab {
@@ -30,18 +30,10 @@ export class DebugTab {
                 }),
             );
 
-        // ── Optional Assets ────────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Optional assets' });
-        const optIntro = containerEl.createDiv();
-        optIntro.setCssStyles({ fontSize: '0.85em' });
-        optIntro.setCssStyles({ opacity: '0.8' });
-        optIntro.setCssStyles({ marginBottom: '8px' });
-        optIntro.setText(
-            'Optional one-time downloads kept out of ' + BUNDLE_FILENAME +
-            ' so the plugin stays under Obsidian Sync\'s 5 MB threshold. Each ' +
-            'asset is SHA256-verified before use; the plugin works without any ' +
-            'of them (the corresponding tool reports "not installed" until you ' +
-            'click Install). Files land in <vault>/.vault-operator/assets/.',
+        addSectionHeading(
+            containerEl,
+            t('settings.debug.optionalAssetsHeading'),
+            { body: t('settings.debug.optionalAssetsInfo') },
         );
 
         void this.renderOptionalAssetSections(containerEl);

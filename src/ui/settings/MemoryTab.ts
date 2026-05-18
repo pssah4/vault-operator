@@ -14,6 +14,7 @@ import type ObsidianAgentPlugin from '../../main';
 import { getModelKey } from '../../types/settings';
 import { OnboardingService } from '../../core/memory/OnboardingService';
 import { t } from '../../i18n';
+import { addSectionHeading } from './utils';
 import { confirmModal } from '../modals/PromptModal';
 import { FactStore } from '../../core/memory/FactStore';
 import { CommunicationStyleStore } from '../../core/memory/CommunicationStyleStore';
@@ -54,13 +55,12 @@ export class MemoryTab {
 
     build(containerEl: HTMLElement): void {
         this.buildIntroSection(containerEl);
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: t('settings.memory.desc'),
-        });
 
-        // ─── Chat History ─────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingHistory') });
+        addSectionHeading(
+            containerEl,
+            t('settings.memory.headingHistory'),
+            { body: t('settings.memory.sectionHistoryInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.memory.enableHistory'))
@@ -87,8 +87,11 @@ export class MemoryTab {
                 );
         }
 
-        // ─── Memory ───────────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingMemory') });
+        addSectionHeading(
+            containerEl,
+            t('settings.memory.headingMemory'),
+            { body: t('settings.memory.sectionMemoryInfo') },
+        );
 
         const mem = this.plugin.settings.memory;
 
@@ -153,7 +156,11 @@ export class MemoryTab {
 
             // ─── Onboarding ──────────────────────────────────────────
             const memService = this.plugin.memoryService;
-            containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.memory.headingOnboarding') });
+            addSectionHeading(
+                containerEl,
+                t('settings.memory.headingOnboarding'),
+                { body: t('settings.memory.sectionOnboardingInfo') },
+            );
 
             if (memService) {
                 const onboarding = new OnboardingService(memService, this.plugin);
@@ -220,20 +227,11 @@ export class MemoryTab {
      * perplexity + unknown auf manual.
      */
     private buildCrossSurfaceSection(containerEl: HTMLElement): void {
-        containerEl.createEl('h3', {
-            cls: 'agent-settings-section',
-            text: 'Cross-surface sync',
-        });
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text:
-                'External chat tools (ChatGPT, Claude.ai, Claude Code, Perplexity) can save '
-                + 'conversations and facts into Vault Operator via the Remote MCP. Auto-sync triggers '
-                + 'memory extraction immediately with the same thresholds as Vault Operator-internal '
-                + 'conversations. Manual-sync parks conversations as pending until you confirm '
-                + 'them in the History sidebar. ChatGPT and Perplexity default to manual to '
-                + 'keep family-shared accounts out of personal memory.',
-        });
+        addSectionHeading(
+            containerEl,
+            t('settings.memory.headingCrossSurface'),
+            { body: t('settings.memory.sectionCrossSurfaceInfo') },
+        );
 
         // Ensure settings block exists
         if (!this.plugin.settings.memory.crossSurface) {
@@ -322,33 +320,28 @@ export class MemoryTab {
     }
 
     private buildSoulSection(containerEl: HTMLElement): void {
-        containerEl.createEl('h3', {
-            cls: 'agent-settings-section',
-            text: 'Memory contents',
-        });
-
-        containerEl.createEl('p', {
-            cls: 'agent-settings-paragraph',
-            text: 'See what the agent remembers about you and how it knows itself. To add an entry, just say it in chat (for example: remember that emojis are unwanted). This view is for checking what is stored and removing entries you do not want.',
-        });
+        addSectionHeading(
+            containerEl,
+            t('settings.memory.headingContents'),
+            { body: t('settings.memory.sectionContentsInfo') },
+        );
 
         new Setting(containerEl)
-            .setName('View memory')
-            .setDesc('Browse user facts, agent soul, and capability snapshot. Soft-delete from here.')
+            .setName(t('settings.memory.viewMemory'))
+            .setDesc(t('settings.memory.viewMemoryDesc'))
             .addButton((b) => b
-                .setButtonText('Open')
+                .setButtonText(t('settings.memory.viewMemoryButton'))
                 .setCta()
                 .onClick(async () => {
                     const { MemoryViewerModal } = await import('../modals/MemoryViewerModal');
                     new MemoryViewerModal(this.app, this.plugin).open();
                 }));
 
-        // Right-to-be-forgotten -- always available, two-step confirmation
         new Setting(containerEl)
-            .setName('Delete all memory')
-            .setDesc('Permanently removes every entry across user memory, agent soul, sessions, and the audit log. Requires a typed confirmation word.')
+            .setName(t('settings.memory.deleteAll'))
+            .setDesc(t('settings.memory.deleteAllDesc'))
             .addButton((b) => b
-                .setButtonText('Delete all')
+                .setButtonText(t('settings.memory.deleteAllButton'))
                 .setWarning()
                 .onClick(async () => {
                     const { confirmAndWipeAllMemory } = await import('../modals/wipeAllMemory');
