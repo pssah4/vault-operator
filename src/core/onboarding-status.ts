@@ -30,5 +30,11 @@ import type { ObsidianAgentSettings } from '../types/settings';
 
 export function isActiveOnboardingFlow(settings: ObsidianAgentSettings): boolean {
     if (settings.onboarding.completed) return false;
-    return settings.activeModels.length === 0;
+    // EPIC-26 follow-up: post-migration `activeModels[]` is empty even for
+    // productive users; the new tier surface lives in `providerConfigs[]`.
+    // Treat "has any provider OR has any legacy model" as "no longer in
+    // first-time wizard".
+    if (settings.activeModels.length > 0) return false;
+    if ((settings.providerConfigs ?? []).length > 0) return false;
+    return true;
 }
