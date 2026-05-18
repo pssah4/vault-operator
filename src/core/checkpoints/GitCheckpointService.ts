@@ -150,8 +150,10 @@ export class GitCheckpointService {
             }
         }
 
-        // For new files only (no existing files to commit): create a marker checkpoint
+        // Nothing to track at all: return an empty marker so callers can
+        // tell that a snapshot was attempted but no changes were captured.
         if (staged.length === 0 && newFiles.length === 0) {
+            console.debug(`[Checkpoints] Snapshot for task ${taskId}: nothing to track (no existing or new files)`);
             return {
                 taskId,
                 commitOid: 'empty',
@@ -161,18 +163,32 @@ export class GitCheckpointService {
             };
         }
 
-        let commitOid = 'none';
-        if (staged.length > 0) {
-            commitOid = await git.commit({
-                fs,
-                dir: this.repoPath,
-                author: { name: 'obsidian-agent', email: 'agent@obsidian.local' },
-                message: `checkpoint:${taskId}\n\nFiles: ${staged.join(', ')}`,
-            });
-            console.debug(`[Checkpoints] Committed ${staged.length} file(s): oid=${commitOid}`);
-        } else {
-            console.debug(`[Checkpoints] No files staged (newFiles=${newFiles.length})`);
+        // FIX-01-07-01: When the only change is new files, isomorphic-git
+        // refuses an empty commit. Stage a marker blob so the commit goes
+        // through and the newFiles list survives a plugin reload via
+        // restoreLatestForTask's git-log fallback. The marker also gives
+        // us a stable place to encode the new-file list as JSON so the
+        // recovery path can rebuild the in-memory CheckpointInfo.
+        const newFilesPayload = newFiles.length > 0 ? JSON.stringify(newFiles) : '';
+        if (newFilesPayload && staged.length === 0) {
+            const markerPath = `.vault-operator-newfiles-${taskId}`;
+            const markerDest = `${this.repoPath}/${markerPath}`;
+            await fs.promises.writeFile(markerDest, newFilesPayload, 'utf8');
+            await git.add({ fs, dir: this.repoPath, filepath: markerPath });
         }
+
+        const commitOid = await git.commit({
+            fs,
+            dir: this.repoPath,
+            author: { name: 'obsidian-agent', email: 'agent@obsidian.local' },
+            message: this.buildCommitMessage(taskId, staged, newFiles),
+        });
+
+        console.debug(
+            `[Checkpoints] Snapshot for task ${taskId}: ` +
+            `${staged.length} modified + ${newFiles.length} new file(s) tracked ` +
+            `(oid=${commitOid.substring(0, 8)})`,
+        );
 
         const info: CheckpointInfo = {
             taskId,
@@ -188,8 +204,21 @@ export class GitCheckpointService {
         list.push(info);
         this.taskCheckpoints.set(taskId, list);
 
-        console.debug(`[Checkpoints] Snapshot created for task ${taskId}: ${commitOid.substring(0, 8)} (${list.length} checkpoints total)`);
         return info;
+    }
+
+    /**
+     * Build the commit message for a snapshot. Carries the staged
+     * files inline (legacy format) plus, if present, a JSON-encoded
+     * list of new files so post-reload recovery can rebuild the
+     * full CheckpointInfo from the git log alone.
+     */
+    private buildCommitMessage(taskId: string, staged: string[], newFiles: string[]): string {
+        let msg = `checkpoint:${taskId}\n\nFiles: ${staged.join(', ')}`;
+        if (newFiles.length > 0) {
+            msg += `\n\nNewFiles: ${JSON.stringify(newFiles)}`;
+        }
+        return msg;
     }
 
     /**
@@ -336,14 +365,32 @@ export class GitCheckpointService {
                 return { restored: [], errors: [`No checkpoint found for task ${taskId}`] };
             }
 
-            // Collect each file -> OID of its earliest snapshot (commits are newest-first,
-            // so we iterate in reverse to find the earliest per file).
+            // Collect each modified file -> OID of its earliest snapshot
+            // (commits are newest-first, so we iterate in reverse to find
+            // the earliest per file). FIX-01-07-01: also collect the union
+            // of all new files declared in any of the task's commit
+            // messages so post-reload undo can delete them too.
             const fileToOid = new Map<string, string>();
+            const newFilesSet = new Set<string>();
             for (const match of [...matches].reverse()) {
-                const msgParts = match.commit.message.split('\n\nFiles: ');
-                const files = msgParts[1] ? msgParts[1].split(', ').map((f) => f.trim()) : [];
+                const msg = match.commit.message;
+                const filesPart = msg.split('\n\nFiles: ')[1]?.split('\n\n')[0] ?? '';
+                const files = filesPart ? filesPart.split(', ').map((f) => f.trim()).filter(Boolean) : [];
                 for (const f of files) {
                     fileToOid.set(f, match.oid);
+                }
+                const newFilesMatch = msg.match(/\n\nNewFiles:\s*(\[.*\])/s);
+                if (newFilesMatch) {
+                    try {
+                        const parsed = JSON.parse(newFilesMatch[1]) as unknown;
+                        if (Array.isArray(parsed)) {
+                            for (const item of parsed) {
+                                if (typeof item === 'string') newFilesSet.add(item);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`[Checkpoints] Could not parse NewFiles for ${taskId}:`, e);
+                    }
                 }
             }
 
@@ -373,7 +420,23 @@ export class GitCheckpointService {
                 }
             }
 
-            console.debug(`[Checkpoints] Restored ${restored.length} files for task ${taskId}`);
+            // Delete newly created files (same as the in-memory restore path).
+            for (const vaultRelPath of newFilesSet) {
+                try {
+                    const file = this.vault.getAbstractFileByPath(vaultRelPath);
+                    if (file && (file instanceof TFile || file instanceof TFolder)) {
+                        await this.app.fileManager.trashFile(file);
+                        restored.push(vaultRelPath);
+                    }
+                } catch (e) {
+                    errors.push(`${vaultRelPath} (delete): ${e instanceof Error ? e.message : String(e)}`);
+                }
+            }
+
+            console.debug(
+                `[Checkpoints] Restored ${restored.length} files for task ${taskId} ` +
+                `(${fileToOid.size} modified + ${newFilesSet.size} new via git-log fallback)`,
+            );
             return { restored, errors };
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
