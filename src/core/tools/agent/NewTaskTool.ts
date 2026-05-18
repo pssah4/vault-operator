@@ -5,7 +5,7 @@
  * Available in Agent mode — enables agentic workflow patterns:
  *   Prompt Chaining, Orchestrator-Worker, Evaluator-Optimizer, Routing.
  *
- * The child task runs in the specified mode ('agent' or 'ask') with a fresh
+ * The child task runs as a sub-Agent (slug "agent" by default, or any custom Agent slug) with a fresh
  * conversation history and returns its complete response as the tool result.
  *
  * The parent resumes with the child's response as context for the next step.
@@ -54,8 +54,8 @@ export class NewTaskTool extends BaseTool<'new_task'> {
                     mode: {
                         type: 'string',
                         description:
-                            'Sub-agent mode: "agent" (full capabilities -- reading, writing, web) ' +
-                            'or "ask" (read-only vault queries and search). With profile="research", mode is ignored and the profile runs read-only.',
+                            'Sub-agent slug. Use "agent" for the default Agent (full capabilities). ' +
+                            'With profile="research", mode is ignored and the profile runs read-only.',
                     },
                     message: {
                         type: 'string',

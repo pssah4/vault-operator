@@ -386,7 +386,7 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     new_task: {
         group: 'agent', label: 'Sub-agent', icon: 'git-fork',
         signature: 'new_task(mode, message)',
-        description: 'Spawn a sub-agent in the specified mode ("agent" or "ask"). The sub-agent runs with a fresh conversation and returns its result. Use for agentic workflows: prompt chaining, orchestrator-worker, evaluator-optimizer, or routing. Only available in Agent mode.',
+        description: 'Spawn a sub-agent (default slug "agent" -- the standard Agent). The sub-agent runs with a fresh conversation and returns its result. Use for agentic workflows: prompt chaining, orchestrator-worker, evaluator-optimizer, or routing.',
         example: 'new_task("agent", "Research all notes tagged #project and create a summary")',
         whenToUse: 'Only for 5+ step tasks that benefit from context isolation or parallel processing.',
         commonMistakes: 'Delegating simple 1-4 step tasks — do those yourself with your own tools.',
@@ -600,11 +600,11 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         description: 'Keyword-search past conversations for messages that match the query. Returns matching messages with source conversation, role, timestamp, and a clickable obsidian:// link.',
         whenToUse: 'When the user references "we talked about X earlier" or "find that chat where I mentioned Y". Much wider than recall_memory.',
     },
-    switch_mode: {
-        group: 'agent', label: 'Switch Mode', icon: 'shuffle',
-        signature: 'switch_mode(mode_slug, reason?)',
-        description: 'Switch to a different agent mode when the current task is better handled by another mode (e.g. switch to ask-mode for read-only research mid-task).',
-        whenToUse: 'When the task profile changes during a conversation and a different toolset / role would help.',
+    switch_agent: {
+        group: 'agent', label: 'Switch Agent', icon: 'shuffle',
+        signature: 'switch_agent(mode_slug, reason?)',
+        description: 'Switch to a different Agent when the current task is better handled by another. Each Agent has its own role definition + tool set; switching swaps both from the next iteration.',
+        whenToUse: 'When the task profile changes during a conversation and a different role / toolset would help.',
     },
     unmark_note_as_memory_source: {
         group: 'edit', label: 'Unmark Memory Source', icon: 'bookmark-minus',

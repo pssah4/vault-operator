@@ -33,7 +33,7 @@ const MUST_BE_REACHABLE: ToolName[] = [
     'web_fetch', 'web_search',
     // Agent control
     'ask_followup_question', 'attempt_completion', 'update_todo_list',
-    'new_task', 'consult_flagship', 'switch_mode', 'update_settings', 'configure_model',
+    'new_task', 'consult_flagship', 'switch_agent', 'update_settings', 'configure_model',
     'read_agent_logs', 'manage_mcp_server', 'manage_skill',
     'evaluate_expression', 'manage_source',
     // MCP

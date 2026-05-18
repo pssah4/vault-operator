@@ -1996,10 +1996,30 @@ export default class ObsidianAgentPlugin extends Plugin {
             await this.saveData(this.encryptSettingsForSave(this.settings));
         });
 
-        // Migrate old mode slugs to new built-in mode slugs (Phase 3.1)
-        const OLD_MODE_MAP: Record<string, string> = { librarian: 'ask', writer: 'agent', orchestrator: 'agent', researcher: 'ask', curator: 'agent', architect: 'agent' };
+        // Migrate old mode slugs to new built-in agent slug.
+        // 2026-05-18: Ask removed, Agent (slug "agent") is the only default.
+        // All legacy specialist modes + Ask collapse into "agent".
+        const OLD_MODE_MAP: Record<string, string> = {
+            librarian: 'agent', writer: 'agent', orchestrator: 'agent',
+            researcher: 'agent', curator: 'agent', architect: 'agent',
+            ask: 'agent',
+        };
         if (OLD_MODE_MAP[this.settings.currentMode]) {
             this.settings.currentMode = OLD_MODE_MAP[this.settings.currentMode];
+        }
+        // Drop any custom vault-override or __custom entry that still
+        // points at the removed "ask" slug -- it would dangle otherwise.
+        this.settings.customModes = (this.settings.customModes ?? []).filter(
+            (m) => m.slug !== 'ask' && m.slug !== 'ask__custom',
+        );
+        // Drop modeModelKey + modeToolOverrides + modeMcpServers + modeSkillAllowList for 'ask'.
+        for (const map of [
+            this.settings.modeModelKeys,
+            this.settings.modeToolOverrides,
+            this.settings.modeMcpServers,
+            this.settings.modeSkillAllowList,
+        ]) {
+            if (map && typeof map === 'object' && 'ask' in map) delete (map as Record<string, unknown>).ask;
         }
         // Migrate source: 'custom' → 'vault' (introduced in Phase 3.1+)
         this.settings.globalCustomInstructions = this.settings.globalCustomInstructions ?? '';
@@ -2296,6 +2316,46 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     getAdvisorModel(): CustomModel | null {
         return resolveAdvisorModel(this.settings);
+    }
+
+    /**
+     * Build the cached SKILLS-directory block for a given agent (mode).
+     * Mirrors the logic AgentTask uses at runtime so the Preview-Modal
+     * can show the user exactly what gets injected for THIS agent.
+     * Respects per-mode allow-list + global manualSkillToggles.
+     */
+    async buildSkillDirectoryForMode(modeSlug: string): Promise<string | undefined> {
+        const skillsManager = this.skillsManager;
+        const selfLoader = this.selfAuthoredSkillLoader;
+        const modeAllowed = this.settings.modeSkillAllowList?.[modeSlug];
+        const allowedSet = modeAllowed && modeAllowed.length > 0
+            ? new Set(modeAllowed)
+            : null;
+
+        const toggles = { ...(this.settings.manualSkillToggles ?? {}) };
+        const userSkills = skillsManager ? await skillsManager.discoverSkills() : [];
+        if (allowedSet) {
+            for (const skill of userSkills) {
+                if (!allowedSet.has(skill.name)) toggles[skill.path] = false;
+            }
+        }
+        const filteredUserSkills = Object.keys(toggles).length > 0
+            ? userSkills.filter(s => toggles[s.path] !== false)
+            : userSkills;
+
+        const selfAuthoredAllowed = allowedSet ?? undefined;
+        const selfAuthoredBlock = selfLoader?.getMetadataSummary(selfAuthoredAllowed) ?? '';
+        const selfAuthoredNames = new Set(
+            (selfLoader?.getAllSkills() ?? [])
+                .filter(s => !allowedSet || allowedSet.has(s.name))
+                .map(s => s.name),
+        );
+        const userLines = filteredUserSkills
+            .filter(s => !selfAuthoredNames.has(s.name))
+            .map(s => `- ${s.name}: ${s.description}`);
+        const blocks = [selfAuthoredBlock, userLines.join('\n')].filter(Boolean);
+        if (blocks.length === 0) return undefined;
+        return blocks.join('\n');
     }
 
     /** Return the active embedding CustomModel, or null if none configured or disabled */
@@ -3319,7 +3379,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             this,
             this.toolRegistry,
             'test-task-001',
-            'ask'
+            'agent'
         );
 
         // Create callbacks to collect results

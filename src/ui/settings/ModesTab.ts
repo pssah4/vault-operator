@@ -67,6 +67,7 @@ export class ModesTab {
 
         const btnGroup = topRow.createDiv('modes-btn-group');
         const newBtn = btnGroup.createEl('button', { text: t('settings.modes.newMode'), cls: 'mod-cta modes-top-btn' });
+        const dupBtn = btnGroup.createEl('button', { text: t('settings.modes.duplicate'), cls: 'modes-top-btn' });
         const importBtn = btnGroup.createEl('button', { text: t('settings.modes.import'), cls: 'modes-top-btn' });
 
         // ── Form area ─────────────────────────────────────────────────────────
@@ -194,24 +195,8 @@ export class ModesTab {
                 void saveMode();
             });
 
-            // ── When to Use ───────────────────────────────────────────────────
-            const wtuWrap = formArea.createDiv('modes-field');
-            wtuWrap.createEl('div', { cls: 'modes-field-label', text: t('settings.modes.whenToUse') });
-            wtuWrap.createEl('div', {
-                cls: 'modes-field-desc',
-                text: t('settings.modes.whenToUseHint'),
-            });
-            const wtuTextarea = wtuWrap.createEl('textarea', {
-                cls: 'modes-textarea',
-                attr: { placeholder: t('settings.modes.whenToUsePlaceholder') },
-            });
-            wtuTextarea.value = mode.whenToUse ?? '';
-            wtuTextarea.rows = 3;
-            wtuTextarea.addEventListener('input', () => {
-                const editable = getOrCreateEditable();
-                editable.whenToUse = wtuTextarea.value;
-                void saveMode();
-            });
+            // 2026-05-18: "When to use" field removed -- it was Kilo-Code
+            // legacy, never consumed by the system prompt or any other path.
 
             // ── Available Tools ───────────────────────────────────────────────
             const toolsWrap = formArea.createDiv('modes-field');
@@ -550,28 +535,45 @@ export class ModesTab {
             // ── Bottom action bar ─────────────────────────────────────────────
             const bottomBar = formArea.createDiv('modes-bottom-bar');
 
+            // 2026-05-18: "Set active" button removed -- selecting an agent
+            // in the dropdown at the top now activates it immediately. The
+            // active badge stays as a visual marker.
             const isActive = this.plugin.settings.currentMode === slug;
             if (isActive) {
                 bottomBar.createEl('span', { cls: 'modes-active-badge', text: t('settings.modes.activeMode') });
-            } else {
-                const setBtn = bottomBar.createEl('button', { text: t('settings.modes.setActive'), cls: 'mod-cta' });
-                setBtn.addEventListener('click', () => { void (async () => {
-                    this.plugin.settings.currentMode = slug;
-                    await this.plugin.saveSettings();
-                    this.rerender();
-                })(); });
             }
 
             // Preview System Prompt
+            // 2026-05-18: wire the full static context (skills, plugin
+            // skills, rules, MCP servers) so the preview shows what the
+            // LLM actually sees -- not just the skeleton. Dynamic
+            // sections (Memory, Recipes, Advisor Hint) stay conversation-
+            // dependent and are shown via inline stubs.
             const previewBtn = bottomBar.createEl('button', { text: t('settings.modes.previewPrompt'), cls: 'modes-preview-btn' });
-            previewBtn.addEventListener('click', () => {
+            previewBtn.addEventListener('click', () => { void (async () => {
+                const rulesLoader = this.plugin.rulesLoader;
+                const rulesContent = rulesLoader
+                    ? await rulesLoader.loadEnabledRules(this.plugin.settings.rulesToggles ?? {})
+                    : undefined;
+                const skillDirectorySection = await this.plugin.buildSkillDirectoryForMode(slug);
+                const pluginSkillsSection = this.plugin.skillRegistry?.getPluginSkillsPromptSection();
+                const allowedMcpServers = this.plugin.settings.modeMcpServers?.[slug];
+                const memoryStub = '[Conversation-dependent: filled with relevant memory facts at runtime.]';
+                const recipesStub = '[Conversation-dependent: filled with matched procedural recipes at runtime.]';
                 const prompt = buildSystemPromptForMode({
                     mode,
                     globalCustomInstructions: this.plugin.settings.globalCustomInstructions || undefined,
                     configDir: this.app.vault.configDir,
+                    rulesContent: rulesContent || undefined,
+                    skillDirectorySection: skillDirectorySection || undefined,
+                    pluginSkillsSection: pluginSkillsSection || undefined,
+                    mcpClient: this.plugin.mcpClient,
+                    allowedMcpServers,
+                    memoryContext: memoryStub,
+                    recipesSection: recipesStub,
                 });
                 new SystemPromptPreviewModal(this.app, mode.name, prompt).open();
-            });
+            })(); });
 
             // Export
             const exportBtn = bottomBar.createEl('button', { text: t('settings.modes.export'), cls: 'modes-export-btn' });
@@ -642,16 +644,44 @@ export class ModesTab {
         // Initial render
         renderForm(selectedSlug);
 
-        // Selector change
-        select.addEventListener('change', () => {
+        // Selector change: activate the picked agent immediately and
+        // re-render the form. No separate "Set active" button needed.
+        select.addEventListener('change', () => { void (async () => {
             selectedSlug = select.value;
+            this.plugin.settings.currentMode = selectedSlug;
+            await this.plugin.saveSettings();
             renderForm(selectedSlug);
-        });
+        })(); });
 
         // New Mode
         newBtn.addEventListener('click', () => {
             new NewModeModal(this.app, this.plugin, () => this.rerender(), this.modeService).open();
         });
+
+        // Duplicate the currently selected agent. The duplicate is always
+        // a `source: 'vault'` entry so it shows up under "Your agents" and
+        // is freely editable.
+        dupBtn.addEventListener('click', () => { void (async () => {
+            const source = getAllModes().find((m) => m.slug === selectedSlug);
+            if (!source) return;
+            const baseSlug = `${source.slug}-copy`;
+            const allSlugs = new Set([
+                ...BUILT_IN_MODES.map((m) => m.slug),
+                ...this.plugin.settings.customModes.map((m) => m.slug),
+            ]);
+            let newSlug = baseSlug;
+            let n = 2;
+            while (allSlugs.has(newSlug)) { newSlug = `${baseSlug}-${n++}`; }
+            const dup: ModeConfig = {
+                ...source,
+                slug: newSlug,
+                name: `${source.name} (copy)`,
+                source: 'vault',
+            };
+            this.plugin.settings.customModes.push(dup);
+            await this.plugin.saveSettings();
+            this.rerender();
+        })(); });
 
         // Import
         importBtn.addEventListener('click', () => {

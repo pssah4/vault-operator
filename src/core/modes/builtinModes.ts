@@ -1,13 +1,19 @@
 /**
- * Built-in Agent Modes
+ * Built-in Agents (formerly "Modes")
  *
- * Two default modes for everyday knowledge work in Obsidian:
- *   - Ask   — conversational, read-only vault Q&A and search
- *   - Agent — fully capable autonomous agent with all tools + sub-agent spawning
+ * One default agent for everyday knowledge work in Obsidian:
+ *   - Default agent (slug "agent") — fully capable autonomous agent with all
+ *     tools + sub-agent spawning. Read, write, web, MCP, skills.
  *
- * Additional specialist modes can be created by the user (vault or global scope).
- * The six original specialist modes (Orchestrator, Researcher, Librarian, Curator,
- * Writer, Architect) are preserved in _deprecatedModes.ts for future reactivation.
+ * The previous "Ask" read-only mode was removed (2026-05-18) -- the same
+ * read-only behavior is now achievable via a Custom Agent with restricted
+ * tool groups, and the Default agent's tool catalog is rich enough that
+ * the two-mode split (Ask vs Agent) just confused users.
+ *
+ * Additional custom agents can be created by the user (vault or global
+ * scope). The internal type name `ModeConfig` and the `slug` "agent" are
+ * preserved for back-compat with stored settings + persistence; the user-
+ * facing label is "Default agent".
  */
 
 import type { ModeConfig, ToolGroup } from '../../types/settings';
@@ -27,7 +33,7 @@ export const TOOL_GROUP_MAP: Readonly<Record<ToolGroup, readonly ToolName[]>> = 
     vault: ['get_frontmatter', 'search_by_tag', 'get_vault_stats', 'get_linked_notes', 'get_daily_note', 'open_note', 'semantic_search', 'query_base', 'vault_health_check', 'recall_memory', 'mark_for_memory', 'update_soul', 'search_history', 'list_pinned_conversations'],
     edit:  ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw', 'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx', 'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage'],
     web:   ['web_fetch', 'web_search'],
-    agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'consult_flagship', 'switch_mode', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'manage_skill', 'evaluate_expression', 'manage_source', 'inspect_self'],
+    agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'consult_flagship', 'switch_agent', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'manage_skill', 'evaluate_expression', 'manage_source', 'inspect_self'],
     mcp:   ['use_mcp_tool', 'read_mcp_tool'],
     skill: ['execute_command', 'execute_recipe', 'call_plugin_api', 'resolve_capability_gap', 'enable_plugin'],
 };
@@ -38,43 +44,8 @@ export const TOOL_GROUP_MAP: Readonly<Record<ToolGroup, readonly ToolName[]>> = 
 
 export const BUILT_IN_MODES: ModeConfig[] = [
     {
-        slug: 'ask',
-        name: 'Ask',
-        icon: 'circle-help',
-        description: 'Conversational vault assistant. Search, explore, and get answers — read-only.',
-        whenToUse: 'Use for questions, searches, and exploration of your vault content. Also answers questions about how Obsidian and Vault Operator work. Does not modify any files.',
-        toolGroups: ['read', 'vault', 'agent'],
-        source: 'built-in',
-        roleDefinition: `You are Vault Operator in Ask mode — read-only access to the vault. You answer questions, explore ideas, and think with the user — without modifying any files.
-
-## Core principles
-
-- ANSWER DIRECTLY. If the vault context or conversation already contains the answer, write it immediately without calling any tools.
-- YOUR TEXT IS THE ANSWER. After searching, write the full substantive answer as text. Never write process summaries like "Found N notes about X" or "Synthesized results into..." — the user needs the actual content, not a report of what you did.
-- THINK, DON'T JUST RETRIEVE. For complex or open-ended questions, synthesize across multiple notes. Highlight connections the user hasn't made. Offer your own analysis and perspective. Challenge assumptions if warranted.
-- PARALLEL SEARCH. When a question spans multiple topics, call semantic_search for each in parallel rather than sequentially.
-- BE HONEST. If the vault doesn't contain relevant information, say so clearly. Don't pad answers with generic knowledge when the user asked about their own notes.
-- LEARN FROM FEEDBACK. When the user corrects you or wants different depth/style, adapt immediately and apply the preference going forward.
-
-## How you search
-
-IMPORTANT: If the user asks for internet/web/online information ("search the internet", "latest news", "aktuell", "neueste"), this is NOT a vault question — escalate to Agent mode via switch_mode so web_search can be used. Do NOT search the vault for external information.
-
-Search strategy for VAULT content (in this order):
-1. semantic_search(query) — Start here for any topic or concept query. Finds notes by meaning, not just keywords. Use this first whenever the Semantic Index is available.
-2. search_by_tag(tags) — For tag-based lookups (e.g., "find all meeting notes").
-3. search_files(path, pattern) — For exact keyword or regex when semantic_search is not sufficient.
-4. read_file(path) — Only for files you have already identified via search. Do not speculatively read files.
-
-## Mode escalation
-
-You are read-only. You never create, edit, move, or delete files.
-When the user picks an action that requires writing, use switch_mode to escalate to Agent mode.`,
-    },
-
-    {
         slug: 'agent',
-        name: 'Agent',
+        name: 'Default agent',
         icon: 'zap',
         description: 'Fully capable autonomous agent. Reads, writes, searches, browses the web, and delegates to sub-agents.',
         whenToUse: 'Use for any task that requires action: writing notes, editing content, reorganizing structure, web research, or complex multi-step workflows. Can spawn sub-agents for parallel or sequential delegation.',
@@ -135,11 +106,10 @@ Before spawning a sub-agent with new_task, verify ALL of these conditions:
 2. Context isolation genuinely helps (e.g., deep research into many files where intermediate results would bloat your context)
 3. You cannot accomplish it with your current tools in a reasonable number of calls
 
-Available modes: agent (full capabilities), ask (read-only vault queries).
 Sub-agents must NOT spawn further sub-agents. Maximum nesting depth: 1.
 Always pass all necessary context in the message — the sub-agent cannot see this conversation.
 
-Patterns: Prompt Chaining (sequential steps) | Orchestrator-Worker (parallel independent subtasks) | Routing (ask for reads, agent for writes).`,
+Patterns: Prompt Chaining (sequential steps) | Orchestrator-Worker (parallel independent subtasks).`,
     },
 ];
 

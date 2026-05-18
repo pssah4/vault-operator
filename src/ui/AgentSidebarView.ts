@@ -52,7 +52,7 @@ export class AgentSidebarView extends ItemView {
     private chatContainer: HTMLElement | null = null;
     private inputArea: HTMLElement | null = null;
     private textarea: HTMLTextAreaElement | null = null;
-    private modeButton: HTMLElement | null = null;
+    // Note: modeButton was removed in FEAT-26-05; chat-header has no mode UI anymore.
     private modelButton: HTMLButtonElement | null = null;
     /**
      * EPIC-26 / FEAT-26-05: per-turn chat-header override.
@@ -482,12 +482,10 @@ export class AgentSidebarView extends ItemView {
         const toolbarRight = toolbar.createDiv('chat-toolbar-right');
 
         // EPIC-26 / FEAT-26-05: Mode switcher removed from the chat header.
-        // The Agent/Ask dropdown was never used in practice (see memory
-        // `feedback_modes_unused.md`); skills + Provider-only setup cover
-        // the surface area better. The mode backend stays functional --
-        // currentMode setting, ModeService, switch_mode tool are unchanged
-        // -- only the UI trigger goes away. Default mode is Agent.
-        this.modeButton = null;
+        // 2026-05-18: the Agent/Mode-Button in the chat header is gone
+        // (FEAT-26-05). Agent management lives in Settings -> Agents.
+        // The mode backend stays functional: `currentMode` setting,
+        // ModeService, `switch_agent` tool are unchanged.
 
         // Model button (left, after mode)
         this.modelButton = toolbarLeft.createEl('button', {
@@ -877,20 +875,14 @@ export class AgentSidebarView extends ItemView {
         });
     }
 
-    private updateModeButton(): void {
-        if (!this.modeButton) return;
-        this.modeButton.empty();
-        const currentMode = this.plugin.settings.currentMode;
-        setIcon(this.modeButton.createSpan('toolbar-icon'), this.getModeIcon(currentMode));
-        this.modeButton.createSpan('mode-label').setText(this.getModeDisplayName(currentMode));
-        setIcon(this.modeButton.createSpan('mode-chevron'), 'chevron-down');
-        this.updateToolPickerButton();
-    }
-
+    /**
+     * 2026-05-18: legacy mode-button + popover removed (FEAT-26-05).
+     * Tool-Picker stays in the chat toolbar; with "Ask" gone there is
+     * no mode that hides it, so we always show.
+     */
     private updateToolPickerButton(): void {
         if (!this.toolPickerButton) return;
-        const isAsk = this.plugin.settings.currentMode === 'ask';
-        this.toolPickerButton.classList.toggle('agent-u-hidden', isAsk);
+        this.toolPickerButton.classList.remove('agent-u-hidden');
         this.updateWebToggleButton();
     }
 
@@ -1081,24 +1073,10 @@ export class AgentSidebarView extends ItemView {
         this.webToggleButton.classList.toggle('web-toggle-active', isEnabled);
     }
 
-    private showModeMenu(event: MouseEvent): void {
-        const menu = new Menu();
-        const modes = this.modeService.getAllModes();
-        modes.forEach((mode) => {
-            menu.addItem((item) =>
-                item
-                    .setTitle(mode.name)
-                    .setIcon(mode.icon)
-                    .setChecked(this.plugin.settings.currentMode === mode.slug)
-                    .onClick(() => this.switchMode(mode.slug))
-            );
-        });
-        menu.showAtMouseEvent(event);
-    }
-
-    private getModeIcon(modeSlug: string): string {
-        return this.modeService.getMode(modeSlug)?.icon ?? 'zap';
-    }
+    // 2026-05-18: showModeMenu + getModeIcon removed (dead since the
+    // chat-header Mode-button was retired in FEAT-26-05). Agent-switching
+    // now lives entirely in Settings -> Agents. getModeDisplayName stays
+    // because the mode-switched Notice still uses it.
 
     private getModeDisplayName(modeSlug: string): string {
         return this.modeService.getMode(modeSlug)?.name ?? modeSlug;
@@ -2096,11 +2074,9 @@ export class AgentSidebarView extends ItemView {
                 },
                 onModeSwitch: (newModeSlug) => {
                     // Explicitly sync settings before refreshing the button.
-                    // ModeService.switchMode() sets this synchronously, but this
-                    // ensures the button always shows the correct mode even if
-                    // the async save is still in flight.
+                    // ModeService.switchMode() sets this synchronously; we
+                    // still update settings here as a safety net.
                     this.plugin.settings.currentMode = newModeSlug;
-                    this.updateModeButton();
                     new Notice(t('notice.modeSwitched', { mode: this.getModeDisplayName(newModeSlug) }));
                     // Auto-index on mode switch if configured
                     if (this.plugin.settings.semanticAutoIndex === 'mode-switch' && this.plugin.semanticIndex) {
@@ -2225,9 +2201,6 @@ export class AgentSidebarView extends ItemView {
                         }
                     }
 
-                    // Refresh mode button — ensures it always reflects the final active mode
-                    // even after an agent-initiated switch_mode call during this task.
-                    this.updateModeButton();
                     // Replace the raw streaming text with the properly formatted Markdown.
                     // This fires exactly once — giving us instant streaming + clean final output.
                     streamingPara = null;
@@ -3302,8 +3275,7 @@ export class AgentSidebarView extends ItemView {
 
     private switchMode(modeSlug: string): void {
         void this.modeService.switchMode(modeSlug); // saves settings
-        this.updateModeButton();
-        this.updateModelButton(); // model may differ per mode
+        this.updateModelButton(); // model may differ per agent
     }
 
 
@@ -4002,7 +3974,7 @@ export class AgentSidebarView extends ItemView {
                 return { text: t('ui.approval.explain.command'), target: str('command_id') };
             case 'execute_recipe':
                 return { text: t('ui.approval.explain.recipe'), target: str('recipe_id') };
-            case 'switch_mode':
+            case 'switch_agent':
                 return { text: t('ui.approval.explain.switchMode') };
             case 'manage_skill':
             case 'manage_source':
@@ -4147,7 +4119,7 @@ export class AgentSidebarView extends ItemView {
         if (skillTools.includes(toolName)) return 'skill';
         if (toolName === 'call_plugin_api') return 'plugin-api';
         if (toolName === 'execute_recipe') return 'recipe';
-        if (toolName === 'switch_mode') return 'mode';
+        if (toolName === 'switch_agent') return 'mode';
         if (toolName === 'new_task') return 'subtask';
         return 'note-edit'; // write_file, edit_file, append_to_file, update_frontmatter
     }
