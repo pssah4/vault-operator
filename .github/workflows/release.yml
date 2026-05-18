@@ -89,11 +89,50 @@ jobs:
             optional-assets/office-bundle.js
             optional-assets/pdfjs-bundle.js
 
+      # IMPORTANT: order matters. The Obsidian community plugin crawler
+       # walks the GitHub releases list and matches the manifest.json
+       # `version` against the latest release tag. If `${version}-assets`
+       # is published AFTER `${version}`, GitHub orders it as the most
+       # recent release and Obsidian fails to match (the crawler sees
+       # `-assets` on top, doesn't find that string in manifest.json,
+       # and stops). Fix: publish `-assets` FIRST, then the manifest-
+       # matching release, and pin `make_latest` explicitly so the
+       # behaviour doesn't depend on creation order.
+      - name: Create GitHub Release (optional assets)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}-assets
+          name: ${{ inputs.version }} -- Optional assets
+          make_latest: 'false'
+          body: |
+            Optional assets for Vault Operator v${{ inputs.version }}.
+
+            These files are downloaded on demand by the plugin only after
+            an explicit user click in Settings:
+
+            - `ort-wasm-simd-threaded.wasm` -- semantic reranker (~12 MB)
+            - `plugin-source.json` -- self-development source bundle (~5 MB)
+            - `office-bundle.js` -- exceljs + docx + pptxgenjs (~1.7 MB)
+            - `pdfjs-bundle.js` -- pdfjs-dist + worker (~1.6 MB)
+
+            They are NOT part of the plugin's main release tag so the
+            Obsidian plugin installer never sees them. SHA-256 hashes are
+            pinned in the plugin code (`assetHashes.ts`) and verified
+            before any file is persisted.
+          files: |
+            optional-assets/ort-wasm-simd-threaded.wasm
+            optional-assets/plugin-source.json
+            optional-assets/office-bundle.js
+            optional-assets/pdfjs-bundle.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release (plugin)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.version }}
+          make_latest: 'true'
           body: |
             ## Vault Operator v${{ inputs.version }}
 
@@ -116,33 +155,5 @@ jobs:
             release-assets/main.js
             release-assets/manifest.json
             release-assets/styles.css
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release (optional assets)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.version }}-assets
-          name: ${{ inputs.version }} -- Optional assets
-          body: |
-            Optional assets for Vault Operator v${{ inputs.version }}.
-
-            These files are downloaded on demand by the plugin only after
-            an explicit user click in Settings:
-
-            - `ort-wasm-simd-threaded.wasm` -- semantic reranker (~12 MB)
-            - `plugin-source.json` -- self-development source bundle (~5 MB)
-            - `office-bundle.js` -- exceljs + docx + pptxgenjs (~1.7 MB)
-            - `pdfjs-bundle.js` -- pdfjs-dist + worker (~1.6 MB)
-
-            They are NOT part of the plugin's main release tag so the
-            Obsidian plugin installer never sees them. SHA-256 hashes are
-            pinned in the plugin code (`assetHashes.ts`) and verified
-            before any file is persisted.
-          files: |
-            optional-assets/ort-wasm-simd-threaded.wasm
-            optional-assets/plugin-source.json
-            optional-assets/office-bundle.js
-            optional-assets/pdfjs-bundle.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
