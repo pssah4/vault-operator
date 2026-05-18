@@ -7,6 +7,7 @@ import type { MessageParam, ContentBlock } from '../api/types';
 import { getModelKey, getFirstEnabledModelKey, modelToLLMProvider } from '../types/settings';
 import { buildApiHandler, buildApiHandlerForModel } from '../api/index';
 import { ToolPickerPopover } from './sidebar/ToolPickerPopover';
+import { McpServerPopover } from './sidebar/McpServerPopover';
 import { ChatModelPickerPopover } from './sidebar/ChatModelPickerPopover';
 import { resolveOverrideModel } from './sidebar/chatModelDropdown';
 import { providerConfigToCustomModel, resolveActiveProvider } from '../core/routing/tierResolution';
@@ -111,6 +112,8 @@ export class AgentSidebarView extends ItemView {
     private webToggleButton: HTMLElement | null = null;
     /** Manages tool/skill/workflow picker */
     private toolPicker!: ToolPickerPopover;
+    /** Manages MCP server picker (opened from the "+" menu) */
+    private mcpPicker!: McpServerPopover;
     /** Manages pending attachments and chip bar UI */
     private attachments!: AttachmentHandler;
     /** Manages / and @ autocomplete dropdown */
@@ -127,6 +130,7 @@ export class AgentSidebarView extends ItemView {
         this.plugin = plugin;
         this.modeService = new ModeService(plugin);
         this.toolPicker = new ToolPickerPopover(plugin, this.modeService);
+        this.mcpPicker = new McpServerPopover(plugin);
         this.vaultFilePicker = new VaultFilePicker(
             this.app,
             async (files) => { for (const f of files) await this.attachments.addVaultFile(f); },
@@ -518,34 +522,6 @@ export class AgentSidebarView extends ItemView {
                 .setTitle(t('ui.sidebar.selectTools'))
                 .setIcon('pocket-knife')
                 .onClick(() => this.toolPicker.show(e, ellipsisBtn, this.containerEl)));
-            // MCP servers — one menu item per configured server with a check mark.
-            // Clicking flips the server's active state and re-opens the menu
-            // so the user can toggle several without round-tripping.
-            const mcpServers = Object.keys(this.plugin.settings.mcpServers ?? {});
-            if (mcpServers.length > 0) {
-                menu.addSeparator();
-                const activeMcp: string[] = this.plugin.settings.activeMcpServers ?? [];
-                const isActive = (name: string) => activeMcp.length === 0 || activeMcp.includes(name);
-                for (const serverName of mcpServers) {
-                    const active = isActive(serverName);
-                    menu.addItem(item => item
-                        .setTitle(serverName)
-                        .setIcon(active ? 'check' : 'plug-2')
-                        .onClick(() => { void (async () => {
-                            const cur: string[] = this.plugin.settings.activeMcpServers ?? [];
-                            const allServers = Object.keys(this.plugin.settings.mcpServers ?? {});
-                            if (cur.length === 0) {
-                                this.plugin.settings.activeMcpServers = allServers.filter((s) => s !== serverName);
-                            } else if (active) {
-                                this.plugin.settings.activeMcpServers = cur.filter((s) => s !== serverName);
-                            } else {
-                                this.plugin.settings.activeMcpServers = [...cur, serverName];
-                            }
-                            await this.plugin.saveSettings();
-                        })(); }));
-                }
-                menu.addSeparator();
-            }
             // Web search toggle
             const webEnabled = this.plugin.settings.webTools?.enabled ?? false;
             menu.addItem(item => item
@@ -613,6 +589,11 @@ export class AgentSidebarView extends ItemView {
             .setTitle('Insert workflow...')
             .setIcon('workflow')
             .onClick(() => this.openCommandPicker('workflows', anchor)));
+        menu.addSeparator();
+        menu.addItem(item => item
+            .setTitle(t('ui.sidebar.selectMcpServers'))
+            .setIcon('plug-2')
+            .onClick(() => this.mcpPicker.show(e, anchor, this.containerEl)));
         menu.showAtMouseEvent(e);
     }
 

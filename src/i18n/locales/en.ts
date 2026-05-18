@@ -844,6 +844,7 @@ export const en: Translations = {
     'ui.sidebar.selectMode': 'Select mode',
     'ui.sidebar.selectModel': 'Select model',
     'ui.sidebar.selectTools': 'Select tools',
+    'ui.sidebar.selectMcpServers': 'Select MCP servers',
     'ui.sidebar.toggleWebSearch': 'Toggle web search',
     'ui.sidebar.attachFile': 'Attach file',
     'ui.sidebar.addVaultFile': 'Add vault file',
@@ -1044,6 +1045,9 @@ export const en: Translations = {
     // =========================================================================
     'ui.toolPicker.title': 'Tools & skills',
     'ui.toolPicker.openFailed': 'Could not open the tools picker. See the developer console for details.',
+    'ui.mcpPicker.title': 'MCP servers',
+    'ui.mcpPicker.empty': 'No MCP servers configured. Add one in Settings -> Providers -> MCP.',
+    'ui.mcpPicker.openFailed': 'Could not open the MCP picker. See the developer console for details.',
     'ui.toolPicker.selected': '{{count}} selected',
     'ui.toolPicker.filter': 'Filter\u2026',
     'ui.toolPicker.builtIn': 'Built-in tools',
