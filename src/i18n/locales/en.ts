@@ -57,8 +57,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Embeddings Tab
     // =========================================================================
-    'settings.embeddings.introTitle': 'Semantic search',
-    'settings.embeddings.introDesc': 'Embeddings enable the agent to find notes by meaning instead of exact keywords. The agent can retrieve relevant context from your vault.',
+    'settings.embeddings.introTitle': 'Search by meaning',
+    'settings.embeddings.introDesc': 'Lets the agent find notes by meaning, not just exact words. Needed if you want it to surface relevant notes from your vault by topic.',
     'settings.embeddings.headingModels': 'Embedding models',
     'settings.embeddings.headingIndex': 'Semantic index',
     'settings.embeddings.headingConfig': 'Index configuration',
@@ -200,7 +200,7 @@ export const en: Translations = {
     // Settings — Web Search Tab
     // =========================================================================
     'settings.webSearch.introTitle': 'Web access',
-    'settings.webSearch.introDesc': 'Allows the agent to fetch web pages and perform internet research. Optionally configure a search provider for keyword searches.',
+    'settings.webSearch.introDesc': 'When the agent needs information that is not in your vault. Add a search provider (Tavily, Brave) for keyword searches, web fetch works without.',
     'settings.webSearch.desc': 'Configure web_fetch (read any URL) and web_search (keyword search); web_fetch works without an API key, web_search requires one.',
     'settings.webSearch.headingGeneral': 'General',
     'settings.webSearch.headingProvider': 'Search provider',
@@ -221,8 +221,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — MCP Tab
     // =========================================================================
-    'settings.mcp.introTitle': 'Model context protocol',
-    'settings.mcp.introDesc': 'Connect external tools and data sources to the agent. Each server provides new tools the agent can use.',
+    'settings.mcp.introTitle': 'External tools',
+    'settings.mcp.introDesc': 'Connect tools and data sources outside Obsidian (calendar, Slack, GitHub, your own scripts). Each server adds new tools the agent can call. Uses the Model Context Protocol.',
     'settings.mcp.desc': 'Connect external tools and data sources via the model context protocol. Each server exposes tools the agent can call using `use_mcp_tool`.',
     'settings.mcp.addServer': 'Add server',
     'settings.mcp.disconnect': 'Disconnect',
@@ -293,8 +293,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Permissions Tab
     // =========================================================================
-    'settings.permissions.introTitle': 'Auto-approval',
-    'settings.permissions.introDesc': 'Controls whether the agent can execute tools automatically or needs your approval first. Decide per category which security level you want.',
+    'settings.permissions.introTitle': 'Approve actions',
+    'settings.permissions.introDesc': 'Decide which actions the agent may take without asking. Read-only stays auto-approved, write actions you can require a click for.',
     'settings.permissions.desc': 'Auto-approve controls whether the agent can perform actions immediately or must ask for your confirmation first. When a category is off, the agent pauses and shows an approval dialog before each action in that category.',
     'settings.permissions.headingBehavior': 'Agent behavior',
     'settings.permissions.headingAutoApprove': 'Auto-approve',
@@ -357,8 +357,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Loop Tab
     // =========================================================================
-    'settings.loop.introTitle': 'Agent loop',
-    'settings.loop.introDesc': 'Controls error tolerance, retry behavior, and how long the agent can work on complex tasks. Context condensing and power steering keep the agent focused.',
+    'settings.loop.introTitle': 'Run behaviour',
+    'settings.loop.introDesc': 'How long the agent keeps working, how many errors it tolerates, when it summarises the conversation to stay focused. Defaults are sane, edit only if a task ran out of room or kept retrying.',
     'settings.loop.desc': 'Control how the agent loop runs, how long context is kept, and how reliably the agent stays on task.',
     'settings.loop.headingLoop': 'Agent loop',
     'settings.loop.headingCondensing': 'Context condensing',
@@ -393,7 +393,7 @@ export const en: Translations = {
     // Settings — Memory Tab
     // =========================================================================
     'settings.memory.introTitle': 'Long-term memory',
-    'settings.memory.introDesc': 'The agent learns from past conversations and builds long-term memory. This helps it remember your preferences and important facts about your projects.',
+    'settings.memory.introDesc': 'The agent remembers facts about you and your projects across sessions. Edit what it has stored or turn extraction off.',
     'settings.memory.desc': 'Configure how the agent remembers conversations and learns from past interactions. Memory is extracted in the background using a dedicated model.',
     'settings.memory.headingHistory': 'Chat history',
     'settings.memory.headingMemory': 'Memory',
@@ -443,8 +443,8 @@ export const en: Translations = {
     // =========================================================================
     'settings.rules.heading': 'Rules',
     'settings.rules.desc': 'Rules are injected into the system prompt of every agent session. Store rule files as .md or .txt in your vault at .obsidian-agent/rules/.',
-    'settings.rules.introTitle': 'What are rules?',
-    'settings.rules.introDesc': 'Rules are static instructions injected into the system prompt of every agent session. They define constraints, boundaries, and fundamental behavioral guidelines.',
+    'settings.rules.introTitle': 'Rules',
+    'settings.rules.introDesc': 'House rules every agent follows. Use them for tone, formatting preferences, or "never do X". Applied on top of each agent\'s own instructions.',
     'settings.rules.introDiff': 'Difference: skills are reactive behaviors (only active when relevant). Workflows are concrete sequences with slash commands. Rules are passive principles that always apply.',
     'settings.rules.placeholder': 'Rule name (e.g. "always-use-iso-dates")',
     'settings.rules.create': 'Create rule',
@@ -462,8 +462,8 @@ export const en: Translations = {
     // =========================================================================
     'settings.workflows.heading': 'Workflows',
     'settings.workflows.desc': 'Workflows are triggered by typing /workflow-name in the chat. Store workflow files as .md or .txt in your vault at .obsidian-agent/workflows/.',
-    'settings.workflows.introTitle': 'What are workflows?',
-    'settings.workflows.introDesc': 'Workflows are multi-step sequences triggered by slash commands in the chat. They automate recurring task chains and standardize complex processes.',
+    'settings.workflows.introTitle': 'Workflows',
+    'settings.workflows.introDesc': 'Reusable multi-step routines. Trigger one with a slash command in the chat (e.g. `/weekly-review`) and the agent runs the whole sequence.',
     'settings.workflows.introDiff': 'Difference: workflows are explicitly user-triggered sequences (via /workflow-name). Skills are automatically activated when relevant. Rules are passive principles. Tools perform individual actions.',
     'settings.workflows.placeholder': 'Workflow name (e.g. "daily-review")',
     'settings.workflows.create': 'Create workflow',
@@ -479,8 +479,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Skills Tab
     // =========================================================================
-    'settings.skills.introTitle': 'Skills vs tools',
-    'settings.skills.introDesc': 'Skills are instruction sets (Markdown) that guide the agent for specific task types. They are automatically matched by keywords and injected into the system prompt when relevant.',
+    'settings.skills.introTitle': 'Skills',
+    'settings.skills.introDesc': 'Step-by-step guides the agent loads on demand for specific task types (e.g. "ingest a PDF", "draft a meeting summary"). The agent picks them based on what you ask.',
     'settings.skills.introDiff': 'Key difference: tools execute actions (read files, search, edit). Skills provide instructions (how to approach meeting notes, project planning, etc.). Workflows define fixed step-by-step sequences.',
     'settings.skills.headingManual': 'User skills',
     'settings.skills.headingPlugin': 'Plugin skills',
@@ -524,8 +524,8 @@ export const en: Translations = {
     // =========================================================================
     'settings.prompts.heading': 'Prompts',
     'settings.prompts.desc': 'Create your own prompt templates. Type / in the chat to trigger them. Use {{userInput}} to insert your current message text, and {{activeFile}} to insert the name of the active note.',
-    'settings.prompts.introTitle': 'What are support prompts?',
-    'settings.prompts.introDesc': 'Support prompts are reusable text templates with variables, triggered via slash commands. They enable quick formatting, transformation, and analysis of content.',
+    'settings.prompts.introTitle': 'Prompts',
+    'settings.prompts.introDesc': 'Reusable text snippets you trigger with a slash command. Insert a templated question (e.g. `/translate`) with the active note auto-filled.',
     'settings.prompts.introDiff': 'Difference: prompts are pure text templates without logic. Workflows are structured sequences. Skills are adaptive behaviors with conditions. Rules are static constraints.',
     'settings.prompts.namePlaceholder': 'Prompt name (e.g. "daily-report")',
     'settings.prompts.formName': 'Name (e.g. "daily report")',
@@ -551,8 +551,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Interface Tab
     // =========================================================================
-    'settings.interface.introTitle': 'User interface',
-    'settings.interface.introDesc': 'Customize chat behavior: auto-context, keyboard shortcuts, save chat history in vault, and more.',
+    'settings.interface.introTitle': 'Interface',
+    'settings.interface.introDesc': 'Chat behaviour you see every day: keyboard shortcuts, auto-attaching the open note, where chat history is saved.',
     'settings.interface.headingSetup': 'Setup dialog',
     'settings.interface.headingInterface': 'Interface',
     'settings.interface.headingHistory': 'Chat history',
@@ -584,8 +584,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Shell Tab
     // =========================================================================
-    'settings.shell.introTitle': 'Plugin API & recipes',
-    'settings.shell.introDesc': 'Enables the agent to interact with plugins and execute external tools. Everything runs securely sandboxed.',
+    'settings.shell.introTitle': 'External commands',
+    'settings.shell.introDesc': 'Lets the agent run other plugins (Dataview, Templater, Pandoc) and a few sandboxed system commands. Off by default.',
     'settings.shell.desc': "Configure how the agent interacts with plugin APIs and external tools. Plugin API calls run in the app's `JavaScript` sandbox. Recipes execute external programs with strict parameter validation and no shell expansion.",
     'settings.shell.headingPluginApi': 'Plugin API',
     'settings.shell.headingAllowlist': 'Built-in allowlist',
@@ -606,8 +606,8 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Log Tab
     // =========================================================================
-    'settings.log.introTitle': 'Execution logs',
-    'settings.log.introDesc': 'Records all tool calls the agent makes. Helpful for debugging and auditing. Logs are kept for up to 30 days.',
+    'settings.log.introTitle': 'Activity log',
+    'settings.log.introDesc': 'What the agent did and when. Kept for 30 days, useful to retrace a task or report a bug.',
     'settings.log.desc': 'Audit trail of all tool executions. Logs are stored per day (up to 30 days). Click a row to expand details.',
     'settings.log.load': 'Load',
     'settings.log.download': 'Download',
@@ -633,16 +633,16 @@ export const en: Translations = {
     // =========================================================================
     // Settings — Debug Tab
     // =========================================================================
-    'settings.debug.introTitle': 'Developer tools',
-    'settings.debug.introDesc': 'Enables detailed logs in the browser console. Useful for troubleshooting or when reporting a bug.',
+    'settings.debug.introTitle': 'Debug mode',
+    'settings.debug.introDesc': 'Verbose logs in the browser console (Ctrl+Shift+I). Turn on when something misbehaves, off otherwise.',
     'settings.debug.debugMode': 'Debug mode',
     'settings.debug.debugModeDesc': 'Write detailed logs to the browser developer console. Only useful for troubleshooting. Open the console with cmd+Option+I (mac) or ctrl+Shift+I (Windows).',
 
     // =========================================================================
     // Settings — Backup Tab
     // =========================================================================
-    'settings.backup.introTitle': 'Backup & migration',
-    'settings.backup.introDesc': 'Export and import all plugin data: settings, memory, chat history, skills, workflows. Perfect for backups or device migration.',
+    'settings.backup.introTitle': 'Backup',
+    'settings.backup.introDesc': 'Export everything (settings, memory, history, skills, workflows) to one file. Import to restore or to move to a new device.',
     'settings.backup.desc': 'Export and import plugin data for backup or migration to another device.',
     'settings.backup.headingExport': 'Export',
     'settings.backup.headingImport': 'Import',
