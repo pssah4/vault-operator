@@ -1,7 +1,6 @@
 import { App, Notice, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import type { ModeConfig, ToolGroup } from '../../types/settings';
-import { getModelKey } from '../../types/settings';
 import { BUILT_IN_MODES } from '../../core/modes/builtinModes';
 import { buildSystemPromptForMode } from '../../core/systemPrompt';
 import { GlobalModeStore } from '../../core/modes/GlobalModeStore';
@@ -138,27 +137,6 @@ export class ModesTab {
                 setIcon(badge.createSpan('modes-customized-icon'), 'pencil');
                 badge.createEl('span', { cls: 'modes-customized-text', text: t('settings.modes.customized') });
             }
-
-            // ── Model Selection ───────────────────────────────────────────────
-            const modelSetting = new Setting(formArea)
-                .setName(t('settings.modes.model'))
-                .setDesc(t('settings.modes.modelDesc'));
-            const models = this.plugin.settings.activeModels;
-            const currentModeModelKey = this.plugin.settings.modeModelKeys?.[slug] ?? '';
-            modelSetting.addDropdown((dd) => {
-                dd.addOption('', t('settings.modes.useGlobalModel'));
-                for (const m of models) {
-                    const key = getModelKey(m);
-                    dd.addOption(key, m.displayName ?? m.name);
-                }
-                dd.setValue(currentModeModelKey);
-                dd.onChange(async (v) => {
-                    if (!this.plugin.settings.modeModelKeys) this.plugin.settings.modeModelKeys = {};
-                    if (v) this.plugin.settings.modeModelKeys[slug] = v;
-                    else delete this.plugin.settings.modeModelKeys[slug];
-                    await this.plugin.saveSettings();
-                });
-            });
 
             // ── Name ─────────────────────────────────────────────────────────
             new Setting(formArea)
