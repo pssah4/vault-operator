@@ -3381,18 +3381,17 @@
 
 .agent-settings-section:first-child { margin-top: 2px; }
 
-/* Explanatory paragraph that follows a section heading. Subtle grey
-   container so a wall of plain text gets visual structure, but
-   without competing with the coloured intro callout at the top of
-   each tab. Uses a small text-mix tint plus a dezent border to stay
-   visible across themes where --background-secondary collapses into
-   --background-primary. */
+/* Explanatory paragraph that follows a section heading. Sits in a
+   clearly tinted grey container so a wall of plain text gets visual
+   structure. Strong enough to differentiate from the page background
+   in every theme, light enough to stay below the coloured intro
+   callout at the top of the tab in visual priority. */
 .agent-settings-section-desc {
     font-size: 12px;
     line-height: 1.5;
     color: var(--text-muted);
-    background: color-mix(in srgb, var(--text-muted) 7%, var(--background-primary));
-    border: 1px solid var(--background-modifier-border);
+    background: color-mix(in srgb, var(--text-normal) 14%, var(--background-primary));
+    border: 1px solid color-mix(in srgb, var(--text-normal) 22%, var(--background-primary));
     border-radius: 6px;
     padding: 10px 12px;
     margin: 0 0 14px;
