@@ -376,7 +376,7 @@ export class AttachmentHandler {
         return this.chargeContext(truncated +
             `\n\n[Document truncated for context window. Showing first ${pagesShown} pages. ` +
             'The full text is pre-parsed and available to tools. ' +
-            'Use ingest_document (with attachment_index) to create a note with the COMPLETE original text appended automatically — this works regardless of file size. ' +
+            'Use ingest_document (with attachment_index) to create a note with the COMPLETE original text appended automatically. This works regardless of file size. ' +
             'Use read_document with start_page/end_page to read specific page ranges.]');
     }
 
@@ -396,8 +396,8 @@ export class AttachmentHandler {
         const cut = nl > maxChars / 2 ? nl : maxChars;
         const pct = Math.round((cut / text.length) * 100);
         const tail = vaultPath
-            ? `Read the omitted part with read_file path="${vaultPath}" — do not assume it is empty or unimportant.]`
-            : `The omitted part is not available (external/pasted file, not stored in the vault) — re-attach a smaller excerpt or save it to the vault first if you need it.]`;
+            ? `Read the omitted part with read_file path="${vaultPath}". Do not assume it is empty or unimportant.]`
+            : `The omitted part is not available (external/pasted file, not stored in the vault). Re-attach a smaller excerpt or save it to the vault first if you need it.]`;
         return this.chargeContext(text.slice(0, cut) +
             `\n\n[Attachment truncated for the context window: showing the first ~${pct}% ` +
             `(${cut.toLocaleString()} of ${text.length.toLocaleString()} characters). ${tail}`);

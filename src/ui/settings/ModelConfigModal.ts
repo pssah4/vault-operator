@@ -1391,17 +1391,17 @@ export class ModelConfigModal extends Modal {
 
     private buildBedrockAuthSection(container: HTMLElement): void {
         const BEDROCK_REGIONS: { id: string; label: string }[] = [
-            { id: 'eu-central-1',  label: 'Europe — Frankfurt (eu-central-1)' },
-            { id: 'eu-west-1',     label: 'Europe — Ireland (eu-west-1)' },
-            { id: 'eu-west-2',     label: 'Europe — London (eu-west-2)' },
-            { id: 'eu-west-3',     label: 'Europe — Paris (eu-west-3)' },
-            { id: 'eu-north-1',    label: 'Europe — Stockholm (eu-north-1)' },
-            { id: 'us-east-1',     label: 'US — N. Virginia (us-east-1)' },
-            { id: 'us-east-2',     label: 'US — Ohio (us-east-2)' },
-            { id: 'us-west-2',     label: 'US — Oregon (us-west-2)' },
-            { id: 'ap-northeast-1', label: 'Asia Pacific — Tokyo (ap-northeast-1)' },
-            { id: 'ap-southeast-1', label: 'Asia Pacific — Singapore (ap-southeast-1)' },
-            { id: 'ap-southeast-2', label: 'Asia Pacific — Sydney (ap-southeast-2)' },
+            { id: 'eu-central-1',  label: 'Europe, Frankfurt (eu-central-1)' },
+            { id: 'eu-west-1',     label: 'Europe, Ireland (eu-west-1)' },
+            { id: 'eu-west-2',     label: 'Europe, London (eu-west-2)' },
+            { id: 'eu-west-3',     label: 'Europe, Paris (eu-west-3)' },
+            { id: 'eu-north-1',    label: 'Europe, Stockholm (eu-north-1)' },
+            { id: 'us-east-1',     label: 'US, N. Virginia (us-east-1)' },
+            { id: 'us-east-2',     label: 'US, Ohio (us-east-2)' },
+            { id: 'us-west-2',     label: 'US, Oregon (us-west-2)' },
+            { id: 'ap-northeast-1', label: 'Asia Pacific, Tokyo (ap-northeast-1)' },
+            { id: 'ap-southeast-1', label: 'Asia Pacific, Singapore (ap-southeast-1)' },
+            { id: 'ap-southeast-2', label: 'Asia Pacific, Sydney (ap-southeast-2)' },
         ];
 
         const mkRow = (label: string, desc?: string): HTMLElement => {

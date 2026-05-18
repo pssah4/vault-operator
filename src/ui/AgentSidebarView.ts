@@ -1872,7 +1872,7 @@ export class AgentSidebarView extends ItemView {
                         // Add compact item row to group body
                         const itemEl = activeToolGroup.bodyEl.createDiv('tool-group-item');
                         setIcon(itemEl.createSpan('tool-item-icon'), 'loader');
-                        itemEl.createSpan('tool-item-brief').setText(brief || '—');
+                        itemEl.createSpan('tool-item-brief').setText(brief || '...');
 
                         const queue = toolElsByName.get(name) ?? [];
                         queue.push(itemEl);

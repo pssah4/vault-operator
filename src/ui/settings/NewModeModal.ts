@@ -79,7 +79,7 @@ export class NewModeModal extends Modal {
             });
             const label = row.createEl('label');
             label.createEl('strong', { text: meta.label });
-            label.createEl('span', { text: ` — ${meta.desc}`, cls: 'modes-group-desc' });
+            label.createEl('span', { text: `, ${meta.desc}`, cls: 'modes-group-desc' });
         }
 
         // ── Role Definition ───────────────────────────────────────────────────
@@ -118,7 +118,7 @@ export class NewModeModal extends Modal {
             radio.addEventListener('change', () => { if (radio.checked) saveLocation = opt.value; });
             const lbl = row.createEl('label');
             lbl.createEl('strong', { text: opt.label });
-            lbl.createEl('span', { text: ` — ${opt.desc}`, cls: 'modes-group-desc' });
+            lbl.createEl('span', { text: `, ${opt.desc}`, cls: 'modes-group-desc' });
         }
 
         // ── Actions ───────────────────────────────────────────────────────────

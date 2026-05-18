@@ -142,7 +142,7 @@ async function testModelConnection(model: CustomModel): Promise<TestResult> {
         const lp = modelToLLMProvider({ ...model, maxTokens: 16 });
         const handler = buildApiHandler(lp);
         const abort = new AbortController();
-        // Ollama needs to swap models into memory — allow up to 30 s; Copilot/Kilo/Bedrock may need extra time
+        // Ollama needs to swap models into memory. allow up to 30 s; Copilot/Kilo/Bedrock may need extra time
         const timeoutMs = model.provider === 'ollama' ? 30000
             : (model.provider === 'github-copilot' || model.provider === 'kilo-gateway' || model.provider === 'bedrock') ? 15000
             : 8000;
@@ -183,7 +183,7 @@ async function testModelConnection(model: CustomModel): Promise<TestResult> {
                 ok: false,
                 message: 'Cannot connect to server',
                 detail: isOllama
-                    ? 'Ollama is not reachable at the Base URL. Make sure Ollama is running — it should start automatically after installation. You can also start it manually: ollama serve'
+                    ? 'Ollama is not reachable at the Base URL. Make sure Ollama is running. It should start automatically after installation. You can also start it manually: ollama serve'
                     : 'Check that the Base URL is correct and the server is running.',
             };
         }
@@ -405,7 +405,7 @@ async function fetchProviderModels(
     if (provider === 'bedrock') {
         return fetchBedrockModels(bedrockCreds ?? {}, baseUrl);
     }
-    // Helper: Obsidian's requestUrl throws on 4xx/5xx — use throw:false to always get response
+    // Helper: Obsidian's requestUrl throws on 4xx/5xx. use throw:false to always get response
     const req = async (url: string, headers: Record<string, string> = {}) => {
         const timeout = new Promise<never>((_, reject) =>
             window.setTimeout(() => reject(new Error('Model fetch timed out after 10s')), 10_000),
@@ -419,12 +419,12 @@ async function fetchProviderModels(
     if (provider === 'azure') {
         if (!baseUrl) throw new Error('Base URL required for Azure');
         if (!apiKey) throw new Error('API key required for Azure');
-        // Parser normalizes Azure URLs to end with /openai — strip it to get the endpoint root
+        // Parser normalizes Azure URLs to end with /openai. strip it to get the endpoint root
         const endpoint = baseUrl.replace(/\/+$/, '').replace(/\/openai$/i, '');
         const ver = apiVersion ?? '2024-10-21';
         const headers = { 'api-key': apiKey };
 
-        // Try /openai/deployments first — returns actual deployment names the user can call
+        // Try /openai/deployments first. returns actual deployment names the user can call
         const deplRes = await req(`${endpoint}/openai/deployments?api-version=${ver}`, headers);
         if (deplRes.status === 200) {
             const deplData = deplRes.json;
@@ -442,10 +442,10 @@ async function fetchProviderModels(
             }
         }
 
-        // Fallback: /openai/models — lists base models available in the region
+        // Fallback: /openai/models. lists base models available in the region
         const modRes = await req(`${endpoint}/openai/models?api-version=${ver}`, headers);
         if (modRes.status === 401) throw new Error('Invalid API key (401 Unauthorized)');
-        if (modRes.status !== 200) throw new Error(`HTTP ${modRes.status} — Could not list models or deployments`);
+        if (modRes.status !== 200) throw new Error(`HTTP ${modRes.status}. Could not list models or deployments`);
         const modData = modRes.json;
         const models: ApiModelEntry[] = modData.data ?? modData.value ?? [];
         return models
@@ -498,18 +498,18 @@ async function fetchProviderModels(
             .sort((a, b) => a.id.localeCompare(b.id));
     }
 
-    // lmstudio — OpenAI-compatible local server, default port 1234
+    // lmstudio. OpenAI-compatible local server, default port 1234
     if (provider === 'lmstudio') {
         const root = (baseUrl || 'http://localhost:1234').replace(/\/v1\/?$/, '').replace(/\/+$/, '');
         const res = await req(`${root}/v1/models`);
-        if (res.status !== 200) throw new Error(`HTTP ${res.status} — Is LM Studio running with "Local Server" enabled?`);
+        if (res.status !== 200) throw new Error(`HTTP ${res.status}. Is LM Studio running with "Local Server" enabled?`);
         const data = res.json;
         return ((data.data ?? []) as ApiModelEntry[])
             .map((m) => ({ id: m.id as string, label: m.id as string }))
             .sort((a, b) => a.id.localeCompare(b.id));
     }
 
-    // ollama — native /api/tags lists locally installed models (preferred over
+    // ollama. native /api/tags lists locally installed models (preferred over
     // the OpenAI-compat /v1/models layer, which Ollama only serves when the
     // user has explicitly enabled it). Reuses fetchOllamaModels so the legacy
     // ModelConfigModal browser and the EPIC-26 discovery service stay aligned.
@@ -518,7 +518,7 @@ async function fetchProviderModels(
         return names.map((id) => ({ id, label: id }));
     }
 
-    // GitHub Copilot — uses auth service for token
+    // GitHub Copilot. uses auth service for token
     if (provider === 'github-copilot') {
         const authService = GitHubCopilotAuthService.getInstance();
         if (!authService.isAuthenticated()) throw new Error('Not authenticated. Sign in with GitHub first.');
@@ -526,7 +526,7 @@ async function fetchProviderModels(
         return models.map((m) => ({ id: m.id, label: (m.name ?? m.id) }));
     }
 
-    // ChatGPT OAuth (Codex backend) — there is no `/v1/models` endpoint on
+    // ChatGPT OAuth (Codex backend). there is no `/v1/models` endpoint on
     // chatgpt.com/backend-api/codex, so the only authoritative source is the
     // static Codex CLI lineup the provider hardcodes. Without this branch the
     // generic "custom" fallback below tries http://localhost:1234/v1/models
@@ -537,7 +537,7 @@ async function fetchProviderModels(
         return listKnownChatGptOAuthModels();
     }
 
-    // Kilo Gateway — dynamic model list via KiloMetadataService
+    // Kilo Gateway. dynamic model list via KiloMetadataService
     if (provider === 'kilo-gateway') {
         if (!KiloAuthService.getInstance().isAuthenticated()) {
             throw new Error('Not signed in with Kilo. Open settings to connect.');
@@ -546,9 +546,9 @@ async function fetchProviderModels(
         return models.map((m) => ({ id: m.id, label: m.id }));
     }
 
-    // Gemini — OpenAI-compatible endpoint at Google
+    // Gemini. OpenAI-compatible endpoint at Google
     // Uses requestUrl directly (not the req helper) to guarantee res.json is the parsed object,
-    // not a Promise — Obsidian's RequestUrlResponsePromise.json is Promise<any>.
+    // not a Promise. Obsidian's RequestUrlResponsePromise.json is Promise<any>.
     if (provider === 'gemini') {
         if (!apiKey) throw new Error('API key required for Google Gemini');
         const res = await requestUrl({
@@ -563,14 +563,14 @@ async function fetchProviderModels(
         return ((data.data ?? []) as ApiModelEntry[])
             .filter((m) => /gemini-/i.test(m.id ?? ''))
             .map((m) => {
-                // Google returns IDs with "models/" prefix — strip it for OpenAI-compatible usage
+                // Google returns IDs with "models/" prefix. strip it for OpenAI-compatible usage
                 const id = (m.id as string).replace(/^models\//, '');
                 return { id, label: (m.display_name as string) ?? id };
             })
             .sort((a, b) => b.id.localeCompare(a.id));
     }
 
-    // custom — OpenAI-compatible /v1/models endpoint
+    // custom. OpenAI-compatible /v1/models endpoint
     const root = (baseUrl || 'http://localhost:1234').replace(/\/v1\/?$/, '').replace(/\/+$/, '');
     const headers: Record<string, string> = {};
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
@@ -599,18 +599,18 @@ async function fetchBedrockModels(
 ): Promise<{ id: string; label: string }[]> {
     const region = creds.region?.trim() || extractRegionFromBedrockUrl(baseUrl) || '';
     if (!region) {
-        throw new Error('AWS region required — pick a region or set an endpoint URL containing one.');
+        throw new Error('AWS region required. pick a region or set an endpoint URL containing one.');
     }
     const authMode = creds.authMode ?? 'api-key';
 
-    // Dynamic import keeps the control-plane SDK out of the hot path — it's
+    // Dynamic import keeps the control-plane SDK out of the hot path. it's
     // only needed when the user actually clicks Fetch Models.
     const { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand } =
         await import('@aws-sdk/client-bedrock');
     type BedrockClientConfig = ConstructorParameters<typeof BedrockClient>[0];
 
     const clientConfig: BedrockClientConfig = { region };
-    // Custom endpoint for VPC/private access — swap `bedrock-runtime` for
+    // Custom endpoint for VPC/private access. swap `bedrock-runtime` for
     // `bedrock` since the control-plane lives on a different hostname.
     const customEndpoint = (creds.endpoint?.trim() || baseUrl?.trim() || '')
         .replace(/bedrock-runtime\./i, 'bedrock.');
@@ -636,7 +636,7 @@ async function fetchBedrockModels(
 
     const client = new BedrockClient(clientConfig);
 
-    // Run both list calls in parallel — they hit different endpoints and
+    // Run both list calls in parallel. they hit different endpoints and
     // neither depends on the other.
     const [fmRes, ipRes] = await Promise.all([
         client.send(new ListFoundationModelsCommand({ byOutputModality: 'TEXT' })),
@@ -650,7 +650,7 @@ async function fetchBedrockModels(
         const id = m.modelId?.trim();
         if (!id || seen.has(id)) continue;
         // Text-output only is already filtered via byOutputModality; skip models
-        // that are provisioned-throughput-only — they're not usable without
+        // that are provisioned-throughput-only. they're not usable without
         // extra capacity setup. Cross-region ones still surface below via the
         // inference-profile list.
         const inferTypes = m.inferenceTypesSupported ?? [];
@@ -677,11 +677,11 @@ async function fetchBedrockModels(
 
 /** Fetch model names installed in a local Ollama instance */
 async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
-    // Native Ollama API is at root — strip /v1 suffix if present
+    // Native Ollama API is at root. strip /v1 suffix if present
     const root = (baseUrl || 'http://localhost:11434').replace(/\/v\d[^/]*\/?$/, '').replace(/\/+$/, '');
     const url = `${root}/api/tags`;
     const res = await requestUrl({ url, method: 'GET', throw: false });
-    if (res.status !== 200) throw new Error(`HTTP ${res.status} — Is Ollama running?`);
+    if (res.status !== 200) throw new Error(`HTTP ${res.status}. Is Ollama running?`);
     const data = res.json;
     return ((data.models ?? []) as OllamaModelEntry[]).map((m) => m.name).sort();
 }
@@ -707,7 +707,7 @@ async function fetchEmbeddingModels(
     };
 
     if (provider === 'openai') {
-        // OpenAI's /v1/models requires auth — return the known stable embedding model list instead
+        // OpenAI's /v1/models requires auth. return the known stable embedding model list instead
         return [
             { id: 'text-embedding-3-small', label: 'text-embedding-3-small  (1 536 dims, recommended)' },
             { id: 'text-embedding-3-large', label: 'text-embedding-3-large  (3 072 dims, highest quality)' },
@@ -718,14 +718,14 @@ async function fetchEmbeddingModels(
     if (provider === 'azure') {
         // Azure doesn't have a REST endpoint to list available deployments generically.
         // Suggest the known embedding model IDs (user fills in deployment name).
-        throw new Error('Azure does not provide a model list API — use the Quick Pick suggestions or enter the deployment name manually.');
+        throw new Error('Azure does not provide a model list API. use the Quick Pick suggestions or enter the deployment name manually.');
     }
 
     if (provider === 'ollama') {
         // Ollama API: filter model names that look like embedding models
         const root = (baseUrl || 'http://localhost:11434').replace(/\/v\d[^/]*\/?$/, '').replace(/\/+$/, '');
         const res = await req(`${root}/api/tags`);
-        if (res.status !== 200) throw new Error(`HTTP ${res.status} — Is Ollama running?`);
+        if (res.status !== 200) throw new Error(`HTTP ${res.status}. Is Ollama running?`);
         const EMBED_NAMES = /embed|bge|minilm|arctic-embed|e5-|gte-/i;
         const all: string[] = ((res.json.models ?? []) as OllamaModelEntry[]).map((m) => m.name);
         const embeds = all.filter((n) => EMBED_NAMES.test(n));
@@ -737,7 +737,7 @@ async function fetchEmbeddingModels(
     if (provider === 'lmstudio') {
         const root = (baseUrl || 'http://localhost:1234').replace(/\/v1\/?$/, '').replace(/\/+$/, '');
         const res = await req(`${root}/v1/models`);
-        if (res.status !== 200) throw new Error(`HTTP ${res.status} — Is LM Studio running?`);
+        if (res.status !== 200) throw new Error(`HTTP ${res.status}. Is LM Studio running?`);
         return ((res.json.data ?? []) as ApiModelEntry[])
             .map((m) => ({ id: m.id as string, label: m.id as string }))
             .sort((a, b) => a.id.localeCompare(b.id));
@@ -762,7 +762,7 @@ async function fetchEmbeddingModels(
         ];
     }
 
-    // custom — OpenAI-compatible endpoint
+    // custom. OpenAI-compatible endpoint
     const base = (baseUrl || '').replace(/\/+$/, '');
     const headers: Record<string, string> = {};
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
