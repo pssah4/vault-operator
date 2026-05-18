@@ -2,6 +2,7 @@ import { App, Notice, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { OnboardingService } from '../../core/memory/OnboardingService';
 import { t } from '../../i18n';
+import { addSectionHeading } from './utils';
 
 
 export class InterfaceTab {
@@ -18,8 +19,12 @@ export class InterfaceTab {
 
     build(containerEl: HTMLElement): void {
         this.buildIntroSection(containerEl);
-        // ─── Setup Dialog ─────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.interface.headingSetup') });
+
+        addSectionHeading(
+            containerEl,
+            t('settings.interface.headingSetup'),
+            { body: t('settings.interface.sectionSetupInfo') },
+        );
 
         if (this.plugin.memoryService) {
             const onboarding = new OnboardingService(this.plugin.memoryService, this.plugin);
@@ -55,8 +60,11 @@ export class InterfaceTab {
                 .setDesc(t('settings.interface.memoryNotAvailable'));
         }
 
-        // ─── Interface Settings ───────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.interface.headingInterface') });
+        addSectionHeading(
+            containerEl,
+            t('settings.interface.headingInterface'),
+            { body: t('settings.interface.sectionInterfaceInfo') },
+        );
         new Setting(containerEl)
             .setName(t('settings.interface.autoAddActiveNote'))
             .setDesc(t('settings.interface.autoAddActiveNoteDesc'))
@@ -88,17 +96,21 @@ export class InterfaceTab {
             );
 
         new Setting(containerEl)
-            .setName('Show context progress')
-            .setDesc('Display a progress bar showing context window usage. Restart sidebar to apply.')
+            .setName(t('settings.interface.showContextProgress'))
+            .setDesc(t('settings.interface.showContextProgressDesc'))
             .addToggle((toggle) =>
                 toggle.setValue(this.plugin.settings.showContextProgress).onChange(async (value) => {
                     this.plugin.settings.showContextProgress = value;
                     await this.plugin.saveSettings();
-                    new Notice('Please restart the sidebar (close & reopen) to apply changes.');
+                    new Notice(t('settings.interface.restartSidebarNotice'));
                 })
             );
 
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.interface.headingHistory') });
+        addSectionHeading(
+            containerEl,
+            t('settings.interface.headingHistory'),
+            { body: t('settings.interface.sectionHistoryInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.interface.historyFolder'))
@@ -119,8 +131,11 @@ export class InterfaceTab {
                     }),
             );
 
-        // ─── Chat Linking (ADR-022) ─────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.interface.headingChatLinking') });
+        addSectionHeading(
+            containerEl,
+            t('settings.interface.headingChatLinking'),
+            { body: t('settings.interface.sectionChatLinkingInfo') },
+        );
 
         const cl = this.plugin.settings.chatLinking;
 

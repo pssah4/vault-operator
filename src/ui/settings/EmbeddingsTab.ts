@@ -1,7 +1,7 @@
 import { App, Modal, Notice, Setting, setIcon, TFolder, AbstractInputSuggest, ButtonComponent } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { ModelConfigModal } from './ModelConfigModal';
-import { addInfoButton } from './utils';
+import { addInfoButton, addSectionHeading } from './utils';
 import { PROVIDER_LABELS, PROVIDER_COLORS } from './constants';
 import type { CustomModel } from '../../types/settings';
 import { getModelKey } from '../../types/settings';
@@ -25,7 +25,7 @@ export class EmbeddingsTab {
     build(containerEl: HTMLElement): void {
         renderSkipHintIfSkipped(containerEl, this.plugin, 'embedding-model');
         this.buildIntroSection(containerEl);
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.embeddings.headingModels') });
+        addSectionHeading(containerEl, t('settings.embeddings.headingModels'), { body: t('settings.embeddings.sectionModelsInfo') });
 
         const desc = containerEl.createDiv('model-table-desc');
         desc.setText(t('settings.embeddings.modelsDesc'));
@@ -72,7 +72,7 @@ export class EmbeddingsTab {
         });
 
         // ── Semantic Index ────────────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.embeddings.headingIndex') });
+        addSectionHeading(containerEl, t('settings.embeddings.headingIndex'), { body: t('settings.embeddings.sectionIndexInfo') });
 
         const activeEmbModel = this.plugin.getActiveEmbeddingModel();
         const embModelDesc = activeEmbModel
@@ -330,7 +330,7 @@ export class EmbeddingsTab {
             });
 
         // ── Index configuration ───────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.embeddings.headingConfig') });
+        addSectionHeading(containerEl, t('settings.embeddings.headingConfig'), { body: t('settings.embeddings.sectionConfigInfo') });
 
         const batchSetting = new Setting(containerEl)
             .setName(t('settings.embeddings.checkpointInterval'))
@@ -470,7 +470,7 @@ export class EmbeddingsTab {
         // Storage location removed from UI (ADR-050: knowledge.db is always global)
 
         // ── Graph Expansion (FEATURE-1502) ─────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.embeddings.headingGraph') });
+        addSectionHeading(containerEl, t('settings.embeddings.headingGraph'), { body: t('settings.embeddings.sectionGraphInfo') });
 
         new Setting(containerEl)
             .setName(t('settings.embeddings.graphExpansion'))
@@ -558,7 +558,7 @@ export class EmbeddingsTab {
         }
 
         // ── Implicit Connections (FEATURE-1503) ──────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.embeddings.headingImplicit') });
+        addSectionHeading(containerEl, t('settings.embeddings.headingImplicit'), { body: t('settings.embeddings.sectionImplicitInfo') });
 
         new Setting(containerEl)
             .setName(t('settings.embeddings.implicitConnections'))
@@ -604,7 +604,7 @@ export class EmbeddingsTab {
         }
 
         // ── Local Reranking (FEATURE-1504) ───────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.embeddings.headingReranking') });
+        addSectionHeading(containerEl, t('settings.embeddings.headingReranking'), { body: t('settings.embeddings.sectionRerankingInfo') });
 
         new Setting(containerEl)
             .setName(t('settings.embeddings.localReranking'))

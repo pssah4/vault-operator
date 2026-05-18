@@ -1,6 +1,7 @@
 import { App, Modal, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
+import { addSectionHeading } from './utils';
 
 
 export class PermissionsTab {
@@ -19,13 +20,12 @@ export class PermissionsTab {
 
     build(containerEl: HTMLElement): void {
         this.buildIntroSection(containerEl);
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: t('settings.permissions.desc'),
-        });
 
-        // ── Auto-approve (master toggle + categories) ────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.permissions.headingAutoApprove') });
+        addSectionHeading(
+            containerEl,
+            t('settings.permissions.headingAutoApprove'),
+            { body: t('settings.permissions.sectionAutoApproveInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.permissions.enableAutoApprove'))
@@ -53,10 +53,11 @@ export class PermissionsTab {
         // Container for all category toggles — disabled when master is off
         const categoryContainer = containerEl.createDiv('agent-approval-categories');
 
-        categoryContainer.createEl('h3', {
-            cls: 'agent-settings-section',
-            text: t('settings.permissions.headingPerCategory'),
-        });
+        addSectionHeading(
+            categoryContainer,
+            t('settings.permissions.headingPerCategory'),
+            { body: t('settings.permissions.sectionPerCategoryInfo') },
+        );
 
         new Setting(categoryContainer)
             .setName(t('settings.permissions.readOps'))
@@ -136,7 +137,11 @@ export class PermissionsTab {
                 }),
             );
 
-        categoryContainer.createEl('h3', { cls: 'agent-settings-section', text: t('settings.permissions.headingPluginApi') });
+        addSectionHeading(
+            categoryContainer,
+            t('settings.permissions.headingPluginApi'),
+            { body: t('settings.permissions.sectionPluginApiInfo') },
+        );
 
         new Setting(categoryContainer)
             .setName(t('settings.permissions.pluginApiReads'))
@@ -170,7 +175,11 @@ export class PermissionsTab {
             );
         this.addWarning(categoryContainer, 'settings.permissions.recipesWarning', true);
 
-        categoryContainer.createEl('h3', { cls: 'agent-settings-section', text: t('settings.permissions.headingSandbox') });
+        addSectionHeading(
+            categoryContainer,
+            t('settings.permissions.headingSandbox'),
+            { body: t('settings.permissions.sectionSandboxInfo') },
+        );
 
         new Setting(categoryContainer)
             .setName(t('settings.permissions.sandbox'))

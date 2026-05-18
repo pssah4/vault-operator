@@ -2,6 +2,7 @@ import { App, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { renderSkipHintIfSkipped } from './skipHints';
 import { t } from '../../i18n';
+import { addSectionHeading } from './utils';
 
 
 export class WebSearchTab {
@@ -19,12 +20,12 @@ export class WebSearchTab {
     build(containerEl: HTMLElement): void {
         renderSkipHintIfSkipped(containerEl, this.plugin, 'search-provider');
         this.buildIntroSection(containerEl);
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: t('settings.webSearch.desc'),
-        });
 
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.webSearch.headingGeneral') });
+        addSectionHeading(
+            containerEl,
+            t('settings.webSearch.headingGeneral'),
+            { body: t('settings.webSearch.sectionGeneralInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.webSearch.enableWebTools'))
@@ -38,7 +39,11 @@ export class WebSearchTab {
                 }),
             );
 
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.webSearch.headingProvider') });
+        addSectionHeading(
+            containerEl,
+            t('settings.webSearch.headingProvider'),
+            { body: t('settings.webSearch.sectionProviderInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.webSearch.provider'))

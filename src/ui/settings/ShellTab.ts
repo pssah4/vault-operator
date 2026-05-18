@@ -3,6 +3,7 @@ import type ObsidianAgentPlugin from '../../main';
 import { BUILT_IN_RECIPES } from '../../core/tools/agent/recipeRegistry';
 import { PLUGIN_API_ALLOWLIST } from '../../core/tools/agent/pluginApiAllowlist';
 import { t } from '../../i18n';
+import { addSectionHeading } from './utils';
 
 
 export class ShellTab {
@@ -19,13 +20,13 @@ export class ShellTab {
 
     build(containerEl: HTMLElement): void {
         this.buildIntroSection(containerEl);
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: t('settings.shell.desc'),
-        });
 
         // ── Plugin API Section ──────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.shell.headingPluginApi') });
+        addSectionHeading(
+            containerEl,
+            t('settings.shell.headingPluginApi'),
+            { body: t('settings.shell.sectionPluginApiInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.shell.enablePluginApi'))
@@ -41,15 +42,13 @@ export class ShellTab {
                 }),
             );
 
-        // Show built-in allowlist as Setting items
         if (this.plugin.settings.pluginApi?.enabled !== false) {
-            containerEl.createEl('h4', { cls: 'agent-settings-section', text: t('settings.shell.headingAllowlist') });
-            containerEl.createEl('p', {
-                cls: 'agent-settings-desc',
-                text: t('settings.shell.allowlistDesc'),
-            });
+            addSectionHeading(
+                containerEl,
+                t('settings.shell.headingAllowlist'),
+                { body: t('settings.shell.sectionAllowlistInfo') },
+            );
 
-            // Group by plugin
             const byPlugin = new Map<string, typeof PLUGIN_API_ALLOWLIST>();
             for (const entry of PLUGIN_API_ALLOWLIST) {
                 const list = byPlugin.get(entry.pluginId) ?? [];
@@ -66,15 +65,14 @@ export class ShellTab {
                 }
             }
 
-            // Dynamic overrides
             const overrides = this.plugin.settings.pluginApi?.safeMethodOverrides ?? {};
             const overrideKeys = Object.keys(overrides).filter((k) => overrides[k]);
             if (overrideKeys.length > 0) {
-                containerEl.createEl('h4', { cls: 'agent-settings-section', text: t('settings.shell.headingUserSafe') });
-                containerEl.createEl('p', {
-                    cls: 'agent-settings-desc',
-                    text: t('settings.shell.userSafeDesc'),
-                });
+                addSectionHeading(
+                    containerEl,
+                    t('settings.shell.headingUserSafe'),
+                    { body: t('settings.shell.sectionUserSafeInfo') },
+                );
                 for (const key of overrideKeys) {
                     new Setting(containerEl)
                         .setName(key)
@@ -91,7 +89,11 @@ export class ShellTab {
         }
 
         // ── Recipe Section ──────────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.shell.headingRecipes') });
+        addSectionHeading(
+            containerEl,
+            t('settings.shell.headingRecipes'),
+            { body: t('settings.shell.sectionRecipesInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.shell.enableRecipes'))
@@ -108,12 +110,12 @@ export class ShellTab {
             );
 
         if (this.plugin.settings.recipes?.enabled) {
-            containerEl.createEl('h4', { cls: 'agent-settings-section', text: t('settings.shell.headingBuiltinRecipes') });
+            addSectionHeading(containerEl, t('settings.shell.headingBuiltinRecipes'));
 
             const toggles = this.plugin.settings.recipes?.recipeToggles ?? {};
 
             for (const recipe of BUILT_IN_RECIPES) {
-                const isEnabled = toggles[recipe.id] !== false; // default: enabled when master is on
+                const isEnabled = toggles[recipe.id] !== false;
                 new Setting(containerEl)
                     .setName(recipe.name)
                     .setDesc(`${recipe.description} (binary: ${recipe.binary})`)
