@@ -10,7 +10,10 @@
 
 import { getSubagentProfile, listSubagentProfileNames } from '../../agent/subagent-profiles';
 
-export const ALLOWED_SUB_MODES = new Set(['agent', 'ask']);
+// 2026-05-18: 'ask' removed; the single built-in Agent ("agent") + any
+// custom agent slug are valid sub-modes. The set still rejects unknown
+// slugs (typos / hallucinations).
+export const ALLOWED_SUB_MODES = new Set(['agent']);
 export const ALLOWED_JUSTIFICATION_CATEGORIES = new Set(['PARALLEL', 'SPECIALIST', 'ESCALATION']);
 
 /** Generic-phrase detector -- rejects empty platitudes in justifications. */
@@ -61,7 +64,7 @@ export function validateNewTaskInput(raw: Record<string, unknown>): ValidationRe
     if (!ALLOWED_SUB_MODES.has(mode)) {
         return {
             ok: false,
-            error: `Unknown sub-agent mode "${mode}". Use "agent" (full capabilities) or "ask" (read-only).`,
+            error: `Unknown sub-agent mode "${mode}". Use "agent" (the default Agent).`,
         };
     }
 

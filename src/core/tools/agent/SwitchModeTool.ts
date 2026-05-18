@@ -1,11 +1,17 @@
 /**
- * SwitchModeTool - Switch the active agent mode mid-task
+ * SwitchAgentTool (formerly SwitchModeTool) -- switch the active Agent mid-task
  *
- * The agent calls this to change to a mode better suited for the current task.
- * The UI updates the mode button and the next iteration uses the new mode's
- * system prompt and tool set.
+ * The agent calls this to change to a different Agent better suited for the
+ * current task. Each Agent has its own roleDefinition + tool set; switching
+ * replaces section 1 of the system prompt + the available tool catalogue
+ * from the next iteration onward.
  *
- * Inspired by Kilo Code's SwitchModeTool.ts
+ * The tool ID is `switch_agent` (user-facing); the underlying parameter
+ * `mode_slug` keeps the historical name because the persisted setting is
+ * `currentMode` and the data type is `ModeConfig`.
+ *
+ * File kept as SwitchModeTool.ts for stable git-history; class name kept as
+ * SwitchModeTool to avoid churning all ToolRegistry references.
  */
 
 import { BaseTool } from '../BaseTool';
@@ -18,8 +24,8 @@ interface SwitchModeInput {
     reason: string;
 }
 
-export class SwitchModeTool extends BaseTool<'switch_mode'> {
-    readonly name = 'switch_mode' as const;
+export class SwitchModeTool extends BaseTool<'switch_agent'> {
+    readonly name = 'switch_agent' as const;
     readonly isWriteOperation = false;
 
     constructor(plugin: ObsidianAgentPlugin) {
@@ -36,21 +42,21 @@ export class SwitchModeTool extends BaseTool<'switch_mode'> {
             .join('\n');
 
         return {
-            name: 'switch_mode',
+            name: 'switch_agent',
             description:
-                'Switch to a different agent mode when the current task is better handled by another mode. ' +
-                'The new mode takes effect from the next response. ' +
-                'Available modes:\n' + modeList,
+                'Switch to a different Agent when the current task is better handled by another. ' +
+                'The new Agent takes effect from the next response. ' +
+                'Available agents:\n' + modeList,
             input_schema: {
                 type: 'object',
                 properties: {
                     mode_slug: {
                         type: 'string',
-                        description: 'The slug of the mode to switch to (e.g. "researcher", "writer", "architect").',
+                        description: 'The slug of the agent to switch to.',
                     },
                     reason: {
                         type: 'string',
-                        description: 'Brief explanation of why you are switching modes.',
+                        description: 'Brief explanation of why you are switching agents.',
                     },
                 },
                 required: ['mode_slug', 'reason'],

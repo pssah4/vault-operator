@@ -76,10 +76,10 @@ export class ModeService {
         return this.getAllModes().find((m) => m.slug === slug);
     }
 
-    /** Get the currently active mode; falls back to 'ask' if the saved slug no longer exists */
+    /** Get the currently active mode; falls back to 'agent' if the saved slug no longer exists */
     getActiveMode(): ModeConfig {
         const slug = this.plugin.settings.currentMode;
-        return this.getMode(slug) ?? BUILT_IN_MODES.find((m) => m.slug === 'ask')!;
+        return this.getMode(slug) ?? BUILT_IN_MODES.find((m) => m.slug === 'agent')!;
     }
 
     /** Check whether a given slug is a valid mode */

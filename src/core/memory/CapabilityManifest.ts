@@ -83,14 +83,10 @@ export const CAPABILITIES: ReadonlyArray<Capability> = [
         summary: 'Model used for the Single-Call memory extraction LLM.',
     },
 
-    // --- Modes (FEATURE-0317) -----------------------------------------
-    {
-        area: 'mode', key: 'ask',
-        summary: 'Read-only vault assistant. Tool groups: read, vault, agent.',
-    },
+    // --- Agents (FEATURE-0317; formerly "Modes") ----------------------
     {
         area: 'mode', key: 'agent',
-        summary: 'Full agent mode with read, vault, edit, web, mcp, skill, and agent groups.',
+        summary: 'Default agent: read, vault, edit, web, mcp, skill, and agent tool groups.',
     },
 ];
 

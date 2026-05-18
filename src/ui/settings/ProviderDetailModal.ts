@@ -130,12 +130,13 @@ export class ProviderDetailModal extends Modal {
     }
 
     /**
-     * Compact form row matching ModelConfigModal's `.mcm-row` layout:
-     * 110px label column + 1fr control column, 12px font, tight spacing.
-     * Replaces Obsidian's `new Setting(...)` (which is too wide for this
-     * modal). The returned div has the control as its second child so
-     * callers can append inputs/buttons/dropdowns directly via the
-     * `build` callback.
+     * Compact form row matching ModelConfigModal's `.mcm-row` layout
+     * (110px label, 1fr control, 12px font). When `desc` is provided,
+     * a clean Lucide info-icon sits next to the label; clicking it
+     * opens a small popover with the description text at the same
+     * size as the settings info-banners (13px). No extra border or
+     * background on the icon -- just the `i`-in-circle Lucide glyph
+     * in muted color.
      */
     private compactRow(
         parent: HTMLElement,
@@ -143,11 +144,54 @@ export class ProviderDetailModal extends Modal {
     ): HTMLDivElement {
         const row = parent.createDiv('mcm-row');
         const labelEl = row.createDiv('mcm-label');
-        labelEl.createSpan({ cls: 'mcm-label-line', text: opts.label });
-        if (opts.desc) labelEl.createDiv({ cls: 'mcm-desc', text: opts.desc });
+        const labelLine = labelEl.createDiv('mcm-label-line');
+        labelLine.createSpan({ text: opts.label });
+        if (opts.desc) {
+            const infoBtn = labelLine.createEl('button', {
+                cls: 'mcm-info-btn',
+                attr: {
+                    type: 'button',
+                    'aria-label': opts.label + ': info',
+                },
+            });
+            setIcon(infoBtn, 'info');
+            infoBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.openInfoPopover(opts.label, opts.desc!);
+            });
+        }
         const controlEl = row.createDiv('mcm-control');
         opts.build(controlEl);
         return row;
+    }
+
+    /**
+     * Open a small info-popover that explains a setting. Title is the
+     * setting label, body text matches the size of the settings info-
+     * banner (13px) so the visual style stays consistent across
+     * inline banners and per-row tooltips.
+     */
+    private openInfoPopover(title: string, body: string): void {
+        const overlay = activeDocument.body.createDiv('mcm-info-overlay');
+        const popover = overlay.createDiv('mcm-info-popover');
+        const head = popover.createDiv('mcm-info-head');
+        head.createSpan({ cls: 'mcm-info-title', text: title });
+        const closeBtn = head.createEl('button', {
+            cls: 'mcm-info-close',
+            attr: { type: 'button', 'aria-label': 'Close' },
+        });
+        setIcon(closeBtn, 'x');
+        popover.createDiv({ cls: 'mcm-info-body', text: body });
+        const dismiss = (): void => overlay.remove();
+        closeBtn.addEventListener('click', dismiss);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+        activeDocument.addEventListener('keydown', function onKey(e) {
+            if (e.key === 'Escape') {
+                dismiss();
+                activeDocument.removeEventListener('keydown', onKey);
+            }
+        });
     }
 
     /** Helper: text/password input matching `.mcm-input` styling. */
@@ -889,28 +933,20 @@ export class ProviderDetailModal extends Modal {
     // ── Tier mapping (existing providers only) ─────────────────────────
 
     private renderTierRow(parent: HTMLElement, tier: ModelTier): void {
-        const resolvedId = this.resolveDraftTierSlot(tier);
-        const isOverride = this.tierOverrides?.[tier] !== undefined;
-        const hint = !resolvedId
-            ? t('settings.providers.tier.empty')
-            : isOverride
-                ? t('settings.providers.tier.manuallySet')
-                : t('settings.providers.tier.autoDetected');
-        const descLines = [
-            t(`settings.providers.tier.${tier}Desc`),
-            resolvedId ? `${hint} · ${this.displayNameForId(resolvedId)}` : hint,
-        ].join(' — ');
-
-        // EPIC-26 follow-up #3: badge sits right-aligned ABOVE the dropdown
-        // (not inline with the tier label) so it never overlaps the
-        // description text on narrow widths.
+        // FEAT-26-03 Welle A follow-up: dropped the resolution-line
+        // (`Auto-detected · ModelName`) because the dropdown selection
+        // already shows the resolved model. Status (empty / manually-set /
+        // auto-detected) lives as a tiny tag below the dropdown if useful.
         const row = parent.createDiv({ cls: 'mcm-tier-row' });
         const labelCol = row.createDiv({ cls: 'mcm-tier-label-col' });
         labelCol.createDiv({
             cls: 'mcm-tier-label',
             text: t(`settings.providers.tier.${tier}`),
         });
-        labelCol.createDiv({ cls: 'mcm-tier-desc', text: descLines });
+        labelCol.createDiv({
+            cls: 'mcm-tier-desc',
+            text: t(`settings.providers.tier.${tier}Desc`),
+        });
 
         const controlCol = row.createDiv({ cls: 'mcm-tier-control-col' });
         const badge = controlCol.createSpan({
@@ -948,7 +984,21 @@ export class ProviderDetailModal extends Modal {
 
     private displayNameForId(modelId: string): string {
         const m = this.discoveredModels.find((x) => x.id === modelId);
-        return m?.displayName ?? modelId;
+        return this.shortenDisplayName(m?.displayName ?? modelId);
+    }
+
+    /**
+     * Strip a leading provider/brand prefix from a discovered-model
+     * `displayName` so the dropdown doesn't repeat "Anthropic:" inside
+     * a modal whose header already says "Configure Anthropic"
+     * (and analogous for OpenRouter aggregator listings like
+     * "Anthropic: Claude Haiku Latest"). Handles common separators
+     * ("Foo: bar", "Foo / bar", "Foo - bar"). Leaves clean names alone.
+     */
+    private shortenDisplayName(name: string): string {
+        const m = name.match(/^([\w][\w\s.&+-]{0,30})\s*[:/–—-]\s+(.+)$/);
+        if (m) return m[2];
+        return name;
     }
 
     private sortedModelsForTier(tier: ModelTier): DiscoveredModel[] {
@@ -958,7 +1008,7 @@ export class ProviderDetailModal extends Modal {
     }
 
     private modelOptionLabel(m: DiscoveredModel, expectedTier: ModelTier): string {
-        const base = m.displayName ?? m.id;
+        const base = this.shortenDisplayName(m.displayName ?? m.id);
         if (!m.autoTier) return base;
         const badge = getTierBadgeLabel(m.autoTier);
         if (m.autoTier === expectedTier) return `[${badge}]  ${base}`;

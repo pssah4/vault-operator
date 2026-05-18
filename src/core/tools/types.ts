@@ -63,7 +63,7 @@ export type ToolName =
     // Agent control
     | 'ask_followup_question'
     | 'attempt_completion'
-    | 'switch_mode'
+    | 'switch_agent'
     | 'new_task'
     // EPIC-26 / FEAT-26-01 / ADR-120: on-demand flagship escalation.
     | 'consult_flagship'
@@ -235,8 +235,10 @@ export interface ToolExecutionContext {
     getReadFiles?: () => Set<string>;
 
     /**
-     * Switch the active mode. Used by switch_mode tool.
-     * The new mode takes effect from the next AgentTask iteration.
+     * Switch the active agent (formerly "mode"). Used by switch_agent tool.
+     * The new agent's roleDefinition + toolGroups take effect from the next
+     * AgentTask iteration. The underlying slug `currentMode` is preserved
+     * for back-compat with stored settings.
      */
     switchMode?: (slug: string) => void;
 

@@ -121,8 +121,8 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     attempt_completion: 'agent',
     update_todo_list: 'agent',
     open_note: 'agent',
-    // Mode switching (always auto-approved, agent-internal)
-    switch_mode: 'agent',
+    // Agent switching (always auto-approved, agent-internal)
+    switch_agent: 'agent',
     // Subtask spawning (respects autoApproval.subtasks)
     new_task: 'subtask',
     // MCP
