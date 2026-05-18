@@ -3390,8 +3390,8 @@
     font-size: 12px;
     line-height: 1.5;
     color: var(--text-muted);
-    background: color-mix(in srgb, var(--text-normal) 14%, var(--background-primary));
-    border: 1px solid color-mix(in srgb, var(--text-normal) 22%, var(--background-primary));
+    background: color-mix(in srgb, var(--text-normal) 9%, var(--background-primary));
+    border: 1px solid color-mix(in srgb, var(--text-normal) 16%, var(--background-primary));
     border-radius: 6px;
     padding: 10px 12px;
     margin: 0 0 14px;
