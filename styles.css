@@ -3381,15 +3381,18 @@
 
 .agent-settings-section:first-child { margin-top: 2px; }
 
-/* Plain explanatory paragraph that follows a section heading. Same
-   visual register as a setting-item-description: muted, 12px, no
-   coloured background. Use it to explain a fachbegriff once for the
-   whole section instead of repeating it on every setting tooltip. */
+/* Explanatory paragraph that follows a section heading. Sits in a
+   subtle grey container so a wall of plain text gets visual
+   structure, but does not compete with the coloured intro callout
+   at the top of each tab. */
 .agent-settings-section-desc {
     font-size: 12px;
     line-height: 1.5;
     color: var(--text-muted);
-    margin: 0 0 12px;
+    background: var(--background-secondary);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0 0 14px;
 }
 
 /* Pinned-to-memory star: always visible (status indicator), accent
@@ -3733,14 +3736,15 @@
 .vault-op-box {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
     font-size: 13px;
-    line-height: 1.6;
-    margin: 0 0 16px;
-    padding: 12px 14px;
-    border-left: 3px solid var(--color-blue);
-    border-radius: 4px;
-    background: color-mix(in srgb, var(--color-blue) 8%, var(--background-primary));
+    line-height: 1.55;
+    margin: 0 0 20px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--color-blue) 35%, var(--background-modifier-border));
+    border-left: 4px solid var(--color-blue);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--color-blue) 7%, var(--background-primary));
 }
 
 .vault-op-box__icon {
@@ -3768,20 +3772,23 @@
 }
 
 .vault-op-box--info {
+    border-color: var(--background-modifier-border);
     border-left-color: var(--interactive-accent);
     background: var(--background-secondary);
 }
 .vault-op-box--info .vault-op-box__icon { color: var(--interactive-accent); }
 
 .vault-op-box--warning {
+    border-color: color-mix(in srgb, var(--color-yellow) 35%, var(--background-modifier-border));
     border-left-color: var(--color-yellow);
-    background: color-mix(in srgb, var(--color-yellow) 8%, var(--background-primary));
+    background: color-mix(in srgb, var(--color-yellow) 7%, var(--background-primary));
 }
 .vault-op-box--warning .vault-op-box__icon { color: var(--color-yellow); }
 
 .vault-op-box--error {
+    border-color: color-mix(in srgb, var(--text-error) 35%, var(--background-modifier-border));
     border-left-color: var(--text-error);
-    background: color-mix(in srgb, var(--text-error) 8%, var(--background-primary));
+    background: color-mix(in srgb, var(--text-error) 7%, var(--background-primary));
 }
 .vault-op-box--error .vault-op-box__icon { color: var(--text-error); }
 .vault-op-box--error .vault-op-box__text { color: var(--text-error); }
