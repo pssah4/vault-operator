@@ -1,3 +1,4 @@
+import type { SliderComponent, TextComponent } from 'obsidian';
 import { Setting, setIcon } from 'obsidian';
 
 /**
@@ -50,6 +51,59 @@ export function addInfoButton(setting: Setting, title: string, body: string): vo
             e.preventDefault();
             e.stopPropagation();
             openInfoPopover(title, body);
+        });
+    });
+}
+
+/**
+ * Add a slider AND a small number input to a Setting, both kept in
+ * sync. Replaces the standalone `addText` pattern for numeric values:
+ * the slider is the primary interaction (drag, click-to-set), the
+ * input box lets you type an exact value when the slider step is too
+ * coarse. Values from the input are clamped to [min, max] before
+ * being persisted.
+ */
+export function addSliderInput(
+    setting: Setting,
+    opts: {
+        min: number;
+        max: number;
+        step: number;
+        value: number;
+        onChange: (v: number) => void | Promise<void>;
+    },
+): void {
+    let slider: SliderComponent | null = null;
+    let input: TextComponent | null = null;
+
+    const clamp = (n: number): number =>
+        Math.min(opts.max, Math.max(opts.min, n));
+
+    setting.addSlider((s) => {
+        slider = s;
+        s.setLimits(opts.min, opts.max, opts.step)
+            .setValue(opts.value)
+            .setDynamicTooltip()
+            .onChange((v) => {
+                if (input) input.setValue(String(v));
+                void opts.onChange(v);
+            });
+    });
+    setting.addText((c) => {
+        input = c;
+        c.setValue(String(opts.value));
+        c.inputEl.classList.add('agent-slider-input');
+        c.inputEl.setAttribute('type', 'number');
+        c.inputEl.setAttribute('min', String(opts.min));
+        c.inputEl.setAttribute('max', String(opts.max));
+        c.inputEl.setAttribute('step', String(opts.step));
+        c.onChange((raw) => {
+            const parsed = parseFloat(raw);
+            if (Number.isFinite(parsed)) {
+                const v = clamp(parsed);
+                if (slider) slider.setValue(v);
+                void opts.onChange(v);
+            }
         });
     });
 }
