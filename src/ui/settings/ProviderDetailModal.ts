@@ -856,7 +856,7 @@ export class ProviderDetailModal extends Modal {
         const count = this.discoveredModels.length;
         const stamp = this.lastRefreshAt
             ? new Date(this.lastRefreshAt).toLocaleString()
-            : '—';
+            : 'never';
         const desc = count > 0
             ? t('settings.providers.discoveryDesc', { count, stamp })
             : t('settings.providers.discoveryEmpty');

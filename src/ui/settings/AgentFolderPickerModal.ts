@@ -85,7 +85,7 @@ export async function pickAgentFolder(app: App): Promise<PickResult> {
             // that would make the agent folder equal the vault root, which is
             // almost certainly not what they want.
             if (rel.length === 0) {
-                new Notice('Picking the vault root is not allowed — choose or create a subfolder.');
+                new Notice('Picking the vault root is not allowed. Choose or create a subfolder.');
                 return null;
             }
             return { kind: 'vault-relative', path: normalizePath(rel.replace(/\\/g, '/')) };

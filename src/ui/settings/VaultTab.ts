@@ -708,7 +708,7 @@ export class VaultTab {
                 15_000,
             );
         } else if (summaryParts.length === 0) {
-            new Notice('Nothing migrated — destination already had identical files.');
+            new Notice('Nothing migrated. Destination already had identical files.');
         } else {
             new Notice(
                 `Migrated ${summaryParts.join(', ')}. Reload Obsidian so the knowledge and memory databases open at the new location.`,
