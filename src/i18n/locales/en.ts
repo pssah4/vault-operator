@@ -724,6 +724,8 @@ export const en: Translations = {
     // Settings — Vault Tab
     // =========================================================================
     'settings.vault.desc': 'Checkpoints snapshot each file before the agent first modifies it. After a task you can undo all changes with one click.',
+    'settings.vault.headingCheckpoints': 'Checkpoints',
+    'settings.vault.sectionCheckpointsInfo': 'Before the agent first writes to a file, Vault Operator takes a snapshot of the original. After a multi-step task you can roll the whole edit back from the undo button in the chat. Snapshots live in the agent folder; they are cleared on demand or automatically after the task.',
     'settings.vault.enableCheckpoints': 'Enable checkpoints',
     'settings.vault.enableCheckpointsDesc': 'Save a backup copy of each file before the agent changes it. After a task you can restore the originals with the undo button.',
     'settings.vault.snapshotTimeout': 'Snapshot timeout (seconds)',
@@ -735,6 +737,7 @@ export const en: Translations = {
     // Settings — Vault Tab: Task Extraction
     // =========================================================================
     'settings.vault.taskExtraction': 'Task extraction',
+    'settings.vault.sectionTaskExtractionInfo': 'When the agent writes a response that contains task checkboxes (`- [ ] do something`), Vault Operator can pull those tasks out and create individual task notes with frontmatter (status, source chat, due date if mentioned). Useful for "extract todos from this meeting transcript" workflows.',
     'settings.vault.taskExtractionDesc': 'Detects tasks (- [ ] items) in agent responses and creates task notes with structured frontmatter.',
     'settings.vault.taskExtractionEnable': 'Enable task extraction',
     'settings.vault.taskExtractionEnableDesc': 'Scan for tasks after every agent response and show a selection modal.',
@@ -743,6 +746,7 @@ export const en: Translations = {
     'settings.vault.preferTaskNotes': 'Prefer `TaskNotes` plugin',
     'settings.vault.preferTaskNotesDesc': 'When the community plugin `TaskNotes` is active, create tasks in its format. Otherwise the built-in format is used.',
     'settings.vault.agentFolderHeading': 'Agent folder',
+    'settings.vault.sectionAgentFolderInfo': 'Where Vault Operator keeps its own data inside the vault: plugin skills, the vault-DNA snapshot, externalised tmp results, the knowledge and memory databases. Change this if you want the plugin\'s files in a specific location (e.g. excluded from Obsidian Sync). Existing files are not auto-migrated when you change the path; use the "Migrate data" button below.',
     'settings.vault.agentFolderDesc': 'Vault-relative folder where the plugin keeps its own files: plugin skills, the vault dna snapshot, externalised tmp results, and the local knowledge database. Existing files are not auto-migrated when you change this path.',
     'settings.vault.agentFolder': 'Folder',
     'settings.vault.agentFolderFieldDesc': 'Default is a hidden folder inside your vault. Use the picker to open your native folder dialog, or type a path. Folders outside the vault are partially supported in this release — plugin skills, tmp results, and the local knowledge database continue to live inside the vault.',
@@ -750,6 +754,8 @@ export const en: Translations = {
     'settings.vault.agentFolderMigrate': 'Migrate data',
     'settings.vault.agentFolderMigrateDesc': 'Copy plugin skills, vault-dna snapshot, and the knowledge / memory databases from an older agent folder into the current one. Originals stay in place — delete them manually after you confirmed the new location works. Reload Obsidian after migration so the databases open at the new path.',
     'settings.vault.agentFolderMigrateButton': 'Migrate data from old folder…',
+    'settings.vault.headingIngest': 'Vault ingest',
+    'settings.vault.sectionIngestInfo': 'Builds a wiki-like layer on top of the vault: per-note summaries, optional frontmatter mirroring, and automatic triage of inbox notes based on a frontmatter property. Everything is off by default. Auto-trigger changes require a plugin reload to take effect.',
 
     // =========================================================================
     // Settings — Visual Intelligence Tab

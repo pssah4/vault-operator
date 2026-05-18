@@ -6,19 +6,18 @@ import { pickAgentFolder } from './AgentFolderPickerModal';
 import { promptModal, confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
 import { DEFAULT_VAULT_INGEST_SETTINGS, DEFAULT_SUMMARY_PROMPT_TEMPLATE } from '../../types/settings';
+import { addSectionHeading, addSliderInput } from './utils';
 
 
 export class VaultTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
 
     build(containerEl: HTMLElement): void {
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: t('settings.vault.desc'),
-        });
-
-        // ── Checkpoints ─────────────────────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Checkpoints' });
+        addSectionHeading(
+            containerEl,
+            t('settings.vault.headingCheckpoints'),
+            { body: t('settings.vault.sectionCheckpointsInfo') },
+        );
 
         new Setting(containerEl)
             .setName(t('settings.vault.enableCheckpoints'))
@@ -30,20 +29,17 @@ export class VaultTab {
                 }),
             );
 
-        new Setting(containerEl)
+        const timeoutSetting = new Setting(containerEl)
             .setName(t('settings.vault.snapshotTimeout'))
-            .setDesc(t('settings.vault.snapshotTimeoutDesc'))
-            .addText((t) =>
-                t
-                    .setValue(String(this.plugin.settings.checkpointTimeoutSeconds ?? 30))
-                    .onChange(async (v) => {
-                        const n = parseInt(v);
-                        if (!isNaN(n) && n > 0) {
-                            this.plugin.settings.checkpointTimeoutSeconds = n;
-                            await this.plugin.saveSettings();
-                        }
-                    }),
-            );
+            .setDesc(t('settings.vault.snapshotTimeoutDesc'));
+        addSliderInput(timeoutSetting, {
+            min: 5, max: 120, step: 5,
+            value: this.plugin.settings.checkpointTimeoutSeconds ?? 30,
+            onChange: async (v) => {
+                this.plugin.settings.checkpointTimeoutSeconds = v;
+                await this.plugin.saveSettings();
+            },
+        });
 
         new Setting(containerEl)
             .setName(t('settings.vault.autoCleanup'))
@@ -55,12 +51,11 @@ export class VaultTab {
                 }),
             );
 
-        // ── Task Extraction (FEATURE-100) ────────────────────────────────────
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: t('settings.vault.taskExtraction') });
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: t('settings.vault.taskExtractionDesc'),
-        });
+        addSectionHeading(
+            containerEl,
+            t('settings.vault.taskExtraction'),
+            { body: t('settings.vault.sectionTaskExtractionInfo') },
+        );
 
         const taskSettings = this.plugin.settings.taskExtraction ?? { enabled: true, taskFolder: 'Tasks' };
 
@@ -113,15 +108,11 @@ export class VaultTab {
                     }),
             );
 
-        // ── Agent Folder (FEATURE-0507 / Issue #26) ────────────────────────────
-        containerEl.createEl('h3', {
-            cls: 'agent-settings-section',
-            text: t('settings.vault.agentFolderHeading'),
-        });
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: t('settings.vault.agentFolderDesc'),
-        });
+        addSectionHeading(
+            containerEl,
+            t('settings.vault.agentFolderHeading'),
+            { body: t('settings.vault.sectionAgentFolderInfo') },
+        );
 
         let currentInput: HTMLInputElement | null = null;
         const service = new AgentFolderService(this.plugin);
@@ -190,14 +181,11 @@ export class VaultTab {
      * Plugin-Reload damit der vault.on-Listener neu registriert.
      */
     private buildVaultIngestSection(containerEl: HTMLElement): void {
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Vault ingest' });
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text:
-                'Builds a wiki-like layer over your vault: per-note summaries, optional frontmatter '
-                + 'mirroring, and automatic triage of inbox notes via a configurable frontmatter property. '
-                + 'All toggles are off by default. Auto-trigger changes require a plugin reload to take effect.',
-        });
+        addSectionHeading(
+            containerEl,
+            t('settings.vault.headingIngest'),
+            { body: t('settings.vault.sectionIngestInfo') },
+        );
 
         const cfg = this.plugin.settings.vaultIngest ?? { ...DEFAULT_VAULT_INGEST_SETTINGS };
         // Sicherstellen dass Setting-Objekt existiert (Migration aus aelteren Settings-Versionen)

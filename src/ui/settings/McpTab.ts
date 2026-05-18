@@ -6,6 +6,7 @@ import * as os from 'os';
 import * as safeFs from '../../core/security/safeFs';
 import { spawnAllowedSync } from '../../core/security/spawnAllowlist';
 import { ENV_APPDATA, readEnv } from '../../util/envKeys';
+import { addSectionHeading } from './utils';
 
 export class McpTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -29,11 +30,11 @@ export class McpTab {
     // ─────────────────────────────────────────────────────────────────────────
 
     private buildConnectorSection(containerEl: HTMLElement): void {
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'Connectors' });
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: 'Let AI assistants access your vault. Enable a connector, then configure the assistant to connect.',
-        });
+        addSectionHeading(
+            containerEl,
+            'Connectors',
+            { body: 'Let external AI assistants (Claude Desktop, Claude Code, ChatGPT Desktop) read and write your vault through Vault Operator. Enable a connector here, then point the assistant at it using the configuration block this tab prints.' },
+        );
 
         // ── Claude Desktop / Claude Code ──────────────────────────────────
         containerEl.createEl('h4', { text: 'Local connector' });
@@ -298,11 +299,11 @@ export class McpTab {
     // ─────────────────────────────────────────────────────────────────────────
 
     private buildExternalServersSection(containerEl: HTMLElement): void {
-        containerEl.createEl('h3', { cls: 'agent-settings-section', text: 'External tool servers' });
-        containerEl.createEl('p', {
-            cls: 'agent-settings-desc',
-            text: 'Connect external tool servers for web search, databases, and more. These work in standalone mode.',
-        });
+        addSectionHeading(
+            containerEl,
+            'External tool servers',
+            { body: 'Add MCP servers maintained by others (web search, calendar, GitHub, your own scripts) so the agent can call them as tools. Each server runs as its own process, isolated from Obsidian.' },
+        );
 
         const mcpClient = this.plugin.mcpClient;
         const addBtn = containerEl.createEl('button', { text: t('settings.mcp.addServer'), cls: 'mod-cta agent-mcp-add-btn' });
