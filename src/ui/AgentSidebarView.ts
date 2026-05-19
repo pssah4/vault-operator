@@ -2110,6 +2110,7 @@ export class AgentSidebarView extends ItemView {
                                 text: accumulatedText,
                                 ts: new Date().toISOString(),
                                 toolStepsHtml: stepsBlockEl?.outerHTML,
+                                taskId,
                             });
                         }
                         // Render user answer as a regular chat message
@@ -2295,6 +2296,7 @@ export class AgentSidebarView extends ItemView {
                             text: accumulatedText,
                             ts: new Date().toISOString(),
                             toolStepsHtml: stepsBlockEl?.outerHTML,
+                            taskId,
                         });
                     }
                     // Auto-save conversation to ConversationStore
@@ -2981,6 +2983,14 @@ export class AgentSidebarView extends ItemView {
         }
         this.historyPanel?.setActiveId(id);
         this.updateContextBadge();
+
+        // FIX-01-07-02: rebuild checkpoint undo bars for tasks that wrote
+        // files. The shadow repo holds the snapshots across plugin reloads,
+        // but the in-memory taskCheckpoints map starts empty -- the helper
+        // rehydrates it via service.loadCheckpointsForTask and re-renders
+        // an undo bar per unique taskId. Older conversations without a
+        // taskId on their uiMessages render nothing (backwards compat).
+        void this.rehydrateCheckpointMarkers(data.uiMessages);
 
         if (!opts.skipNavPush) {
             this.pushNav(id);
@@ -4337,6 +4347,49 @@ export class AgentSidebarView extends ItemView {
                 },
             },
         ).open();
+    }
+
+    // -------------------------------------------------------------------------
+    // Checkpoint markers: rehydrate undo bars after chat history reload
+    // -------------------------------------------------------------------------
+
+    /**
+     * FIX-01-07-02: after loadConversation rebuilds the chat DOM, rebuild
+     * the per-task undo bars for tasks that wrote files. The shadow repo
+     * still holds the snapshots across plugin reloads, but the in-memory
+     * taskCheckpoints map starts empty, so the live taskCompleted UI path
+     * never fires. This helper iterates unique taskIds on the conversation's
+     * uiMessages, rehydrates the map via service.loadCheckpointsForTask,
+     * and renders one undo bar at the bottom of the chat container per
+     * task that has writes.
+     *
+     * Intentionally does NOT auto-open the diff-review modal -- a chat
+     * with N tasks would otherwise pop N modals on open. The user opens
+     * the modal explicitly via the undo bar.
+     */
+    private async rehydrateCheckpointMarkers(msgs: UiMessage[]): Promise<void> {
+        if (!(this.plugin.settings.enableCheckpoints ?? true)) return;
+        const service = this.plugin.checkpointService;
+        if (!service) return;
+
+        const seen = new Set<string>();
+        for (const m of msgs) {
+            if (m.role !== 'assistant' || !m.taskId || seen.has(m.taskId)) continue;
+            seen.add(m.taskId);
+            try {
+                const list = await service.loadCheckpointsForTask(m.taskId);
+                if (list.length === 0) continue;
+                const files = new Set<string>();
+                for (const cp of list) {
+                    for (const f of cp.filesChanged) files.add(f);
+                    for (const f of cp.newFiles ?? []) files.add(f);
+                }
+                if (files.size === 0) continue;
+                this.showUndoBar(m.taskId, files.size);
+            } catch (e) {
+                console.warn('[Checkpoints] rehydrate failed for', m.taskId, e);
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
