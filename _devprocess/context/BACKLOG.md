@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-16 by security-audit (AUDIT-027 EPIC-26 Delta: 1 High resolved (Plaintext-Credentials in providerConfigs[] + legacy_active_models_backup -- CWE-312, gefixt via providerCredentialCrypto-Walker mit 11 Regression-Tests), 1 Low deferred zu IMP-26-04-01, 2 Info. npm audit clean. Release-Verdict: Green.)
+Last update: 2026-05-19 by user (Checkpoints fuer Agent erfasst: IMP-01-07-01 Agent-Tools (list/read/diff/restore_checkpoint) + FIX-01-07-02 Checkpoint-UI verschwindet bei History-Reload. Beide Planned, EPIC-01.)
 
 ---
 
@@ -11,15 +11,15 @@ Last update: 2026-05-16 by security-audit (AUDIT-027 EPIC-26 Delta: 1 High resol
 
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
-| Planned | 29 | Released | 358 | Epic | 24 |
+| Planned | 31 | Released | 358 | Epic | 24 |
 | Active | 26 | Building | 62 | Feature | 212 |
-| Done | 255 | Planned | 25 | Fix | 59 |
-| Accepted | 110 | Candidates | 0 | Improvement | 18 |
+| Done | 255 | Planned | 27 | Fix | 60 |
+| Accepted | 110 | Candidates | 0 | Improvement | 19 |
 | Draft | 12 |  |  | ADR | 117 |
 | Open | 5 |  |  | Plan | 15 |
 | Proposed | 7 |  |  |  |  |
 
-Total artifacts: 445
+Total artifacts: 447
 
 ---
 
@@ -63,6 +63,8 @@ Phase: Building | Status: Active
 | FIX-01-01-01 | Fix | Anthropic API rejects history with orphaned tool_use blocks | Done | Released | FEAT-01-01, EPIC-01 | BUG |  |  |  | P0  Issue: https://github.com/pssah4/vault-operator-dev/issues/68 |
 | FIX-01-12-01 | Fix | Drag-and-drop from Obsidian file explorer opens tab instead of attaching | Done | Released | FEAT-01-12, EPIC-01 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/vault-operator-dev/issues/69 |
 | FIX-01-07-01 | Fix | 07-01: Checkpoint-Snapshot legt neue Dateien nicht ab -- 'No files staged' trotz newFiles=1 | Open | Building | FEAT-01-07, EPIC-01 | BUG |  |  | 2026-05-08 | P2 Live-Test 2026-05-08 (Logging vs. echter Snapshot-Bug zu validieren)  Issue: https://github.com/pssah4/vault-operator-dev/issues/63 |
+| FIX-01-07-02 | Fix | 07-02: Checkpoint-UI fehlt beim Wieder-Oeffnen einer alten Chat-History -- Markers + Undo-Bar rendern nur im taskCompleted-Pfad, in-memory taskCheckpoints leer nach Reload | Planned | Planned | FEAT-01-07, EPIC-01, IMP-01-07-01 | USER |  |  | 2026-05-19 | P1 User-Report 2026-05-19. Service hat git-log-Fallback (restoreLatestForTask), aber UI ruft ihn nur ueber den Undo-Button, der seinerseits nicht gerendert wird. Fix: neue Service-Methode loadCheckpointsForTask + UI-Re-Render-Hook beim History-Open. Geteilte Service-Erweiterung mit IMP-01-07-01. Spec: `_devprocess/requirements/fixes/FIX-01-07-02-checkpoint-ui-missing-on-history-reload.md` |
+| IMP-01-07-01 | Improvement | 07-01: Checkpoints als Agent-Tools (list_checkpoints + read_checkpoint + diff_checkpoint + restore_checkpoint) -- Agent kann selbst alte Versionen finden und zurueckspielen | Planned | Planned | FEAT-01-07, EPIC-01, FIX-01-07-02 | USER |  |  | 2026-05-19 | P1 User-Report 2026-05-19. GitCheckpointService existiert + ist vollstaendig (snapshot/restore/diff/getSnapshotContent), aber kein ToolRegistry-Eintrag macht ihn dem Agent zugaenglich. 4-Tool-Scope (Recovery-fokussiert), restore_checkpoint = write-Tool mit Approval + Pre-Restore-Snapshot. Spec: `_devprocess/requirements/improvements/IMP-01-07-01-agent-tools-for-checkpoints.md` |
 
 ### EPIC-02: Rules, Workflows & Intelligence
 
