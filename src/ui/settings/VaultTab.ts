@@ -309,7 +309,7 @@ export class VaultTab {
             .addText((text) =>
                 text
                     .setValue(cfg.autoTrigger.propertyName)
-                    .setPlaceholder('category')
+                    .setPlaceholder('Category')
                     .onChange(async (v) => {
                         cfg.autoTrigger.propertyName = v.trim();
                         this.plugin.settings.vaultIngest = cfg;
@@ -323,7 +323,7 @@ export class VaultTab {
             .addText((text) =>
                 text
                     .setValue(Array.isArray(cfg.autoTrigger.propertyValue) ? cfg.autoTrigger.propertyValue.join(', ') : cfg.autoTrigger.propertyValue)
-                    .setPlaceholder('source')
+                    .setPlaceholder('Source')
                     .onChange(async (v) => {
                         const parts = v.split(',').map((s) => s.trim()).filter(Boolean);
                         cfg.autoTrigger.propertyValue = parts.length > 1 ? parts : (parts[0] ?? '');

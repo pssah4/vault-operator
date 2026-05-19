@@ -23,6 +23,11 @@ const VAULT_OPERATOR_BRANDS = [
     'Living-Document', 'Cross-surface', 'Top-Hub-Block', 'Top-Hub-Generator',
     'Marker-Block', 'Frontmatter-Backfill-Job', 'Inbox-Triage', 'MOC-Pflege',
     'MOC-Marker', 'Auto-Trigger-Property', 'Cluster-Kandidaten',
+    // Third-party products and tools the agent integrates with. Each one is
+    // a proper noun; the sentence-case rule otherwise lowercases them
+    // mid-sentence ("install Tavily" -> "install tavily").
+    'Tavily', 'Brave', 'Pandoc', 'ImageMagick', 'Dataview', 'Templater',
+    'MetaEdit', 'Perplexity', 'Claude Code', 'Claude.ai',
 ];
 // EPIC-26: not adding provider names like OpenAI / OpenRouter / Ollama /
 // Anthropic to the brand list -- the rule does CASE-INSENSITIVE matching
@@ -33,6 +38,11 @@ const VAULT_OPERATOR_BRANDS = [
 const VAULT_OPERATOR_ACRONYMS = [...DEFAULT_ACRONYMS, 'AWS', 'IAM', 'SSO', 'STS', 'EU', 'US', 'OS', 'VPC', 'ARN', 'MOC', 'MOCs', 'BA-25', 'BA-26', 'MCP', 'DB',
     // EPIC-26 -- AI provider acronyms referenced in the new UI copy.
     'LLM', 'SDK',
+    // File-size units that show up in UI strings. Without these, "5 MB"
+    // becomes "5 mb".
+    'KB', 'MB', 'GB', 'TB', 'DNA',
+    // Office file format acronyms that appear in capability descriptions.
+    'DOCX', 'XLSX', 'PPTX',
 ];
 // Proper nouns that should keep their casing in Bedrock-related UI copy but
 // don't belong in the general brand list (they are not branded products).
@@ -45,6 +55,28 @@ const VAULT_OPERATOR_IGNORE_WORDS = [
     'Days', 'Map', 'I', 'DELETE',
     // EPIC-26: AWS region identifiers used as placeholders.
     'eu-central-1', 'us-east-1', 'us-west-2',
+    // UI labels referenced inside other UI strings. The sentence-case rule
+    // would lowercase them mid-sentence ("see the History sidebar" ->
+    // "see the history sidebar"); we want to preserve the on-screen label.
+    'History', 'Permissions', 'Permissive', 'Providers', 'Connectors',
+    'Customize', 'Migrate', 'Connect', 'Disconnect', 'Duplicate', 'New',
+    'Note', 'Web', 'Vault', 'Read', 'Edits', 'Sub-agents',
+    'External-commands', 'Remote',
+    // Emphasis / language names that the rule otherwise normalises.
+    'FIRST', 'German', 'N', 'Show',
+    // Plural acronym forms — we want "APIs" / "PDFs" preserved, not folded
+    // to "APIS" / "PDFS" via the acronyms list or to "apis" / "pdfs" via
+    // the lowercase pass.
+    'APIs', 'PDFs', 'MBs', 'KBs', 'GBs',
+];
+
+// Regex patterns whose matching strings are exempt from sentence-case
+// evaluation. Used for UI label patterns the rule misclassifies.
+const VAULT_OPERATOR_IGNORE_REGEX = [
+    // Button labels prefixed with "+ " (e.g. "+ New agent", "+ Duplicate").
+    // The rule treats "+ " as leading content and lowercases the next token,
+    // turning "+ New" into "+ new". The label form is intentional.
+    '^\\+\\s+\\w',
 ];
 
 export default tseslint.config(
@@ -97,12 +129,14 @@ export default tseslint.config(
                 brands: VAULT_OPERATOR_BRANDS,
                 acronyms: VAULT_OPERATOR_ACRONYMS,
                 ignoreWords: VAULT_OPERATOR_IGNORE_WORDS,
+                ignoreRegex: VAULT_OPERATOR_IGNORE_REGEX,
             }],
             'obsidianmd/ui/sentence-case': ['error', {
                 enforceCamelCaseLower: true,
                 brands: VAULT_OPERATOR_BRANDS,
                 acronyms: VAULT_OPERATOR_ACRONYMS,
                 ignoreWords: VAULT_OPERATOR_IGNORE_WORDS,
+                ignoreRegex: VAULT_OPERATOR_IGNORE_REGEX,
             }],
         },
     },

@@ -130,9 +130,18 @@ Vault Operator can act as a remote MCP server for ChatGPT, Claude Desktop, Perpl
 
 ## Installation
 
-> **Note:** Vault Operator is currently in the Obsidian community plugin review queue and not yet available in the official directory. Until approval, install via BRAT or manually.
+### Obsidian Community Plugins (recommended)
 
-### BRAT (recommended)
+1. Open **Settings** > **Community Plugins** > **Browse**
+2. Search for **"Vault Operator"**
+3. Click **Install**, then **Enable**
+
+Direct deep link (opens Obsidian): [obsidian://show-plugin?id=vault-operator](obsidian://show-plugin?id=vault-operator)
+Community page: [community.obsidian.md/plugins/vault-operator](https://community.obsidian.md/plugins/vault-operator)
+
+### BRAT (beta releases)
+
+To run the latest pre-release ahead of the public store:
 
 1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from Community Plugins
 2. Open BRAT settings and select **Add Beta Plugin**

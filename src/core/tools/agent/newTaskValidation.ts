@@ -10,9 +10,18 @@
 
 import { getSubagentProfile, listSubagentProfileNames } from '../../agent/subagent-profiles';
 
-// 2026-05-18: 'ask' removed; the single built-in Agent ("agent") + any
-// custom agent slug are valid sub-modes. The set still rejects unknown
-// slugs (typos / hallucinations).
+// AUDIT-030 M-4: prior comment claimed "any custom agent slug are valid
+// sub-modes" but the set only contains 'agent', so every custom slug was
+// silently rejected. After EPIC-26 there is exactly one sub-agent mode
+// ('agent'); specialist behaviour comes from the `profile` field, not from
+// the `mode` field. The set deliberately stays narrow. Update the comment
+// here and the error message in `validateNewTaskInput` if you ever widen it.
+//
+// Note: `OLD_MODE_MAP` in `main.ts` rewrites legacy 'ask' -> 'agent' on
+// settings load (2026-05-18). The migration is intentional, but anyone
+// looking at this allowlist should know that what was once a read-only
+// 'ask' subtask now runs as a full-capability 'agent' subtask. The
+// read-only path lives on as `profile="research"`.
 export const ALLOWED_SUB_MODES = new Set(['agent']);
 export const ALLOWED_JUSTIFICATION_CATEGORIES = new Set(['PARALLEL', 'SPECIALIST', 'ESCALATION']);
 

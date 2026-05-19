@@ -31,7 +31,27 @@ export interface CheckpointInfo {
     toolName?: string;
     /** Files that didn't exist before this checkpoint (restore = delete) */
     newFiles?: string[];
+    /** Files the snapshot loop tried to capture but skipped (per-file error
+     *  or path-traversal reject). Surfaced so callers can warn the user that
+     *  the checkpoint is partial. AUDIT-030 L-3. */
+    skipped?: string[];
 }
+
+/** Reject path-traversal and absolute paths at every checkpoint boundary.
+ *  Used by both snapshot and restore loops, plus the marker-file writer.
+ *  AUDIT-030 M-1 + L-2. */
+function isVaultRelative(p: string): boolean {
+    if (typeof p !== 'string' || p.length === 0) return false;
+    if (p.includes('..')) return false;
+    if (p.includes('\0')) return false;
+    if (path.isAbsolute(p)) return false;
+    return true;
+}
+
+/** Cap parsed input from git commit messages so a hostile repo cannot turn
+ *  the restore-fallback into a CPU sink. AUDIT-030 M-2. */
+const NEW_FILES_MAX_BYTES = 64 * 1024;
+const NEW_FILES_MAX_ENTRIES = 10_000;
 
 export interface RestoreResult {
     restored: string[];
@@ -101,10 +121,18 @@ export class GitCheckpointService {
      */
     async snapshot(taskId: string, filePaths: string[], toolName?: string): Promise<CheckpointInfo> {
         console.debug(`[Checkpoints] snapshot() called: taskId=${taskId} tool=${toolName} files=${filePaths.join(', ')} initialized=${this.initialized}`);
+        // AUDIT-030 L-2: reject taskId values that could escape the marker-file
+        // write path. Today's callers generate the id server-side, but the
+        // marker-file destination at `${repoPath}/.vault-operator-newfiles-${taskId}`
+        // would otherwise let a future caller punch out of repoPath.
+        if (!isVaultRelative(taskId) || taskId.includes('/') || taskId.includes('\\')) {
+            throw new Error(`[Checkpoints] Refused snapshot for unsafe taskId: ${JSON.stringify(taskId)}`);
+        }
         await this.ensureInit();
         const fs = this.getFs();
         const staged: string[] = [];
         const newFiles: string[] = [];
+        const skipped: string[] = [];
         for (const vaultRelPath of filePaths) {
             try {
                 // AUDIT-028 L-1 defense-in-depth: reject path-traversal segments
@@ -114,8 +142,9 @@ export class GitCheckpointService {
                 // fs (FIX-28-00-02), so upstream tool validation is the only
                 // boundary. The check here mirrors the vault-file recipe
                 // validator and keeps sub-paths (forward slashes) intact.
-                if (vaultRelPath.includes('..') || path.isAbsolute(vaultRelPath) || vaultRelPath.includes('\0')) {
-                    console.warn(`[Checkpoints] Rejected non-vault-relative path: ${vaultRelPath}`);
+                if (!isVaultRelative(vaultRelPath)) {
+                    console.warn(`[Checkpoints] Rejected non-vault-relative path: ${JSON.stringify(vaultRelPath)}`);
+                    skipped.push(vaultRelPath);
                     continue;
                 }
                 const repoRelative = vaultRelPath;
@@ -123,7 +152,7 @@ export class GitCheckpointService {
                 // Check if file exists before reading (write_file may create new files)
                 const exists = await this.vault.adapter.exists(vaultRelPath);
                 if (!exists) {
-                    // New file — track for restore (restore = delete)
+                    // New file. Restore = delete.
                     newFiles.push(vaultRelPath);
                     continue;
                 }
@@ -146,7 +175,11 @@ export class GitCheckpointService {
                 console.debug(`[Checkpoints] ${vaultRelPath}: staged in shadow repo`);
                 staged.push(vaultRelPath);
             } catch (e) {
-                console.warn(`[Checkpoints] Could not snapshot ${vaultRelPath}:`, e);
+                // AUDIT-030 L-3: track per-file failures so callers can surface
+                // a partial-checkpoint warning instead of a false-positive
+                // "saved" indicator.
+                console.warn(`[Checkpoints] Could not snapshot ${JSON.stringify(vaultRelPath)}:`, e);
+                skipped.push(vaultRelPath);
             }
         }
 
@@ -160,6 +193,7 @@ export class GitCheckpointService {
                 timestamp: new Date().toISOString(),
                 filesChanged: [],
                 toolName,
+                skipped: skipped.length > 0 ? skipped : undefined,
             };
         }
 
@@ -197,6 +231,7 @@ export class GitCheckpointService {
             filesChanged: staged,
             toolName,
             newFiles: newFiles.length > 0 ? newFiles : undefined,
+            skipped: skipped.length > 0 ? skipped : undefined,
         };
 
         // Register in-memory (Kilo Code pattern: _checkpoints.push(toHash))
@@ -208,17 +243,48 @@ export class GitCheckpointService {
     }
 
     /**
-     * Build the commit message for a snapshot. Carries the staged
-     * files inline (legacy format) plus, if present, a JSON-encoded
-     * list of new files so post-reload recovery can rebuild the
-     * full CheckpointInfo from the git log alone.
+     * Build the commit message for a snapshot. Carries the staged files
+     * as a JSON array (AUDIT-030 M-3: prior comma-joined form split paths
+     * containing literal `, `, e.g. `Plan, Q3 2025.md`). The `FilesJson`
+     * field is the authoritative source; the legacy `Files: ` line stays
+     * for one release so older commits still parse via the comma fallback.
      */
     private buildCommitMessage(taskId: string, staged: string[], newFiles: string[]): string {
-        let msg = `checkpoint:${taskId}\n\nFiles: ${staged.join(', ')}`;
+        let msg = `checkpoint:${taskId}\n\nFilesJson: ${JSON.stringify(staged)}`;
+        // Legacy `Files: ` line kept for backwards-compatibility during the
+        // one-release transition window. Parsers prefer FilesJson and fall
+        // back to this line when FilesJson is absent.
+        msg += `\n\nFiles: ${staged.join(', ')}`;
         if (newFiles.length > 0) {
             msg += `\n\nNewFiles: ${JSON.stringify(newFiles)}`;
         }
         return msg;
+    }
+
+    /** Parse the FilesJson or legacy Files line from a checkpoint commit
+     *  message. Returns an empty array on any parse error or oversized
+     *  input. AUDIT-030 M-2 + M-3. */
+    private parseFilesFromMessage(msg: string): string[] {
+        const jsonMatch = msg.match(/\n\nFilesJson:\s*(\[.*?\])/s);
+        if (jsonMatch && jsonMatch[1] && jsonMatch[1].length <= NEW_FILES_MAX_BYTES) {
+            try {
+                const parsed = JSON.parse(jsonMatch[1]) as unknown;
+                if (Array.isArray(parsed)) {
+                    const out: string[] = [];
+                    for (const item of parsed) {
+                        if (typeof item === 'string') out.push(item);
+                        if (out.length >= NEW_FILES_MAX_ENTRIES) break;
+                    }
+                    return out;
+                }
+            } catch {
+                // fall through to legacy parser
+            }
+        }
+        // Legacy comma-joined format. Brittle on filenames containing `, `
+        // but we still accept it so old commits restore.
+        const legacyPart = msg.split('\n\nFiles: ')[1]?.split('\n\n')[0] ?? '';
+        return legacyPart ? legacyPart.split(', ').map((f) => f.trim()).filter(Boolean) : [];
     }
 
     /**
@@ -238,6 +304,17 @@ export class GitCheckpointService {
         // Restore existing files from shadow repo
         if (checkpoint.commitOid !== 'none') {
             for (const vaultRelPath of checkpoint.filesChanged) {
+                // AUDIT-030 M-1: mirror the snapshot path-traversal guard at
+                // every restore boundary. `filesChanged` originates from
+                // either the in-memory map (checked at snapshot time) or
+                // from parsing a commit message whose source we do not
+                // fully control if the shadow-repo's object database is
+                // tampered with locally. Re-check here.
+                if (!isVaultRelative(vaultRelPath)) {
+                    console.warn(`[Checkpoints] Rejected non-vault-relative path on restore: ${JSON.stringify(vaultRelPath)}`);
+                    errors.push(`${JSON.stringify(vaultRelPath)}: rejected (unsafe path)`);
+                    continue;
+                }
                 try {
                     const { blob } = await git.readBlob({
                         fs,
@@ -246,23 +323,23 @@ export class GitCheckpointService {
                         filepath: vaultRelPath,
                     });
                     const content = new TextDecoder().decode(blob);
-                    console.debug(`[Checkpoints] Restoring ${vaultRelPath}: ${content.length} chars from oid ${checkpoint.commitOid.substring(0, 8)}`);
+                    console.debug(`[Checkpoints] Restoring ${JSON.stringify(vaultRelPath)}: ${content.length} chars from oid ${checkpoint.commitOid.substring(0, 8)}`);
 
                     const existingFile = this.vault.getAbstractFileByPath(vaultRelPath);
                     if (existingFile) {
                             if (existingFile instanceof TFile) {
                             await this.vault.modify(existingFile, content);
-                            console.debug(`[Checkpoints] ${vaultRelPath}: restored via vault.modify`);
+                            console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: restored via vault.modify`);
                         }
                     } else {
                         await this.vault.adapter.write(vaultRelPath, content);
-                        console.debug(`[Checkpoints] ${vaultRelPath}: restored via vault.adapter.write (file was deleted)`);
+                        console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: restored via vault.adapter.write (file was deleted)`);
                     }
                     restored.push(vaultRelPath);
                 } catch (e) {
                     const msg = e instanceof Error ? e.message : String(e);
-                    console.error(`[Checkpoints] Failed to restore ${vaultRelPath}:`, e);
-                    errors.push(`${vaultRelPath}: ${msg}`);
+                    console.error(`[Checkpoints] Failed to restore ${JSON.stringify(vaultRelPath)}:`, e);
+                    errors.push(`${JSON.stringify(vaultRelPath)}: ${msg}`);
                 }
             }
         }
@@ -270,6 +347,11 @@ export class GitCheckpointService {
         // Delete files that were newly created (undo = remove them)
         if (checkpoint.newFiles) {
             for (const vaultRelPath of checkpoint.newFiles) {
+                if (!isVaultRelative(vaultRelPath)) {
+                    console.warn(`[Checkpoints] Rejected non-vault-relative new-file path on restore: ${JSON.stringify(vaultRelPath)}`);
+                    errors.push(`${JSON.stringify(vaultRelPath)} (delete): rejected (unsafe path)`);
+                    continue;
+                }
                 try {
                     const file = this.vault.getAbstractFileByPath(vaultRelPath);
                     if (file && (file instanceof TFile || file instanceof TFolder)) {
@@ -278,7 +360,7 @@ export class GitCheckpointService {
                     }
                 } catch (e) {
                     const msg = e instanceof Error ? e.message : String(e);
-                    errors.push(`${vaultRelPath} (delete): ${msg}`);
+                    errors.push(`${JSON.stringify(vaultRelPath)} (delete): ${msg}`);
                 }
             }
         }
@@ -370,26 +452,28 @@ export class GitCheckpointService {
             // the earliest per file). FIX-01-07-01: also collect the union
             // of all new files declared in any of the task's commit
             // messages so post-reload undo can delete them too.
+            // AUDIT-030 M-2 + M-3: bounded JSON parse via parseFilesFromMessage
+            // and bounded NewFiles parse below.
             const fileToOid = new Map<string, string>();
             const newFilesSet = new Set<string>();
             for (const match of [...matches].reverse()) {
                 const msg = match.commit.message;
-                const filesPart = msg.split('\n\nFiles: ')[1]?.split('\n\n')[0] ?? '';
-                const files = filesPart ? filesPart.split(', ').map((f) => f.trim()).filter(Boolean) : [];
+                const files = this.parseFilesFromMessage(msg);
                 for (const f of files) {
                     fileToOid.set(f, match.oid);
                 }
-                const newFilesMatch = msg.match(/\n\nNewFiles:\s*(\[.*\])/s);
-                if (newFilesMatch) {
+                const newFilesMatch = msg.match(/\n\nNewFiles:\s*(\[.*?\])/s);
+                if (newFilesMatch && newFilesMatch[1] && newFilesMatch[1].length <= NEW_FILES_MAX_BYTES) {
                     try {
                         const parsed = JSON.parse(newFilesMatch[1]) as unknown;
                         if (Array.isArray(parsed)) {
                             for (const item of parsed) {
                                 if (typeof item === 'string') newFilesSet.add(item);
+                                if (newFilesSet.size >= NEW_FILES_MAX_ENTRIES) break;
                             }
                         }
                     } catch (e) {
-                        console.warn(`[Checkpoints] Could not parse NewFiles for ${taskId}:`, e);
+                        console.warn(`[Checkpoints] Could not parse NewFiles for ${JSON.stringify(taskId)}:`, e);
                     }
                 }
             }
@@ -398,6 +482,12 @@ export class GitCheckpointService {
             const errors: string[] = [];
 
             for (const [vaultRelPath, oid] of fileToOid.entries()) {
+                // AUDIT-030 M-1: re-validate every path before adapter.write.
+                if (!isVaultRelative(vaultRelPath)) {
+                    console.warn(`[Checkpoints] Rejected non-vault-relative path on git-log restore: ${JSON.stringify(vaultRelPath)}`);
+                    errors.push(`${JSON.stringify(vaultRelPath)}: rejected (unsafe path)`);
+                    continue;
+                }
                 try {
                     const { blob } = await git.readBlob({
                         fs,
@@ -416,12 +506,20 @@ export class GitCheckpointService {
                     }
                     restored.push(vaultRelPath);
                 } catch (e) {
-                    errors.push(`${vaultRelPath}: ${e instanceof Error ? e.message : String(e)}`);
+                    // AUDIT-030 L-1: wrap path in JSON.stringify so embedded
+                    // newlines or escape sequences from a tampered commit
+                    // message cannot poison the user-facing error string.
+                    errors.push(`${JSON.stringify(vaultRelPath)}: ${e instanceof Error ? e.message : String(e)}`);
                 }
             }
 
             // Delete newly created files (same as the in-memory restore path).
             for (const vaultRelPath of newFilesSet) {
+                if (!isVaultRelative(vaultRelPath)) {
+                    console.warn(`[Checkpoints] Rejected non-vault-relative new-file path on git-log restore: ${JSON.stringify(vaultRelPath)}`);
+                    errors.push(`${JSON.stringify(vaultRelPath)} (delete): rejected (unsafe path)`);
+                    continue;
+                }
                 try {
                     const file = this.vault.getAbstractFileByPath(vaultRelPath);
                     if (file && (file instanceof TFile || file instanceof TFolder)) {
@@ -429,7 +527,7 @@ export class GitCheckpointService {
                         restored.push(vaultRelPath);
                     }
                 } catch (e) {
-                    errors.push(`${vaultRelPath} (delete): ${e instanceof Error ? e.message : String(e)}`);
+                    errors.push(`${JSON.stringify(vaultRelPath)} (delete): ${e instanceof Error ? e.message : String(e)}`);
                 }
             }
 

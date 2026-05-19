@@ -3504,4 +3504,62 @@ EPIC-26 ist auditiert + freigegeben für die Beta-Distribution. Empfehlung:
   - IMP-26-04-01 (Multi-Auth Discriminator) bei nächstem Migration-Touch
   - OAuth-Sign-In-Inline-Implementation als Folge-Pass wenn Welle-2-Stub ersetzt wird
 
+## AUDIT-030 v2.11.5 Delta -- /security-audit (Phase 6, 2026-05-19)
+
+### Scope
+
+Periodische full-codebase Audit, Branch `feature/audit-2026-05-19`. Delta vs AUDIT-029 baseline (commit `058ca61f`, v2.11.3 Green): 70 files, +2604 / -2157 LOC ueber v2.11.4 + v2.11.5 stable plus die v2.11.5-beta.1..beta.34 Serie.
+
+Schwerpunkte des Deltas: Humanizer-Pass, Mode-Collapse `ask` -> `agent`, Onboarding-Gate-Widening, JSON-Format fuer Checkpoint-Commit-Messages, Settings-UI-Refactor, ChatGPT-OAuth error-parser, optional-asset Release-Reihenfolge-Fix, borderless toolbar.
+
+### Findings
+
+- **0 Critical, 0 High, 4 Medium (alle resolved), 4 Low (3 resolved + 1 mitigated-polish resolved), 4 Info (2 resolved via Upgrade/Removal, 2 carried forward).**
+
+### Resolutions (alle im selben Audit-Commit `dfbda318`)
+
+- **M-1, L-2:** `isVaultRelative()` Helper an jeder Checkpoint-Restore-Grenze gespiegelt. Schutz gegen tampered shadow-repo object.
+- **M-2:** 64 KB Cap + 10000-Entry-Cap auf JSON-Parse des `NewFiles`-Capture. Non-greedy Regex.
+- **M-3:** Neues `FilesJson:` Feld in Commit-Messages, legacy `Files:` Line ein Release als Fallback. Behebt Komma-Bug fuer Pfade wie `Plan, Q3 2025.md`.
+- **M-4:** `ALLOWED_SUB_MODES`-Kommentar entspricht jetzt der tatsaechlichen narrow allowlist + EPIC-26-Designentscheidung (profile, nicht mode). Flag fuer `OLD_MODE_MAP` Migration hinzugefuegt.
+- **L-1:** `JSON.stringify` Wrap um jeden `vaultRelPath` in Logs und Error-Arrays.
+- **L-3:** `CheckpointInfo.skipped: string[]` propagiert Snapshot-Failures + Path-Rejects an die UI statt silent swallow.
+- **L-4:** Onboarding-Hint auf Permissions-Tab wenn `onboarding.completed === false`.
+- **I-3:** `openai` ^4.0.0 -> ^5.0.0 (installed 5.23.2). Source-Code unveraendert; chat.completions API kompatibel ueber den Major-Bump.
+- **I-4:** `uuid@9.0.1` + `@types/uuid` entfernt. Keine direkten Imports in `src/`; war Dead Dependency.
+
+### Carried forward (Info only)
+
+- **I-1:** Hardcoded Git-Committer-Identity im Checkpoint-Shadow-Repo. By design, in REVIEWER_NOTES dokumentiert.
+- **I-2:** Steering-Queue-Messages umgehen Attachment-Truncation. User trust origin, keine Security-Boundary.
+
+### Verifikation (in diesem Audit)
+
+- TypeScript clean (tsc -noEmit -skipLibCheck)
+- Build green (main.js 4.3 MB, deployed)
+- npm audit: 0 advisories
+- 105 / 105 Tests gruen in `src/core/checkpoints`, `src/core/tools/agent`, `src/api`
+- consistency-check Mode A: 0 findings
+
+### Test-Status-Note
+
+29 vorhandene Test-Failures in `VaultHealthService`, `WriterLock`, `GlobalFileService`, `ResultExternalizer`, `ExtractionQueue`, MCP-Tools. Verifiziert identisch auf Pre-Fix-Baseline via `git stash` Vergleich. Pre-existing, nicht von diesem Audit oder dem openai-Upgrade verursacht. Eigenes Backlog-Item noetig.
+
+### Sicherheits-positive Befunde
+
+- AUDIT-028 L-1 (path-traversal guard) und AUDIT-029 (symlink removal) beide nicht regrediert
+- 12 positive findings dokumentiert (safeFs guards belt-and-braces, spawn allowlist refuses shell:true, ResultExternalizer cap, sandbox approval fail-closed, SHA256 verification auf optional assets, etc.)
+- Keine neuen `innerHTML` / `eval` / `Function` / `child_process` / `fetch`-Importe in diesem Delta
+- npm-audit-Hygiene gehalten: alle `overrides`-Pins aus AUDIT-029 noch aktiv (protobufjs, dompurify, hono, undici, path-to-regexp, etc.)
+
+### Release-Readiness: Green
+
+v2.11.5 ist bereits public (shipped Yellow vor dem Fix-Loop). Die in diesem Audit geschlossenen Defense-in-Depth-Luecken landen in v2.11.6, das damit Green released werden kann.
+
+### Open-Items fuer naechste Audit-Runde
+
+- Pre-existing test failures (29 in VaultHealthService / WriterLock / GlobalFileService / ResultExternalizer / ExtractionQueue / MCP) als eigenes Backlog-Item investigieren
+- openai v5 Streaming-Verhalten unter Real-API-Load testen (Type-Check + Unit-Tests sagen kompatibel, aber Integration-Test mit echtem Stream waere wertvoll)
+- LLM01 Prompt-Injection-Surface (Tool-Result -> Model verbatim): mittel-fristig Marker `[USER-AUTHORED]` vs `[TOOL-OUTPUT]` evaluieren
+
 

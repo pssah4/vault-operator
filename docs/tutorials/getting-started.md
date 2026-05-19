@@ -18,14 +18,21 @@ If something goes wrong, the [Troubleshooting](/reference/troubleshooting) page 
 
 ## Install the plugin
 
+Vault Operator is available in the official Obsidian Community Plugins directory.
+
 1. Open **Obsidian Settings** > **Community Plugins** > **Browse**
 2. Search for **"Vault Operator"**
 3. Click **Install**, then **Enable**
 
 The Vault Operator icon appears in the left sidebar.
 
+:::tip Shortcuts
+- Direct deep link (opens Obsidian): [obsidian://show-plugin?id=vault-operator](obsidian://show-plugin?id=vault-operator)
+- Community page: [community.obsidian.md/plugins/vault-operator](https://community.obsidian.md/plugins/vault-operator)
+:::
+
 :::tip BRAT (Beta Testing)
-For the latest beta version, install via [BRAT](https://github.com/TfTHacker/obsidian42-brat): Add `pssah4/vault-operator` as a beta plugin.
+For the latest beta version (pre-release, ahead of the public store), install via [BRAT](https://github.com/TfTHacker/obsidian42-brat): Add `pssah4/vault-operator` as a beta plugin.
 :::
 
 ## Add your first model

@@ -265,7 +265,7 @@ export class MemoryTab {
 
         new Setting(containerEl)
             .setName('Default handling for incoming conversations')
-            .setDesc('Applied to providers whose per-source override below is set to "Use default".')
+            .setDesc('Applied to providers whose per-source override below is set to use the default.')
             .addDropdown((d) => {
                 d.addOption('auto', 'Extract immediately');
                 d.addOption('manual', 'Park as pending');

@@ -33,7 +33,6 @@
   "devDependencies": {
     "@types/diff": "^7.0.2",
     "@types/node": "^20.11.0",
-    "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "esbuild": "^0.27.3",
@@ -68,13 +67,12 @@
     "graphology-communities-louvain": "^2.0.2",
     "isomorphic-git": "^1.37.1",
     "jszip": "^3.10.1",
-    "openai": "^4.0.0",
+    "openai": "^5.23.2",
     "p-wait-for": "^5.0.0",
     "pdfjs-dist": "^4.4.168",
     "pptxgenjs": "^4.0.1",
     "serialize-error": "^11.0.0",
-    "sql.js": "^1.14.1",
-    "uuid": "^9.0.1"
+    "sql.js": "^1.14.1"
   },
   "overrides": {
     "hono": ">=4.12.18",

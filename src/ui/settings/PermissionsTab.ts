@@ -18,6 +18,21 @@ export class PermissionsTab {
         const text = banner.createDiv({ cls: 'vault-op-box__text' });
         text.createEl('strong', { text: t('settings.permissions.introTitle') });
         text.createDiv({ text: t('settings.permissions.introDesc') });
+
+        // AUDIT-030 L-4: users who add a provider in settings but skip the
+        // onboarding wizard never see the "consent to permissive defaults"
+        // step. Master toggle ships off (fail-closed), so this is polish
+        // not a security fix, but a one-line hint makes the posture explicit.
+        if (this.plugin.settings.onboarding?.completed === false) {
+            const hint = containerEl.createDiv('vault-op-box vault-op-box--info');
+            const hintIcon = hint.createSpan({ cls: 'vault-op-box__icon' });
+            setIcon(hintIcon, 'info');
+            const hintText = hint.createDiv({ cls: 'vault-op-box__text' });
+            hintText.setText(
+                'Auto-approve is off by default. The first-run wizard explains the trade-offs; '
+                + 'you can run it any time from Settings, General tab, Onboarding section.',
+            );
+        }
     }
 
     build(containerEl: HTMLElement): void {

@@ -981,19 +981,20 @@
 
 /* Toolbar Buttons -- borderless by default, modern flat look. The send
  * button is the single exception and re-introduces a border below.
- * !important fights Obsidian's default button `box-shadow: var(--input-shadow)`
- * and `border: var(--input-border-width) solid` which otherwise win on
- * specificity for native <button> elements. */
-.toolbar-button {
+ * Class repetition (.toolbar-button.toolbar-button) bumps selector
+ * specificity to (0,2,0) so we overrule Obsidian's default button
+ * `box-shadow` / `border` from theme button selectors without using
+ * !important. */
+.toolbar-button.toolbar-button {
     display: flex;
     align-items: center;
     gap: 4px;
     padding: 2px 6px;
-    border: none !important;
+    border: none;
     border-radius: 4px;
-    background: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+    background: none;
+    box-shadow: none;
+    outline: none;
     min-height: 0;
     height: auto;
     color: var(--text-normal);
@@ -1002,15 +1003,15 @@
     transition: background 0.15s, color 0.15s;
 }
 
-.toolbar-button:hover {
-    background: var(--background-modifier-hover) !important;
-    box-shadow: none !important;
+.toolbar-button.toolbar-button:hover {
+    background: var(--background-modifier-hover);
+    box-shadow: none;
 }
 
-.toolbar-button:focus,
-.toolbar-button:focus-visible {
-    box-shadow: none !important;
-    outline: none !important;
+.toolbar-button.toolbar-button:focus,
+.toolbar-button.toolbar-button:focus-visible {
+    box-shadow: none;
+    outline: none;
 }
 
 /* Ghost modifier kept for backward compatibility -- effectively the same
@@ -1074,19 +1075,21 @@
 }
 
 /* Send Button -- the one toolbar button that keeps a border, by design.
- * Sits visually apart from the borderless left-side cluster. !important
- * overrides the borderless .toolbar-button base. */
-.toolbar-button.send-button {
-    background: none !important;
+ * Sits visually apart from the borderless left-side cluster. Class repetition
+ * (.toolbar-button.send-button.send-button) bumps specificity to (0,3,0) so
+ * the bordered look wins over the borderless .toolbar-button.toolbar-button
+ * base without !important. */
+.toolbar-button.send-button.send-button {
+    background: none;
     color: var(--interactive-accent);
-    border: 1px solid var(--background-modifier-border) !important;
+    border: 1px solid var(--background-modifier-border);
     padding: 3px 8px;
 }
 
-.toolbar-button.send-button:hover {
-    background: var(--background-modifier-hover) !important;
+.toolbar-button.send-button.send-button:hover {
+    background: var(--background-modifier-hover);
     color: var(--interactive-accent);
-    border-color: var(--interactive-accent) !important;
+    border-color: var(--interactive-accent);
 }
 
 .toolbar-button.send-button:active {
@@ -1094,18 +1097,19 @@
 }
 
 /* Stop Button -- replaces the send button while a task is running, so it
- * inherits the same bordered shape for positional continuity. */
-.toolbar-button.stop-button {
-    background: none !important;
+ * inherits the same bordered shape for positional continuity. Same
+ * specificity bump pattern as .send-button. */
+.toolbar-button.stop-button.stop-button {
+    background: none;
     color: var(--text-muted);
-    border: 1px solid var(--background-modifier-border) !important;
+    border: 1px solid var(--background-modifier-border);
     padding: 3px 8px;
 }
 
-.toolbar-button.stop-button:hover {
-    background: var(--background-modifier-hover) !important;
+.toolbar-button.stop-button.stop-button:hover {
+    background: var(--background-modifier-hover);
     color: var(--color-red);
-    border-color: var(--color-red) !important;
+    border-color: var(--color-red);
 }
 
 /* Streaming indicator (for Q&A mode, no tools) */
@@ -1127,14 +1131,18 @@
     gap: 6px;
 }
 
-.header-button {
+/* Header buttons -- same borderless treatment as toolbar buttons. Class
+ * repetition (.header-button.header-button) bumps specificity to (0,2,0) so
+ * we beat the native <button> styling from the Obsidian theme without
+ * !important. */
+.header-button.header-button {
     display: flex;
     align-items: center;
     padding: 4px 6px;
-    border: none !important;
-    background: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+    border: none;
+    background: none;
+    box-shadow: none;
+    outline: none;
     min-height: 0;
     height: auto;
     color: var(--text-muted);
@@ -1143,16 +1151,16 @@
     transition: color 0.1s, background 0.1s;
 }
 
-.header-button:hover {
+.header-button.header-button:hover {
     color: var(--text-normal);
-    background: var(--background-modifier-hover) !important;
-    box-shadow: none !important;
+    background: var(--background-modifier-hover);
+    box-shadow: none;
 }
 
-.header-button:focus,
-.header-button:focus-visible {
-    box-shadow: none !important;
-    outline: none !important;
+.header-button.header-button:focus,
+.header-button.header-button:focus-visible {
+    box-shadow: none;
+    outline: none;
 }
 
 .header-button svg {
@@ -2196,16 +2204,17 @@
 }
 
 /* Info-icon next to a setting name. Just the Lucide `info` glyph in
-   muted color, nothing else. Uses !important to defeat Obsidian's
-   default button styling (background, border, shadow) inside
-   .setting-item .setting-item-name. */
-.agent-info-btn,
+   muted color, nothing else. Class repetition (.agent-info-btn.agent-info-btn)
+   bumps specificity to (0,2,0) on the plain selector and the descendant form
+   already sits at (0,3,0), so both forms overrule Obsidian's default
+   .setting-item button styling without !important. */
+.agent-info-btn.agent-info-btn,
 .setting-item .setting-item-name .agent-info-btn {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
+    background: transparent;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
     margin: 0 0 0 6px;
     cursor: pointer;
     color: var(--text-faint);
@@ -2215,12 +2224,12 @@
     line-height: 0;
     border-radius: 0;
 }
-.agent-info-btn:hover,
+.agent-info-btn.agent-info-btn:hover,
 .setting-item .setting-item-name .agent-info-btn:hover {
     color: var(--text-normal);
-    background: transparent !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
+    background: transparent;
+    background-color: transparent;
+    box-shadow: none;
 }
 .agent-info-btn:focus-visible {
     outline: 1px solid var(--interactive-accent);
@@ -2264,22 +2273,25 @@
     color: var(--text-normal);
     font-size: 13px;
 }
-.agent-info-close {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 2px !important;
+/* Modal close button. Class repetition bumps specificity to (0,2,0) so we
+ * defeat the Obsidian default button styling inside .modal-* containers
+ * without !important. */
+.agent-info-close.agent-info-close {
+    background: transparent;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 2px;
     margin: 0;
     cursor: pointer;
     color: var(--text-muted);
     display: inline-flex;
     line-height: 0;
 }
-.agent-info-close:hover {
+.agent-info-close.agent-info-close:hover {
     color: var(--text-normal);
-    background: transparent !important;
-    background-color: transparent !important;
+    background: transparent;
+    background-color: transparent;
 }
 .agent-info-close svg { width: 14px; height: 14px; }
 .agent-info-body {
