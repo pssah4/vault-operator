@@ -2969,28 +2969,31 @@ export class AgentSidebarView extends ItemView {
         // Conversation switch drops any pending fullDocTexts too (FIX-19-28-05 audit).
         void this.attachments.consumeFullDocTexts();
 
-        // Re-render chat
+        // Re-render chat. Collect (uiMessage, DOM) pairs so the checkpoint
+        // rehydrate step below can attach live markers per assistant turn.
+        const assistantPairs: { msg: UiMessage; el: HTMLElement }[] = [];
         if (this.chatContainer) {
             this.chatContainer.empty();
             for (const msg of data.uiMessages) {
                 if (msg.role === 'user') {
                     this.addUserMessage(msg.text);
                 } else {
-                    // renderMarkdownMessage already adds response actions for assistant messages
-                    this.renderMarkdownMessage(msg.text, 'assistant', msg.toolStepsHtml);
+                    const el = this.renderMarkdownMessage(msg.text, 'assistant', msg.toolStepsHtml);
+                    if (el) assistantPairs.push({ msg, el });
                 }
             }
         }
         this.historyPanel?.setActiveId(id);
         this.updateContextBadge();
 
-        // FIX-01-07-02: rebuild checkpoint undo bars for tasks that wrote
-        // files. The shadow repo holds the snapshots across plugin reloads,
-        // but the in-memory taskCheckpoints map starts empty -- the helper
-        // rehydrates it via service.loadCheckpointsForTask and re-renders
-        // an undo bar per unique taskId. Older conversations without a
-        // taskId on their uiMessages render nothing (backwards compat).
-        void this.rehydrateCheckpointMarkers(data.uiMessages);
+        // FIX-01-07-02: rebuild checkpoint markers inline at the assistant
+        // message they belong to. The shadow repo holds the snapshots across
+        // plugin reloads, but the in-memory taskCheckpoints map starts empty
+        // and the rehydrated toolStepsHtml only carries dead marker spans
+        // (the live event listeners are gone). For every assistant message
+        // with a persisted taskId we strip the stale markers and render new
+        // live ones via renderCheckpointMarker.
+        void this.rehydrateCheckpointMarkers(assistantPairs);
 
         if (!opts.skipNavPush) {
             this.pushNav(id);
@@ -4156,6 +4159,7 @@ export class AgentSidebarView extends ItemView {
         checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo,
     ): void {
         const marker = container.createDiv('checkpoint-marker');
+        marker.classList.add('checkpoint-clickable');
 
         const iconEl = marker.createSpan('checkpoint-icon');
         setIcon(iconEl, 'git-commit-vertical');
@@ -4170,24 +4174,42 @@ export class AgentSidebarView extends ItemView {
         });
         label.setText(t('ui.checkpoint.label', { files: allFiles, time }));
 
-        // Single restore button that expands into options
+        // Clicking the marker (icon + label area) opens the diff modal so the
+        // user can see exactly which files changed before deciding what to do.
+        // Clicks on the restore button or its expanded options stop propagation
+        // (see below) so they don't also open the modal.
+        marker.addEventListener('click', () => {
+            void this.showCheckpointDiff(checkpoint);
+        });
+
+        // Restore button expands into the four action options. stopPropagation
+        // keeps a button click from also triggering the labelGroup's diff handler.
         const restoreBtn = marker.createEl('button', {
             cls: 'checkpoint-restore-btn',
             text: t('ui.checkpoint.restore'),
         });
-        restoreBtn.addEventListener('click', () => {
+        restoreBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             restoreBtn.classList.add('agent-u-hidden');
 
             const options = marker.createDiv('checkpoint-restore-options');
+            options.addEventListener('click', (e) => e.stopPropagation());
 
-            const keepBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn', text: t('ui.checkpoint.keepChat'),
+            const undoThisBtn = options.createEl('button', {
+                cls: 'checkpoint-option-btn checkpoint-option-primary',
+                text: t('ui.checkpoint.undoThis'),
+            });
+            const undoFromHereBtn = options.createEl('button', {
+                cls: 'checkpoint-option-btn checkpoint-option-primary',
+                text: t('ui.checkpoint.undoFromHere'),
             });
             const deleteBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn checkpoint-option-delete', text: t('ui.checkpoint.deleteFromHere'),
+                cls: 'checkpoint-option-btn checkpoint-option-delete',
+                text: t('ui.checkpoint.deleteFromHere'),
             });
             const cancelBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn', text: t('ui.checkpoint.cancel'),
+                cls: 'checkpoint-option-btn',
+                text: t('ui.checkpoint.cancel'),
             });
 
             cancelBtn.addEventListener('click', () => {
@@ -4195,14 +4217,101 @@ export class AgentSidebarView extends ItemView {
                 restoreBtn.classList.remove('agent-u-hidden');
             });
 
-            keepBtn.addEventListener('click', () => {
+            undoThisBtn.addEventListener('click', () => {
                 void this.restoreCheckpoint(checkpoint, marker, options, false);
+            });
+
+            undoFromHereBtn.addEventListener('click', () => {
+                void this.restoreCheckpointsForward(checkpoint, marker, options);
             });
 
             deleteBtn.addEventListener('click', () => {
                 void this.restoreCheckpoint(checkpoint, marker, options, true);
             });
         });
+    }
+
+    /**
+     * "Undo all changes from here": restore the given checkpoint AND every
+     * checkpoint that came after it in the same task. Equivalent to walking
+     * the task's snapshot history forward from this point and rolling each
+     * write back. Files are restored in reverse-chronological order so the
+     * oldest (= pre-CP) content wins when multiple checkpoints touch the
+     * same path.
+     *
+     * Takes a pre-restore snapshot of the union of affected files first so
+     * the multi-step rollback can itself be undone via the next checkpoint
+     * marker.
+     */
+    private async restoreCheckpointsForward(
+        startCp: import('../core/checkpoints/GitCheckpointService').CheckpointInfo,
+        marker: HTMLElement,
+        optionsEl: HTMLElement,
+    ): Promise<void> {
+        optionsEl.querySelectorAll('button').forEach((b) => (b.disabled = true));
+        optionsEl.empty();
+        optionsEl.setText(t('ui.checkpoint.restoring'));
+
+        const service = this.plugin.checkpointService;
+        if (!service) {
+            optionsEl.setText(t('ui.checkpoint.error'));
+            return;
+        }
+
+        try {
+            const all = await service.loadCheckpointsForTask(startCp.taskId);
+            const startIdx = all.findIndex((c) => c.commitOid === startCp.commitOid);
+            if (startIdx < 0) {
+                // Fall back to single-CP restore if we somehow can't locate the start
+                console.warn('[Checkpoint] undoFromHere: start oid not in task list, falling back to single restore');
+                await this.restoreCheckpoint(startCp, marker, optionsEl, false);
+                return;
+            }
+            const tail = all.slice(startIdx);
+
+            // Pre-restore snapshot: union of every file the multi-step rollback
+            // will touch. Lets the user undo the undo via the next checkpoint
+            // marker in the chat (the per-tool pipeline snapshot only covers
+            // toolCall.input.path, which is irrelevant for a UI-triggered batch).
+            const affected = new Set<string>();
+            for (const cp of tail) {
+                for (const f of cp.filesChanged) affected.add(f);
+                for (const f of cp.newFiles ?? []) affected.add(f);
+            }
+            try {
+                await service.snapshot(`restore-${Date.now()}`, [...affected], 'undo_from_here');
+            } catch (e) {
+                console.warn('[Checkpoint] Pre-restore snapshot failed (non-fatal):', e);
+            }
+
+            // Reverse chronological so older content overwrites newer for the
+            // same path (later CPs hold the in-between state, the start CP
+            // holds the original pre-task content for its files).
+            const allRestored: string[] = [];
+            const allErrors: string[] = [];
+            for (const cp of [...tail].reverse()) {
+                const result = await service.restore(cp);
+                allRestored.push(...result.restored);
+                allErrors.push(...result.errors);
+            }
+
+            optionsEl.remove();
+            const successEl = marker.createSpan('checkpoint-restored');
+            const unique = new Set(allRestored).size;
+            successEl.setText(t('ui.checkpoint.restored', { count: unique }));
+
+            if (unique > 0) {
+                const restoredFiles = [...new Set(allRestored)].join(', ');
+                this.conversationHistory.push({
+                    role: 'user',
+                    content: `[System] Multi-checkpoint undo: ${tail.length} checkpoint(s) rolled back from ${startCp.commitOid.slice(0, 8)} forward. Files: ${restoredFiles}. ${allErrors.length} error(s). Vault state changed.`,
+                });
+                this.saveCurrentConversation();
+            }
+        } catch (e) {
+            console.error('[Checkpoint] undoFromHere failed:', e);
+            optionsEl.setText(t('ui.checkpoint.failed'));
+        }
     }
 
     /**
@@ -4354,40 +4463,53 @@ export class AgentSidebarView extends ItemView {
     // -------------------------------------------------------------------------
 
     /**
-     * FIX-01-07-02: after loadConversation rebuilds the chat DOM, rebuild
-     * the per-task undo bars for tasks that wrote files. The shadow repo
-     * still holds the snapshots across plugin reloads, but the in-memory
-     * taskCheckpoints map starts empty, so the live taskCompleted UI path
-     * never fires. This helper iterates unique taskIds on the conversation's
-     * uiMessages, rehydrates the map via service.loadCheckpointsForTask,
-     * and renders one undo bar at the bottom of the chat container per
-     * task that has writes.
+     * FIX-01-07-02: after loadConversation rebuilds the chat DOM, rehydrate
+     * the per-checkpoint markers inline at the assistant message they belong
+     * to. The shadow repo still holds the snapshots across plugin reloads,
+     * but the in-memory taskCheckpoints map starts empty AND the dead marker
+     * spans in toolStepsHtml have no event listeners.
      *
-     * Intentionally does NOT auto-open the diff-review modal -- a chat
-     * with N tasks would otherwise pop N modals on open. The user opens
-     * the modal explicitly via the undo bar.
+     * For each unique taskId we:
+     *   1. service.loadCheckpointsForTask(taskId) -- rebuilds the in-memory map
+     *      from the shadow repo via git log.
+     *   2. Pick the LAST assistant message of that task as the anchor. (Most
+     *      tasks emit one assistant bubble; askQuestion pauses produce more,
+     *      and the trailing bubble is the user's natural exit point.)
+     *   3. Strip any stale .checkpoint-marker nodes that the toolStepsHtml
+     *      snapshot brought in dead, then render fresh markers via
+     *      renderCheckpointMarker so the buttons work again.
+     *
+     * Older conversations stored before taskId was persisted on UiMessages
+     * have m.taskId === undefined and are skipped (no marker, no error).
      */
-    private async rehydrateCheckpointMarkers(msgs: UiMessage[]): Promise<void> {
+    private async rehydrateCheckpointMarkers(
+        pairs: { msg: UiMessage; el: HTMLElement }[],
+    ): Promise<void> {
         if (!(this.plugin.settings.enableCheckpoints ?? true)) return;
         const service = this.plugin.checkpointService;
         if (!service) return;
 
-        const seen = new Set<string>();
-        for (const m of msgs) {
-            if (m.role !== 'assistant' || !m.taskId || seen.has(m.taskId)) continue;
-            seen.add(m.taskId);
+        // Last DOM anchor per taskId (later messages overwrite earlier ones).
+        const anchorByTaskId = new Map<string, HTMLElement>();
+        for (const { msg, el } of pairs) {
+            if (msg.taskId) anchorByTaskId.set(msg.taskId, el);
+        }
+
+        for (const [taskId, messageEl] of anchorByTaskId) {
             try {
-                const list = await service.loadCheckpointsForTask(m.taskId);
+                const list = await service.loadCheckpointsForTask(taskId);
                 if (list.length === 0) continue;
-                const files = new Set<string>();
+
+                // Drop stale markers from the rehydrated toolStepsHtml so we
+                // don't render the same checkpoint twice (once dead, once live).
+                messageEl.querySelectorAll('.checkpoint-marker').forEach((el) => el.remove());
+
+                const toolsEl = messageEl.querySelector<HTMLElement>('.message-tools') ?? messageEl;
                 for (const cp of list) {
-                    for (const f of cp.filesChanged) files.add(f);
-                    for (const f of cp.newFiles ?? []) files.add(f);
+                    this.renderCheckpointMarker(toolsEl, cp);
                 }
-                if (files.size === 0) continue;
-                this.showUndoBar(m.taskId, files.size);
             } catch (e) {
-                console.warn('[Checkpoints] rehydrate failed for', m.taskId, e);
+                console.warn('[Checkpoints] rehydrate failed for', taskId, e);
             }
         }
     }

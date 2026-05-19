@@ -3305,6 +3305,14 @@
     flex: 1;
     height: 1px;
     background: linear-gradient(to right, transparent, var(--background-modifier-border));
+    pointer-events: none;
+}
+
+/* Marker label area is clickable -- opens the diff modal. The pseudo-elements
+   above have pointer-events:none so clicks on the connecting lines do not
+   trigger anything. */
+.checkpoint-marker.checkpoint-clickable {
+    cursor: pointer;
 }
 
 .checkpoint-marker::after {

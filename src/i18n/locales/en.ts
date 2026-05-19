@@ -1055,6 +1055,8 @@ export const en: Translations = {
     // =========================================================================
     'ui.checkpoint.label': 'Checkpoint \u00B7 {{files}} \u00B7 {{time}}',
     'ui.checkpoint.restore': 'Restore checkpoint',
+    'ui.checkpoint.undoThis': 'Undo this change',
+    'ui.checkpoint.undoFromHere': 'Undo all changes from here',
     'ui.checkpoint.keepChat': 'Keep chat',
     'ui.checkpoint.deleteFromHere': 'Delete chat from here',
     'ui.checkpoint.cancel': 'Cancel',
