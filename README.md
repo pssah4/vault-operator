@@ -10,7 +10,7 @@ An autonomous AI operating layer for your Obsidian vault. 60+ tools, semantic se
 
 ## What it does
 
-You describe a task in natural language. Vault Operator plans, searches your vault, reads relevant notes, creates or edits content, generates PowerPoint / Word / Excel files, browses the web, calls MCP servers, and reports back. Every step is visible in the sidebar in real time. Every write operation requires your approval and creates a checkpoint you can undo with one click.
+Like in Cowork or Copilot you describe a task in natural language. Vault Operator plans, searches your vault, reads relevant notes, creates or edits content, generates PowerPoint / Word / Excel files, browses the web, calls MCP servers, and reports back. Every step is visible in the sidebar in real time. Every write operation requires your approval and creates a checkpoint you can undo with one click.
 
 Concrete examples:
 
@@ -19,7 +19,7 @@ Concrete examples:
 - "Compare these two strategy notes, flag contradictions, and propose how to merge them."
 - "Look up the latest research on context-engineering, save the three best papers as ingested notes, and update my Innovation Strategy MOC."
 
-The agent works with one model for chat and (optionally) a cheaper helper model for internal tasks like context condensing, which keeps cost predictable. A sidebar footer shows real-time token usage and cost in EUR per task.
+The agent works with one model for chat and (optionally) a cheaper helper model for internal tasks like context condensing, which keeps cost predictable. A sidebar footer shows real-time token usage and cost in EUR per task. 
 
 ## Features
 
