@@ -1057,6 +1057,8 @@ export const en: Translations = {
     'ui.checkpoint.restore': 'Restore checkpoint',
     'ui.checkpoint.undoThis': 'Undo this change',
     'ui.checkpoint.undoFromHere': 'Undo all changes from here',
+    'ui.checkpoint.action.diff': 'View changes',
+    'ui.checkpoint.action.more': 'More options',
     'ui.checkpoint.keepChat': 'Keep chat',
     'ui.checkpoint.deleteFromHere': 'Delete chat from here',
     'ui.checkpoint.cancel': 'Cancel',

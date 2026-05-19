@@ -4159,7 +4159,6 @@ export class AgentSidebarView extends ItemView {
         checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo,
     ): void {
         const marker = container.createDiv('checkpoint-marker');
-        marker.classList.add('checkpoint-clickable');
 
         const iconEl = marker.createSpan('checkpoint-icon');
         setIcon(iconEl, 'git-commit-vertical');
@@ -4174,61 +4173,52 @@ export class AgentSidebarView extends ItemView {
         });
         label.setText(t('ui.checkpoint.label', { files: allFiles, time }));
 
-        // Clicking the marker (icon + label area) opens the diff modal so the
-        // user can see exactly which files changed before deciding what to do.
-        // Clicks on the restore button or its expanded options stop propagation
-        // (see below) so they don't also open the modal.
-        marker.addEventListener('click', () => {
+        // Action buttons -- always visible, ghost-style, Lucide icons + Obsidian
+        // tooltip via aria-label. Pattern adapted from Kilo Code's CheckpointMenu
+        // (forked-kilocode/webview-ui/src/components/chat/checkpoints/CheckpointMenu.tsx):
+        // three primary icon buttons inline, plus a "more" overflow with the
+        // less common option (delete chat from here).
+        const actions = marker.createDiv('checkpoint-actions');
+
+        const diffBtn = this.makeCheckpointActionBtn(actions, 'file-diff', t('ui.checkpoint.action.diff'));
+        diffBtn.addEventListener('click', () => {
             void this.showCheckpointDiff(checkpoint);
         });
 
-        // Restore button expands into the four action options. stopPropagation
-        // keeps a button click from also triggering the labelGroup's diff handler.
-        const restoreBtn = marker.createEl('button', {
-            cls: 'checkpoint-restore-btn',
-            text: t('ui.checkpoint.restore'),
+        const undoThisBtn = this.makeCheckpointActionBtn(actions, 'undo-2', t('ui.checkpoint.undoThis'));
+        undoThisBtn.addEventListener('click', () => {
+            void this.restoreCheckpoint(checkpoint, marker, actions, false);
         });
-        restoreBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            restoreBtn.classList.add('agent-u-hidden');
 
-            const options = marker.createDiv('checkpoint-restore-options');
-            options.addEventListener('click', (e) => e.stopPropagation());
-
-            const undoThisBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn checkpoint-option-primary',
-                text: t('ui.checkpoint.undoThis'),
-            });
-            const undoFromHereBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn checkpoint-option-primary',
-                text: t('ui.checkpoint.undoFromHere'),
-            });
-            const deleteBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn checkpoint-option-delete',
-                text: t('ui.checkpoint.deleteFromHere'),
-            });
-            const cancelBtn = options.createEl('button', {
-                cls: 'checkpoint-option-btn',
-                text: t('ui.checkpoint.cancel'),
-            });
-
-            cancelBtn.addEventListener('click', () => {
-                options.remove();
-                restoreBtn.classList.remove('agent-u-hidden');
-            });
-
-            undoThisBtn.addEventListener('click', () => {
-                void this.restoreCheckpoint(checkpoint, marker, options, false);
-            });
-
-            undoFromHereBtn.addEventListener('click', () => {
-                void this.restoreCheckpointsForward(checkpoint, marker, options);
-            });
-
-            deleteBtn.addEventListener('click', () => {
-                void this.restoreCheckpoint(checkpoint, marker, options, true);
-            });
+        const undoFromHereBtn = this.makeCheckpointActionBtn(actions, 'rotate-ccw', t('ui.checkpoint.undoFromHere'));
+        undoFromHereBtn.addEventListener('click', () => {
+            void this.restoreCheckpointsForward(checkpoint, marker, actions);
         });
+
+        const moreBtn = this.makeCheckpointActionBtn(actions, 'more-vertical', t('ui.checkpoint.action.more'));
+        moreBtn.addEventListener('click', (ev) => {
+            const menu = new Menu();
+            menu.addItem((item) => {
+                item.setTitle(t('ui.checkpoint.deleteFromHere'));
+                item.setIcon('trash-2');
+                item.onClick(() => {
+                    void this.restoreCheckpoint(checkpoint, marker, actions, true);
+                });
+            });
+            menu.showAtMouseEvent(ev);
+        });
+    }
+
+    /**
+     * Make a ghost icon button for the checkpoint marker action row. The
+     * button has no border by default; styling lives on `.checkpoint-action-btn`.
+     * The aria-label is what Obsidian renders as the tooltip on hover.
+     */
+    private makeCheckpointActionBtn(parent: HTMLElement, icon: string, tooltip: string): HTMLButtonElement {
+        const btn = parent.createEl('button', { cls: 'checkpoint-action-btn' });
+        btn.setAttribute('aria-label', tooltip);
+        setIcon(btn, icon);
+        return btn;
     }
 
     /**

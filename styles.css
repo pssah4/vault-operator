@@ -3308,13 +3308,6 @@
     pointer-events: none;
 }
 
-/* Marker label area is clickable -- opens the diff modal. The pseudo-elements
-   above have pointer-events:none so clicks on the connecting lines do not
-   trigger anything. */
-.checkpoint-marker.checkpoint-clickable {
-    cursor: pointer;
-}
-
 .checkpoint-marker::after {
     background: linear-gradient(to left, transparent, var(--background-modifier-border));
 }
@@ -3334,56 +3327,55 @@
     font-size: 10px;
 }
 
-.checkpoint-restore-btn {
-    padding: 1px 6px;
-    font-size: 10px;
+/* Action row -- always visible ghost icon buttons.
+ * Pattern adapted from Kilo Code's CheckpointMenu
+ * (forked-kilocode/webview-ui/src/components/chat/checkpoints/CheckpointMenu.tsx):
+ * three primary actions in a row + a "more" overflow for the rarely-used
+ * "Delete chat from here" option. Borderless, transparent, icon-only,
+ * tooltip via aria-label. */
+.checkpoint-actions {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    margin-left: 2px;
+}
+
+.checkpoint-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
     background: transparent;
-    border: 1px solid var(--background-modifier-border);
+    border: none;
     border-radius: 3px;
     color: var(--text-faint);
     cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s;
+    opacity: 0.5;
+    box-shadow: none;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 
-.checkpoint-marker:hover .checkpoint-restore-btn {
+.checkpoint-marker:hover .checkpoint-action-btn {
+    opacity: 0.8;
+}
+
+.checkpoint-action-btn:hover {
     opacity: 1;
+    color: var(--interactive-accent);
+    background: var(--background-modifier-hover);
 }
 
-.checkpoint-restore-btn:hover {
-    border-color: var(--interactive-accent);
-    color: var(--interactive-accent);
+.checkpoint-action-btn svg {
+    width: 13px;
+    height: 13px;
 }
 
 .checkpoint-restored {
     color: var(--color-green);
     font-size: 10px;
-}
-
-/* Checkpoint restore options (expand on click) */
-.checkpoint-restore-options {
-    display: flex;
-    gap: 4px;
     margin-left: auto;
-}
-
-.checkpoint-option-btn {
-    padding: 1px 8px;
-    font-size: 10px;
-    background: transparent;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 3px;
-    color: var(--text-muted);
-    cursor: pointer;
-    white-space: nowrap;
-}
-.checkpoint-option-btn:hover {
-    border-color: var(--interactive-accent);
-    color: var(--interactive-accent);
-}
-.checkpoint-option-delete:hover {
-    border-color: var(--color-red);
-    color: var(--color-red);
 }
 
 /* ── Undo bar (fallback) ─────────────────────────────────────────────── */
