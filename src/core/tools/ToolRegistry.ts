@@ -24,6 +24,11 @@ import { AppendToFileTool } from './vault/AppendToFileTool';
 import { CreateFolderTool } from './vault/CreateFolderTool';
 import { DeleteFileTool } from './vault/DeleteFileTool';
 import { MoveFileTool } from './vault/MoveFileTool';
+// Import tools — vault: checkpoints (IMP-01-07-01)
+import { ListCheckpointsTool } from './vault/ListCheckpointsTool';
+import { ReadCheckpointTool } from './vault/ReadCheckpointTool';
+import { DiffCheckpointTool } from './vault/DiffCheckpointTool';
+import { RestoreCheckpointTool } from './vault/RestoreCheckpointTool';
 import { IngestDocumentTool } from './vault/IngestDocumentTool';
 import { IngestTriageTool } from './vault/IngestTriageTool';
 import { IngestDeepTool } from './vault/IngestDeepTool';
@@ -170,6 +175,11 @@ export class ToolRegistry {
         this.register(new CreateFolderTool(this.plugin));
         this.register(new DeleteFileTool(this.plugin));
         this.register(new MoveFileTool(this.plugin));
+        // Vault: checkpoints (IMP-01-07-01) -- agent-facing browse + restore
+        this.register(new ListCheckpointsTool(this.plugin));
+        this.register(new ReadCheckpointTool(this.plugin));
+        this.register(new DiffCheckpointTool(this.plugin));
+        this.register(new RestoreCheckpointTool(this.plugin));
         // Vault: intelligence (Phase 1.2)
         this.register(new GetFrontmatterTool(this.plugin));
         this.register(new UpdateFrontmatterTool(this.plugin));

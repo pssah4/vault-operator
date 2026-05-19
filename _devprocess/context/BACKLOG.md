@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-16 by security-audit (AUDIT-027 EPIC-26 Delta: 1 High resolved (Plaintext-Credentials in providerConfigs[] + legacy_active_models_backup -- CWE-312, gefixt via providerCredentialCrypto-Walker mit 11 Regression-Tests), 1 Low deferred zu IMP-26-04-01, 2 Info. npm audit clean. Release-Verdict: Green.)
+Last update: 2026-05-19 by coding (Checkpoints fuer Agent umgesetzt: IMP-01-07-01 (4 Tools list/read/diff/restore_checkpoint) + FIX-01-07-02 (UI-Rehydration via loadCheckpointsForTask + rehydrateCheckpointMarkers). 4 Commits auf feat/checkpoint-agent-access: 026727b5 docs, 59edeb8c service-rehydration, 7112c049 ui-fix, 1c0f256c tools. 36 neue Tests gruen, tsc clean.)
 
 ---
 
@@ -12,14 +12,14 @@ Last update: 2026-05-16 by security-audit (AUDIT-027 EPIC-26 Delta: 1 High resol
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
 | Planned | 29 | Released | 358 | Epic | 24 |
-| Active | 26 | Building | 62 | Feature | 212 |
-| Done | 255 | Planned | 25 | Fix | 59 |
-| Accepted | 110 | Candidates | 0 | Improvement | 18 |
+| Active | 26 | Building | 64 | Feature | 212 |
+| Done | 257 | Planned | 25 | Fix | 60 |
+| Accepted | 110 | Candidates | 0 | Improvement | 19 |
 | Draft | 12 |  |  | ADR | 117 |
 | Open | 5 |  |  | Plan | 15 |
 | Proposed | 7 |  |  |  |  |
 
-Total artifacts: 445
+Total artifacts: 447
 
 ---
 
@@ -63,6 +63,8 @@ Phase: Building | Status: Active
 | FIX-01-01-01 | Fix | Anthropic API rejects history with orphaned tool_use blocks | Done | Released | FEAT-01-01, EPIC-01 | BUG |  |  |  | P0  Issue: https://github.com/pssah4/vault-operator-dev/issues/68 |
 | FIX-01-12-01 | Fix | Drag-and-drop from Obsidian file explorer opens tab instead of attaching | Done | Released | FEAT-01-12, EPIC-01 | BUG |  |  |  | P1  Issue: https://github.com/pssah4/vault-operator-dev/issues/69 |
 | FIX-01-07-01 | Fix | 07-01: Checkpoint-Snapshot legt neue Dateien nicht ab -- 'No files staged' trotz newFiles=1 | Open | Building | FEAT-01-07, EPIC-01 | BUG |  |  | 2026-05-08 | P2 Live-Test 2026-05-08 (Logging vs. echter Snapshot-Bug zu validieren)  Issue: https://github.com/pssah4/vault-operator-dev/issues/63 |
+| FIX-01-07-02 | Fix | 07-02: Checkpoint-UI fehlt beim Wieder-Oeffnen einer alten Chat-History -- Markers + Undo-Bar rendern nur im taskCompleted-Pfad, in-memory taskCheckpoints leer nach Reload | Done | Building | FEAT-01-07, EPIC-01, IMP-01-07-01 | USER | 7112c049 | 2026-05-19 | 2026-05-19 | P1 Implementiert 2026-05-19. UiMessage += optional taskId (ConversationStore), beide assistant-push-Stellen stempeln taskId, neuer Helper rehydrateCheckpointMarkers ruft loadCheckpointsForTask + showUndoBar pro unique taskId beim loadConversation-Render. Auto-poppendes DiffReviewModal beim Reload bewusst weggelassen (sonst N Modals beim Oeffnen). Geteilte Service-Erweiterung mit IMP-01-07-01 (59edeb8c). Spec: `_devprocess/requirements/fixes/FIX-01-07-02-checkpoint-ui-missing-on-history-reload.md` |
+| IMP-01-07-01 | Improvement | 07-01: Checkpoints als Agent-Tools (list_checkpoints + read_checkpoint + diff_checkpoint + restore_checkpoint) -- Agent kann selbst alte Versionen finden und zurueckspielen | Done | Building | FEAT-01-07, EPIC-01, FIX-01-07-02 | USER | 1c0f256c | 2026-05-19 | 2026-05-19 | P1 Implementiert 2026-05-19. 4 Tools in src/core/tools/vault/ + Registry + TOOL_GROUP_META (read: list/read/diff_checkpoint, edit: restore_checkpoint) + i18n-Labels. Service-Layer: loadCheckpointsForTask + getCheckpointByOid (59edeb8c) + listAllCheckpoints (1c0f256c). restore_checkpoint nimmt eigenen Pre-Restore-Snapshot via service.snapshot('restore-<ts>', files) damit Restore selbst rueckgaengig gemacht werden kann. 36 Tests gruen (10 service-rehydration + 26 tools). Spec: `_devprocess/requirements/improvements/IMP-01-07-01-agent-tools-for-checkpoints.md` |
 
 ### EPIC-02: Rules, Workflows & Intelligence
 

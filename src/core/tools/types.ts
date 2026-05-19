@@ -20,6 +20,11 @@ export type ToolName =
     | 'create_folder'
     | 'delete_file'
     | 'move_file'
+    // Vault: checkpoints (IMP-01-07-01)
+    | 'list_checkpoints'
+    | 'read_checkpoint'
+    | 'diff_checkpoint'
+    | 'restore_checkpoint'
     // Vault: structured
     | 'create_base'
     | 'update_base'

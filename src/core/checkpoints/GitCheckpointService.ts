@@ -268,6 +268,48 @@ export class GitCheckpointService {
         return msg;
     }
 
+    /** Parse the optional NewFiles JSON section from a checkpoint commit
+     *  message. Bounded by NEW_FILES_MAX_BYTES + NEW_FILES_MAX_ENTRIES.
+     *  Shared between restoreLatestForTask, loadCheckpointsForTask, and
+     *  getCheckpointByOid -- all three need to reconstruct the new-file
+     *  list from the commit message after a plugin reload. */
+    private parseNewFilesFromMessage(msg: string): string[] {
+        const m = msg.match(/\n\nNewFiles:\s*(\[.*?\])/s);
+        if (!m || !m[1] || m[1].length > NEW_FILES_MAX_BYTES) return [];
+        try {
+            const parsed = JSON.parse(m[1]) as unknown;
+            if (!Array.isArray(parsed)) return [];
+            const out: string[] = [];
+            for (const item of parsed) {
+                if (typeof item === 'string') out.push(item);
+                if (out.length >= NEW_FILES_MAX_ENTRIES) break;
+            }
+            return out;
+        } catch {
+            return [];
+        }
+    }
+
+    /** Build a CheckpointInfo from a git.log / git.readCommit result.
+     *  Shared between loadCheckpointsForTask and getCheckpointByOid.
+     *  Returns null if the commit message is not a checkpoint commit. */
+    private checkpointInfoFromCommit(c: {
+        oid: string;
+        commit: { message: string; committer: { timestamp: number } };
+    }): CheckpointInfo | null {
+        const msg = c.commit.message;
+        const taskMatch = msg.match(/^checkpoint:(\S+)/);
+        if (!taskMatch || !taskMatch[1]) return null;
+        const newFiles = this.parseNewFilesFromMessage(msg);
+        return {
+            taskId: taskMatch[1],
+            commitOid: c.oid,
+            timestamp: new Date(c.commit.committer.timestamp * 1000).toISOString(),
+            filesChanged: this.parseFilesFromMessage(msg),
+            newFiles: newFiles.length > 0 ? newFiles : undefined,
+        };
+    }
+
     /** Parse the FilesJson or legacy Files line from a checkpoint commit
      *  message. Returns an empty array on any parse error or oversized
      *  input. AUDIT-030 M-2 + M-3. */
@@ -469,19 +511,9 @@ export class GitCheckpointService {
                 for (const f of files) {
                     fileToOid.set(f, match.oid);
                 }
-                const newFilesMatch = msg.match(/\n\nNewFiles:\s*(\[.*?\])/s);
-                if (newFilesMatch && newFilesMatch[1] && newFilesMatch[1].length <= NEW_FILES_MAX_BYTES) {
-                    try {
-                        const parsed = JSON.parse(newFilesMatch[1]) as unknown;
-                        if (Array.isArray(parsed)) {
-                            for (const item of parsed) {
-                                if (typeof item === 'string') newFilesSet.add(item);
-                                if (newFilesSet.size >= NEW_FILES_MAX_ENTRIES) break;
-                            }
-                        }
-                    } catch (e) {
-                        console.warn(`[Checkpoints] Could not parse NewFiles for ${JSON.stringify(taskId)}:`, e);
-                    }
+                for (const f of this.parseNewFilesFromMessage(msg)) {
+                    newFilesSet.add(f);
+                    if (newFilesSet.size >= NEW_FILES_MAX_ENTRIES) break;
                 }
             }
 
@@ -547,6 +579,86 @@ export class GitCheckpointService {
             const msg = e instanceof Error ? e.message : String(e);
             return { restored: [], errors: [msg] };
         }
+    }
+
+    /**
+     * Rehydrate the in-memory checkpoint list for a task by scanning the
+     * shadow repo. Used by the sidebar on chat-history reload (FIX-01-07-02)
+     * and by the list_checkpoints agent tool when filtered by taskId.
+     *
+     * Idempotent: subsequent calls overwrite the in-memory list with the
+     * freshly parsed one. Returns the list in chronological order (oldest
+     * first), matching the order a live snapshot() sequence would produce.
+     *
+     * Note: toolName and skipped are NOT persisted in commit messages, so
+     * the rehydrated CheckpointInfo entries leave those fields undefined.
+     */
+    async loadCheckpointsForTask(taskId: string): Promise<CheckpointInfo[]> {
+        if (!isVaultRelative(taskId) || taskId.includes('/') || taskId.includes('\\')) {
+            throw new Error(`[Checkpoints] Refused load for unsafe taskId: ${JSON.stringify(taskId)}`);
+        }
+        await this.ensureInit();
+        const fs = this.getFs();
+        const commits = await git.log({ fs, dir: this.repoPath });
+        const prefix = `checkpoint:${taskId}`;
+        const list: CheckpointInfo[] = [];
+        // git.log is newest-first; reverse so callers see chronological order.
+        for (const c of [...commits].reverse()) {
+            if (!c.commit.message.startsWith(prefix)) continue;
+            const info = this.checkpointInfoFromCommit(c);
+            if (info) list.push(info);
+        }
+        this.taskCheckpoints.set(taskId, list);
+        return list;
+    }
+
+    /**
+     * Look up a single checkpoint by its commit oid. Used by the agent
+     * tools (read/diff/restore_checkpoint) which only carry the oid in
+     * their tool-call payload.
+     *
+     * Returns null when the oid is unknown to the shadow repo or the
+     * commit is not a checkpoint commit. Throws on malformed oid input.
+     */
+    async getCheckpointByOid(oid: string): Promise<CheckpointInfo | null> {
+        if (typeof oid !== 'string' || !/^[0-9a-f]{40}$/.test(oid)) {
+            throw new Error(`[Checkpoints] Invalid checkpoint oid: ${JSON.stringify(oid)}`);
+        }
+        await this.ensureInit();
+        const fs = this.getFs();
+        try {
+            const result = await git.readCommit({ fs, dir: this.repoPath, oid });
+            return this.checkpointInfoFromCommit(result);
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Scan the shadow repo for all checkpoint commits across every task,
+     * newest first. Used by the list_checkpoints agent tool when no
+     * taskId filter is supplied.
+     *
+     * Does NOT populate the in-memory taskCheckpoints map -- that map is
+     * per-task, and a global scan would mix unrelated tasks together.
+     * Callers that want to restore must use getCheckpointByOid +
+     * restore() explicitly.
+     */
+    async listAllCheckpoints(limit = 50): Promise<CheckpointInfo[]> {
+        if (typeof limit !== 'number' || !Number.isFinite(limit) || limit <= 0 || limit > 1000) {
+            throw new Error(`[Checkpoints] Invalid limit: ${JSON.stringify(limit)}`);
+        }
+        await this.ensureInit();
+        const fs = this.getFs();
+        const commits = await git.log({ fs, dir: this.repoPath });
+        const list: CheckpointInfo[] = [];
+        for (const c of commits) {
+            if (!c.commit.message.startsWith('checkpoint:')) continue;
+            const info = this.checkpointInfoFromCommit(c);
+            if (info) list.push(info);
+            if (list.length >= limit) break;
+        }
+        return list;
     }
 
     /**
