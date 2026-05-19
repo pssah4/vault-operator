@@ -918,6 +918,10 @@ export interface ObsidianAgentSettings {
     _parentDirMigrated?: boolean;
     /** Whether the legacy in-vault folders (.obsilo, .obsilo-sync, .obsidian/.obsilo) have been cleaned up. */
     _legacyVaultDirsCleaned?: boolean;
+    /** Whether checkpoints/ and dev-env/ have been migrated out of the vault
+     *  into the cross-vault GlobalFileService root (2026-05-19 fix for iCloud
+     *  sync stalls on mobile). */
+    _pluginDataDirsMigrated?: boolean;
 
     // Task Extraction (FEATURE-100, ADR-026/027/028)
     taskExtraction: import('../core/tasks/types').TaskExtractionSettings;

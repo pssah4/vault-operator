@@ -127,6 +127,10 @@ task-note-creator         | src/core/tasks/TaskNoteCreator.ts                   
 agent-folder              | src/core/utils/agentFolderService.ts                  | ADR-72          | new agent-folder consumer: read via agentFolderService.getRoot()
 safe-regex                | src/core/utils/safeRegex.ts                           | -                | new regex with timeout: route through safeExec to avoid ReDoS
 
+# TYPES / GLOBAL DEFINITIONS (src/types/)
+settings                  | src/types/settings.ts                                 | ADR-115, ADR-120, ADR-122, ADR-123 | new settings key: extend Settings interface; respect providerConfigs[] tierMapping schema
+model-registry            | src/types/model-registry.ts                           | ADR-115, ADR-120, ADR-121 | new model output ceiling or budget helper: extend normalizeModelId / getModelOutputCeiling / resolveOutputBudget
+
 # SKILLS / VAULT DNA / MASTERY
 vault-dna                 | src/core/skills/VaultDNAScanner.ts                    | ADR-14          | new heuristic: extend scanner rule set
 self-authored-skills      | src/core/skills/SelfAuthoredSkillLoader.ts            | ADR-09, ADR-75 | new skill format: extend SKILL.md parser
@@ -258,6 +262,33 @@ ADR-88 | chatgpt-oauth          | ChatGPT OAuth Provider Architecture
 ADR-89 | chatgpt-oauth          | ChatGPT PKCE Loopback OAuth Flow
 ADR-90 | cost                   | Cost-Aware Agent Heuristics
 ADR-91 | mcp                    | MCP Pipeline Routing und IgnoreService at Index Build
+ADR-92 | knowledge-db           | knowledge.db Schema v10 Bundle (BA-25 Foundation, 4 neue Tabellen)
+ADR-93 | knowledge-maintenance  | Source-Identitaet-Modell (Domain-only fuer MVP, BA-25)
+ADR-94 | knowledge-maintenance  | Cluster-Halbwertszeit-Modell (BA-25)
+ADR-95 | knowledge-maintenance  | Frontmatter-Write Conflict-Detection (BA-25 Phase 4)
+ADR-96 | knowledge-maintenance  | MOC-Marker-Konvention (HTML-Comment-Marker, BA-25)
+ADR-97 | prompt-cache           | KV-Cache-Block-Lifecycle fuer Top-Hub-Block (BA-25)
+ADR-98 | knowledge-maintenance  | Pre-Triage-Tool-Architektur (eigenes ingest_triage-Tool, BA-25 Phase 3)
+ADR-99 | knowledge-maintenance  | Tension-Detection-Algorithmus (Hybrid Cosine plus LLM, BA-25)
+ADR-100 | knowledge-maintenance | Dialog-Ingest-State-Storage (ingest_session-Tabelle, BA-25)
+ADR-101 | knowledge-maintenance | Output-Modus-Architektur (3 Modi plus Folder-Layout plus Bibliografie, BA-25)
+ADR-102 | knowledge-maintenance | Auto-Trigger-Detection-Mechanik (vault.on-Listener, BA-25)
+ADR-103 | knowledge-maintenance | Source-Position-Marker und PDF-Strategie (BA-25)
+ADR-104 | knowledge-maintenance | Web-Search-Provider-Strategie (BYOK obligatorisch, BA-25)
+ADR-105 | knowledge-maintenance | Stufe-3 Job-Runner und Token-Budget-Enforcement (BA-25 Phase 5)
+ADR-106 | knowledge-maintenance | Health-Modal-Severity und Activity-Trigger-Cooldown (BA-25)
+ADR-107 | cross-surface         | MCP-Memory-Tools Versionierung (V1 update_memory deprecaten, V2 als save_to_memory, EPIC-23)
+ADR-108 | cross-surface         | Source-Interface-Tagging fuer cross-surface origin tracking (EPIC-23)
+ADR-109 | cross-surface         | Vault-zu-Memory-Bruecke via Single-Listener-Pattern (FEAT-03-25, supersedes ADR-87)
+ADR-110 | cross-surface         | Living-Document-Semantik plus Cross-Interface-Thread-Klammer (EPIC-23)
+ADR-111 | prompt-cache          | Provider Capability-Flag und Bedrock cachePoint (Erweiterung zu ADR-62)
+ADR-112 | attachments           | Attachment-Lifecycle im Sidebar (Snapshot vs API-Split, Push-Sync zum Tool-Layer)
+ADR-113 | agent-loop            | Subagent-Delegation fuer context-heavy Teilaufgaben (Per-Call-Token-Budget, EPIC-24)
+ADR-114 | agent-loop            | Autonomie-Governance (Token-/Kosten-Budget pro Task, Steering-Hook, EPIC-24)
+ADR-115 | agent-loop            | Internes Hilfs-Modell-Routing fuer Agent-interne LLM-Calls (EPIC-24)
+ADR-116 | agent-loop            | Active Skills: model-getriebenes On-demand-Laden statt Klassifikator-Inject (EPIC-24)
+ADR-117 | agent-loop            | Lazy-Loading von Tool-Schemas (EPIC-24) [Superseded by ADR-118]
+ADR-118 | agent-loop            | MCP-Tool-Listing-Cap, read_mcp_tool, Built-in deferred-Review (EPIC-24)
 ADR-120 | modell-routing        | Advisor-Pattern als Loop-Default (consult_flagship-Tool + mid-Tier-Hauptloop)
 ADR-121 | modell-routing        | Tier-Klassifikator-Strategie (Pattern + Capability + OpenRouter-Pricing)
 ADR-122 | provider-config       | Provider-only Settings-Schema (providers[]-Liste mit tierMapping)

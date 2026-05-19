@@ -55,7 +55,7 @@ Setting akzeptiert auch absolute Pfade ausserhalb der Vault.
 ### Implementation-Details
 
 ```typescript
-// src/core/utils/agentFolder.ts (neu)
+// agent folder helper (new module, concept "agent-folder", see ARCHITECTURE.map)
 import { normalizePath } from 'obsidian';
 import type { VaultOperatorPlugin } from '../../main';
 

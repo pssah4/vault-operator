@@ -4,7 +4,14 @@
  *
  * On-demand TypeScript compilation via esbuild-wasm. Both the JS module
  * and the WASM binary are downloaded from CDN on first use and cached
- * in the plugin data directory.
+ * OUTSIDE the vault at an absolute path passed in via the constructor.
+ *
+ * History: the cache used to live at
+ *   {vault}/.obsidian/plugins/<id>/dev-env/
+ * but the 11 MB WASM blob and its hash manifest were being replicated to
+ * every device that mounts the vault through iCloud / Obsidian Sync, which
+ * stalled mobile startups. Moved out of the vault on 2026-05-19 via
+ * migratePluginDataDirs.ts.
  *
  * Two compilation modes:
  * - transform(): Single file, no imports (~100ms)
@@ -21,6 +28,11 @@
 
 import { Notice, requestUrl } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- the cache
+// lives outside the vault, so vault.adapter is not an option. Same pattern as
+// GitCheckpointService. Desktop-only; the entire plugin is isDesktopOnly:true.
+const rawFs = require('fs') as typeof import('fs');
+import * as pathModule from 'path';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -30,7 +42,6 @@ const ESBUILD_VERSION = '0.24.2';
 const JS_CDN_URL = `https://cdn.jsdelivr.net/npm/esbuild-wasm@${ESBUILD_VERSION}/lib/browser.js`;
 const WASM_CDN_URL = `https://cdn.jsdelivr.net/npm/esbuild-wasm@${ESBUILD_VERSION}/esbuild.wasm`;
 
-const CACHE_DIR_NAME = 'dev-env';
 const JS_CACHE_FILE = `esbuild-browser-${ESBUILD_VERSION}.js`;
 const WASM_CACHE_FILE = `esbuild-${ESBUILD_VERSION}.wasm`;
 
@@ -94,10 +105,14 @@ export class EsbuildWasmManager {
     private hashManifest: PackageHashManifest = {};
     private hashManifestLoaded = false;
 
-    constructor(private plugin: ObsidianAgentPlugin) {
-        const configDir = plugin.app.vault.configDir;
-        const pluginId = plugin.manifest.id;
-        this.cacheDir = `${configDir}/plugins/${pluginId}/${CACHE_DIR_NAME}`;
+    /**
+     * @param plugin Plugin instance (only used for Notices during downloads).
+     * @param cacheAbsDir Absolute filesystem path to the cache directory.
+     *   Must be writable via Node fs. Lives outside the vault to keep
+     *   iCloud / Obsidian Sync clean.
+     */
+    constructor(private plugin: ObsidianAgentPlugin, cacheAbsDir: string) {
+        this.cacheDir = cacheAbsDir;
     }
 
     // -----------------------------------------------------------------------
@@ -245,9 +260,15 @@ export class EsbuildWasmManager {
     // -----------------------------------------------------------------------
 
     private async ensureCacheDir(): Promise<void> {
-        const adapter = this.plugin.app.vault.adapter;
-        if (!await adapter.exists(this.cacheDir)) {
-            await adapter.mkdir(this.cacheDir);
+        await rawFs.promises.mkdir(this.cacheDir, { recursive: true });
+    }
+
+    private async fsExists(p: string): Promise<boolean> {
+        try {
+            await rawFs.promises.access(p);
+            return true;
+        } catch {
+            return false;
         }
     }
 
@@ -256,12 +277,11 @@ export class EsbuildWasmManager {
      * Verifies SHA-256 integrity hash on download.
      */
     private async getCachedOrDownloadText(filename: string, cdnUrl: string): Promise<string> {
-        const path = `${this.cacheDir}/${filename}`;
-        const adapter = this.plugin.app.vault.adapter;
+        const file = pathModule.join(this.cacheDir, filename);
 
-        if (await adapter.exists(path)) {
+        if (await this.fsExists(file)) {
             console.debug(`[EsbuildWasmManager] Loading cached: ${filename}`);
-            return await adapter.read(path);
+            return await rawFs.promises.readFile(file, 'utf-8');
         }
 
         console.debug(`[EsbuildWasmManager] Downloading: ${cdnUrl}`);
@@ -273,7 +293,7 @@ export class EsbuildWasmManager {
         // Integrity verification
         await this.verifyIntegrity(filename, response.arrayBuffer);
 
-        await adapter.write(path, response.text);
+        await rawFs.promises.writeFile(file, response.text, 'utf-8');
         console.debug(`[EsbuildWasmManager] Cached: ${filename}`);
         return response.text;
     }
@@ -283,12 +303,13 @@ export class EsbuildWasmManager {
      * Verifies SHA-256 integrity hash on download.
      */
     private async getCachedOrDownloadBinary(filename: string, cdnUrl: string): Promise<ArrayBuffer> {
-        const path = `${this.cacheDir}/${filename}`;
-        const adapter = this.plugin.app.vault.adapter;
+        const file = pathModule.join(this.cacheDir, filename);
 
-        if (await adapter.exists(path)) {
+        if (await this.fsExists(file)) {
             console.debug(`[EsbuildWasmManager] Loading cached: ${filename}`);
-            return await adapter.readBinary(path);
+            const buf = await rawFs.promises.readFile(file);
+            // Return a fresh ArrayBuffer so callers cannot mutate the underlying Buffer.
+            return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
         }
 
         console.debug(`[EsbuildWasmManager] Downloading: ${cdnUrl} (this may take a moment)`);
@@ -300,7 +321,7 @@ export class EsbuildWasmManager {
         // Integrity verification
         await this.verifyIntegrity(filename, response.arrayBuffer);
 
-        await adapter.writeBinary(path, response.arrayBuffer);
+        await rawFs.promises.writeFile(file, Buffer.from(response.arrayBuffer));
         console.debug(`[EsbuildWasmManager] Cached: ${filename}`);
         return response.arrayBuffer;
     }
@@ -349,11 +370,10 @@ export class EsbuildWasmManager {
      */
     private async loadHashManifest(): Promise<void> {
         this.hashManifestLoaded = true;
-        const path = `${this.cacheDir}/package-hashes.json`;
+        const file = pathModule.join(this.cacheDir, 'package-hashes.json');
         try {
-            const adapter = this.plugin.app.vault.adapter;
-            if (await adapter.exists(path)) {
-                const raw: unknown = JSON.parse(await adapter.read(path));
+            if (await this.fsExists(file)) {
+                const raw: unknown = JSON.parse(await rawFs.promises.readFile(file, 'utf-8'));
                 if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
                     this.hashManifest = raw as PackageHashManifest;
                 }
@@ -367,13 +387,10 @@ export class EsbuildWasmManager {
      * M-2: Save TOFU hash manifest to disk.
      */
     private async saveHashManifest(): Promise<void> {
-        const path = `${this.cacheDir}/package-hashes.json`;
+        const file = pathModule.join(this.cacheDir, 'package-hashes.json');
         try {
-            const adapter = this.plugin.app.vault.adapter;
-            if (!(await adapter.exists(this.cacheDir))) {
-                await adapter.mkdir(this.cacheDir);
-            }
-            await adapter.write(path, JSON.stringify(this.hashManifest, null, 2));
+            await rawFs.promises.mkdir(this.cacheDir, { recursive: true });
+            await rawFs.promises.writeFile(file, JSON.stringify(this.hashManifest, null, 2), 'utf-8');
         } catch (e) {
             console.warn('[EsbuildWasmManager] Failed to save package hash manifest:', e);
         }

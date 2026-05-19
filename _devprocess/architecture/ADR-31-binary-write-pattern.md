@@ -30,7 +30,7 @@ Dieses Pattern ist bereits in `SandboxBridge.ts:89-104` implementiert und bewaeh
 Extraktion des Binary-Write-Logic aus SandboxBridge in eine wiederverwendbare Utility-Funktion:
 
 ```typescript
-// src/core/tools/vault/writeBinaryToVault.ts
+// shared binary writer helper (concept "binary-write-pattern", see ARCHITECTURE.map)
 export async function writeBinaryToVault(
     vault: Vault,
     path: string,

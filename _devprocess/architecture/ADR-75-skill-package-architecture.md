@@ -8,11 +8,10 @@
 
 Vault Operator laedt Skills heute als einzelne `SKILL.md` Files in Unterordnern
 (`bundled-skills/<slug>/SKILL.md` oder `<agent-folder>/skills/<slug>/SKILL.md`).
-Der `SelfAuthoredSkillLoader` scannt diese Ordner bereits
-([src/core/skills/SelfAuthoredSkillLoader.ts:115](../../src/core/skills/SelfAuthoredSkillLoader.ts#L115))
-und liest den YAML-Frontmatter (`name`, `description`, `trigger`, `source`,
-`requiredTools`). Subfolders innerhalb eines Skill-Ordners werden heute
-ignoriert.
+Der `SelfAuthoredSkillLoader` (Konzept `self-authored-skills`, siehe
+ARCHITECTURE.map) scannt diese Ordner bereits und liest den YAML-Frontmatter
+(`name`, `description`, `trigger`, `source`, `requiredTools`). Subfolders
+innerhalb eines Skill-Ordners werden heute ignoriert.
 
 Anthropic hat im Spaetsommer 2025 einen offenen Skill-Standard publiziert
 ([agentskills.io/specification](https://agentskills.io/specification)):
@@ -148,7 +147,8 @@ fuer bestehende User-Skills die keinen Frontmatter-Name haben).
 
 #### 3. Loader-Umbau (FEAT-22-01)
 
-Erweiterung von [SelfAuthoredSkillLoader.ts:115](../../src/core/skills/SelfAuthoredSkillLoader.ts#L115):
+Erweiterung des `SelfAuthoredSkillLoader` (Konzept `self-authored-skills`,
+siehe ARCHITECTURE.map):
 
 ```typescript
 interface SkillInventory {
@@ -212,11 +212,11 @@ Dispatchen -- der LLM entscheidet.
 
 #### 5. Zip-Import (FEAT-22-02)
 
-Neuer UI-Button in [SkillsTab](../../src/ui/settings/SkillsTab.ts):
-"Import skill package...". Ablauf:
+Neuer UI-Button in der Skills-Settings-Tab (Konzept `modals` /
+SettingsTabs): "Import skill package...". Ablauf:
 
 ```typescript
-// src/core/skills/SkillPackageImporter.ts (neu)
+// new SkillPackageImporter module (concept "self-authored-skills", see ARCHITECTURE.map)
 export class SkillPackageImporter {
   static readonly WHITELIST = [
     /^SKILL\.md$/,
@@ -333,7 +333,7 @@ Dort gibt es keinen `SKILL.md` neben, daher kein Coordinator-Match.
 - Python/Bash-Runtime via Docker-Sidecar (Security-heavy, eigenes Epic).
 - Online-Skill-Registry / "Skill Store" (UX-Epic, benoetigt Gateway).
 
-### Implementation Notes (Coding-Review 2026-04-18)
+## Implementation Notes (Coding-Review 2026-04-18)
 
 Die Review gegen die Codebase hat drei Annahmen des Entwurfs praezisiert:
 

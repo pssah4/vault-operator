@@ -86,7 +86,7 @@ EPIC-21 fuehrt einen neuen LLM-Provider ein, der das ChatGPT-Plus/Pro-Abo als Ba
 **Architektur-Uebersicht:**
 
 ```
-ChatGptOAuthService (Singleton, src/core/auth/)
+ChatGptOAuthService (Singleton; concept chatgpt-oauth-auth, see ARCHITECTURE.map)
   startAuthFlow()           -> oeffnet Browser, startet Loopback-Server (siehe ADR-89)
   handleCallback(code)      -> tauscht Code gegen Tokens, persistiert via SafeStorage
   getValidAccessToken()     -> Auto-Refresh 60s vor Ablauf, Promise-Lock
@@ -94,7 +94,7 @@ ChatGptOAuthService (Singleton, src/core/auth/)
   disconnect()              -> SafeStorage clear, Settings reset
   getAccountInfo()          -> { accountId, email, planTier } aus id_token
 
-ChatGptOAuthProvider (implements ApiHandler, src/api/providers/)
+ChatGptOAuthProvider (implements ApiHandler; concept api-handler / chatgpt-oauth)
   constructor(config, authService)
   createMessage(messages, tools, metadata)
     -> CodexResponseMapper.toRequest(messages, tools)
@@ -102,12 +102,12 @@ ChatGptOAuthProvider (implements ApiHandler, src/api/providers/)
     -> CodexResponseMapper.fromStream(events) -> ApiStream
   getModel()                -> aus Settings.chatgptOAuth.model
 
-CodexResponseMapper (src/api/providers/chatgpt-codex-mapper.ts)
+CodexResponseMapper (separates Modul fuer Request- und Stream-Mapping)
   toRequest(messages, tools) -> CodexRequest
   fromStream(events)         -> AsyncIterable<ApiStreamChunk>
   parseEvent(event)          -> Type-Guard auf bekannte Schema-Versionen
 
-PkceLoopbackServer (src/core/auth/PkceLoopbackServer.ts, siehe ADR-89)
+PkceLoopbackServer (siehe ADR-89; konkrete Datei in ARCHITECTURE.map "chatgpt-oauth-auth")
 ```
 
 **Sub-Decisions:**

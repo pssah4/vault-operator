@@ -69,7 +69,7 @@ Begruendung: Zod ist fuer 6 Tools Overkill. Die manuelle Interface-Definition is
 ### Implementation-Skizze
 
 ```typescript
-// src/mcp/tools/argHelpers.ts (neu)
+// MCP arg helpers (new module, see ARCHITECTURE.map concept "mcp-bridge")
 export function coerceStringArg(
     args: unknown,
     key: string,
@@ -88,7 +88,7 @@ export function coerceNumberArg(args: unknown, key: string, fallback: number): n
 ```
 
 ```typescript
-// src/mcp/tools/searchVault.ts (Beispiel)
+// example MCP tool using the typed-args pattern
 export interface SearchVaultArgs {
     query: string;
     limit?: number;

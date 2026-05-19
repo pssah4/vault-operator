@@ -1,13 +1,19 @@
 /**
  * GitCheckpointService - isomorphic-git based snapshot/restore (Sprint 1.4)
  *
- * Maintains a shadow git repository at:
- *   .obsidian/plugins/vault-operator/checkpoints/
+ * Maintains a shadow git repository OUTSIDE the vault, at an absolute path
+ * passed in via the constructor (today: {vault-parent}/vault-operator-shared/checkpoints).
  *
  * Before each task's first write operation, it commits a snapshot of all
  * tracked files. If the user triggers undo, we restore from the snapshot.
  *
  * Uses isomorphic-git — pure JS, no native git binary required.
+ *
+ * History: the shadow repo used to live at {vault}/.obsidian/plugins/<id>/checkpoints
+ * (inside the vault). That worked on local SSD but stalled iCloud / Obsidian
+ * Sync clients because the directory routinely grew past 100 MB across
+ * thousands of tiny git-object files. Moved out of the vault on 2026-05-19
+ * via migratePluginDataDirs.ts.
  *
  * ADR-003: Shadow-repo approach for robust undo without modifying the vault's
  * own git history (if any).
@@ -18,10 +24,10 @@ import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- isomorphic-git
 // needs the raw Node fs module as its plugin; routing through safeFs caused an
 // indefinite hang during git.resolveRef on iCloud-backed vaults (2026-05-16).
-// Repo scope is confined to <vault>/.obsidian/plugins/<id>/checkpoints, which is
-// inside vaultRoot and therefore within the allowlist's logical boundary anyway.
+// The repo also lives outside the vault now (2026-05-19), so vault.adapter is
+// no longer an option for repo-internal I/O.
 const rawFs = require('fs') as typeof import('fs');
-import { TFile, TFolder, type App, type FileSystemAdapter, type Vault } from 'obsidian';
+import { TFile, TFolder, type App, type Vault } from 'obsidian';
 
 export interface CheckpointInfo {
     taskId: string;
@@ -61,23 +67,25 @@ export interface RestoreResult {
 export class GitCheckpointService {
     private app: App;
     private vault: Vault;
-    /** Absolute filesystem path to the shadow repo */
+    /** Absolute filesystem path to the shadow repo (outside the vault). */
     private repoPath: string;
-    /** Vault-relative path to the shadow repo (for vault.adapter calls) */
-    private repoRelPath: string;
     private initialized = false;
     private timeoutMs: number;
     private autoCleanup: boolean;
     /** In-memory checkpoint tracking per task (Kilo Code pattern: _checkpoints[]) */
     private taskCheckpoints = new Map<string, CheckpointInfo[]>();
 
-    constructor(app: App, vault: Vault, pluginDir: string, timeoutSeconds = 30, autoCleanup = true) {
+    /**
+     * @param app Obsidian App instance (used for vault writes during restore).
+     * @param vault Obsidian Vault (used for reading file content during snapshot).
+     * @param repoAbsPath Absolute filesystem path to the shadow git repo.
+     *   Must be writable via Node fs. Lives outside the vault so it does not
+     *   bloat iCloud / Obsidian Sync.
+     */
+    constructor(app: App, vault: Vault, repoAbsPath: string, timeoutSeconds = 30, autoCleanup = true) {
         this.app = app;
         this.vault = vault;
-        this.repoRelPath = `${pluginDir}/checkpoints`;
-        // isomorphic-git needs an absolute path
-        const vaultRoot = (vault.adapter as FileSystemAdapter).basePath;
-        this.repoPath = `${vaultRoot}/${this.repoRelPath}`;
+        this.repoPath = repoAbsPath;
         this.timeoutMs = timeoutSeconds * 1000;
         this.autoCleanup = autoCleanup;
     }
@@ -89,11 +97,10 @@ export class GitCheckpointService {
     async initialize(): Promise<void> {
         if (this.initialized) return;
         try {
-            // Ensure directory exists
-            const exists = await this.vault.adapter.exists(this.repoRelPath);
-            if (!exists) {
-                await this.vault.adapter.mkdir(this.repoRelPath);
-            }
+            // Ensure directory exists (outside the vault, so vault.adapter is
+            // not an option -- use rawFs directly, same plugin we hand to
+            // isomorphic-git below).
+            await rawFs.promises.mkdir(this.repoPath, { recursive: true });
 
             // Check if already a git repo
             const fs = this.getFs();
@@ -106,7 +113,7 @@ export class GitCheckpointService {
                     dir: this.repoPath,
                     defaultBranch: 'main',
                 });
-                console.debug('[Checkpoints] Shadow repo initialized');
+                console.debug('[Checkpoints] Shadow repo initialized at', this.repoPath);
             }
             this.initialized = true;
         } catch (e) {

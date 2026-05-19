@@ -652,6 +652,9 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // 2. Initialize core services
         const pluginDir = `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
+        const pluginDataRoot = this.globalFs.getRoot();
+        const checkpointsAbsPath = `${pluginDataRoot}/checkpoints`;
+        const devEnvAbsPath = `${pluginDataRoot}/dev-env`;
 
         // FEATURE-1508: One-time migration from ~/.obsidian-agent/ to {vault-parent}/.obsidian-agent/
         if (!this.settings._parentDirMigrated) {
@@ -660,6 +663,41 @@ export default class ObsidianAgentPlugin extends Plugin {
             );
             this.settings._parentDirMigrated = true;
             await this.saveData({ ...this.settings, _parentDirMigrated: true });
+        }
+
+        // 2026-05-19: Move large internal caches OUT of the vault. iCloud and
+        // Obsidian Sync used to replicate <vault>/.obsidian/plugins/<id>/checkpoints
+        // (often 100+ MB across thousands of git-object files) and dev-env/
+        // (11 MB esbuild WASM) to every device, which stalled mobile startups.
+        // Both now live next to GlobalFileService's root, outside the vault.
+        // Idempotent and best-effort; failures degrade to a no-op.
+        if (!this.settings._pluginDataDirsMigrated) {
+            try {
+                const { planPluginDataMigration, migratePluginDataDirs } =
+                    await import('./core/utils/migratePluginDataDirs');
+                const targets = planPluginDataMigration(
+                    vaultBasePath,
+                    this.app.vault.configDir,
+                    this.manifest.id,
+                    pluginDataRoot,
+                );
+                const report = await migratePluginDataDirs(targets);
+                if (report.migrated > 0) {
+                    console.debug('[Plugin] Moved plugin data dirs out of vault:', report);
+                    new Notice(
+                        `Vault Operator: ${report.migrated} internal cache(s) moved out of vault sync.`,
+                        6000,
+                    );
+                }
+                const failed = report.entries.filter((e) => e.status === 'failed');
+                if (failed.length > 0) {
+                    console.warn('[Plugin] Plugin data dir migration partial failures:', failed);
+                }
+            } catch (e) {
+                console.warn('[Plugin] Plugin data dir migration failed (non-fatal):', e);
+            }
+            this.settings._pluginDataDirsMigrated = true;
+            await this.saveSettings();
         }
 
         // Legacy in-vault folder cleanup. Pre-FEATURE-1508 the plugin
@@ -718,11 +756,13 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.operationLogger = new OperationLogger(this.globalFs);
         await this.operationLogger.initialize();
 
-        // Checkpoints (isomorphic-git shadow repo)
+        // Checkpoints (isomorphic-git shadow repo).
+        // Lives outside the vault (see migratePluginDataDirs.ts) to keep
+        // iCloud / Obsidian Sync from replicating 100+ MB of git objects.
         this.checkpointService = new GitCheckpointService(
             this.app,
             this.app.vault,
-            pluginDir,
+            checkpointsAbsPath,
             this.settings.checkpointTimeoutSeconds,
             this.settings.checkpointAutoCleanup,
         );
@@ -740,9 +780,10 @@ export default class ObsidianAgentPlugin extends Plugin {
             );
         }
 
-        // Sandbox + Dynamic Modules (Phase 3) — lazy initialization (ADR-021: OS-level isolation)
+        // Sandbox + Dynamic Modules (Phase 3) — lazy initialization (ADR-021: OS-level isolation).
+        // esbuild WASM cache lives outside the vault (see migratePluginDataDirs.ts).
         this.sandboxExecutor = createSandboxExecutor(this, this.settings.sandboxMode);
-        this.esbuildWasmManager = new EsbuildWasmManager(this);
+        this.esbuildWasmManager = new EsbuildWasmManager(this, devEnvAbsPath);
         this.dynamicToolLoader = new DynamicToolLoader(this);
 
         // Self-Authored Skills (Phase 2+3: unified skills with optional code modules)

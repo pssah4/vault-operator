@@ -986,6 +986,18 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-72](ADR-72-configurable-agent-storage-root.md) | Konfigurierbarer Agent-Storage-Root (EPIC-05, FEAT-05-07) |
 | [ADR-73](ADR-73-mcp-tool-argument-typesafety.md) | MCP-Tool-Argument Type-Safety (Querschnitt: Review-Bot-Compliance) |
 | [ADR-74](ADR-74-dependency-override-strategy.md) | Dependency-Override-Strategie fuer transitive Vulnerabilities (Querschnitt: Security-Maintenance) |
+| [ADR-75](ADR-75-skill-package-architecture.md) | Skill-Package-Architektur (Anthropic-kompatibel plus Coordinator, EPIC-22) |
+| [ADR-76](ADR-76-episode-fact-boundary.md) | Episode-Fact-Boundary (Memory v2, EPIC-03) |
+| [ADR-77](ADR-77-memory-v2-storage-schema.md) | Memory v2 Storage Schema (Knowledge-DB-Tabellen, EPIC-03) |
+| [ADR-78](ADR-78-uri-versioning-schema.md) | URI-Schema fuer Memory-Knoten (Memory v2, EPIC-03) |
+| [ADR-79](ADR-79-knowledge-db-hardening.md) | Knowledge-DB-Haertung (Atomic Write, Multi-File-Commit, FEAT-03-14) |
+| [ADR-80](ADR-80-persistence-service-pattern.md) | Persistenz-Service-Pattern fuer Memory-v2-Setup-Klassen |
+| [ADR-81](ADR-81-mcp-routing-rpc-auth.md) | MCP-Tool-Routing plus Plugin-Standalone-RPC |
+| [ADR-82](ADR-82-topic-inference-strategy.md) | Topic-Inference-Strategie (Memory v2, EPIC-03) |
+| [ADR-83](ADR-83-single-call-tool-output-schema.md) | Single-Call Tool-Calling Output-Schema (Memory v2, EPIC-03) |
+| [ADR-84](ADR-84-engine-api-versioning.md) | Engine-Public-API-Versionierung (Memory v2, EPIC-03) |
+| [ADR-85](ADR-85-soft-delete-cascade.md) | Soft-Delete-Cascade (Memory v2, EPIC-03) |
+| [ADR-86](ADR-86-inference-pass-architecture.md) | Inference-Pass-Architektur (Memory v2, EPIC-03) |
 | [ADR-88](ADR-88-chatgpt-oauth-provider-architecture.md) | ChatGPT OAuth Provider Architecture (Service plus Mapper, Node-https-Streaming, verschachteltes Settings-Schema, EPIC-21) |
 | [ADR-89](ADR-89-chatgpt-pkce-loopback-flow.md) | ChatGPT PKCE Loopback OAuth Flow (Renderer-Loopback-Server auf 127.0.0.1, Port-Range, EPIC-21) |
 | [ADR-90](ADR-90-cost-aware-agent-heuristics.md) | Cost-Aware Agent Heuristics (Token-Budget pro Tool-Loop, EPIC-18) |
@@ -1017,6 +1029,10 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-116](ADR-116-active-skills-on-demand.md) | Active Skills: model-getriebenes On-demand-Laden statt Klassifikator-Inject (EPIC-24) |
 | [ADR-117](ADR-117-lazy-loading-tool-schemas.md) | Lazy-Loading von Tool-Schemas: Built-in und MCP (per-Server-Katalog, Schema on-demand, EPIC-24) -- **Superseded by ADR-118 (2026-05-13)** nach Codebase-Reconciliation |
 | [ADR-118](ADR-118-mcp-listing-cap-and-builtin-deferred-review.md) | MCP-Tool-Listing-Cap, read_mcp_tool, und Built-in deferred-Review (EPIC-24, supersediert ADR-117) |
+| [ADR-120](ADR-120-advisor-pattern-loop-default.md) | Advisor-Pattern als Loop-Default (consult_flagship-Tool plus mid-Tier-Hauptloop, EPIC-26) |
+| [ADR-121](ADR-121-tier-classifier-strategy.md) | Tier-Klassifikator-Strategie (Pattern plus Capability plus OpenRouter-Pricing, EPIC-26) |
+| [ADR-122](ADR-122-provider-only-settings-schema.md) | Provider-only Settings-Schema (providers[]-Liste mit tierMapping, EPIC-26) |
+| [ADR-123](ADR-123-settings-schema-migration.md) | Settings-Schema-Migration und Recovery-Pfad (EPIC-26) |
 
 ---
 

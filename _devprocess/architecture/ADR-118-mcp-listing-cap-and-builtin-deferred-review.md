@@ -31,12 +31,12 @@ ein anderes Bild:
    sind genau das eine `use_mcp_tool`-Schema.
 
 2. **MCP-Tool-Liste lebt als Text im stabilen Praefix-Block.**
-   [systemPrompt.ts Section 4](../../src/core/systemPrompt.ts#L194-L216)
-   ruft `getToolsSection(... mcpClient ...)`. Diese Section liegt vor
-   `CACHE_BREAKPOINT_MARKER`; sie ist Teil des gecachten Praefix.
-   [prompts/sections/tools.ts:38-60](../../src/core/prompts/sections/tools.ts#L38-L60)
-   rendert pro MCP-Tool eine Zeile `server: tool_name -- description`.
-   Die Description ist ungekappt.
+   Die System-Prompt-Section "Available Tools" (Konzept `kv-cache-prompt`,
+   siehe ARCHITECTURE.map) ruft den Tools-Section-Renderer
+   (Konzept `prompt-sections`) und uebergibt den MCP-Client. Diese Section
+   liegt vor `CACHE_BREAKPOINT_MARKER`; sie ist Teil des gecachten Praefix.
+   Der Renderer erzeugt pro MCP-Tool eine Zeile
+   `server: tool_name -- description`. Die Description ist ungekappt.
 
 Damit ist das "stabile Verzeichnis"-Ziel aus ADR-117 bereits erreicht
 (via FEAT-24-01 / ADR-62-Amendment). Was bleibt, sind zwei reale Posten:
@@ -117,8 +117,8 @@ identifiziere weitere Built-in-Kandidaten (low-risk).
 
 **Option 3.** Drei additive Aenderungen, in Reihenfolge ihres Hebels:
 
-1. **MCP-Tool-Description-Cap in [prompts/sections/tools.ts](../../src/core/prompts/sections/tools.ts)**:
-   Pro Tool max. 200 chars Description. Kappung mit Suffix
+1. **MCP-Tool-Description-Cap im Tools-Section-Renderer** (Konzept
+   `prompt-sections`, siehe ARCHITECTURE.map): Pro Tool max. 200 chars Description. Kappung mit Suffix
    `... [full description: read_mcp_tool({ server: "X", name: "Y" })]`.
    Tools unter dem Cap bleiben unveraendert.
 
