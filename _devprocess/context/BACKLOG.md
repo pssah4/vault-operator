@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-21 by coding (FEAT-29-11 Welle 4 zweites Feature done + Live-Test bestaetigt. Alle 5 Steps durch: data/skills/-Layout konsolidiert, Edit-Button oeffnet Folder, Built-ins materialisiert via BuiltinSkillMaterializer + esbuild recursive scan, Plugin-Readmes weg, Export als ZIP via jszip. Plus 2 Live-Fixes: User-Skills-Filter in beiden Loops von SkillsTab.collectUnifiedSkills (SkillsManager.discoverSkills liest ueber GlobalFileService-root denselben data/skills/-Ordner), Auto-Rescan im SkillsTab wenn scanner.hasScanned===false, Customize-Tab-Icon toolbox via addIcon-Polyfill fuer aeltere Obsidian-Builds. 10 neue BuiltinSkillMaterializer-Tests gruen, 1888/1909 gesamt, 21 baseline unveraendert. PLAN-31 done. Naechste Schritte: /testing + /security-audit fuer FEAT-29-11, dann Test+Audit-Nachholpass fuer FEAT-29-02/03/04.)
+Last update: 2026-05-21 by testing (FEAT-29-11 Welle 4 zweites Feature /testing-Pass: 12 neue Tests fuer die Live-Fixes. 5 in userSkillSource.test.ts fuer den User-Skill-Source-Filter (Helper aus SkillsTab.ts in eigenes Modul extrahiert damit vitest nicht ueber Obsidian-Modal-Import stolpert). 7 in VaultDNAScanner-writeSkillFile.test.ts: 3 fuer hasScanned-Flag (false vor fullScan, true danach, sticky), 4 fuer per-write references/-Cleanup (dropt readme.md, dropt commands.md, rmdir leer, idempotent ohne references/). 1900/1921 Tests gruen, 21 baseline unveraendert. Build green 4.4 MB. Naechster Schritt: /security-audit fuer FEAT-29-11, dann Test+Audit-Nachholpass fuer FEAT-29-02/03/04.)
 
 ---
 

@@ -314,6 +314,108 @@ describe('VaultDNAScanner.writeSkillFile (FEAT-29-02)', () => {
         });
     });
 
+    /**
+     * FEAT-29-11 follow-up: hasScanned flag drives the SkillsTab
+     * auto-rescan kick-off. It must be false before any fullScan has
+     * completed and true after, so the UI can distinguish "scanner has
+     * not run yet" from "scanner ran and the user has no plugin skills".
+     */
+    describe('hasScanned flag (FEAT-29-11 auto-rescan signal)', () => {
+        it('is false before any fullScan completes', () => {
+            const { scanner } = makeScanner(true);
+            expect(scanner.hasScanned).toBe(false);
+        });
+
+        it('flips to true after fullScan resolves', async () => {
+            const { scanner } = makeScanner(true);
+            expect(scanner.hasScanned).toBe(false);
+            await scanner.fullScan();
+            expect(scanner.hasScanned).toBe(true);
+        });
+
+        it('stays true on subsequent fullScan calls (sticky)', async () => {
+            const { scanner } = makeScanner(true);
+            await scanner.fullScan();
+            await scanner.fullScan();
+            expect(scanner.hasScanned).toBe(true);
+        });
+    });
+
+    /**
+     * FEAT-29-11 follow-up: every writeFolderFormat call must idempotently
+     * drop any stale references/ subfolder under the plugin skill. The
+     * init-time Stage-3 cleanup only triggered when SKILL.md already
+     * carried the `source: <plugin-id>` marker, which it does not on the
+     * first post-upgrade scan, so a pre-FEAT-29-11 references/readme.md
+     * would survive. Doing the cleanup per-write closes that gap.
+     */
+    describe('per-write references/ cleanup (FEAT-29-11)', () => {
+        it('drops a pre-existing references/readme.md when writing the new SKILL.md', async () => {
+            const { scanner, stub } = makeScanner(true);
+            // Seed a stale Welle-2 references/readme.md. The stub adapter does
+            // not auto-track parent folders on write, so mkdir explicitly so
+            // the production exists()-check finds the references/ folder.
+            await stub.adapter.mkdir('.vault-operator/data/skills/dataview');
+            await stub.adapter.mkdir('.vault-operator/data/skills/dataview/references');
+            await stub.adapter.write(
+                '.vault-operator/data/skills/dataview/references/readme.md',
+                '# old generated readme',
+            );
+            expect(stub.files.has('.vault-operator/data/skills/dataview/references/readme.md')).toBe(true);
+
+            const skill = makeSkill({ id: 'dataview', name: 'Dataview' });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+
+            // The stale readme is gone, the new SKILL.md is in place.
+            expect(stub.files.has('.vault-operator/data/skills/dataview/references/readme.md')).toBe(false);
+            expect(stub.files.has('.vault-operator/data/skills/dataview/SKILL.md')).toBe(true);
+        });
+
+        it('drops a pre-existing references/commands.md as well (Welle-2 Top-5 quirk)', async () => {
+            const { scanner, stub } = makeScanner(true);
+            await stub.adapter.mkdir('.vault-operator/data/skills/templater-obsidian');
+            await stub.adapter.mkdir('.vault-operator/data/skills/templater-obsidian/references');
+            await stub.adapter.write(
+                '.vault-operator/data/skills/templater-obsidian/references/commands.md',
+                '| Command | Id |\n|---|---|\n',
+            );
+
+            const skill = makeSkill({ id: 'templater-obsidian', name: 'Templater' });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+
+            expect(stub.files.has('.vault-operator/data/skills/templater-obsidian/references/commands.md')).toBe(false);
+        });
+
+        it('removes the now-empty references/ folder via rmdir', async () => {
+            const { scanner, stub } = makeScanner(true);
+            await stub.adapter.mkdir('.vault-operator/data/skills/canvas');
+            await stub.adapter.mkdir('.vault-operator/data/skills/canvas/references');
+            await stub.adapter.write(
+                '.vault-operator/data/skills/canvas/references/readme.md',
+                '# stale',
+            );
+            expect(stub.folders.has('.vault-operator/data/skills/canvas/references')).toBe(true);
+
+            const skill = makeSkill({ id: 'canvas', name: 'Canvas' });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+
+            expect(stub.folders.has('.vault-operator/data/skills/canvas/references')).toBe(false);
+        });
+
+        it('is idempotent when no references/ folder exists', async () => {
+            const { scanner, stub } = makeScanner(true);
+            // No references/ folder pre-existing -- writeSkillFile should
+            // succeed without any rmdir / remove calls touching that path.
+            const skill = makeSkill({ id: 'bookmarks', name: 'Bookmarks' });
+            await expect(
+                (scanner as unknown as ScannerInternals).writeSkillFile(skill),
+            ).resolves.toBeUndefined();
+
+            const refTouches = stub.calls.filter((c) => c.path.includes('/bookmarks/references'));
+            expect(refTouches).toEqual([]);
+        });
+    });
+
     describe('AUDIT-FEAT-29-02 M-1 + L-2: markdown injection guards (now body-only)', () => {
         // FEAT-29-11 removed references/commands.md generation -- the
         // Welle-2 table is gone. Markdown-escape guarantees move to the

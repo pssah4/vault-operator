@@ -3,6 +3,7 @@ import { App, Notice, setIcon } from 'obsidian';
 import JSZip from 'jszip';
 import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
+import { isUserSkillSource } from './userSkillSource';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
 import {
@@ -60,6 +61,7 @@ interface UnifiedSkill {
     hasCodeModules: boolean;
     codeToolNames: string[];
 }
+
 
 
 export class SkillsTab {
@@ -278,11 +280,10 @@ export class SkillsTab {
         // also picks der Loader sie ebenfalls auf. Sie haben aber
         // `source: <plugin-id>` und gehoeren in die Plugin-Section weiter unten,
         // nicht in die User-Skills-Liste. Filter sie hier raus.
-        const USER_SKILL_SOURCES = new Set(['user', 'learned', 'builtin', 'bundled']);
         const loader = this.plugin.selfAuthoredSkillLoader;
         if (loader) {
             for (const skill of loader.getAllSkills()) {
-                if (!USER_SKILL_SOURCES.has(skill.source)) continue;
+                if (!isUserSkillSource(skill.source)) continue;
                 byName.set(skill.name, {
                     name: skill.name,
                     description: skill.description,
@@ -308,7 +309,7 @@ export class SkillsTab {
             const globalSkills = await skillsManager.discoverSkills();
             for (const skill of globalSkills) {
                 const source = skill.source ?? 'user';
-                if (!USER_SKILL_SOURCES.has(source)) continue;
+                if (!isUserSkillSource(source)) continue;
                 if (!byName.has(skill.name)) {
                     // Only add if not already present from SelfAuthoredSkillLoader
                     byName.set(skill.name, {
