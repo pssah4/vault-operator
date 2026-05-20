@@ -105,19 +105,16 @@ export function getInternalAgentFolderPath(holder: SettingsHolder): string {
 
 /**
  * FEAT-29-02 / AUDIT-FEAT-29-02 L-1: Defense-in-depth pluginId validation.
- * Plugin IDs originate from Obsidian's manifest.json, which Obsidian itself
- * validates. But every helper below joins the id into a filesystem path, and
- * a pathological id (`..`, `/`, absolute path) would escape the agent
- * folder. We refuse any id that does not match the Obsidian convention of
- * alphanumeric + dash + underscore + dot.
  *
- * Throws when the id is unsafe so caller logs the failure loudly instead of
- * silently writing to an unexpected path.
+ * AUDIT-FEAT-29-06 L-1 update (2026-05-20): delegates to the shared
+ * `assertSafePathSegment` helper to eliminate the duplicated regex that
+ * used to live both here and in RunSkillScriptTool. Behaviour unchanged
+ * (same whitelist, same 200-char cap, same throw-on-violation).
  */
+import { assertSafePathSegment } from './safePathName';
+
 function assertSafePluginId(pluginId: string): void {
-    if (!pluginId || pluginId.length > 200 || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(pluginId)) {
-        throw new Error(`Unsafe plugin id rejected by path-traversal guard: ${JSON.stringify(pluginId)}`);
-    }
+    assertSafePathSegment(pluginId, 'plugin id');
 }
 
 /**

@@ -3,9 +3,11 @@
  * bundles. Saves the cost of re-compiling the same JS source through
  * EsbuildWasm on every invocation. FEAT-29-06 Task B / ADR-126.
  *
- * Key derivation: a stable hash of (skill_name + '|' + script_name + '|'
- * + source-text). When the source-text changes the hash changes too, so
- * a stale cached bundle never resurfaces.
+ * Key derivation: skill-name '|' script-name '|' sha256(source-text). The
+ * upstream cache-key includes the skill+script names verbatim, so a
+ * collision in the source-hash alone cannot serve the wrong bundle
+ * across different skills. Source-text changes invalidate the entry
+ * automatically because the hash changes.
  *
  * LRU policy: JavaScript's Map preserves insertion order. On `get` of an
  * existing key we delete + re-set to move the entry to the most-recent
@@ -14,26 +16,27 @@
  * Default capacity 20 -- typical vault has < 10 script-bundles in flight,
  * 20 leaves headroom for tail experiments without runaway memory.
  *
- * The hash function is FNV-1a over the source text. Cryptographic
- * strength is unnecessary; we only need a low-collision identity check.
+ * AUDIT-FEAT-29-06 L-2 (2026-05-20): replaced the original FNV-1a 32-bit
+ * hash with sha256 (Node `crypto`). FNV-1a was theoretically
+ * brute-forceable for targeted collisions; sha256 is cryptographically
+ * collision-resistant. Cost is ~1-2 ms per cache-write, negligible
+ * compared to the EsbuildWasm transform it avoids.
  */
+
+/* eslint-disable @typescript-eslint/no-require-imports -- one-time crypto require for sha256 hashing of script source. crypto is Node built-in, not an external dep. */
+const nodeCrypto = require('crypto') as typeof import('crypto');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 export interface RunSkillScriptCacheOptions {
     maxEntries?: number;
 }
 
-function fnv1aHash(input: string): string {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < input.length; i++) {
-        h ^= input.charCodeAt(i);
-        h = Math.imul(h, 0x01000193);
-    }
-    // Force unsigned 32-bit, format as hex (8 chars).
-    return (h >>> 0).toString(16).padStart(8, '0');
+function sha256Hash(input: string): string {
+    return nodeCrypto.createHash('sha256').update(input, 'utf8').digest('hex');
 }
 
 function makeKey(skillName: string, scriptName: string, sourceText: string): string {
-    return `${skillName}|${scriptName}|${fnv1aHash(sourceText)}`;
+    return `${skillName}|${scriptName}|${sha256Hash(sourceText)}`;
 }
 
 export class RunSkillScriptCache {
@@ -59,7 +62,15 @@ export class RunSkillScriptCache {
 
     /** Store a compiled bundle. Evicts the oldest entry when capacity is
      *  exceeded. Re-setting an existing key updates the value AND moves it
-     *  to the most-recent end without growing the cache. */
+     *  to the most-recent end without growing the cache.
+     *
+     *  AUDIT-FEAT-29-06 I-1 note: the cache-key intentionally does NOT
+     *  include `args`. The compiled bundle is args-agnostic at build
+     *  time; args land in the sandbox at run time via `execute(args)`.
+     *  If a future feature ever inlines args into the bundle at compile
+     *  time (e.g. a templating macro), THIS cache-key must be extended
+     *  to include an args-hash, otherwise two callers with different
+     *  args would receive the same stale bundle. */
     set(skillName: string, scriptName: string, sourceText: string, compiled: string): void {
         const key = makeKey(skillName, scriptName, sourceText);
         // Re-insertion pattern keeps LRU order tidy.

@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-20 by testing (EPIC-29 Welle 4 FEAT-29-06 /testing-Pass: 1868/1889 Tests gruen (+5 neue gap-Tests: 1 Cache maxEntries=1 edge case, 4 ManageSkillTool back-compat post code_modules-Removal). Coverage-Gaps geschlossen: ManageSkillTool create+update ohne code_modules, codeModules-Preservation beim Update fuer Bestand, code_modules nicht im input_schema, stray code_modules-Input wird silently ignored. 21 pre-existing Failures unveraendert. Naechster Schritt: /security-audit fuer FEAT-29-06.)
+Last update: 2026-05-20 by security-audit (EPIC-29 Welle 4 FEAT-29-06 /security-audit-Pass: 2 Low + 2 Info Findings entdeckt, 3 davon im Audit-Pass resolved. Release-readiness: GREEN. Fixes: (L-1) safePathName-Utility extrahiert, RunSkillScriptTool + agentFolder delegieren beide auf shared assertSafePathSegment (12 RED-First-Tests). (L-2) FNV-1a 32-bit ersetzt durch sha256 in RunSkillScriptCache fuer cryptographische collision-resistance. (I-1) Cache-Set Doc-Kommentar fuer Future-Args-Hint. (I-2 args-Echo) bleibt by-design Info. Live-End-to-End-verifiziert auf Sebastian's Vault (EsbuildWasm-Compile + ProcessSandbox-Spawn + Args-pass-through + Cache-Hit). 1880/1901 Tests gruen (+12). 21 pre-existing Failures unveraendert. Audit-Report: _devprocess/analysis/AUDIT-FEAT-29-06-2026-05-20.md. Naechster Schritt: FEAT-29-05 (skill-creator-Builtin baut auf run_skill_script auf).)
 
 ---
 

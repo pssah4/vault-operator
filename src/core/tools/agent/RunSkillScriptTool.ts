@@ -25,13 +25,7 @@ import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import { getSelfAuthoredSkillsDir } from '../../utils/agentFolder';
 import { RunSkillScriptCache } from '../../sandbox/RunSkillScriptCache';
-
-const SAFE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const SAFE_NAME_MAX_LEN = 200;
-
-function isSafeName(s: string): boolean {
-    return !!s && s.length <= SAFE_NAME_MAX_LEN && SAFE_NAME_PATTERN.test(s);
-}
+import { isSafePathSegment } from '../../utils/safePathName';
 
 interface RunSkillScriptArgs {
     skill_name: string;
@@ -101,13 +95,13 @@ export class RunSkillScriptTool extends BaseTool<'run_skill_script'> {
             callbacks.pushToolResult(this.formatError(new Error('script_name parameter is required')));
             return;
         }
-        if (!isSafeName(skillName)) {
+        if (!isSafePathSegment(skillName)) {
             callbacks.pushToolResult(
                 this.formatError(new Error(`invalid skill_name (path-traversal guard): ${JSON.stringify(skillName)}`)),
             );
             return;
         }
-        if (!isSafeName(scriptName)) {
+        if (!isSafePathSegment(scriptName)) {
             callbacks.pushToolResult(
                 this.formatError(new Error(`invalid script_name (path-traversal guard): ${JSON.stringify(scriptName)}`)),
             );

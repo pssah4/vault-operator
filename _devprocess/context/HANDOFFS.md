@@ -4368,3 +4368,51 @@ Coverage-Gap-Closure nach dem TDD-strict /coding-Pass. Welle-4-erste-Welle hat 2
 ### Naechster Schritt
 
 Empfehlung: `/security-audit` fuer FEAT-29-06 starten. Anschliessend Live-Test auf Sebastian's Vault, dann FEAT-29-05 (skill-creator baut auf run_skill_script auf).
+
+## EPIC-29 -- /security-audit Welle 4 FEAT-29-06 (2026-05-20)
+
+### Scope
+
+Security-Audit auf FEAT-29-06 nach Live-End-to-End-verifiziertem /testing. 5 Audit-Foki aus /testing-Handoff systematisch geprueft (path-traversal-Guard, Sandbox-Trust-Boundary, Cache-Hash-Kollisionen, stray-Input, Sensitive-args). KEINE neuen Deps -> SCA n/a.
+
+### Findings vor Fix-Loop
+
+| ID | Severity | Title | Status |
+|---|---|---|---|
+| L-1 | Low | Path-Guard-Pattern dupliziert zwischen RunSkillScriptTool und agentFolder | Resolved |
+| L-2 | Low | FNV-1a 32-bit Cache-Hash theoretisch brute-force-bar | Resolved |
+| I-1 | Info | Cache-Key beinhaltet args nicht (by design, Doc fehlte) | Resolved |
+| I-2 | Info | args-Echo in tool_result (kein neuer Leak weil in conversation history) | By-design Info |
+
+### Verdict
+
+Initial Low-Risk / Green. Nach Fix-Loop weiter Low-Risk / **Green**, 3 Findings resolved.
+
+### Code-Aenderungen im Fix-Loop
+
+1. **L-1:** Neuer `src/core/utils/safePathName.ts` mit `isSafePathSegment` + `assertSafePathSegment`. TDD-strict: 12 RED-First-Tests geschrieben, dann Helper implementiert. RunSkillScriptTool und agentFolder.assertSafePluginId delegieren beide. Drift-Risiko zwischen den zwei Guards eliminiert.
+
+2. **L-2:** `RunSkillScriptCache.ts` nutzt jetzt `crypto.createHash('sha256').update(input, 'utf8').digest('hex')` statt FNV-1a-32-bit. Kollisions-Wahrscheinlichkeit von theoretisch-brute-force-bar auf cryptographisch-collision-resistant. ~1-2 ms Overhead pro Cache-Write, vernachlaessigbar gegen die EsbuildWasm-Transform-Kosten die der Cache vermeidet.
+
+3. **I-1:** Code-Kommentar in `RunSkillScriptCache.set` ergaenzt: "args werden NICHT im Key gehasht -- Bundle ist args-agnostic. Falls ein Future-Feature args zur Compile-Time inlinet, MUSS dieser Key erweitert werden."
+
+### Test-Stand
+
+| Stand | Pass | Fail |
+|---|---|---|
+| /testing-Ende | 1868 | 21 (alle pre-existing) |
+| /audit-Ende | **1880** | 21 (identisch pre-existing) |
+
++12 neue safePathName-Tests gruen. Bestehende RunSkillScriptCache + RunSkillScriptTool-Tests laufen ohne Aenderung weiter (Hit/Miss-Verhalten ist hash-agnostic). Build green, deploy auf iCloud-Vault durchgelaufen.
+
+### Architecture Concerns
+
+Keine. Welle 4 erstes Feature ist clean.
+
+### Naechster Schritt
+
+Welle 4 erstes Feature release-ready. Empfehlung: **FEAT-29-05 (skill-creator-Builtin)** -- baut auf run_skill_script auf. Strikt TDD per Memory.
+
+### Audit-Report
+
+`_devprocess/analysis/AUDIT-FEAT-29-06-2026-05-20.md`
