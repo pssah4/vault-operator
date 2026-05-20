@@ -3702,3 +3702,61 @@ FEAT-29-01 Folder-Konsolidierung implementiert nach PLAN-27 (11 Tasks). Erste We
 ### Naechster Schritt
 
 Empfehlung: `/testing` fuer Welle 1 starten. Smoke-Tests gegen die fuenf bekannten Risiko-Szenarien plus Regression gegen die 4 pre-existing Failures. Danach `/security-audit` (Migration laedt Userdaten, Backup-Snapshot enthaelt knowledge.db Klartext). Anschliessend Welle 2 starten: FEAT-29-02 Plugin-Skill-Format-Migration.
+
+## EPIC-29 -- /testing Welle 1 (FEAT-29-01) (2026-05-20)
+
+### Scope
+
+Smoke-Tests gegen die 5 Risiko-Szenarien aus dem /coding-Handoff. Eine Welle-1-Regression entdeckt und beseitigt, zwei zusaetzliche Edge-Case-Tests fuer den Restore-Service erganzt, drei pre-existing Test-Drifts aus der Storage-Domain mitgenommen.
+
+### Artefakt-Bericht
+
+- `src/core/utils/migrateFolderRename.ts` (CODE FIX): pre-Welle-1-Default als harte Konstante `.obsilo-vault` plus eigene Legacy-Liste `['obsilo-vault', '.obsidian-agent']`. Vorher las die Funktion `DEFAULT_AGENT_FOLDER` aus `agentFolder.ts`, das jetzt auf `.vault-operator` zeigt. Damit waere ohne `_layoutMigrationOptIn` auf onload automatisch ein pre-Welle-1-Folder auf `.vault-operator` umbenannt worden, obwohl die Welle-1-Migration strikt opt-in ist. Inkonsistenz-Folge: Folder auf neuem Namen, Settings auf altem Namen, Status-Flag `_layoutMigrationStatus = undefined`.
+- `src/core/storage/__tests__/GlobalFileService.test.ts`: `obsilo-shared` -> `vault-operator-shared` Drift (pre-Welle-1, vom Plugin-Rename-Commit `bccfad6c`). "should use home directory when no vaultBasePath" auf Set-of-acceptable-Names gehaertet, weil das Verhalten dort vom realen Home-Dir abhaengt.
+- `src/mcp/tools/__tests__/searchHistory.test.ts`: `obsidian://obsilo-chat` -> `obsidian://vault-operator-chat` URI-scheme-Drift.
+- `src/core/utils/__tests__/restoreLayoutFromBackup.test.ts`: zwei neue Tests fuer den eben gelandeten `isDirEmptyIgnoringConsolidated`-Helper:
+  - "blocks .vault-operator restore when destination has user files beyond data/+cache/" -- Destination mit `data/`, `cache/` UND `assets/` aus User-Bestand. Restore muss blockieren, pre-existing `assets/pre-existing.js` bleibt erhalten.
+  - "respects removeConsolidated=false even when all restores succeed" -- selbst bei voll erfolgreichem Restore wird `data/`/`cache/` nicht abgeraeumt, wenn das Flag das verlangt.
+
+### Test-Ergebnis-Tabelle
+
+| Test-File | Vor /testing | Nach /testing | Aktion |
+|---|---|---|---|
+| `GlobalFileService.test.ts` | 4 failed | 7/7 green | Folder-Naming-Drift gefixt |
+| `migrateFolderRename.test.ts` | 4 failed | 9/9 green | Welle-1-Regression behoben |
+| `searchHistory.test.ts` | 1 failed | 8/8 green | URI-Drift gefixt |
+| `restoreLayoutFromBackup.test.ts` | 5 green | 7/7 green | +2 Gap-Tests |
+| `agentFolder.test.ts` | 18/18 green | 18/18 green | unveraendert |
+| `migrateAgentLayout.test.ts` | 26/26 green | 26/26 green | unveraendert |
+| **Total** | 1763/1793 (30 fail) | **1774/1795 (21 fail)** | -9 Welle-1-Failures |
+
+### Risiko-Szenarien aus /coding-Handoff -- Abdeckungsstatus
+
+1. **iCloud-Sync-Race**: nicht unit-testbar. Live-Test am 288 MB knowledge.db hat bestanden, aber unter aktiver iCloud-Sync-Konkurrenz nicht geprobt. **Bleibt offen als manual smoke test pre-release.**
+2. **migrateFolderRename pre-existing Failures**: stellte sich als **Welle-1-Regression** heraus, nicht pre-existing. Gefixt durch pre-Welle-1-Default-Haerten. **Resolved.**
+3. **Restore-Pfad drei Szenarien**: alle drei plus zwei neue Edge-Cases gruen.
+4. **chatHistoryFolder-Removal Modal**: Upstream-Logik in `migrateAgentLayout` ist abgedeckt (`chatHistoryFolderHadValue` set/null). Modal selbst ist reines UI und braucht jsdom -- nicht in /testing-Scope.
+5. **Skills-Drift-Resolve mit mtime-Precedence**: 4+ Tests in `migrateAgentLayout.test.ts` alle gruen (vault-local-only, vault-parent-only, mtime-conflict-resolve, fresh-install).
+
+### Verbleibende 21 Failures (alle pre-existing, alle out-of-scope)
+
+| Cluster | Count | Ursache | Domain |
+|---|---|---|---|
+| `window is not defined` | 13 | Node-Env vs Browser-Code, Tests laufen in `environment: 'node'`, Code nutzt `window` direkt | WriterLock, ExtractionQueue, VaultHealthService, ResultExternalizer |
+| `deferredToolLoading` | 4 | FEATURE-1600 / BUG-021 Wave-4 Tool-Routing-Drift | tools |
+| `VaultHealthService.checkGodNodes` | 2 | Assertion-Drift (expected 1/2, got 0) -- hat indirekt mit `window`-Failures zu tun | knowledge |
+| `executeVaultOp switch_mode` | 1 | Modes-Feature-Drift | mcp |
+| `toolMetadataConsistency` | 1 | IMP-24-06-01-Drift in ToolName-union | tools |
+
+Diese 21 Failures werden NICHT von /testing fuer FEAT-29-01 adressiert. Sie sind candidates fuer eigene FIX-Items in den jeweiligen Feature-Domains.
+
+### Open Items fuer /security-audit
+
+- **Backup-Snapshot enthaelt knowledge.db Klartext**: Snapshot landet unter `{vault}/.obsidian/plugins/<id>/layout-migration-backups/`. Pruefung auf Pfad-Traversal, Permission, und ob iCloud-Sync den Snapshot mitnimmt (potentielle Exposure-Frage).
+- **`restoreLayoutFromBackup` path inputs**: Service nimmt absolute Pfade entgegen. Pruefung auf Path-Traversal in `vaultBasePath` / `backupPath` / `vaultParent`-Inputs.
+- **Pre-Welle-1-Default-Haertung in migrateFolderRename**: ist die Logik sicher, dass kein opt-out-User unbeabsichtigt auf `.vault-operator` umgemodelt wird?
+- **Migration-Report-JSON**: Phase 10 schreibt `migration-report.json` unter `.vault-operator/data/`. Pruefung welche Daten dort landen (Pfadnamen, Counts -- vermutlich kein PII, aber sicherheitshalber pruefen).
+
+### Naechster Schritt
+
+Empfehlung: `/security-audit` fuer FEAT-29-01 starten. Anschliessend Welle 2 (FEAT-29-02 Plugin-Skill-Format-Migration).

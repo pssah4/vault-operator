@@ -48,12 +48,12 @@ describe('handleSearchHistory (AUDIT-015 Eval-Coverage)', () => {
         expect(r.content[0].text).toMatch(/No conversation messages matched/);
     });
 
-    it('renders hits with obsidian://obsilo-chat links', async () => {
+    it('renders hits with obsidian://vault-operator-chat links', async () => {
         const r = await handleSearchHistory(plugin({
             rows: [['sess-1', 0, 'user', 'matching text', '2026-05-03T10:00:00Z']],
             metas: [{ id: 'sess-1', title: 'My chat', sourceInterface: 'claude-ai' }],
         }), { query: 'match' });
-        expect(r.content[0].text).toContain('obsidian://obsilo-chat?id=sess-1');
+        expect(r.content[0].text).toContain('obsidian://vault-operator-chat?id=sess-1');
         expect(r.content[0].text).toContain('My chat');
         expect(r.content[0].text).toContain('claude-ai');
     });

@@ -141,4 +141,62 @@ describe('restoreLayoutFromBackup', () => {
         const restored = report.entries.filter((e) => e.status === 'restored');
         expect(restored).toHaveLength(1);
     });
+
+    it('blocks .vault-operator restore when destination has user files beyond data/+cache/', async () => {
+        // The .vault-operator restore target uses isDirEmptyIgnoringConsolidated:
+        // data/ and cache/ are ignored (they get removed anyway), but other
+        // sub-folders count as a real population that must not be clobbered.
+        const backup = seedBackup(vault.pluginDataDir, '2026-05-20T18-30-00-000Z');
+        fs.mkdirSync(path.join(backup, 'vault-operator', 'assets'), { recursive: true });
+        fs.writeFileSync(path.join(backup, 'vault-operator', 'assets', 'office.js'), 'office');
+        // Destination has data/ + cache/ (expected, from migration) AND
+        // a legacy assets/ folder that pre-dates the restore -> must block.
+        fs.mkdirSync(path.join(vault.vaultBasePath, '.vault-operator', 'data'), { recursive: true });
+        fs.mkdirSync(path.join(vault.vaultBasePath, '.vault-operator', 'cache'), { recursive: true });
+        fs.mkdirSync(path.join(vault.vaultBasePath, '.vault-operator', 'assets'), { recursive: true });
+        fs.writeFileSync(
+            path.join(vault.vaultBasePath, '.vault-operator', 'assets', 'pre-existing.js'),
+            'do not clobber',
+        );
+
+        const report = await restoreLayoutFromBackup({
+            vaultBasePath: vault.vaultBasePath,
+            vaultParent: vault.vaultParent,
+            backupPath: backup,
+            removeConsolidated: true,
+        });
+
+        expect(report.allRestoreSucceeded).toBe(false);
+        const blockedEntry = report.entries.find((e) => e.label === 'vault-operator');
+        expect(blockedEntry?.status).toBe('skipped-destination-populated');
+        // Pre-existing file untouched
+        expect(
+            fs.readFileSync(
+                path.join(vault.vaultBasePath, '.vault-operator', 'assets', 'pre-existing.js'),
+                'utf8',
+            ),
+        ).toBe('do not clobber');
+        // Consolidated tree NOT removed because allRestoreSucceeded=false
+        expect(report.removedConsolidated).toEqual([]);
+    });
+
+    it('respects removeConsolidated=false even when all restores succeed', async () => {
+        const backup = seedBackup(vault.pluginDataDir, '2026-05-20T19-00-00-000Z');
+        fs.mkdirSync(path.join(backup, 'obsilo-vault'), { recursive: true });
+        fs.writeFileSync(path.join(backup, 'obsilo-vault', 'k.db'), 'k');
+        fs.mkdirSync(path.join(vault.vaultBasePath, '.vault-operator', 'data'), { recursive: true });
+        fs.writeFileSync(path.join(vault.vaultBasePath, '.vault-operator', 'data', 'leftover'), 'x');
+
+        const report = await restoreLayoutFromBackup({
+            vaultBasePath: vault.vaultBasePath,
+            vaultParent: vault.vaultParent,
+            backupPath: backup,
+            removeConsolidated: false,
+        });
+
+        expect(report.allRestoreSucceeded).toBe(true);
+        expect(report.removedConsolidated).toEqual([]);
+        // data/leftover is still there
+        expect(fs.existsSync(path.join(vault.vaultBasePath, '.vault-operator', 'data', 'leftover'))).toBe(true);
+    });
 });
