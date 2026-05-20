@@ -293,3 +293,10 @@ ADR-120 | modell-routing        | Advisor-Pattern als Loop-Default (consult_flag
 ADR-121 | modell-routing        | Tier-Klassifikator-Strategie (Pattern + Capability + OpenRouter-Pricing)
 ADR-122 | provider-config       | Provider-only Settings-Schema (providers[]-Liste mit tierMapping)
 ADR-123 | settings-migration    | Settings-Schema-Migration und Recovery-Pfad
+ADR-119 | agent-folder          | Plugin-Daten-Ordner-Konsolidierung auf einen kanonischen Pfad (EPIC-29)
+ADR-124 | skill-discovery       | Plugin-as-Skill Live-Probe Discovery statt periodischem Polling (EPIC-29)
+ADR-125 | execute-command       | Execution Visibility fuer Plugin-Commands via Notice-Capture (EPIC-29)
+ADR-126 | skill-authoring       | Skill-Authoring als Builtin-Skill statt CRUD-Tool plus run_skill_script (EPIC-29)
+ADR-127 | skill-translator      | Python-zu-JavaScript Skill-Translation mit Dry-Run-Pass (EPIC-29)
+ADR-128 | skill-versioning      | Skill-Versionierung mit Diff-basiertem Snapshot und Restore (EPIC-29)
+ADR-129 | skill-composability   | Skill-Composability mit Skill-zu-Skill und Skill-zu-MCP-Aufrufen (EPIC-29)

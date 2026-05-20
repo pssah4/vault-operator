@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-20 by re (EPIC-29 Skills-Konsolidierung und Plugin-as-Skill Reliability angelegt: 11 Features (FEAT-29-01 bis FEAT-29-11) in 4 Wellen. EPIC-30 (Workflow-Builder + Rules-Merge) und EPIC-31 (Skills-Marketplace) als Skeleton-Epics angelegt. Reihenfolge bewusst: erst Workflows bauen, dann Marketplace hat beide Asset-Typen zum Anbieten. Volle Specs nach EPIC-29 bzw. EPIC-30. architect-handoff-epic-29.md mit 21 ASRs ready.)
+Last update: 2026-05-20 by arch (EPIC-29 Architecture-Phase: 7 ADRs (ADR-119, ADR-124 bis ADR-129) plus plan-context-epic29.md angelegt. ADR-119 fuer Folder-Konsolidierung (amends ADR-72), ADR-124 Plugin-as-Skill Live-Probe, ADR-125 Notice-Capture, ADR-126 Skill-Authoring als Builtin-Skill (manage_skill entfaellt, run_skill_script neu), ADR-127 Python-zu-JS-Translation, ADR-128 Skill-Versionierung, ADR-129 Composability. Wayfinder aktualisiert.)
 
 ---
 
@@ -12,14 +12,14 @@ Last update: 2026-05-20 by re (EPIC-29 Skills-Konsolidierung und Plugin-as-Skill
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
 | Planned | 40 | Released | 358 | Epic | 27 |
-| Active | 27 | Building | 64 | Feature | 223 |
+| Active | 27 | Building | 71 | Feature | 223 |
 | Done | 257 | Planned | 36 | Fix | 60 |
 | Accepted | 110 | Candidates | 2 | Improvement | 19 |
-| Draft | 14 |  |  | ADR | 117 |
+| Draft | 14 |  |  | ADR | 124 |
 | Open | 5 |  |  | Plan | 15 |
-| Proposed | 7 |  |  |  |  |
+| Proposed | 14 |  |  |  |  |
 
-Total artifacts: 461
+Total artifacts: 468
 
 ---
 
@@ -665,6 +665,13 @@ Verwandt: Skeleton-Epic. Volle Specs nach Abschluss EPIC-29 (Skills-Konsolidieru
 | ADR-121 | ADR | Tier-Klassifikator-Strategie (Pattern-First + Capability-Fallback + OpenRouter-Pricing-Sonderpfad) | Accepted | Released | FEAT-26-02, EPIC-26, ADR-11, ADR-120, ADR-122, PLAN-24 | ARCH | sebastian-claude-opus-4-7 | 2026-05-15 | 2026-05-16 | EPIC-26 Welle 1; Classifier in `src/core/routing/ModelTierClassifier.ts` implementiert (49 Tests). Pattern-Pflege via Code-Update, Outlier-Log aktiv. |
 | ADR-122 | ADR | Provider-only Settings-Schema (providers[]-Liste mit tierMapping/tierOverrides, activeProviderId, schemaVersion 2026.5.15) | Accepted | Released | FEAT-26-03, FEAT-26-04, EPIC-26, ADR-11, ADR-121, ADR-123 | ARCH |  | 2026-05-15 | 2026-05-15 | EPIC-26 Welle 2; Schemas parallel, legacy_active_models_backup als Recovery; Plugin liest ab schemaVersion 2026.5.15 nur aus providers[]. |
 | ADR-123 | ADR | Settings-Schema-Migration und Recovery-Pfad (Auto-Migrate + Notification-Modal + 30/90-Tage-Backup, Idempotenz via schemaVersion) | Accepted | Released | FEAT-26-04, EPIC-26, ADR-122 | ARCH |  | 2026-05-15 | 2026-05-15 | EPIC-26 Welle 2; atomic Settings-Save analog FEATURE-0314 KnowledgeDB-Pattern; Anomalien-Liste im Modal (Multi-Auth, fehlende Tiers, Custom-Endpoints); Restore-Action via Settings-Reset. |
+| ADR-119 | ADR | Plugin-Daten-Ordner-Konsolidierung auf einen kanonischen Pfad | Proposed | Building | FEAT-29-01, EPIC-29, ADR-72 | ARCH |  |  | 2026-05-20 | EPIC-29 Welle 1; amends ADR-72; Default-Pfad auf .vault-operator/ konvergiert, Doppel-Lesen-Fenster waehrend Migration, Backup-Snapshot vor Schreiben. |
+| ADR-124 | ADR | Plugin-as-Skill Live-Probe Discovery statt periodischem Polling | Proposed | Building | FEAT-29-02, FEAT-29-03, EPIC-29, ADR-14, ADR-75, ADR-116 | ARCH |  |  | 2026-05-20 | EPIC-29 Welle 1+2; Plugin-Skill-Format-Migration auf Folder/SKILL.md + event-driven Discovery + probe_plugin-Tool, VaultDNAScanner-Polling entfaellt. |
+| ADR-125 | ADR | Execution Visibility fuer Plugin-Commands via Notice-Capture | Proposed | Building | FEAT-29-04, EPIC-29, ADR-01 | ARCH |  |  | 2026-05-20 | EPIC-29 Welle 2; Notice-API-Patch waehrend execute_command-Window mit fail-soft Fallback und Sensitive-Daten-Heuristik. |
+| ADR-126 | ADR | Skill-Authoring als Builtin-Skill statt CRUD-Tool | Proposed | Building | FEAT-29-05, FEAT-29-06, EPIC-29, ADR-75, ADR-115, ADR-116 | ARCH |  |  | 2026-05-20 | EPIC-29 Welle 3; manage_skill-Tool entfaellt, skill-creator als Builtin-Skill nach Anthropic-Vorbild, run_skill_script ersetzt code_modules-Mechanik, Validator als Discovery-Layer, Flagship-Routing fuer Skill-Trigger. |
+| ADR-127 | ADR | Python-zu-JavaScript Skill-Translation mit Dry-Run-Pass | Proposed | Building | FEAT-29-08, EPIC-29, ADR-75, ADR-126 | ARCH |  |  | 2026-05-20 | EPIC-29 Welle 4; Mapping-Tabelle als versionierter Datenbestand, User-Modal vor Schreiben bei partial translation, Verweis auf skill-creator als Fallback. |
+| ADR-128 | ADR | Skill-Versionierung mit Diff-basiertem Snapshot und Restore | Proposed | Building | FEAT-29-09, EPIC-29, ADR-02, ADR-75 | ARCH |  |  | 2026-05-20 | EPIC-29 Welle 4; .versions/-Subfolder pro Skill, Diff-basierte Snapshots, periodische volle Snapshots alle 10 Versionen, Tagging fuer Retention-Schutz. |
+| ADR-129 | ADR | Skill-Composability mit Skill-zu-Skill und Skill-zu-MCP-Aufrufen | Proposed | Building | FEAT-29-10, EPIC-29, ADR-75, ADR-113, ADR-116 | ARCH |  |  | 2026-05-20 | EPIC-29 Welle 4; neue Tools invoke_skill und invoke_mcp_server mit Aufruf-Stack-Tracking, Max-Depth-Limit Default 5, MCP-Approval-Kette nicht umgehbar, Subtask-Eskalation optional. |
 | PLAN-24 | Plan | EPIC-26 Welle 1 -- Advisor-Pattern Engine + Tier-Klassifikator + Discovery (12 Tasks, FEAT-26-01 + FEAT-26-02 Backend) | Done | Released | FEAT-26-01, FEAT-26-02, EPIC-26, ADR-120, ADR-121, ADR-115 | CODE | sebastian-claude-opus-4-7 | 2026-05-15 | 2026-05-16 | Welle 1 Backend abgeschlossen. Alle 12 Tasks implementiert, 110 EPIC-26-Tests grün, tsc + build clean. F-1/F-2/F-3/F-4 alle aufgelöst. UI/Migration/Chat-Dropdown bleiben planmäßig für PLAN-25/PLAN-26 (Welle 2). |
 | PLAN-25 | Plan | EPIC-26 Welle 2 -- Provider-only Settings UI + Migration (7 Tasks, FEAT-26-03 + FEAT-26-04) | Done | Released | FEAT-26-03, FEAT-26-04, EPIC-26, ADR-122, ADR-123 | CODE | sebastian-claude-opus-4-7 | 2026-05-16 | 2026-05-16 | Welle 2 Implementation komplett. Migration + Modal + ProvidersTab + Production-Fetcher + i18n. 12 Migration-Tests grün; insgesamt 125 EPIC-26-Tests. Build clean, deployed. |
 | PLAN-26 | Plan | EPIC-26 Welle 3 -- Chat-Model-Dropdown + Mode-Switcher-Removal + Prompt-Slim (8 Tasks, FEAT-26-05 + FEAT-26-06) | Done | Released | FEAT-26-05, FEAT-26-06, EPIC-26, ADR-120, ADR-122 | CODE | sebastian-claude-opus-4-7 | 2026-05-16 | 2026-05-16 | Welle 3 Implementation komplett. Chat-Dropdown + Override + Tool-Filter + Mode-Switcher-Removal + lean Cost-Heuristics + lean Plugin-Skills. 1604/1632 Tests grün (+28 vs. /testing). Build clean, deployed. |

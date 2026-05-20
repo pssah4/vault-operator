@@ -3620,4 +3620,45 @@ Spec-Dateien wurden auf Tech-Begriffe in Success Criteria geprueft. Folgende Tec
 
 Empfehlung: `/architecture` starten. ADR-Vorschlaege werden gebraucht fuer Folder-Konsolidierung, Plugin-as-Skill Discovery, Skill-Authoring-Mechanik (skill-creator), Python-zu-JS-Translation, Skill-Versionierung, Composability-Modell. Alternativ vor dem Architecture-Pass eine Pause fuer User-Review der RE-Artefakte einlegen.
 
+## EPIC-29 -- /architecture (2026-05-20)
+
+### Scope
+
+EPIC-29 Architecture-Phase abgeschlossen. 7 ADRs adressieren die 21 ASRs aus der RE-Phase. plan-context-epic29.md ist als Brueckendokument zu /coding bereit. Wayfinder (src/ARCHITECTURE.map) ist auf den neuen Stand gebracht.
+
+### Tech-Stack-Begruendung
+
+EPIC-29 fuegt keine externen Dependencies hinzu. Alle Aenderungen sind Refactors oder Erweiterungen des bestehenden Skill-, Plugin-Adapter- und Sandbox-Subsystems. Frontier-Modell-Eskalation fuer Skill-Authoring und Translation laeuft ueber den bestehenden TaskRouter aus EPIC-26 mit einer neuen Skill-Trigger-Regel. MCP-Aufrufe aus Skills nutzen die bestehende MCP-Approval-Kette ohne Aufweichung.
+
+### Verworfene Alternativen
+
+- **Polling-Frequenz erhoehen statt event-driven** (ADR-124 Option A): Stale-Snapshot-Problem bleibt strukturell, nur Symptom gelindert.
+- **DOM-Observer auf Notice-Container** (ADR-125 Option 2): fragiler gegenueber Obsidian-Updates als API-Patch.
+- **Plugin-spezifische Wrapper pro Plugin** (ADR-125 Option 3): skaliert nicht.
+- **CRUD-Tool fuer Skill-Erstellung beibehalten** (ADR-126 Option A): blockiert Anthropic-Portabilitaet, Multi-Turn-Dialog ueber Tool-Calls ist erzwungen.
+- **Voll-Folder-Kopien pro Skill-Version** (ADR-128 Option 1): Storage-Overhead linear, iCloud-belastend.
+- **Echtes Git-Sub-Repo pro Skill** (ADR-128 Option 3): Overkill fuer Skill-Use-Pattern.
+- **Sub-Skill ueber prosaischen Hint** (ADR-129 Option 1): Cycle-Detection schwer erzwingbar.
+- **Direkt-Konversion ohne Dry-Run** (ADR-127 Option 1): zerstoert User-Trust durch partial-translation-Ueberraschungen.
+
+### Bekannte Risiken
+
+- **Migration der knowledge.db unter Last**: durch Backup-Snapshot ausserhalb iCloud-Sync und Hash-Vergleich vor/nach Move abgefedert.
+- **Modell-Disziplin bei probe_plugin-Aufruf**: durch Hard-Guard im execute_command-Tool plus klares Protokoll im stabilen Prompt-Prefix.
+- **Diff-Chain-Korruption mid-chain**: durch periodische volle Snapshots alle 10 Versionen begrenzt.
+- **LLM-Translation produziert subtile Bugs**: durch Sandbox-Smoke-Test pro konvertiertem Skript plus User-Modal vor Schreiben.
+- **Skill-zu-MCP koennte Approval-Bypass schaffen**: ADR-129 erzwingt explizit dass MCP-Aufrufe aus Skills durch dieselbe Approval-Kette laufen wie direkte MCP-Aufrufe.
+
+### Open Items fuer /coding
+
+Die acht offenen Architektur-Fragen aus dem plan-context (Backup-Pfad-Lokation, Folder-Konflikt-Resolution, Plugin-Event-API-Stabilitaet, probe_plugin-Caching, Notice-Capture-Tail-Window, Bundle-Cache-Persistenz, custom-Tool-Migration, Skill-zu-Skill-Aufruf-Syntax) werden im /coding-Pivot anhand der Code-Realitaet entschieden. Keine davon ist ein Blocker fuer das jeweils zugehoerige Feature.
+
+### Konsistenz-Check
+
+plan-context-epic29.md ist konsistent mit allen 7 ADRs. Performance- und Security-Targets im plan-context spiegeln die NFRs aus FEAT-29-01 bis FEAT-29-11. Open Items im plan-context sind die Architektur-Fragen die im /coding-Pivot beantwortet werden, nicht Specs-Luecken.
+
+### Empfehlung fuer naechsten Schritt
+
+`/coding` starten, Welle 1 zuerst. PLAN-Item pro Welle, jede Welle mit eigenem Build-Deploy-Cycle. Welle 1 (FEAT-29-01 plus FEAT-29-02) ist Foundation und muss vor allem anderen ausgeliefert sein. Welle 2 (FEAT-29-03 plus FEAT-29-04) kann direkt danach. Welle 3 und Welle 4 brauchen die Foundation.
+
 
