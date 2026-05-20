@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-20 by coding (EPIC-29 Welle 2 /coding-Pass abgeschlossen: FEAT-29-02 Plugin-Skill-Format-Migration alle 7 PLAN-28-Tasks implementiert. Plugin-Skills wandern von flat .skill.md auf Anthropic-konformes Folder/SKILL.md (`{root}/data/skills/plugin/{id}/SKILL.md`), Frontmatter strikt nur `name`+`description`. Removed Metadata-Felder gehen in Body unter "## Plugin metadata". Top-5 (Excalidraw, Dataview, Templater, Tasks, Kanban) bekommen `references/commands.md` eager-generated. Core-Plugin-readmes wandern nach `references/readme.md`. Cleanup-Phase entfernt alten `data/plugin-skills/`-Folder. Welle-1-abhaengig (`_layoutMigrationStatus === 'complete'`). 1784/1805 Tests gruen (+9), 21 pre-existing Failures unveraendert. Build green. Naechster Schritt: /testing -> /security-audit. Live-Test auf Sebastian's Vault pending.)
+Last update: 2026-05-20 by testing (EPIC-29 Welle 2 /testing-Pass abgeschlossen: 1797/1818 Tests gruen (+13 neue Welle-2-content-Tests in VaultDNAScanner-writeSkillFile.test.ts). Coverage: post-Welle-1 folder layout (writeFolderFormat), pre-Welle-1 legacy layout, Frontmatter-Striktheit (nur name+description), Plugin-metadata-Body-Section, Idempotenz (Hash-Match nach 2x writeSkillFile), Top-5 references/commands.md generation, Legacy-Cleanup mit User-File-Preservation, no-op auf fehlendem Folder. 21 pre-existing Failures alle pre-Welle-1 unveraendert. Build green. Naechster Schritt: /security-audit fuer Welle 2.)
 
 ---
 

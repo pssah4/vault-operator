@@ -3868,3 +3868,57 @@ Empfehlung: `/testing` fuer Welle 2 starten. Smoke-Tests gegen die 4 dokumentier
 ### Anschliessend Welle 3 / 4
 
 Nach Welle-2-Abschluss: FEAT-29-03 (Unified Discovery + probe_plugin, Welle 2 Foundation) und FEAT-29-04 (Execution Visibility) -- nutzen das jetzt etablierte Folder-Layout. Welle 3 fuer skill-creator + sandbox-js (FEAT-29-05/06) und Welle 4 fuer Translator/Versioning/Composability/Permission-Polish/Backup-Export folgen.
+
+## EPIC-29 -- /testing Welle 2 (FEAT-29-02) (2026-05-20)
+
+### Scope
+
+Smoke-Tests gegen die 5 Risiko-Szenarien aus dem /coding-Handoff plus inhaltliche Coverage fuer `VaultDNAScanner.writeSkillFile`. Neue Test-Datei `VaultDNAScanner-writeSkillFile.test.ts` mit 13 Tests deckt beide Pfade (folder + legacy) und alle Welle-2-spezifischen Code-Pfade ab.
+
+### Artefakt-Bericht
+
+- `src/core/skills/__tests__/VaultDNAScanner-writeSkillFile.test.ts`: NEU. 13 Tests in 3 describe-Blocks:
+  - `post-Welle-1 folder layout` (6 Tests): SKILL.md-Pfad, strikte Frontmatter (name+description), Plugin-metadata-Body-Section, Idempotenz, Top-5 commands.md, kein commands.md fuer non-Top-5
+  - `pre-Welle-1 legacy file layout` (4 Tests): flat .skill.md-Pfad, volle Legacy-Frontmatter, kein Folder-Layout-Stray-Write, kein commands.md pre-migration
+  - `cleanupLegacyPluginSkillsLayout` (3 Tests): entfernt .skill.md/.readme.md, preserved User-Files, no-op wenn Folder fehlt
+
+Test-Pattern: In-memory Vault-Adapter-Stub (`AdapterCall[]`-Recording), `VaultDNAScanner` direkt instanziiert mit gemocktem `App`+`Vault`. Private `writeSkillFile` / `cleanupLegacyPluginSkillsLayout` via typed cast (`ScannerInternals`) aufgerufen. `readPluginSettings` ist gestubt damit kein File-System-Zugriff stattfindet.
+
+### Test-Ergebnis-Tabelle
+
+| Test-File | Vor /testing | Nach /testing |
+|---|---|---|
+| `VaultDNAScanner-writeSkillFile.test.ts` | - | 13/13 (neu) |
+| `agentFolder.test.ts` | 29/29 | 29/29 |
+| `setAgentFolder.test.ts` | 1/1 | 1/1 |
+| `SkillMigration.test.ts` etc. | unveraendert | unveraendert |
+| **Total** | 1784/1805 | **1797/1818** |
+
++13 neue Tests, alle gruen beim ersten Anlauf nach TypeScript-Strict-Korrektur (PluginSource-Enum + ConstructorParameters).
+
+### Risiko-Szenarien aus /coding-Handoff -- Abdeckungsstatus
+
+1. **Welle-1-Trigger (folder vs legacy)**: 6 Tests fuer folder-layout, 4 fuer legacy-layout. Beide Pfade voll geprueft. Cross-Test "no folder-write when not migrated" stellt sicher, dass kein User unbeabsichtigt switched.
+2. **mkdir non-recursive**: indirekt verifiziert via "mkdir should have walked the folder tree" Assertion im ersten folder-Test. Plugin ist desktop-only, mobile-Smoke-Test bleibt manueller Live-Pruefpunkt.
+3. **Idempotenz unter Reload-Race**: "is idempotent: a second call produces the identical file content" Test. Mid-write-interrupt nicht testbar in unit, das ist ein E2E-Live-Pruefpunkt fuer Sebastian's Vault.
+4. **Top-5-Plugin-IDs hard-coded**: "does NOT generate references/commands.md for non-Top-5 plugins" Test. Verifiziert dass Bewusstheit funktioniert.
+5. **Legacy-Cleanup mit User-File**: "preserves user-added files in legacy folder" Test. Verifiziert dass nur `.skill.md` und `.readme.md` geloescht werden, User-`.md` bleibt erhalten, Folder bleibt non-empty.
+
+### Verbleibende 21 pre-existing Failures (unveraendert, out-of-scope)
+
+Identisch zur Welle-1-Test-Phase. Alle in pre-Welle-1-Domain. Kandidaten fuer eigene FIX-Items, nicht Teil von Welle 2.
+
+### Open Items fuer /security-audit
+
+- **`writeFolderFormat` schreibt User-Vault-Sub-Folder**: `vault.adapter.write` mit zusammengebautem Pfad. Pruefung auf Path-Traversal in `pluginId` (Plugin-Manifest-IDs sollten safe sein, aber Defense-in-Depth)
+- **`cleanupLegacyPluginSkillsLayout` macht `adapter.remove` und `adapter.rmdir`**: zwei destruktive Operationen. Pruefung, ob die Filter (`endsWith('.skill.md') || endsWith('.readme.md')`) ausreichend strict sind
+- **`renderPluginMetadataBlock` setzt Plugin-controlled strings in Markdown**: `skill.commands[i].name` koennte z.B. Backticks oder Markdown-Syntax enthalten. Wenn das im Body landet, ist es nur Plain-Text-Disclosure (kein XSS-Vektor, weil Markdown-Render in Obsidian sicher), aber Lesbarkeit pruefen.
+- **`writeCommandsReferenceIfTopPlugin` Inhalte**: Command-Namen aus Plugin-Manifest werden in Markdown-Tabelle gerendert. Pipe (`|`) in Command-Name wuerde die Tabelle brechen. Optional escapen.
+
+### Naechster Schritt
+
+Empfehlung: `/security-audit` fuer Welle 2 starten. Fokus auf die 4 Open-Items oben. Danach optional Live-Test (Plugin-Reload in Sebastian's Vault) bevor Welle 3 startet.
+
+### Mid-course-Findings
+
+Keine. Sowohl der Code-Pfad als auch die Test-Helper sind stabil.
