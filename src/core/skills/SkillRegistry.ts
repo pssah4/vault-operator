@@ -99,7 +99,12 @@ export class SkillRegistry {
             'NEVER substitute a built-in tool (like create_base, write_file) for a plugin the user requested.',
             '',
             'Before using a plugin, ALWAYS read its skill file first:',
-            `  read_file("${this.skillsDir}/{plugin-id}.skill.md")`,
+            // FEAT-29-02: post-Welle-1 the manifest lives in a per-plugin folder.
+            // Detect via the dir suffix; users not opted into Welle 1 stay on the
+            // legacy `.skill.md` flat layout.
+            this.skillsDir.endsWith('/data/skills/plugin')
+                ? `  read_file("${this.skillsDir}/{plugin-id}/SKILL.md")`
+                : `  read_file("${this.skillsDir}/{plugin-id}.skill.md")`,
             'This tells you what the plugin does, its commands, its configuration, and how to use it.',
             '',
         ];

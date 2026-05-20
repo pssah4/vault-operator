@@ -132,7 +132,7 @@ settings                  | src/types/settings.ts                               
 model-registry            | src/types/model-registry.ts                           | ADR-115, ADR-120, ADR-121 | new model output ceiling or budget helper: extend normalizeModelId / getModelOutputCeiling / resolveOutputBudget
 
 # SKILLS / VAULT DNA / MASTERY
-vault-dna                 | src/core/skills/VaultDNAScanner.ts                    | ADR-14          | new heuristic: extend scanner rule set
+vault-dna                 | src/core/skills/VaultDNAScanner.ts                    | ADR-14, ADR-124 | new heuristic: extend scanner rule set; FEAT-29-02 writes Anthropic folder/SKILL.md when _layoutMigrationStatus=complete, legacy .skill.md otherwise
 self-authored-skills      | src/core/skills/SelfAuthoredSkillLoader.ts            | ADR-09, ADR-75 | new skill format: extend SKILL.md parser
 core-plugin-library       | src/core/skills/CorePluginLibrary.ts                  | ADR-14          | new core skill: add metadata entry plus skill file
 mastery                   | src/core/mastery/RecipePromotionService.ts            | ADR-17, ADR-58 | new promotion rule: extend RecipePromotionService heuristics (embedding-based intent matching)

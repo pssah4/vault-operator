@@ -22,6 +22,10 @@ import {
     getTmpRoot,
     getPluginSkillsDir,
     getPluginSkillsPath,
+    getPluginSkillFolderPath,
+    getPluginSkillManifestPath,
+    getPluginSkillReadmePath,
+    getPluginSkillCommandsRefPath,
     getVaultDnaPath,
     getSelfAuthoredSkillsDir,
     isAbsoluteAgentFolder,
@@ -105,11 +109,11 @@ describe('agentFolder sub-folder helpers (FEAT-29-01)', () => {
 });
 
 describe('agentFolder layout-aware helpers (FEAT-29-01 post-migration)', () => {
-    it('getPluginSkillsDir uses data/ when migration is complete', () => {
+    it('getPluginSkillsDir uses data/skills/plugin when migration is complete (FEAT-29-02)', () => {
         const holder: Holder = {
             settings: { agentFolderPath: '.vault-operator', _layoutMigrationStatus: 'complete' },
         };
-        expect(getPluginSkillsDir(holder)).toBe('.vault-operator/data/plugin-skills');
+        expect(getPluginSkillsDir(holder)).toBe('.vault-operator/data/skills/plugin');
     });
 
     it('getPluginSkillsDir keeps legacy flat layout when migration is pending', () => {
@@ -124,12 +128,12 @@ describe('agentFolder layout-aware helpers (FEAT-29-01 post-migration)', () => {
         expect(getPluginSkillsDir(holder)).toBe('.vault-operator/plugin-skills');
     });
 
-    it('getPluginSkillsPath includes data/ sub-folder when migrated', () => {
+    it('getPluginSkillsPath returns folder/SKILL.md when migrated (FEAT-29-02)', () => {
         const holder: Holder = {
             settings: { agentFolderPath: '.vault-operator', _layoutMigrationStatus: 'complete' },
         };
         expect(getPluginSkillsPath(holder, 'excalidraw')).toBe(
-            '.vault-operator/data/plugin-skills/excalidraw.skill.md',
+            '.vault-operator/data/skills/plugin/excalidraw/SKILL.md',
         );
     });
 
@@ -162,5 +166,87 @@ describe('agentFolder layout-aware helpers (FEAT-29-01 post-migration)', () => {
         };
         expect(getPluginSkillsDir(holder)).toBe('.vault-operator/plugin-skills');
         expect(getTmpRoot(holder)).toBe('.vault-operator/tmp');
+    });
+});
+
+describe('FEAT-29-02 plugin-skill folder helpers', () => {
+    it('getPluginSkillFolderPath returns per-plugin folder when migrated', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.vault-operator', _layoutMigrationStatus: 'complete' },
+        };
+        expect(getPluginSkillFolderPath(holder, 'excalidraw')).toBe(
+            '.vault-operator/data/skills/plugin/excalidraw',
+        );
+    });
+
+    it('getPluginSkillFolderPath returns null pre-migration (legacy has no per-plugin folder)', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.obsilo-vault', _layoutMigrationStatus: 'pending' },
+        };
+        expect(getPluginSkillFolderPath(holder, 'excalidraw')).toBeNull();
+    });
+
+    it('getPluginSkillManifestPath returns SKILL.md inside per-plugin folder when migrated', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.vault-operator', _layoutMigrationStatus: 'complete' },
+        };
+        expect(getPluginSkillManifestPath(holder, 'dataview')).toBe(
+            '.vault-operator/data/skills/plugin/dataview/SKILL.md',
+        );
+    });
+
+    it('getPluginSkillManifestPath returns legacy .skill.md path pre-migration', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.obsilo-vault', _layoutMigrationStatus: 'pending' },
+        };
+        expect(getPluginSkillManifestPath(holder, 'dataview')).toBe(
+            '.obsilo-vault/plugin-skills/dataview.skill.md',
+        );
+    });
+
+    it('getPluginSkillReadmePath returns references/readme.md when migrated', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.vault-operator', _layoutMigrationStatus: 'complete' },
+        };
+        expect(getPluginSkillReadmePath(holder, 'templater-obsidian')).toBe(
+            '.vault-operator/data/skills/plugin/templater-obsidian/references/readme.md',
+        );
+    });
+
+    it('getPluginSkillReadmePath returns legacy .readme.md path pre-migration', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.obsilo-vault', _layoutMigrationStatus: 'pending' },
+        };
+        expect(getPluginSkillReadmePath(holder, 'templater-obsidian')).toBe(
+            '.obsilo-vault/plugin-skills/templater-obsidian.readme.md',
+        );
+    });
+
+    it('getPluginSkillCommandsRefPath returns references/commands.md when migrated', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.vault-operator', _layoutMigrationStatus: 'complete' },
+        };
+        expect(getPluginSkillCommandsRefPath(holder, 'obsidian-tasks-plugin')).toBe(
+            '.vault-operator/data/skills/plugin/obsidian-tasks-plugin/references/commands.md',
+        );
+    });
+
+    it('getPluginSkillCommandsRefPath returns null pre-migration (legacy has no separate ref)', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.obsilo-vault', _layoutMigrationStatus: 'pending' },
+        };
+        expect(getPluginSkillCommandsRefPath(holder, 'obsidian-tasks-plugin')).toBeNull();
+    });
+
+    it('respects custom agentFolderPath in all FEAT-29-02 helpers', () => {
+        const holder: Holder = {
+            settings: { agentFolderPath: '.custom-agent', _layoutMigrationStatus: 'complete' },
+        };
+        expect(getPluginSkillFolderPath(holder, 'kanban')).toBe(
+            '.custom-agent/data/skills/plugin/kanban',
+        );
+        expect(getPluginSkillManifestPath(holder, 'kanban')).toBe(
+            '.custom-agent/data/skills/plugin/kanban/SKILL.md',
+        );
     });
 });

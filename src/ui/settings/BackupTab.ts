@@ -151,7 +151,11 @@ function getCategories(plugin: ObsidianAgentPlugin): BackupCategory[] {
             label: t('settings.backup.catPluginSkills'),
             root: 'vault',
             dir: pluginSkillsDir,
-            recursive: false,
+            // FEAT-29-02: post-Welle-1 each plugin lives in its own sub-folder
+            // (data/skills/plugin/{id}/SKILL.md + references/). Walk recursively
+            // so the backup captures the whole tree. Pre-Welle-1 (flat .skill.md)
+            // recursive=true is also safe (no sub-folders).
+            recursive: true,
             description: t('settings.backup.catPluginSkillsDesc'),
         },
         {

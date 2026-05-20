@@ -4,7 +4,12 @@ import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
-import { getPluginSkillsDir, getSelfAuthoredSkillsDir } from '../../core/utils/agentFolder';
+import {
+    getPluginSkillsDir,
+    getPluginSkillManifestPath,
+    getPluginSkillReadmePath,
+    getSelfAuthoredSkillsDir,
+} from '../../core/utils/agentFolder';
 import { importSkill, detectSourceFromFile, SkillPackageImportError, SkillFolderImportError } from '../../core/skills/SkillImportRouter';
 import { confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
@@ -583,7 +588,8 @@ export class SkillsTab {
     }
 
     private async openSkillFile(skill: PluginSkillMeta): Promise<void> {
-        const path = `${this.skillsDir}/${skill.id}.skill.md`;
+        // FEAT-29-02: layout-aware -- folder/SKILL.md post-Welle-1, .skill.md legacy.
+        const path = getPluginSkillManifestPath(this.plugin, skill.id);
         try {
             const content = await this.app.vault.adapter.read(path);
             new ContentEditorModal(this.app, t('settings.skills.skillDetail', { name: skill.name }), content, (updated) => {
@@ -595,7 +601,8 @@ export class SkillsTab {
     }
 
     private async openReadmeFile(skill: PluginSkillMeta): Promise<void> {
-        const path = `${this.skillsDir}/${skill.id}.readme.md`;
+        // FEAT-29-02: layout-aware -- references/readme.md post-Welle-1, .readme.md legacy.
+        const path = getPluginSkillReadmePath(this.plugin, skill.id);
         try {
             const content = await this.app.vault.adapter.read(path);
             new ContentEditorModal(this.app, t('settings.skills.readme', { name: skill.name }), content, (updated) => {
@@ -608,7 +615,7 @@ export class SkillsTab {
 
     private async checkReadmeExists(pluginId: string): Promise<boolean> {
         try {
-            return await this.app.vault.adapter.exists(`${this.skillsDir}/${pluginId}.readme.md`);
+            return await this.app.vault.adapter.exists(getPluginSkillReadmePath(this.plugin, pluginId));
         } catch {
             return false;
         }

@@ -3818,3 +3818,53 @@ Welle 1 ist released-ready. Empfehlung: Welle 2 (FEAT-29-02 Plugin-Skill-Format-
 ### Audit-Report
 
 `_devprocess/analysis/AUDIT-FEAT-29-01-2026-05-20.md`
+
+## EPIC-29 -- /coding Welle 2 (FEAT-29-02) (2026-05-20)
+
+### Scope
+
+FEAT-29-02 Plugin-Skill-Format-Migration implementiert nach PLAN-28 (7 Tasks). Zweite Welle von EPIC-29. Plugin-Skills wandern von alten flat-File-Layout `.skill.md` auf das Anthropic-konformes Folder-Layout `data/skills/plugin/{plugin-id}/SKILL.md` mit strikter Frontmatter (`name` und `description` only). Removed Metadata-Felder gehen in den Body unter `## Plugin metadata`. Top-5-Plugins bekommen zusaetzlich `references/commands.md` eager-generated.
+
+Wichtige Beobachtung: die 138 `.skill.md`-Files sind **generated content** vom VaultDNAScanner, nicht User-Content. Welle 2 ist damit ein **Generator-Refactor** plus einmalige **Cleanup-Operation** des alten Pfads, nicht eine File-Migration wie bei User-Skills.
+
+### Artefakt-Bericht
+
+- `src/core/utils/agentFolder.ts`: 5 neue Helper-Funktionen (`getPluginSkillFolderPath`, `getPluginSkillManifestPath`, `getPluginSkillReadmePath`, `getPluginSkillCommandsRefPath`, plus `getPluginSkillsPath` als layout-aware Facade). `getPluginSkillsDir` jetzt 2-Pfad-Layout (`plugin-skills/` legacy, `data/skills/plugin/` post-Welle-1).
+- `src/core/utils/__tests__/agentFolder.test.ts`: +11 neue Tests fuer die Welle-2-Helper. Komplett 29/29 gruen.
+- `src/core/skills/VaultDNAScanner.ts`: Generator-Refactor. `AgentFolderHolder`-Type erweitert um `_layoutMigrationStatus`. `writeSkillFile` splittet in `writeFolderFormat` (post-Welle-1) und `writeLegacyFileFormat` (pre-Welle-1). Neue Methoden: `ensureDirRecursive` (weil Obsidian's `vault.adapter.mkdir` non-recursive ist), `renderPluginMetadataBlock` (Body-Section mit allen removed Frontmatter-Feldern), `writeCommandsReferenceIfTopPlugin` (Top-5 references/commands.md), `cleanupLegacyPluginSkillsLayout` (entfernt `data/plugin-skills/*` post-Welle-1).
+- `src/core/skills/SkillRegistry.ts`: Prompt-Hint layout-aware -- detected via Suffix `/data/skills/plugin` ob Folder- oder File-Layout aktiv ist.
+- `src/core/tools/agent/EnablePluginTool.ts`: NEXT-STEP-Hint zeigt automatisch auf neuen Pfad via `getPluginSkillsPath` (jetzt layout-aware).
+- `src/ui/settings/SkillsTab.ts`: `openSkillFile`, `openReadmeFile`, `checkReadmeExists` nutzen jetzt die neuen Helper.
+- `src/ui/settings/BackupTab.ts`: `plugin-skills`-Category `recursive: true` damit Folder-Layout-Sub-Folder mit-gebackupt werden.
+- `src/ARCHITECTURE.map`: `vault-dna` row mit ADR-124 und FEAT-29-02 Note erweitert.
+
+### Open Questions aus Spec, im Coding-Pivot beantwortet
+
+1. **references/commands.md fuer Top-5:** Eager-Generate im VaultDNAScanner -- jedes Plugin-Scan schreibt die Datei wenn Plugin in `TOP_PLUGINS_WITH_COMMANDS_REF`-Set. Kein Bundle-Asset, weil Command-Listen Plugin-Version-spezifisch sind.
+2. **.readme.md Files:** Wandern als `references/readme.md` ins neue Folder. Generator-Pfad in `writeCorePluginReadmes` uebernimmt das via `getPluginSkillReadmePath`.
+3. **SkillRegistry-Pfad-Umstellung:** Bestehendes Pattern -- Konstruktor liest `getPluginSkillsDir(this)` Helper. Keine Setter-Pfad-Logik noetig.
+
+### Bekannte Risiken / Test-Empfehlungen fuer /testing
+
+- **Welle-1-Trigger:** Welle 2 aktiviert sich nur wenn `_layoutMigrationStatus === 'complete'`. Sebastian hat das (siehe Welle-1-Audit). Pre-Welle-1-User bleiben auf Legacy-Layout (File-Form). Sollte mit Bypass-Toggle live getestet werden.
+- **mkdir non-recursive auf mobile:** `ensureDirRecursive` wurde gegen Node-fs-Mocks getestet, nicht gegen Obsidian-mobile-Adapter. Mobile ist nicht im Welle-2-Scope (Plugin ist desktop-only), aber Smoke-Test auf Mobile-Vault als Vorsichtsmassnahme.
+- **Idempotenz unter Plugin-Reload-Race:** Wenn ein User mid-flight reloadet (e.g. waehrend `writeSkillFile` laeuft), kann ein halb-geschriebenes SKILL.md hinterbleiben. Test-Empfehlung: mid-write-interrupt Szenario.
+- **Top-5-Plugin-IDs:** Hard-coded auf `obsidian-excalidraw-plugin`, `dataview`, `templater-obsidian`, `obsidian-tasks-plugin`, `obsidian-kanban`. Falls ein User andere prominente Plugins nutzt, hat er nur SKILL.md ohne commands-ref. Akzeptabel fuer Welle 2.
+- **Legacy-Cleanup Side-effect:** `cleanupLegacyPluginSkillsLayout` versucht den alten Folder zu entfernen. Wenn User dort eigene Files reingelegt hat (unwahrscheinlich), werden sie verschont (nur `.skill.md` und `.readme.md` werden geloescht), aber der Folder bleibt nicht-leer. Test-Empfehlung: User-File im legacy-Folder.
+
+### Test-Stand
+
+| Stand | Pass | Fail |
+|---|---|---|
+| Vor Welle 2 (/security-audit-Ende Welle 1) | 1775 | 21 (alle pre-existing) |
+| Nach Welle 2 /coding | **1784** | 21 (identisch pre-existing) |
+
++9 neue Welle-2-Tests gruen. Build green, deploy auf iCloud-Vault durchgelaufen.
+
+### Naechster Schritt
+
+Empfehlung: `/testing` fuer Welle 2 starten. Smoke-Tests gegen die 4 dokumentierten Risiko-Szenarien plus Live-Test auf Sebastians Vault (Plugin-Reload, verifiziere `{vault}/.vault-operator/data/skills/plugin/` enthaelt Folder pro installed-plugin mit SKILL.md, Top-5 mit references/commands.md, alter Pfad geleert). Danach `/security-audit` (neuer Code-Path schreibt im Vault-Subfolder, write_/remove-Aktionen pruefen).
+
+### Anschliessend Welle 3 / 4
+
+Nach Welle-2-Abschluss: FEAT-29-03 (Unified Discovery + probe_plugin, Welle 2 Foundation) und FEAT-29-04 (Execution Visibility) -- nutzen das jetzt etablierte Folder-Layout. Welle 3 fuer skill-creator + sandbox-js (FEAT-29-05/06) und Welle 4 fuer Translator/Versioning/Composability/Permission-Polish/Backup-Export folgen.
