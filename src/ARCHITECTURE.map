@@ -294,6 +294,10 @@ ADR-121 | modell-routing        | Tier-Klassifikator-Strategie (Pattern + Capabi
 ADR-122 | provider-config       | Provider-only Settings-Schema (providers[]-Liste mit tierMapping)
 ADR-123 | settings-migration    | Settings-Schema-Migration und Recovery-Pfad
 ADR-119 | agent-folder          | Plugin-Daten-Ordner-Konsolidierung auf einen kanonischen Pfad (EPIC-29)
+ADR-119 | layout-migration       | src/core/utils/migrateAgentLayout.ts -- 10-Phasen idempotent + resumable, FEAT-29-01
+ADR-119 | layout-aware-helpers   | src/core/utils/agentFolder.ts -- getPluginSkillsDir/getTmpRoot/getVaultDnaPath/getSelfAuthoredSkillsDir flip auf data/cache wenn _layoutMigrationStatus=complete
+ADR-119 | global-fs-relocator    | src/core/storage/GlobalFileService.ts:useVaultLocalRoot -- nach Migration zeigt globalFs.getRoot() auf {vault}/.vault-operator/data
+ADR-119 | layout-migration-ui    | src/ui/settings/VaultTab.ts:buildLayoutMigrationSection -- Run-Migration / Reset-Pfad / chatHistoryFolder-Notice
 ADR-124 | skill-discovery       | Plugin-as-Skill Live-Probe Discovery statt periodischem Polling (EPIC-29)
 ADR-125 | execute-command       | Execution Visibility fuer Plugin-Commands via Notice-Capture (EPIC-29)
 ADR-126 | skill-authoring       | Skill-Authoring als Builtin-Skill statt CRUD-Tool plus run_skill_script (EPIC-29)

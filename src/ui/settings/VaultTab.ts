@@ -165,8 +165,142 @@ export class VaultTab {
                     .onClick(() => { void this.handleMigrateClick(service); }),
             );
 
+        // ── FEAT-29-01 Storage Layout Migration ───────────────────────────
+        this.buildLayoutMigrationSection(containerEl, applyPathChange);
+
         // ── BA-25 Karpathy-Wiki-Pattern (Vault-Ingest) ────────────────────
         this.buildVaultIngestSection(containerEl);
+    }
+
+    /**
+     * FEAT-29-01: Storage Layout Migration section.
+     *
+     * Consolidates the four historical roots (.obsidian-agent, .obsilo-vault,
+     * .vault-operator, obsilo-shared) into a single .vault-operator/{data,cache}/
+     * layout. Migration is opt-in because it relocates files across roots and
+     * the dependent services switch their lookup paths.
+     */
+    private buildLayoutMigrationSection(
+        containerEl: HTMLElement,
+        applyPathChange: (newPath: string) => Promise<void>,
+    ): void {
+        addSectionHeading(
+            containerEl,
+            'Storage Layout Migration (FEAT-29-01)',
+            {
+                body:
+                    'Konsolidiert alle Plugin-Storage-Lokationen in einen einzigen vault-local '
+                    + 'Pfad mit data/ und cache/ Sub-Foldern. Ersetzt die vier historischen Roots '
+                    + '.obsidian-agent, .obsilo-vault, .vault-operator und {vault-parent}/obsilo-shared. '
+                    + 'Backup wird vor jedem Schreiben angelegt. Migration ist resumable.',
+            },
+        );
+
+        const statusValue = this.plugin.settings._layoutMigrationStatus ?? 'pending';
+        new Setting(containerEl)
+            .setName('Migration-Status')
+            .setDesc(`Aktueller Stand: ${statusValue}`);
+
+        // Run-button: writes _layoutMigrationOptIn=true and asks the user to reload.
+        new Setting(containerEl)
+            .setName('Run layout migration')
+            .setDesc(
+                'Aktiviert die Migration. Plugin muss nach Aktivierung neu geladen werden '
+                + '(Strg+P, "Reload plugin"). Beim naechsten Start laeuft Migration. Backup-Snapshot wird vorher '
+                + 'angelegt unter ~/Library/Application Support/...',
+            )
+            .addButton((btn) =>
+                btn
+                    .setButtonText(
+                        statusValue === 'complete' ? 'Bereits abgeschlossen' : 'Migration aktivieren',
+                    )
+                    .setIcon('arrow-up-circle')
+                    .setDisabled(statusValue === 'complete')
+                    .onClick(() => {
+                        void (async () => {
+                            const ok = await confirmModal(this.app, {
+                                title: 'Storage-Layout-Migration aktivieren?',
+                                message:
+                                    'Die Migration verschiebt alle Plugin-Daten (knowledge.db, history, '
+                                    + 'memory, skills, rules, workflows, episodes, logs, plugin-skills, '
+                                    + 'asset cache, checkpoints, dev-env, tmp) in einen konsolidierten '
+                                    + 'Pfad .vault-operator/{data,cache}/. \n\n'
+                                    + 'Vor erstem Schreiben wird ein Backup-Snapshot angelegt. Die '
+                                    + 'Operation ist resumable. Nach Aktivierung musst du das Plugin '
+                                    + 'reloaden (Strg+P -> Reload Vault Operator). Fortfahren?',
+                                confirmLabel: 'Migration aktivieren',
+                                cancelLabel: 'Abbrechen',
+                            });
+                            if (!ok) return;
+                            this.plugin.settings._layoutMigrationOptIn = true;
+                            await this.plugin.saveSettings();
+                            new Notice(
+                                'Migration aktiviert. Bitte Plugin neu laden (Strg+P -> Reload Vault Operator).',
+                                10000,
+                            );
+                            this.rerender();
+                        })();
+                    }),
+            );
+
+        // Reset agent folder path to default + migrate files
+        const currentPath = this.plugin.settings.agentFolderPath ?? DEFAULT_AGENT_FOLDER;
+        const isDefault = currentPath === DEFAULT_AGENT_FOLDER;
+        new Setting(containerEl)
+            .setName('Reset auf Standard-Pfad')
+            .setDesc(
+                isDefault
+                    ? 'Aktueller Pfad ist bereits der Standard (.vault-operator).'
+                    : `Aktueller Pfad ist Custom (${currentPath}). Reset setzt auf .vault-operator zurueck.`,
+            )
+            .addButton((btn) =>
+                btn
+                    .setButtonText('Reset auf .vault-operator')
+                    .setIcon('rotate-ccw')
+                    .setDisabled(isDefault)
+                    .onClick(() => {
+                        void (async () => {
+                            const ok = await confirmModal(this.app, {
+                                title: 'Agent-Folder-Pfad zuruecksetzen?',
+                                message:
+                                    `Aktueller Pfad: ${currentPath}\n`
+                                    + 'Neuer Pfad: .vault-operator\n\n'
+                                    + 'Existing Files bleiben im alten Pfad. Du musst sie manuell verschieben '
+                                    + 'oder ueber den "Migrate data"-Button (oben) bewegen. Fortfahren?',
+                                confirmLabel: 'Zuruecksetzen',
+                                cancelLabel: 'Abbrechen',
+                            });
+                            if (!ok) return;
+                            await applyPathChange(DEFAULT_AGENT_FOLDER);
+                            new Notice('Agent-Folder-Pfad zurueckgesetzt auf .vault-operator.', 6000);
+                            this.rerender();
+                        })();
+                    }),
+            );
+
+        // chatHistoryFolder legacy notice (FEAT-29-01 Task 10)
+        const legacyChatHistory = this.plugin.settings._chatHistoryFolderLegacy;
+        if (legacyChatHistory) {
+            new Setting(containerEl)
+                .setName('Hinweis: chatHistoryFolder entfernt')
+                .setDesc(
+                    `Das Setting chatHistoryFolder ist mit FEAT-29-01 entfallen. Dein alter Pfad war: ${legacyChatHistory}. `
+                    + 'Conversations sind weiterhin ueber die Plugin-Sidebar (HistoryPanel) zugaenglich. Der Vault-Folder bleibt unangetastet '
+                    + 'und kann manuell geloescht werden, falls nicht mehr benoetigt.',
+                )
+                .addButton((btn) =>
+                    btn
+                        .setButtonText('Verstanden, Hinweis entfernen')
+                        .setIcon('check')
+                        .onClick(() => {
+                            void (async () => {
+                                this.plugin.settings._chatHistoryFolderLegacy = undefined;
+                                await this.plugin.saveSettings();
+                                this.rerender();
+                            })();
+                        }),
+                );
+        }
     }
 
     /**
