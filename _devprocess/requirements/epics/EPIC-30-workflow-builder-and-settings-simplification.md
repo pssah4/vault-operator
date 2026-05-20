@@ -28,8 +28,9 @@ Fuer User die wiederkehrende Aufgaben automatisieren moechten (z.B. taegliche Ne
 | FEAT-30-01 | Rules-zu-Additional-Instructions Migration | Bestehende Rules werden in Additional Instructions transferiert, Rules-Tab wird entfernt, System-Prompt-Erzeugung respektiert nur noch Additional Instructions. Migrations-Pass beim ersten Boot nach Update. |
 | FEAT-30-02 | Workflow-Builder UI (n8n-aehnlich) | Visueller Editor fuer Workflow-Definition. Drag-and-Drop von Steps (Skill, Prompt, MCP-Call). Save als JSON oder Markdown-Frontmatter. |
 | FEAT-30-03 | Workflow-Execution-Runtime | Engine die einen gespeicherten Workflow Schritt-fuer-Schritt ausfuehrt. Step-Inputs aus vorigen Step-Outputs ableitbar. Error-Handling pro Step (skip, retry, abort). |
-| FEAT-30-04 | Workflow-Library und Sharing | Workflows als eigene Folder-Struktur in `.vault-operator/workflows/`, ggf. mit Marketplace-Anbindung (EPIC-31). |
+| FEAT-30-04 | Workflow-Library und Sharing | Workflows als eigene Folder-Struktur in `.vault-operator/data/workflows/`, ggf. mit Marketplace-Anbindung (EPIC-31). |
 | FEAT-30-05 | Modes endgueltig entfernen | Mode-System aus Code und UI entfernen (laut Memory bereits dead code, aber noch im Code). |
+| FEAT-30-06 | Episodes-und-Recipes-Konsolidierung in Workflows | Heute existieren drei verwandte Konzepte mit ueberlappender Semantik: Episodes (ADR-18, aufgezeichnete Task-Executions fuer Learning), Workflows (User-defined wiederholbare Sequenzen), Recipes (EPIC-Memory, auto-discovered Tool-Patterns). EPIC-30 konsolidiert: Workflows wird zentrale Entitaet mit drei Modi (User-defined, System-suggested/Recipe, Run-History/Episode). Migration der bestehenden Episodes- und Recipes-Daten in das Workflow-Datenmodell. Folge der Diskussion 2026-05-20 (EPIC-29 Welle 1 Coding-Pivot). |
 
 Volle FEAT-Specs werden in einer eigenen RE-Session nach Abschluss EPIC-29 Welle 3 geschrieben.
 
@@ -58,3 +59,16 @@ Volle FEAT-Specs werden in einer eigenen RE-Session nach Abschluss EPIC-29 Welle
 ## Aktueller Status
 
 Skeleton-Epic. Die vollen Specs (Feature-Beschreibungen, Success Criteria, Akzeptanzkriterien, NFRs, ASRs) werden in einer eigenen RE-Session erstellt, sobald EPIC-29 Welle 3 deployed und stabil ist. Vor dem Start sollte ein BA-Pass die n8n-Pattern-Auswahl und die Workflow-Use-Cases sauber durchleuchten.
+
+## Update 2026-05-20 (Scope-Erweiterung aus EPIC-29 Welle 1 Coding-Pivot)
+
+Beim Coding-Pivot fuer FEAT-29-01 (Folder-Konsolidierung) wurde sichtbar, dass Episodes (ADR-18, aufgezeichnete Task-Executions), Workflows (EPIC-02 Slash-Workflows plus EPIC-30 Workflow-Builder) und Recipes (EPIC-Memory) drei verwandte Konzepte mit ueberlappender Semantik sind. Konsolidierungs-Ansatz fuer EPIC-30:
+
+- **Workflows als zentrale Entitaet** mit drei Modi:
+  - User-defined: vom User explizit gebauter Workflow (n8n-Builder)
+  - System-suggested: vom System aus erkannten Tool-Mustern vorgeschlagener Workflow (war Recipe)
+  - Run-History: jede Workflow-Ausfuehrung wird als Run aufgezeichnet (war Episode)
+- **Migration**: bestehende Episodes-Daten und Recipes-Daten werden in das neue Workflow-Datenmodell ueberfuehrt
+- **Storage konsistent**: alles unter `.vault-operator/data/workflows/` (statt heute drei separate Folder data/episodes, data/recipes, data/workflows)
+
+Damit wird FEAT-30-06 zum neuen Feature in EPIC-30. Im BA-Pass vor Spec-Anlage sollte explizit auch dieser Konsolidierungs-Schritt durchleuchtet werden.

@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-20 by arch (EPIC-29 Architecture-Phase: 7 ADRs (ADR-119, ADR-124 bis ADR-129) plus plan-context-epic29.md angelegt. ADR-119 fuer Folder-Konsolidierung (amends ADR-72), ADR-124 Plugin-as-Skill Live-Probe, ADR-125 Notice-Capture, ADR-126 Skill-Authoring als Builtin-Skill (manage_skill entfaellt, run_skill_script neu), ADR-127 Python-zu-JS-Translation, ADR-128 Skill-Versionierung, ADR-129 Composability. Wayfinder aktualisiert.)
+Last update: 2026-05-20 by coding (EPIC-29 Welle 1 dritte Iteration: ADR-119 finale Entscheidung Option 1 alles vault-local plus Backup-Tool. obsilo-shared/ ist Quelle (45 MB cross-vault-shared inkl 252 history, 8.8 MB memory.db, skills/-Drift). FEAT-29-01 SC erweitert auf 8 Kriterien (Drift-Resolve, chatHistoryFolder-Removal, Reset-Buttons). FEAT-29-12 Backup-Export-Tool als neues Welle-4-Feature. EPIC-30 Scope erweitert um FEAT-30-06 (Episodes-Recipes-Konsolidierung). PLAN-27 auf 11 Tasks erweitert. Wartet auf User-Review.)
 
 ---
 
@@ -12,14 +12,14 @@ Last update: 2026-05-20 by arch (EPIC-29 Architecture-Phase: 7 ADRs (ADR-119, AD
 | Status | Count | | Phase | Count | | Type | Count |
 |---|---|-|---|---|-|---|---|
 | Planned | 40 | Released | 358 | Epic | 27 |
-| Active | 27 | Building | 71 | Feature | 223 |
+| Active | 29 | Building | 73 | Feature | 224 |
 | Done | 257 | Planned | 36 | Fix | 60 |
 | Accepted | 110 | Candidates | 2 | Improvement | 19 |
 | Draft | 14 |  |  | ADR | 124 |
-| Open | 5 |  |  | Plan | 15 |
+| Open | 5 |  |  | Plan | 16 |
 | Proposed | 14 |  |  |  |  |
 
-Total artifacts: 468
+Total artifacts: 470
 
 ---
 
@@ -597,7 +597,7 @@ Verwandt: Schliesst EPIC-22-Luecke (Plugin-Skill-Migration auf Anthropic-Folder-
 
 | ID | Type | Title | Status | Phase | Refs | Source | Commit | Claim | Last change | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FEAT-29-01 | Feature | Folder-Konsolidierung (.vault-operator als kanonisch) | Planned | Planned | EPIC-29 | USER |  |  | 2026-05-20 | P0 Welle 1. Drei aktive Plugin-Daten-Ordner (.obsilo-vault, .obsidian-agent, .vault-operator) auf einen einzigen .vault-operator/ migrieren. Doppel-Lesen-Fenster, Backup-Snapshot vor Schreiben. Spec: `_devprocess/requirements/features/FEAT-29-01-folder-consolidation.md` |
+| FEAT-29-01 | Feature | Folder-Konsolidierung (Option 1: alles vault-local plus Backup-Tool) | Active | Building | EPIC-29, PLAN-27, ADR-119, ADR-72, FEAT-29-12 | USER |  | sebastian-claude-opus-4-7 | 2026-05-20 | P0 Welle 1. Dritte Iteration finale Entscheidung: alles Plugin-State landet vault-local in .vault-operator/data/ und cache/. Vier Quell-Pfade konsolidiert (.obsidian-agent, .obsilo-vault, .vault-operator, obsilo-shared). Plus chatHistoryFolder-Removal, Drift-Resolve fuer skills/, Settings-Reset-Buttons. Cross-Vault-Sharing via FEAT-29-12 Backup-Tool. PLAN-27 Active mit 11 Tasks. Spec: `_devprocess/requirements/features/FEAT-29-01-folder-consolidation.md` |
 | FEAT-29-02 | Feature | Plugin-Skill-Format-Migration (File zu Folder/SKILL.md) | Planned | Planned | EPIC-29, FEAT-29-01 | USER |  |  | 2026-05-20 | P0 Welle 1. 138 Plugin-Skill-Files auf Anthropic-konformes Folder-Format umstellen. Frontmatter strikt name + description. Spec: `_devprocess/requirements/features/FEAT-29-02-plugin-skill-format-migration.md` |
 | FEAT-29-03 | Feature | Unified Discovery und probe_plugin-Tool | Planned | Planned | EPIC-29, FEAT-29-02 | USER |  |  | 2026-05-20 | P0 Welle 2. Event-driven Discovery statt 5-Sekunden-Polling, neues probe_plugin-Tool fuer Live-Commands und API-Methoden. Spec: `_devprocess/requirements/features/FEAT-29-03-unified-discovery-and-probe-plugin.md` |
 | FEAT-29-04 | Feature | Execution Visibility (Notice-Capture) | Planned | Planned | EPIC-29 | USER |  |  | 2026-05-20 | P0 Welle 2. window.Notice waehrend execute_command patchen um silent Command-Failures sichtbar zu machen. Spec: `_devprocess/requirements/features/FEAT-29-04-execution-visibility.md` |
@@ -608,6 +608,7 @@ Verwandt: Schliesst EPIC-22-Luecke (Plugin-Skill-Migration auf Anthropic-Folder-
 | FEAT-29-08 | Feature | Skill-Translator-Builtin-Skill | Planned | Planned | EPIC-29, FEAT-29-02, FEAT-29-05, FEAT-29-06 | USER |  |  | 2026-05-20 | P1 Welle 4. Anthropic-Skills mit Python-Skripten in Sandbox-taugliches JavaScript uebersetzen. Dry-Run-Pass mit User-Modal bei partial translation. Flagship-Routing. Spec: `_devprocess/requirements/features/FEAT-29-08-skill-translator-builtin.md` |
 | FEAT-29-09 | Feature | Skill-Versionierung mit Snapshot und Restore | Planned | Planned | EPIC-29, FEAT-29-02, FEAT-29-05 | USER |  |  | 2026-05-20 | P1 Welle 4. Automatischer Snapshot bei jeder Skill-Aenderung. Diff-basiert, Restore unter 2 Sekunden. Tagging gegen Retention. Spec: `_devprocess/requirements/features/FEAT-29-09-skill-versioning.md` |
 | FEAT-29-10 | Feature | Composability (Skill-zu-Skill und Skill-zu-MCP) | Planned | Planned | EPIC-29, FEAT-29-03, FEAT-29-06 | USER |  |  | 2026-05-20 | P1 Welle 4. Skill-Body kann andere Skills und MCP-Server aufrufen. Cycle-Detection, Max-Depth-Limit. MCP-Approval-Kette respektiert. Spec: `_devprocess/requirements/features/FEAT-29-10-composability-skill-to-skill-and-mcp.md` |
+| FEAT-29-12 | Feature | Backup- und Export-Tool fuer Plugin-State (selektiv, ZIP, Auto-Daily) | Planned | Planned | EPIC-29, FEAT-29-01 | USER |  |  | 2026-05-20 | P1 Welle 4. Selektives ZIP-Backup mit Skills/Memory/History/Rules/Workflows-Auswahl plus Import. Adressiert Cross-Vault-Transfer als User-Werkzeug nach Storage-Konsolidierung vault-local in FEAT-29-01. Optional Auto-Daily. Spec: `_devprocess/requirements/features/FEAT-29-12-backup-export-tool.md` |
 
 ### EPIC-30: Workflow-Builder und Settings-Vereinfachung
 
@@ -675,6 +676,7 @@ Verwandt: Skeleton-Epic. Volle Specs nach Abschluss EPIC-29 (Skills-Konsolidieru
 | PLAN-24 | Plan | EPIC-26 Welle 1 -- Advisor-Pattern Engine + Tier-Klassifikator + Discovery (12 Tasks, FEAT-26-01 + FEAT-26-02 Backend) | Done | Released | FEAT-26-01, FEAT-26-02, EPIC-26, ADR-120, ADR-121, ADR-115 | CODE | sebastian-claude-opus-4-7 | 2026-05-15 | 2026-05-16 | Welle 1 Backend abgeschlossen. Alle 12 Tasks implementiert, 110 EPIC-26-Tests grün, tsc + build clean. F-1/F-2/F-3/F-4 alle aufgelöst. UI/Migration/Chat-Dropdown bleiben planmäßig für PLAN-25/PLAN-26 (Welle 2). |
 | PLAN-25 | Plan | EPIC-26 Welle 2 -- Provider-only Settings UI + Migration (7 Tasks, FEAT-26-03 + FEAT-26-04) | Done | Released | FEAT-26-03, FEAT-26-04, EPIC-26, ADR-122, ADR-123 | CODE | sebastian-claude-opus-4-7 | 2026-05-16 | 2026-05-16 | Welle 2 Implementation komplett. Migration + Modal + ProvidersTab + Production-Fetcher + i18n. 12 Migration-Tests grün; insgesamt 125 EPIC-26-Tests. Build clean, deployed. |
 | PLAN-26 | Plan | EPIC-26 Welle 3 -- Chat-Model-Dropdown + Mode-Switcher-Removal + Prompt-Slim (8 Tasks, FEAT-26-05 + FEAT-26-06) | Done | Released | FEAT-26-05, FEAT-26-06, EPIC-26, ADR-120, ADR-122 | CODE | sebastian-claude-opus-4-7 | 2026-05-16 | 2026-05-16 | Welle 3 Implementation komplett. Chat-Dropdown + Override + Tool-Filter + Mode-Switcher-Removal + lean Cost-Heuristics + lean Plugin-Skills. 1604/1632 Tests grün (+28 vs. /testing). Build clean, deployed. |
+| PLAN-27 | Plan | FEAT-29-01 Folder-Konsolidierung Variante B (data/ + cache/ + Legacy-Cleanup, 8 Tasks) | Active | Building | FEAT-29-01, EPIC-29, ADR-119, ADR-72 | CODE | sebastian-claude-opus-4-7 |  | 2026-05-20 | Plan angelegt nach Phase-2c-Reconciliation. 8 Tasks: agentFolder-Helper zentralisieren, migrateAgentLayout-Service neu, Doppel-Lesen-Fenster, onload-Trigger, Restore-Action, Wayfinder, Custom-Pfad-Schutz, Smoke-Test. Coverage Gate gruen. Wartet auf User-Review vor Implementation. |
 | ADR-12 | ADR | Context Condensing Strategy (Keep-First-Last) + Microcompaction & Rolling-Summary (Amendment 2026-05-12) | Accepted | Released | FEAT-24-02, EPIC-24 | ARCH |  |  | 2026-05-12 | Amendment 2026-05-12 (EPIC-24/FEAT-24-02): Microcompaction der Tool-Results an Turn-Grenzen + Rolling-Summary alter Turn-Bloecke, additiv zur Keep-First-Last-Voll-Compaction |
 | ADR-13 | ADR | 3-Tier Memory Architecture (Chat -> Session -> Long-Term) | Accepted | Released |  | ARCH |  |  |  |  |
 | ADR-14 | ADR | VaultDNA — Automatische Plugin-Erkennung als Skills | Accepted | Released |  | ARCH |  |  |  |  |

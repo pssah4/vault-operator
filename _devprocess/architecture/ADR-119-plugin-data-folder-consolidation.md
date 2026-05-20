@@ -83,9 +83,97 @@ Daten-Integritaet ist der dominante Treiber, und die Resumability-Eigenschaft ma
 - **iCloud-Konflikt waehrend Migration**: mitigation durch Read-Only-Markierung des alten Pfads als erster Schreib-Akt, danach Daten-Move.
 - **Mid-flight Plugin-Reload**: mitigation durch Resume-Flag in Settings, naechster Start prueft Migration-Status und faehrt fort oder rollt zurueck.
 
+## Amendment 2026-05-20 (Mid-course design discovery, Phase 2c)
+
+Beim Codebase-Reconciliation-Pass fuer FEAT-29-01 wurde sichtbar, dass die ursprueschliche Lesart "drei Drift-Pfade auf einen kanonischen Pfad" die Realitaet nicht trifft. Tatsaechlich existieren drei vault-local Verzeichnisse mit unterschiedlicher Funktion:
+
+- `.obsidian-agent/` ist eine echte Legacy aus einer aelteren Namens-Welle, enthaelt heute nur Telemetry-Reste, sollte abgebaut werden.
+- `.obsilo-vault/` ist der heutige Agent-Daten-Folder (knowledge.db, Skills, Plugin-Skill-Snapshots).
+- `.vault-operator/` ist ein bewusst angelegter Optional-Asset-Cache aus dem v2.10er-Refactor (Office-Bundles, PDF-Bundles, ONNX-WASM, Sandbox-Worker). Funktional getrennt von User-Daten.
+
+Zusaetzlich wurde sichtbar, dass im Code bereits zwei Naming-Wellen released sind: `migrateFolderRename.ts` migriert `.obsidian-agent` auf `obsilo-vault` (vault-local), und `GlobalFileService.ts` setzt `vault-operator-shared` als kanonischen vault-parent-Folder mit Legacy-Aliases `obsilo-shared` und `.obsidian-agent`. EPIC-29 setzt die naechste Welle auf, die nun aber nicht "drei auf einen" sondern "die letzte Branding-Welle plus Sub-Folder-Strukturierung" ist.
+
+**Korrigierte Entscheidung (Variante B' mit Cleanup, ueberholt durch dritte Iteration unten):**
+
+Daten und Cache leben unter unterschiedlichen Roots, weil sie unterschiedliche Sync-Semantik brauchen. User-Daten bleiben vault-local und syncen ueber iCloud / Obsidian-Sync mit. Wiederherstellbare Assets, Worker-Files und Tempfiles leben device-local in dem schon released en `vault-operator-shared/`-Folder (FEATURE-1508, FIX-28-00-03) ausserhalb des Vault-Trees, damit grosse Assets wie das 12 MB ONNX-WASM-Modul nicht ueber Geraete-iCloud-Sync repliziert werden.
+
+Ziel-Layout:
+
+```
+{vault}/.vault-operator/data/          # vault-local, iCloud-synct
+{vault-parent}/vault-operator-shared/cache/   # device-local, nicht iCloud-synct
+```
+
+Migration:
+
+- `.obsilo-vault/{knowledge.db, knowledge.db.bak, .bak/, plugin-skills/, skills/, vault-dna.json}` wird nach `{vault}/.vault-operator/data/*` migriert.
+- `.obsidian-agent/{telemetry/, ...}` (Legacy) wird nach `{vault}/.vault-operator/data/telemetry/` migriert (falls noch Daten vorhanden) und der alte Pfad geloescht.
+- `{vault}/.vault-operator/{assets/, runtime/}` (heute vault-local Optional-Asset-Cache) wird nach `{vault-parent}/vault-operator-shared/cache/{assets/, runtime/}` migriert.
+- `.obsilo-vault/tmp/` und `.obsilo-vault/soak-reports/` werden nach `{vault-parent}/vault-operator-shared/cache/tmp/` und `.../soak-reports/` migriert.
+
+`vault-operator-shared/checkpoints/` und `vault-operator-shared/dev-env/` (schon released, FIX-28-00-03) sind davon nicht betroffen, sie sind schon dort.
+
+Die Migration laeuft in drei Phasen: erst data-Move (vault-local Source -> vault-local Ziel), dann cache-Move (vault-local Source -> vault-parent Ziel), dann Legacy-Cleanup. Alle Phasen nutzen das gleiche Doppel-Lesen-Fenster-Pattern und Backup-Snapshot. Atomic-Migration auf der gleichen Filesystem-Partition (fs.rename), Copy-Plus-Delete-Fallback bei EXDEV (vor allem fuer cache-Move plausibel, weil vault-local zu vault-parent ueber verschiedene iCloud-Subdomains laufen kann).
+
+Code-Wiederverwendung: `migrateFolderRename.ts` (vault-local Rename) und `migratePluginDataDirs.ts` (vault-local zu vault-parent Move) sind die existierenden Vorbilder und werden erweitert statt neu gebaut.
+
+## Amendment 2026-05-20 (dritte Iteration, finale Entscheidung)
+
+Beim Codebase-Reconciliation-Pass wurde sichtbar, dass die Storage-Topologie noch komplexer war als die zweite Iteration angenommen hat:
+
+- vault-parent (`{vault-parent}/obsilo-shared/`) enthaelt nicht nur Cache-Inhalte (checkpoints, dev-env), sondern auch substantielle Cross-Vault-Shared-Plugin-Daten (history mit 252 Eintraegen, memory.db 8.8 MB, memory/, episodes/, logs/, rules/, workflows/, skills/).
+- skills/ liegt mit unterschiedlichem Inhalt in vault-local (`.obsilo-vault/skills/`, 8 Eintraege) UND vault-parent (`obsilo-shared/skills/`, 6 Eintraege). Echte Drift, vier Skills nur in vault-local, zwei nur in vault-parent.
+- Bei Vaults im iCloud-Mobile-Documents-Container (Sebastians Setup) syncet vault-parent ebenfalls ueber iCloud Drive. Die vault-parent-Strategie aus FIX-28-00-03 schuetzt nur vor Obsidian-Mobile-Indexer-Stall, nicht vor iCloud-Sync-Last.
+- Cross-Vault-Sharing ist ein eigenes User-Werkzeug, nicht ein automatischer Side-Effect der Storage-Lokation.
+
+**Finale Entscheidung (Option 1 mit Backup-Tool):**
+
+Alles Plugin-State landet vault-local unter `{vault}/.vault-operator/`. Zwei Sub-Folders trennen Persistenz-Semantik:
+
+- `{vault}/.vault-operator/data/`: User-State, Plugin-Daten, persistent gewuenscht
+- `{vault}/.vault-operator/cache/`: Regenerierbar, kann jederzeit geloescht werden ohne Datenverlust
+
+Cross-Vault-Sharing wird durch ein separates Backup- und Export-Tool (FEAT-29-12 in Welle 4) bereitgestellt, das selektiven ZIP-Export plus Import ermoeglicht. Damit faellt vault-parent als Storage-Lokation fuer Plugin-Daten weg.
+
+Migration-Quellen (alle nach `{vault}/.vault-operator/`):
+
+- `.obsilo-vault/{knowledge.db, knowledge.db.bak, .bak/, plugin-skills/, skills/, vault-dna.json}` -> `data/*`
+- `.obsilo-vault/{tmp/, soak-reports/}` -> `cache/*`
+- `.obsidian-agent/*` (Legacy) -> `data/telemetry/*`, alter Pfad entfernt
+- `{vault-parent}/obsilo-shared/{history/, history.db plus .bak, memory/, memory.db plus .bak, memory-v1-backup/, episodes/, logs/, rules/, workflows/, pending-extractions.json}` -> `data/*`
+- `{vault-parent}/obsilo-shared/skills/` -> Drift-Merge mit vault-local-skills (siehe unten)
+- `{vault-parent}/obsilo-shared/{checkpoints/, dev-env/, tmp/, .bak/}` -> `cache/*`
+- `{vault-parent}/obsilo-shared/settings.json` -> evaluieren, ggf. mit Plugin-data.json mergen oder als Legacy-Backup ablegen
+
+**Drift-Aufloesung fuer skills/:**
+
+Beide Quell-Pfade haben unterschiedlichen Inhalt. Migration mergt durch Union:
+- Skills die nur in einer Quelle existieren werden uebernommen
+- Skills die in beiden Quellen existieren werden nach mtime aufgeloest: neuere Version gewinnt, aeltere wird als Snapshot in `.versions/` des Skill-Folders abgelegt (analog zu FEAT-29-09 Skill-Versionierung, aber als Migrations-Side-Effect)
+
+**chatHistoryFolder-Abschaffung:**
+
+Das `chatHistoryFolder`-Setting wird in dieser Migration entfernt. ConversationStore wird Single-Source-of-Truth fuer Chat-History. User, die das Setting aktiv genutzt haben, sehen beim ersten Boot ein Migrations-Modal: "Setting entfernt, Conversations sind weiter via Plugin-Sidebar zugaenglich. Dein Vault-Folder ({alter Pfad}) bleibt unangetastet und kann manuell geloescht werden, falls nicht mehr benoetigt."
+
+**Reset-Buttons als echte Migration:**
+
+Settings-UI bekommt einen Reset-Button pro Pfad-Setting plus einen Reset-all-Button. Der Reset macht eine echte File-Migration: liest aus altem Pfad, schreibt nach neuem Default-Pfad, loescht alten Pfad. Nicht nur Setting-Aenderung.
+
+**Migration in Phasen:**
+
+1. Backup-Snapshot des gesamten alten Layouts in einen Pfad ausserhalb iCloud-Sync
+2. Data-Migration vault-local plus vault-parent shared -> `.vault-operator/data/`
+3. Cache-Migration -> `.vault-operator/cache/`
+4. Legacy-Cleanup (`.obsidian-agent`, `.obsilo-vault`, `obsilo-shared`) entfernen
+5. Settings-Update (`agentFolderPath` auf neuen Default, `chatHistoryFolder` entfernt)
+6. Migrations-Report-JSON
+
+Alle Phasen sind idempotent und resumable via `_layoutMigrationStatus` Settings-Flag.
+
 ## Related decisions
 
-- ADR-72: Konfigurierbarer Agent-Storage-Root. ADR-119 amends ADR-72 mit dem neuen Default-Pfad und der Migrations-Mechanik aus den drei historisch entstandenen Verzeichnissen.
+- ADR-72: Konfigurierbarer Agent-Storage-Root. ADR-119 amends ADR-72 mit dem neuen Default-Pfad und der Sub-Folder-Strukturierung.
+- FEATURE-1508 (Vault-Parent-Folder-Rename auf `vault-operator-shared`): bereits released, ADR-119 baut darauf auf und uebernimmt das Migrations-Pattern.
 
 ## References
 

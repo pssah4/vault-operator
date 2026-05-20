@@ -39,6 +39,7 @@ Fuer Power-User des Vault Operators, die heute auf drei parallele Daten-Ordner (
 | H-04 | Ein Builtin-skill-creator-Skill wird vom Modell zuverlaessig getriggert, sobald ein User-Prompt nach Skill-Erstellung klingt, ohne dass es ein dediziertes Tool dafuer braucht. | FEAT-29-05 | Open |
 | H-05 | Snapshot-basierte Versionierung pro Skill-Aenderung kostet weniger als 5% Storage-Overhead und ist fuer Restore < 2 Sekunden ausfuehrbar. | FEAT-29-09 | Open |
 | H-06 | Skill-to-Skill und Skill-to-MCP-Komposition wird vom Modell innerhalb eines Skill-Bodies zuverlaessig orchestriert, ohne Hard-Loops oder unkontrollierte Rekursion. | FEAT-29-10 | Open |
+| H-07 | Cross-Vault-Transfer ueber selektives Backup-Tool ist fuer User-Workflow ausreichend, automatisches Cross-Vault-Sharing ist nicht noetig. | FEAT-29-12 | Open |
 
 ## MVP Features
 
@@ -55,6 +56,7 @@ Fuer Power-User des Vault Operators, die heute auf drei parallele Daten-Ordner (
 | FEAT-29-08 | Skill-Translator-Builtin-Skill | P1 | M | 4 |
 | FEAT-29-09 | Skill-Versionierung (Snapshot und Restore) | P1 | M | 4 |
 | FEAT-29-10 | Composability (Skill-to-Skill und Skill-to-MCP) | P1 | M | 4 |
+| FEAT-29-12 | Backup- und Export-Tool fuer Plugin-State | P1 | M | 4 |
 
 **Priority:** P0-Critical (Foundation und Reliability ohne die nichts laeuft), P1-High (Authoring- und Ecosystem-Wertschoepfung), P2-Medium (UX-Polish).
 **Effort:** S (1 bis 2 Sprints), M (3 bis 5 Sprints).

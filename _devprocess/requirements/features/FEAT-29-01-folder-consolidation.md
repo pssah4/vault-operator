@@ -66,13 +66,18 @@ Heute existieren im Vault drei parallele Plugin-Daten-Ordner: `.obsilo-vault/` (
 
 ## Success criteria (tech-agnostic)
 
+> Amended 2026-05-20 (dritte Iteration, finale): Option 1 mit allem vault-local plus Backup-Tool als FEAT-29-12. Cross-Vault-Sharing via Backup-Export-Import, nicht via vault-parent.
+
 | ID | Kriterium | Target | Messung |
 |---|---|---|---|
 | SC-01 | Migration legt vor erstem Schreiben ein wiederherstellbares Backup an | 100% der Migrationen mit Backup-Bestaetigung | Migrations-Report-Log |
-| SC-02 | Nach Migration sind alle Plugin-Daten am neuen Ort und der alte Ort enthaelt nur Marker-Datei oder ist leer | 0 Daten-Dateien im alten Pfad | Manueller `ls`-Check |
+| SC-02 | Nach Migration liegt alles Plugin-State unter `{vault}/.vault-operator/{data,cache}/`. Drei Legacy-Pfade sind entfernt (`.obsidian-agent`, `.obsilo-vault`, `{vault-parent}/obsilo-shared`) | Nur noch `.vault-operator/` exists, alte Pfade weg | Filesystem-Check |
 | SC-03 | Plugin startet nach Migration ohne Reindex- oder Reload-Forderung an den User | Plugin laeuft im ersten Boot nach Migration normal weiter | Manueller Test |
-| SC-04 | User kann eine Migration abbrechen und auf den alten Pfad zurueckkehren | Restore innerhalb von 5 Minuten moeglich | Manueller Test |
+| SC-04 | User kann eine Migration abbrechen und auf den alten Layout zurueckkehren | Restore innerhalb von 5 Minuten moeglich | Manueller Test |
 | SC-05 | Doppel-Lesen-Fenster funktioniert: alte und neue Pfade werden waehrend Uebergang beide gelesen | Keine Datenverluste bei Plugin-Reload mitten in der Migration | Test mit Plugin-Disable und Re-Enable |
+| SC-06 | Drift-Resolve fuer skills/: Union aus vault-local und vault-parent, bei Konflikt mtime-Praezedenz, alte Version als .versions/-Snapshot | Alle Skills aus beiden Quellen sind in `.vault-operator/data/skills/` vorhanden | Filesystem-Check vor und nach Migration |
+| SC-07 | chatHistoryFolder-Setting wird entfernt, ConversationStore wird Single-Source-of-Truth. User der das Setting genutzt hat sieht Migrations-Notice-Modal mit Pfad-Hinweis | Setting nicht mehr im UI, Modal beim ersten Boot wenn relevant | Manueller Test |
+| SC-08 | Settings-UI hat Reset-Button pro Pfad-Setting plus Reset-all-Button. Reset macht echte File-Migration (Files umziehen, alten Pfad entfernen), nicht nur Setting-Aenderung | Reset-Button verfuegbar und funktional | Manueller Test |
 
 ---
 

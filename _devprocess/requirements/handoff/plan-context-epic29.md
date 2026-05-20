@@ -120,9 +120,18 @@ Diese Architektur-Fragen werden im /coding-Pivot anhand der Code-Realitaet entsc
 ## Komponenten-Skizze pro Welle
 
 **Welle 1: Foundation**
-- FoldermigrationsService (neu) fuer ADR-119
+- FoldermigrationsService (neu) fuer ADR-119 (Option 1 alles vault-local plus Backup-Tool als FEAT-29-12, dritte Iteration nach Phase-2c-Reconciliation 2026-05-20)
+- Migrations-Layout: alles Plugin-State landet vault-local in `{vault}/.vault-operator/{data,cache}/`. Drei Quell-Pfade werden konsolidiert: `.obsidian-agent`, `.obsilo-vault`, `{vault-parent}/obsilo-shared`
+- Drift-Resolve fuer skills/: Union aus vault-local und vault-parent, mtime-Praezedenz bei Konflikt
+- chatHistoryFolder-Setting wird entfernt, ConversationStore wird Single-Source-of-Truth
+- Settings-Reset-Buttons als echte File-Migration (nicht nur Setting-Aenderung)
+- Wiederverwendung existierender Migrations-Helper: `migrateFolderRename.ts` und `migratePluginDataDirs.ts` als Vorbild und Basis
 - SkillRegistry (existing) wird erweitert um Plugin-Skill-Folder-Quelle (ADR-124)
 - VaultDNAScanner (existing) wird abgeschafft, Aufgaben uebernehmen Live-Probe-Tool plus Eager-Stub-Generator
+
+**Welle 4: Polish + Bridge** (Update)
+- Bereits geplant: FEAT-29-07 Permission Polish, FEAT-29-08 Skill-Translator, FEAT-29-09 Skill-Versionierung, FEAT-29-10 Composability
+- **Neu: FEAT-29-12 Backup-Export-Tool** (selektiver ZIP-Export, Import, optional Auto-Daily). Adressiert Cross-Vault-Sharing als User-Werkzeug, weil Storage in Option 1 vault-local ist und automatisches Cross-Vault-Sharing wegfaellt
 
 **Welle 2: Reliability**
 - probe_plugin-Tool (neu) im Tool-Registry
