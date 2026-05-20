@@ -4183,3 +4183,40 @@ Welle 3 ist released-ready. Empfehlung: **Welle 4 (FEAT-29-05 Skill-Creator-Buil
 ### Audit-Report
 
 `_devprocess/analysis/AUDIT-FEAT-29-03-FEAT-29-04-2026-05-20.md`
+
+## EPIC-29 -- Welle-4-Start verschoben (2026-05-20)
+
+### Status
+
+EPIC-29 Welle 1+2+3 sind komplett abgeschlossen und green: 13 Audit-Findings ueber drei /security-audit-Saetze alle resolved. Test-Stand 1838/1859 (21 verbleibende pre-existing pre-Welle-1). Branch `feat/epic-29-skills-consolidation` traegt alle Aenderungen.
+
+### Welle 4 -- Vorgehen fuer die naechste Session
+
+FEAT-29-05 (Skill-Creator-Builtin) wurde in einer langen Session gestartet, dann pragmatisch zurueckgestellt:
+
+- **Scope-Erkenntnis:** 33 Code-Sites mit `manage_skill`-Referenz, plus Dependency auf FEAT-29-06 (Sandbox-JS / run_skill_script-Tool) das noch nicht implementiert ist.
+- **User-Entscheidung:** Frische Session fuer FEAT-29-05 + FEAT-29-06 bundled. Kein PLAN-30 in dieser Session angelegt.
+
+**Empfehlung fuer die naechste Session:**
+
+1. Start mit FEAT-29-06 (Sandbox-JS first-class + run_skill_script-Tool) -- Foundation fuer 29-05.
+2. Anschliessend FEAT-29-05 (skill-creator Builtin + Validator + TaskRouter-Erweiterung + manage_skill-Removal).
+3. **Strikt TDD** per Memory `feedback_tdd_default.md` ab hier.
+4. Beide bundled in PLAN-30 oder separat in PLAN-30 + PLAN-31.
+
+### Verbleibende Welle-4-Features (nach FEAT-29-05/06)
+
+- FEAT-29-11 Customize + Toolbox-Icon (P2, klein, UI-Refinement)
+- FEAT-29-07 Permission und Latency Polish (P2)
+- FEAT-29-08 Skill-Translator-Builtin (P1, depends-on FEAT-29-05+06)
+- FEAT-29-09 Skill-Versionierung (P1)
+- FEAT-29-10 Composability (P1, depends-on FEAT-29-06)
+- FEAT-29-12 Backup-Export-Tool (P1, eigenstaendig)
+
+### Optionaler Zwischen-Schritt vor Welle 4
+
+Sebastian kann vor dem naechsten /coding optional einen **Live-Test in seinem Vault** machen: Plugin reloaden, Welle 1+2+3 verifizieren (probe_plugin auf Dataview, Notice-Capture bei Plugin-Command, layout-change-Hook beim Plugin-Enable). Wenn dort Issues auftauchen, gehen sie in den Backlog vor Welle 4-Beginn.
+
+### Optionaler Zwischen-Schritt: BRAT-Release
+
+Welle 1+2+3 als 2.12.0-beta.1 auf vault-operator-dev releasen, BRAT-Tester einbinden. Gibt EPIC-29 einen Stabilitaets-Halt-Punkt mit drei abgeschlossenen Foundation-Wellen.
