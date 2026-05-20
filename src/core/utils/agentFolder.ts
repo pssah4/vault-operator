@@ -104,6 +104,23 @@ export function getInternalAgentFolderPath(holder: SettingsHolder): string {
 }
 
 /**
+ * FEAT-29-02 / AUDIT-FEAT-29-02 L-1: Defense-in-depth pluginId validation.
+ * Plugin IDs originate from Obsidian's manifest.json, which Obsidian itself
+ * validates. But every helper below joins the id into a filesystem path, and
+ * a pathological id (`..`, `/`, absolute path) would escape the agent
+ * folder. We refuse any id that does not match the Obsidian convention of
+ * alphanumeric + dash + underscore + dot.
+ *
+ * Throws when the id is unsafe so caller logs the failure loudly instead of
+ * silently writing to an unexpected path.
+ */
+function assertSafePluginId(pluginId: string): void {
+    if (!pluginId || pluginId.length > 200 || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(pluginId)) {
+        throw new Error(`Unsafe plugin id rejected by path-traversal guard: ${JSON.stringify(pluginId)}`);
+    }
+}
+
+/**
  * Path to a plugin-skill file or its manifest. Layout-aware across two
  * dimensions:
  *
@@ -122,6 +139,7 @@ export function getInternalAgentFolderPath(holder: SettingsHolder): string {
  * new folder.
  */
 export function getPluginSkillsPath(holder: SettingsHolder, pluginId: string): string {
+    assertSafePluginId(pluginId);
     if (isLayoutMigrated(holder)) {
         return getPluginSkillManifestPath(holder, pluginId);
     }
@@ -150,6 +168,7 @@ export function getPluginSkillsDir(holder: SettingsHolder): string {
  * per-plugin folder concept; callers should use `getPluginSkillsPath`).
  */
 export function getPluginSkillFolderPath(holder: SettingsHolder, pluginId: string): string | null {
+    assertSafePluginId(pluginId);
     if (!isLayoutMigrated(holder)) return null;
     return normalizePath(`${getInternalAgentFolderPath(holder)}/data/skills/plugin/${pluginId}`);
 }
@@ -160,6 +179,7 @@ export function getPluginSkillFolderPath(holder: SettingsHolder, pluginId: strin
  * so direct call-sites stay agnostic of the migration state.
  */
 export function getPluginSkillManifestPath(holder: SettingsHolder, pluginId: string): string {
+    assertSafePluginId(pluginId);
     if (!isLayoutMigrated(holder)) {
         return normalizePath(`${getInternalAgentFolderPath(holder)}/plugin-skills/${pluginId}.skill.md`);
     }
@@ -174,6 +194,7 @@ export function getPluginSkillManifestPath(holder: SettingsHolder, pluginId: str
  * returns the legacy flat path.
  */
 export function getPluginSkillReadmePath(holder: SettingsHolder, pluginId: string): string {
+    assertSafePluginId(pluginId);
     if (!isLayoutMigrated(holder)) {
         return normalizePath(`${getInternalAgentFolderPath(holder)}/plugin-skills/${pluginId}.readme.md`);
     }
@@ -189,6 +210,7 @@ export function getPluginSkillReadmePath(holder: SettingsHolder, pluginId: strin
  * a separate command reference; the data lives inline in the `.skill.md`.
  */
 export function getPluginSkillCommandsRefPath(holder: SettingsHolder, pluginId: string): string | null {
+    assertSafePluginId(pluginId);
     if (!isLayoutMigrated(holder)) return null;
     return normalizePath(
         `${getInternalAgentFolderPath(holder)}/data/skills/plugin/${pluginId}/references/commands.md`,

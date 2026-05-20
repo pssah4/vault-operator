@@ -250,3 +250,60 @@ describe('FEAT-29-02 plugin-skill folder helpers', () => {
         );
     });
 });
+
+describe('FEAT-29-02 / AUDIT-FEAT-29-02 L-1: pluginId path-traversal guard', () => {
+    const holder: Holder = {
+        settings: { agentFolderPath: '.vault-operator', _layoutMigrationStatus: 'complete' },
+    };
+
+    it('rejects ../ in plugin id', () => {
+        expect(() => getPluginSkillFolderPath(holder, '../malicious')).toThrow(
+            /path-traversal guard/i,
+        );
+    });
+
+    it('rejects absolute path as plugin id', () => {
+        expect(() => getPluginSkillManifestPath(holder, '/etc/passwd')).toThrow(
+            /path-traversal guard/i,
+        );
+    });
+
+    it('rejects backslash separator (windows-style traversal)', () => {
+        expect(() => getPluginSkillReadmePath(holder, 'foo\\bar')).toThrow(
+            /path-traversal guard/i,
+        );
+    });
+
+    it('rejects empty plugin id', () => {
+        expect(() => getPluginSkillsPath(holder, '')).toThrow(/path-traversal guard/i);
+    });
+
+    it('rejects pathological id with slash mid-string', () => {
+        expect(() => getPluginSkillCommandsRefPath(holder, 'a/b')).toThrow(
+            /path-traversal guard/i,
+        );
+    });
+
+    it('accepts normal plugin ids (alphanumeric + dash + underscore + dot)', () => {
+        expect(() => getPluginSkillFolderPath(holder, 'obsidian-excalidraw-plugin')).not.toThrow();
+        expect(() => getPluginSkillFolderPath(holder, 'dataview')).not.toThrow();
+        expect(() => getPluginSkillFolderPath(holder, 'foo_bar-123')).not.toThrow();
+        expect(() => getPluginSkillFolderPath(holder, 'plugin.with.dots')).not.toThrow();
+    });
+
+    it('rejects id starting with non-alphanumeric (defence against leading-dot tricks)', () => {
+        expect(() => getPluginSkillFolderPath(holder, '.hidden-plugin')).toThrow(
+            /path-traversal guard/i,
+        );
+        expect(() => getPluginSkillFolderPath(holder, '-leading-dash')).toThrow(
+            /path-traversal guard/i,
+        );
+    });
+
+    it('rejects overly long plugin id (>200 chars)', () => {
+        const longId = 'a'.repeat(201);
+        expect(() => getPluginSkillFolderPath(holder, longId)).toThrow(
+            /path-traversal guard/i,
+        );
+    });
+});

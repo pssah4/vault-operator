@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-20 by testing (EPIC-29 Welle 2 /testing-Pass abgeschlossen: 1797/1818 Tests gruen (+13 neue Welle-2-content-Tests in VaultDNAScanner-writeSkillFile.test.ts). Coverage: post-Welle-1 folder layout (writeFolderFormat), pre-Welle-1 legacy layout, Frontmatter-Striktheit (nur name+description), Plugin-metadata-Body-Section, Idempotenz (Hash-Match nach 2x writeSkillFile), Top-5 references/commands.md generation, Legacy-Cleanup mit User-File-Preservation, no-op auf fehlendem Folder. 21 pre-existing Failures alle pre-Welle-1 unveraendert. Build green. Naechster Schritt: /security-audit fuer Welle 2.)
+Last update: 2026-05-20 by security-audit (EPIC-29 Welle 2 /security-audit-Pass abgeschlossen: 1 Medium + 2 Low Findings, alle 3 im Audit-Pass resolved. Release-readiness: GREEN. Fixes: (M-1) escapeMarkdownTableCell/escapeMarkdownInline/escapeInlineCode-Helper in VaultDNAScanner gegen Markdown-Injection (Pipe, Newline, Backtick) via Plugin-controlled command names. (L-1) assertSafePluginId-Whitelist-Guard in agentFolder.ts an Eingang aller 5 Plugin-Skill-Helper. (L-2) Newline+Backtick-Escape in renderPluginMetadataBlock list-items. 1809/1830 Tests gruen (+12, alle Audit-Resolution-Tests). 21 pre-existing Failures unveraendert. Audit-Report: _devprocess/analysis/AUDIT-FEAT-29-02-2026-05-20.md. Welle 2 ist release-ready. Naechster Schritt: Welle 3 (FEAT-29-03 + FEAT-29-04).)
 
 ---
 

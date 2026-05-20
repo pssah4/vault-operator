@@ -53,6 +53,34 @@ function isHolderMigrated(holder: AgentFolderHolder): boolean {
     return holder.settings._layoutMigrationStatus === 'complete';
 }
 
+/**
+ * FEAT-29-02 / AUDIT-FEAT-29-02 M-1: collapse newlines and escape pipes so a
+ * plugin-controlled command name cannot break a markdown table layout. Used
+ * by writeCommandsReferenceIfTopPlugin and by any other markdown-table
+ * renderer that takes plugin-controlled strings.
+ */
+function escapeMarkdownTableCell(s: string): string {
+    return s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+/**
+ * FEAT-29-02 / AUDIT-FEAT-29-02 L-2: collapse newlines and escape backticks
+ * so a plugin-controlled string stays on one markdown list-item line and
+ * does not break adjacent inline code blocks.
+ */
+function escapeMarkdownInline(s: string): string {
+    return s.replace(/`/g, '\\`').replace(/\r?\n/g, ' ');
+}
+
+/**
+ * FEAT-29-02 / AUDIT-FEAT-29-02 L-2: escape backticks so a plugin id that
+ * happens to contain a backtick does not break the surrounding inline code
+ * span (`{id}`).
+ */
+function escapeInlineCode(s: string): string {
+    return s.replace(/`/g, '\\`');
+}
+
 /** Patterns that indicate a command is UI-only (not agentifiable) */
 const UI_ONLY_PATTERNS = [
     /^toggle/i, /toggle$/i, /^show-/i, /^focus/i,
@@ -788,7 +816,7 @@ export class VaultDNAScanner {
      */
     private renderPluginMetadataBlock(skill: PluginSkillMeta): string {
         const lines: string[] = ['## Plugin metadata', ''];
-        lines.push(`- **id:** \`${skill.id}\``);
+        lines.push(`- **id:** \`${escapeInlineCode(skill.id)}\``);
         lines.push(`- **source:** ${skill.source}`);
         lines.push(`- **plugin-type:** ${skill.source === 'core' ? 'core' : 'community'}`);
         lines.push(`- **status:** ${skill.enabled ? 'enabled' : 'disabled'}`);
@@ -800,7 +828,10 @@ export class VaultDNAScanner {
             lines.push('### Commands');
             lines.push('');
             for (const c of skill.commands) {
-                lines.push(`- \`${c.id}\` -- ${c.name}`);
+                // L-2 from AUDIT-FEAT-29-02: plugin-controlled name may contain
+                // newlines or backticks; escape so the list-item structure stays
+                // intact regardless of plugin manifest quality.
+                lines.push(`- \`${escapeInlineCode(c.id)}\` -- ${escapeMarkdownInline(c.name)}`);
             }
         }
         return lines.join('\n');
@@ -1059,7 +1090,12 @@ export class VaultDNAScanner {
             lines.push('| Command ID | Name |');
             lines.push('|---|---|');
             for (const cmd of skill.commands) {
-                lines.push(`| \`${cmd.id}\` | ${cmd.name} |`);
+                // M-1 from AUDIT-FEAT-29-02: plugin-controlled name may contain
+                // a pipe character that would otherwise break the markdown
+                // table layout. Escape pipes and collapse newlines.
+                lines.push(
+                    `| \`${escapeInlineCode(cmd.id)}\` | ${escapeMarkdownTableCell(cmd.name)} |`,
+                );
             }
         }
         lines.push('');

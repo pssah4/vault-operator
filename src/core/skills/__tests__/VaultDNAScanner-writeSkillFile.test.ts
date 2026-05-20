@@ -290,6 +290,90 @@ describe('VaultDNAScanner.writeSkillFile (FEAT-29-02)', () => {
             expect(cmdRef).toBeUndefined();
         });
     });
+
+    describe('AUDIT-FEAT-29-02 M-1 + L-2: markdown injection guards', () => {
+        it('escapes pipe in cmd.name in the references/commands.md table', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({
+                id: 'dataview',
+                name: 'Dataview',
+                commands: [
+                    { id: 'dataview:export', name: 'Export | with metadata' },
+                ],
+            });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const cmdRef = stub.calls.find(
+                (c) => c.op === 'write' && c.path.endsWith('/references/commands.md'),
+            )!;
+            // The pipe in the name must be escaped so it does not break the
+            // markdown column count.
+            expect(cmdRef.content!).toContain('Export \\| with metadata');
+            expect(cmdRef.content!).not.toContain('| Export | with metadata |');
+        });
+
+        it('collapses newlines in cmd.name in the references/commands.md table', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({
+                id: 'obsidian-tasks-plugin',
+                name: 'Tasks',
+                commands: [
+                    { id: 'obsidian-tasks-plugin:create', name: 'Create\nnew task' },
+                ],
+            });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const cmdRef = stub.calls.find(
+                (c) => c.op === 'write' && c.path.endsWith('/references/commands.md'),
+            )!;
+            expect(cmdRef.content!).toContain('Create new task');
+            // Should NOT contain a raw newline mid-row that would break the table
+            const tableLines = cmdRef.content!
+                .split('\n')
+                .filter((l: string) => l.startsWith('| ') && l.endsWith(' |'));
+            for (const row of tableLines) {
+                expect(row).not.toMatch(/\n/);
+            }
+        });
+
+        it('escapes backticks in plugin id within inline code spans', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({
+                id: 'kanban',
+                name: 'Kanban',
+                commands: [
+                    { id: 'kanban:`exotic`', name: 'Exotic Command' },
+                ],
+            });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const skill_md = stub.calls.find(
+                (c) => c.op === 'write' && c.path.endsWith('SKILL.md'),
+            )!;
+            // The backticks in the command id must be escaped so the inline-
+            // code span around `${c.id}` does not get cut short.
+            expect(skill_md.content!).toContain('\\`exotic\\`');
+        });
+
+        it('collapses newlines in command name within Plugin metadata list', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({
+                id: 'templater-obsidian',
+                name: 'Templater',
+                commands: [
+                    { id: 'templater-obsidian:run', name: 'Run\ntemplate' },
+                ],
+            });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const skill_md = stub.calls.find(
+                (c) => c.op === 'write' && c.path.endsWith('SKILL.md'),
+            )!;
+            // The Plugin metadata list item must stay on one line, so the
+            // raw newline in the command name has to be collapsed.
+            const listItem = skill_md.content!
+                .split('\n')
+                .find((l: string) => l.includes('templater-obsidian:run'));
+            expect(listItem).toBeDefined();
+            expect(listItem).toContain('Run template');
+        });
+    });
 });
 
 describe('VaultDNAScanner.cleanupLegacyPluginSkillsLayout (FEAT-29-02 Task 5)', () => {

@@ -3922,3 +3922,70 @@ Empfehlung: `/security-audit` fuer Welle 2 starten. Fokus auf die 4 Open-Items o
 ### Mid-course-Findings
 
 Keine. Sowohl der Code-Pfad als auch die Test-Helper sind stabil.
+
+## EPIC-29 -- /security-audit Welle 2 (FEAT-29-02) (2026-05-20)
+
+### Scope
+
+Security-Audit auf die Welle-2-Aenderungen (Commits 53fdfa85 coding + da4ce434 testing). 4 Audit-Foki aus dem /testing-Handoff systematisch geprueft (Path-Traversal in pluginId, destructive Cleanup-Ops, Plugin-controlled Markdown-Strings, Pfad-Containment in Vault-Sub-Folder-Writes) plus OWASP-Quickcheck und SCA (KEINE neuen Deps -> SCA nicht erforderlich).
+
+### Findings vor Fix-Loop
+
+| ID | Severity | Title | Status |
+|---|---|---|---|
+| M-1 | Medium | Markdown-Tabellen-Korruption durch Plugin-controlled command names | Resolved |
+| L-1 | Low | Keine pluginId-Validierung in agentFolder-Helpern | Resolved |
+| L-2 | Low | renderPluginMetadataBlock list-items ohne Escape | Resolved |
+
+### Verdict-Wechsel
+
+Initial: Low-Risk / Yellow.
+Nach Fix-Loop: **Low-Risk / Green.** Welle 2 ist release-ready.
+
+### Code-Aenderungen im Fix-Loop
+
+1. **M-1 (Markdown-Tabellen-Escape):** Drei neue Module-level-Helper in `VaultDNAScanner.ts`:
+   - `escapeMarkdownTableCell`: collapsed Newlines, escaped Pipes (`\|`) und Backslashes
+   - `escapeMarkdownInline`: collapsed Newlines und escaped Backticks (fuer Liste-Items)
+   - `escapeInlineCode`: escaped Backticks (fuer Inline-Code-Spans)
+   Anwendung: `renderPluginMetadataBlock` (skill.id + cmd.id via escapeInlineCode, cmd.name via escapeMarkdownInline) und `writeCommandsReferenceIfTopPlugin` (cmd.id via escapeInlineCode, cmd.name via escapeMarkdownTableCell).
+
+2. **L-1 (pluginId-Whitelist):** Neue Module-level-Funktion `assertSafePluginId` in `agentFolder.ts`:
+   ```typescript
+   if (!pluginId || pluginId.length > 200 || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(pluginId)) {
+       throw new Error(`Unsafe plugin id rejected by path-traversal guard: ${...}`);
+   }
+   ```
+   Aufruf am Top jedes der 5 Plugin-Skill-Helper. Wirft bei `..`, `/`, `\`, absolute paths, empty, oversize, leading non-alphanumeric.
+
+3. **L-2 (List-Item Escape):** Subset von M-1's escapeMarkdownInline.
+
+### Test-Stand
+
+| Stand | Pass | Fail |
+|---|---|---|
+| /testing-Ende | 1797 | 21 (alle pre-existing) |
+| /audit-Ende | **1809** | 21 (identisch pre-existing) |
+
++12 neue Tests:
+- 7 fuer `assertSafePluginId` Path-Traversal-Szenarien (../, absolute path, backslash, empty, slash mid-string, leading-dot, oversize)
+- 4 fuer Markdown-Escape (pipe escape, newline collapse in table, backtick escape in inline code, newline collapse in list item)
+- 1 fuer Whitelist-Accept (normal plugin ids passieren)
+
+Build green, deploy auf iCloud-Vault durchgelaufen.
+
+### Architecture Concerns fuer naechste ADR-Iteration
+
+Nicht-blocking, aber wert zu notieren:
+
+- **Plugin-Manifest-IDs sind Trust-Boundary.** Obsidian validiert sie zwar, aber unsere Defense-in-Depth-Whitelist macht den Trust expliziter. Vorschlag: dasselbe Pattern auf alle anderen Pfad-joining-Helper im Plugin uebertragen, die plugin-ids konsumieren.
+
+- **Markdown-Escape sollte eigene Utility-Datei bekommen.** Drei Helper in VaultDNAScanner.ts sind ein lokaler Anfang, aber sobald ein anderer Generator (Skill-Creator, Translator) plugin-controlled strings in Markdown packt, ist die Duplikation laecherlich. Vorschlag: `src/core/utils/markdownEscape.ts` als naechster Schritt.
+
+### Naechster Schritt
+
+Welle 2 ist released-ready. Empfehlung: Welle 3 (FEAT-29-03 Unified Discovery + probe_plugin und FEAT-29-04 Execution Visibility).
+
+### Audit-Report
+
+`_devprocess/analysis/AUDIT-FEAT-29-02-2026-05-20.md`
