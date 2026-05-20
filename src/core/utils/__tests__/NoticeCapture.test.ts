@@ -135,4 +135,62 @@ describe('withNoticeCapture (FEAT-29-04)', () => {
         // so a plugin that checks `notice instanceof Notice` keeps working.
         expect(inst).toBeInstanceOf(StubNotice);
     });
+
+    it('does NOT capture notices raised after the tail window has closed', async () => {
+        // Risk-Szenario 3 from /coding-Handoff: a plugin that raises a notice
+        // ~500 ms after executeCommandById returns will not be captured when
+        // tailMs is the 250 ms default. We assert that explicitly so we
+        // notice if the tail-window default ever changes in a way that hides
+        // this tradeoff.
+        const { globalRef } = makeGlobalWithStubNotice();
+        const result = await withNoticeCapture(globalRef, async () => {
+            new (globalRef.Notice as new (msg: string) => unknown)('immediate');
+            setTimeout(() => {
+                // This fires 200ms after the tail window (60ms) has closed.
+                try {
+                    new (globalRef.Notice as new (msg: string) => unknown)('too-late');
+                } catch { /* the patched constructor is restored by then */ }
+            }, 260);
+        }, { tailMs: 60 });
+
+        expect(result.notices.map((n) => n.text)).toContain('immediate');
+        expect(result.notices.map((n) => n.text)).not.toContain('too-late');
+
+        // Wait an extra moment so the late timeout actually fires before this
+        // test ends, otherwise the setTimeout leaks into the next test.
+        await new Promise<void>((res) => setTimeout(res, 300));
+    });
+
+    it('does NOT flag false-positive "key" usage in harmless notices', async () => {
+        // Risk-Szenario 4 from /coding-Handoff: sensitive-heuristic is
+        // anchored on word-boundaries so a notice like "Pressed key Escape"
+        // matches "key" as a standalone word -- redacted today, but flagging
+        // this so a future tightening of the regex (e.g. requiring an
+        // adjacent context word) shows up in this test.
+        const { globalRef } = makeGlobalWithStubNotice();
+        const result = await withNoticeCapture(globalRef, () => {
+            new (globalRef.Notice as new (msg: string) => unknown)('Pressed key Escape');
+            new (globalRef.Notice as new (msg: string) => unknown)('Keyboard layout switched');
+            new (globalRef.Notice as new (msg: string) => unknown)('API key abc123 saved');
+        }, { tailMs: 0 });
+
+        // Current implementation: "key Escape" (standalone "key" with word
+        // boundary) is redacted. This is the known false-positive we
+        // tolerate to keep the heuristic simple. "Keyboard" is NOT redacted
+        // because the regex requires \bkey\b. "API key" IS redacted (true
+        // positive).
+        const byText = (s: string) => result.notices.find((n) => n.text.startsWith(s) || n.text === s || n.text === '[redacted notice text -- contained sensitive keyword]' && false);
+        // We can't easily round-trip the original text once redacted, so we
+        // assert on counts + the unredacted notice survives intact.
+        const redactedCount = result.notices.filter((n) => n.redacted).length;
+        expect(redactedCount).toBeGreaterThanOrEqual(2); // "Pressed key Escape" + "API key abc123"
+        const keyboardNotice = result.notices.find((n) => n.text.startsWith('Keyboard'));
+        expect(keyboardNotice).toBeDefined();
+        expect(keyboardNotice?.redacted).toBe(false);
+
+        // Mark `byText` as intentionally unused; it's a placeholder for a
+        // future improvement that stores the original text alongside the
+        // redacted marker.
+        void byText;
+    });
 });

@@ -3,7 +3,7 @@
 > Single source of truth for state and the artifact relation graph.
 > Status fields live HERE, not in artifact frontmatter.
 
-Last update: 2026-05-20 by coding (EPIC-29 Welle 3 /coding-Pass abgeschlossen: FEAT-29-03 + FEAT-29-04 bundled implementiert. Discovery: Polling 30s->2s, neuer workspace.layout-change-Event-Hook mit 200ms-Debounce als sofortiger Re-Sync-Trigger (sub-250ms-Latency fuer UI-driven Plugin-Aktivierung), Reclassify-Passes nach 1s+10s. Neuer probe_plugin-Tool fuer Live-Read von app.plugins+app.commands. Notice-Capture: withNoticeCapture-Helper monkey-patcht window.Notice waehrend executeCommandById, async-Tail-Window 250ms, Severity-Heuristik, sensitive-Daten-Filter, Truncation bei 100. ExecuteCommandTool returnt jetzt strukturiertes tool_result mit notices-Array. 1825/1846 Tests gruen (+16 neue), 21 pre-existing Failures unveraendert. ACHTUNG: Welle 1-3 wurden bewusst non-TDD gecoded, ab FEAT-29-05 wieder strikt TDD per feedback_tdd_default.md. Naechster Schritt: /testing -> /security-audit fuer Welle 3.)
+Last update: 2026-05-20 by testing (EPIC-29 Welle 3 /testing-Pass abgeschlossen: 1833/1854 Tests gruen (+8 neue Tests fuer Risiko-Szenarien: out-of-tail-window-Notice, sensitive-Heuristik false-positive-Pinning, probe_plugin-large-plugin-Performance, ExecuteCommandTool-JSON-Format-Change). Neue Test-Datei `src/core/tools/agent/__tests__/ExecuteCommandTool.test.ts` mit 5 Tests pinned das BREAKING-CHANGE-JSON-Format. 21 pre-existing Failures unveraendert. Build green. Naechster Schritt: /security-audit fuer Welle 3.)
 
 ---
 

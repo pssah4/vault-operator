@@ -4052,3 +4052,59 @@ Empfehlung: `/testing` fuer Welle 3 starten. Smoke-Tests gegen die 6 dokumentier
 ### Anschliessend Welle 4
 
 Nach Welle-3-Abschluss: FEAT-29-05 (Skill-Creator-Builtin), FEAT-29-06 (Sandbox-JS), FEAT-29-08 (Translator), FEAT-29-09 (Versioning), FEAT-29-10 (Composability), FEAT-29-07 (Permission+Latency), FEAT-29-11 (Customize+Toolbox), FEAT-29-12 (Backup-Export). Wichtig: **ab FEAT-29-05 strikt TDD** per `feedback_tdd_default.md`.
+
+## EPIC-29 -- /testing Welle 3 (FEAT-29-03 + FEAT-29-04) (2026-05-20)
+
+### Scope
+
+Smoke-Tests gegen die 6 Risiko-Szenarien aus dem /coding-Handoff. Neue Test-Datei fuer ExecuteCommandTool (BREAKING-CHANGE-Format-Pinning) und Erganzungstests fuer NoticeCapture (out-of-tail-window + false-positive) und ProbePluginTool (large-plugin-Performance).
+
+### Artefakt-Bericht
+
+- `src/core/tools/agent/__tests__/ExecuteCommandTool.test.ts`: NEU. 5 Tests:
+  - Structured JSON tool_result mit notices-Array (pinned das neue Format)
+  - executed=true wenn keine Notice (leeres notices-Array)
+  - Error bei fehlendem command_id-Parameter
+  - Error mit prefix-hint wenn command unbekannt
+  - Multiple Notices mit korrekter Severity-Heuristik (error/success/unknown)
+- `src/core/utils/__tests__/NoticeCapture.test.ts`: +2 Tests:
+  - "does NOT capture notices raised after the tail window has closed" -- pinnt den Tradeoff (Risk-Szenario 3)
+  - "does NOT flag false-positive 'key' usage in harmless notices" -- pinnt das gegebenwaertige Verhalten der Sensitive-Heuristik (Risk-Szenario 4, "Pressed key Escape" wird derzeit redacted, das wird so akzeptiert)
+- `src/core/tools/agent/__tests__/ProbePluginTool.test.ts`: +1 Test:
+  - "handles a large plugin instance (200 props) without runaway latency" -- pinnt O(n) bei 200 properties unter 50ms (Risk-Szenario 5)
+
+### Test-Ergebnis-Tabelle
+
+| Test-File | Vor /testing | Nach /testing |
+|---|---|---|
+| `NoticeCapture.test.ts` | 10 | 12 (+2) |
+| `ProbePluginTool.test.ts` | 6 | 7 (+1) |
+| `ExecuteCommandTool.test.ts` | - | 5 (neu) |
+| **Total Welle 3** | 16 | **24** |
+| **Suite-Total** | 1825 | **1833** (+8) |
+
+21 verbleibende Failures unveraendert pre-existing pre-Welle-1.
+
+### Risiko-Szenarien aus /coding-Handoff -- Abdeckungsstatus
+
+1. **Debounce-Race** (200ms layout-change-Timer): Test in main.ts schwer ohne Workspace-Mock. Verhalten ist correctness-uncritical (Worst case: extra Sync-Call). **Defer.** Pruefen im Live-Test (rapid view-switches).
+2. **layout-change-Frequenz**: Identisch zu #1, Live-Test-Pflicht. **Defer.**
+3. **NoticeCapture-Tail-Window**: 1 expliziter Test "out-of-tail-window-Notice wird NICHT erfasst" + 1 expliziter Test "in-tail-window-Notice wird erfasst". Tradeoff explizit gepinned.
+4. **Sensitive-Heuristik False-Positive**: 1 Test pinned das gegebenwaertige Verhalten -- "Pressed key Escape" wird derzeit redacted (akzeptabler False-Positive). Wenn die Regex spaeter tighter wird (z.B. `\bkey:` oder `\bAPI[- ]key\b`), zeigt der Test das.
+5. **probe_plugin large-plugin Performance**: 1 Test mit 200 Properties + Base-Methods + private + non-function, verifiziert dass O(n) bleibt (< 50ms Bound). Base-Method-Strip funktioniert auch bei grossem Plugin.
+6. **ExecuteCommandTool Format-Change**: 5 Tests pinnen das BREAKING-CHANGE-JSON-Format (executed/command_id/command_name/notices/severity). Wenn ein Downstream-Consumer auf das alte "Executed command: ..." String-Format parsen wuerde, brechen diese Tests beim Format-Drift.
+
+### Brittle-Test-Warnung
+
+`NoticeCapture-out-of-tail-window` Test nutzt `await new Promise(setTimeout, 300)` am Ende um zu garantieren, dass das verspaetete setTimeout-Callback nicht in den naechsten Test leakt. Bei langsamen CI-Systemen koennte das mit Timing-Issues kollidieren. Beobachten -- falls flaky, von 300ms auf 500ms erhoehen.
+
+### Open Items fuer /security-audit
+
+- **NoticeCapture monkey-patch ist sensitives Pattern**: Wir patchen `window.Notice` global. Pruefung auf Race-Condition wenn zwei `executeCommandById`-Aufrufe parallel laufen (sollte nicht passieren -- Tool-Execution ist sequentiell, aber Defense-in-Depth).
+- **probe_plugin Reflection**: Wir reflektieren in den Plugin-Instance. Plugin-Property die einen Error wirft beim Access (Getter) wuerde probe abstuerzen. Aktuell try-catch nicht vorhanden.
+- **ExecuteCommandTool JSON-Encoding**: `JSON.stringify` mit notice-text als plain string. Eine Notice mit Control-Characters oder grossen Strings koennte das tool_result aufblaehen. Truncation greift bei 100 Notices, aber pro-Notice-Laenge nicht limitiert.
+- **Sensitive-Heuristik schwacher Detector**: matcht keyword-Substring, nicht Pattern. Schluessel-Wert-Paare wie `secret: abc123` waeren erfasst, aber `abc123 (das ist mein api-token)` wuerde auch matchen. False-positive-Tradeoff akzeptabel, aber dokumentieren.
+
+### Naechster Schritt
+
+Empfehlung: `/security-audit` fuer Welle 3 starten. Fokus auf 4 Open-Items oben.

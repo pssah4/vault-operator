@@ -137,4 +137,42 @@ describe('ProbePluginTool.probe (FEAT-29-03)', () => {
         const result = tool.probe('config-plugin');
         expect(result.api_methods).toEqual(['run']);
     });
+
+    it('handles a large plugin instance (200 props) without runaway latency', () => {
+        // Risk-Szenario 5 from /coding-Handoff: probe iterates over the
+        // plugin instance via Object.keys when there is no `api` property.
+        // A "kitchen sink" plugin with 200 own properties must still probe
+        // in single-digit milliseconds.
+        const largePluginInstance: Record<string, unknown> = {};
+        for (let i = 0; i < 200; i++) {
+            largePluginInstance[`method_${i}`] = () => 0;
+        }
+        // Some legit Plugin-base methods sprinkled in -- these must still
+        // be filtered out.
+        largePluginInstance.loadData = () => 0;
+        largePluginInstance.saveData = () => 0;
+        largePluginInstance._privateThing = () => 0;
+        largePluginInstance.constant = 'not a function';
+
+        const plugin = makePluginStub({
+            plugins: { 'large-plugin': largePluginInstance },
+            manifests: { 'large-plugin': { id: 'large-plugin' } },
+            enabledPlugins: ['large-plugin'],
+        });
+        const tool = new ProbePluginTool(plugin);
+        const t0 = Date.now();
+        const result = tool.probe('large-plugin');
+        const elapsed = Date.now() - t0;
+
+        // 200 method_* survive, the two base methods + the private one + the
+        // non-function are stripped.
+        expect(result.api_methods.length).toBe(200);
+        expect(result.api_methods).not.toContain('loadData');
+        expect(result.api_methods).not.toContain('saveData');
+        expect(result.api_methods).not.toContain('_privateThing');
+        expect(result.api_methods).not.toContain('constant');
+        // 50 ms is generous; on a healthy laptop this completes in single
+        // digits. The bound exists so a future quadratic regression shows up.
+        expect(elapsed).toBeLessThan(50);
+    });
 });
