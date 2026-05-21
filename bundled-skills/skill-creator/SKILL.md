@@ -193,6 +193,12 @@ Link these from the new skill's SKILL.md only when the new skill itself follows 
 
 ## Where the skill lands
 
-User-created skills land in `<agent-folder>/data/skills/{name}/` with `source: user` written to frontmatter by `init_skill`. The agent never writes into `builtin/` (Sebastian-managed) or under a plugin-id source (VaultDNA-managed) -- the validator rejects that.
+Skills created via this workflow land in `<agent-folder>/data/skills/{name}/` with `source: agent` written to frontmatter by `init_skill`. The agent never writes into `builtin/` (Sebastian-managed) or under a plugin-id source (VaultDNA-managed) -- the validator rejects that.
 
-If a user-skill conflicts with a builtin or plugin skill of the same name, the user version wins on every plugin reload (the materializer skips overwrite).
+The Source column in Settings -> Skills distinguishes three categories:
+
+- **Built-in**: ships with the plugin (materialized from `bundled-skills/`).
+- **Agent**: created via this skill-creator workflow (quality-gated by `init_skill` + `quick_validate`).
+- **User**: manually written, copied, or imported by the user (no quality gate).
+
+If a skill-creator-authored skill conflicts with a builtin or plugin skill of the same name, the agent version wins on every plugin reload (the materializer skips overwrite).

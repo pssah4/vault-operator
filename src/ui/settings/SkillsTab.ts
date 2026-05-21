@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
-import { App, Menu, Notice, setIcon } from 'obsidian';
+import { App, Menu, Notice, setIcon, setTooltip } from 'obsidian';
 import JSZip from 'jszip';
 import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
-import { isUserSkillSource } from './userSkillSource';
+import { isUserSkillSource, getSourceLabel, SOURCE_TOOLTIP } from './userSkillSource';
 import { SkillVersionsModal } from '../modals/SkillVersionsModal';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
@@ -160,7 +160,8 @@ export class SkillsTab {
             const hr = thead.createEl('tr');
             hr.createEl('th', { text: '', cls: 'agent-skill-th-status' });
             hr.createEl('th', { text: t('settings.skills.headerSkill') });
-            hr.createEl('th', { text: 'Source', cls: 'agent-skill-th-cmds' });
+            const sourceTh = hr.createEl('th', { text: 'Source', cls: 'agent-skill-th-cmds' });
+            setTooltip(sourceTh, SOURCE_TOOLTIP);
             hr.createEl('th', { text: '', cls: 'agent-skill-th-actions' });
             hr.createEl('th', { text: t('settings.skills.headerAgent'), cls: 'agent-skill-th-toggle' });
 
@@ -188,7 +189,7 @@ export class SkillsTab {
                 }
 
                 // Source label
-                const sourceLabel = this.getSourceLabel(skill);
+                const sourceLabel = getSourceLabel(skill.source);
                 const sourceTd = tr.createEl('td', { cls: 'agent-skill-cmd-cell' });
                 const badge = sourceTd.createSpan({ text: sourceLabel, cls: 'agent-skill-source-badge' });
                 badge.addClass(`agent-skill-source-${skill.source}`);
@@ -341,25 +342,23 @@ export class SkillsTab {
             }
         }
 
-        // Sort: bundled first, then user/template, then agent-created
-        const order: Record<string, number> = { bundled: 0, user: 1, learned: 2 };
+        // Sort: built-in first, then agent-created (skill-creator + legacy
+        // learned), then user-authored. Unknown sources land between the
+        // two named buckets so they stay near the bottom but above
+        // agent-created entries (which the user actively curates).
+        const order: Record<string, number> = {
+            bundled: 0,
+            builtin: 0,
+            agent: 1,
+            learned: 1,
+            user: 2,
+        };
         return [...byName.values()].sort((a, b) => {
             const oa = order[a.source] ?? 1;
             const ob = order[b.source] ?? 1;
             if (oa !== ob) return oa - ob;
             return a.name.localeCompare(b.name);
         });
-    }
-
-    private getSourceLabel(skill: UnifiedSkill): string {
-        switch (skill.source) {
-            case 'bundled':
-            case 'builtin':
-                return 'Built-in';
-            case 'learned': return 'Agent';
-            case 'user': return 'Template';
-            default: return skill.source;
-        }
     }
 
     /**

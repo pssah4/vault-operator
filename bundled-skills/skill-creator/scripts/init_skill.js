@@ -53,7 +53,10 @@ function renderSkillMd(name) {
         '---',
         `name: ${name}`,
         `description: ${defaultDescription(name)}`,
-        'source: user',
+        // FEAT-29-13: skill-creator output is tagged `agent` so the
+        // SkillsTab can distinguish quality-gated agent-authored skills
+        // from manually imported/copied/written ones (which stay `user`).
+        'source: agent',
         '---',
         '',
         `# ${title}`,

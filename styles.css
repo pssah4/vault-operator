@@ -4986,11 +4986,13 @@
     white-space: nowrap;
 }
 
-.agent-skill-source-bundled {
+.agent-skill-source-bundled,
+.agent-skill-source-builtin {
     background-color: var(--background-modifier-success);
     color: var(--text-on-accent);
 }
 
+.agent-skill-source-agent,
 .agent-skill-source-learned {
     background-color: var(--interactive-accent);
     color: var(--text-on-accent);

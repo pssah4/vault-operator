@@ -61,7 +61,15 @@ export class BuiltinSkillMaterializer {
                 if (await this.adapter.exists(skillMdPath)) {
                     const existing = await this.adapter.read(skillMdPath);
                     const existingSource = this.extractSource(existing);
-                    if (existingSource === 'user') {
+                    // FEAT-29-13: also protect `agent`-tagged skills
+                    // (skill-creator output) and the legacy `learned`
+                    // discriminator from being wiped by a same-named
+                    // bundled-skills entry on plugin reload.
+                    if (
+                        existingSource === 'user'
+                        || existingSource === 'agent'
+                        || existingSource === 'learned'
+                    ) {
                         report.skipped.push({ name: skillName, reason: 'user-override' });
                         continue;
                     }
