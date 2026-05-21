@@ -22,6 +22,10 @@ import type ObsidianAgentPlugin from '../../main';
 import { ModelConfigModal } from '../settings/ModelConfigModal';
 import type { CustomModel } from '../../types/settings';
 import { getModelKey } from '../../types/settings';
+import { resolveCoreTemplatesFolder } from '../../core/utils/templatesFolder';
+import { TemplateMaterializer } from '../../core/templates/TemplateMaterializer';
+import { makeTemplateTranslator } from '../../core/templates/translateTemplate';
+import { BUNDLED_NOTE_TEMPLATES } from '../../_generated/bundled-templates';
 
 // FEAT-24-08 Welle A follow-up (2026-05-18): the dedicated 'role-models'
 // wizard step was removed. The 4 role-model dropdowns (titling, internal,
@@ -33,6 +37,7 @@ type StepId =
     | 'llm-model'
     | 'embedding-model'
     | 'search-provider'
+    | 'templates'
     | 'optional-downloads'
     | 'done';
 
@@ -41,6 +46,7 @@ const STEPS: { id: StepId; title: string; canSkip: boolean }[] = [
     { id: 'llm-model',          title: 'LLM model',           canSkip: true  },
     { id: 'embedding-model',    title: 'Embedding model',     canSkip: true  },
     { id: 'search-provider',    title: 'Search provider',     canSkip: true  },
+    { id: 'templates',          title: 'Templates',           canSkip: true  },
     { id: 'optional-downloads', title: 'Optional downloads',  canSkip: true  },
     { id: 'done',               title: 'Done',                canSkip: false },
 ];
@@ -51,6 +57,14 @@ export class FirstRunWizardModal extends Modal {
     private progressEl!: HTMLElement;
     private bodyEl!: HTMLElement;
     private footerEl!: HTMLElement;
+
+    // FEAT-29-14 templates-step state. Survives re-renders within the
+    // wizard session but is not persisted -- the materialization itself
+    // writes the chosen values into settings on advance.
+    private templatesLang = 'de';
+    private templatesCustomLang = '';
+    private templatesFolder = '';
+    private templatesShouldMaterialize = true;
 
     constructor(app: App, private readonly plugin: ObsidianAgentPlugin) {
         super(app);
@@ -152,11 +166,69 @@ export class FirstRunWizardModal extends Modal {
     }
 
     private async advance(): Promise<void> {
+        // FEAT-29-14: if the user is leaving the templates step (not via
+        // Skip) and asked for materialization, run it here before moving
+        // on. Failures are surfaced as a Notice but do not block the
+        // wizard -- the user can re-trigger via the VaultTab button.
+        const currentStep = STEPS[this.stepIndex];
+        if (currentStep.id === 'templates' && this.templatesShouldMaterialize) {
+            await this.runTemplatesMaterialization();
+        }
         if (this.stepIndex < STEPS.length - 1) {
             this.stepIndex++;
             await this.plugin.saveSettings();
             await this.renderStep();
         }
+    }
+
+    private async runTemplatesMaterialization(): Promise<void> {
+        const folder = this.templatesFolder.trim();
+        if (!folder) {
+            new Notice('Templates: no folder set, skipping materialization.');
+            return;
+        }
+        const lang = this.templatesLang === 'other'
+            ? this.templatesCustomLang.trim().toLowerCase() || 'en'
+            : this.templatesLang;
+
+        const materializer = new TemplateMaterializer(this.app, BUNDLED_NOTE_TEMPLATES);
+        const translator = (lang !== 'de' && lang !== 'en')
+            ? makeTemplateTranslator(this.plugin)
+            : undefined;
+
+        try {
+            const result = await materializer.materialize(folder, lang, { translator });
+            this.applyTemplatePathsToSettings(folder, lang);
+            const wn = result.written.length;
+            const sk = result.skipped.length;
+            const fl = result.failed.length;
+            const summary = `Templates: ${wn} written, ${sk} skipped${fl ? `, ${fl} failed` : ''}.`;
+            new Notice(summary);
+            if (fl > 0) {
+                console.warn('[templates] materialization failures:', result.failed);
+            }
+        } catch (e) {
+            console.error('[templates] materialization failed:', e);
+            new Notice(`Templates: materialization failed -- ${(e as Error).message ?? String(e)}`);
+        }
+    }
+
+    private applyTemplatePathsToSettings(folder: string, lang: string): void {
+        const fileName = (de: string, en: string) => `${folder}/${lang === 'de' ? de : en}`;
+        const tpl = this.plugin.settings.vaultIngest.templates;
+        if (!tpl.ingestNoteTemplate) {
+            tpl.ingestNoteTemplate = fileName('Quelle Template.md', 'Source Template.md');
+        }
+        if (!tpl.ingestDeepNoteTemplate) {
+            tpl.ingestDeepNoteTemplate = fileName('Quelle Template.md', 'Source Template.md');
+        }
+        if (!tpl.meetingSummaryTemplate) {
+            tpl.meetingSummaryTemplate = fileName('Meeting-Notiz Template.md', 'Meeting Note Template.md');
+        }
+        if (!tpl.quellenNotizTemplate) {
+            tpl.quellenNotizTemplate = fileName('Notiz Template.md', 'Note Template.md');
+        }
+        tpl.templatesLanguage = lang;
     }
 
     private async finishAndStartChat(): Promise<void> {
@@ -237,6 +309,7 @@ export class FirstRunWizardModal extends Modal {
             case 'llm-model':           return this.renderLlmStep();
             case 'embedding-model':     return this.renderEmbeddingStep();
             case 'search-provider':     return this.renderSearchProviderStep();
+            case 'templates':           return this.renderTemplatesStep();
             case 'optional-downloads':  return this.renderOptionalDownloadsStep();
             case 'done':                return this.renderDoneStep();
         }
@@ -490,6 +563,89 @@ export class FirstRunWizardModal extends Modal {
                 }
             });
         }
+    }
+
+    private async renderTemplatesStep(): Promise<void> {
+        this.addInfoBanner(
+            this.bodyEl,
+            'file-text',
+            'Why templates matter',
+            'The /ingest and /ingest-deep skills use these templates to create source notes and sense-making notes that match your vault conventions. Pick the language you write notes in; the plugin writes the default set into the Obsidian Templates folder for you. Existing files are never overwritten.',
+        );
+
+        // ---- Auto-detect target folder ----
+        if (!this.templatesFolder) {
+            const detected = await resolveCoreTemplatesFolder(this.app);
+            this.templatesFolder = detected ?? '';
+        }
+
+        this.addSection(this.bodyEl, 'Templates folder');
+        const folderRow = this.bodyEl.createDiv({ cls: 'wizard-action-row' });
+        const folderInput = folderRow.createEl('input', {
+            type: 'text',
+            value: this.templatesFolder,
+            placeholder: 'e.g. Tools & Settings/Templates',
+        });
+        folderInput.setCssStyles({ flex: '1 1 auto' });
+        folderInput.addEventListener('change', () => {
+            this.templatesFolder = folderInput.value.trim();
+        });
+        folderInput.addEventListener('input', () => {
+            this.templatesFolder = folderInput.value.trim();
+        });
+        const folderHint = this.bodyEl.createDiv();
+        folderHint.setCssStyles({ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' });
+        folderHint.setText(
+            this.templatesFolder
+                ? 'Detected from Obsidian Templates plugin. Override if needed.'
+                : 'No folder configured. Enable the Obsidian core Templates plugin and pick a folder, or type a path here.',
+        );
+
+        // ---- Language picker ----
+        this.addSection(this.bodyEl, 'Vault language');
+        const langWrap = this.bodyEl.createDiv({ cls: 'wizard-action-row' });
+        const langSelect = langWrap.createEl('select');
+        const options: Array<{ value: string; label: string }> = [
+            { value: 'de', label: 'Deutsch' },
+            { value: 'en', label: 'English' },
+            { value: 'other', label: 'Other (translate via active LLM)' },
+        ];
+        for (const opt of options) {
+            const o = langSelect.createEl('option', { value: opt.value, text: opt.label });
+            if (opt.value === this.templatesLang) o.selected = true;
+        }
+
+        const customWrap = this.bodyEl.createDiv();
+        customWrap.setCssStyles({ marginTop: '8px' });
+        const customInput = customWrap.createEl('input', {
+            type: 'text',
+            value: this.templatesCustomLang,
+            placeholder: 'e.g. French, Spanish, Japanese',
+        });
+        customInput.setCssStyles({ width: '100%' });
+        customInput.addEventListener('input', () => {
+            this.templatesCustomLang = customInput.value.trim();
+        });
+        const customHint = customWrap.createDiv();
+        customHint.setCssStyles({ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' });
+        customHint.setText('Frontmatter keys and category values get translated by the active LLM. Structure stays identical.');
+        const setCustomVisibility = () => {
+            customWrap.setCssStyles({ display: this.templatesLang === 'other' ? '' : 'none' });
+        };
+        setCustomVisibility();
+        langSelect.addEventListener('change', () => {
+            this.templatesLang = langSelect.value;
+            setCustomVisibility();
+        });
+
+        // ---- Materialize-now toggle ----
+        new Setting(this.bodyEl)
+            .setName('Materialize default templates now')
+            .setDesc('Writes Source, Note, and Meeting-Note templates into the folder above. Existing files are skipped.')
+            .addToggle((t) => t
+                .setValue(this.templatesShouldMaterialize)
+                .onChange((v) => { this.templatesShouldMaterialize = v; }),
+            );
     }
 
     private async renderOptionalDownloadsStep(): Promise<void> {

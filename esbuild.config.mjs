@@ -171,13 +171,25 @@ function generateInlineAssets() {
             pptxCount++;
         }
     }
+    // FEAT-29-14: Note templates are language-segmented so the FirstRun
+    // wizard can materialize the user-preferred set into the vault's
+    // Obsidian-Core-Templates folder. Directory layout:
+    //   bundled-templates/notes/{lang}/{Display Name}.md
+    // The filename (with extension) is the materialized filename, the
+    // outer key is the BCP-47-ish lang code (currently 'de' and 'en').
     const noteTemplates = {};
     let noteCount = 0;
     const noteTemplatesSrc = join(__dirname, "bundled-templates/notes");
     if (existsSync(noteTemplatesSrc)) {
-        for (const f of readdirSync(noteTemplatesSrc).filter(f => f.endsWith(".md"))) {
-            noteTemplates[f] = readFileSync(join(noteTemplatesSrc, f), "utf-8");
-            noteCount++;
+        for (const langEntry of readdirSync(noteTemplatesSrc)) {
+            const langDir = join(noteTemplatesSrc, langEntry);
+            if (!statSync(langDir).isDirectory()) continue;
+            const perLang = {};
+            for (const f of readdirSync(langDir).filter(f => f.endsWith(".md"))) {
+                perLang[f] = readFileSync(join(langDir, f), "utf-8");
+                noteCount++;
+            }
+            if (Object.keys(perLang).length > 0) noteTemplates[langEntry] = perLang;
         }
     }
     writeFileSync(
@@ -189,8 +201,16 @@ function generateInlineAssets() {
             "/** Themed PPTX templates, base64 encoded. Keys are themeName (e.g. 'minimal', 'modern'). */",
             "export const PPTX_TEMPLATES_BASE64: Record<string, string> = " + JSON.stringify(pptxTemplates, null, 2) + ";",
             "",
-            "/** Note templates (markdown) used by /ingest, /ingest-deep, /meeting-summary. */",
-            "export const NOTE_TEMPLATES: Record<string, string> = " + JSON.stringify(noteTemplates, null, 2) + ";",
+            "/**",
+            " * Note templates (markdown) used by /ingest, /ingest-deep, /meeting-summary.",
+            " *",
+            " * FEAT-29-14: shape is `Record<lang, Record<filename, content>>`. The",
+            " * filename includes the .md extension and is the literal name the",
+            " * materializer writes into the user's Obsidian-Core-Templates folder.",
+            " * Languages: 'de', 'en'. Anything else triggers LLM-translation at",
+            " * materialization time.",
+            " */",
+            "export const BUNDLED_NOTE_TEMPLATES: Record<string, Record<string, string>> = " + JSON.stringify(noteTemplates, null, 2) + ";",
             "",
         ].join("\n"),
     );

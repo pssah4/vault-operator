@@ -7,6 +7,10 @@ import { promptModal, confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
 import { DEFAULT_VAULT_INGEST_SETTINGS, DEFAULT_SUMMARY_PROMPT_TEMPLATE } from '../../types/settings';
 import { addSectionHeading, addSliderInput } from './utils';
+import { resolveCoreTemplatesFolder } from '../../core/utils/templatesFolder';
+import { TemplateMaterializer } from '../../core/templates/TemplateMaterializer';
+import { makeTemplateTranslator } from '../../core/templates/translateTemplate';
+import { BUNDLED_NOTE_TEMPLATES } from '../../_generated/bundled-templates';
 
 
 export class VaultTab {
@@ -596,7 +600,7 @@ export class VaultTab {
                     .setPlaceholder('Tools & Settings/Templates/Quelle Template.md')
                     .setValue(cfg.templates?.ingestNoteTemplate ?? '')
                     .onChange(async (v) => {
-                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '', quellenNotizTemplate: '', templatesLanguage: '' };
                         cfg.templates.ingestNoteTemplate = v.trim();
                         this.plugin.settings.vaultIngest = cfg;
                         await this.plugin.saveSettings();
@@ -611,7 +615,7 @@ export class VaultTab {
                     .setPlaceholder('Tools & Settings/Templates/Quelle Template.md')
                     .setValue(cfg.templates?.ingestDeepNoteTemplate ?? '')
                     .onChange(async (v) => {
-                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '', quellenNotizTemplate: '', templatesLanguage: '' };
                         cfg.templates.ingestDeepNoteTemplate = v.trim();
                         this.plugin.settings.vaultIngest = cfg;
                         await this.plugin.saveSettings();
@@ -626,10 +630,43 @@ export class VaultTab {
                     .setPlaceholder('Tools & Settings/Templates/Meeting-Notiz Template.md')
                     .setValue(cfg.templates?.meetingSummaryTemplate ?? '')
                     .onChange(async (v) => {
-                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '', quellenNotizTemplate: '', templatesLanguage: '' };
                         cfg.templates.meetingSummaryTemplate = v.trim();
                         this.plugin.settings.vaultIngest = cfg;
                         await this.plugin.saveSettings();
+                    }),
+            );
+
+        // FEAT-29-14: separate template for the Sense-Making-Notes /
+        // Zettel that /ingest and /ingest-deep produce on top of the
+        // source note. Default category is "Quellen-Notiz" / "Source note".
+        new Setting(containerEl)
+            .setName('Template for sense-making notes')
+            .setDesc('Frontmatter template used for the secondary output notes (Sense-Making-Note or Zettel) produced by /ingest and /ingest-deep.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('Tools & Settings/Templates/Notiz Template.md')
+                    .setValue(cfg.templates?.quellenNotizTemplate ?? '')
+                    .onChange(async (v) => {
+                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '', quellenNotizTemplate: '', templatesLanguage: '' };
+                        cfg.templates.quellenNotizTemplate = v.trim();
+                        this.plugin.settings.vaultIngest = cfg;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        // FEAT-29-14: Re-materialize button. Re-runs the same code path
+        // as the FirstRun-Templates step using the persisted
+        // `templatesLanguage` (default 'de'). Skip-existing by default
+        // so user edits are preserved; the modal offers force-overwrite.
+        new Setting(containerEl)
+            .setName('Re-materialize default templates')
+            .setDesc('Re-writes the bundled Source/Note/Meeting-Note templates into your configured Templates folder. Existing files are skipped unless you confirm overwrite.')
+            .addButton((btn) =>
+                btn
+                    .setButtonText('Re-materialize')
+                    .onClick(async () => {
+                        await this.handleRematerializeTemplates();
                     }),
             );
 
@@ -985,6 +1022,56 @@ export class VaultTab {
                 `Migrated ${summaryParts.join(', ')}. Reload Obsidian so the knowledge and memory databases open at the new location.`,
                 15_000,
             );
+        }
+    }
+
+    /**
+     * FEAT-29-14: Re-runs the FirstRunWizard templates materialization
+     * from the Vault settings tab. Reads the persisted templatesLanguage
+     * (default 'de') and the Obsidian-Core-Templates folder. Skip-existing
+     * by default; offers force-overwrite via confirm modal.
+     */
+    private async handleRematerializeTemplates(): Promise<void> {
+        const folder = await resolveCoreTemplatesFolder(this.app);
+        if (!folder) {
+            new Notice(
+                'No Templates folder set. Enable the Obsidian core Templates plugin and pick a folder first.',
+                8000,
+            );
+            return;
+        }
+
+        const tpl = this.plugin.settings.vaultIngest.templates;
+        const lang = (tpl.templatesLanguage && tpl.templatesLanguage.length > 0)
+            ? tpl.templatesLanguage
+            : 'de';
+
+        const force = await confirmModal(this.app, {
+            title: 'Re-materialize templates',
+            message:
+                `Target folder: ${folder}\n` +
+                `Language: ${lang}\n\n` +
+                'Click OK to write the bundled defaults, skipping any files that already exist.\n' +
+                'Click "Overwrite" to replace existing files with the bundled defaults (destructive!).',
+            confirmLabel: 'Overwrite',
+            destructive: true,
+        });
+
+        const materializer = new TemplateMaterializer(this.app, BUNDLED_NOTE_TEMPLATES);
+        const translator = (lang !== 'de' && lang !== 'en')
+            ? makeTemplateTranslator(this.plugin)
+            : undefined;
+
+        try {
+            const result = await materializer.materialize(folder, lang, { force, translator });
+            const summary = `Templates re-materialized: ${result.written.length} written, ${result.skipped.length} skipped${result.failed.length ? `, ${result.failed.length} failed` : ''}.`;
+            new Notice(summary, 6000);
+            if (result.failed.length > 0) {
+                console.warn('[templates] re-materialization failures:', result.failed);
+            }
+        } catch (e) {
+            console.error('[templates] re-materialization failed:', e);
+            new Notice(`Templates re-materialization failed -- ${(e as Error).message ?? String(e)}`, 10_000);
         }
     }
 }

@@ -1183,6 +1183,21 @@ export interface VaultIngestSettings {
         ingestDeepNoteTemplate: string;
         /** Vault-relativer Pfad. Default leer -> bundled `meeting-notiz-template.md`. Genutzt von /meeting-summary. */
         meetingSummaryTemplate: string;
+        /**
+         * FEAT-29-14: Sense-Making-Note- / Zettel-Template fuer die
+         * sekundaeren Output-Notes von /ingest und /ingest-deep
+         * (Default-Kategorie "Quellen-Notiz"). Vault-relativer Pfad,
+         * default leer -> bundled `Notiz Template.md`.
+         */
+        quellenNotizTemplate: string;
+        /**
+         * FEAT-29-14: Sprache des materialisierten Template-Sets.
+         * Wird im FirstRunWizardModal abgefragt und steuert welche
+         * Variante aus `BUNDLED_NOTE_TEMPLATES` gezogen wird. Werte
+         * ausserhalb von 'de'/'en' triggern LLM-Uebersetzung bei
+         * der Materialisierung. Default leer = noch nicht entschieden.
+         */
+        templatesLanguage: string;
     };
 }
 
@@ -1225,6 +1240,8 @@ export const DEFAULT_VAULT_INGEST_SETTINGS: VaultIngestSettings = {
         ingestNoteTemplate: '',
         ingestDeepNoteTemplate: '',
         meetingSummaryTemplate: '',
+        quellenNotizTemplate: '',
+        templatesLanguage: '',
     },
     stufe2Hint: {
         enabled: false,
