@@ -7,13 +7,19 @@ describe('GlobalFileService', () => {
         it('should use vault parent directory when vaultBasePath provided', () => {
             const service = new GlobalFileService('/Users/test/Documents/MyVault');
             expect(service.getRoot()).toBe(
-                pathModule.join('/Users/test/Documents', 'obsilo-shared'),
+                pathModule.join('/Users/test/Documents', 'vault-operator-shared'),
             );
         });
 
         it('should use home directory when no vaultBasePath', () => {
             const service = new GlobalFileService();
-            expect(service.getRoot()).toContain('obsilo-shared');
+            // Constructor probes for legacy folder names in the home dir and stays put if any exists;
+            // otherwise it falls back to the fresh-install name. Accept all three so the test works
+            // regardless of the developer's local home-dir state.
+            const root = service.getRoot();
+            const hasAcceptableName = ['vault-operator-shared', 'obsilo-shared', '.obsidian-agent']
+                .some((name) => root.endsWith(name));
+            expect(hasAcceptableName).toBe(true);
         });
     });
 
@@ -22,7 +28,7 @@ describe('GlobalFileService', () => {
             const service = new GlobalFileService('/Users/test/Vault');
             const resolved = service.resolvePath('memory/user-profile.md');
             expect(resolved).toBe(
-                pathModule.join('/Users/test', 'obsilo-shared', 'memory', 'user-profile.md'),
+                pathModule.join('/Users/test', 'vault-operator-shared', 'memory', 'user-profile.md'),
             );
         });
 
@@ -42,7 +48,7 @@ describe('GlobalFileService', () => {
             // Empty path resolves to root — but path.join('root', '') = 'root'
             // which equals this.root, so it should NOT throw
             const resolved = service.resolvePath('');
-            expect(resolved).toBe(pathModule.join('/Users/test', 'obsilo-shared'));
+            expect(resolved).toBe(pathModule.join('/Users/test', 'vault-operator-shared'));
         });
     });
 

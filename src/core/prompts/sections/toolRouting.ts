@@ -25,8 +25,8 @@ export function getToolRoutingSection(configDir: string): string {
    (a) External CLI (Pandoc, Mermaid, ffmpeg, LaTeX) -> execute_recipe
    (b) Obsidian-native commands (templates, daily notes) -> execute_command
    (c) Plugin JS API (Dataview, Omnisearch, MetaEdit) -> call_plugin_api
-   (d) Unsure? Read the plugin's .skill.md. Disabled? Call enable_plugin yourself.
-   Plugin config: read .readme.md, then write ${configDir}/plugins/{id}/data.json directly.
+   (d) Unsure? Read the plugin's SKILL.md (in the plugin's skill folder). Disabled? Call enable_plugin yourself.
+   Plugin config: check the plugin's SKILL.md for the settings schema, then write ${configDir}/plugins/{id}/data.json directly.
 8. SEARCH PICK (when Tier 2/3 search is justified):
    external/current -> web_search | topical vault -> semantic_search | tag filter -> search_by_tag | exact text -> search_files | structured .base -> query_base
 9. CITE WITH WIKILINKS [[Note Name]]. update_frontmatter > edit_file for YAML.

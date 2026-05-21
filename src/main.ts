@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
-import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, addIcon } from 'obsidian';
 import { preWarmProviderConnection } from './api/warmup';
 import { scheduleRecurring } from './util/scheduleRecurring';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
@@ -20,7 +20,7 @@ import { IgnoreService } from './core/governance/IgnoreService';
 import { OperationLogger } from './core/governance/OperationLogger';
 import { GlobalFileService } from './core/storage/GlobalFileService';
 import * as safeFs from './core/security/safeFs';
-import { getPluginSkillsDir } from './core/utils/agentFolder';
+import { getPluginSkillsDir, getSelfAuthoredSkillsDir } from './core/utils/agentFolder';
 import { GlobalSettingsService } from './core/storage/GlobalSettingsService';
 import { GlobalMigrationService } from './core/storage/GlobalMigrationService';
 // SyncBridge removed (FEATURE-1508: storage consolidated to vault-parent)
@@ -90,6 +90,8 @@ import { RecipePromotionService } from './core/mastery/RecipePromotionService';
 import { ConsoleRingBuffer } from './core/observability/ConsoleRingBuffer';
 import { SelfAuthoredSkillLoader } from './core/skills/SelfAuthoredSkillLoader';
 import { migrateLegacySkillsIfNeeded } from './core/skills/SkillMigration';
+import { BuiltinSkillMaterializer } from './core/skills/BuiltinSkillMaterializer';
+import { BUNDLED_SKILLS } from './_generated/bundled-skills';
 import type { ISandboxExecutor } from './core/sandbox/ISandboxExecutor';
 import { createSandboxExecutor } from './core/sandbox/createSandboxExecutor';
 import { EsbuildWasmManager } from './core/sandbox/EsbuildWasmManager';
@@ -307,6 +309,19 @@ export default class ObsidianAgentPlugin extends Plugin {
     readyPromise!: Promise<void>;
 
     onload(): void {
+        // FEAT-29-11 follow-up: register the Lucide "toolbox" SVG under the
+        // same icon id so setIcon('toolbox', ...) renders on Obsidian builds
+        // whose bundled Lucide does not yet ship it (added upstream in
+        // v0.288, end of 2023). Idempotent: re-registering does nothing on
+        // newer builds. The svg-content path data is the canonical Lucide
+        // toolbox glyph, scaled to the 100-unit viewBox addIcon expects.
+        addIcon(
+            'toolbox',
+            '<path d="M92 45.83v25a8.33 8.33 0 0 1-8.33 8.34H16.67A8.33 8.33 0 0 1 8.33 70.83v-25" fill="none" stroke="currentColor" stroke-width="8.33" stroke-linecap="round" stroke-linejoin="round"/>' +
+            '<path d="M92 45.83H8.33" fill="none" stroke="currentColor" stroke-width="8.33" stroke-linecap="round" stroke-linejoin="round"/>' +
+            '<path d="M66.67 45.83V33.33a8.33 8.33 0 0 0-8.34-8.33H41.67a8.33 8.33 0 0 0-8.34 8.33v12.5" fill="none" stroke="currentColor" stroke-width="8.33" stroke-linecap="round" stroke-linejoin="round"/>',
+        );
+
         // BUG-026 (2026-04-19): create the readiness promise BEFORE registerView.
         // Obsidian instantiates the view the moment registerView runs (to restore
         // saved layout), which in a BRAT hot reload is before doLoad() has loaded
@@ -653,8 +668,14 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 2. Initialize core services
         const pluginDir = `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
         const pluginDataRoot = this.globalFs.getRoot();
-        const checkpointsAbsPath = `${pluginDataRoot}/checkpoints`;
-        const devEnvAbsPath = `${pluginDataRoot}/dev-env`;
+        // checkpointsAbsPath and devEnvAbsPath are recomputed AFTER the FEAT-29-01
+        // migration runs further down, because the migration may relocate both
+        // caches from vault-parent/obsilo-shared/* to vault-local
+        // .vault-operator/cache/*. The placeholder values here are only used by
+        // the FEATURE-1508 / migratePluginDataDirs path which runs against the
+        // pre-migration layout.
+        let checkpointsAbsPath = `${pluginDataRoot}/checkpoints`;
+        let devEnvAbsPath = `${pluginDataRoot}/dev-env`;
 
         // FEATURE-1508: One-time migration from ~/.obsidian-agent/ to {vault-parent}/.obsidian-agent/
         if (!this.settings._parentDirMigrated) {
@@ -715,6 +736,150 @@ export default class ObsidianAgentPlugin extends Plugin {
             await this.saveSettings();
         }
 
+        // FEAT-29-01: Consolidate all plugin storage under {vault}/.vault-operator/
+        // {data,cache}. Replaces the four legacy roots .obsidian-agent,
+        // .obsilo-vault, .vault-operator (asset-cache), obsilo-shared. Idempotent
+        // and resumable via _layoutMigrationStatus. See ADR-119 third iteration.
+        //
+        // OPT-IN gate: the migration is destructive and depends on a code-path
+        // refactor (GlobalFileService, rulesLoader, workflowLoader, skillsManager
+        // and other services point at obsilo-shared today; after the migration
+        // they would fail to find their data). The trigger runs only when the
+        // user has explicitly set _layoutMigrationOptIn=true in data.json or
+        // via the Settings restore-action (PLAN-27 Task 5). Until then the
+        // migration service ships but stays dormant.
+        if (this.settings._layoutMigrationOptIn === true
+            && this.settings._layoutMigrationStatus !== 'complete') {
+            // Backup destination MUST be outside every migration source folder
+            // (recursive self-copy bug -- 14 GB ENAMETOOLONG explosion observed
+            // 2026-05-20) AND outside any sync container (iCloud-replicated
+            // vaults would otherwise push a 288 MB knowledge.db clone to Apple
+            // servers; M-1 in AUDIT-FEAT-29-01-2026-05-20.md). The home
+            // directory satisfies both constraints. A vault-hash sub-folder
+            // keeps multiple vaults on the same machine separate.
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- one-time crypto require to hash the vault path; not a security-sensitive hash
+            const nodeCrypto = require('crypto') as typeof import('crypto');
+            const vaultIdHash = nodeCrypto
+                .createHash('md5')
+                .update(vaultBasePath || '__no_vault_path__')
+                .digest('hex')
+                .slice(0, 12);
+            const safeBackupDir = nodePath.join(
+                homeDir,
+                '.vault-operator-migration-backups',
+                vaultIdHash,
+            );
+            console.debug('[VaultOperator] storage layout migration trigger entered', {
+                optIn: this.settings._layoutMigrationOptIn,
+                status: this.settings._layoutMigrationStatus,
+                agentFolderPath: this.settings.agentFolderPath,
+                chatHistoryFolder: this.settings.chatHistoryFolder,
+                vaultBasePath,
+                vaultParent,
+                safeBackupDir,
+            });
+            new Notice('Storage layout migration starting. This may take 30-60 seconds for a large knowledge index.', 6000);
+            try {
+                const { migrateAgentLayout } = await import('./core/utils/migrateAgentLayout');
+                const knownLegacyDefaults = ['.obsidian-agent', '.obsilo-vault', 'obsilo-vault', '.vault-operator'];
+                const isLegacyDefault = knownLegacyDefaults.includes(this.settings.agentFolderPath ?? '');
+                const chatHistoryFolderLegacyValue = this.settings.chatHistoryFolder?.trim() ?? '';
+                console.debug('[VaultOperator] migrateAgentLayout calling', {
+                    isLegacyDefault,
+                    chatHistoryFolderLegacyValue,
+                });
+                const report = await migrateAgentLayout({
+                    vaultBasePath,
+                    vaultParent,
+                    pluginDataDir: safeBackupDir,
+                    agentFolderPath: this.settings.agentFolderPath ?? '',
+                    chatHistoryFolder: this.settings.chatHistoryFolder ?? '',
+                    currentStatus: this.settings._layoutMigrationStatus ?? 'pending',
+                    setStatus: async (status) => {
+                        this.settings._layoutMigrationStatus = status;
+                        await this.saveSettings();
+                    },
+                });
+                // Phase 8 (settings-update): flip the agentFolderPath default
+                // when it was a known legacy default, capture the legacy
+                // chatHistoryFolder for the post-migration notice, then mark complete.
+                // NOTE: agentFolderPath stays at the .vault-operator ROOT (not the
+                // /data sub-folder) so the existing helpers (getPluginSkillsDir,
+                // getTmpRoot, getSelfAuthoredSkillsDir, getVaultDnaPath) can append
+                // the correct data/ or cache/ sub-folder via their FEAT-29-01
+                // layout-aware logic in agentFolder.ts.
+                if (isLegacyDefault) {
+                    this.settings.agentFolderPath = '.vault-operator';
+                }
+                if (chatHistoryFolderLegacyValue) {
+                    this.settings._chatHistoryFolderLegacy = chatHistoryFolderLegacyValue;
+                    this.settings.chatHistoryFolder = '';
+                }
+                this.settings._layoutMigrationStatus = 'complete';
+                await this.saveSettings();
+                // FEAT-29-01: GlobalFileService now points at the consolidated
+                // vault-local data root. Re-point before any service that
+                // depends on globalFs initialises (rulesLoader, workflowLoader,
+                // skillsManager, memory, history all run next).
+                this.globalFs.useVaultLocalRoot(this.settings.agentFolderPath ?? '.vault-operator');
+                console.debug('[VaultOperator] migrateAgentLayout returned', report);
+                if (report.phases.length > 0) {
+                    new Notice(
+                        `Storage consolidated into .vault-operator/. Backup: ${report.backupPath ?? '(none)'}`,
+                        8000,
+                    );
+                } else {
+                    new Notice('Storage layout migration completed (no work to do).', 5000);
+                }
+            } catch (e) {
+                console.error('[VaultOperator] storage layout migration failed:', e);
+                new Notice(
+                    `Storage layout migration failed: ${e instanceof Error ? e.message : String(e)}. Check developer console for details.`,
+                    15000,
+                );
+            }
+        } else {
+            console.debug('[VaultOperator] storage layout migration trigger NOT entered', {
+                optIn: this.settings._layoutMigrationOptIn,
+                status: this.settings._layoutMigrationStatus,
+            });
+        }
+
+        // FEAT-29-01: ensure GlobalFileService points at the consolidated
+        // vault-local layout on every reload after migration completed (not
+        // just the boot that ran the migration). Idempotent.
+        if (this.settings._layoutMigrationStatus === 'complete') {
+            this.globalFs.useVaultLocalRoot(this.settings.agentFolderPath ?? '.vault-operator');
+            // Recompute the cache-side absolute paths so GitCheckpointService
+            // and EsbuildWasmManager (instantiated further down) read from the
+            // consolidated cache folder rather than the legacy vault-parent
+            // location. The migration physically moved both folders in
+            // phase 5; without this recompute the services would point at
+            // empty legacy paths.
+            const cacheRoot = `${vaultBasePath}/${this.settings.agentFolderPath ?? '.vault-operator'}/cache`;
+            checkpointsAbsPath = `${cacheRoot}/checkpoints`;
+            devEnvAbsPath = `${cacheRoot}/dev-env`;
+
+            // One-shot notice for users who had chatHistoryFolder configured
+            // before the setting was removed. Defers to after layout-ready so
+            // the modal renders on top of an initialised workspace.
+            const legacyChatHistoryFolder = this.settings._chatHistoryFolderLegacy;
+            if (legacyChatHistoryFolder) {
+                this.app.workspace.onLayoutReady(() => {
+                    void (async () => {
+                        const { openChatHistoryFolderRemovedModal } = await import(
+                            './ui/modals/ChatHistoryFolderRemovedModal'
+                        );
+                        await openChatHistoryFolderRemovedModal(this.app, {
+                            legacyPath: legacyChatHistoryFolder,
+                        });
+                        this.settings._chatHistoryFolderLegacy = undefined;
+                        await this.saveSettings();
+                    })();
+                });
+            }
+        }
+
         // Governance: ignore/protected path rules
         this.ignoreService = new IgnoreService(this.app.vault);
         await this.ignoreService.load();
@@ -749,6 +914,21 @@ export default class ObsidianAgentPlugin extends Plugin {
                 await this.vaultDNAScanner!.initialize().catch((e) =>
                     console.warn('[Plugin] VaultDNA scanner init failed (non-fatal):', e)
                 );
+                // FEAT-29-03: event-driven re-sync trigger. workspace.layout-change
+                // fires on most UI-driven settings activations (including plugin
+                // enable/disable), so we coalesce them into a debounced
+                // immediate-sync call. Sub-second responsiveness without
+                // hammering the diff loop on every layout flicker.
+                let layoutChangeTimer: number | null = null;
+                this.registerEvent(this.app.workspace.on('layout-change', () => {
+                    if (layoutChangeTimer !== null) window.clearTimeout(layoutChangeTimer);
+                    layoutChangeTimer = window.setTimeout(() => {
+                        layoutChangeTimer = null;
+                        void this.vaultDNAScanner?.triggerImmediateSync().catch((e) =>
+                            console.warn('[Plugin] VaultDNA immediate-sync failed (non-fatal):', e),
+                        );
+                    }, 200);
+                }));
             });
         }
 
@@ -823,6 +1003,25 @@ export default class ObsidianAgentPlugin extends Plugin {
             console.warn('[Plugin] Skill migration failed (non-fatal):', e)
         );
 
+        // FEAT-29-11 Step B: materialize built-in skills to disk
+        // (`data/skills/{name}/`) BEFORE the loader runs. The bundled skills
+        // ship as a Record<name, Record<relPath, content>> generated by
+        // esbuild and overwrite any prior builtin materialization. User
+        // overrides (`source: user`) and plugin-managed skills
+        // (`source: <plugin-id>`) win.
+        try {
+            const builtinMaterializer = new BuiltinSkillMaterializer(
+                this.app.vault.adapter,
+                getSelfAuthoredSkillsDir(this),
+            );
+            const report = await builtinMaterializer.materializeAll(BUNDLED_SKILLS);
+            if (report.errors.length > 0 || report.skipped.length > 0 || report.written.length > 0) {
+                console.debug('[Plugin] Builtin skill materialization:', report);
+            }
+        } catch (e) {
+            console.warn('[Plugin] Builtin skill materialization failed (non-fatal):', e);
+        }
+
         // Load skills (includes cached code module tools)
         await this.selfAuthoredSkillLoader.loadAll().catch((e) =>
             console.warn('[Plugin] SelfAuthoredSkillLoader init failed (non-fatal):', e)
@@ -848,14 +1047,21 @@ export default class ObsidianAgentPlugin extends Plugin {
             // FEATURE-0507: pass the configurable agent folder so knowledge.db
             // lands under {agentFolderPath}/knowledge.db instead of the
             // hardcoded ".obsidian-agent/knowledge.db".
-            const { getAgentFolderPath } = await import('./core/utils/agentFolder');
+            //
+            // FEAT-29-01: use the layout-aware data-dir helper so the file
+            // resolves to .vault-operator/data/knowledge.db after migration,
+            // and stays flat at .obsilo-vault/knowledge.db before. Without
+            // this the post-migration boot would spawn an empty knowledge.db
+            // at the legacy root path and the 288 MB migrated copy in data/
+            // would never be loaded.
+            const { getAgentDataDir } = await import('./core/utils/agentFolder');
             this.knowledgeDB = new KnowledgeDB(
                 this.app.vault,
                 pluginDir,
                 'local', // FEATURE-1508: knowledge.db is vault-local (syncs with vault)
                 'knowledge.db',
                 undefined, // globalRoot — not used in local mode
-                getAgentFolderPath(this),
+                getAgentDataDir(this),
             );
             await this.knowledgeDB.open().catch((e) => {
                 if (e instanceof WriterLockHeldError) {

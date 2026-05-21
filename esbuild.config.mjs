@@ -107,21 +107,44 @@ function generateInlineAssets() {
     writeFileSync(join(outDir, "bundled-workers.ts"), workerLines.join("\n") + "\n");
 
     // ---- Skills ---------------------------------------------------------
+    // FEAT-29-11: Recursive scan so built-in skills can ship the same
+    // folder layout as user skills (scripts/, references/, assets/).
+    // Keys are POSIX-style relative paths within the skill folder
+    // (e.g. "SKILL.md", "scripts/foo.js"). Binary files under assets/
+    // are base64-encoded with a `__b64__` key suffix.
     const skills = {};
     let skillCount = 0;
+    const TEXT_EXTENSIONS = new Set([
+        ".md", ".txt", ".json", ".js", ".ts", ".mjs", ".cjs",
+        ".yaml", ".yml", ".html", ".css", ".xml", ".csv",
+    ]);
+    function walkSkill(dir, relPrefix, files) {
+        for (const entry of readdirSync(dir)) {
+            if (entry.startsWith('.')) continue;
+            const full = join(dir, entry);
+            const rel = relPrefix ? `${relPrefix}/${entry}` : entry;
+            if (statSync(full).isDirectory()) {
+                walkSkill(full, rel, files);
+                continue;
+            }
+            const ext = entry.slice(entry.lastIndexOf('.')).toLowerCase();
+            if (TEXT_EXTENSIONS.has(ext)) {
+                files[rel] = readFileSync(full, "utf-8");
+            } else {
+                // Binary asset: encode as base64 with marker suffix so
+                // the materializer knows to decode before writing.
+                files[`${rel}__b64__`] = readFileSync(full).toString("base64");
+            }
+            skillCount++;
+        }
+    }
     const bundledSkillsDir = join(__dirname, "bundled-skills");
     if (existsSync(bundledSkillsDir)) {
         for (const skillDir of readdirSync(bundledSkillsDir)) {
             const srcDir = join(bundledSkillsDir, skillDir);
             if (!statSync(srcDir).isDirectory()) continue;
             const files = {};
-            for (const file of readdirSync(srcDir)) {
-                if (file.startsWith('.')) continue;
-                const filePath = join(srcDir, file);
-                if (statSync(filePath).isDirectory()) continue;
-                files[file] = readFileSync(filePath, "utf-8");
-                skillCount++;
-            }
+            walkSkill(srcDir, "", files);
             if (Object.keys(files).length > 0) skills[skillDir] = files;
         }
     }
@@ -537,8 +560,16 @@ const mainBuildOptions = {
                             // load them without going through the install flow.
                             // VAULT_PLUGIN_DIR ends with .obsidian/plugins/<id>/
                             // so the vault root is three levels up.
+                            //
+                            // FEAT-29-01: prefer .vault-operator/cache/assets/
+                            // when the consolidated layout exists (post-migration
+                            // location). Fall back to the legacy .vault-operator/
+                            // assets/ path for pre-migration dev vaults.
                             const vaultRoot = join(VAULT_PLUGIN_DIR, "..", "..", "..");
-                            const assetDir = join(vaultRoot, ".vault-operator", "assets");
+                            const cacheAssetDir = join(vaultRoot, ".vault-operator", "cache", "assets");
+                            const legacyAssetDir = join(vaultRoot, ".vault-operator", "assets");
+                            const useCacheLayout = existsSync(join(vaultRoot, ".vault-operator", "cache"));
+                            const assetDir = useCacheLayout ? cacheAssetDir : legacyAssetDir;
                             if (!existsSync(assetDir)) mkdirSync(assetDir, { recursive: true });
                             for (const name of ["office-bundle.js", "pdfjs-bundle.js"]) {
                                 if (!existsSync(name)) continue;

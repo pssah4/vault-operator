@@ -28,7 +28,8 @@ const LEGACY_GLOBAL_DIR_NAMES = ['obsilo-shared', '.obsidian-agent'] as const;
 export const LEGACY_GLOBAL_DIR_NAME = '.obsidian-agent';
 
 export class GlobalFileService implements FileAdapter {
-    private readonly root: string;
+    private root: string;
+    private readonly vaultBasePath: string | undefined;
 
     /**
      * @param vaultBasePath - Absolute path to the vault root (from vault.adapter.getBasePath()).
@@ -37,8 +38,13 @@ export class GlobalFileService implements FileAdapter {
      *   ({vault-parent}/obsilo-shared/ or {vault-parent}/.obsidian-agent/),
      *   that path is used instead so their data is never abandoned.
      *   Falls back to ~/vault-operator-shared/ if no vaultBasePath.
+     *
+     * FEAT-29-01: after the layout migration completes, call
+     * useVaultLocalRoot(agentFolderPath) to re-point the service at
+     * {vault}/.vault-operator/data/.
      */
     constructor(vaultBasePath?: string) {
+        this.vaultBasePath = vaultBasePath;
         const baseDir = vaultBasePath ? pathModule.dirname(vaultBasePath) : osModule.homedir();
 
         // Prefer existing legacy folders if they exist (preserves user data).
@@ -54,6 +60,21 @@ export class GlobalFileService implements FileAdapter {
         }
 
         this.root = pathModule.join(baseDir, GLOBAL_DIR_NAME);
+    }
+
+    /**
+     * FEAT-29-01: switch this service to the vault-local data layout
+     * ({vault}/<agentFolderPath>/data/). Called from plugin.onload after the
+     * migration completes so that all dependent services (rulesLoader,
+     * workflowLoader, skillsManager, memory, history, etc.) read from the
+     * new consolidated location. Idempotent.
+     *
+     * @param agentFolderPath - vault-relative root, typically ".vault-operator"
+     */
+    useVaultLocalRoot(agentFolderPath: string): void {
+        if (!this.vaultBasePath) return;
+        const newRoot = pathModule.join(this.vaultBasePath, agentFolderPath, 'data');
+        this.root = newRoot;
     }
 
     /** Return the legacy root path (~/.obsidian-agent/) for migration purposes. */

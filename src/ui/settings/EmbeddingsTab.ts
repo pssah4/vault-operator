@@ -273,7 +273,7 @@ export class EmbeddingsTab {
                 });
             })
             .addButton((btn) => {
-                btn.setButtonText(t('settings.embeddings.forceRebuild')).setWarning().onClick(async () => {
+                btn.setButtonText(t('settings.embeddings.forceRebuild')).onClick(async () => {
                     const idx = getIdx();
                     if (!idx) { new Notice(t('settings.embeddings.enableFirst')); return; }
                     if (idx.building) { new Notice(t('settings.embeddings.alreadyBuilding')); return; }
@@ -317,7 +317,7 @@ export class EmbeddingsTab {
             .setName(t('settings.embeddings.deleteIndexName'))
             .setDesc(t('settings.embeddings.deleteIndexDesc'))
             .addButton((btn) => {
-                btn.setButtonText(t('settings.embeddings.deleteIndex')).setWarning().onClick(async () => {
+                btn.setButtonText(t('settings.embeddings.deleteIndex')).onClick(async () => {
                     const confirmed = await this.confirmDestructive(
                         t('settings.embeddings.deleteConfirmTitle'),
                         t('settings.embeddings.deleteConfirmMessage'),
@@ -694,7 +694,7 @@ export class EmbeddingsTab {
         setting.addButton((btn) => {
             installBtn = btn.buttonEl;
             btn.setButtonText('Install')
-                .setCta()
+                
                 .onClick(async () => {
                     btn.setDisabled(true);
                     btn.setButtonText('Downloading...');
@@ -719,7 +719,7 @@ export class EmbeddingsTab {
         setting.addButton((btn) => {
             removeBtn = btn.buttonEl;
             btn.setButtonText('Remove')
-                .setWarning()
+                
                 .onClick(async () => {
                     const ok = await this.confirmDestructive(
                         'Remove reranker model?',

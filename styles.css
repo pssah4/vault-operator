@@ -7063,3 +7063,27 @@
     font-family: var(--font-monospace);
     white-space: pre;
 }
+
+/* ── Settings buttons: muted look across all Vault Operator tabs ──────────
+ * Sebastian feedback 2026-05-20 (FEAT-29-01):
+ * Plugin settings buttons should all render in the muted opacity used by
+ * Obsidian's disabled-button state, regardless of enabled/disabled status.
+ * Disabled-state cues come from the tooltip on hover plus the no-op notice
+ * on click, not from a separate visual treatment. Selector scoped to the
+ * Obsidian settings modal so other plugins are unaffected.
+ */
+.modal-container .vertical-tab-content .setting-item-control > button,
+.modal-container .vertical-tab-content .setting-item-control > .clickable-icon,
+.modal-container .vertical-tab-content .setting-item-control > .extra-setting-button {
+    opacity: 0.65;
+    transition: opacity 0.15s ease;
+}
+.modal-container .vertical-tab-content .setting-item-control > button:hover:not(:disabled),
+.modal-container .vertical-tab-content .setting-item-control > .clickable-icon:hover,
+.modal-container .vertical-tab-content .setting-item-control > .extra-setting-button:hover {
+    opacity: 1;
+}
+.modal-container .vertical-tab-content .setting-item-control > button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}

@@ -923,6 +923,37 @@ export interface ObsidianAgentSettings {
      *  sync stalls on mobile). */
     _pluginDataDirsMigrated?: boolean;
 
+    /** FEAT-29-01: layout migration progress. Resumable across plugin reloads.
+     *  Phase order: pending -> backup-done -> data-vault-done -> cache-vault-done
+     *  -> data-shared-done -> cache-shared-done -> skills-resolved -> cleanup-done
+     *  -> settings-done -> complete. */
+    _layoutMigrationStatus?:
+        | 'pending'
+        | 'backup-done'
+        | 'data-vault-done'
+        | 'cache-vault-done'
+        | 'data-shared-done'
+        | 'cache-shared-done'
+        | 'skills-resolved'
+        | 'cleanup-done'
+        | 'settings-done'
+        | 'complete';
+
+    /** FEAT-29-01: snapshot of chatHistoryFolder before the setting was removed.
+     *  Used by the post-migration notice modal so the user can locate their old
+     *  vault-folder copy of conversations if they want to clean it up. Cleared
+     *  once the notice has been acknowledged. */
+    _chatHistoryFolderLegacy?: string;
+
+    /** FEAT-29-01: opt-in flag for the layout migration. The migration is
+     *  destructive (moves files across roots, removes legacy folders) and
+     *  must not run silently on plugin reload until the dependent services
+     *  (GlobalFileService, rulesLoader, workflowLoader, skillsManager, etc.)
+     *  have been migrated to the new sub-folder layout in a follow-up commit.
+     *  Default false; user must explicitly enable in Settings before the
+     *  trigger in plugin.onload picks it up. */
+    _layoutMigrationOptIn?: boolean;
+
     // Task Extraction (FEATURE-100, ADR-026/027/028)
     taskExtraction: import('../core/tasks/types').TaskExtractionSettings;
 

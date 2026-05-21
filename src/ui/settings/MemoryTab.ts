@@ -79,7 +79,7 @@ export class MemoryTab {
                 .setName(t('settings.memory.storedConversations'))
                 .setDesc(t('settings.memory.storedConversationsDesc', { count }))
                 .addButton((b) =>
-                    b.setButtonText(t('settings.memory.clearAll')).setWarning().onClick(async () => {
+                    b.setButtonText(t('settings.memory.clearAll')).onClick(async () => {
                         await store.deleteAll();
                         new Notice(t('settings.memory.allConversationsDeleted'));
                         this.rerender();
@@ -179,7 +179,7 @@ export class MemoryTab {
                     );
 
                 setupSetting.addButton((b) =>
-                    b.setButtonText(isComplete ? t('settings.memory.restartSetup') : t('settings.memory.startSetup')).setCta().onClick(async () => {
+                    b.setButtonText(isComplete ? t('settings.memory.restartSetup') : t('settings.memory.startSetup')).onClick(async () => {
                         await onboarding.reset();
                         await this.plugin.startOnboarding();
                     }),
@@ -344,7 +344,7 @@ export class MemoryTab {
             .setDesc(t('settings.memory.viewMemoryDesc'))
             .addButton((b) => b
                 .setButtonText(t('settings.memory.viewMemoryButton'))
-                .setCta()
+                
                 .onClick(async () => {
                     const { MemoryViewerModal } = await import('../modals/MemoryViewerModal');
                     new MemoryViewerModal(this.app, this.plugin).open();
@@ -355,7 +355,7 @@ export class MemoryTab {
             .setDesc(t('settings.memory.deleteAllDesc'))
             .addButton((b) => b
                 .setButtonText(t('settings.memory.deleteAllButton'))
-                .setWarning()
+                
                 .onClick(async () => {
                     const { confirmAndWipeAllMemory } = await import('../modals/wipeAllMemory');
                     await confirmAndWipeAllMemory(this.app, this.plugin);

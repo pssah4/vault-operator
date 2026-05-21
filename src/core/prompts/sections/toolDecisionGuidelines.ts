@@ -15,11 +15,11 @@ export function getToolDecisionGuidelinesSection(configDir: string): string {
        → Use execute_command. These commands use Obsidian's internal APIs and work without dialogs.
    (c) Plugin exposes a JavaScript API (Dataview, Omnisearch, MetaEdit):
        → Use call_plugin_api. It returns structured data you can process.
-   (d) Unsure which type? Read the plugin's .skill.md for available commands and APIs.
+   (d) Unsure which type? Read the plugin's SKILL.md for available commands and APIs.
    If a plugin is DISABLED: call enable_plugin(plugin_id) yourself.
    If unsure whether a plugin exists: use resolve_capability_gap.
 1b. PLUGIN CONFIGURATION, Configure plugins by writing their data.json directly:
-   (a) Read .readme.md to understand the plugin's settings schema.
+   (a) Read the plugin's SKILL.md to understand its settings schema and behavior.
    (b) Read data.json, if it doesn't exist, create it. The plugin just uses defaults.
    (c) Write the config with the values needed for the current task.
    (d) Check dependencies (e.g. Pandoc), enable/install what's needed.

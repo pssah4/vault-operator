@@ -80,7 +80,7 @@ export class AgentSettingsTab extends PluginSettingTab {
         const tabs: { id: TabId; label: string; icon: string }[] = [
             { id: 'providers',       label: t('settings.group.providers'),       icon: 'plug'         },
             { id: 'agent-behaviour', label: t('settings.group.agentBehaviour'), icon: 'users-round'  },
-            { id: 'customize',       label: t('settings.group.customize'),       icon: 'sliders'      },
+            { id: 'customize',       label: t('settings.group.customize'),       icon: 'toolbox'      },
             { id: 'advanced',        label: t('settings.group.advanced'),        icon: 'settings-2'   },
             { id: 'help',            label: t('settings.group.help'),            icon: 'help-circle'  },
         ];

@@ -83,6 +83,8 @@ import { ReadSkillTool } from './agent/ReadSkillTool';
 import { ExecuteCommandTool } from './agent/ExecuteCommandTool';
 import { ResolveCapabilityGapTool } from './agent/ResolveCapabilityGapTool';
 import { EnablePluginTool } from './agent/EnablePluginTool';
+import { ProbePluginTool } from './agent/ProbePluginTool';
+import { RunSkillScriptTool } from './agent/RunSkillScriptTool';
 // Plugin API + Recipe Shell (PAS-1.5)
 import { CallPluginApiTool } from './agent/CallPluginApiTool';
 import { ExecuteRecipeTool } from './agent/ExecuteRecipeTool';
@@ -237,6 +239,8 @@ export class ToolRegistry {
         this.register(new ExecuteCommandTool(this.plugin));
         this.register(new ResolveCapabilityGapTool(this.plugin));
         this.register(new EnablePluginTool(this.plugin));
+        // FEAT-29-03: probe_plugin live state (commands + api methods).
+        this.register(new ProbePluginTool(this.plugin));
         // Plugin API + Recipe Shell (PAS-1.5)
         this.register(new CallPluginApiTool(this.plugin));
         this.register(new ExecuteRecipeTool(this.plugin));
@@ -255,6 +259,13 @@ export class ToolRegistry {
             this.register(new ManageSkillTool(
                 this.plugin, skillLoader, esbuildManager, sandboxExecutor, this,
             ));
+        }
+        // FEAT-29-06: generic skill-script executor (replaces code_modules
+        // / custom_*-tool registration pattern). Gated on sandbox + esbuild
+        // availability so headless or mobile builds without those
+        // components still load.
+        if (sandboxExecutor && esbuildManager) {
+            this.register(new RunSkillScriptTool(this.plugin));
         }
         // Self-Development (Phase 3: expression evaluation)
         if (sandboxExecutor && esbuildManager) {

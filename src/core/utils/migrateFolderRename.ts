@@ -18,12 +18,16 @@
 import * as path from 'path';
 import * as safeFs from '../security/safeFs';
 import type { App } from 'obsidian';
-import {
-    DEFAULT_AGENT_FOLDER, LEGACY_AGENT_FOLDERS,
-} from './agentFolder';
 import { LEGACY_GLOBAL_DIR_NAME } from '../storage/GlobalFileService';
 
 const NEW_GLOBAL_DIR_NAME = 'obsilo-shared';
+
+// Pre-FEAT-29-01 vault-local default. This module migrates legacy
+// `.obsidian-agent` -> `obsilo-vault` -> `.obsilo-vault`. FEAT-29-01's
+// consolidation onto `.vault-operator/` is a separate opt-in migration
+// (migrateAgentLayout) and must NOT happen here automatically.
+const PRE_FEAT_29_01_DEFAULT = '.obsilo-vault';
+const PRE_FEAT_29_01_LEGACY_FOLDERS = ['obsilo-vault', '.obsidian-agent'] as const;
 
 export interface FolderMigrationReport {
     vaultLocalRenamed: boolean;
@@ -56,27 +60,27 @@ export async function migrateFolderRename(
     // ── Vault-local rename ────────────────────────────────────────────
     const adapter = app.vault.adapter;
     const configured = savedAgentFolderPath?.trim();
-    const knownNames = new Set<string>([DEFAULT_AGENT_FOLDER, ...LEGACY_AGENT_FOLDERS]);
+    const knownNames = new Set<string>([PRE_FEAT_29_01_DEFAULT, ...PRE_FEAT_29_01_LEGACY_FOLDERS]);
     const isCustomPath = !!configured && !knownNames.has(configured);
 
     if (isCustomPath) {
         report.vaultLocalReason = 'custom agentFolderPath, skipping rename';
     } else {
         try {
-            const newExists = await adapter.exists(DEFAULT_AGENT_FOLDER);
+            const newExists = await adapter.exists(PRE_FEAT_29_01_DEFAULT);
             // Find first legacy folder that exists -- ordered newest-first so
-            // a sequence like `obsidian-agent -> obsilo-vault -> .obsilo-vault`
-            // chooses the most recent intermediate state to migrate from.
+            // a sequence like `obsidian-agent -> obsilo-vault` chooses the
+            // most recent intermediate state to migrate from.
             let legacyFound: string | null = null;
-            for (const legacy of LEGACY_AGENT_FOLDERS) {
+            for (const legacy of PRE_FEAT_29_01_LEGACY_FOLDERS) {
                 if (await adapter.exists(legacy)) { legacyFound = legacy; break; }
             }
             if (legacyFound && !newExists) {
-                await adapter.rename(legacyFound, DEFAULT_AGENT_FOLDER);
+                await adapter.rename(legacyFound, PRE_FEAT_29_01_DEFAULT);
                 report.vaultLocalRenamed = true;
             } else if (legacyFound && newExists) {
                 report.vaultLocalReason =
-                    `both ${legacyFound} and ${DEFAULT_AGENT_FOLDER} exist; user must reconcile manually`;
+                    `both ${legacyFound} and ${PRE_FEAT_29_01_DEFAULT} exist; user must reconcile manually`;
             } else {
                 report.vaultLocalReason = newExists ? 'already on new layout' : 'no legacy vault-local folder';
             }

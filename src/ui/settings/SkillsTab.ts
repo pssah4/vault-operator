@@ -1,10 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { App, Notice, setIcon } from 'obsidian';
+import JSZip from 'jszip';
 import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
+import { isUserSkillSource } from './userSkillSource';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
-import { getPluginSkillsDir, getSelfAuthoredSkillsDir } from '../../core/utils/agentFolder';
+import {
+    getPluginSkillsDir,
+    getPluginSkillManifestPath,
+    getPluginSkillFolderPath,
+    getPluginSkillReadmePath,
+    getSelfAuthoredSkillsDir,
+} from '../../core/utils/agentFolder';
 import { importSkill, detectSourceFromFile, SkillPackageImportError, SkillFolderImportError } from '../../core/skills/SkillImportRouter';
 import { confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
@@ -39,7 +47,12 @@ function resolveElectronDialog(): ElectronDialog | null {
 interface UnifiedSkill {
     name: string;
     description: string;
-    source: 'bundled' | 'learned' | 'user';
+    /**
+     * Origin discriminator. Known values: `bundled` (legacy), `builtin`,
+     * `learned`, `user`. Anything else is treated as a plugin-id
+     * (VaultDNAScanner-managed) and routed via the plugin-skill code path.
+     */
+    source: string;
     /** Path in global storage (SkillsManager) -- used for toggles */
     globalPath?: string;
     /** SelfAuthoredSkill reference (plugin-local) */
@@ -48,6 +61,7 @@ interface UnifiedSkill {
     hasCodeModules: boolean;
     codeToolNames: string[];
 }
+
 
 
 export class SkillsTab {
@@ -181,12 +195,15 @@ export class SkillsTab {
                 // Actions (edit, export, delete)
                 const actionsTd = tr.createEl('td', { cls: 'agent-skill-actions-cell' });
 
-                // Edit
+                // Open folder (FEAT-29-11: replaces the old "edit -> modal"
+                // path. All skills now live in a folder with SKILL.md +
+                // optional scripts/, references/, assets/. Clicking the
+                // button reveals the folder in the OS file manager.)
                 const editBtn = actionsTd.createEl('button', {
                     cls: 'agent-skill-action-btn', attr: { 'aria-label': t('settings.skills.edit') },
                 });
-                setIcon(editBtn, 'pencil');
-                editBtn.addEventListener('click', () => { void this.editSkill(skill); });
+                setIcon(editBtn, 'folder-open');
+                editBtn.addEventListener('click', () => { void this.openSkillFolder(skill); });
 
                 // Export
                 const exportBtn = actionsTd.createEl('button', {
@@ -256,10 +273,17 @@ export class SkillsTab {
     private async collectUnifiedSkills(): Promise<UnifiedSkill[]> {
         const byName = new Map<string, UnifiedSkill>();
 
-        // 1. SelfAuthoredSkillLoader (plugin-local: bundled + agent + template)
+        // 1. SelfAuthoredSkillLoader (plugin-local: bundled + agent + template).
+        //
+        // FEAT-29-11 follow-up: post-Layout-Konsolidierung leben plugin-managed
+        // Skills im selben `data/skills/{name}/` Ordner wie User-/Builtin-Skills,
+        // also picks der Loader sie ebenfalls auf. Sie haben aber
+        // `source: <plugin-id>` und gehoeren in die Plugin-Section weiter unten,
+        // nicht in die User-Skills-Liste. Filter sie hier raus.
         const loader = this.plugin.selfAuthoredSkillLoader;
         if (loader) {
             for (const skill of loader.getAllSkills()) {
+                if (!isUserSkillSource(skill.source)) continue;
                 byName.set(skill.name, {
                     name: skill.name,
                     description: skill.description,
@@ -271,17 +295,27 @@ export class SkillsTab {
             }
         }
 
-        // 2. SkillsManager (global storage: user-created, synced)
+        // 2. SkillsManager (global storage: user-created, synced).
+        //
+        // FEAT-29-11 follow-up: GlobalFileService.useVaultLocalRoot points the
+        // SkillsManager root at `.vault-operator/data/`, so `discoverSkills`
+        // ends up reading from the same `data/skills/` folder as the
+        // SelfAuthoredSkillLoader above. We MUST apply the same source-filter
+        // here, otherwise plugin-managed entries (source: <plugin-id>) that
+        // were filtered out in step 1 slip back in via this path and end up
+        // double-listed under both "User Skills" and "Plugin Skills".
         const skillsManager = this.plugin.skillsManager;
         if (skillsManager) {
             const globalSkills = await skillsManager.discoverSkills();
             for (const skill of globalSkills) {
+                const source = skill.source ?? 'user';
+                if (!isUserSkillSource(source)) continue;
                 if (!byName.has(skill.name)) {
                     // Only add if not already present from SelfAuthoredSkillLoader
                     byName.set(skill.name, {
                         name: skill.name,
                         description: skill.description ?? '',
-                        source: (skill.source as UnifiedSkill['source']) ?? 'user',
+                        source,
                         globalPath: skill.path,
                         hasCodeModules: false,
                         codeToolNames: [],
@@ -308,60 +342,223 @@ export class SkillsTab {
 
     private getSourceLabel(skill: UnifiedSkill): string {
         switch (skill.source) {
-            case 'bundled': return 'Built-in';
+            case 'bundled':
+            case 'builtin':
+                return 'Built-in';
             case 'learned': return 'Agent';
             case 'user': return 'Template';
             default: return skill.source;
         }
     }
 
-    private async editSkill(skill: UnifiedSkill): Promise<void> {
+    /**
+     * FEAT-29-11: open the skill's folder in the OS file manager.
+     * Replaces the old `editSkill` modal flow. Works uniformly across
+     * user, learned, and bundled skills -- builtin folders live under
+     * `data/skills/{name}/` after the materialisation step.
+     */
+    private async openSkillFolder(skill: UnifiedSkill): Promise<void> {
         try {
-            if (skill.selfAuthored) {
-                const adapter = this.plugin.app.vault.adapter;
-                const content = await adapter.read(skill.selfAuthored.filePath);
-                new ContentEditorModal(this.app, t('settings.skills.editSkill', { name: skill.name }), content, async (newContent) => {
-                    await adapter.write(skill.selfAuthored!.filePath, newContent);
-                }).open();
-            } else if (skill.globalPath && this.plugin.skillsManager) {
-                const mgr = this.plugin.skillsManager;
-                const gPath = skill.globalPath;
-                const content = await mgr.readFile(gPath);
-                new ContentEditorModal(this.app, t('settings.skills.editSkill', { name: skill.name }), content, (newContent) => {
-                    return mgr.writeFile(gPath, newContent);
-                }).open();
+            // Each UnifiedSkill carries either a vault-relative `selfAuthored.filePath`
+            // (pointing at the SKILL.md) or a `globalPath` from the SkillsManager.
+            // Pick whichever we have and walk one segment up to the folder.
+            let folderRelative: string | null = null;
+            if (skill.selfAuthored?.filePath) {
+                const p = skill.selfAuthored.filePath;
+                folderRelative = p.replace(/\/SKILL\.md$/, '').replace(/\/[^/]+\.skill\.md$/, '');
+            } else if (skill.globalPath) {
+                // Global skills are mirrored under {agent-folder}/data/skills/{slug}/SKILL.md.
+                // Strip the "skills/{slug}/SKILL.md" suffix on the global side and
+                // reroute to the vault-resident copy.
+                const slug = skill.globalPath.replace(/^skills\//, '').replace(/\/SKILL\.md$/, '');
+                folderRelative = `${this.skillsDir}/${slug}`;
+            }
+
+            if (!folderRelative) {
+                new Notice('Cannot resolve folder for this skill');
+                return;
+            }
+
+            // Build an absolute path via the FileSystemAdapter, then open via electron.
+            const adapter = this.plugin.app.vault.adapter as unknown as {
+                getFullPath?: (relative: string) => string;
+                getBasePath?: () => string;
+            };
+            const absPath = adapter.getFullPath
+                ? adapter.getFullPath(folderRelative)
+                : (adapter.getBasePath ? `${adapter.getBasePath()}/${folderRelative}` : null);
+            if (!absPath) {
+                new Notice('Cannot resolve absolute path');
+                return;
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- electron is the standard Obsidian-desktop dep, no runtime install needed
+            const electron = require('electron') as { shell?: { openPath?: (p: string) => Promise<string> } };
+            const result = electron.shell?.openPath
+                ? await electron.shell.openPath(absPath)
+                : 'electron.shell.openPath unavailable';
+            if (result) {
+                new Notice(`Open folder failed: ${result}`);
             }
         } catch (e) {
-            new Notice('Failed to edit skill');
-            console.error('[SkillsTab] Edit failed:', e);
+            new Notice('Failed to open skill folder');
+            console.error('[SkillsTab] openSkillFolder failed:', e);
         }
     }
 
-    private async exportSkill(skill: UnifiedSkill): Promise<void> {
+    /**
+     * FEAT-29-11: open a plugin-skill's folder. Plugin-skills now live in
+     * the unified `data/skills/{plugin-id}/` layout, identical to user
+     * and builtin skills.
+     */
+    private async openPluginSkillFolder(skill: PluginSkillMeta): Promise<void> {
         try {
-            let content: string;
-            if (skill.selfAuthored) {
-                content = await this.plugin.app.vault.adapter.read(skill.selfAuthored.filePath);
-            } else if (skill.globalPath && this.plugin.skillsManager) {
-                content = await this.plugin.skillsManager.readFile(skill.globalPath);
-            } else {
+            const folder = getPluginSkillFolderPath(this.plugin, skill.id);
+            if (!folder) {
+                new Notice('Plugin-skill folder not available pre-migration');
                 return;
             }
-            const blob = new Blob([content], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = activeDocument.createElement('a');
-            a.href = url;
-            a.download = `SKILL-${skill.name}.md`;
-            a.click();
-            URL.revokeObjectURL(url);
+            const adapter = this.plugin.app.vault.adapter as unknown as {
+                getFullPath?: (relative: string) => string;
+                getBasePath?: () => string;
+            };
+            const absPath = adapter.getFullPath
+                ? adapter.getFullPath(folder)
+                : (adapter.getBasePath ? `${adapter.getBasePath()}/${folder}` : null);
+            if (!absPath) {
+                new Notice('Cannot resolve absolute path');
+                return;
+            }
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- electron is the standard Obsidian-desktop dep, no runtime install needed
+            const electron = require('electron') as { shell?: { openPath?: (p: string) => Promise<string> } };
+            const result = electron.shell?.openPath
+                ? await electron.shell.openPath(absPath)
+                : 'electron.shell.openPath unavailable';
+            if (result) {
+                new Notice(`Open folder failed: ${result}`);
+            }
+        } catch (e) {
+            new Notice('Failed to open plugin-skill folder');
+            console.error('[SkillsTab] openPluginSkillFolder failed:', e);
+        }
+    }
+
+    /**
+     * FEAT-29-11 Step D: export the entire skill folder as a ZIP archive.
+     * Replaces the old single-file SKILL.md export. The archive carries the
+     * SKILL.md plus all sidecars (scripts/, references/, assets/, sub-roles)
+     * so a user can transfer a complete Anthropic-conformant skill bundle
+     * to another vault or share it.
+     */
+    private async exportSkill(skill: UnifiedSkill): Promise<void> {
+        try {
+            const adapter = this.plugin.app.vault.adapter;
+
+            // Resolve the skill folder via the same logic openSkillFolder uses.
+            let skillDir: string | null = null;
+            if (skill.selfAuthored?.filePath?.endsWith('/SKILL.md')) {
+                skillDir = skill.selfAuthored.filePath.replace(/\/SKILL\.md$/, '');
+            } else if (skill.globalPath && this.plugin.skillsManager) {
+                // SkillsManager-only skill: single SKILL.md in global storage.
+                // Wrap it in a 1-file ZIP so the export format stays uniform.
+                const content = await this.plugin.skillsManager.readFile(skill.globalPath);
+                const zip = new JSZip();
+                zip.file('SKILL.md', content);
+                const blob = await zip.generateAsync({ type: 'blob' });
+                this.triggerDownload(blob, `${skill.name}.zip`);
+                return;
+            }
+
+            if (!skillDir || !(await adapter.exists(skillDir))) {
+                new Notice('Skill folder not found');
+                return;
+            }
+
+            const zip = new JSZip();
+            await this.addFolderToZip(adapter, skillDir, '', zip);
+            const blob = await zip.generateAsync({ type: 'blob' });
+            this.triggerDownload(blob, `${skill.name}.zip`);
         } catch (e) {
             new Notice('Failed to export skill');
             console.error('[SkillsTab] Export failed:', e);
         }
     }
 
+    /**
+     * Recursively add every file under `dir` to the zip, preserving the
+     * folder structure relative to the skill root. Binary files use
+     * `readBinary` so PNG/PDF assets survive the round-trip.
+     */
+    private async addFolderToZip(
+        adapter: App['vault']['adapter'],
+        dir: string,
+        relPrefix: string,
+        zip: JSZip,
+    ): Promise<void> {
+        const { files, folders } = await adapter.list(dir);
+        const dirPrefix = `${dir}/`;
+        for (const filePath of files) {
+            // FEAT-29-11 AUDIT L-2 defense-in-depth: defend the user against
+            // zip-slip if a future Obsidian adapter returns a path outside
+            // the listed folder. The current adapter does not, but the cost
+            // of the containment check is negligible.
+            if (!filePath.startsWith(dirPrefix)) {
+                console.warn('[SkillsTab] Skipping out-of-range file during export:', filePath);
+                continue;
+            }
+            const name = filePath.slice(dir.length + 1);
+            if (name.includes('..') || name.startsWith('/')) {
+                console.warn('[SkillsTab] Skipping unsafe zip path:', name);
+                continue;
+            }
+            const zipPath = relPrefix ? `${relPrefix}/${name}` : name;
+            if (this.isLikelyBinaryFile(name)) {
+                const buf = await adapter.readBinary(filePath);
+                zip.file(zipPath, buf);
+            } else {
+                const text = await adapter.read(filePath);
+                zip.file(zipPath, text);
+            }
+        }
+        for (const subPath of folders) {
+            if (!subPath.startsWith(dirPrefix)) {
+                console.warn('[SkillsTab] Skipping out-of-range folder during export:', subPath);
+                continue;
+            }
+            const subName = subPath.slice(dir.length + 1);
+            if (subName.includes('..') || subName.startsWith('/')) {
+                console.warn('[SkillsTab] Skipping unsafe zip subfolder:', subName);
+                continue;
+            }
+            const subRel = relPrefix ? `${relPrefix}/${subName}` : subName;
+            await this.addFolderToZip(adapter, subPath, subRel, zip);
+        }
+    }
+
+    private isLikelyBinaryFile(name: string): boolean {
+        const lower = name.toLowerCase();
+        const textExt = new Set([
+            '.md', '.txt', '.json', '.js', '.ts', '.mjs', '.cjs',
+            '.yaml', '.yml', '.html', '.css', '.xml', '.csv',
+        ]);
+        const dot = lower.lastIndexOf('.');
+        if (dot < 0) return false;
+        return !textExt.has(lower.slice(dot));
+    }
+
+    private triggerDownload(blob: Blob, filename: string): void {
+        const url = URL.createObjectURL(blob);
+        const a = activeDocument.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     private async deleteSkill(skill: UnifiedSkill): Promise<void> {
-        if (skill.source === 'bundled') return; // Never delete bundled skills
+        // Never delete builtin skills -- they get rewritten on next plugin reload
+        // anyway, and the materializer treats them as read-only.
+        if (skill.source === 'bundled' || skill.source === 'builtin') return;
 
         try {
             const adapter = this.plugin.app.vault.adapter;
@@ -452,6 +649,28 @@ export class SkillsTab {
         statsEl.setText(
             t('settings.skills.pluginStats', { active: activeSkills.length, disabled: disabledSkills.length, total: allSkills.length }),
         );
+
+        // FEAT-29-11 follow-up: auto-rescan when the section opens with zero
+        // plugin skills loaded. Two causes for the empty state:
+        //   - Settings was opened before workspace.onLayoutReady fired the
+        //     initial scanner.initialize() (race on plugin reload).
+        //   - User upgraded across the Welle-2 -> FEAT-29-11 layout boundary
+        //     and the previous scan results need a rewrite.
+        // Guarded by scanner.hasScanned so a rerender does not kick off a
+        // second scan, and so users with zero installed plugins do not
+        // scan in a loop (the scanner sets hasScanned=true on completion
+        // even when the result is empty). Manual Rescan still works.
+        if (allSkills.length === 0 && !scanner.hasScanned) {
+            void (async () => {
+                try {
+                    await scanner.fullScan();
+                    registry.updateToggles(this.plugin.settings.vaultDNA.skillToggles);
+                    this.rerender();
+                } catch (e) {
+                    console.warn('[VaultDNA] Auto rescan failed (non-fatal):', e);
+                }
+            })();
+        }
 
         // Controls row
         const controlsRow = containerEl.createDiv({ cls: 'agent-skill-controls' });
@@ -546,25 +765,18 @@ export class SkillsTab {
             // Actions (view buttons)
             const actionsTd = tr.createEl('td', { cls: 'agent-skill-actions-cell' });
 
-            // Edit skill file
+            // Open skill folder (FEAT-29-11: opens the plugin-skill's folder
+            // in the OS file manager instead of the legacy edit-modal.)
             const editSkillBtn = actionsTd.createEl('button', {
                 cls: 'agent-skill-action-btn', attr: { 'aria-label': t('settings.skills.editFile') },
             });
-            setIcon(editSkillBtn, 'pencil');
-            editSkillBtn.addEventListener('click', () => void this.openSkillFile(skill));
+            setIcon(editSkillBtn, 'folder-open');
+            editSkillBtn.addEventListener('click', () => void this.openPluginSkillFolder(skill));
 
-            // View README (if exists)
-            const docsBtn = actionsTd.createEl('button', {
-                cls: 'agent-skill-action-btn', attr: { 'aria-label': t('settings.skills.viewReadme') },
-            });
-            setIcon(docsBtn, 'book-open');
-            void this.checkReadmeExists(skill.id).then((exists) => {
-                if (!exists) {
-                    docsBtn.addClass('agent-skill-action-btn-faint');
-                    docsBtn.setAttribute('aria-label', t('settings.skills.noReadme'));
-                }
-            });
-            docsBtn.addEventListener('click', () => void this.openReadmeFile(skill));
+            // FEAT-29-11: README button removed. Plugin-skill readmes no
+            // longer exist as separate files -- their content lives in the
+            // SKILL.md body. The folder-open button above is the unified
+            // editing path.
 
             // Toggle -- for ALL plugins (controls whether agent may use this skill)
             const toggleTd = tr.createEl('td', { cls: 'agent-skill-toggle-cell' });
@@ -583,7 +795,8 @@ export class SkillsTab {
     }
 
     private async openSkillFile(skill: PluginSkillMeta): Promise<void> {
-        const path = `${this.skillsDir}/${skill.id}.skill.md`;
+        // FEAT-29-02: layout-aware -- folder/SKILL.md post-Welle-1, .skill.md legacy.
+        const path = getPluginSkillManifestPath(this.plugin, skill.id);
         try {
             const content = await this.app.vault.adapter.read(path);
             new ContentEditorModal(this.app, t('settings.skills.skillDetail', { name: skill.name }), content, (updated) => {
@@ -594,25 +807,9 @@ export class SkillsTab {
         }
     }
 
-    private async openReadmeFile(skill: PluginSkillMeta): Promise<void> {
-        const path = `${this.skillsDir}/${skill.id}.readme.md`;
-        try {
-            const content = await this.app.vault.adapter.read(path);
-            new ContentEditorModal(this.app, t('settings.skills.readme', { name: skill.name }), content, (updated) => {
-                return this.app.vault.adapter.write(path, updated);
-            }).open();
-        } catch {
-            new Notice(t('settings.skills.noReadmeAvailable', { name: skill.name }));
-        }
-    }
-
-    private async checkReadmeExists(pluginId: string): Promise<boolean> {
-        try {
-            return await this.app.vault.adapter.exists(`${this.skillsDir}/${pluginId}.readme.md`);
-        } catch {
-            return false;
-        }
-    }
+    // FEAT-29-11: openReadmeFile + checkReadmeExists removed. Plugin
+    // readmes no longer exist as separate files (consolidated into the
+    // SKILL.md body by VaultDNAScanner.writeFolderFormat).
 
     /**
      * FEATURE-2202: universal skill import. Opens the native picker if

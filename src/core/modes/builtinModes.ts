@@ -85,12 +85,12 @@ Never leave the user with output that looks correct but doesn't work.
 
 You have all the tools needed for most tasks. Use them directly. NEVER delegate to a sub-agent what you can do directly in 1-4 tool calls.
 
-## Skills with code modules
+## Skills with helper scripts
 
 - Use manage_skill to create workflow instructions (most cases — sequences of existing tools).
-- Add code_modules ONLY when you need NEW computational capabilities (binary file generation, complex data transformation, custom algorithms).
-- Code module names must start with "custom_" prefix and run in a sandboxed iframe.
-- npm packages can be bundled as dependencies (e.g., pptxgenjs, xlsx, sharp).
+- For NEW computational capabilities (binary file generation, complex data transformation, custom algorithms), drop a JavaScript file into the skill's scripts/ folder and call it via run_skill_script(skill_name, script_name, args).
+- Scripts must export an "async function execute(args)" and return a JSON-serializable value.
+- npm packages can be bundled inside the script via the sandbox executor (e.g., pptxgenjs, xlsx, sharp).
 
 ## Learn and persist
 

@@ -5,13 +5,13 @@
  * self-authored SKILL.md files. Skills are Markdown-based workflow
  * instructions with YAML frontmatter.
  *
- * Skills can optionally include code modules (TypeScript files) that are
- * compiled and registered as dynamic tools. This unifies the former
- * "Skills" and "Dynamic Tools" into a single manage_skill tool.
+ * FEAT-29-06 (2026-05-20): the legacy `code_modules` input parameter has
+ * been REMOVED. TypeScript helper code now lives as plain `.js` files in
+ * `{skill-folder}/scripts/` and is executed via the new `run_skill_script`
+ * tool. The `CodeModuleCompiler` is deprecated (kept for the bestand of
+ * already-compiled custom_*-tools, no new modules registered).
  *
- * Code module compilation is delegated to CodeModuleCompiler (SRP).
- *
- * Part of Self-Development Phase 2+3: Skill Self-Authoring + Code Modules.
+ * Part of Self-Development Phase 2: Skill Self-Authoring.
  */
 
 import { BaseTool } from '../BaseTool';
@@ -20,8 +20,6 @@ import type ObsidianAgentPlugin from '../../../main';
 import type { SelfAuthoredSkillLoader } from '../../skills/SelfAuthoredSkillLoader';
 import type { ISandboxExecutor } from '../../sandbox/ISandboxExecutor';
 import type { ToolRegistry } from '../ToolRegistry';
-import { CodeModuleCompiler } from '../../skills/CodeModuleCompiler';
-import type { CodeModuleInput } from '../../skills/CodeModuleCompiler';
 import { AstValidator } from '../../sandbox/AstValidator';
 import { safeRegex } from '../../utils/safeRegex';
 
@@ -37,7 +35,6 @@ interface ManageSkillInput {
     required_tools?: string[];
     body?: string;
     source?: string;
-    code_modules?: CodeModuleInput[];
 }
 
 // ---------------------------------------------------------------------------
@@ -49,24 +46,25 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
     readonly isWriteOperation = false;
 
     private skillLoader: SelfAuthoredSkillLoader;
-    private compiler: CodeModuleCompiler;
 
     constructor(
         plugin: ObsidianAgentPlugin,
         skillLoader: SelfAuthoredSkillLoader,
         _esbuildManager?: unknown,
-        sandboxExecutor?: ISandboxExecutor | null,
+        _sandboxExecutor?: ISandboxExecutor | null,
         _toolRegistry?: ToolRegistry | null,
     ) {
         super(plugin);
         this.skillLoader = skillLoader;
-        this.compiler = new CodeModuleCompiler(skillLoader, sandboxExecutor ?? null);
+        // FEAT-29-06: CodeModuleCompiler is no longer instantiated here.
+        // The optional sandbox/registry parameters are kept for call-site
+        // compatibility during the transition; they go unused.
     }
 
     getDefinition(): ToolDefinition {
         return {
             name: this.name,
-            description: 'Manage self-authored skills (SKILL.md files). Skills are reusable workflow instructions that persist across sessions. Skills can optionally include code_modules — TypeScript code compiled and registered as sandbox tools (names must start with "custom_"). Actions: create, update, delete, list, validate, read. IMPORTANT: Active skills are already included (truncated) in your system prompt — do NOT call read for skills you can already see in <available_skills>. For corporate PPTX templates use ingest_template instead.',
+            description: 'Manage self-authored skills (SKILL.md files). Skills are reusable workflow instructions that persist across sessions. Actions: create, update, delete, list, validate, read. For computational helpers (data processing, binary generation), drop a JavaScript file into the skill\'s scripts/ folder and call it via run_skill_script -- the legacy code_modules input was removed in FEAT-29-06. IMPORTANT: Active skills are already included (truncated) in your system prompt — do NOT call read for skills you can already see in <available_skills>. For corporate PPTX templates use ingest_template instead.',
             input_schema: {
                 type: 'object',
                 properties: {
@@ -100,41 +98,6 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
                         type: 'string',
                         description: 'Skill source: "learned" (agent-created), "user" (user-created).',
                         enum: ['learned', 'user'],
-                    },
-                    code_modules: {
-                        type: 'array',
-                        description: 'Optional TypeScript code modules to compile and register as sandbox tools. Each module becomes a tool with "custom_" prefix. Only needed for NEW computational capabilities (binary generation, complex algorithms). Most skills only need workflow instructions.',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                name: {
-                                    type: 'string',
-                                    description: 'Tool name (must start with "custom_").',
-                                },
-                                source_code: {
-                                    type: 'string',
-                                    description: 'TypeScript source code. Must export a definition object and an execute function.',
-                                },
-                                description: {
-                                    type: 'string',
-                                    description: 'Description of what this code module does.',
-                                },
-                                input_schema: {
-                                    type: 'object',
-                                    description: 'JSON Schema for tool input.',
-                                },
-                                is_write_operation: {
-                                    type: 'boolean',
-                                    description: 'Whether this tool performs write operations (default: false).',
-                                },
-                                dependencies: {
-                                    type: 'array',
-                                    description: 'npm package names to bundle (e.g. ["xlsx", "marked"]).',
-                                    items: { type: 'string' },
-                                },
-                            },
-                            required: ['name', 'source_code', 'description', 'input_schema'],
-                        },
                     },
                 },
                 required: ['action'],
@@ -202,19 +165,11 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
             );
         }
 
-        // Validate code modules if present
-        if (params.code_modules?.length) {
-            this.compiler.validateNames(params.code_modules);
-        }
-
         // Ensure directory exists (adapter.mkdir works for .obsidian/ paths)
         await adapter.mkdir(dirPath);
 
-        // Build code module filenames for frontmatter
-        const codeModuleNames = params.code_modules?.map(m => CodeModuleCompiler.toolNameToFileName(m.name)) ?? [];
-
-        // Build SKILL.md content
-        const content = this.buildSkillMd(params, codeModuleNames);
+        // Build SKILL.md content. FEAT-29-06: code_modules-Pfad entfernt.
+        const content = this.buildSkillMd(params);
         // Use adapter.write — vault.create doesn't work reliably for .obsidian/ paths
         await adapter.write(filePath, content);
 
@@ -231,22 +186,8 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
         // (vault events don't fire for .obsidian/ paths, so hot-reload won't trigger)
         await this.skillLoader.loadAll();
 
-        // Process code modules via compiler
-        const codeResults: string[] = [];
-        if (params.code_modules?.length) {
-            for (const cm of params.code_modules) {
-                const result = await this.compiler.processModule(params.name, cm);
-                codeResults.push(result);
-            }
-            context.invalidateToolCache?.();
-        }
-
-        const codeMsg = codeResults.length > 0
-            ? `\nCode modules:\n${codeResults.join('\n')}`
-            : '';
-
         callbacks.pushToolResult(this.formatSuccess(
-            `Skill "${params.name}" created at ${filePath}.${codeMsg}`
+            `Skill "${params.name}" created at ${filePath}. For helper scripts, drop JS files into scripts/ and call them via run_skill_script.`
         ));
     }
 
@@ -267,15 +208,10 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
             throw new Error(`Skill file not found: ${skill.filePath}`);
         }
 
-        // Validate code modules if present
-        if (params.code_modules?.length) {
-            this.compiler.validateNames(params.code_modules);
-        }
-
-        // Merge code module names
+        // Preserve any code-module filenames the skill already has on disk
+        // (kept in frontmatter for back-compat with older custom_*-bestand);
+        // FEAT-29-06 no longer adds new ones.
         const existingCodeModules = skill.codeModules ?? [];
-        const newCodeModuleNames = params.code_modules?.map(m => CodeModuleCompiler.toolNameToFileName(m.name)) ?? [];
-        const allCodeModules = [...new Set([...existingCodeModules, ...newCodeModuleNames])];
 
         // Merge updates
         const mergedDescription = params.description ?? skill.description;
@@ -297,7 +233,7 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
             required_tools: mergedRequiredTools,
             body: mergedBody,
             source: skill.source,
-        }, allCodeModules);
+        }, existingCodeModules);
 
         // Use adapter.write — vault.modify doesn't work reliably for .obsidian/ paths
         await adapter.write(skill.filePath, content);
@@ -315,21 +251,7 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
         // Reload skills so the updated skill is immediately available in-memory
         await this.skillLoader.loadAll();
 
-        // Process code modules via compiler
-        const codeResults: string[] = [];
-        if (params.code_modules?.length) {
-            for (const cm of params.code_modules) {
-                const result = await this.compiler.processModule(params.name, cm);
-                codeResults.push(result);
-            }
-            context.invalidateToolCache?.();
-        }
-
-        const codeMsg = codeResults.length > 0
-            ? `\nCode modules updated:\n${codeResults.join('\n')}`
-            : '';
-
-        callbacks.pushToolResult(this.formatSuccess(`Skill "${params.name}" updated.${codeMsg}`));
+        callbacks.pushToolResult(this.formatSuccess(`Skill "${params.name}" updated.`));
     }
 
     private async handleDelete(
@@ -510,7 +432,7 @@ export class ManageSkillTool extends BaseTool<'manage_skill'> {
     // -----------------------------------------------------------------------
 
     private buildSkillMd(
-        params: Omit<ManageSkillInput, 'action' | 'code_modules'>,
+        params: Omit<ManageSkillInput, 'action'>,
         codeModuleNames?: string[],
     ): string {
         const tools = params.required_tools?.length

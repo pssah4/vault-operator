@@ -437,6 +437,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'After solving a novel problem: save the approach as a reusable skill so you can apply it instantly next time. Use read_skill to actually load and follow a skill.',
         commonMistakes: 'Confusing skills with tools. Skills are instructions (how to approach a task), not executable code. Using manage_skill read to apply a skill -- use read_skill instead.',
     },
+    run_skill_script: {
+        group: 'agent', label: 'Run Skill Script', icon: 'play-circle',
+        signature: 'run_skill_script(skill_name, script_name, args?)',
+        description: 'Execute a JavaScript helper script that lives in a self-authored skill folder under scripts/{script_name}.js. The script must export `async function execute(args)`; the return value is JSON-serialized back to the tool_result. Replaces the legacy code_modules pattern (FEAT-29-06).',
+        example: 'run_skill_script("newsletter-digest", "aggregate", {"window_days": 7})',
+        whenToUse: 'For deterministic, repeatable steps the agent should not have to hallucinate each time (data aggregation, API calls, format conversion, binary file generation). The skill folder bundles the SKILL.md instructions WITH the scripts.',
+        commonMistakes: 'Calling for a one-off task that has no persisted script -- use evaluate_expression instead. Passing the path with a .js extension -- script_name is the bare name.',
+    },
     manage_mcp_server: {
         group: 'agent', label: 'Manage MCP', icon: 'plug-2',
         signature: 'manage_mcp_server(action, name?, config?)',
@@ -510,6 +518,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         example: 'enable_plugin("obsidian-excalidraw-plugin", true)',
         whenToUse: 'When a disabled plugin is needed. Ask the user before enabling.',
         commonMistakes: 'Enabling without checking if installed — use resolve_capability_gap first.',
+    },
+    probe_plugin: {
+        group: 'skill', label: 'Probe Plugin', icon: 'scan-search',
+        signature: 'probe_plugin(plugin_id)',
+        description: 'Live read of a plugin\'s current commands and API methods. Use before the first call_plugin_api or execute_command on a freshly enabled plugin, or when the PLUGIN SKILLS section looks stale.',
+        example: 'probe_plugin("dataview")',
+        whenToUse: 'Just-enabled lazy plugin (Dataview, Templater), post-update command rename, or before first call to a plugin you have not used this session.',
+        commonMistakes: 'Skipping probe and guessing command IDs from the stale PLUGIN SKILLS list -- if a probe disagrees, trust the probe.',
     },
     call_plugin_api: {
         group: 'skill', label: 'Plugin API', icon: 'code',
