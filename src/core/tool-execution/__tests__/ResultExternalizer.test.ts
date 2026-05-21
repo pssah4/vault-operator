@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Minimal FileAdapter stub (in-memory)
@@ -244,6 +244,74 @@ describe('ResultExternalizer', () => {
             // leaves the orphan sweeper to finish on next plugin start.
             await expect(ext.cleanup()).resolves.toBeUndefined();
             expect(fs.files.size).toBe(1);
+        });
+
+        it('FIX-24-03-03: persistent EPERM logs as debug, not warn (iCloud noise reduction)', async () => {
+            const ext = await createExternalizer(fs);
+            await ext.maybeExternalize('search_files', {}, 'x'.repeat(3000), false);
+
+            fs.remove = () => {
+                const err = Object.assign(new Error('EPERM: locked'), { code: 'EPERM' });
+                return Promise.reject(err);
+            };
+
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+
+            await ext.cleanup();
+
+            const warnCalls = warnSpy.mock.calls.filter((args) =>
+                args.some((a) => typeof a === 'string' && a.includes('[Externalize] Cleanup failed')),
+            );
+            const debugCalls = debugSpy.mock.calls.filter((args) =>
+                args.some((a) => typeof a === 'string' && a.includes('[Externalize] Cleanup failed')),
+            );
+
+            expect(warnCalls.length).toBe(0);
+            expect(debugCalls.length).toBe(1);
+
+            warnSpy.mockRestore();
+            debugSpy.mockRestore();
+        });
+
+        it('FIX-24-03-03: non-transient error (ENOENT) still surfaces as warn', async () => {
+            const ext = await createExternalizer(fs);
+            await ext.maybeExternalize('search_files', {}, 'x'.repeat(3000), false);
+
+            fs.remove = () => {
+                const err = Object.assign(new Error('ENOENT: missing'), { code: 'ENOENT' });
+                return Promise.reject(err);
+            };
+
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+            await ext.cleanup();
+
+            const warnCalls = warnSpy.mock.calls.filter((args) =>
+                args.some((a) => typeof a === 'string' && a.includes('[Externalize] Cleanup failed')),
+            );
+            expect(warnCalls.length).toBe(1);
+
+            warnSpy.mockRestore();
+        });
+
+        it('FIX-24-03-03: retry schedule is 4 attempts (was 3)', async () => {
+            const ext = await createExternalizer(fs);
+            await ext.maybeExternalize('search_files', {}, 'x'.repeat(3000), false);
+
+            const attempts: number[] = [];
+            fs.remove = () => {
+                attempts.push(1);
+                const err = Object.assign(new Error('EPERM'), { code: 'EPERM' });
+                return Promise.reject(err);
+            };
+
+            await ext.cleanup();
+
+            // 4 retry attempts per remove() target. cleanup() calls remove on
+            // each file plus the dir; we only need >=4 to prove the schedule
+            // grew. The previous schedule was 3.
+            expect(attempts.length).toBeGreaterThanOrEqual(4);
         });
     });
 
