@@ -34,7 +34,7 @@ const MUST_BE_REACHABLE: ToolName[] = [
     // Agent control
     'ask_followup_question', 'attempt_completion', 'update_todo_list',
     'new_task', 'consult_flagship', 'switch_agent', 'update_settings', 'configure_model',
-    'read_agent_logs', 'manage_mcp_server', 'manage_skill',
+    'read_agent_logs', 'manage_mcp_server',
     'evaluate_expression', 'manage_source',
     // MCP
     'use_mcp_tool', 'read_mcp_tool',

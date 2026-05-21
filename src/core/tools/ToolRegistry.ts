@@ -100,7 +100,6 @@ import { ReadAgentLogsTool } from './agent/ReadAgentLogsTool';
 import { ManageMcpServerTool } from './agent/ManageMcpServerTool';
 import type { ConsoleRingBuffer } from '../observability/ConsoleRingBuffer';
 // Self-Development (Phase 2)
-import { ManageSkillTool } from './agent/ManageSkillTool';
 import type { SelfAuthoredSkillLoader } from '../skills/SelfAuthoredSkillLoader';
 // Self-Development (Phase 3)
 import { EvaluateExpressionTool } from './agent/EvaluateExpressionTool';
@@ -254,12 +253,9 @@ export class ToolRegistry {
         if (mcpClient) {
             this.register(new ManageMcpServerTool(this.plugin, mcpClient));
         }
-        // Self-Development (Phase 2+3: unified skills with optional code modules)
-        if (skillLoader) {
-            this.register(new ManageSkillTool(
-                this.plugin, skillLoader, esbuildManager, sandboxExecutor, this,
-            ));
-        }
+        // FEAT-29-05: ManageSkillTool removed. Skill authoring now flows
+        // through the skill-creator builtin skill plus the standard file
+        // tools (write_file, read_file) and run_skill_script for helpers.
         // FEAT-29-06: generic skill-script executor (replaces code_modules
         // / custom_*-tool registration pattern). Gated on sandbox + esbuild
         // availability so headless or mobile builds without those

@@ -16,6 +16,7 @@
 import { TFile, TFolder } from 'obsidian';
 import { safeRegex } from '../utils/safeRegex';
 import { getSelfAuthoredSkillsDir } from '../utils/agentFolder';
+import { validateSkillFrontmatter } from './SkillFrontmatterValidator';
 import type ObsidianAgentPlugin from '../../main';
 import type { EsbuildWasmManager } from '../sandbox/EsbuildWasmManager';
 import type { ISandboxExecutor } from '../sandbox/ISandboxExecutor';
@@ -874,7 +875,25 @@ export class SelfAuthoredSkillLoader {
 
         // Parse frontmatter key-value pairs
         const fm = this.parseFrontmatter(frontmatter);
-        if (!fm.name || !fm.description) return null;
+
+        // FEAT-29-05: hard validation gate. Skills whose frontmatter fails
+        // the Anthropic-conformant rules (kebab-case name, max-1024 desc,
+        // no reserved words, etc.) are rejected with an explicit warning
+        // so the user knows why the skill did not load. Soft warnings
+        // (unexpected keys, TODO placeholder) surface but the skill still
+        // loads.
+        const validation = validateSkillFrontmatter(fm);
+        if (!validation.valid) {
+            console.warn(
+                `[SelfAuthoredSkillLoader] Rejected skill at ${filePath}: ${validation.errors.join('; ')}`,
+            );
+            return null;
+        }
+        if (validation.warnings.length > 0) {
+            console.debug(
+                `[SelfAuthoredSkillLoader] Warnings for ${filePath}: ${validation.warnings.join('; ')}`,
+            );
+        }
 
         const triggerSource = fm.trigger ?? fm.name.toLowerCase();
         // M-3: Use safeRegex to prevent ReDoS from malicious trigger patterns

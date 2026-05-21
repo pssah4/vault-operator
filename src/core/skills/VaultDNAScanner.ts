@@ -869,6 +869,14 @@ export class VaultDNAScanner {
         const metadataBlock = this.renderPluginMetadataBlock(skill);
         const description = skill.description.replace(/"/g, '\\"').replace(/\n/g, ' ');
 
+        // FEAT-29-05 follow-up: Obsidian plugin-ids are allowed to contain
+        // underscores (e.g. `note_uid_generator`), but the Anthropic skill
+        // spec mandates kebab-case for the `name` field. Convert here so
+        // the discovery validator accepts the file. The `source` field
+        // keeps the original plugin-id for the cleanup pass to still match
+        // its own writes.
+        const skillName = this.toKebabCase(skill.id);
+
         // FEAT-29-11: source-frontmatter discriminator. The skill folders
         // now share a single root (data/skills/{name}/) for user, builtin
         // and plugin entries. The scanner stamps `source: <plugin-id>` so
@@ -876,7 +884,7 @@ export class VaultDNAScanner {
         // without touching user-managed ones.
         const content = [
             '---',
-            `name: ${skill.id}`,
+            `name: ${skillName}`,
             `description: "${description}"`,
             `source: ${skill.id}`,
             '---',
@@ -890,6 +898,20 @@ export class VaultDNAScanner {
         ].join('\n');
 
         await this.vault.adapter.write(manifestPath, content);
+    }
+
+    /**
+     * FEAT-29-05 follow-up: kebab-case the plugin-id for the SKILL.md
+     * `name` field. Underscores -> hyphens, dots -> hyphens, anything
+     * outside `[a-z0-9-]` is removed. Idempotent on already-kebab inputs.
+     */
+    private toKebabCase(s: string): string {
+        return s
+            .toLowerCase()
+            .replace(/[_.]/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '');
     }
 
     /**

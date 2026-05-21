@@ -403,15 +403,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     find_tool: {
         group: 'agent', label: 'Find Tool', icon: 'search',
         signature: 'find_tool(query)',
-        description: 'Discover and activate specialised tools not in the default schema. Use when you need office-format creation (pptx/docx/xlsx), diagrams (canvas/excalidraw/drawio), base queries, expression evaluation, skill/source management, or vault-health helpers. Keyword search (case-insensitive) ranks matches by name > label > description and activates the top results for the rest of the session.',
+        description: 'Discover and activate specialised tools not in the default schema. Use when you need office-format creation (pptx/docx/xlsx), diagrams (canvas/excalidraw/drawio), base queries, expression evaluation, source management, or vault-health helpers. Keyword search (case-insensitive) ranks matches by name > label > description and activates the top results for the rest of the session.',
         example: 'find_tool({ query: "pptx" })',
         whenToUse: 'The user asks for something the currently loaded tools do not cover — before giving up, try find_tool with a relevant keyword.',
         commonMistakes: 'Calling find_tool repeatedly for the same query. Once activated, the tool stays available; call it directly on the next turn.',
     },
     // FEAT-24-09 / ADR-116: load a SKILL.md body on demand. Always available
     // (group "read", NOT in DEFERRED_TOOL_NAMES) so loading a skill is one
-    // round-trip — extending manage_skill instead would have required
-    // find_tool first because manage_skill itself is deferred.
+    // round-trip.
     read_skill: {
         group: 'read', label: 'Read Skill', icon: 'book-open',
         signature: 'read_skill(name)',
@@ -430,13 +429,9 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'ONLY when built-in tools cannot do the job: batch processing across 5+ files, computations, complex data transforms, HTTP requests, npm packages. NEVER for single-file operations — use read_file + edit_file/write_file instead.',
         commonMistakes: 'Using sandbox for single-file edits instead of read_file + edit_file/write_file. Using sandbox for PPTX/DOCX/XLSX — use create_pptx/create_docx/create_xlsx instead. Writing Python. Using require()/fetch()/Blob/Buffer (not available).',
     },
-    manage_skill: {
-        group: 'agent', label: 'Manage Skill', icon: 'bookmark-plus',
-        signature: 'manage_skill(action, name, description?, trigger?, body?)',
-        description: 'Create, update, delete, list, validate, or read skill files (the editing/authoring path). Skills are persistent Markdown instruction sets that appear in the SKILLS directory; the agent loads a skill body for a task via the always-available read_skill tool. Use manage_skill only when changing or inspecting the file itself.',
-        whenToUse: 'After solving a novel problem: save the approach as a reusable skill so you can apply it instantly next time. Use read_skill to actually load and follow a skill.',
-        commonMistakes: 'Confusing skills with tools. Skills are instructions (how to approach a task), not executable code. Using manage_skill read to apply a skill -- use read_skill instead.',
-    },
+    // FEAT-29-05: manage_skill removed. Skill authoring now flows through
+    // the skill-creator builtin skill plus the standard file tools
+    // (write_file / read_file) and run_skill_script for helpers.
     run_skill_script: {
         group: 'agent', label: 'Run Skill Script', icon: 'play-circle',
         signature: 'run_skill_script(skill_name, script_name, args?)',
@@ -675,7 +670,6 @@ export const DEFERRED_TOOL_NAMES: ReadonlySet<string> = new Set([
     'ingest_document',
     // Self-development + niche agent utilities
     'evaluate_expression',
-    'manage_skill',
     'manage_source',
     'manage_mcp_server',
     'resolve_capability_gap',

@@ -59,6 +59,33 @@ describe('TaskRouter.classifyByRegex', () => {
         expect(router.classifyByRegex('such mir alle xlsx dateien im vault')).toBe('complex');
     });
 
+    /**
+     * FEAT-29-05: skill-creation prompts always route to the main
+     * (flagship) model. Skill-design is high-leverage and benefits from
+     * the frontier model, so the regex flags these as `complex` even
+     * when the short-prompt or simple-file fallbacks would have hit.
+     */
+    it('classifies skill-creation prompts as complex (FEAT-29-05 flagship escalation)', () => {
+        // English trigger phrases
+        expect(router.classifyByRegex('build me a skill')).toBe('complex');
+        expect(router.classifyByRegex('create a skill that does X')).toBe('complex');
+        expect(router.classifyByRegex('make this repeatable as a skill')).toBe('complex');
+        // German trigger phrases
+        expect(router.classifyByRegex('bau mir einen skill der das macht')).toBe('complex');
+        expect(router.classifyByRegex('neuer skill fuer wochenreview')).toBe('complex');
+        expect(router.classifyByRegex('kannst du das automatisieren?')).toBe('complex');
+        // Even when wrapped in office-keywords (these would otherwise hit SIMPLE_OFFICE_RE)
+        expect(router.classifyByRegex('erstelle einen skill der pptx baut')).toBe('complex');
+    });
+
+    it('does not over-match the bare word "skill" in unrelated contexts', () => {
+        // "skill" alone should not flip a clearly research-y or simple prompt
+        // into the wrong bucket. The trigger requires a verb + skill noun phrase.
+        expect(router.classifyByRegex('zeig mir alle skills')).toBe('simple');
+        // research stays research
+        expect(router.classifyByRegex('analysiere meine skills')).toBe('complex');
+    });
+
     it('strips <context> and <vault_context> blocks before classifying', () => {
         // Real prompts from AgentSidebarView include these blocks;
         // they routinely push the raw prompt past 300 chars.

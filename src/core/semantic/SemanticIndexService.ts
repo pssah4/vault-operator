@@ -1435,6 +1435,19 @@ export class SemanticIndexService {
             if (msg.includes('PasswordException') || msg.includes('InvalidPDFException')) {
                 return '';
             }
+            // Corrupted / non-zip-but-zip-extension files (broken .xlsx,
+            // truncated .docx) throw "Can't find end of central directory"
+            // from jszip. The user can't index a file that is structurally
+            // broken; log at debug so the console stays clean and the
+            // index build doesn't appear to "fail".
+            const isCorruptedArchive =
+                /end of central directory|invalid zip|corrupted/i.test(msg);
+            if (isCorruptedArchive) {
+                console.debug(
+                    `[SemanticIndex] Skipping corrupted document ${filePath}: ${msg}`,
+                );
+                return '';
+            }
             console.warn(`[SemanticIndex] Document extraction failed for ${filePath}:`, msg);
             return '';
         }

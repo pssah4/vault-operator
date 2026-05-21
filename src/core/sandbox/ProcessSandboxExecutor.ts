@@ -46,6 +46,7 @@ type WorkerToPluginMessage =
     | { type: 'vault-list'; callId: string; path: string }
     | { type: 'vault-write'; callId: string; path: string; content: string }
     | { type: 'vault-write-binary'; callId: string; path: string; content: ArrayBuffer }
+    | { type: 'vault-mkdir'; callId: string; path: string }
     | { type: 'request-url'; callId: string; url: string; options?: { method?: string; body?: string } };
 
 // ---------------------------------------------------------------------------
@@ -237,7 +238,7 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
         const validTypes = [
             'sandbox-ready', 'result', 'error',
             'vault-read', 'vault-read-binary', 'vault-list',
-            'vault-write', 'vault-write-binary', 'request-url',
+            'vault-write', 'vault-write-binary', 'vault-mkdir', 'request-url',
         ];
         return validTypes.includes(m['type']);
     }
@@ -274,12 +275,15 @@ export class ProcessSandboxExecutor implements ISandboxExecutor {
             } else if (bridgeMsg.type === 'vault-read-binary') {
                 result = await this.bridge.vaultReadBinary(bridgeMsg.path);
             } else if (bridgeMsg.type === 'vault-list') {
-                result = this.bridge.vaultList(bridgeMsg.path);
+                result = await this.bridge.vaultList(bridgeMsg.path);
             } else if (bridgeMsg.type === 'vault-write') {
                 await this.bridge.vaultWrite(bridgeMsg.path, bridgeMsg.content);
                 result = true;
             } else if (bridgeMsg.type === 'vault-write-binary') {
                 await this.bridge.vaultWriteBinary(bridgeMsg.path, bridgeMsg.content);
+                result = true;
+            } else if (bridgeMsg.type === 'vault-mkdir') {
+                await this.bridge.vaultMkdir(bridgeMsg.path);
                 result = true;
             } else if (bridgeMsg.type === 'request-url') {
                 result = await this.bridge.requestUrlBridge(bridgeMsg.url, bridgeMsg.options);

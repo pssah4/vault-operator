@@ -25,7 +25,11 @@ var vault = Object.freeze({
   readBinary: (path) => bridgeCall("vault-read-binary", { path }),
   list: (path) => bridgeCall("vault-list", { path }),
   write: (path, content) => bridgeCall("vault-write", { path, content }),
-  writeBinary: (path, content) => bridgeCall("vault-write-binary", { path, content })
+  writeBinary: (path, content) => bridgeCall("vault-write-binary", { path, content }),
+  // FEAT-29-05: parent-folder creation. Obsidian's vault adapter does not
+  // auto-create parents on write, so init_skill needs an explicit mkdir
+  // call. Idempotent: silently succeeds when the folder already exists.
+  mkdir: (path) => bridgeCall("vault-mkdir", { path })
 });
 var requestUrlProxy = Object.freeze(
   (url, options) => bridgeCall("request-url", { url, options })

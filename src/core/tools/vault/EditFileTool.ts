@@ -77,11 +77,27 @@ export class EditFileTool extends BaseTool<'edit_file'> {
             if (old_str === undefined || old_str === null) throw new Error('old_str parameter is required');
             if (new_str === undefined || new_str === null) throw new Error('new_str parameter is required');
 
-            const file = this.app.vault.getAbstractFileByPath(path);
-            if (!file) throw new Error(`File not found: ${path}`);
-            if (!(file instanceof TFile)) throw new Error(`Path is not a file: ${path}`);
-
-            const content = await this.app.vault.read(file);
+            // FEAT-29-05 follow-up: hidden folders (`.vault-operator/`,
+            // `.obsidian/`, ...) live outside Obsidian's TFile index, so the
+            // Vault API returns null. Fall back to the adapter -- it handles
+            // raw filesystem paths regardless of whether Obsidian indexes
+            // them. WriteFileTool and ReadFileTool already do this.
+            const isHidden = path.split('/').some((seg) => seg.startsWith('.'));
+            let content: string;
+            let file: TFile | null = null;
+            if (isHidden) {
+                const adapter = this.app.vault.adapter;
+                if (!(await adapter.exists(path))) {
+                    throw new Error(`File not found: ${path}`);
+                }
+                content = await adapter.read(path);
+            } else {
+                const found = this.app.vault.getAbstractFileByPath(path);
+                if (!found) throw new Error(`File not found: ${path}`);
+                if (!(found instanceof TFile)) throw new Error(`Path is not a file: ${path}`);
+                file = found;
+                content = await this.app.vault.read(file);
+            }
 
             // Count occurrences of old_str
             const occurrences = this.countOccurrences(content, old_str);
@@ -90,7 +106,11 @@ export class EditFileTool extends BaseTool<'edit_file'> {
                 // Try normalized whitespace match as fallback
                 const normalized = this.tryNormalizedMatch(content, old_str, new_str);
                 if (normalized !== null) {
-                    await this.app.vault.modify(file, normalized);
+                    if (file) {
+                        await this.app.vault.modify(file, normalized);
+                    } else {
+                        await this.app.vault.adapter.write(path, normalized);
+                    }
                     const stats = this.diffStats(content, normalized);
                     const { added, removed } = this.diffNums(content, normalized);
                     callbacks.pushToolResult(
@@ -122,7 +142,11 @@ export class EditFileTool extends BaseTool<'edit_file'> {
 
             // Perform the replacement(s)
             const newContent = this.replaceFirst(content, old_str, new_str, expected_replacements);
-            await this.app.vault.modify(file, newContent);
+            if (file) {
+                await this.app.vault.modify(file, newContent);
+            } else {
+                await this.app.vault.adapter.write(path, newContent);
+            }
 
             const stats = this.diffStats(content, newContent);
             const replWord = expected_replacements === 1 ? 'replacement' : 'replacements';

@@ -87,10 +87,24 @@ export class ModelDiscoveryService {
         try {
             raw = await this.fetcher(provider);
         } catch (err) {
-            console.warn(
-                `[ModelDiscoveryService] refresh failed for ${providerId}:`,
-                err instanceof Error ? err.message : err,
-            );
+            const msg = err instanceof Error ? err.message : String(err);
+            // Network-level failures (daemon down, host unresolved) are
+            // expected when the user has an Ollama or LM Studio entry but
+            // the local service is not running. Log them at debug so the
+            // console stays clean; only escalate to warn for unexpected
+            // errors (auth, parsing, server 5xx).
+            const isLocalServiceDown =
+                /ERR_CONNECTION_REFUSED|ECONNREFUSED|ENOTFOUND|ERR_NAME_NOT_RESOLVED|fetch failed/i.test(msg);
+            if (isLocalServiceDown) {
+                console.debug(
+                    `[ModelDiscoveryService] ${providerId} unreachable (skipping refresh): ${msg}`,
+                );
+            } else {
+                console.warn(
+                    `[ModelDiscoveryService] refresh failed for ${providerId}:`,
+                    msg,
+                );
+            }
             return provider.discoveredModels ?? [];
         }
 
