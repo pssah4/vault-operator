@@ -42,6 +42,26 @@ describe('filterSecretsFromDataJson', () => {
         }
     });
 
+    it('AUDIT-EPIC-29 H-1: redacts the 8 settings-level token fields that previously leaked', () => {
+        // These are the field names BackupTab.stripSensitiveFields()
+        // already strips on the manual path. Before the H-1 fix, auto-
+        // backups left them in cleartext.
+        const input = {
+            braveApiKey: 'brave-real',
+            tavilyApiKey: 'tvly-real',
+            githubCopilotAccessToken: 'ghco-real',
+            githubCopilotToken: 'ghco-tok-real',
+            kiloToken: 'kilo-tok',
+            cloudflareApiToken: 'cf-real',
+            relayToken: 'relay-real',
+            mcpServerToken: 'mcp-real',
+        };
+        const out = filterSecretsFromDataJson(input) as Record<string, string>;
+        for (const k of Object.keys(input)) {
+            expect(out[k]).toBe(REDACTED_SENTINEL);
+        }
+    });
+
     it('preserves non-secret fields', () => {
         const input = {
             apiKey: 'sk-anth-123',

@@ -24,9 +24,14 @@ function makePlugin(opts: {
 }) {
     const calls: Array<{ server: string; tool: string; args: Record<string, unknown> }> = [];
     const known = new Set(opts.knownServers ?? ['notion', 'linear']);
+    // AUDIT-EPIC-29 L-1: empty activeMcpServers now fails closed. Default
+    // the fixture to "every knownServer is active" so the happy-path
+    // tests continue to exercise the call. SC-03-tests override this
+    // with a tighter list to assert the whitelist actually narrows.
+    const defaultActive = [...known];
     const plugin = {
         settings: {
-            activeMcpServers: opts.activeMcpServers,
+            activeMcpServers: opts.activeMcpServers ?? defaultActive,
         },
         mcpClient: {
             async callTool(server: string, tool: string, args: Record<string, unknown>): Promise<string> {
@@ -206,7 +211,7 @@ describe('InvokeMcpServerTool', () => {
             );
 
             expect(calls).toHaveLength(0);
-            expect(pushed.join('\n')).toMatch(/not enabled|not in.*whitelist|activeMcpServers/i);
+            expect(pushed.join('\n')).toMatch(/not in the active servers list|enable it/i);
         });
 
         it('allows servers that ARE in activeMcpServers', async () => {
@@ -222,30 +227,39 @@ describe('InvokeMcpServerTool', () => {
             expect(calls).toHaveLength(1);
         });
 
-        it('skips the whitelist when activeMcpServers is empty (backward-compat: all servers allowed)', async () => {
-            const { plugin, calls } = makePlugin({
-                knownServers: ['notion', 'linear'],
-                activeMcpServers: [],   // empty == legacy behaviour
-            });
+        it('AUDIT-EPIC-29 L-1: empty activeMcpServers fails closed (no MCP calls allowed)', async () => {
+            // Pre-L-1 the empty list was treated as "all servers allowed",
+            // which was a silent approval bypass when the user had not yet
+            // enabled any MCP servers. Post-L-1 the whitelist always
+            // applies; an empty list means "no skill-driven MCP calls".
+            const { plugin, calls, pushed } = (() => {
+                const knownServers = ['notion', 'linear'];
+                const calls: Array<{ server: string; tool: string; args: Record<string, unknown> }> = [];
+                const plugin = {
+                    settings: { activeMcpServers: [] },
+                    mcpClient: {
+                        async callTool(server: string, tool: string, args: Record<string, unknown>): Promise<string> {
+                            calls.push({ server, tool, args });
+                            return 'should not reach here';
+                        },
+                    },
+                } as unknown as import('../../../../main').default;
+                const pushed: string[] = [];
+                return { plugin, calls, pushed };
+            })();
             const tool = new InvokeMcpServerTool(plugin);
-            const { ctx } = makeContext();
+            const ctx = {
+                callbacks: {
+                    pushToolResult: (s: string) => pushed.push(s),
+                    log: () => {},
+                    handleError: async () => {},
+                },
+                compositionStack: new CompositionStackService(5),
+            } as unknown as ToolExecutionContext;
 
-            await tool.execute({ server_id: 'linear', tool_name: 'list_issues' },  ctx);
-
-            expect(calls).toHaveLength(1);
-        });
-
-        it('skips the whitelist when activeMcpServers is undefined (backward-compat: all servers allowed)', async () => {
-            const { plugin, calls } = makePlugin({
-                knownServers: ['notion'],
-                // activeMcpServers omitted entirely
-            });
-            const tool = new InvokeMcpServerTool(plugin);
-            const { ctx } = makeContext();
-
-            await tool.execute({ server_id: 'notion', tool_name: 'x' }, ctx);
-
-            expect(calls).toHaveLength(1);
+            await tool.execute({ server_id: 'linear', tool_name: 'list_issues' }, ctx);
+            expect(calls).toHaveLength(0);
+            expect(pushed.join('\n')).toMatch(/not in the active servers list|enable it/i);
         });
 
         it('rejects before the composition stack is touched (whitelist hit must not pollute the stack)', async () => {

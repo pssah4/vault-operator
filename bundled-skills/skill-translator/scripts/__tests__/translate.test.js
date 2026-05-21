@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateJs, buildManifest, writeTranslation } from '../translate.js';
+import { validateJs, buildManifest, writeTranslation, isUnsafePath, sanitizeRepoUrl } from '../translate.js';
 
 describe('validateJs (sandbox safety scan)', () => {
     it('passes clean code with no forbidden patterns', () => {
@@ -213,5 +213,112 @@ describe('writeTranslation (orchestrated write)', () => {
 
     it('throws on missing ctx.vault', async () => {
         await expect(writeTranslation({ targetPath: 'foo' }, {})).rejects.toThrow(/ctx.vault/);
+    });
+
+    it('AUDIT-EPIC-29 M-2: rejects targetPath with path-traversal', async () => {
+        const ctx = makeCtx();
+        await expect(writeTranslation({
+            targetPath: '../escape',
+            files: [{ source: 'a.py', target: 'a.js', content: 'export async function execute() {}' }],
+            skillMd: '# x',
+        }, ctx)).rejects.toThrow(/unsafe targetPath/i);
+    });
+
+    it('AUDIT-EPIC-29 M-2: rejects f.target with path-traversal', async () => {
+        const ctx = makeCtx();
+        const out = await writeTranslation({
+            targetPath: '.vault-operator/data/skills/pdf',
+            files: [{ source: 'evil.py', target: '../OTHER_SKILL/poison.js', content: 'export async function execute() {}' }],
+            skillMd: '# x',
+        }, ctx);
+        expect(out.ok).toBe(false);
+        expect(out.failed).toContain('../OTHER_SKILL/poison.js');
+        // Nothing must have been written
+        expect(ctx.files.size).toBe(0);
+    });
+
+    it('AUDIT-EPIC-29 L-6: two-pass validation skips ALL writes when any file fails', async () => {
+        const ctx = makeCtx();
+        const out = await writeTranslation({
+            targetPath: '.vault-operator/data/skills/mixed',
+            files: [
+                { source: 'ok.py', target: 'ok.js', content: 'export async function execute() { return 1; }' },
+                { source: 'bad.py', target: 'bad.js', content: 'eval("x")' },
+            ],
+            skillMd: '# mixed',
+        }, ctx);
+        expect(out.ok).toBe(false);
+        // Critically: ok.js must NOT be on disk because the two-pass rejects
+        // the whole batch up-front.
+        expect(ctx.files.has('.vault-operator/data/skills/mixed/ok.js')).toBe(false);
+        expect(ctx.files.has('.vault-operator/data/skills/mixed/SKILL.md')).toBe(false);
+        expect(ctx.files.has('.vault-operator/data/skills/mixed/TRANSLATION.json')).toBe(false);
+    });
+});
+
+describe('isUnsafePath helper (M-2)', () => {
+    it('rejects parent segments and absolute paths', () => {
+        expect(isUnsafePath('../escape.md')).toBe(true);
+        expect(isUnsafePath('/etc/passwd')).toBe(true);
+        expect(isUnsafePath('\\windows\\system32')).toBe(true);
+        expect(isUnsafePath('C:\\Foo')).toBe(true);
+        expect(isUnsafePath('foo/../bar')).toBe(true);
+    });
+
+    it('accepts vault-relative paths', () => {
+        expect(isUnsafePath('data/skills/foo/SKILL.md')).toBe(false);
+        expect(isUnsafePath('./foo.md')).toBe(false);
+    });
+});
+
+describe('sanitizeRepoUrl helper (L-3)', () => {
+    it('strips embedded credentials from a HTTPS URL', () => {
+        const out = sanitizeRepoUrl('https://x-access-token:gho_xxx@github.com/anthropics/skills');
+        expect(out).not.toContain('gho_xxx');
+        expect(out).not.toContain('x-access-token');
+        expect(out).toContain('github.com');
+    });
+
+    it('passes plain URLs unchanged', () => {
+        expect(sanitizeRepoUrl('https://github.com/anthropics/skills'))
+            .toBe('https://github.com/anthropics/skills');
+    });
+
+    it('leaves non-URL strings as-is (e.g. "local")', () => {
+        expect(sanitizeRepoUrl('local')).toBe('local');
+    });
+
+    it('handles empty / null input', () => {
+        expect(sanitizeRepoUrl('')).toBe('');
+        expect(sanitizeRepoUrl(null)).toBe(null);
+        expect(sanitizeRepoUrl(undefined)).toBe(undefined);
+    });
+});
+
+describe('validateJs multiline (L-5)', () => {
+    it('catches eval split across lines', () => {
+        const out = validateJs('const x = eval\n  (badcode);');
+        expect(out.ok).toBe(false);
+        expect(out.issues.some((i) => /eval/i.test(i.pattern))).toBe(true);
+    });
+
+    it('reports the correct line number for multi-line matches', () => {
+        const out = validateJs('line1\nline2\neval(x)\nline4');
+        expect(out.ok).toBe(false);
+        // The eval is on line 3
+        const evalIssue = out.issues.find((i) => /eval/i.test(i.pattern));
+        expect(evalIssue?.line).toBe(3);
+    });
+});
+
+describe('buildManifest L-3 URL sanitization', () => {
+    it('strips embedded credentials from manifest.source.repo', () => {
+        const m = buildManifest({
+            sourceRepo: 'https://x-access-token:gho_xxx@github.com/foo/bar',
+            sourcePath: 'tmp/foo',
+            targetPath: '.vault-operator/data/skills/bar',
+        });
+        expect(m.source.repo).not.toContain('gho_xxx');
+        expect(m.source.repo).not.toContain('x-access-token');
     });
 });

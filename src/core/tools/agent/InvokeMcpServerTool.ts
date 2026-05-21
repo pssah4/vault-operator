@@ -101,14 +101,16 @@ export class InvokeMcpServerTool extends BaseTool<'invoke_mcp_server'> {
             return;
         }
 
-        // SC-03: enforce the same activeMcpServers whitelist that use_mcp_tool applies.
-        // Without this check a skill could call a server the user has not enabled,
-        // bypassing the approval chain.
+        // SC-03 / AUDIT-EPIC-29 L-1: enforce the activeMcpServers whitelist
+        // unconditionally. Pre-L-1 the check was guarded by
+        // `activeMcpServers.length > 0`, which silently let any serverId
+        // through when the user had not enabled any servers. Fail-closed
+        // now: an empty list means no skill-driven MCP calls are allowed.
         const activeMcpServers: string[] = this.plugin.settings?.activeMcpServers ?? [];
-        if (activeMcpServers.length > 0 && !activeMcpServers.includes(serverId)) {
+        if (!activeMcpServers.includes(serverId)) {
             callbacks.pushToolResult(this.formatError(new Error(
-                `MCP server "${serverId}" is not enabled. `
-                + `Use the tool picker (pocket-knife button) in the chat toolbar to enable it.`,
+                `MCP server "${serverId}" is not in the active servers list. `
+                + `Enable it via the pocket-knife button in the chat toolbar.`,
             )));
             return;
         }

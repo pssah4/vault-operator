@@ -65,8 +65,17 @@ describe('shouldRunAutoBackup', () => {
 
 describe('autoBackupFilename', () => {
     it('produces a lexicographically sortable UTC timestamp filename', () => {
-        const a = autoBackupFilename(new Date('2026-05-21T17:30:00Z'));
-        expect(a).toBe('vault-operator-auto-2026-05-21T17-30-00Z.zip');
+        // AUDIT-EPIC-29 I-1: ms-precision suffix to avoid same-second collisions.
+        const a = autoBackupFilename(new Date('2026-05-21T17:30:00.123Z'));
+        expect(a).toBe('vault-operator-auto-2026-05-21T17-30-00-123Z.zip');
+    });
+
+    it('AUDIT-EPIC-29 I-1: two calls in the same second produce distinct filenames', () => {
+        const a = autoBackupFilename(new Date('2026-05-21T17:30:00.001Z'));
+        const b = autoBackupFilename(new Date('2026-05-21T17:30:00.999Z'));
+        expect(a).not.toBe(b);
+        // And remain lexicographically sortable (001 < 999).
+        expect([b, a].sort()).toEqual([a, b]);
     });
 
     it('sorts in time-order via plain string comparison', () => {

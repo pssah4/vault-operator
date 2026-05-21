@@ -197,4 +197,33 @@ describe('recordApprovalAndMaybePromote', () => {
     it('correct approvalKey format', () => {
         expect(approvalKey('dataview', 'getTasks')).toBe('dataview:getTasks');
     });
+
+    it('AUDIT-EPIC-29 L-2: approvalKey rejects pluginId containing colon', () => {
+        expect(() => approvalKey('foo:bar', 'baz')).toThrow(/Unsafe pluginId/i);
+    });
+
+    it('AUDIT-EPIC-29 L-2: approvalKey rejects method containing colon', () => {
+        expect(() => approvalKey('foo', 'bar:baz')).toThrow(/Unsafe method/i);
+    });
+
+    it('AUDIT-EPIC-29 L-2: approvalKey rejects path-traversal in pluginId', () => {
+        expect(() => approvalKey('../escape', 'getTasks')).toThrow(/Unsafe pluginId/i);
+    });
+
+    it('AUDIT-EPIC-29 L-4: recordApprovalAndMaybePromote silently skips unsafe input (no settings pollution)', () => {
+        const s = pluginApiSettings();
+        const before = JSON.stringify(s);
+        const r = recordApprovalAndMaybePromote(s, '../escape', 'getTasks');
+        expect(r.promoted).toBe(false);
+        // No key was added to approvalCounts or safeMethodOverrides
+        expect(JSON.stringify(s)).toBe(before);
+    });
+
+    it('AUDIT-EPIC-29 L-4: recordApprovalAndMaybePromote silently skips unsafe method', () => {
+        const s = pluginApiSettings();
+        const before = JSON.stringify(s);
+        const r = recordApprovalAndMaybePromote(s, 'dataview', 'foo:bar');
+        expect(r.promoted).toBe(false);
+        expect(JSON.stringify(s)).toBe(before);
+    });
 });

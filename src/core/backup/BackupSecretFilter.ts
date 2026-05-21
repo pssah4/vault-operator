@@ -13,7 +13,16 @@
  * via Settings -> Backup -> "Include API keys in export").
  */
 
+/**
+ * AUDIT-EPIC-29 H-1 fix: this allowlist MUST mirror every secret-bearing
+ * field name in src/types/settings.ts. The manual backup flow
+ * (BackupTab.stripSensitiveFields) historically had its own hard-coded
+ * list; before the H-1 patch the two lists drifted, and auto-backups
+ * leaked 8 fields that the manual flow stripped. Both flows now
+ * converge on this single source of truth.
+ */
 const KNOWN_SECRET_KEYS: ReadonlySet<string> = new Set([
+    // Generic credentials carried by ApiHandler / ProviderConfig
     'apiKey',
     'awsApiKey',
     'awsAccessKey',
@@ -31,6 +40,16 @@ const KNOWN_SECRET_KEYS: ReadonlySet<string> = new Set([
     'openrouterApiKey',
     'kiloApiKey',
     'kiloAccessToken',
+    // AUDIT-EPIC-29 H-1: explicit settings-level token fields. These
+    // mirror src/ui/settings/BackupTab.ts stripSensitiveFields().
+    'braveApiKey',
+    'tavilyApiKey',
+    'githubCopilotAccessToken',
+    'githubCopilotToken',
+    'kiloToken',
+    'cloudflareApiToken',
+    'relayToken',
+    'mcpServerToken',
 ]);
 
 /** Returns the set of key names this filter treats as secrets. */
