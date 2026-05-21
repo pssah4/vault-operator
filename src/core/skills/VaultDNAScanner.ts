@@ -45,18 +45,30 @@ function isHolderMigrated(holder: AgentFolderHolder): boolean {
  * FEAT-29-02 / AUDIT-FEAT-29-02 L-2: collapse newlines and escape backticks
  * so a plugin-controlled string stays on one markdown list-item line and
  * does not break adjacent inline code blocks.
+ *
+ * Code-scanning #69 / CWE-20: order matters. Escape backslashes FIRST so
+ * the second pass cannot double-process the backslash we just inserted
+ * in front of a backtick. Same pattern as FactExporter.escapeMarkdown.
  */
 function escapeMarkdownInline(s: string): string {
-    return s.replace(/`/g, '\\`').replace(/\r?\n/g, ' ');
+    return s
+        .replace(/\\/g, '\\\\')
+        .replace(/`/g, '\\`')
+        .replace(/\r?\n/g, ' ');
 }
 
 /**
  * FEAT-29-02 / AUDIT-FEAT-29-02 L-2: escape backticks so a plugin id that
  * happens to contain a backtick does not break the surrounding inline code
  * span (`{id}`).
+ *
+ * Code-scanning #70 / CWE-20: backslash escape first (same reason as
+ * escapeMarkdownInline above).
  */
 function escapeInlineCode(s: string): string {
-    return s.replace(/`/g, '\\`');
+    return s
+        .replace(/\\/g, '\\\\')
+        .replace(/`/g, '\\`');
 }
 
 /** Patterns that indicate a command is UI-only (not agentifiable) */
@@ -867,7 +879,13 @@ export class VaultDNAScanner {
         }
 
         const metadataBlock = this.renderPluginMetadataBlock(skill);
-        const description = skill.description.replace(/"/g, '\\"').replace(/\n/g, ' ');
+        // Code-scanning #71 / CWE-20: backslash-first so the `\"` insertion
+        // does not leave a `\\"` that YAML reads as `\` plus closing quote.
+        // Same pattern as TaskNoteCreator/TaskNotesAdapter/CreateBaseTool.
+        const description = skill.description
+            .replace(/\\/g, '\\\\')
+            .replace(/"/g, '\\"')
+            .replace(/\n/g, ' ');
 
         // FEAT-29-05 follow-up: Obsidian plugin-ids are allowed to contain
         // underscores (e.g. `note_uid_generator`), but the Anthropic skill
