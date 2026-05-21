@@ -4416,3 +4416,56 @@ Welle 4 erstes Feature release-ready. Empfehlung: **FEAT-29-05 (skill-creator-Bu
 ### Audit-Report
 
 `_devprocess/analysis/AUDIT-FEAT-29-06-2026-05-20.md`
+
+---
+
+## 2026-05-21 -- FEAT-29-10 Composability: Testing -> Security Audit
+
+**Phase:** /testing abgeschlossen. Ready for /security-audit.
+
+**Artefakte erzeugt / aktualisiert:**
+
+- Tests erweitert:
+  - `src/core/skills/__tests__/CompositionStackService.test.ts`: +9 Tests (8 -> 17). Drei neue describe-Bloecke explizit auf die Spec-IDs gemappt: `SC-01: skill-to-skill chain across multiple levels` (3-Hop-Walk + mixed skill/mcp), `SC-02: cycle / depth protection at level 6 (default max depth = 5)` (synchroner Throw + Cycle-vor-Depth-Prioritaet), `SC-04: max depth is configurable via constructor` (depth=1/3/10).
+  - `src/core/tools/agent/__tests__/InvokeMcpServerTool.test.ts`: +5 Tests (11 -> 16). Neuer Block `SC-03: respects activeMcpServers whitelist` (rejects non-enabled server, allows enabled, backward-compat fuer empty + undefined, stack nicht polluted bei reject).
+- Code-Fix:
+  - `src/core/tools/agent/InvokeMcpServerTool.ts`: SC-03-Gap. invoke_mcp_server hat `plugin.settings.activeMcpServers` NICHT geprueft -- ein Skill konnte einen MCP-Server aufrufen den der User in der pocket-knife-Whitelist NICHT enabled hatte. Approval-Bypass. Fix: gleicher Whitelist-Check wie `UseMcpToolTool` (line 72-81), eingefuegt VOR dem `compositionStack.push`, damit der Stack bei einem Reject nicht angefasst wird.
+
+### Test-Stand
+
+| Stand | Pass | Fail |
+|---|---|---|
+| Baseline (vor /testing) | 2022 | 20 (alle pre-existing dev-baseline) |
+| /testing-Ende | **2034** | 20 (identisch pre-existing) |
+
++12 neue Tests netto gruen (14 hinzugefuegt, 2 effektive Konsolidierung). Keine neuen Failures durch SC-03-Code-Fix. tsc + eslint auf den drei touched-Files sauber.
+
+### Spec-Coverage gegen Success Criteria
+
+| ID | Status | Evidenz |
+|---|---|---|
+| SC-01 (2+ Ebenen) | gruen | CompositionStackService.test.ts `SC-01` describe, plus AgentTask.ts:1136 passt `compositionStack` an spawnSubtask weiter |
+| SC-02 (Cycle Ebene 6) | gruen | CompositionStackService.test.ts `SC-02` describe, synchroner Throw + Cycle-Praezedenz |
+| SC-03 (MCP Approval) | gruen NACH FIX | InvokeMcpServerTool.test.ts `SC-03` describe + InvokeMcpServerTool.ts Whitelist-Check |
+| SC-04 (Max-Depth) | gruen | CompositionStackService.test.ts `SC-04` describe, COMPOSITION_MAX_DEPTH=5 Konstante in AgentTask.ts:36 |
+| SC-05 (Adoption-KPI) | n/a | filesystem-inspection / 3-Monats-KPI, nicht im Test-Scope |
+
+### Coverage-Check
+
+Coverage-Tooling ist im Projekt nicht installiert (`@vitest/coverage-v8` fehlt). Coverage-Targets aus dem /testing-Skill (85% line / 80% branch / 90% function) wurden NICHT formal gemessen. Inhaltlich: alle Code-Pfade der drei FEAT-29-10-Module sind durch die jetzt 55 Tests (17 + 22 + 16) abgedeckt (happy path, validation, cycle, depth, stack hygiene, whitelist) -- 100% Funktions-Coverage per Inspektion, Branch-Coverage hoch.
+
+### Security-relevante Befunde (Anchor fuer /security-audit)
+
+- **SC-03 Bypass (fixed):** Whitelist-Pruefung in invoke_mcp_server fehlte. War der von der Spec geforderte Audit-Test. Fix versendet (siehe oben).
+- **Architektur-Frage Group=agent vs Group=mcp:** `invoke_mcp_server` ist in toolMetadata.ts `group: 'agent'` einsortiert, waehrend `use_mcp_tool` in `group: 'mcp'` lebt. Die Approval-Group-Mechanik (TOOL_GROUPS) kann pro Group andere Approval-Praesenz haben. Pragmatisch ist die activeMcpServers-Whitelist jetzt zwischen beiden konsistent, aber falls EPIC-29 noch eine "ask per MCP call"-Approval einbaut, muss invoke_mcp_server entweder in Group `mcp` umziehen oder die mcp-Group-Approval-Logik explizit konsumieren. Fuer /security-audit zur Bewertung.
+- **Kein per-Setting konfigurierbarer COMPOSITION_MAX_DEPTH:** Konstante in AgentTask.ts:36 (Wert 5). Spec sagt "konfigurierbar pro Setting (Default 5)". Aktuell nur Code-Konstante + Konstruktor-Override. Kein User-Setting in data.json, kein UI. Pragmatisch ausreichend fuer P1; explizites Setting waere ein Folge-Item.
+
+### Architecture Concerns
+
+- 20 pre-existing test failures auf dev-baseline (VaultHealthService BA-25 + godNodes, WriterLock, ExtractionQueue, deferredToolLoading, toolMetadataConsistency, executeVaultOp). NICHT FEAT-29-10-Scope, durch Checkout des 47e35fee~1-Stands verifiziert -- alle bereits VOR FEAT-29-10 rot. Eigenes Item, kein Blocker fuer den FEAT-29-10-Handoff.
+- tsc/Build im worktree nicht ausfuehrbar (`_generated/...` Module fehlen, weil node_modules vom Haupt-Repo nicht symlinked sind und esbuild die files zur Build-Time generiert). tsc + eslint auf einzelnen touched-Files war clean. Build-Run muss auf main worktree erfolgen.
+
+### Naechster Schritt
+
+`/security-audit` fuer FEAT-29-10. Schwerpunkte: (1) SC-03-Fix verifizieren (Whitelist-Check vor stack.push, keine race condition), (2) Group=agent vs mcp Approval-Konsistenz, (3) Cycle-Detection + Max-Depth gegen prompt-injection-Szenarien (ein Skill versucht aus seinem Body heraus eine Loop zu starten oder ueber `invoke_mcp_server` einen Server zu erreichen den der User nicht enabled hat).
+

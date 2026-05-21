@@ -19,10 +19,15 @@ function makePlugin(opts: {
     mcpResult?: string;
     mcpError?: Error;
     knownServers?: string[];
+    /** FEAT-29-10 SC-03: optional activeMcpServers whitelist for approval-bypass tests. */
+    activeMcpServers?: string[];
 }) {
     const calls: Array<{ server: string; tool: string; args: Record<string, unknown> }> = [];
     const known = new Set(opts.knownServers ?? ['notion', 'linear']);
     const plugin = {
+        settings: {
+            activeMcpServers: opts.activeMcpServers,
+        },
         mcpClient: {
             async callTool(server: string, tool: string, args: Record<string, unknown>): Promise<string> {
                 calls.push({ server, tool, args });
@@ -174,6 +179,86 @@ describe('InvokeMcpServerTool', () => {
             await tool.execute({ server_id: 'notion', tool_name: 'x' }, ctx);
             expect(stack.depth()).toBe(0);
             expect(pushed.join('\n')).toMatch(/connection lost/i);
+        });
+    });
+
+    /**
+     * SC-03: "MCP approval chain must not be bypassable."
+     *
+     * use_mcp_tool gates calls behind plugin.settings.activeMcpServers
+     * (server whitelist the user toggles in the chat tool-picker).
+     * invoke_mcp_server is meant to be a composition-tracked twin --
+     * it MUST apply the same whitelist or it becomes an approval bypass
+     * (a skill could call a server the user has not enabled).
+     */
+    describe('SC-03: respects activeMcpServers whitelist', () => {
+        it('rejects servers that are not in activeMcpServers when the whitelist is non-empty', async () => {
+            const { plugin, calls } = makePlugin({
+                knownServers: ['notion', 'linear'],
+                activeMcpServers: ['notion'],   // linear NOT enabled
+            });
+            const tool = new InvokeMcpServerTool(plugin);
+            const { ctx, pushed } = makeContext();
+
+            await tool.execute(
+                { server_id: 'linear', tool_name: 'list_issues' },
+                ctx,
+            );
+
+            expect(calls).toHaveLength(0);
+            expect(pushed.join('\n')).toMatch(/not enabled|not in.*whitelist|activeMcpServers/i);
+        });
+
+        it('allows servers that ARE in activeMcpServers', async () => {
+            const { plugin, calls } = makePlugin({
+                knownServers: ['notion'],
+                activeMcpServers: ['notion'],
+            });
+            const tool = new InvokeMcpServerTool(plugin);
+            const { ctx } = makeContext();
+
+            await tool.execute({ server_id: 'notion', tool_name: 'search_page' }, ctx);
+
+            expect(calls).toHaveLength(1);
+        });
+
+        it('skips the whitelist when activeMcpServers is empty (backward-compat: all servers allowed)', async () => {
+            const { plugin, calls } = makePlugin({
+                knownServers: ['notion', 'linear'],
+                activeMcpServers: [],   // empty == legacy behaviour
+            });
+            const tool = new InvokeMcpServerTool(plugin);
+            const { ctx } = makeContext();
+
+            await tool.execute({ server_id: 'linear', tool_name: 'list_issues' },  ctx);
+
+            expect(calls).toHaveLength(1);
+        });
+
+        it('skips the whitelist when activeMcpServers is undefined (backward-compat: all servers allowed)', async () => {
+            const { plugin, calls } = makePlugin({
+                knownServers: ['notion'],
+                // activeMcpServers omitted entirely
+            });
+            const tool = new InvokeMcpServerTool(plugin);
+            const { ctx } = makeContext();
+
+            await tool.execute({ server_id: 'notion', tool_name: 'x' }, ctx);
+
+            expect(calls).toHaveLength(1);
+        });
+
+        it('rejects before the composition stack is touched (whitelist hit must not pollute the stack)', async () => {
+            const { plugin } = makePlugin({
+                activeMcpServers: ['notion'],
+            });
+            const tool = new InvokeMcpServerTool(plugin);
+            const stack = new CompositionStackService(5);
+            const { ctx } = makeContext(stack);
+
+            await tool.execute({ server_id: 'linear', tool_name: 'x' }, ctx);
+
+            expect(stack.depth()).toBe(0);
         });
     });
 });

@@ -101,6 +101,18 @@ export class InvokeMcpServerTool extends BaseTool<'invoke_mcp_server'> {
             return;
         }
 
+        // SC-03: enforce the same activeMcpServers whitelist that use_mcp_tool applies.
+        // Without this check a skill could call a server the user has not enabled,
+        // bypassing the approval chain.
+        const activeMcpServers: string[] = this.plugin.settings?.activeMcpServers ?? [];
+        if (activeMcpServers.length > 0 && !activeMcpServers.includes(serverId)) {
+            callbacks.pushToolResult(this.formatError(new Error(
+                `MCP server "${serverId}" is not enabled. `
+                + `Use the tool picker (pocket-knife button) in the chat toolbar to enable it.`,
+            )));
+            return;
+        }
+
         if (!compositionStack) {
             callbacks.pushToolResult(this.formatError(
                 new Error('Composition stack not configured on this AgentTask.'),
