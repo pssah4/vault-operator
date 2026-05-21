@@ -890,6 +890,9 @@ export interface ObsidianAgentSettings {
     // VaultDNA — Plugin-as-Skill (PAS-1)
     vaultDNA: VaultDNASettings;
 
+    // FEAT-29-09: per-skill versioning (snapshot + restore).
+    skillVersioning?: { retentionCount: number };
+
     // Plugin API (PAS-1.5)
     pluginApi: PluginApiSettings;
 
@@ -1496,6 +1499,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         skillToggles: {},
         lastScanAt: '',
     },
+    skillVersioning: { retentionCount: 20 },
     pluginApi: {
         enabled: true,
         safeMethodOverrides: {},

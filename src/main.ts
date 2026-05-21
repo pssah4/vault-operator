@@ -91,6 +91,8 @@ import { ConsoleRingBuffer } from './core/observability/ConsoleRingBuffer';
 import { SelfAuthoredSkillLoader } from './core/skills/SelfAuthoredSkillLoader';
 import { migrateLegacySkillsIfNeeded } from './core/skills/SkillMigration';
 import { BuiltinSkillMaterializer } from './core/skills/BuiltinSkillMaterializer';
+import { SkillSnapshotService } from './core/skills/SkillSnapshotService';
+import { SkillWriteInterceptor } from './core/skills/SkillWriteInterceptor';
 import { BUNDLED_SKILLS } from './_generated/bundled-skills';
 import type { ISandboxExecutor } from './core/sandbox/ISandboxExecutor';
 import { createSandboxExecutor } from './core/sandbox/createSandboxExecutor';
@@ -221,6 +223,8 @@ export default class ObsidianAgentPlugin extends Plugin {
     // syncBridge removed (FEATURE-1508)
     ringBuffer: ConsoleRingBuffer;
     selfAuthoredSkillLoader: SelfAuthoredSkillLoader | null = null;
+    skillSnapshotService: SkillSnapshotService | null = null;
+    skillWriteInterceptor: SkillWriteInterceptor | null = null;
     sandboxExecutor: ISandboxExecutor | null = null;
     esbuildWasmManager: EsbuildWasmManager | null = null;
     dynamicToolLoader: DynamicToolLoader | null = null;
@@ -1027,6 +1031,43 @@ export default class ObsidianAgentPlugin extends Plugin {
             console.warn('[Plugin] SelfAuthoredSkillLoader init failed (non-fatal):', e)
         );
         this.selfAuthoredSkillLoader.setupWatcher();
+
+        // FEAT-29-09: Skill-Versioning. Snapshot service handles the
+        // .versions/{id}/ folders, the write-interceptor monkey-patches
+        // the vault adapter so every write into data/skills/{name}/ is
+        // preceded by a snapshot (debounced 5s per skill).
+        try {
+            const skillsRoot = getSelfAuthoredSkillsDir(this);
+            this.skillSnapshotService = new SkillSnapshotService(
+                this.app.vault.adapter,
+                skillsRoot,
+            );
+            this.skillWriteInterceptor = new SkillWriteInterceptor(
+                this.app.vault.adapter,
+                this.skillSnapshotService,
+                skillsRoot,
+            );
+            this.skillWriteInterceptor.install();
+
+            // One-time prune cycle per plugin load. Retention default = 20.
+            const retention = this.settings.skillVersioning?.retentionCount ?? 20;
+            void (async () => {
+                if (!this.skillSnapshotService) return;
+                try {
+                    const listing = await this.app.vault.adapter.list(skillsRoot).catch(() => null);
+                    if (!listing) return;
+                    for (const sub of listing.folders) {
+                        const name = sub.slice(skillsRoot.length + 1);
+                        if (name.startsWith('.')) continue;
+                        await this.skillSnapshotService.prune(name, retention).catch(() => {});
+                    }
+                } catch (e) {
+                    console.debug('[Plugin] Skill-version prune cycle skipped:', e);
+                }
+            })();
+        } catch (e) {
+            console.warn('[Plugin] Skill-Versioning init failed (non-fatal):', e);
+        }
 
         // Migrate legacy dynamic tools to unified skills
         if (this.dynamicToolLoader && this.selfAuthoredSkillLoader) {

@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import type ObsidianAgentPlugin from '../../main';
 import { ContentEditorModal } from './ContentEditorModal';
 import { isUserSkillSource } from './userSkillSource';
+import { SkillVersionsModal } from '../modals/SkillVersionsModal';
 import type { PluginSkillMeta } from '../../core/skills/types';
 import type { SelfAuthoredSkill } from '../../core/skills/SelfAuthoredSkillLoader';
 import {
@@ -204,6 +205,13 @@ export class SkillsTab {
                 });
                 setIcon(editBtn, 'folder-open');
                 editBtn.addEventListener('click', () => { void this.openSkillFolder(skill); });
+
+                // Versions (FEAT-29-09)
+                const versionsBtn = actionsTd.createEl('button', {
+                    cls: 'agent-skill-action-btn', attr: { 'aria-label': 'Show skill versions' },
+                });
+                setIcon(versionsBtn, 'history');
+                versionsBtn.addEventListener('click', () => { this.openSkillVersionsModal(skill); });
 
                 // Export
                 const exportBtn = actionsTd.createEl('button', {
@@ -441,6 +449,19 @@ export class SkillsTab {
             new Notice('Failed to open plugin-skill folder');
             console.error('[SkillsTab] openPluginSkillFolder failed:', e);
         }
+    }
+
+    /**
+     * FEAT-29-09: open the per-skill version history. Restore + tag
+     * actions live in the modal.
+     */
+    private openSkillVersionsModal(skill: UnifiedSkill): void {
+        const service = this.plugin.skillSnapshotService;
+        if (!service) {
+            new Notice('Skill versioning service not available.');
+            return;
+        }
+        new SkillVersionsModal(this.app, skill.name, service).open();
     }
 
     /**
