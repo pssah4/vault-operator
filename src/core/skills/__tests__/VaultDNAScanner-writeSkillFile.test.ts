@@ -263,6 +263,35 @@ describe('VaultDNAScanner.writeSkillFile (FEAT-29-02)', () => {
             const fm = /^---\n([\s\S]*?)\n---/m.exec(skillMd.content!)![1];
             expect(fm).toMatch(/^source: dataview$/m);
         });
+
+        it('escapes backslash before backtick in plugin name/description (code-scanning #69/#70)', async () => {
+            // A plugin name or description that contains a literal backslash
+            // followed by characters that would otherwise be escaped (e.g.
+            // backslash + backtick) must be sanitised in two passes,
+            // backslash first. Otherwise the inserted `\` in front of the
+            // backtick gets undone by the trailing backslash and the
+            // surrounding markdown code-span breaks.
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({
+                id: 'evil-plugin',
+                name: 'name with \\ and ` chars',
+                description: 'desc with \\ and " chars',
+            });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const skillMd = stub.calls.find((c) => c.op === 'write' && c.path.endsWith('SKILL.md'))!;
+            // Backslash must be doubled BEFORE the backtick escape, otherwise
+            // we get `\` (literal backslash + escaped backtick) which markdown
+            // parses as escaped-backtick that breaks the code-span.
+            expect(skillMd.content!).toContain('\\\\');
+            // Description sits in YAML "..." -- the backslash also has to be
+            // doubled before the inner quote escape (code-scanning #71).
+            const fm = /^---\n([\s\S]*?)\n---/m.exec(skillMd.content!)![1];
+            const descLine = fm.split('\n').find((l) => l.startsWith('description:'));
+            expect(descLine).toBeDefined();
+            // Either "...\\..." (doubled backslash) survived, or the
+            // escaped \" sequence is well-formed (no lone backslash).
+            expect(descLine).toMatch(/\\\\/);
+        });
     });
 
     describe('pre-Welle-1 legacy file layout', () => {

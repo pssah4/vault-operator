@@ -5064,10 +5064,15 @@
  * Save) and CTA-styled buttons (.mod-cta) keep their default look so
  * primary actions stay visually distinct.
  *
- * Selector is :has() / :not(:has()) which Electron has supported since
- * version 109 (Obsidian 1.4+).
+ * FIX-29-17 (Review-Bot CSS-lint, post v2.11.7): replaced the
+ * `:has() / :not(:has())` selector chain with an explicit class set by
+ * `decorateIconOnlyButtons(root)` at render time (called from
+ * AgentSettingsTab.buildTabContent). Same pattern the codebase already
+ * applies for MemoryViewerModal (line ~3562) and the message-loading
+ * container (line ~4153). Drops the broad style-invalidation cost of
+ * `:has()` flagged by the bot.
  * ------------------------------------------------------------------------ */
-.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta) {
+.agent-settings button.agent-icon-only-btn {
     background: transparent;
     border: none;
     box-shadow: none;
@@ -5082,18 +5087,18 @@
     cursor: pointer;
 }
 
-.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta):hover {
+.agent-settings button.agent-icon-only-btn:hover {
     background: var(--background-modifier-hover);
     color: var(--text-normal);
     box-shadow: none;
 }
 
-.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta) svg {
+.agent-settings button.agent-icon-only-btn svg {
     width: 14px;
     height: 14px;
 }
 
-.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta):disabled {
+.agent-settings button.agent-icon-only-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }

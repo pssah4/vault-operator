@@ -23,6 +23,7 @@ import { BackupTab }      from './settings/BackupTab';
 import { MemoryTab }      from './settings/MemoryTab';
 import { ShellTab }       from './settings/ShellTab';
 import { OptionalAssetsTab } from './settings/OptionalAssetsTab';
+import { decorateIconOnlyButtons } from './settings/decorateIconOnlyButtons';
 
 // Re-export for backward compatibility (used in main.ts and other places)
 export { ModelConfigModal } from './settings/ModelConfigModal';
@@ -127,6 +128,14 @@ export class AgentSettingsTab extends PluginSettingTab {
         if (this.activeTab === 'agent-behaviour') this.buildAgentBehaviourTab(content);
         if (this.activeTab === 'customize')       this.buildCustomizeTab(content);
         if (this.activeTab === 'advanced')        this.buildAdvancedTab(content);
+
+        // FIX-29-17 / Review-Bot AUDIT-031: replaced the CSS `:has()`
+        // selector for icon-only buttons with an explicit class. The
+        // bot warns that `:has()` triggers broad selector invalidation,
+        // and the existing pattern in the codebase (per the comments
+        // around styles.css line 3562 and 4153) is exactly this: tag
+        // qualifying buttons in code, target the class in CSS.
+        decorateIconOnlyButtons(content);
     }
 
     // ---------------------------------------------------------------------------
