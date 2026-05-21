@@ -440,6 +440,25 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'For deterministic, repeatable steps the agent should not have to hallucinate each time (data aggregation, API calls, format conversion, binary file generation). The skill folder bundles the SKILL.md instructions WITH the scripts.',
         commonMistakes: 'Calling for a one-off task that has no persisted script -- use evaluate_expression instead. Passing the path with a .js extension -- script_name is the bare name.',
     },
+    // FEAT-29-10: composability tools. Skill workflows can name other
+    // skills or MCP-server tools as building blocks. Cycle detection and
+    // a max-depth limit (default 5) protect against runaway recursion.
+    invoke_skill: {
+        group: 'agent', label: 'Invoke Skill', icon: 'git-fork',
+        signature: 'invoke_skill(skill_name, args?)',
+        description: 'Run another skill as a sub-skill. The sub-skill executes in an isolated subtask (own conversation, own attempt_completion). Its final result is returned as the tool_result. Composition cycles and a max-depth of 5 are enforced.',
+        example: 'invoke_skill({ skill_name: "meeting-summary", args: { note: "2026-05-21.md" } })',
+        whenToUse: 'When the current skill\'s workflow explicitly names another skill as a building block. NOT for one-off questions that the current skill can answer itself.',
+        commonMistakes: 'Calling invoke_skill on a skill that does not exist (check the SKILLS directory in the system prompt or use read_skill). Recursing into the current skill -- the cycle guard will refuse it.',
+    },
+    invoke_mcp_server: {
+        group: 'agent', label: 'Invoke MCP Tool', icon: 'plug-2',
+        signature: 'invoke_mcp_server(server_id, tool_name, args?)',
+        description: 'Call a tool exposed by a configured MCP server as a first-class step inside a skill workflow. The MCP server\'s approval policy still applies. Composition cycles and a max-depth of 5 are enforced across skill <-> mcp transitions.',
+        example: 'invoke_mcp_server({ server_id: "notion", tool_name: "search_page", args: { query: "Q2 OKRs" } })',
+        whenToUse: 'When a skill workflow names an MCP-server tool as a building block. Equivalent to use_mcp_tool but participates in composition cycle/depth tracking.',
+        commonMistakes: 'Using when use_mcp_tool would do (one-off external call outside a skill workflow). Calling a server that is not configured -- run manage_mcp_server first.',
+    },
     manage_mcp_server: {
         group: 'agent', label: 'Manage MCP', icon: 'plug-2',
         signature: 'manage_mcp_server(action, name?, config?)',

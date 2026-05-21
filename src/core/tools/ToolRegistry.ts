@@ -85,6 +85,9 @@ import { ResolveCapabilityGapTool } from './agent/ResolveCapabilityGapTool';
 import { EnablePluginTool } from './agent/EnablePluginTool';
 import { ProbePluginTool } from './agent/ProbePluginTool';
 import { RunSkillScriptTool } from './agent/RunSkillScriptTool';
+// FEAT-29-10: composability tools (skill-to-skill, skill-to-mcp).
+import { InvokeSkillTool } from './agent/InvokeSkillTool';
+import { InvokeMcpServerTool } from './agent/InvokeMcpServerTool';
 // Plugin API + Recipe Shell (PAS-1.5)
 import { CallPluginApiTool } from './agent/CallPluginApiTool';
 import { ExecuteRecipeTool } from './agent/ExecuteRecipeTool';
@@ -263,6 +266,11 @@ export class ToolRegistry {
         if (sandboxExecutor && esbuildManager) {
             this.register(new RunSkillScriptTool(this.plugin));
         }
+        // FEAT-29-10: composability tools. Always registered; runtime
+        // gates (spawnSubtask available, mcpClient configured,
+        // compositionStack present) are enforced inside the tools.
+        this.register(new InvokeSkillTool(this.plugin));
+        this.register(new InvokeMcpServerTool(this.plugin));
         // Self-Development (Phase 3: expression evaluation)
         if (sandboxExecutor && esbuildManager) {
             this.register(new EvaluateExpressionTool(this.plugin, sandboxExecutor, esbuildManager));

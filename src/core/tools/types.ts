@@ -99,6 +99,9 @@ export type ToolName =
     // Self-Development (Phase 1: Foundation)
     | 'read_agent_logs'
     | 'manage_mcp_server'
+    // FEAT-29-10: composability tools (skill-to-skill, skill-to-mcp).
+    | 'invoke_skill'
+    | 'invoke_mcp_server'
     // Self-Development (Phase 3: Expression evaluation)
     | 'evaluate_expression'
     // Self-Development (Phase 4: Core Self-Modification)
@@ -259,6 +262,14 @@ export interface ToolExecutionContext {
      * instead of inheriting the parent's mode/rules/skills set.
      */
     spawnSubtask?: (mode: string, message: string, profileName?: string) => Promise<string>;
+
+    /**
+     * FEAT-29-10 Composability: shared stack-tracker for invoke_skill /
+     * invoke_mcp_server calls. Owned by the top-level AgentTask, passed
+     * by reference to every spawned subtask so cycle-detection and
+     * depth-limit work across the whole composition chain.
+     */
+    compositionStack?: import('../skills/CompositionStackService').CompositionStackService;
 
     /**
      * EPIC-26 / FEAT-26-01 / ADR-120: try to acquire one of the per-task

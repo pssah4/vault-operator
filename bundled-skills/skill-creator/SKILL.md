@@ -187,6 +187,7 @@ For deeper guidance on body structure and output format, the agent loads these o
 
 - `references/workflows.md` -- sequential and conditional workflow patterns.
 - `references/output-patterns.md` -- template and example patterns for consistent output.
+- `references/composability.md` -- invoke_skill / invoke_mcp_server: how to call other skills or MCP-server tools as building blocks from inside a skill body.
 
 Link these from the new skill's SKILL.md only when the new skill itself follows the pattern.
 
