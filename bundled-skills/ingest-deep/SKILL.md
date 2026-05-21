@@ -3,7 +3,7 @@ name: ingest-deep
 description: Deep ingest of a source (PDF/Markdown/URL/DOCX/PPTX/XLSX) in Karpathy multi-turn pattern. Forced Markdown conversion, block-refs to the source rendered as a discreet ↗ symbol. Mandatory step 1 is triage (cluster match, source diversity, tension hint).
 trigger: ingest.deep|deep.ingest|karpathy|sense.?making|multi.?turn.*ingest|tiefe.*ingest|deep.?dive.*quelle
 source: bundled
-requiredTools: [ingest_triage, ingest_deep, ingest_document, read_file]
+requiredTools: [ingest_triage, ingest_deep, ingest_document, read_file, write_file, update_frontmatter]
 ---
 
 # /ingest-deep -- Karpathy Multi-Turn Deep-Ingest
@@ -35,16 +35,24 @@ Karpathy-Multi-Turn ist teuer. Halte den Token-Verbrauch klein:
 
 Das Frontmatter-Template kommt aus den Settings:
 `vaultIngest.templates.ingestDeepNoteTemplate` (vault-relativer Pfad).
+Wird beim First-Run vom Wizard auf
+`<TemplatesFolder>/Quelle Template.md` (DE) bzw.
+`<TemplatesFolder>/Source Template.md` (EN) gesetzt (FEAT-29-14).
+Der TemplatesFolder kommt aus dem Obsidian-Core-Templates-Plugin
+(`.obsidian/templates.json`).
 
-Vorgehen:
+Vorgehen (Reihenfolge ist Pflicht):
 
-1. Setting-Wert pruefen. Wenn nicht-leer:
+1. **Setting-Wert pruefen.** Wenn nicht-leer:
    - `read_file path="<setting-wert>"` -> extrahiere den Frontmatter-
-     Block (zwischen den `---`-Zeilen).
+     Block zwischen den `---`-Zeilen.
    - Diese Felder bilden die Frontmatter-Basis fuer die neue Note.
    - Werte aus der Quelle (Autor, Jahr, URL etc.) einfuellen,
      leere Felder leer lassen.
-2. Wenn Setting leer: nutze den Inline-Default unten.
+   - **Bevorzuge IMMER das User-Template wenn vorhanden** -- es
+     spiegelt die Vault-Konvention (Sprache, custom Felder). Der
+     Inline-Default unten ist NUR Fallback.
+2. Wenn Setting leer: nutze den Inline-Default.
 
 **Inline-Default (Fallback wenn Setting leer):**
 
@@ -69,8 +77,12 @@ Permanent: false
 
 Pflicht-Felder die der Skill aus der Quelle ableitet und einfuellt:
 `Zusammenfassung`, `Autor`, `Jahr`, `URL`, `Themen`, `Konzepte`,
-`Typ`, `tags`. `Kategorie: [Quelle]` bleibt fix (siehe FEAT-19-27
-Auto-Trigger-Konvention).
+`Typ`, `tags`.
+
+**Kategorie-Wert (Pflicht-Format):** YAML-Listen-Element mit Bindestrich,
+ein Wert. Englischer Vault: `- Source`. Deutscher Vault: `- Quelle`.
+Niemals als Inline-Array `[Quelle]` -- das matcht den
+Auto-Trigger nicht (FEAT-19-27).
 
 Bei Konflikt zwischen Template-Feldern und Quellen-Daten: Template
 gewinnt fuer die Struktur, Quellen-Daten gewinnen fuer die Werte.
@@ -190,6 +202,38 @@ Nach erfolgreichem `ingest_deep`-Run:
   oder `[[source.pdf#page=N|↗]]`-Ref am Satzende? -> ok.
 - Falls nicht: lese die Note via `read_file`, ergaenze fehlende Marker
   via Edit (kein Re-Write der ganzen Note).
+
+**Output-Notes (Sense-Making / Zettel) Template:**
+
+Der `ingest_deep`-Tool legt selbst die Sense-Making-Note oder die
+Multi-Zettel an. Pruefe nach dem Run:
+
+- Frontmatter-Template kommt aus `vaultIngest.templates.quellenNotizTemplate`
+  (vault-relativer Pfad, vom First-Run-Wizard belegt mit
+  `<TemplatesFolder>/Notiz Template.md` (DE) bzw.
+  `<TemplatesFolder>/Note Template.md` (EN)).
+- **Kategorie-Wert in den Output-Notes (Pflicht):**
+  Deutscher Vault: `- Quellen-Notiz`. Englischer Vault: `- Source note`.
+  Als YAML-Listen-Element, nicht als Inline-Array.
+- **Backref zur Quelle:** `Quellen: [[<Quelle-basename>]]` im
+  Frontmatter der Output-Notes (damit der Graph eine Kante hat).
+
+Falls das Tool diese Konventionen nicht vollstaendig erfuellt, lade
+die jeweilige Output-Note via `read_file` und ergaenze per
+`update_frontmatter` (kein Re-Write).
+
+## Step 5: Backlink in der Quelle (Pflicht nach Step 4)
+
+Nach jedem `ingest_deep`-Run mit Output-Mode `source-plus-summary`
+oder `source-plus-multi-zettel`:
+
+1. Lade die Quelle-Note via `read_file`.
+2. `update_frontmatter`-Tool: setze `Notizen:` auf eine Liste mit
+   `[[<output-note-1>]], [[<output-note-2>]], ...`. Bestehende
+   Werte beibehalten (append, kein replace).
+
+Damit zeigt der Obsidian-Graph die Verbindung Quelle <-> abgeleitete
+Sense-Making-Notes / Zettel.
 
 ## Output-Konvention (verbindlich)
 
