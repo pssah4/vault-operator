@@ -315,6 +315,64 @@ describe('VaultDNAScanner.writeSkillFile (FEAT-29-02)', () => {
     });
 
     /**
+     * FEAT-29-05 follow-up: Obsidian plugin-ids may contain underscores
+     * (e.g. `note_uid_generator`). The Anthropic skill spec mandates
+     * kebab-case for the `name` field. writeFolderFormat converts at
+     * write time -- the SKILL.md `name` is kebab-cased, `source` keeps
+     * the original plugin-id so cleanup-by-source still finds its own
+     * writes.
+     */
+    describe('plugin-id kebab-case conversion (FEAT-29-05)', () => {
+        it('converts underscore-name to kebab-case in frontmatter name field', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({ id: 'note_uid_generator', name: 'Note UID Generator' });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const content = stub.calls.find((c) => c.op === 'write' && c.path.endsWith('SKILL.md'))!.content!;
+            const fmMatch = /^---\n([\s\S]*?)\n---/m.exec(content);
+            const fm = fmMatch![1];
+
+            // Name is kebab-cased
+            expect(fm).toMatch(/^name: note-uid-generator$/m);
+            // Source keeps the original plugin-id (cleanup pass needs that
+            // to find its own writes)
+            expect(fm).toMatch(/^source: note_uid_generator$/m);
+        });
+
+        it('leaves already-kebab-case plugin-ids unchanged', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({ id: 'dataview', name: 'Dataview' });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const content = stub.calls.find((c) => c.op === 'write' && c.path.endsWith('SKILL.md'))!.content!;
+            const fmMatch = /^---\n([\s\S]*?)\n---/m.exec(content);
+            const fm = fmMatch![1];
+            expect(fm).toMatch(/^name: dataview$/m);
+            expect(fm).toMatch(/^source: dataview$/m);
+        });
+
+        it('strips dots and other non-kebab characters', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({ id: 'plugin.v2_legacy', name: 'Plugin v2 Legacy' });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const content = stub.calls.find((c) => c.op === 'write' && c.path.endsWith('SKILL.md'))!.content!;
+            const fmMatch = /^---\n([\s\S]*?)\n---/m.exec(content);
+            const fm = fmMatch![1];
+            // Dots -> hyphens, underscores -> hyphens, collapse to single hyphen
+            expect(fm).toMatch(/^name: plugin-v2-legacy$/m);
+        });
+
+        it('collapses consecutive hyphens after conversion', async () => {
+            const { scanner, stub } = makeScanner(true);
+            const skill = makeSkill({ id: 'plugin___multiple_underscores', name: 'Plugin' });
+            await (scanner as unknown as ScannerInternals).writeSkillFile(skill);
+            const content = stub.calls.find((c) => c.op === 'write' && c.path.endsWith('SKILL.md'))!.content!;
+            const fmMatch = /^---\n([\s\S]*?)\n---/m.exec(content);
+            const fm = fmMatch![1];
+            expect(fm).toMatch(/^name: plugin-multiple-underscores$/m);
+            expect(fm).not.toMatch(/--/);
+        });
+    });
+
+    /**
      * FEAT-29-11 follow-up: hasScanned flag drives the SkillsTab
      * auto-rescan kick-off. It must be false before any fullScan has
      * completed and true after, so the UI can distinguish "scanner has

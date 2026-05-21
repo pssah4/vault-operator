@@ -38,48 +38,50 @@ function makeBridge(rootChildren: FakeChild[], byPath: Record<string, unknown>) 
 }
 
 describe('SandboxBridge.vaultList root handling (BUG-022)', () => {
-    it("lists the vault root when called with '/'", () => {
+    // FEAT-29-05: vaultList is now async (adapter.list for hidden folders
+    // is async, so the method had to follow). Tests await accordingly.
+    it("lists the vault root when called with '/'", async () => {
         const bridge = makeBridge(
             [{ path: 'Inbox' }, { path: 'notes/today.md' }],
             {},
         );
-        expect(bridge.vaultList('/')).toEqual(['Inbox', 'notes/today.md']);
+        await expect(bridge.vaultList('/')).resolves.toEqual(['Inbox', 'notes/today.md']);
     });
 
-    it("lists the vault root when called with ''", () => {
+    it("lists the vault root when called with ''", async () => {
         const bridge = makeBridge([{ path: 'a.md' }], {});
-        expect(bridge.vaultList('')).toEqual(['a.md']);
+        await expect(bridge.vaultList('')).resolves.toEqual(['a.md']);
     });
 
-    it('lists a named subfolder via getAbstractFileByPath', () => {
+    it('lists a named subfolder via getAbstractFileByPath', async () => {
         const sub = makeFolder('folder', [{ path: 'folder/x.md' }]);
         const bridge = makeBridge([], { 'folder': sub });
-        expect(bridge.vaultList('folder')).toEqual(['folder/x.md']);
+        await expect(bridge.vaultList('folder')).resolves.toEqual(['folder/x.md']);
     });
 
-    it('still rejects path traversal', () => {
+    it('still rejects path traversal', async () => {
         const bridge = makeBridge([], {});
-        expect(() => bridge.vaultList('../secret')).toThrow(/Invalid path/);
+        await expect(bridge.vaultList('../secret')).rejects.toThrow(/Invalid path/);
     });
 
-    it('throws when the target exists but is not a folder', () => {
+    it('throws when the target exists but is not a folder', async () => {
         const bridge = makeBridge([], { 'note.md': makeNonFolder() });
-        expect(() => bridge.vaultList('note.md')).toThrow(/Not a folder/);
+        await expect(bridge.vaultList('note.md')).rejects.toThrow(/Not a folder/);
     });
 
     // BUG-028 (Beta-11): trailing slashes on folder paths broke the sandbox
     // because getAbstractFileByPath('Notes/') returns null in Obsidian.
     // Agents naturally type 'Notes/' when enumerating a folder.
-    it("strips a trailing slash: 'Notes/' resolves like 'Notes'", () => {
+    it("strips a trailing slash: 'Notes/' resolves like 'Notes'", async () => {
         const sub = makeFolder('Notes', [{ path: 'Notes/x.md' }]);
         const bridge = makeBridge([], { 'Notes': sub });
-        expect(bridge.vaultList('Notes/')).toEqual(['Notes/x.md']);
+        await expect(bridge.vaultList('Notes/')).resolves.toEqual(['Notes/x.md']);
     });
 
-    it("strips multiple trailing slashes", () => {
+    it("strips multiple trailing slashes", async () => {
         const sub = makeFolder('folder', [{ path: 'folder/a.md' }]);
         const bridge = makeBridge([], { 'folder': sub });
-        expect(bridge.vaultList('folder///')).toEqual(['folder/a.md']);
+        await expect(bridge.vaultList('folder///')).resolves.toEqual(['folder/a.md']);
     });
 });
 
@@ -115,25 +117,25 @@ describe('SandboxBridge circuit auto-reset (BUG-027)', () => {
         return makeBridge([], {});
     }
 
-    it('auto-resets after the cooldown window expires', () => {
+    it('auto-resets after the cooldown window expires', async () => {
         const bridge = makeEmptyBridge();
         // Trip the breaker: 20 errors in a row.
         for (let i = 0; i < 20; i++) bridge.recordError();
         // Still tripped -- circuit is open.
-        expect(() => bridge.vaultList('/')).toThrow(/circuit open/);
+        await expect(bridge.vaultList('/')).rejects.toThrow(/circuit open/);
 
         // Fake the cooldown by rewinding lastErrorAt 31 seconds.
         (bridge as unknown as { lastErrorAt: number }).lastErrorAt = Date.now() - 31_000;
 
         // Next call probes the circuit, auto-resets, and returns normally.
-        expect(() => bridge.vaultList('/')).not.toThrow();
+        await expect(bridge.vaultList('/')).resolves.toBeDefined();
     });
 
-    it('recordSuccess clears an open circuit so consecutive good calls stay fast', () => {
+    it('recordSuccess clears an open circuit so consecutive good calls stay fast', async () => {
         const bridge = makeEmptyBridge();
         for (let i = 0; i < 20; i++) bridge.recordError();
         (bridge as unknown as { lastErrorAt: number }).lastErrorAt = Date.now() - 31_000;
-        expect(() => bridge.vaultList('/')).not.toThrow();
+        await expect(bridge.vaultList('/')).resolves.toBeDefined();
         // After one success, the circuit is closed AND consecutiveErrors reset.
         expect((bridge as unknown as { circuitOpen: boolean }).circuitOpen).toBe(false);
         expect((bridge as unknown as { consecutiveErrors: number }).consecutiveErrors).toBe(0);

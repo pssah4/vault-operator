@@ -33,7 +33,7 @@ export const TOOL_GROUP_MAP: Readonly<Record<ToolGroup, readonly ToolName[]>> = 
     vault: ['get_frontmatter', 'search_by_tag', 'get_vault_stats', 'get_linked_notes', 'get_daily_note', 'open_note', 'semantic_search', 'query_base', 'vault_health_check', 'recall_memory', 'mark_for_memory', 'update_soul', 'search_history', 'list_pinned_conversations'],
     edit:  ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw', 'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx', 'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage'],
     web:   ['web_fetch', 'web_search'],
-    agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'consult_flagship', 'switch_agent', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'manage_skill', 'evaluate_expression', 'manage_source', 'inspect_self'],
+    agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'consult_flagship', 'switch_agent', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'evaluate_expression', 'manage_source', 'inspect_self'],
     mcp:   ['use_mcp_tool', 'read_mcp_tool'],
     skill: ['execute_command', 'execute_recipe', 'call_plugin_api', 'resolve_capability_gap', 'enable_plugin'],
 };
@@ -87,7 +87,7 @@ You have all the tools needed for most tasks. Use them directly. NEVER delegate 
 
 ## Skills with helper scripts
 
-- Use manage_skill to create workflow instructions (most cases — sequences of existing tools).
+- Read the skill-creator skill from the SKILLS directory and follow its six-step workflow when creating a new skill (most cases - sequences of existing tools, or persistent workflow instructions).
 - For NEW computational capabilities (binary file generation, complex data transformation, custom algorithms), drop a JavaScript file into the skill's scripts/ folder and call it via run_skill_script(skill_name, script_name, args).
 - Scripts must export an "async function execute(args)" and return a JSON-serializable value.
 - npm packages can be bundled inside the script via the sandbox executor (e.g., pptxgenjs, xlsx, sharp).
@@ -95,9 +95,9 @@ You have all the tools needed for most tasks. Use them directly. NEVER delegate 
 ## Learn and persist
 
 After solving a novel problem (new file format, new workflow, new integration):
-1. Save the solution as a skill via manage_skill (source: "learned") so future similar requests are handled instantly.
-2. Include a trigger pattern so the skill auto-activates on matching user messages.
-3. If the solution required custom code, include it as a code_module with dependencies.
+1. Activate the skill-creator skill (read it from the SKILLS directory) and follow its six-step workflow to save the solution as a reusable user skill.
+2. Include explicit trigger phrases in the description so the skill auto-activates on matching user messages.
+3. If the solution required custom code, drop it into scripts/{name}.js so future runs invoke it via run_skill_script.
 
 ## Sub-agent delegation (only when direct execution is insufficient)
 

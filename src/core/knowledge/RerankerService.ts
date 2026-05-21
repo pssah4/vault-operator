@@ -66,6 +66,25 @@ export class RerankerService {
         this._loading = true;
 
         try {
+            // Force transformers.js onto the web/onnxruntime-web branch.
+            // Electron exposes process.versions.node, so transformers'
+            // IS_NODE_ENV check is true and it would otherwise try to load
+            // the native onnxruntime-node binding (which fails in the
+            // Obsidian sandbox). Pre-populating
+            // globalThis[Symbol.for("onnxruntime")] tips the very first
+            // branch of its ONNX selection chain so the IS_NODE_ENV check
+            // is never reached.
+            const ortSymbol = Symbol.for('onnxruntime');
+            if (!(ortSymbol in (globalThis as Record<symbol, unknown>))) {
+                // onnxruntime-web is a transitive dep of @huggingface/transformers.
+                // Subpath `/webgpu` has no published .d.ts so we silence the
+                // import-resolution error and rely on the runtime resolver.
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore -- runtime subpath, no type declarations
+                const ort = await import('onnxruntime-web/webgpu');
+                (globalThis as Record<symbol, unknown>)[ortSymbol] = ort;
+            }
+
             const { AutoModelForSequenceClassification, AutoTokenizer, env } = await import('@huggingface/transformers');
 
             // ONNX WASM is an optional download. Settings > Knowledge >
@@ -75,7 +94,11 @@ export class RerankerService {
             // semantic search still works without the rerank step.
             const onnxWasm = env.backends?.onnx?.wasm;
             if (!onnxWasm) {
-                console.warn('[Reranker] ONNX WASM backend not available in this transformers.js build');
+                console.warn(
+                    '[Reranker] ONNX WASM backend not available even after onnxruntime-web pre-load. ' +
+                    'Reranker disabled, semantic search continues without re-ranking. ' +
+                    'Please file a bug report.',
+                );
                 this._failed = true;
                 return;
             }

@@ -99,8 +99,6 @@ export type ToolName =
     // Self-Development (Phase 1: Foundation)
     | 'read_agent_logs'
     | 'manage_mcp_server'
-    // Self-Development (Phase 2+3: Skills with optional code modules)
-    | 'manage_skill'
     // Self-Development (Phase 3: Expression evaluation)
     | 'evaluate_expression'
     // Self-Development (Phase 4: Core Self-Modification)

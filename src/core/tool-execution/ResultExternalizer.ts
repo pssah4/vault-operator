@@ -37,7 +37,7 @@ const SKIP_EXTERNALIZATION = new Set([
     'create_docx', 'create_pptx', 'create_xlsx',
     'ask_followup_question', 'attempt_completion', 'switch_agent',
     'update_todo_list', 'update_settings', 'configure_model',
-    'manage_skill', 'manage_source', 'manage_mcp_server',
+    'manage_source', 'manage_mcp_server',
     'enable_plugin', 'new_task', 'evaluate_expression',
     'open_note', 'get_daily_note',
     // Memory v2 retrieval (FEATURE-0317/0320): output is already curated

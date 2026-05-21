@@ -102,7 +102,7 @@ export class SuggestionService {
                     type: 'create-skill',
                     title: 'Repeated Tool Pattern',
                     description: `The pattern "${pattern}" was repeated ${count} times in this session. Consider creating a skill to automate this workflow.`,
-                    actionHint: `manage_skill create with steps based on: ${pattern}`,
+                    actionHint: `Activate the skill-creator builtin and run init_skill to capture the pattern: ${pattern}`,
                 });
             }
         }

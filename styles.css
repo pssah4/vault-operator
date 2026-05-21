@@ -390,8 +390,13 @@
 }
 
 .user-message .message-content {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
+    /* Light blue tint that mirrors the Chrome DevTools "selected line"
+       highlight: ~20% of the Obsidian accent over the chat background.
+       Picks up whatever --interactive-accent resolves to so users with
+       a custom accent in Appearance settings get their colour
+       automatically. */
+    background: color-mix(in srgb, var(--interactive-accent) 20%, var(--background-primary));
+    color: var(--text-normal);
     align-self: flex-end;
     max-width: 85%;
     border-radius: 12px 12px 4px 12px;
@@ -2699,17 +2704,18 @@
 /* user-message .message-content base styles merged into the earlier
    block (line 383 area); only context-specific selectors remain below. */
 
-/* Visible selection highlighting for user messages (white background on blue) */
+/* Selection highlight: deeper tint of the accent so text stays readable
+   against the very light user-message bubble. */
 .user-message .message-content::selection,
 .user-message .message-content *::selection {
-    background: rgba(255, 255, 255, 0.3);
-    color: var(--text-on-accent);
+    background: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+    color: var(--text-normal);
 }
 
 .user-message .message-content::-moz-selection,
 .user-message .message-content *::-moz-selection {
-    background: rgba(255, 255, 255, 0.3);
-    color: var(--text-on-accent);
+    background: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+    color: var(--text-normal);
 }
 
 /* User message action bar (copy, edit) */

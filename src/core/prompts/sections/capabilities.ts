@@ -18,7 +18,7 @@ CAPABILITIES
 - Canvas files, Bases database views, and Excalidraw diagrams via dedicated tools.
 - ${webStatus}
 - Sub-agents for parallel subtasks. Persistent memory across sessions.
-- Obsidian plugin Skills (core + community). Reusable user skills via manage_skill.
+- Obsidian plugin Skills (core + community). Reusable user skills authored via the skill-creator builtin skill.
 - Isolated sandbox (evaluate_expression) for batch ops, computation, HTTP, npm packages. No binary formats in sandbox.
 - Office documents: create_pptx, create_docx, create_xlsx with template support.`;
 }

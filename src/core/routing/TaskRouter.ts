@@ -57,6 +57,16 @@ const COMPLEX_RESEARCH_RE = /\b(such\w*|finde|find|summari[sz]e\w*|analysier\w*|
  */
 const COMPLEX_MULTISTEP_RE = /\b(dann|danach|nachdem|sobald|first.*then|step by step|schritt fuer schritt)\b/i;
 
+/**
+ * FEAT-29-05: skill-creation prompts always route to the main
+ * (flagship) model. Triggers cover the verb + "skill" noun pattern in
+ * both English and German, plus the open-ended "kannst du das
+ * automatisieren" phrasing. Matches BEFORE the simple/short-prompt
+ * fallbacks so a short "build me a skill" still escalates.
+ */
+const COMPLEX_SKILL_CREATION_RE =
+    /\b(build|create|make|baue?|bau|erstelle?|generate|neuer|new)\b[^.\n]*\bskills?\b|\b(kannst du|can you)\b[^.\n]*\b(automatisier\w*|automate)\b/i;
+
 const SHORT_PROMPT_CHARS = 80;
 const LONG_PROMPT_CHARS = 300;
 
@@ -83,6 +93,7 @@ export class TaskRouter {
         if (text.length === 0) return 'unknown';
 
         // Strong complex signals win first
+        if (COMPLEX_SKILL_CREATION_RE.test(text)) return 'complex';
         if (COMPLEX_MULTISTEP_RE.test(text)) return 'complex';
         if (COMPLEX_RESEARCH_RE.test(text)) return 'complex';
         if (text.length > LONG_PROMPT_CHARS) return 'complex';

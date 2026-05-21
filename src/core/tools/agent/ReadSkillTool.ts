@@ -13,8 +13,7 @@
  * the system-prompt prefix cache-stable.
  *
  * NOT in DEFERRED_TOOL_NAMES — must be available immediately so loading a
- * skill is a single tool call (extending `manage_skill` would have required
- * find_tool first because manage_skill is deferred).
+ * skill is a single tool call.
  */
 
 import { BaseTool } from '../BaseTool';

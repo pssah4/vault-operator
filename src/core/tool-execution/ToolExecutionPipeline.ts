@@ -142,8 +142,9 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     manage_mcp_server: 'agent',
     // Self-Development (Phase 2+3) — sandbox: always requires approval by default
     evaluate_expression: 'sandbox',
-    // M-7: Self-modification tools always require human approval
-    manage_skill: 'self-modify',
+    // M-7: Self-modification tools always require human approval.
+    // FEAT-29-05: manage_skill removed; skill authoring is now a builtin
+    // skill that uses write_file/edit_file via the regular approval gate.
     manage_source: 'self-modify',
 };
 
@@ -563,7 +564,7 @@ export class ToolExecutionPipeline {
             return await extensions.onApprovalRequired(toolCall.name, toolCall.input);
         }
 
-        // M-7: Self-modification tools (manage_source, manage_skill) ALWAYS require
+        // M-7: Self-modification tools (manage_source) ALWAYS require
         // human approval — no auto-approve bypass possible
         if (group === 'self-modify') {
             if (!extensions?.onApprovalRequired) {

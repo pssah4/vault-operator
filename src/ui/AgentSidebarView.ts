@@ -3985,7 +3985,6 @@ export class AgentSidebarView extends ItemView {
                 return { text: t('ui.approval.explain.recipe'), target: str('recipe_id') };
             case 'switch_agent':
                 return { text: t('ui.approval.explain.switchMode') };
-            case 'manage_skill':
             case 'manage_source':
                 return { text: t('ui.approval.explain.selfModify') };
             default:

@@ -47,6 +47,18 @@ export class SandboxBridge {
             const normalised = normaliseVaultPath(path);
             this.validateVaultPath(normalised);
             this.logBridgeOp('vault-read', normalised);
+            // FEAT-29-05: paths under hidden folders (.vault-operator/, etc.)
+            // are not in Obsidian's TFile index, so getAbstractFileByPath
+            // returns null and the read fails. Fall back to adapter.read
+            // which works directly on the filesystem path.
+            if (this.isHiddenPath(normalised)) {
+                if (!(await this.plugin.app.vault.adapter.exists(normalised))) {
+                    throw new Error(`Not a file: ${path}`);
+                }
+                const result = await this.plugin.app.vault.adapter.read(normalised);
+                this.recordSuccess();
+                return result;
+            }
             const file = this.plugin.app.vault.getAbstractFileByPath(normalised);
             if (!(file instanceof TFile)) throw new Error(`Not a file: ${path}`);
             const result = await this.plugin.app.vault.read(file);
@@ -64,6 +76,14 @@ export class SandboxBridge {
             const normalised = normaliseVaultPath(path);
             this.validateVaultPath(normalised);
             this.logBridgeOp('vault-read-binary', normalised);
+            if (this.isHiddenPath(normalised)) {
+                if (!(await this.plugin.app.vault.adapter.exists(normalised))) {
+                    throw new Error(`Not a file: ${path}`);
+                }
+                const result = await this.plugin.app.vault.adapter.readBinary(normalised);
+                this.recordSuccess();
+                return result;
+            }
             const file = this.plugin.app.vault.getAbstractFileByPath(normalised);
             if (!(file instanceof TFile)) throw new Error(`Not a file: ${path}`);
             const result = await this.plugin.app.vault.readBinary(file);
@@ -75,7 +95,16 @@ export class SandboxBridge {
         }
     }
 
-    vaultList(path: string): string[] {
+    /**
+     * FEAT-29-05: a vault path is "hidden" when ANY segment starts with a
+     * dot (`.vault-operator/`, `.obsidian/`, but NOT `notes/My.File.md`).
+     * The TFile API skips those folders; the adapter handles them.
+     */
+    private isHiddenPath(path: string): boolean {
+        return path.split('/').some((seg) => seg.startsWith('.'));
+    }
+
+    async vaultList(path: string): Promise<string[]> {
         this.checkCircuitBreaker();
         try {
             // BUG-022: vaultList('/') used to throw because
@@ -88,6 +117,16 @@ export class SandboxBridge {
             const normalised = normaliseVaultPath(path);
             this.validateVaultPath(normalised);
             this.logBridgeOp('vault-list', normalised);
+            // FEAT-29-05: adapter.list for hidden folders (TFolder skips them).
+            if (normalised !== '' && this.isHiddenPath(normalised)) {
+                if (!(await this.plugin.app.vault.adapter.exists(normalised))) {
+                    throw new Error(`Not a folder: ${path}`);
+                }
+                const listing = await this.plugin.app.vault.adapter.list(normalised);
+                const result = [...listing.files, ...listing.folders];
+                this.recordSuccess();
+                return result;
+            }
             const folder = normalised === ''
                 ? this.plugin.app.vault.getRoot()
                 : this.plugin.app.vault.getAbstractFileByPath(normalised);
@@ -110,6 +149,12 @@ export class SandboxBridge {
         }
         this.checkWriteRateLimit();
         this.logBridgeOp('vault-write', `${path} (${content.length} chars)`);
+        // FEAT-29-05: adapter.write for hidden folders (Vault.create skips them).
+        if (this.isHiddenPath(path)) {
+            await this.plugin.app.vault.adapter.write(path, content);
+            this.recordSuccess();
+            return;
+        }
         const file = this.plugin.app.vault.getAbstractFileByPath(path);
         if (file instanceof TFile) {
             await this.plugin.app.vault.modify(file, content);
@@ -117,6 +162,34 @@ export class SandboxBridge {
             await this.plugin.app.vault.create(path, content);
         }
         this.recordSuccess();
+    }
+
+    /**
+     * FEAT-29-05: create a folder (and parents on the way) inside the
+     * vault. Obsidian's adapter.mkdir is not recursive, so we walk the
+     * path segment by segment. Idempotent -- existing folders are a
+     * silent success.
+     */
+    async vaultMkdir(path: string): Promise<void> {
+        this.checkCircuitBreaker();
+        try {
+            const normalised = normaliseVaultPath(path);
+            this.validateVaultPath(normalised, true);
+            this.logBridgeOp('vault-mkdir', normalised);
+            const adapter = this.plugin.app.vault.adapter;
+            const segments = normalised.split('/').filter((s) => s.length > 0);
+            let current = '';
+            for (const seg of segments) {
+                current = current ? `${current}/${seg}` : seg;
+                if (!(await adapter.exists(current))) {
+                    await adapter.mkdir(current);
+                }
+            }
+            this.recordSuccess();
+        } catch (e) {
+            this.recordError();
+            throw e;
+        }
     }
 
     async vaultWriteBinary(path: string, content: ArrayBuffer): Promise<void> {
@@ -128,6 +201,11 @@ export class SandboxBridge {
         }
         this.checkWriteRateLimit();
         this.logBridgeOp('vault-write-binary', `${path} (${content.byteLength} bytes)`);
+        if (this.isHiddenPath(path)) {
+            await this.plugin.app.vault.adapter.writeBinary(path, content);
+            this.recordSuccess();
+            return;
+        }
         const file = this.plugin.app.vault.getAbstractFileByPath(path);
         if (file instanceof TFile) {
             await this.plugin.app.vault.modifyBinary(file, content);
