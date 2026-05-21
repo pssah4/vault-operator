@@ -240,7 +240,14 @@ export class ResultExternalizer {
             await removeWithRetry(this.fs, this.tmpDir);
             console.debug(`[Externalize] Cleaned up ${this.tmpDir}`);
         } catch (e) {
-            console.warn(
+            // FIX-24-03-03: persistent EPERM on iCloud is expected during
+            // sync windows -- the orphan sweeper handles it on the next
+            // plugin start. Don't flood the console with warn; log as
+            // debug. Other errors (real permission issues, ENOENT, ...)
+            // stay at warn so they don't get hidden.
+            const isTransient = isTransientFsError(e);
+            const level = isTransient ? console.debug : console.warn;
+            level(
                 '[Externalize] Cleanup failed after retries (non-fatal, will retry on next plugin start):',
                 e,
             );
@@ -282,16 +289,20 @@ export class ResultExternalizer {
 // ---------------------------------------------------------------------------
 
 /**
- * BUG-023: remove with retry + back-off so transient EPERM locks from macOS
- * iCloud file providers don't leak tmp directories. Three attempts over
- * ~700ms is enough to clear the vast majority of locks; anything stuck
- * longer gets swept up by `cleanupOrphaned` on the next plugin start.
+ * BUG-023 / FIX-24-03-03: remove with retry + back-off so transient
+ * EPERM locks from macOS iCloud file providers don't leak tmp
+ * directories. Schedule [0, 150, 500, 1500] = ~2.15s total which clears
+ * the vast majority of iCloud sync windows; anything stuck longer
+ * gets swept up by `cleanupOrphaned` on the next plugin start.
  */
 async function removeWithRetry(fs: FileAdapter, path: string): Promise<void> {
-    const delays = [0, 150, 500];
+    const delays = [0, 150, 500, 1500];
     let lastError: unknown = null;
     for (const delay of delays) {
-        if (delay > 0) await new Promise((r) => window.setTimeout(r, delay));
+        // globalThis.setTimeout works in Electron (browser) and in Node
+        // (vitest). window.setTimeout was browser-only and broke the
+        // BUG-023 + FIX-24-03-03 tests under vitest's default env.
+        if (delay > 0) await new Promise((r) => globalThis.setTimeout(r, delay));
         try {
             await fs.remove(path);
             return;
