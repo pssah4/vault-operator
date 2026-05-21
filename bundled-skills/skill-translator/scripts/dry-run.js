@@ -10,7 +10,7 @@
  * does NOT write anything. Result shape:
  *
  *   {
- *     status: 'full' | 'partial' | 'unmappable',
+ *     status: 'full' | 'partial' | 'unmappable' | 'no-source',
  *     mappable: [{ source: string, module: string, jsEquivalent: string, via: string }],
  *     partial:  [{ source: string, module: string, jsEquivalent: string, via: string, limitations: string[] }],
  *     unmappable: [{ source: string, module: string, reason: string }],
@@ -18,8 +18,12 @@
  *     summary: { totalImports, mappableCount, partialCount, unmappableCount }
  *   }
  *
- * status precedence: any unmappable -> 'unmappable'; any partial (and no
- * unmappable) -> 'partial'; otherwise -> 'full'.
+ * status precedence:
+ *   - 'no-source' wins when there are no scripts AND no body (nothing
+ *     to translate; the skill body branches to "fetch the source first")
+ *   - 'unmappable' wins when there is at least one unmappable entry
+ *   - 'partial' wins when there is at least one partial entry and no unmappable
+ *   - 'full' otherwise
  */
 
 // Importing the mapping table at runtime via ctx.vault keeps the script
@@ -172,8 +176,20 @@ export function dryRun(inputs) {
     }
 
     let status = 'full';
-    if (allUnmappable.length > 0) status = 'unmappable';
-    else if (allPartial.length > 0) status = 'partial';
+    // Live test 2026-05-21 regression: when the agent asks for a
+    // dry-run before cloning the source into the local tmp folder,
+    // dryRun used to return 'full' (totalImports=0). The subskill
+    // then translated nothing and wrote nothing. 'no-source' makes
+    // that situation explicit so the skill body can branch to
+    // "fetch the source files first" instead of silently completing.
+    const hasNoBody = !skillBody || skillBody.trim().length === 0;
+    if (scripts.length === 0 && hasNoBody) {
+        status = 'no-source';
+    } else if (allUnmappable.length > 0) {
+        status = 'unmappable';
+    } else if (allPartial.length > 0) {
+        status = 'partial';
+    }
 
     return {
         status,

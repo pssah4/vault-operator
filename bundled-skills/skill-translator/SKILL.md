@@ -19,16 +19,19 @@ Einen Anthropic-Skill (Python-basiert) so ueberfuehren dass er als nativer Vault
 
 ## Workflow
 
-### Schritt 1: Quelle und Zielname klaeren
+### Schritt 1: Quelle klaeren und LOKAL klonen (Pflicht)
 
 Wenn der User keine konkrete Quelle nennt: `ask_followup_question` stellen:
 
 > "Welcher Anthropic-Skill soll uebersetzt werden? Optionen: (a) GitHub-URL eines Skill-Folders, (b) ZIP-Datei im Vault, (c) bereits ausgepackter Skill-Ordner im Vault."
 
-Sobald die Quelle klar ist, den Skill-Folder im Vault verfuegbar machen:
+**MUSS-Schritt vor dem Dry-Run: alle Quell-Files in einen lokalen tmp-Folder schreiben.** Dry-Run ohne lokale Files liefert `no-source` und bricht ab. Konkretes Vorgehen pro Source-Typ:
 
-- **GitHub-URL**: `web_fetch` der `SKILL.md`-Raw-URL, dann pro Python-Datei dasselbe. Lege alles unter `.vault-operator/cache/tmp/translator-input/{name}/` ab.
-- **Lokaler Ordner**: nimm den Pfad wie angegeben.
+- **GitHub-URL** (z.B. `https://github.com/anthropics/skills/tree/main/skills/pdf`):
+  1. `web_fetch` der GitHub-Contents-API um die Datei-Liste zu kriegen: `https://api.github.com/repos/{owner}/{repo}/contents/{path}`.
+  2. Pro Datei in der Liste: `web_fetch` auf die `raw.githubusercontent.com`-URL, dann `write_file` nach `.vault-operator/cache/tmp/translator-input/{name}/{filename}`. Pflicht-Folder-Anteile: `SKILL.md`, `scripts/*.py`, `references/*.md`.
+  3. Pruefe nach jedem write: war es erfolgreich? Bei Fehler stoppen und User informieren.
+- **Lokaler Ordner**: nimm den Pfad wie angegeben, kein Klonen noetig.
 
 Zielname ist standardmaessig der `name`-Eintrag der Quell-Frontmatter. Wenn ein Skill mit dem Namen schon im Vault existiert, frage nach: ueberschreiben oder umbenennen.
 
@@ -38,13 +41,15 @@ Zielname ist standardmaessig der `name`-Eintrag der Quell-Frontmatter. Wenn ein 
 run_skill_script({
   "skill_name": "skill-translator",
   "script_name": "dry-run",
-  "args": { "skillPath": "<source-folder-path>" }
+  "args": { "skillPath": ".vault-operator/cache/tmp/translator-input/<name>" }
 })
 ```
 
-Resultat hat die Form `{ status: "full" | "partial" | "unmappable", mappable[], partial[], unmappable[], bashCommands[], summary }`.
+Resultat hat die Form `{ status: "full" | "partial" | "unmappable" | "no-source", mappable[], partial[], unmappable[], bashCommands[], summary }`.
 
 ### Schritt 3: Entscheidung basierend auf Verdict
+
+**Wenn `status === "no-source"`**: STOPPEN. Das heisst Schritt 1 wurde nicht ausgefuehrt oder ist fehlgeschlagen. Zurueck zu Schritt 1, lokale Quelle bereitstellen, dann erneut Schritt 2. NICHT raten und translatieren ohne Quelle.
 
 **Wenn `status === "full"`**: weiter mit Schritt 4 ohne User-Modal.
 
@@ -85,7 +90,9 @@ Quell-Body kopieren, dann anpassen:
 - Body-Inhalt: alle Verweise auf `python ...`, `pip install`, `import X` raus. Stattdessen Verweise auf `run_skill_script({skill_name, script_name, args})` mit den neuen JS-Datei-Namen.
 - Wenn ein Quell-Script auf ein built-in-tool umgeleitet wurde: Body so anpassen dass der Agent den built-in tool direkt aufruft, nicht das (leere) JS-Wrapper-Script.
 
-### Schritt 6: Write via translate.js
+### Schritt 6: Write via translate.js (Pflicht-Pfad, KEIN write_file-Bypass)
+
+**Hart-Regel**: Files NICHT direkt mit `write_file` oder `create_folder` schreiben. Der einzige zulaessige Schreibpfad ist `run_skill_script(translate)`. Grund: nur dieser Pfad schreibt TRANSLATION.json (Audit-Manifest, Success-Criterion SC-05) UND validiert die JS-Outputs gegen Sandbox-Forbidden-Patterns (eval / require / fs.* etc.). Direktes Schreiben umgeht beides.
 
 ```
 run_skill_script({
@@ -108,7 +115,7 @@ run_skill_script({
 })
 ```
 
-Resultat: `{ ok, written, failed, manifestPath, validationIssues }`. Bei `ok: false` -> User informieren und die Issues konkret nennen (welche Datei, welches Pattern war forbidden).
+Resultat: `{ ok, written, failed, manifestPath, validationIssues }`. `manifestPath` MUSS am Ende auf einen geschriebenen `TRANSLATION.json`-Pfad zeigen, sonst ist die Translation NICHT vollstaendig (Schritt 8 darf in dem Fall NICHT `attempt_completion` mit Erfolgsmeldung aufrufen). Bei `ok: false` -> User informieren und die Issues konkret nennen (welche Datei, welches Pattern war forbidden).
 
 ### Schritt 7: Smoke-Test
 
@@ -139,9 +146,12 @@ Strukturierte Zusammenfassung:
 
 ## Pflicht
 
+- Quell-Files lokal klonen (Schritt 1), BEVOR der Dry-Run laeuft. Ohne lokale Quelle gibt der Dry-Run `no-source` zurueck und der Workflow muss zurueck zu Schritt 1.
 - Nichts schreiben ohne Dry-Run-Pass.
 - Bei partial oder unmappable: User-Entscheidung einholen, nicht silent durchziehen.
 - Binaere Formate ueber built-in-Tools, nicht in der Sandbox.
+- **Einziger Schreib-Pfad ist `run_skill_script(translate)`** (Schritt 6). Kein direktes `write_file` / `create_folder` fuer den Ziel-Skill -- das umgeht die Validierung und das TRANSLATION.json-Audit-Manifest.
+- TRANSLATION.json MUSS am Ende existieren (Schritt 6 manifestPath ist truthy). Sonst keine Erfolgsmeldung in Schritt 8.
 - Bei Smoke-Failure: User informieren, Translation steht aber bleiben.
 
 ## Verboten
@@ -150,3 +160,5 @@ Strukturierte Zusammenfassung:
 - Translation mit `eval`, `new Function`, `require`, `process.env`, `fs.*`-direct.
 - Stilles Schreiben bei partial-Verdict.
 - Skill mit existierendem Namen ueberschreiben ohne User-Bestaetigung.
+- Direktes `write_file` oder `create_folder` fuer den Ziel-Skill-Folder. Schreiben laeuft ueber `translate.js`.
+- Erfolgsmeldung in `attempt_completion` ohne dass TRANSLATION.json geschrieben wurde.

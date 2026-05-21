@@ -227,10 +227,34 @@ describe('dryRun verdict precedence', () => {
         expect(result.status).toBe('unmappable');
     });
 
-    it("returns 'full' on an empty input", () => {
+    it("returns 'no-source' on an empty input (live test 2026-05-21 regression)", () => {
+        // Live test: skill-translator subskill blocked with 'unmappable'
+        // because the source files had not been cloned into the local
+        // tmp folder yet. An empty input means there's literally nothing
+        // to translate, which is distinct from 'full' (everything maps)
+        // and from 'unmappable' (something tried to map but failed).
+        // The skill body branches on this and prompts the agent to
+        // fetch the source first.
         const result = dryRun({ skillBody: '', scripts: [], mapping: MINIMAL_MAPPING });
-        expect(result.status).toBe('full');
+        expect(result.status).toBe('no-source');
         expect(result.summary.totalImports).toBe(0);
+    });
+
+    it("returns 'no-source' when both scripts and body are empty even if mapping is rich", () => {
+        const result = dryRun({ scripts: [], mapping: MINIMAL_MAPPING });
+        expect(result.status).toBe('no-source');
+    });
+
+    it("returns 'full' when there is a non-empty body but no scripts (docs-only skill)", () => {
+        // Docs-only skills are legitimate -- they have no scripts to
+        // translate. Status 'full' is correct; the bashCommands check
+        // still flips it if commands inside the body are unmappable.
+        const result = dryRun({
+            skillBody: '# A pure documentation skill\n\nNothing to run.',
+            scripts: [],
+            mapping: MINIMAL_MAPPING,
+        });
+        expect(result.status).toBe('full');
     });
 });
 
