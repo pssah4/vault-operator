@@ -44,6 +44,10 @@ export function shouldRunAutoBackup(
  * Filename produced for an auto-daily backup. ISO date in UTC keeps
  * filenames lexicographically sortable, which makes the retention
  * math trivial (sort + slice).
+ *
+ * AUDIT-EPIC-29 I-1: includes millisecond precision so two calls in
+ * the same second (unit tests, edge-case double trigger) produce
+ * distinct filenames.
  */
 export function autoBackupFilename(now: Date = new Date()): string {
     const y = now.getUTCFullYear();
@@ -52,7 +56,8 @@ export function autoBackupFilename(now: Date = new Date()): string {
     const hh = String(now.getUTCHours()).padStart(2, '0');
     const mm = String(now.getUTCMinutes()).padStart(2, '0');
     const ss = String(now.getUTCSeconds()).padStart(2, '0');
-    return `vault-operator-auto-${y}-${m}-${d}T${hh}-${mm}-${ss}Z.zip`;
+    const ms = String(now.getUTCMilliseconds()).padStart(3, '0');
+    return `vault-operator-auto-${y}-${m}-${d}T${hh}-${mm}-${ss}-${ms}Z.zip`;
 }
 
 /**

@@ -8,6 +8,7 @@
  */
 
 import type { PluginApiSettings } from '../../../types/settings';
+import { isSafePathSegment } from '../../utils/safePathName';
 
 /** Default API-call timeout when nothing more specific is configured. */
 export const DEFAULT_API_TIMEOUT_MS = 10_000;
@@ -55,8 +56,21 @@ export function resolveTimeoutMs(
     return Math.min(Math.max(candidate, 1000), MAX_API_TIMEOUT_MS);
 }
 
-/** Build the `pluginId:method` storage key. Exported for tests. */
+/**
+ * Build the `pluginId:method` storage key. Exported for tests.
+ *
+ * AUDIT-EPIC-29 L-2 fix: throws when either input fails the
+ * path-segment whitelist. Without the guard a pluginId containing `:`
+ * would collide with another `(pluginId, method)` pair via key
+ * reinterpretation.
+ */
 export function approvalKey(pluginId: string, method: string): string {
+    if (!isSafePathSegment(pluginId)) {
+        throw new Error(`Unsafe pluginId rejected by approvalKey guard: ${JSON.stringify(pluginId)}`);
+    }
+    if (!isSafePathSegment(method)) {
+        throw new Error(`Unsafe method rejected by approvalKey guard: ${JSON.stringify(method)}`);
+    }
     return `${pluginId}:${method}`;
 }
 
@@ -82,6 +96,13 @@ export function recordApprovalAndMaybePromote(
     method: string,
 ): PromotionResult {
     if (settings.autoPromotionEnabled === false) {
+        return { promoted: false, newCount: 0, reason: 'disabled' };
+    }
+    // AUDIT-EPIC-29 L-2 + L-4: reject unsafe input names rather than
+    // letting them pollute settings keys. Silent skip via 'disabled'-style
+    // result so the caller does not need to handle a thrown exception
+    // in the hot approval path.
+    if (!isSafePathSegment(pluginId) || !isSafePathSegment(method)) {
         return { promoted: false, newCount: 0, reason: 'disabled' };
     }
     const key = approvalKey(pluginId, method);

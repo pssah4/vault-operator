@@ -82,6 +82,8 @@ Pro Python-Datei aus der Quelle:
 3. Das produzierte JS muss eine Funktion `async function execute(args, ctx)` exportieren. `ctx.vault.{read,write,list,readBinary,writeBinary}` ist verfuegbar. `ctx.requestUrl` fuer HTTP.
 4. **Forbidden**: `eval`, `new Function`, `require()`, `process.env`, `process.exit`, `child_process`, `fs.*`-direct, `globalThis.X = ...`. Diese werden von `translate.js`s Validierung zurueckgewiesen.
 
+**Hinweis zur Validierungs-Tiefe (AUDIT-EPIC-29 M-1):** Die Forbidden-Pattern-Scans in `translate.js` sind eine Heuristik, KEIN Sicherheits-Boundary. Die tatsaechliche Trust-Boundary ist der Sandbox-Executor selbst (esbuild-bundled ESM, isolierter Kontext pro `run_skill_script`-Call). Der Scan kann via Unicode-Escapes in Identifiern (`eval(...)`), indirekte Zugriffe (`globalThis['e'+'val'](...)`) und String-Konstruktion umgangen werden. Eine passende Validierung heisst nicht "Code ist sicher" -- sie heisst "die offensichtlichsten Foot-Guns sind nicht da". Verlasse dich auf die Sandbox-Isolation, nicht auf den Scanner.
+
 ### Schritt 5: SKILL.md-Body neu komponieren
 
 Quell-Body kopieren, dann anpassen:

@@ -29,25 +29,64 @@ const FORBIDDEN_PATTERNS = [
 /**
  * Scan a JavaScript source string for sandbox-unsafe patterns. Returns
  * `{ ok, issues }` where `issues` is a list of `{ pattern, line }` hits.
- * Comments are not stripped before scanning to keep the check defensive
- * (a determined attacker can hide intent in comments, but the pattern
- * still matches the surrounding code).
+ *
+ * AUDIT-EPIC-29 M-1 + L-5: this is a HEURISTIC, not a security boundary.
+ * The actual safety guarantee comes from the sandbox itself (esbuild-
+ * bundled ESM, isolated execution context). The scanner can be bypassed
+ * via Unicode escapes in identifiers (eval), indirect access
+ * (globalThis['e'+'val']), and string-array construction. A passing
+ * validation does NOT mean the code is safe; treat it as a foot-gun
+ * trap that catches obvious mistakes. The regex now runs against the
+ * full source with the multiline flag so split forbidden patterns
+ * (e.g. `eval\n  (...)`) are also caught.
+ *
+ * Comments are not stripped before scanning. Hidden patterns in
+ * comments fire too, which is intentional defense-in-depth.
  */
 export function validateJs(source) {
     if (!source || typeof source !== 'string') {
         return { ok: false, issues: [{ pattern: 'empty source', line: 0 }] };
     }
     const issues = [];
-    const lines = source.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        for (const { pattern, label } of FORBIDDEN_PATTERNS) {
-            if (pattern.test(line)) {
-                issues.push({ pattern: label, line: i + 1 });
-            }
+    for (const { pattern, label } of FORBIDDEN_PATTERNS) {
+        const re = new RegExp(pattern.source, 'gm');
+        let m;
+        while ((m = re.exec(source)) !== null) {
+            const line = source.slice(0, m.index).split('\n').length;
+            issues.push({ pattern: label, line });
         }
     }
     return { ok: issues.length === 0, issues };
+}
+
+/**
+ * AUDIT-EPIC-29 M-2: reject path-traversal segments and absolute paths.
+ * Inline because translate.js is a bundled .js script and cannot
+ * import the TypeScript helper from src/core/backup/BackupExportService.
+ */
+export function isUnsafePath(path) {
+    if (!path) return false;
+    if (path.startsWith('/') || path.startsWith('\\')) return true;
+    if (/^[a-zA-Z]:[\\/]/.test(path)) return true;
+    const segments = path.split(/[\\/]/);
+    return segments.some((s) => s === '..');
+}
+
+/**
+ * AUDIT-EPIC-29 L-3: strip embedded credentials from a source-repo URL
+ * before persisting it in the TRANSLATION.json manifest. Falls back to
+ * the input string for non-URL values (e.g. the literal "local").
+ */
+export function sanitizeRepoUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+    try {
+        const u = new URL(url);
+        u.username = '';
+        u.password = '';
+        return u.toString();
+    } catch {
+        return url;
+    }
 }
 
 /**
@@ -75,7 +114,8 @@ export function buildManifest(inputs) {
         translationDate: now,
         translator: inputs.translator ?? 'unknown',
         source: {
-            repo: inputs.sourceRepo ?? null,
+            // AUDIT-EPIC-29 L-3: scrub URL-embedded credentials before persisting.
+            repo: inputs.sourceRepo ? sanitizeRepoUrl(inputs.sourceRepo) : null,
             path: inputs.sourcePath ?? null,
             version: inputs.sourceVersion ?? null,
         },
@@ -119,18 +159,44 @@ export async function writeTranslation(args, ctx) {
     if (!targetPath || typeof targetPath !== 'string') {
         throw new Error('args.targetPath required');
     }
+    // AUDIT-EPIC-29 M-2: path-traversal guard on targetPath.
+    if (isUnsafePath(targetPath)) {
+        throw new Error(`Refusing to write to unsafe targetPath: ${JSON.stringify(targetPath)}`);
+    }
     const files = Array.isArray(args.files) ? args.files : [];
     const written = [];
     const failed = [];
     const validationIssues = [];
 
+    // AUDIT-EPIC-29 L-6: two-pass. First validate everything; only enter
+    // the write phase if every single file passed. Prevents orphan
+    // partial writes when a later script fails validation.
     for (const f of files) {
+        // AUDIT-EPIC-29 M-2: path-traversal guard on each f.target.
+        if (isUnsafePath(f.target)) {
+            validationIssues.push({ file: f.target, issues: [{ pattern: 'unsafe path (M-2)', line: 0 }] });
+            failed.push(f.target);
+            continue;
+        }
         const { ok, issues } = validateJs(f.content);
         if (!ok) {
             validationIssues.push({ file: f.target, issues });
             failed.push(f.target);
-            continue;
         }
+    }
+    if (failed.length > 0) {
+        return {
+            ok: false,
+            written: [],
+            failed,
+            manifestPath: null,
+            validationIssues,
+        };
+    }
+
+    // Second pass: write. All files validated; any write error is from
+    // the adapter (disk full, permission, etc.) not the agent's input.
+    for (const f of files) {
         try {
             const out = `${targetPath}/${f.target}`;
             await ctx.vault.write(out, f.content);
