@@ -1,0 +1,45 @@
+name: Security audit (npm)
+
+# AUDIT-024 I-2: runs `npm audit` on every push and PR to dev so a
+# newly published CVE gets caught before it reaches a release tag.
+# Fails the workflow on high or critical findings. Moderate/low are
+# reported but do not block. Local audits are still required for the
+# per-release sign-off (we run them in the periodic AUDIT cycle).
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (no scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Audit production dependencies (fail on high+)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit full tree (informational, never fails)
+        if: always()
+        run: npm audit --json > npm-audit-full.json || true
+
+      - name: Upload audit artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-${{ github.sha }}
+          path: npm-audit-full.json
+          retention-days: 30

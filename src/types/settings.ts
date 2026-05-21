@@ -890,6 +890,13 @@ export interface ObsidianAgentSettings {
     // VaultDNA — Plugin-as-Skill (PAS-1)
     vaultDNA: VaultDNASettings;
 
+    // FEAT-29-09: per-skill versioning (snapshot + restore).
+    skillVersioning?: { retentionCount: number };
+
+    // FEAT-29-12: backup/export-tool. Selective ZIP export of plugin
+    // state, opt-in auto-daily backup, conflict-aware import.
+    backup?: BackupSettings;
+
     // Plugin API (PAS-1.5)
     pluginApi: PluginApiSettings;
 
@@ -922,6 +929,37 @@ export interface ObsidianAgentSettings {
      *  into the cross-vault GlobalFileService root (2026-05-19 fix for iCloud
      *  sync stalls on mobile). */
     _pluginDataDirsMigrated?: boolean;
+
+    /** FEAT-29-01: layout migration progress. Resumable across plugin reloads.
+     *  Phase order: pending -> backup-done -> data-vault-done -> cache-vault-done
+     *  -> data-shared-done -> cache-shared-done -> skills-resolved -> cleanup-done
+     *  -> settings-done -> complete. */
+    _layoutMigrationStatus?:
+        | 'pending'
+        | 'backup-done'
+        | 'data-vault-done'
+        | 'cache-vault-done'
+        | 'data-shared-done'
+        | 'cache-shared-done'
+        | 'skills-resolved'
+        | 'cleanup-done'
+        | 'settings-done'
+        | 'complete';
+
+    /** FEAT-29-01: snapshot of chatHistoryFolder before the setting was removed.
+     *  Used by the post-migration notice modal so the user can locate their old
+     *  vault-folder copy of conversations if they want to clean it up. Cleared
+     *  once the notice has been acknowledged. */
+    _chatHistoryFolderLegacy?: string;
+
+    /** FEAT-29-01: opt-in flag for the layout migration. The migration is
+     *  destructive (moves files across roots, removes legacy folders) and
+     *  must not run silently on plugin reload until the dependent services
+     *  (GlobalFileService, rulesLoader, workflowLoader, skillsManager, etc.)
+     *  have been migrated to the new sub-folder layout in a follow-up commit.
+     *  Default false; user must explicitly enable in Settings before the
+     *  trigger in plugin.onload picks it up. */
+    _layoutMigrationOptIn?: boolean;
 
     // Task Extraction (FEATURE-100, ADR-026/027/028)
     taskExtraction: import('../core/tasks/types').TaskExtractionSettings;
@@ -1145,6 +1183,21 @@ export interface VaultIngestSettings {
         ingestDeepNoteTemplate: string;
         /** Vault-relativer Pfad. Default leer -> bundled `meeting-notiz-template.md`. Genutzt von /meeting-summary. */
         meetingSummaryTemplate: string;
+        /**
+         * FEAT-29-14: Sense-Making-Note- / Zettel-Template fuer die
+         * sekundaeren Output-Notes von /ingest und /ingest-deep
+         * (Default-Kategorie "Quellen-Notiz"). Vault-relativer Pfad,
+         * default leer -> bundled `Notiz Template.md`.
+         */
+        quellenNotizTemplate: string;
+        /**
+         * FEAT-29-14: Sprache des materialisierten Template-Sets.
+         * Wird im FirstRunWizardModal abgefragt und steuert welche
+         * Variante aus `BUNDLED_NOTE_TEMPLATES` gezogen wird. Werte
+         * ausserhalb von 'de'/'en' triggern LLM-Uebersetzung bei
+         * der Materialisierung. Default leer = noch nicht entschieden.
+         */
+        templatesLanguage: string;
     };
 }
 
@@ -1160,6 +1213,21 @@ If the summary would be longer, shorten it aggressively.
 Also produce 5-10 keywords in hyphenated style ("word1-word2", max two joined words). Prefer the English form for technical terms (e.g. "AI-agent" not "KI-Agent"). Mixed-language vaults: stick to the language of the note for the keywords.
 
 Suggest 2-3 entries for "Themen" (topics) and 2-3 entries for "Konzepte" (concepts) matching the note. Search the vault first for matching existing topics and concepts; only create a new entry if none fits.`;
+
+/**
+ * AUDIT-024 L-2: single source of truth for the ingest-templates sub-shape.
+ * VaultTab onChange handlers reuse this via spread to keep the migration
+ * fallback consistent when a new template-field is added.
+ */
+export function DEFAULT_INGEST_TEMPLATES(): VaultIngestSettings['templates'] {
+    return {
+        ingestNoteTemplate: '',
+        ingestDeepNoteTemplate: '',
+        meetingSummaryTemplate: '',
+        quellenNotizTemplate: '',
+        templatesLanguage: '',
+    };
+}
 
 export const DEFAULT_VAULT_INGEST_SETTINGS: VaultIngestSettings = {
     summaryPrompt: {
@@ -1183,11 +1251,7 @@ export const DEFAULT_VAULT_INGEST_SETTINGS: VaultIngestSettings = {
         enabled: false,
         privacyAcknowledged: false,
     },
-    templates: {
-        ingestNoteTemplate: '',
-        ingestDeepNoteTemplate: '',
-        meetingSummaryTemplate: '',
-    },
+    templates: DEFAULT_INGEST_TEMPLATES(),
     stufe2Hint: {
         enabled: false,
         hintThresholdScore: 70,
@@ -1210,6 +1274,57 @@ export interface PluginApiSettings {
      * Only relevant for methods NOT in the built-in allowlist.
      */
     safeMethodOverrides: Record<string, boolean>;
+    /**
+     * FEAT-29-07: default timeout in ms for plugin API calls. Falls back
+     * to 10000 when unset. Hard-capped at 300000 (5 min) by the resolver
+     * to prevent endless hangs.
+     */
+    defaultTimeoutMs?: number;
+    /**
+     * FEAT-29-07: per-plugin timeout override in ms. Wins over default
+     * when set. Same 5-min hard cap.
+     * Key: pluginId (e.g. "dataview"), value: timeout in ms.
+     */
+    pluginTimeoutMs?: Record<string, number>;
+    /**
+     * FEAT-29-07: when true, every successful user-approval of a Tier-2
+     * (dynamically discovered) method increments approvalCounts; once
+     * the threshold is reached AND the method name matches the read
+     * heuristic (get/list/find/query/..), the method is promoted into
+     * safeMethodOverrides so subsequent calls no longer prompt.
+     */
+    autoPromotionEnabled?: boolean;
+    /** FEAT-29-07: number of approvals before auto-promotion. Default 3. */
+    autoPromotionThreshold?: number;
+    /**
+     * FEAT-29-07: per-method approval counter for auto-promotion.
+     * Key: "pluginId:methodName", value: integer approval count.
+     */
+    approvalCounts?: Record<string, number>;
+}
+
+/**
+ * FEAT-29-12 Backup/Export-Tool settings.
+ *   exportSecretsAllowed -- opt-in: when true, manual exports may include
+ *     API keys. Default false. Auto-daily backups ALWAYS strip secrets
+ *     regardless of this flag (a backup that the user did not explicitly
+ *     trigger must not carry credentials).
+ *   autoDailyEnabled -- when true, the plugin runs one selective backup
+ *     per 24h on plugin boot.
+ *   autoDailyTargetPath -- vault-relative folder for auto-daily ZIPs.
+ *     Defaults to .vault-operator/cache/backups so it stays out of
+ *     Obsidian's vault view by default.
+ *   retentionCount -- keep at most N auto-daily backups; older ones are
+ *     pruned on the next auto-daily run.
+ *   lastAutoBackupAt -- timestamp (ms epoch) of the last successful
+ *     auto-daily backup. Used to gate the 24h interval.
+ */
+export interface BackupSettings {
+    exportSecretsAllowed: boolean;
+    autoDailyEnabled: boolean;
+    autoDailyTargetPath: string;
+    retentionCount: number;
+    lastAutoBackupAt: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -1465,9 +1580,22 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         skillToggles: {},
         lastScanAt: '',
     },
+    skillVersioning: { retentionCount: 20 },
+    backup: {
+        exportSecretsAllowed: false,
+        autoDailyEnabled: false,
+        autoDailyTargetPath: '.vault-operator/cache/backups',
+        retentionCount: 7,
+        lastAutoBackupAt: 0,
+    },
     pluginApi: {
         enabled: true,
         safeMethodOverrides: {},
+        defaultTimeoutMs: 10_000,
+        pluginTimeoutMs: {},
+        autoPromotionEnabled: true,
+        autoPromotionThreshold: 3,
+        approvalCounts: {},
     },
     recipes: {
         enabled: true,

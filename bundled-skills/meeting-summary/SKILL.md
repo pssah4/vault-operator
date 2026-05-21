@@ -4,6 +4,7 @@ description: Compact summary of a transcript note that stays digestible in under
 trigger: meeting.*summary|meeting.*zusammenfassung|protokoll|transkript.*zusammenfassung|gespraechsprotokoll|besprechung.*notiz
 source: bundled
 requiredTools: [read_file]
+allowedTools: [read_file, edit_file, write_file, append_to_file, search_files, update_todo_list, attempt_completion]
 ---
 
 # /meeting-summary -- Transkript-Zusammenfassung mit Block-Refs

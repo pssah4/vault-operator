@@ -107,21 +107,44 @@ function generateInlineAssets() {
     writeFileSync(join(outDir, "bundled-workers.ts"), workerLines.join("\n") + "\n");
 
     // ---- Skills ---------------------------------------------------------
+    // FEAT-29-11: Recursive scan so built-in skills can ship the same
+    // folder layout as user skills (scripts/, references/, assets/).
+    // Keys are POSIX-style relative paths within the skill folder
+    // (e.g. "SKILL.md", "scripts/foo.js"). Binary files under assets/
+    // are base64-encoded with a `__b64__` key suffix.
     const skills = {};
     let skillCount = 0;
+    const TEXT_EXTENSIONS = new Set([
+        ".md", ".txt", ".json", ".js", ".ts", ".mjs", ".cjs",
+        ".yaml", ".yml", ".html", ".css", ".xml", ".csv",
+    ]);
+    function walkSkill(dir, relPrefix, files) {
+        for (const entry of readdirSync(dir)) {
+            if (entry.startsWith('.')) continue;
+            const full = join(dir, entry);
+            const rel = relPrefix ? `${relPrefix}/${entry}` : entry;
+            if (statSync(full).isDirectory()) {
+                walkSkill(full, rel, files);
+                continue;
+            }
+            const ext = entry.slice(entry.lastIndexOf('.')).toLowerCase();
+            if (TEXT_EXTENSIONS.has(ext)) {
+                files[rel] = readFileSync(full, "utf-8");
+            } else {
+                // Binary asset: encode as base64 with marker suffix so
+                // the materializer knows to decode before writing.
+                files[`${rel}__b64__`] = readFileSync(full).toString("base64");
+            }
+            skillCount++;
+        }
+    }
     const bundledSkillsDir = join(__dirname, "bundled-skills");
     if (existsSync(bundledSkillsDir)) {
         for (const skillDir of readdirSync(bundledSkillsDir)) {
             const srcDir = join(bundledSkillsDir, skillDir);
             if (!statSync(srcDir).isDirectory()) continue;
             const files = {};
-            for (const file of readdirSync(srcDir)) {
-                if (file.startsWith('.')) continue;
-                const filePath = join(srcDir, file);
-                if (statSync(filePath).isDirectory()) continue;
-                files[file] = readFileSync(filePath, "utf-8");
-                skillCount++;
-            }
+            walkSkill(srcDir, "", files);
             if (Object.keys(files).length > 0) skills[skillDir] = files;
         }
     }
@@ -148,13 +171,25 @@ function generateInlineAssets() {
             pptxCount++;
         }
     }
+    // FEAT-29-14: Note templates are language-segmented so the FirstRun
+    // wizard can materialize the user-preferred set into the vault's
+    // Obsidian-Core-Templates folder. Directory layout:
+    //   bundled-templates/notes/{lang}/{Display Name}.md
+    // The filename (with extension) is the materialized filename, the
+    // outer key is the BCP-47-ish lang code (currently 'de' and 'en').
     const noteTemplates = {};
     let noteCount = 0;
     const noteTemplatesSrc = join(__dirname, "bundled-templates/notes");
     if (existsSync(noteTemplatesSrc)) {
-        for (const f of readdirSync(noteTemplatesSrc).filter(f => f.endsWith(".md"))) {
-            noteTemplates[f] = readFileSync(join(noteTemplatesSrc, f), "utf-8");
-            noteCount++;
+        for (const langEntry of readdirSync(noteTemplatesSrc)) {
+            const langDir = join(noteTemplatesSrc, langEntry);
+            if (!statSync(langDir).isDirectory()) continue;
+            const perLang = {};
+            for (const f of readdirSync(langDir).filter(f => f.endsWith(".md"))) {
+                perLang[f] = readFileSync(join(langDir, f), "utf-8");
+                noteCount++;
+            }
+            if (Object.keys(perLang).length > 0) noteTemplates[langEntry] = perLang;
         }
     }
     writeFileSync(
@@ -166,8 +201,16 @@ function generateInlineAssets() {
             "/** Themed PPTX templates, base64 encoded. Keys are themeName (e.g. 'minimal', 'modern'). */",
             "export const PPTX_TEMPLATES_BASE64: Record<string, string> = " + JSON.stringify(pptxTemplates, null, 2) + ";",
             "",
-            "/** Note templates (markdown) used by /ingest, /ingest-deep, /meeting-summary. */",
-            "export const NOTE_TEMPLATES: Record<string, string> = " + JSON.stringify(noteTemplates, null, 2) + ";",
+            "/**",
+            " * Note templates (markdown) used by /ingest, /ingest-deep, /meeting-summary.",
+            " *",
+            " * FEAT-29-14: shape is `Record<lang, Record<filename, content>>`. The",
+            " * filename includes the .md extension and is the literal name the",
+            " * materializer writes into the user's Obsidian-Core-Templates folder.",
+            " * Languages: 'de', 'en'. Anything else triggers LLM-translation at",
+            " * materialization time.",
+            " */",
+            "export const BUNDLED_NOTE_TEMPLATES: Record<string, Record<string, string>> = " + JSON.stringify(noteTemplates, null, 2) + ";",
             "",
         ].join("\n"),
     );
@@ -537,8 +580,16 @@ const mainBuildOptions = {
                             // load them without going through the install flow.
                             // VAULT_PLUGIN_DIR ends with .obsidian/plugins/<id>/
                             // so the vault root is three levels up.
+                            //
+                            // FEAT-29-01: prefer .vault-operator/cache/assets/
+                            // when the consolidated layout exists (post-migration
+                            // location). Fall back to the legacy .vault-operator/
+                            // assets/ path for pre-migration dev vaults.
                             const vaultRoot = join(VAULT_PLUGIN_DIR, "..", "..", "..");
-                            const assetDir = join(vaultRoot, ".vault-operator", "assets");
+                            const cacheAssetDir = join(vaultRoot, ".vault-operator", "cache", "assets");
+                            const legacyAssetDir = join(vaultRoot, ".vault-operator", "assets");
+                            const useCacheLayout = existsSync(join(vaultRoot, ".vault-operator", "cache"));
+                            const assetDir = useCacheLayout ? cacheAssetDir : legacyAssetDir;
                             if (!existsSync(assetDir)) mkdirSync(assetDir, { recursive: true });
                             for (const name of ["office-bundle.js", "pdfjs-bundle.js"]) {
                                 if (!existsSync(name)) continue;

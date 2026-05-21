@@ -151,7 +151,11 @@ function getCategories(plugin: ObsidianAgentPlugin): BackupCategory[] {
             label: t('settings.backup.catPluginSkills'),
             root: 'vault',
             dir: pluginSkillsDir,
-            recursive: false,
+            // FEAT-29-02: post-Welle-1 each plugin lives in its own sub-folder
+            // (data/skills/plugin/{id}/SKILL.md + references/). Walk recursively
+            // so the backup captures the whole tree. Pre-Welle-1 (flat .skill.md)
+            // recursive=true is also safe (no sub-folders).
+            recursive: true,
             description: t('settings.backup.catPluginSkillsDesc'),
         },
         {
@@ -239,7 +243,61 @@ export class BackupTab {
 
         this.buildExportSection(containerEl);
         this.buildImportSection(containerEl);
+        this.buildAutoBackupSection(containerEl);
         this.buildLegacyMigrationsSection(containerEl);
+    }
+
+    /**
+     * FEAT-29-12: auto-daily backup toggle + retention + last-run readout.
+     * Live ZIPs land under .vault-operator/cache/backups/, separate from
+     * the manual export path. Secrets are ALWAYS stripped, regardless of
+     * the manual export setting.
+     */
+    private buildAutoBackupSection(container: HTMLElement): void {
+        const section = container.createDiv('agent-backup-section');
+        section.createEl('h4', { text: 'Auto-daily backup' });
+        section.createEl('p', {
+            cls: 'agent-settings-desc',
+            text: 'When enabled, the plugin writes one selective backup ZIP every 24 hours into '
+                + '.vault-operator/cache/backups/. Secrets are always stripped from these files. '
+                + 'Older backups beyond the retention count are pruned automatically.',
+        });
+
+        const backupSettings = this.plugin.settings.backup ?? DEFAULT_SETTINGS.backup!;
+        if (!this.plugin.settings.backup) {
+            this.plugin.settings.backup = { ...backupSettings };
+        }
+
+        new Setting(section)
+            .setName('Enable daily auto-backup')
+            .setDesc('Default off. Backups run 60 seconds after plugin boot, then once per 24h.')
+            .addToggle((t) => t
+                .setValue(this.plugin.settings.backup!.autoDailyEnabled)
+                .onChange(async (v) => {
+                    this.plugin.settings.backup!.autoDailyEnabled = v;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(section)
+            .setName('Retention count')
+            .setDesc('Number of auto-backups to keep. Older ones are pruned on the next run.')
+            .addText((t) => t
+                .setValue(String(this.plugin.settings.backup!.retentionCount))
+                .onChange(async (v) => {
+                    const n = parseInt(v, 10);
+                    if (!Number.isFinite(n) || n < 1) return;
+                    this.plugin.settings.backup!.retentionCount = n;
+                    await this.plugin.saveSettings();
+                }));
+
+        const last = this.plugin.settings.backup!.lastAutoBackupAt;
+        if (last > 0) {
+            const when = new Date(last).toLocaleString();
+            section.createEl('p', {
+                cls: 'agent-settings-desc',
+                text: `Last auto-backup: ${when}`,
+            });
+        }
     }
 
     /**

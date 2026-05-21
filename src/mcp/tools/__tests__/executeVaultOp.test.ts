@@ -87,7 +87,9 @@ describe('handleExecuteVaultOp -- pipeline-routed (AUDIT-013 C-1 proper)', () =>
         'new_task',
         'update_todo_list',
         'update_settings',
-        'manage_skill',
+        // manage_skill removed in FEAT-29-05 (skill-creator builtin took
+        // over). The tool no longer exists, so it falls through the
+        // "agent-internal" filter into "Unknown operation".
         'enable_plugin',
         'call_plugin_api',
     ])('rejects agent-internal tool %s before pipeline', async (op) => {

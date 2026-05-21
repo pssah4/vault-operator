@@ -24,6 +24,11 @@ import { AppendToFileTool } from './vault/AppendToFileTool';
 import { CreateFolderTool } from './vault/CreateFolderTool';
 import { DeleteFileTool } from './vault/DeleteFileTool';
 import { MoveFileTool } from './vault/MoveFileTool';
+// Import tools — vault: checkpoints (IMP-01-07-01)
+import { ListCheckpointsTool } from './vault/ListCheckpointsTool';
+import { ReadCheckpointTool } from './vault/ReadCheckpointTool';
+import { DiffCheckpointTool } from './vault/DiffCheckpointTool';
+import { RestoreCheckpointTool } from './vault/RestoreCheckpointTool';
 import { IngestDocumentTool } from './vault/IngestDocumentTool';
 import { IngestTriageTool } from './vault/IngestTriageTool';
 import { IngestDeepTool } from './vault/IngestDeepTool';
@@ -78,6 +83,11 @@ import { ReadSkillTool } from './agent/ReadSkillTool';
 import { ExecuteCommandTool } from './agent/ExecuteCommandTool';
 import { ResolveCapabilityGapTool } from './agent/ResolveCapabilityGapTool';
 import { EnablePluginTool } from './agent/EnablePluginTool';
+import { ProbePluginTool } from './agent/ProbePluginTool';
+import { RunSkillScriptTool } from './agent/RunSkillScriptTool';
+// FEAT-29-10: composability tools (skill-to-skill, skill-to-mcp).
+import { InvokeSkillTool } from './agent/InvokeSkillTool';
+import { InvokeMcpServerTool } from './agent/InvokeMcpServerTool';
 // Plugin API + Recipe Shell (PAS-1.5)
 import { CallPluginApiTool } from './agent/CallPluginApiTool';
 import { ExecuteRecipeTool } from './agent/ExecuteRecipeTool';
@@ -93,7 +103,6 @@ import { ReadAgentLogsTool } from './agent/ReadAgentLogsTool';
 import { ManageMcpServerTool } from './agent/ManageMcpServerTool';
 import type { ConsoleRingBuffer } from '../observability/ConsoleRingBuffer';
 // Self-Development (Phase 2)
-import { ManageSkillTool } from './agent/ManageSkillTool';
 import type { SelfAuthoredSkillLoader } from '../skills/SelfAuthoredSkillLoader';
 // Self-Development (Phase 3)
 import { EvaluateExpressionTool } from './agent/EvaluateExpressionTool';
@@ -170,6 +179,11 @@ export class ToolRegistry {
         this.register(new CreateFolderTool(this.plugin));
         this.register(new DeleteFileTool(this.plugin));
         this.register(new MoveFileTool(this.plugin));
+        // Vault: checkpoints (IMP-01-07-01) -- agent-facing browse + restore
+        this.register(new ListCheckpointsTool(this.plugin));
+        this.register(new ReadCheckpointTool(this.plugin));
+        this.register(new DiffCheckpointTool(this.plugin));
+        this.register(new RestoreCheckpointTool(this.plugin));
         // Vault: intelligence (Phase 1.2)
         this.register(new GetFrontmatterTool(this.plugin));
         this.register(new UpdateFrontmatterTool(this.plugin));
@@ -227,6 +241,8 @@ export class ToolRegistry {
         this.register(new ExecuteCommandTool(this.plugin));
         this.register(new ResolveCapabilityGapTool(this.plugin));
         this.register(new EnablePluginTool(this.plugin));
+        // FEAT-29-03: probe_plugin live state (commands + api methods).
+        this.register(new ProbePluginTool(this.plugin));
         // Plugin API + Recipe Shell (PAS-1.5)
         this.register(new CallPluginApiTool(this.plugin));
         this.register(new ExecuteRecipeTool(this.plugin));
@@ -240,12 +256,21 @@ export class ToolRegistry {
         if (mcpClient) {
             this.register(new ManageMcpServerTool(this.plugin, mcpClient));
         }
-        // Self-Development (Phase 2+3: unified skills with optional code modules)
-        if (skillLoader) {
-            this.register(new ManageSkillTool(
-                this.plugin, skillLoader, esbuildManager, sandboxExecutor, this,
-            ));
+        // FEAT-29-05: ManageSkillTool removed. Skill authoring now flows
+        // through the skill-creator builtin skill plus the standard file
+        // tools (write_file, read_file) and run_skill_script for helpers.
+        // FEAT-29-06: generic skill-script executor (replaces code_modules
+        // / custom_*-tool registration pattern). Gated on sandbox + esbuild
+        // availability so headless or mobile builds without those
+        // components still load.
+        if (sandboxExecutor && esbuildManager) {
+            this.register(new RunSkillScriptTool(this.plugin));
         }
+        // FEAT-29-10: composability tools. Always registered; runtime
+        // gates (spawnSubtask available, mcpClient configured,
+        // compositionStack present) are enforced inside the tools.
+        this.register(new InvokeSkillTool(this.plugin));
+        this.register(new InvokeMcpServerTool(this.plugin));
         // Self-Development (Phase 3: expression evaluation)
         if (sandboxExecutor && esbuildManager) {
             this.register(new EvaluateExpressionTool(this.plugin, sandboxExecutor, esbuildManager));

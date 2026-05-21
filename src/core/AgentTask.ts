@@ -30,6 +30,10 @@ import { isDeferredTool } from './tools/toolMetadata';
 import { getSubagentProfile } from './agent/subagent-profiles';
 import { getHelperApi } from './helper-api';
 import { buildApiHandlerForModel } from '../api';
+import { CompositionStackService } from './skills/CompositionStackService';
+
+/** FEAT-29-10: max composition-stack depth (skill -> skill / mcp chains). */
+const COMPOSITION_MAX_DEPTH = 5;
 
 export interface AgentTaskCallbacks {
     /** Called at the start of each agentic loop iteration (0 = first/user message, 1+ = after tools) */
@@ -202,6 +206,13 @@ export class AgentTask {
      * `override`.
      */
     private modelOverrideActive: boolean;
+    /**
+     * FEAT-29-10 Composability: shared cycle + depth tracker for
+     * invoke_skill / invoke_mcp_server. The top-level task creates a
+     * new instance; spawned subtasks inherit the parent's stack by
+     * reference so the chain is visible across hops.
+     */
+    private compositionStack: CompositionStackService;
 
     constructor(
         api: ApiHandler,
@@ -219,6 +230,7 @@ export class AgentTask {
         microcompactionEnabled = true,
         rollingSummaryThreshold = 50,
         modelOverrideActive = false,
+        compositionStack?: CompositionStackService,
     ) {
         this.api = api;
         this.toolRegistry = toolRegistry;
@@ -235,6 +247,7 @@ export class AgentTask {
         this.microcompactionEnabled = microcompactionEnabled;
         this.rollingSummaryThreshold = rollingSummaryThreshold;
         this.modelOverrideActive = modelOverrideActive;
+        this.compositionStack = compositionStack ?? new CompositionStackService(COMPOSITION_MAX_DEPTH);
     }
 
     /**
@@ -523,7 +536,12 @@ export class AgentTask {
         const childDepth = this.depth + 1;
         const childCanSpawn = childDepth < this.maxSubtaskDepth;
 
-        const spawnSubtask = async (childMode: string, childMessage: string, profileName?: string): Promise<string> => {
+        const spawnSubtask = async (
+            childMode: string,
+            childMessage: string,
+            profileName?: string,
+            overrides?: import('./tools/types').SubtaskSpawnOverrides,
+        ): Promise<string> => {
             const childHistory: MessageParam[] = [];
             let childText = '';
 
@@ -532,6 +550,12 @@ export class AgentTask {
             // allowlist and the parent's rules / mcp / plugin-skills set is
             // dropped (the profile is the explicit scope).
             const profile = profileName ? getSubagentProfile(profileName) : undefined;
+
+            // FEAT-29-10 follow-up: per-spawn caps. `maxIterations` shortens
+            // the child loop; `allowedTools` further narrows the child's tool
+            // schema. Overrides win over profile defaults.
+            const effectiveMaxIterations = overrides?.maxIterations ?? this.maxIterations;
+            const effectiveAllowedTools = overrides?.allowedTools ?? profile?.allowedTools;
 
             // EPIC-26 / ADR-120: tier override + output cap. When the profile
             // pins a tier (research=fast, advisor=flagship), build a fresh
@@ -593,11 +617,13 @@ export class AgentTask {
                 this.consecutiveMistakeLimit,
                 this.rateLimitMs,
                 // Subtasks don't condense or power-steer (keep child loops lean)
-                false, 80, 0, this.maxIterations,
+                false, 80, 0, effectiveMaxIterations,
                 childDepth,             // propagate nesting depth
                 this.maxSubtaskDepth,   // propagate limit
                 this.microcompactionEnabled, // FEAT-24-02: cheap tool_result pruning still applies
                 this.rollingSummaryThreshold, // unused while condensing is off, kept for completeness
+                false, // modelOverrideActive: subtasks inherit, override flag is per-turn
+                this.compositionStack, // FEAT-29-10: share stack by reference
             );
 
             await childTask.run({
@@ -617,7 +643,7 @@ export class AgentTask {
                 allowedMcpServers: profile ? undefined : allowedMcpServers,
                 pluginSkillsSection: profile ? undefined : pluginSkillsSection,
                 subagentRoleOverride: profile?.roleDefinition,
-                subagentAllowedTools: profile?.allowedTools,
+                subagentAllowedTools: effectiveAllowedTools,
                 configDir,
             });
             return childText;
@@ -1106,6 +1132,8 @@ export class AgentTask {
                         switchMode,
                         // Depth-guard: only wire spawnSubtask if this child is allowed to spawn
                         spawnSubtask: childCanSpawn ? spawnSubtask : undefined,
+                        // FEAT-29-10: composability stack shared across the chain.
+                        compositionStack: this.compositionStack,
                         consumeAdvisorSlot,
                         onApprovalRequired: this.taskCallbacks.onApprovalRequired,
                         updateTodos: this.taskCallbacks.onTodoUpdate,

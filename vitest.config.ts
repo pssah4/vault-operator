@@ -4,7 +4,15 @@ import path from 'path';
 export default defineConfig({
     test: {
         environment: 'node',
-        include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
+        include: [
+            'src/**/__tests__/**/*.test.ts',
+            'src/**/*.test.ts',
+            // FEAT-29-08: skill-translator ships its dry-run + translate
+            // helpers as plain .js under bundled-skills/. Tests live next
+            // to the scripts so the rule for new bundled-skill helpers is
+            // visible from one place.
+            'bundled-skills/**/__tests__/**/*.test.js',
+        ],
         globals: false,
         setupFiles: [path.resolve(__dirname, 'src/__test-stubs__/safeFsSetup.ts')],
     },

@@ -23,9 +23,7 @@ import {
     findAllowedMethod,
     BLOCKED_METHODS,
 } from './pluginApiAllowlist';
-
-/** Default timeout for API calls (ms) */
-const API_CALL_TIMEOUT = 10_000;
+import { resolveTimeoutMs } from './pluginApiAdaptive';
 
 /** Default max return size when not specified in allowlist */
 const DEFAULT_MAX_RETURN_SIZE = 50_000;
@@ -184,11 +182,14 @@ export class CallPluginApiTool extends BaseTool<'call_plugin_api'> {
             // (the pipeline handles approval based on the tool group)
         }
 
-        // 6. Execute with timeout
+        // 6. Execute with timeout. FEAT-29-07: per-plugin timeout overrides
+        // (defaults to 10s, max 5 min) so Dataview / Omnisearch can run
+        // longer queries without hitting a hard 10s cap.
+        const timeoutMs = resolveTimeoutMs(this.plugin.settings.pluginApi, pluginId);
         try {
             const resultPromise = Promise.resolve(api[method](...args));
             const timeoutPromise = new Promise<never>((_, reject) =>
-                window.setTimeout(() => reject(new Error(`API call timed out after ${API_CALL_TIMEOUT}ms`)), API_CALL_TIMEOUT),
+                window.setTimeout(() => reject(new Error(`API call timed out after ${timeoutMs}ms`)), timeoutMs),
             );
 
             const result = await Promise.race([resultPromise, timeoutPromise]);

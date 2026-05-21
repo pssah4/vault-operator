@@ -1,6 +1,6 @@
 ---
 name: knowledge-rename
-description: Batch-Umbenennung von Attachments (PDFs, Bilder) nach Konventionen. Autor-Jahr_Titel fuer Quellen, Kontext-basiert fuer Bilder.
+description: Batch-rename attachments (PDFs, images) by convention. Author-Year_Title for sources, context-based for images.
 trigger: umbenennen|rename|dateiname|attachment.*name|benenne.*um|name.*korrig
 source: bundled
 requiredTools: [list_files, read_file, read_document, semantic_search, move_file]

@@ -132,7 +132,12 @@ settings                  | src/types/settings.ts                               
 model-registry            | src/types/model-registry.ts                           | ADR-115, ADR-120, ADR-121 | new model output ceiling or budget helper: extend normalizeModelId / getModelOutputCeiling / resolveOutputBudget
 
 # SKILLS / VAULT DNA / MASTERY
-vault-dna                 | src/core/skills/VaultDNAScanner.ts                    | ADR-14          | new heuristic: extend scanner rule set
+vault-dna                 | src/core/skills/VaultDNAScanner.ts                    | ADR-14, ADR-124 | new heuristic: extend scanner rule set; FEAT-29-02 writes Anthropic folder/SKILL.md when _layoutMigrationStatus=complete, legacy .skill.md otherwise; FEAT-29-03 polling 2s + workspace.layout-change event hook via triggerImmediateSync
+probe-plugin              | src/core/tools/agent/ProbePluginTool.ts               | ADR-124         | new probe heuristic: extend reflectApiMethods filter; tool returns live commands+api for a plugin id (FEAT-29-03)
+run-skill-script          | src/core/tools/agent/RunSkillScriptTool.ts            | ADR-126         | generic executor for skills/{name}/scripts/*.js -- replaces code_modules / custom_*-tool pattern. Bundle cache: src/core/sandbox/RunSkillScriptCache.ts (FEAT-29-06)
+skill-translator          | bundled-skills/skill-translator/SKILL.md              | ADR-127         | Python-to-JavaScript skill translator. Dry-run pass + mapping table at references/mapping.json. Dry-run + translate scripts under scripts/. Built-in tool reroute for binary formats (PDF/DOCX/PPTX/XLSX). User-modal at src/ui/modals/PartialTranslationModal.ts before write on partial verdict. TaskRouter pattern: COMPLEX_SKILL_TRANSLATION_RE escalates to flagship (FEAT-29-08)
+backup-export-tool        | src/core/backup/                                      | -                | Selective ZIP backup of plugin state. UI: src/ui/settings/BackupTab.ts (manual export/import + auto-daily toggle). Pure logic: BackupExportService (collect/buildZip/unpackZip/SHA-256 manifest), BackupSecretFilter (recursive secret stripping), ImportConflictResolver (overwrite/skip/per-item), AutoBackupScheduler (24h gate + retention), AutoBackupRunner (orchestrator). Auto-daily backups land in .vault-operator/cache/backups/ with vault-operator-auto-{ISO}.zip pattern, always secret-stripped (FEAT-29-12)
+plugin-api-allowlist      | src/core/tools/agent/pluginApiAllowlist.ts            | -                | Built-in Tier-1 allowlist with isWrite flags. Tier-2 (dynamically discovered by VaultDNAScanner) starts as isWrite=true. FEAT-29-07: src/core/tools/agent/pluginApiAdaptive.ts adds per-plugin timeout overrides (resolveTimeoutMs) + auto-promotion after N approvals (recordApprovalAndMaybePromote, isWrite-heuristic classifyMethodIsWrite for get/list/find/query/... prefixes). ToolExecutionPipeline.maybeAutoPromotePluginApi hooks the approval flow.
 self-authored-skills      | src/core/skills/SelfAuthoredSkillLoader.ts            | ADR-09, ADR-75 | new skill format: extend SKILL.md parser
 core-plugin-library       | src/core/skills/CorePluginLibrary.ts                  | ADR-14          | new core skill: add metadata entry plus skill file
 mastery                   | src/core/mastery/RecipePromotionService.ts            | ADR-17, ADR-58 | new promotion rule: extend RecipePromotionService heuristics (embedding-based intent matching)
@@ -293,3 +298,14 @@ ADR-120 | modell-routing        | Advisor-Pattern als Loop-Default (consult_flag
 ADR-121 | modell-routing        | Tier-Klassifikator-Strategie (Pattern + Capability + OpenRouter-Pricing)
 ADR-122 | provider-config       | Provider-only Settings-Schema (providers[]-Liste mit tierMapping)
 ADR-123 | settings-migration    | Settings-Schema-Migration und Recovery-Pfad
+ADR-119 | agent-folder          | Plugin-Daten-Ordner-Konsolidierung auf einen kanonischen Pfad (EPIC-29)
+ADR-119 | layout-migration       | src/core/utils/migrateAgentLayout.ts -- 10-Phasen idempotent + resumable, FEAT-29-01
+ADR-119 | layout-aware-helpers   | src/core/utils/agentFolder.ts -- getPluginSkillsDir/getTmpRoot/getVaultDnaPath/getSelfAuthoredSkillsDir flip auf data/cache wenn _layoutMigrationStatus=complete
+ADR-119 | global-fs-relocator    | src/core/storage/GlobalFileService.ts:useVaultLocalRoot -- nach Migration zeigt globalFs.getRoot() auf {vault}/.vault-operator/data
+ADR-119 | layout-migration-ui    | src/ui/settings/VaultTab.ts:buildLayoutMigrationSection -- Run-Migration / Reset-Pfad / chatHistoryFolder-Notice
+ADR-124 | skill-discovery       | Plugin-as-Skill Live-Probe Discovery statt periodischem Polling (EPIC-29)
+ADR-125 | execute-command       | Execution Visibility fuer Plugin-Commands via Notice-Capture (EPIC-29)
+ADR-126 | skill-authoring       | Skill-Authoring als Builtin-Skill statt CRUD-Tool plus run_skill_script (EPIC-29)
+ADR-127 | skill-translator      | Python-zu-JavaScript Skill-Translation mit Dry-Run-Pass (EPIC-29)
+ADR-128 | skill-versioning      | Skill-Versionierung mit Diff-basiertem Snapshot und Restore (EPIC-29)
+ADR-129 | skill-composability   | Skill-Composability mit Skill-zu-Skill und Skill-zu-MCP-Aufrufen (EPIC-29)

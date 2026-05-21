@@ -95,7 +95,7 @@ export function renderOptionalAssetBlock(opts: OptionalAssetBlockOptions): void 
     if (opts.allowInstallFromFile) {
         setting.addButton((btn) => {
             btn.setButtonText('Install from file')
-                .setCta()
+                
                 .onClick(async () => {
                     const { pickAndInstallAsset } = await import('./installFromFile');
                     pickAndInstallAsset(manager, spec, async () => {
@@ -111,7 +111,7 @@ export function renderOptionalAssetBlock(opts: OptionalAssetBlockOptions): void 
     setting.addButton((btn) => {
         installBtn = btn.buttonEl;
         btn.setButtonText('Install')
-            .setCta()
+            
             .onClick(async () => {
                 btn.setDisabled(true);
                 btn.setButtonText('Downloading...');
@@ -139,7 +139,7 @@ export function renderOptionalAssetBlock(opts: OptionalAssetBlockOptions): void 
     setting.addButton((btn) => {
         removeBtn = btn.buttonEl;
         btn.setButtonText('Remove')
-            .setWarning()
+            
             .onClick(async () => {
                 btn.setDisabled(true);
                 try {

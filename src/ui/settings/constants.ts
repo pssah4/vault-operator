@@ -188,6 +188,10 @@ function getToolLabelMap(): Record<string, { label: string; desc: string }> {
         create_folder:          { label: t('tool.create_folder'),          desc: t('tool.create_folder.desc') },
         delete_file:            { label: t('tool.delete_file'),            desc: t('tool.delete_file.desc') },
         move_file:              { label: t('tool.move_file'),              desc: t('tool.move_file.desc') },
+        list_checkpoints:       { label: t('tool.list_checkpoints'),       desc: t('tool.list_checkpoints.desc') },
+        read_checkpoint:        { label: t('tool.read_checkpoint'),        desc: t('tool.read_checkpoint.desc') },
+        diff_checkpoint:        { label: t('tool.diff_checkpoint'),        desc: t('tool.diff_checkpoint.desc') },
+        restore_checkpoint:     { label: t('tool.restore_checkpoint'),     desc: t('tool.restore_checkpoint.desc') },
         update_frontmatter:     { label: t('tool.update_frontmatter'),     desc: t('tool.update_frontmatter.desc') },
         generate_canvas:        { label: t('tool.generate_canvas'),        desc: t('tool.generate_canvas.desc') },
         create_base:            { label: t('tool.create_base'),            desc: t('tool.create_base.desc') },
@@ -208,7 +212,10 @@ function getToolGroupMeta(): Record<string, { label: string; desc: string; tools
         read:  {
             label: t('toolGroup.read'),
             desc: t('toolGroup.read.desc'),
-            tools: ['read_file', 'list_files', 'search_files'],
+            tools: [
+                'read_file', 'list_files', 'search_files',
+                'list_checkpoints', 'read_checkpoint', 'diff_checkpoint',
+            ],
         },
         vault: {
             label: t('toolGroup.vault'),
@@ -225,6 +232,7 @@ function getToolGroupMeta(): Record<string, { label: string; desc: string; tools
                 'write_file', 'edit_file', 'append_to_file', 'create_folder',
                 'delete_file', 'move_file', 'update_frontmatter',
                 'generate_canvas', 'create_base', 'update_base',
+                'restore_checkpoint',
             ],
         },
         web:   {

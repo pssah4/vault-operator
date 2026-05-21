@@ -403,15 +403,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     find_tool: {
         group: 'agent', label: 'Find Tool', icon: 'search',
         signature: 'find_tool(query)',
-        description: 'Discover and activate specialised tools not in the default schema. Use when you need office-format creation (pptx/docx/xlsx), diagrams (canvas/excalidraw/drawio), base queries, expression evaluation, skill/source management, or vault-health helpers. Keyword search (case-insensitive) ranks matches by name > label > description and activates the top results for the rest of the session.',
+        description: 'Discover and activate specialised tools not in the default schema. Use when you need office-format creation (pptx/docx/xlsx), diagrams (canvas/excalidraw/drawio), base queries, expression evaluation, source management, or vault-health helpers. Keyword search (case-insensitive) ranks matches by name > label > description and activates the top results for the rest of the session.',
         example: 'find_tool({ query: "pptx" })',
         whenToUse: 'The user asks for something the currently loaded tools do not cover — before giving up, try find_tool with a relevant keyword.',
         commonMistakes: 'Calling find_tool repeatedly for the same query. Once activated, the tool stays available; call it directly on the next turn.',
     },
     // FEAT-24-09 / ADR-116: load a SKILL.md body on demand. Always available
     // (group "read", NOT in DEFERRED_TOOL_NAMES) so loading a skill is one
-    // round-trip — extending manage_skill instead would have required
-    // find_tool first because manage_skill itself is deferred.
+    // round-trip.
     read_skill: {
         group: 'read', label: 'Read Skill', icon: 'book-open',
         signature: 'read_skill(name)',
@@ -430,12 +429,35 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'ONLY when built-in tools cannot do the job: batch processing across 5+ files, computations, complex data transforms, HTTP requests, npm packages. NEVER for single-file operations — use read_file + edit_file/write_file instead.',
         commonMistakes: 'Using sandbox for single-file edits instead of read_file + edit_file/write_file. Using sandbox for PPTX/DOCX/XLSX — use create_pptx/create_docx/create_xlsx instead. Writing Python. Using require()/fetch()/Blob/Buffer (not available).',
     },
-    manage_skill: {
-        group: 'agent', label: 'Manage Skill', icon: 'bookmark-plus',
-        signature: 'manage_skill(action, name, description?, trigger?, body?)',
-        description: 'Create, update, delete, list, validate, or read skill files (the editing/authoring path). Skills are persistent Markdown instruction sets that appear in the SKILLS directory; the agent loads a skill body for a task via the always-available read_skill tool. Use manage_skill only when changing or inspecting the file itself.',
-        whenToUse: 'After solving a novel problem: save the approach as a reusable skill so you can apply it instantly next time. Use read_skill to actually load and follow a skill.',
-        commonMistakes: 'Confusing skills with tools. Skills are instructions (how to approach a task), not executable code. Using manage_skill read to apply a skill -- use read_skill instead.',
+    // FEAT-29-05: manage_skill removed. Skill authoring now flows through
+    // the skill-creator builtin skill plus the standard file tools
+    // (write_file / read_file) and run_skill_script for helpers.
+    run_skill_script: {
+        group: 'agent', label: 'Run Skill Script', icon: 'play-circle',
+        signature: 'run_skill_script(skill_name, script_name, args?)',
+        description: 'Execute a JavaScript helper script that lives in a self-authored skill folder under scripts/{script_name}.js. The script must export `async function execute(args)`; the return value is JSON-serialized back to the tool_result. Replaces the legacy code_modules pattern (FEAT-29-06).',
+        example: 'run_skill_script("newsletter-digest", "aggregate", {"window_days": 7})',
+        whenToUse: 'For deterministic, repeatable steps the agent should not have to hallucinate each time (data aggregation, API calls, format conversion, binary file generation). The skill folder bundles the SKILL.md instructions WITH the scripts.',
+        commonMistakes: 'Calling for a one-off task that has no persisted script -- use evaluate_expression instead. Passing the path with a .js extension -- script_name is the bare name.',
+    },
+    // FEAT-29-10: composability tools. Skill workflows can name other
+    // skills or MCP-server tools as building blocks. Cycle detection and
+    // a max-depth limit (default 5) protect against runaway recursion.
+    invoke_skill: {
+        group: 'agent', label: 'Invoke Skill', icon: 'git-fork',
+        signature: 'invoke_skill(skill_name, args?)',
+        description: 'Run another skill as a sub-skill. The sub-skill executes in an isolated subtask (own conversation, own attempt_completion). Its final result is returned as the tool_result. Composition cycles and a max-depth of 5 are enforced.',
+        example: 'invoke_skill({ skill_name: "meeting-summary", args: { note: "2026-05-21.md" } })',
+        whenToUse: 'When the current skill\'s workflow explicitly names another skill as a building block. NOT for one-off questions that the current skill can answer itself.',
+        commonMistakes: 'Calling invoke_skill on a skill that does not exist (check the SKILLS directory in the system prompt or use read_skill). Recursing into the current skill -- the cycle guard will refuse it.',
+    },
+    invoke_mcp_server: {
+        group: 'agent', label: 'Invoke MCP Tool', icon: 'plug-2',
+        signature: 'invoke_mcp_server(server_id, tool_name, args?)',
+        description: 'Call a tool exposed by a configured MCP server as a first-class step inside a skill workflow. The MCP server\'s approval policy still applies. Composition cycles and a max-depth of 5 are enforced across skill <-> mcp transitions.',
+        example: 'invoke_mcp_server({ server_id: "notion", tool_name: "search_page", args: { query: "Q2 OKRs" } })',
+        whenToUse: 'When a skill workflow names an MCP-server tool as a building block. Equivalent to use_mcp_tool but participates in composition cycle/depth tracking.',
+        commonMistakes: 'Using when use_mcp_tool would do (one-off external call outside a skill workflow). Calling a server that is not configured -- run manage_mcp_server first.',
     },
     manage_mcp_server: {
         group: 'agent', label: 'Manage MCP', icon: 'plug-2',
@@ -510,6 +532,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         example: 'enable_plugin("obsidian-excalidraw-plugin", true)',
         whenToUse: 'When a disabled plugin is needed. Ask the user before enabling.',
         commonMistakes: 'Enabling without checking if installed — use resolve_capability_gap first.',
+    },
+    probe_plugin: {
+        group: 'skill', label: 'Probe Plugin', icon: 'scan-search',
+        signature: 'probe_plugin(plugin_id)',
+        description: 'Live read of a plugin\'s current commands and API methods. Use before the first call_plugin_api or execute_command on a freshly enabled plugin, or when the PLUGIN SKILLS section looks stale.',
+        example: 'probe_plugin("dataview")',
+        whenToUse: 'Just-enabled lazy plugin (Dataview, Templater), post-update command rename, or before first call to a plugin you have not used this session.',
+        commonMistakes: 'Skipping probe and guessing command IDs from the stale PLUGIN SKILLS list -- if a probe disagrees, trust the probe.',
     },
     call_plugin_api: {
         group: 'skill', label: 'Plugin API', icon: 'code',
@@ -659,7 +689,6 @@ export const DEFERRED_TOOL_NAMES: ReadonlySet<string> = new Set([
     'ingest_document',
     // Self-development + niche agent utilities
     'evaluate_expression',
-    'manage_skill',
     'manage_source',
     'manage_mcp_server',
     'resolve_capability_gap',

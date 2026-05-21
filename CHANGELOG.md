@@ -6,6 +6,7 @@ All notable changes to Vault Operator are documented here. Format follows
 
 ---
 
+
 ## [2.8.1] -- 2026-05-14
 
 ### Security (AUDIT-024 fix-loop)

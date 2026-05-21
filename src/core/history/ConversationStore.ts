@@ -64,6 +64,16 @@ export interface UiMessage {
      * messages and turns without tool calls omit it.
      */
     toolStepsHtml?: string;
+    /**
+     * Stable task id for assistant turns. Used by FIX-01-07-02 to
+     * re-render the checkpoint markers and undo-bar when an old
+     * conversation is re-opened (the sidebar otherwise only renders
+     * them inside the live taskCompleted path). Optional for
+     * backwards compatibility with pre-2026-05-19 stored conversations
+     * -- those messages still render, just without the checkpoint UI
+     * block.
+     */
+    taskId?: string;
 }
 
 export interface ConversationData {

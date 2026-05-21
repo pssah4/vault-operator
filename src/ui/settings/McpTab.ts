@@ -148,7 +148,7 @@ export class McpTab {
                 const deployStatusEl = containerEl.createDiv('setting-item-description');
 
                 deploySetting.addButton((btn) => {
-                    btn.setButtonText('Deploy').setCta().onClick(async () => {
+                    btn.setButtonText('Deploy').onClick(async () => {
                         const apiToken = this.plugin.settings.cloudflareApiToken;
                         if (!apiToken) {
                             new Notice('Please enter your API token first.');
@@ -281,7 +281,7 @@ export class McpTab {
                     .setName('Reset relay')
                     .setDesc('Remove the relay configuration. You will need to update the connector URL in your AI assistant after redeploying.')
                     .addButton((btn) => {
-                        btn.setButtonText('Reset').setWarning().onClick(async () => {
+                        btn.setButtonText('Reset').onClick(async () => {
                             this.plugin.mcpBridge?.disconnectRelay();
                             this.plugin.settings.relayUrl = '';
                             this.plugin.settings.relayToken = '';

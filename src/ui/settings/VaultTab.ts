@@ -5,8 +5,12 @@ import { AgentFolderService, readStoredAgentFolder } from '../../core/utils/agen
 import { pickAgentFolder } from './AgentFolderPickerModal';
 import { promptModal, confirmModal } from '../modals/PromptModal';
 import { t } from '../../i18n';
-import { DEFAULT_VAULT_INGEST_SETTINGS, DEFAULT_SUMMARY_PROMPT_TEMPLATE } from '../../types/settings';
+import { DEFAULT_VAULT_INGEST_SETTINGS, DEFAULT_SUMMARY_PROMPT_TEMPLATE, DEFAULT_INGEST_TEMPLATES } from '../../types/settings';
 import { addSectionHeading, addSliderInput } from './utils';
+import { resolveCoreTemplatesFolder } from '../../core/utils/templatesFolder';
+import { TemplateMaterializer } from '../../core/templates/TemplateMaterializer';
+import { makeTemplateTranslator } from '../../core/templates/translateTemplate';
+import { BUNDLED_NOTE_TEMPLATES } from '../../_generated/bundled-templates';
 
 
 export class VaultTab {
@@ -165,8 +169,220 @@ export class VaultTab {
                     .onClick(() => { void this.handleMigrateClick(service); }),
             );
 
+        // ── FEAT-29-01 Storage Layout Migration ───────────────────────────
+        this.buildLayoutMigrationSection(containerEl, applyPathChange, service);
+
         // ── BA-25 Karpathy-Wiki-Pattern (Vault-Ingest) ────────────────────
         this.buildVaultIngestSection(containerEl);
+    }
+
+    /**
+     * Storage Layout Consolidation section.
+     *
+     * Consolidates the historical plugin-storage roots (.obsidian-agent,
+     * .obsilo-vault, .vault-operator, vault-parent/obsilo-shared) into a
+     * single vault-local layout with data/ and cache/ sub-folders. Opt-in
+     * because it relocates files across roots and switches the lookup paths
+     * for dependent services.
+     */
+    private buildLayoutMigrationSection(
+        containerEl: HTMLElement,
+        applyPathChange: (newPath: string) => Promise<void>,
+        service: AgentFolderService,
+    ): void {
+        addSectionHeading(
+            containerEl,
+            'Storage layout consolidation',
+            {
+                body:
+                    'Consolidates plugin storage into a single vault-local path with '
+                    + 'data/ and cache/ sub-folders. Replaces the historical roots '
+                    + '.obsidian-agent, .obsilo-vault, .vault-operator and the '
+                    + 'vault-parent obsilo-shared folder. A backup snapshot is written '
+                    + 'before any file is moved. The operation is resumable across '
+                    + 'plugin reloads.',
+            },
+        );
+
+        const statusValue = this.plugin.settings._layoutMigrationStatus ?? 'pending';
+        new Setting(containerEl)
+            .setName('Migration status')
+            .setDesc(`Current state: ${statusValue}`);
+
+        new Setting(containerEl)
+            .setName('Run layout migration')
+            .setDesc(
+                'Activate the migration. After activation, reload the plugin '
+                + '(Cmd-P / Ctrl-P -> Reload Vault Operator). The migration runs on the next '
+                + 'plugin start. A backup snapshot is written first into the Obsidian '
+                + 'plugin data directory, outside the vault tree.',
+            )
+            .addButton((btn) =>
+                btn
+                    .setButtonText(
+                        statusValue === 'complete' ? 'Already migrated' : 'Activate migration',
+                    )
+                    .setIcon('arrow-right-left')
+                    .setTooltip(
+                        statusValue === 'complete'
+                            ? 'Storage layout migration already completed. Nothing to do.'
+                            : 'Activate the storage layout migration. Plugin reload required afterwards.',
+                    )
+                    .setDisabled(statusValue === 'complete')
+                    .onClick(() => {
+                        void (async () => {
+                            if (statusValue === 'complete') {
+                                new Notice(
+                                    'Storage layout migration already completed. Nothing to do.',
+                                    5000,
+                                );
+                                return;
+                            }
+                            const ok = await confirmModal(this.app, {
+                                title: 'Activate storage layout migration?',
+                                message:
+                                    'The migration moves all plugin data (knowledge index, history, '
+                                    + 'memory, skills, rules, workflows, episodes, logs, plugin-skills, '
+                                    + 'asset cache, checkpoints, dev-env, tmp) into a consolidated '
+                                    + 'path with data/ and cache/ sub-folders.\n\n'
+                                    + 'A backup snapshot is written before the first move. The '
+                                    + 'operation is resumable. After activation you have to reload '
+                                    + 'the plugin (Cmd-P / Ctrl-P -> Reload Vault Operator). Continue?',
+                                confirmLabel: 'Activate migration',
+                                cancelLabel: 'Cancel',
+                            });
+                            if (!ok) return;
+                            this.plugin.settings._layoutMigrationOptIn = true;
+                            await this.plugin.saveSettings();
+                            new Notice(
+                                'Migration activated. Please reload the plugin via the command palette to apply.',
+                                10000,
+                            );
+                            this.rerender();
+                        })();
+                    }),
+            );
+
+        // Reset agent folder path to default
+        const currentPath = this.plugin.settings.agentFolderPath ?? DEFAULT_AGENT_FOLDER;
+        const isDefault = currentPath === DEFAULT_AGENT_FOLDER;
+        new Setting(containerEl)
+            .setName('Reset to default agent folder path')
+            .setDesc(
+                isDefault
+                    ? `Current path is already the default (${DEFAULT_AGENT_FOLDER}).`
+                    : `Current path: ${currentPath}. Reset sets it back to ${DEFAULT_AGENT_FOLDER}.`,
+            )
+            .addButton((btn) =>
+                btn
+                    .setButtonText(`Reset to ${DEFAULT_AGENT_FOLDER}`)
+                    .setIcon('rotate-ccw')
+                    .setTooltip(
+                        isDefault
+                            ? `Agent folder path is already the default (${DEFAULT_AGENT_FOLDER}).`
+                            : `Reset the agent folder path to ${DEFAULT_AGENT_FOLDER}.`,
+                    )
+                    .setDisabled(isDefault)
+                    .onClick(() => {
+                        void (async () => {
+                            if (isDefault) {
+                                new Notice(
+                                    `Agent folder path is already the default (${DEFAULT_AGENT_FOLDER}).`,
+                                    5000,
+                                );
+                                return;
+                            }
+                            const ok = await confirmModal(this.app, {
+                                title: 'Reset agent folder path?',
+                                message:
+                                    `Current path: ${currentPath}\n`
+                                    + `New path: ${DEFAULT_AGENT_FOLDER}\n\n`
+                                    + 'Plugin skills, knowledge index and memory databases are '
+                                    + 'copied from the current folder into the default. Original '
+                                    + 'files stay in place; remove them manually after verifying '
+                                    + 'the new location works. Continue?',
+                                confirmLabel: 'Reset and migrate files',
+                                cancelLabel: 'Cancel',
+                            });
+                            if (!ok) return;
+
+                            // Move plugin skills, vault-dna snapshot, knowledge db,
+                            // memory db from currentPath to DEFAULT_AGENT_FOLDER via
+                            // the existing migration helper, then flip the setting.
+                            const migrationResult = await service.migrate(currentPath, DEFAULT_AGENT_FOLDER);
+                            await applyPathChange(DEFAULT_AGENT_FOLDER);
+
+                            const movedSummary: string[] = [];
+                            if (migrationResult.movedKnowledgeDb) movedSummary.push('knowledge index');
+                            if (migrationResult.movedMemoryDb) movedSummary.push('memory database');
+                            if (migrationResult.movedVaultDna) movedSummary.push('vault-DNA snapshot');
+                            if (migrationResult.movedPluginSkills > 0) {
+                                movedSummary.push(`${migrationResult.movedPluginSkills} plugin skill file(s)`);
+                            }
+                            const movedLine = movedSummary.length > 0
+                                ? `Moved: ${movedSummary.join(', ')}.`
+                                : 'Nothing to move (no plugin data at the previous path).';
+                            const errLine = migrationResult.errors.length > 0
+                                ? ` ${migrationResult.errors.length} non-fatal error(s); check developer console.`
+                                : '';
+                            new Notice(
+                                `Agent folder path reset to ${DEFAULT_AGENT_FOLDER}. ${movedLine}${errLine}`,
+                                8000,
+                            );
+                            if (migrationResult.errors.length > 0) {
+                                console.warn('[VaultOperator] Reset-to-default migration errors:', migrationResult.errors);
+                            }
+                            this.rerender();
+                        })();
+                    }),
+            );
+
+        // Restore previous layout from a backup snapshot
+        new Setting(containerEl)
+            .setName('Restore previous layout from backup')
+            .setDesc(
+                statusValue === 'complete'
+                    ? 'Undo the storage layout consolidation by restoring from the backup snapshot the migration created. Choose the most recent backup, the four legacy roots get rebuilt, and the consolidated data/ and cache/ folders are removed. Plugin reload required after.'
+                    : 'Restore only makes sense after a completed migration. Currently the migration has not run or did not complete.',
+            )
+            .addButton((btn) =>
+                btn
+                    .setButtonText('Restore from backup')
+                    .setIcon('history')
+                    .setTooltip(
+                        statusValue === 'complete'
+                            ? 'Restore the layout that was in place before the storage migration.'
+                            : 'Migration is not complete; nothing to restore.',
+                    )
+                    .setDisabled(statusValue !== 'complete')
+                    .onClick(() => {
+                        void this.handleRestoreClick(statusValue);
+                    }),
+            );
+
+        // Notice for users who had chatHistoryFolder set before the setting was removed
+        const legacyChatHistory = this.plugin.settings._chatHistoryFolderLegacy;
+        if (legacyChatHistory) {
+            new Setting(containerEl)
+                .setName('Chat history folder setting removed')
+                .setDesc(
+                    `The chatHistoryFolder setting is no longer used. Your previous path was: ${legacyChatHistory}. `
+                    + 'Conversations remain accessible via the plugin sidebar history panel. The old vault folder '
+                    + 'is left in place; delete it manually if no longer needed.',
+                )
+                .addButton((btn) =>
+                    btn
+                        .setButtonText('Got it, dismiss')
+                        .setIcon('check')
+                        .onClick(() => {
+                            void (async () => {
+                                this.plugin.settings._chatHistoryFolderLegacy = undefined;
+                                await this.plugin.saveSettings();
+                                this.rerender();
+                            })();
+                        }),
+                );
+        }
     }
 
     /**
@@ -384,7 +600,7 @@ export class VaultTab {
                     .setPlaceholder('Tools & Settings/Templates/Quelle Template.md')
                     .setValue(cfg.templates?.ingestNoteTemplate ?? '')
                     .onChange(async (v) => {
-                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates = cfg.templates ?? DEFAULT_INGEST_TEMPLATES();
                         cfg.templates.ingestNoteTemplate = v.trim();
                         this.plugin.settings.vaultIngest = cfg;
                         await this.plugin.saveSettings();
@@ -399,7 +615,7 @@ export class VaultTab {
                     .setPlaceholder('Tools & Settings/Templates/Quelle Template.md')
                     .setValue(cfg.templates?.ingestDeepNoteTemplate ?? '')
                     .onChange(async (v) => {
-                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates = cfg.templates ?? DEFAULT_INGEST_TEMPLATES();
                         cfg.templates.ingestDeepNoteTemplate = v.trim();
                         this.plugin.settings.vaultIngest = cfg;
                         await this.plugin.saveSettings();
@@ -414,10 +630,43 @@ export class VaultTab {
                     .setPlaceholder('Tools & Settings/Templates/Meeting-Notiz Template.md')
                     .setValue(cfg.templates?.meetingSummaryTemplate ?? '')
                     .onChange(async (v) => {
-                        cfg.templates = cfg.templates ?? { ingestNoteTemplate: '', ingestDeepNoteTemplate: '', meetingSummaryTemplate: '' };
+                        cfg.templates = cfg.templates ?? DEFAULT_INGEST_TEMPLATES();
                         cfg.templates.meetingSummaryTemplate = v.trim();
                         this.plugin.settings.vaultIngest = cfg;
                         await this.plugin.saveSettings();
+                    }),
+            );
+
+        // FEAT-29-14: separate template for the Sense-Making-Notes /
+        // Zettel that /ingest and /ingest-deep produce on top of the
+        // source note. Default category is "Quellen-Notiz" / "Source note".
+        new Setting(containerEl)
+            .setName('Template for sense-making notes')
+            .setDesc('Frontmatter template used for the secondary output notes (sense-making summary or per-takeaway zettels) produced by /ingest and /ingest-deep.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('Tools & Settings/Templates/Notiz Template.md')
+                    .setValue(cfg.templates?.quellenNotizTemplate ?? '')
+                    .onChange(async (v) => {
+                        cfg.templates = cfg.templates ?? DEFAULT_INGEST_TEMPLATES();
+                        cfg.templates.quellenNotizTemplate = v.trim();
+                        this.plugin.settings.vaultIngest = cfg;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        // FEAT-29-14: Re-materialize button. Re-runs the same code path
+        // as the FirstRun-Templates step using the persisted
+        // `templatesLanguage` (default 'de'). Skip-existing by default
+        // so user edits are preserved; the modal offers force-overwrite.
+        new Setting(containerEl)
+            .setName('Re-materialize default templates')
+            .setDesc('Re-writes the bundled source, note and meeting-note templates into your configured templates folder. Existing files are skipped unless you confirm overwrite.')
+            .addButton((btn) =>
+                btn
+                    .setButtonText('Re-materialize')
+                    .onClick(async () => {
+                        await this.handleRematerializeTemplates();
                     }),
             );
 
@@ -614,6 +863,98 @@ export class VaultTab {
      * confirm, migrate. Originals stay in place — user deletes manually
      * after verifying the new location works.
      */
+    /**
+     * Restore the legacy layout from a backup snapshot the consolidation
+     * migration wrote. Lists available backups, asks the user to confirm,
+     * then runs the restore service. Resets the migration status so the
+     * Settings UI reflects the rollback after the next plugin reload.
+     */
+    private async handleRestoreClick(statusValue: string): Promise<void> {
+        if (statusValue !== 'complete') {
+            new Notice('Layout migration is not complete; nothing to restore.', 5000);
+            return;
+        }
+        const vaultBasePath = (this.app.vault.adapter as unknown as {
+            getBasePath?(): string;
+        }).getBasePath?.() ?? '';
+        if (!vaultBasePath) {
+            new Notice('Cannot resolve vault base path; restore aborted.', 6000);
+            return;
+        }
+        const nodePath = await import('path');
+        const nodeOs = await import('os');
+        const nodeCrypto = await import('crypto');
+        // Backup pfad mirror to main.ts:744 -- {homedir}/.vault-operator-migration-backups/{vault-hash}/
+        // ensures snapshots stay outside any sync container (iCloud, Obsidian-Sync).
+        const vaultIdHash = nodeCrypto
+            .createHash('md5')
+            .update(vaultBasePath)
+            .digest('hex')
+            .slice(0, 12);
+        const pluginDataDir = nodePath.join(
+            nodeOs.homedir(),
+            '.vault-operator-migration-backups',
+            vaultIdHash,
+        );
+        const vaultParent = nodePath.dirname(vaultBasePath);
+
+        const { listBackupFolders, restoreLayoutFromBackup } = await import(
+            '../../core/utils/restoreLayoutFromBackup'
+        );
+        const backups = await listBackupFolders(pluginDataDir);
+        if (backups.length === 0) {
+            new Notice(
+                'No backup snapshot found. Restore is only available after a fresh migration.',
+                7000,
+            );
+            return;
+        }
+        const latest = backups[0];
+        const latestName = nodePath.basename(latest);
+        const ok = await confirmModal(this.app, {
+            title: 'Restore previous layout from backup?',
+            message:
+                `Latest backup: ${latestName}\n\n`
+                + 'Restoring this snapshot:\n'
+                + '  - Rebuilds the four legacy plugin folders\n'
+                + '  - Deletes the consolidated .vault-operator/data and .vault-operator/cache folders\n'
+                + '  - Resets the migration status so the consolidation can be re-run later\n\n'
+                + 'You will have to reload the plugin afterwards (Cmd-P / Ctrl-P -> Reload Vault Operator). Continue?',
+            confirmLabel: 'Restore from backup',
+            cancelLabel: 'Cancel',
+        });
+        if (!ok) return;
+
+        const report = await restoreLayoutFromBackup({
+            vaultBasePath,
+            vaultParent,
+            backupPath: latest,
+            removeConsolidated: true,
+        });
+
+        if (!report.allRestoreSucceeded) {
+            const failed = report.entries.filter((e) => e.status === 'failed' || e.status === 'skipped-destination-populated');
+            console.warn('[VaultOperator] Restore-from-backup partial failure:', report);
+            new Notice(
+                `Restore did not complete cleanly: ${failed.length} target(s) blocked. Check developer console.`,
+                10000,
+            );
+            return;
+        }
+
+        // Reset migration flags so the UI offers the migration again and the
+        // next plugin start does not skip the trigger.
+        this.plugin.settings._layoutMigrationStatus = undefined;
+        this.plugin.settings._layoutMigrationOptIn = false;
+        await this.plugin.saveSettings();
+
+        new Notice(
+            'Layout restored from backup. Reload the plugin via the command palette to pick up the old layout.',
+            10000,
+        );
+        this.rerender();
+    }
+
     private async handleMigrateClick(service: AgentFolderService): Promise<void> {
         const currentPath = readStoredAgentFolder(this.plugin);
         const oldPathInput = await promptModal(this.app, {
@@ -681,6 +1022,56 @@ export class VaultTab {
                 `Migrated ${summaryParts.join(', ')}. Reload Obsidian so the knowledge and memory databases open at the new location.`,
                 15_000,
             );
+        }
+    }
+
+    /**
+     * FEAT-29-14: Re-runs the FirstRunWizard templates materialization
+     * from the Vault settings tab. Reads the persisted templatesLanguage
+     * (default 'de') and the Obsidian-Core-Templates folder. Skip-existing
+     * by default; offers force-overwrite via confirm modal.
+     */
+    private async handleRematerializeTemplates(): Promise<void> {
+        const folder = await resolveCoreTemplatesFolder(this.app);
+        if (!folder) {
+            new Notice(
+                'No templates folder set. Enable the Obsidian core templates plugin and pick a folder first.',
+                8000,
+            );
+            return;
+        }
+
+        const tpl = this.plugin.settings.vaultIngest.templates;
+        const lang = (tpl.templatesLanguage && tpl.templatesLanguage.length > 0)
+            ? tpl.templatesLanguage
+            : 'de';
+
+        const force = await confirmModal(this.app, {
+            title: 'Re-materialize templates',
+            message:
+                `Target folder: ${folder}\n` +
+                `Language: ${lang}\n\n` +
+                'Click OK to write the bundled defaults, skipping any files that already exist.\n' +
+                'Click "Overwrite" to replace existing files with the bundled defaults (destructive!).',
+            confirmLabel: 'Overwrite',
+            destructive: true,
+        });
+
+        const materializer = new TemplateMaterializer(this.app, BUNDLED_NOTE_TEMPLATES);
+        const translator = (lang !== 'de' && lang !== 'en')
+            ? makeTemplateTranslator(this.plugin)
+            : undefined;
+
+        try {
+            const result = await materializer.materialize(folder, lang, { force, translator });
+            const summary = `Templates re-materialized: ${result.written.length} written, ${result.skipped.length} skipped${result.failed.length ? `, ${result.failed.length} failed` : ''}.`;
+            new Notice(summary, 6000);
+            if (result.failed.length > 0) {
+                console.warn('[templates] re-materialization failures:', result.failed);
+            }
+        } catch (e) {
+            console.error('[templates] re-materialization failed:', e);
+            new Notice(`Templates re-materialization failed -- ${(e as Error).message ?? String(e)}`, 10_000);
         }
     }
 }

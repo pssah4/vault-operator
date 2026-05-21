@@ -142,8 +142,9 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     manage_mcp_server: 'agent',
     // Self-Development (Phase 2+3) — sandbox: always requires approval by default
     evaluate_expression: 'sandbox',
-    // M-7: Self-modification tools always require human approval
-    manage_skill: 'self-modify',
+    // M-7: Self-modification tools always require human approval.
+    // FEAT-29-05: manage_skill removed; skill authoring is now a builtin
+    // skill that uses write_file/edit_file via the regular approval gate.
     manage_source: 'self-modify',
 };
 
@@ -169,8 +170,20 @@ export interface ContextExtensions {
     updateTodos?: (items: import('../tools/agent/UpdateTodoListTool').TodoItem[]) => void;
     /** Switch the active mode (called by switch_mode tool) */
     switchMode?: (slug: string) => void;
-    /** Spawn a child task (called by new_task tool) */
-    spawnSubtask?: (mode: string, message: string, profileName?: string) => Promise<string>;
+    /** Spawn a child task (called by new_task / invoke_skill tools) */
+    spawnSubtask?: (
+        mode: string,
+        message: string,
+        profileName?: string,
+        overrides?: import('../tools/types').SubtaskSpawnOverrides,
+    ) => Promise<string>;
+    /**
+     * FEAT-29-10 Composability: shared stack-tracker for invoke_skill /
+     * invoke_mcp_server. Owned by the top-level AgentTask, passed by
+     * reference into every spawned subtask so cycle-detection and
+     * depth-limit work across the whole composition chain.
+     */
+    compositionStack?: import('../skills/CompositionStackService').CompositionStackService;
     /**
      * EPIC-26 / FEAT-26-01 / ADR-120: try to acquire one of the per-task
      * advisor slots. Used by ConsultFlagshipTool to enforce the 3-call
@@ -316,6 +329,20 @@ export class ToolExecutionPipeline {
                 if (approval.decision === 'rejected') {
                     return this.errorResult(toolCall.id, 'Operation denied by user');
                 }
+                // FEAT-29-07: when the user approves a dynamically-discovered
+                // plugin-API call, count the approval. Once the per-method
+                // threshold is reached AND the method name matches the read
+                // heuristic, the method is auto-promoted into
+                // safeMethodOverrides so future calls skip the prompt.
+                // Only fires for genuine USER approvals -- auto-approved
+                // calls (decision === 'auto') don't count, otherwise the
+                // promotion would be trivial.
+                if (
+                    approval.decision === 'approved'
+                    && toolCall.name === 'call_plugin_api'
+                ) {
+                    void this.maybeAutoPromotePluginApi(toolCall.input);
+                }
             }
 
             // 3b. Cache invalidation: write tools invalidate cached reads for affected paths
@@ -388,6 +415,7 @@ export class ToolExecutionPipeline {
                 updateTodos: extensions?.updateTodos,
                 switchMode: extensions?.switchMode,
                 spawnSubtask: extensions?.spawnSubtask,
+                compositionStack: extensions?.compositionStack,
                 consumeAdvisorSlot: extensions?.consumeAdvisorSlot,
                 invalidateToolCache: extensions?.invalidateToolCache,
                 activateDeferredTool: extensions?.activateDeferredTool,
@@ -563,7 +591,7 @@ export class ToolExecutionPipeline {
             return await extensions.onApprovalRequired(toolCall.name, toolCall.input);
         }
 
-        // M-7: Self-modification tools (manage_source, manage_skill) ALWAYS require
+        // M-7: Self-modification tools (manage_source) ALWAYS require
         // human approval — no auto-approve bypass possible
         if (group === 'self-modify') {
             if (!extensions?.onApprovalRequired) {
@@ -653,6 +681,41 @@ export class ToolExecutionPipeline {
         if (overrides[overrideKey]) return false; // User marked as safe read
 
         return true; // Default: treat as write
+    }
+
+    /**
+     * FEAT-29-07: count user-approvals of Tier-2 (dynamically discovered)
+     * plugin-API methods. Fires recordApprovalAndMaybePromote which
+     * mutates the settings and -- once the threshold + read-heuristic
+     * line up -- adds the method to safeMethodOverrides so subsequent
+     * calls are auto-approved.
+     *
+     * Non-blocking: saveSettings is awaited in a detached Promise so
+     * the hot path returns immediately. Errors are swallowed: a failed
+     * promotion never breaks the user's tool call.
+     */
+    private async maybeAutoPromotePluginApi(input: Record<string, unknown>): Promise<void> {
+        const pluginId = ((input?.plugin_id as string) ?? '').trim();
+        const method = ((input?.method as string) ?? '').trim();
+        if (!pluginId || !method) return;
+
+        // Only count Tier-2 methods (not in the built-in allowlist).
+        // Tier-1 entries already have a static isWrite flag and need no promotion.
+        const allowedEntry = findAllowedMethod(pluginId, method);
+        if (allowedEntry) return;
+
+        const { recordApprovalAndMaybePromote } = await import('../tools/agent/pluginApiAdaptive');
+        const apiSettings = this.plugin.settings.pluginApi;
+        if (!apiSettings) return;
+        const result = recordApprovalAndMaybePromote(apiSettings, pluginId, method);
+        try {
+            await this.plugin.saveSettings();
+            if (result.promoted) {
+                console.debug(`[PluginApi] Auto-promoted ${pluginId}:${method} (count ${result.newCount})`);
+            }
+        } catch (e) {
+            console.warn('[PluginApi] saveSettings after approval failed (non-fatal):', e);
+        }
     }
 
     private errorResult(toolUseId: string, message: string): ToolResult {

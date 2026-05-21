@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "tableVersion": "2026-05-21",
+  "updated": "2026-05-21",
+  "description": "Python-to-JavaScript module mapping for skill-translator. Used by the Dry-Run-Pass to classify imports as mappable, partial (with caveats), or unmappable. The translator emits a user-facing modal when partial or unmappable imports are present.",
+  "viaValues": {
+    "npm": "Use an npm package via the sandbox esbuild bundler (script imports it as ES module).",
+    "built-in-tool": "Operation should NOT run in the sandbox. The translator routes the call to a Vault Operator built-in tool (create_pptx, create_docx, etc.) instead of translating the Python code.",
+    "stdlib": "JavaScript stdlib equivalent (no npm needed).",
+    "partial": "Partial mapping exists with documented limitations.",
+    "unmappable": "No reasonable JavaScript equivalent; user must either accept partial translation or fall back to skill-creator."
+  },
+  "modules": {
+    "json": {
+      "jsEquivalent": "JSON",
+      "via": "stdlib",
+      "notes": "Direct mapping. json.loads -> JSON.parse, json.dumps -> JSON.stringify."
+    },
+    "os": {
+      "jsEquivalent": "node:path + ctx.vault",
+      "via": "stdlib",
+      "notes": "os.path.join -> path.join. File system operations route through ctx.vault sandbox bridge.",
+      "limitations": ["No process management (os.system, os.exec)", "No env-var write (os.environ assignment)"]
+    },
+    "sys": {
+      "jsEquivalent": "process (read-only) + return values",
+      "via": "partial",
+      "notes": "sys.argv -> use execute(args) signature. sys.stdout.write -> return value or console.debug.",
+      "limitations": ["No sys.exit (use return)", "No sys.path manipulation"]
+    },
+    "re": {
+      "jsEquivalent": "RegExp",
+      "via": "stdlib",
+      "notes": "re.search -> str.match, re.sub -> str.replace. Watch for Python-specific regex features (named groups syntax differs)."
+    },
+    "datetime": {
+      "jsEquivalent": "Date",
+      "via": "stdlib",
+      "notes": "datetime.now() -> new Date(). Use ISO strings for serialization. For complex parsing prefer date-fns via npm."
+    },
+    "pathlib": {
+      "jsEquivalent": "node:path",
+      "via": "stdlib",
+      "notes": "Path('foo')/'bar' -> path.join('foo','bar'). All file ops route through ctx.vault."
+    },
+    "io": {
+      "jsEquivalent": "ctx.vault + Buffer",
+      "via": "partial",
+      "notes": "io.StringIO -> string concatenation. io.BytesIO -> Uint8Array. File reads via ctx.vault.read.",
+      "limitations": ["No seek()/tell()-style stream cursor"]
+    },
+    "csv": {
+      "jsEquivalent": "papaparse",
+      "via": "npm",
+      "notes": "csv.reader -> Papa.parse. csv.writer -> Papa.unparse. Handles delimiters + quoting."
+    },
+    "yaml": {
+      "jsEquivalent": "js-yaml",
+      "via": "npm",
+      "notes": "yaml.safe_load -> yaml.load with FAILSAFE_SCHEMA. yaml.dump -> yaml.dump."
+    },
+    "requests": {
+      "jsEquivalent": "ctx.requestUrl",
+      "via": "built-in-tool",
+      "notes": "requests.get -> ctx.requestUrl({url, method:'GET'}). Replaces all HTTP via the sandbox bridge (CORS-safe).",
+      "limitations": ["No streaming download", "No multipart upload (use ctx.vault.writeBinary then ctx.requestUrl)"]
+    },
+    "urllib": {
+      "jsEquivalent": "ctx.requestUrl",
+      "via": "built-in-tool",
+      "notes": "urllib.request.urlopen -> ctx.requestUrl. Same constraints as requests."
+    },
+    "pdfplumber": {
+      "jsEquivalent": "create_docx / read_document",
+      "via": "built-in-tool",
+      "notes": "PDF text extraction should NOT happen in the sandbox. The translator emits a Body-instruction that uses read_document for input and the appropriate built-in tool for output."
+    },
+    "PyPDF2": {
+      "jsEquivalent": "create_docx / read_document",
+      "via": "built-in-tool",
+      "notes": "Same as pdfplumber. Avoid translating binary PDF manipulation; reroute to built-in tools."
+    },
+    "pypdf": {
+      "jsEquivalent": "create_docx / read_document",
+      "via": "built-in-tool",
+      "notes": "Same as pdfplumber."
+    },
+    "python-pptx": {
+      "jsEquivalent": "create_pptx + plan_presentation",
+      "via": "built-in-tool",
+      "notes": "PPTX generation routes through the built-in create_pptx tool (template-mode) or plan_presentation (content planning). DO NOT translate Presentation/Slide manipulation."
+    },
+    "pptx": {
+      "jsEquivalent": "create_pptx + plan_presentation",
+      "via": "built-in-tool",
+      "notes": "Same as python-pptx."
+    },
+    "python-docx": {
+      "jsEquivalent": "create_docx",
+      "via": "built-in-tool",
+      "notes": "DOCX generation routes through the built-in create_docx tool. DO NOT translate Document/Paragraph manipulation."
+    },
+    "docx": {
+      "jsEquivalent": "create_docx",
+      "via": "built-in-tool",
+      "notes": "Same as python-docx."
+    },
+    "openpyxl": {
+      "jsEquivalent": "create_xlsx",
+      "via": "built-in-tool",
+      "notes": "XLSX generation routes through the built-in create_xlsx tool. DO NOT translate Workbook/Worksheet manipulation."
+    },
+    "xlsxwriter": {
+      "jsEquivalent": "create_xlsx",
+      "via": "built-in-tool",
+      "notes": "Same as openpyxl."
+    },
+    "pandas": {
+      "jsEquivalent": "manual array ops + danfojs",
+      "via": "partial",
+      "notes": "Common pandas patterns (DataFrame.head, .groupby, .to_csv) map to arrays + danfojs. Complex statistical operations may need manual coding.",
+      "limitations": ["No HDF5", "No SQL backend", "Performance lower than native pandas"]
+    },
+    "numpy": {
+      "jsEquivalent": "manual array math + ndarray",
+      "via": "partial",
+      "notes": "Element-wise math maps to Array.map. Matrix ops need ndarray or manual nested-loop translation. For scipy-grade math, fall back to skill-creator.",
+      "limitations": ["No FFT/signal processing", "No advanced linear algebra"]
+    },
+    "scipy": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "No comparable scientific-computing library exists in JavaScript. The translator stops the conversion when scipy is imported.",
+      "limitations": ["Hard stop: signals, statistics, optimization, integration"]
+    },
+    "matplotlib": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Plot generation should produce data + use generate_canvas or external charting; matplotlib code itself does not translate.",
+      "limitations": ["Hard stop on pyplot.show / savefig"]
+    },
+    "sklearn": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "ML model inference may be possible via ONNX, but training pipelines do not translate.",
+      "limitations": ["Hard stop: model.fit, GridSearchCV"]
+    },
+    "subprocess": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Process spawning is not available in the sandbox by design (security).",
+      "limitations": ["Hard stop"]
+    },
+    "shutil": {
+      "jsEquivalent": "ctx.vault.read + ctx.vault.write",
+      "via": "partial",
+      "notes": "shutil.copyfile -> read + write through ctx.vault. shutil.rmtree -> ctx.vault.list + per-file remove (not exposed; needs plugin op).",
+      "limitations": ["No archive helpers (use built-in tools)"]
+    },
+    "tempfile": {
+      "jsEquivalent": "ctx.vault.write to .vault-operator/cache/tmp",
+      "via": "stdlib",
+      "notes": "tempfile.NamedTemporaryFile -> write into the plugin tmp folder. Cleanup is automatic on task end."
+    },
+    "hashlib": {
+      "jsEquivalent": "crypto.subtle",
+      "via": "stdlib",
+      "notes": "hashlib.sha256(b).hexdigest() -> crypto.subtle.digest('SHA-256', buf) + hex. Async API in browser."
+    },
+    "base64": {
+      "jsEquivalent": "btoa/atob + Uint8Array",
+      "via": "stdlib",
+      "notes": "base64.b64encode -> btoa or Buffer.from(...).toString('base64')."
+    },
+    "uuid": {
+      "jsEquivalent": "crypto.randomUUID",
+      "via": "stdlib",
+      "notes": "uuid.uuid4() -> crypto.randomUUID()."
+    },
+    "collections": {
+      "jsEquivalent": "Map/Set + manual patterns",
+      "via": "stdlib",
+      "notes": "Counter -> manual reduce + Map. defaultdict -> use Map with || init. OrderedDict -> Map preserves insertion order."
+    },
+    "itertools": {
+      "jsEquivalent": "manual iterables",
+      "via": "stdlib",
+      "notes": "chain -> spread/concat. groupby -> manual reduce. permutations -> needs manual algorithm or a small helper.",
+      "limitations": ["No lazy-evaluation generators by default; manual implementation needed"]
+    },
+    "functools": {
+      "jsEquivalent": "manual patterns",
+      "via": "stdlib",
+      "notes": "lru_cache -> manual Map memoization. partial -> arrow function bind."
+    },
+    "typing": {
+      "jsEquivalent": "TypeScript type annotations",
+      "via": "stdlib",
+      "notes": "Type hints are dropped in translation; TypeScript types may be added in a follow-up if the target is .ts."
+    },
+    "logging": {
+      "jsEquivalent": "console.debug",
+      "via": "stdlib",
+      "notes": "logger.info -> console.debug. logger.warning -> console.warn. logger.error -> console.error. No file handler in sandbox."
+    },
+    "argparse": {
+      "jsEquivalent": "execute(args) signature",
+      "via": "stdlib",
+      "notes": "Argparse defines a CLI shape; in Vault Operator scripts the `execute(args)` parameter object replaces it. The translator inlines a destructuring pattern at the top of execute()."
+    }
+  },
+  "bashCommands": {
+    "curl": {
+      "jsEquivalent": "ctx.requestUrl",
+      "via": "built-in-tool",
+      "notes": "curl -X GET https://… -> ctx.requestUrl({url, method:'GET'})."
+    },
+    "wget": {
+      "jsEquivalent": "ctx.requestUrl + ctx.vault.writeBinary",
+      "via": "built-in-tool"
+    },
+    "grep": {
+      "jsEquivalent": "ctx.vault.read + regex",
+      "via": "stdlib",
+      "notes": "Read the target file via ctx.vault and apply a JS regex."
+    },
+    "sed": {
+      "jsEquivalent": "string.replace + ctx.vault.write",
+      "via": "stdlib",
+      "notes": "Simple substitutions map to string.replace. Multi-line sed scripts may need manual translation."
+    },
+    "awk": {
+      "jsEquivalent": "ctx.vault.read + split/map",
+      "via": "partial",
+      "notes": "Simple field extraction maps to split + map. Complex awk programs (associative arrays, BEGIN/END blocks) need careful translation.",
+      "limitations": ["Multi-pattern programs may need manual rewriting"]
+    },
+    "python": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Recursive python invocation is unmappable; the translator focuses on direct Python source files."
+    },
+    "python3": {
+      "jsEquivalent": null,
+      "via": "unmappable"
+    },
+    "pip": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Package installation is not part of the runtime; the translator surfaces unmappable on encountering pip calls."
+    }
+  }
+}

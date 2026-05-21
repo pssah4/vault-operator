@@ -29,7 +29,7 @@ type TunnelUrlCallback = (url: string | null) => void;
 // Agent-internal tools that don't make sense for external MCP clients
 export const AGENT_INTERNAL_TOOLS = new Set([
     'ask_followup_question', 'attempt_completion', 'switch_agent', 'new_task',
-    'update_todo_list', 'execute_recipe', 'manage_skill', 'manage_mcp_server',
+    'update_todo_list', 'execute_recipe', 'manage_mcp_server',
     'manage_source', 'resolve_capability_gap', 'configure_model', 'read_agent_logs',
     'update_settings', 'enable_plugin', 'call_plugin_api',
 ]);

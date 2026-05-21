@@ -16,6 +16,7 @@ function makeSelfAuthoredSkill(overrides: Partial<SelfAuthoredSkill> = {}): Self
         triggerSource: 'office',
         source: 'bundled',
         requiredTools: [],
+        allowedTools: [],
         codeModules: [],
         codeModuleInfos: [],
         createdAt: new Date('2026-01-01'),

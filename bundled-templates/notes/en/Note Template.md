@@ -1,20 +1,17 @@
 ---
 Summary:
-Author:
-Year:
-ISBN:
-URL:
-Notes:
 Topics:
 Concepts:
+Sources:
 Meeting notes:
+Notes:
+Projects:
+People:
 Category:
-  - Source
-Type:
+  - Note
+  - Source note
 tags:
 Permanent: false
+uid:
 ---
-
-## Overview
-
-## Key points
+---

@@ -1,11 +1,26 @@
 /**
  * CodeModuleCompiler
  *
- * Extracted from ManageSkillTool to follow SRP.
- * Handles: AST validation, source wrapping, compilation, dry-run testing,
- * and tool registration for code modules within skills.
+ * @deprecated FEAT-29-06 (2026-05-20): use `run_skill_script` instead.
  *
- * Part of Self-Development Phase 3: Sandbox + Dynamic Modules.
+ * This class compiled inline TypeScript code modules embedded in SKILL.md
+ * frontmatter and registered them as `custom_*`-tools on the live tool
+ * registry. The pattern bloated the tool registry, prevented portable
+ * Anthropic-style skills, and forced an editing path that lived in the
+ * tool surface instead of the filesystem.
+ *
+ * The replacement is `RunSkillScriptTool`: scripts live as plain `.js`
+ * files under `{skill-folder}/scripts/` and are executed via
+ * `run_skill_script(skill_name, script_name, args)`. No tool registry
+ * entries, no compilation at create-time.
+ *
+ * This file is kept (not deleted) so the bestand of already-compiled
+ * `custom_*`-tools from previous skill-creates keeps loading via
+ * `DynamicToolLoader`. New skills must NOT use it; `ManageSkillTool` no
+ * longer instantiates this class as of FEAT-29-06.
+ *
+ * Part of Self-Development Phase 3 (legacy). To be removed entirely once
+ * the in-vault custom_*-bestand is migrated to scripts/.
  */
 
 import { AstValidator } from '../sandbox/AstValidator';
@@ -34,6 +49,7 @@ export interface CodeModuleInput {
 // CodeModuleCompiler
 // ---------------------------------------------------------------------------
 
+/** @deprecated FEAT-29-06: use RunSkillScriptTool. See file-header. */
 export class CodeModuleCompiler {
     constructor(
         private skillLoader: SelfAuthoredSkillLoader,

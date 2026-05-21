@@ -39,7 +39,7 @@ export class InterfaceTab {
                 );
 
             setupSetting.addButton((b) =>
-                b.setButtonText(isComplete ? t('settings.interface.restartSetup') : t('settings.interface.startSetup')).setCta().onClick(async () => {
+                b.setButtonText(isComplete ? t('settings.interface.restartSetup') : t('settings.interface.startSetup')).onClick(async () => {
                     await onboarding.reset();
                     await this.plugin.startOnboarding();
                 }),

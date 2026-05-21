@@ -390,8 +390,13 @@
 }
 
 .user-message .message-content {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
+    /* Light blue tint that mirrors the Chrome DevTools "selected line"
+       highlight: ~20% of the Obsidian accent over the chat background.
+       Picks up whatever --interactive-accent resolves to so users with
+       a custom accent in Appearance settings get their colour
+       automatically. */
+    background: color-mix(in srgb, var(--interactive-accent) 20%, var(--background-primary));
+    color: var(--text-normal);
     align-self: flex-end;
     max-width: 85%;
     border-radius: 12px 12px 4px 12px;
@@ -2699,17 +2704,18 @@
 /* user-message .message-content base styles merged into the earlier
    block (line 383 area); only context-specific selectors remain below. */
 
-/* Visible selection highlighting for user messages (white background on blue) */
+/* Selection highlight: deeper tint of the accent so text stays readable
+   against the very light user-message bubble. */
 .user-message .message-content::selection,
 .user-message .message-content *::selection {
-    background: rgba(255, 255, 255, 0.3);
-    color: var(--text-on-accent);
+    background: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+    color: var(--text-normal);
 }
 
 .user-message .message-content::-moz-selection,
 .user-message .message-content *::-moz-selection {
-    background: rgba(255, 255, 255, 0.3);
-    color: var(--text-on-accent);
+    background: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+    color: var(--text-normal);
 }
 
 /* User message action bar (copy, edit) */
@@ -3305,6 +3311,7 @@
     flex: 1;
     height: 1px;
     background: linear-gradient(to right, transparent, var(--background-modifier-border));
+    pointer-events: none;
 }
 
 .checkpoint-marker::after {
@@ -3326,56 +3333,55 @@
     font-size: 10px;
 }
 
-.checkpoint-restore-btn {
-    padding: 1px 6px;
-    font-size: 10px;
+/* Action row -- always visible ghost icon buttons.
+ * Pattern adapted from Kilo Code's CheckpointMenu
+ * (forked-kilocode/webview-ui/src/components/chat/checkpoints/CheckpointMenu.tsx):
+ * three primary actions in a row + a "more" overflow for the rarely-used
+ * "Delete chat from here" option. Borderless, transparent, icon-only,
+ * tooltip via aria-label. */
+.checkpoint-actions {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    margin-left: 2px;
+}
+
+.checkpoint-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
     background: transparent;
-    border: 1px solid var(--background-modifier-border);
+    border: none;
     border-radius: 3px;
     color: var(--text-faint);
     cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s;
+    opacity: 0.5;
+    box-shadow: none;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 
-.checkpoint-marker:hover .checkpoint-restore-btn {
+.checkpoint-marker:hover .checkpoint-action-btn {
+    opacity: 0.8;
+}
+
+.checkpoint-action-btn:hover {
     opacity: 1;
+    color: var(--interactive-accent);
+    background: var(--background-modifier-hover);
 }
 
-.checkpoint-restore-btn:hover {
-    border-color: var(--interactive-accent);
-    color: var(--interactive-accent);
+.checkpoint-action-btn svg {
+    width: 13px;
+    height: 13px;
 }
 
 .checkpoint-restored {
     color: var(--color-green);
     font-size: 10px;
-}
-
-/* Checkpoint restore options (expand on click) */
-.checkpoint-restore-options {
-    display: flex;
-    gap: 4px;
     margin-left: auto;
-}
-
-.checkpoint-option-btn {
-    padding: 1px 8px;
-    font-size: 10px;
-    background: transparent;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 3px;
-    color: var(--text-muted);
-    cursor: pointer;
-    white-space: nowrap;
-}
-.checkpoint-option-btn:hover {
-    border-color: var(--interactive-accent);
-    color: var(--interactive-accent);
-}
-.checkpoint-option-delete:hover {
-    border-color: var(--color-red);
-    color: var(--color-red);
 }
 
 /* ── Undo bar (fallback) ─────────────────────────────────────────────── */
@@ -4980,11 +4986,13 @@
     white-space: nowrap;
 }
 
-.agent-skill-source-bundled {
+.agent-skill-source-bundled,
+.agent-skill-source-builtin {
     background-color: var(--background-modifier-success);
     color: var(--text-on-accent);
 }
 
+.agent-skill-source-agent,
 .agent-skill-source-learned {
     background-color: var(--interactive-accent);
     color: var(--text-on-accent);
@@ -5011,22 +5019,83 @@
     white-space: nowrap;
 }
 
+/* Borderless icon button used in skill rows. Higher specificity via
+   the table-cell ancestor wins over Obsidian's default .setting-item
+   button styling. Matches the chat-toolbar button look (transparent,
+   icon-only). */
+.agent-skill-actions-cell button.agent-skill-action-btn,
 .agent-skill-action-btn {
-    background: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
     border: none;
+    box-shadow: none;
     cursor: pointer;
-    padding: 2px 4px;
     color: var(--text-muted);
     border-radius: 4px;
 }
 
+.agent-skill-action-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.agent-skill-actions-cell button.agent-skill-action-btn:hover,
 .agent-skill-action-btn:hover {
     color: var(--text-normal);
     background: var(--background-modifier-hover);
+    box-shadow: none;
 }
 
 .agent-skill-action-btn-faint {
     opacity: 0.3;
+}
+
+/* ---------------------------------------------------------------------------
+ * Generic borderless icon-only buttons across the Settings tab.
+ *
+ * Targets any <button> inside .agent-settings that has a direct <svg> child
+ * AND no other direct children (i.e. setIcon() was called on it and there
+ * is no accompanying label text). Text-buttons (Create, Import, Reload,
+ * Save) and CTA-styled buttons (.mod-cta) keep their default look so
+ * primary actions stay visually distinct.
+ *
+ * Selector is :has() / :not(:has()) which Electron has supported since
+ * version 109 (Obsidian 1.4+).
+ * ------------------------------------------------------------------------ */
+.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta):hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    box-shadow: none;
+}
+
+.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta) svg {
+    width: 14px;
+    height: 14px;
+}
+
+.agent-settings button:has(> svg):not(:has(> :not(svg))):not(.mod-cta):disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .agent-skill-toggle-cell {
@@ -7062,4 +7131,61 @@
 .agent-relay-step code {
     font-family: var(--font-monospace);
     white-space: pre;
+}
+
+/* ── Settings buttons: muted look across all Vault Operator tabs ──────────
+ * Sebastian feedback 2026-05-20 (FEAT-29-01):
+ * Plugin settings buttons should all render in the muted opacity used by
+ * Obsidian's disabled-button state, regardless of enabled/disabled status.
+ * Disabled-state cues come from the tooltip on hover plus the no-op notice
+ * on click, not from a separate visual treatment. Selector scoped to the
+ * Obsidian settings modal so other plugins are unaffected.
+ */
+.modal-container .vertical-tab-content .setting-item-control > button,
+.modal-container .vertical-tab-content .setting-item-control > .clickable-icon,
+.modal-container .vertical-tab-content .setting-item-control > .extra-setting-button {
+    opacity: 0.65;
+    transition: opacity 0.15s ease;
+}
+.modal-container .vertical-tab-content .setting-item-control > button:hover:not(:disabled),
+.modal-container .vertical-tab-content .setting-item-control > .clickable-icon:hover,
+.modal-container .vertical-tab-content .setting-item-control > .extra-setting-button:hover {
+    opacity: 1;
+}
+.modal-container .vertical-tab-content .setting-item-control > button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* FEAT-29-09 SkillVersionsModal -- moved off element.style.setProperty */
+.skill-version-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.skill-version-info { flex: 1; }
+.skill-version-meta { font-size: 12px; }
+.skill-version-actions { display: flex; gap: 4px; }
+
+/* FEAT-29-08 PartialTranslationModal -- moved off element.style.setProperty */
+.partial-translation-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+.partial-translation-table th {
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.partial-translation-table td { padding: 4px 8px; }
+.partial-translation-heading { margin-top: 16px; }
+.partial-translation-reason { font-size: 0.9em; }
+.partial-translation-button-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
 }

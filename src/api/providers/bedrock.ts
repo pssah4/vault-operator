@@ -53,6 +53,54 @@ import { logCacheStat } from '../logCacheStat';
 const BEDROCK_DEFAULT_CONTEXT_WINDOW = 200_000;
 
 /**
+ * FIX-04-03-06: AWS Bedrock Converse rejects calls where the history
+ * contains `toolUse`/`toolResult` blocks but the call passes no
+ * `toolConfig`. The hard-limit-recovery path in AgentTask intentionally
+ * sends `tools=[]` to disable further tool calls, which then trips the
+ * mismatch. This helper replaces tool-blocks in a defensive copy with
+ * compact text markers so the API call shape is consistent.
+ *
+ * Pure function; does not mutate the input.
+ */
+export function messagesHaveToolBlocks(messages: MessageParam[]): boolean {
+    for (const msg of messages) {
+        if (typeof msg.content === 'string') continue;
+        for (const block of msg.content) {
+            if (block.type === 'tool_use' || block.type === 'tool_result') return true;
+        }
+    }
+    return false;
+}
+
+export function stripToolBlocksForNoToolsCall(messages: MessageParam[]): MessageParam[] {
+    return messages.map((msg) => {
+        if (typeof msg.content === 'string') return msg;
+        const newContent: ContentBlock[] = msg.content.map((block) => {
+            if (block.type === 'tool_use') {
+                return {
+                    type: 'text',
+                    text: `[prior tool call: ${block.name}]`,
+                };
+            }
+            if (block.type === 'tool_result') {
+                // Compact representation: collapse any structured tool-result
+                // payload into a single text marker. The conversation history
+                // stays meaningful, but no tool-block references remain.
+                const summary = typeof block.content === 'string'
+                    ? block.content.slice(0, 200)
+                    : '[tool result content]';
+                return {
+                    type: 'text',
+                    text: `[prior tool result] ${summary}`,
+                };
+            }
+            return block;
+        });
+        return { role: msg.role, content: newContent };
+    });
+}
+
+/**
  * Pull the region out of a Bedrock endpoint URL, e.g.
  * `https://bedrock-runtime.eu-central-1.amazonaws.com` -> `eu-central-1`.
  * Returns null if the URL does not match the expected AWS pattern.
@@ -128,7 +176,16 @@ export class BedrockProvider implements ApiHandler {
         tools: ToolDefinition[],
         abortSignal?: AbortSignal,
     ): ApiStream {
-        const bedrockMessages = this.convertMessages(messages);
+        // FIX-04-03-06: when the caller passes no tools but the history
+        // still contains tool_use/tool_result blocks (typical for the
+        // hard-limit-recovery path in AgentTask), strip those blocks
+        // to text markers. Otherwise AWS Converse returns 400
+        // "toolConfig must be defined when using toolUse and toolResult
+        // content blocks".
+        const messagesForApi = tools.length === 0 && messagesHaveToolBlocks(messages)
+            ? stripToolBlocksForNoToolsCall(messages)
+            : messages;
+        const bedrockMessages = this.convertMessages(messagesForApi);
 
         // IMP-18-01-02 / ADR-111: Bedrock caches nothing without explicit cachePoint
         // markers. When the model supports it (Anthropic Claude on Bedrock) and the
