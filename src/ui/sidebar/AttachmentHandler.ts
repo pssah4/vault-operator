@@ -135,12 +135,12 @@ export class AttachmentHandler {
                     new Notice(t('ui.attachment.largeDocument', { name: displayName }));
                 }
 
-                // Auto-save external PPTX/POTX files to vault for template analysis
+                // Auto-save external PPTX/POTX files to vault for template
+                // analysis; other binaries land in the attachments folder
+                // so a follow-up turn can reach them via vault_path.
                 let resolvedVaultPath = vaultPath;
-                console.debug(`[AttachmentHandler] processFile: ext=${ext}, vaultPath=${vaultPath ?? 'undefined'}, fileName=${file.name}`);
                 if (!resolvedVaultPath && (ext === 'pptx' || ext === 'potx')) {
                     resolvedVaultPath = await this.saveExternalTemplateToVault(file.name, arrayBuffer);
-                    console.debug(`[AttachmentHandler] PPTX template-save: ${resolvedVaultPath ?? 'failed'}`);
                 } else if (!resolvedVaultPath) {
                     // PDF/DOCX/XLSX (everything that lands in the document
                     // parser path except PPTX/POTX templates) gets persisted
@@ -150,9 +150,6 @@ export class AttachmentHandler {
                     // current turn -- a move_file in a follow-up turn would
                     // have nothing to operate on.
                     resolvedVaultPath = await this.saveExternalBinaryToAttachments(file.name, arrayBuffer);
-                    console.debug(`[AttachmentHandler] binary-save: ${resolvedVaultPath ?? 'FAILED'}`);
-                } else {
-                    console.debug(`[AttachmentHandler] file already in vault, no auto-save: ${vaultPath}`);
                 }
 
                 const vaultPathAttr = resolvedVaultPath ? ` vault_path="${escapeXmlAttr(resolvedVaultPath)}"` : '';
@@ -424,10 +421,15 @@ export class AttachmentHandler {
      */
     private async saveExternalTemplateToVault(fileName: string, data: ArrayBuffer): Promise<string | undefined> {
         try {
+            const safeName = sanitiseAttachmentFileName(fileName);
+            if (!safeName) {
+                console.warn(`[AttachmentHandler] Refusing template-save with unsafe name: ${fileName}`);
+                return undefined;
+            }
             const templateDir = 'Tools & Settings/Templates';
             await this.vault.adapter.mkdir(templateDir);
 
-            const targetPath = `${templateDir}/${fileName}`;
+            const targetPath = `${templateDir}/${safeName}`;
             const existing = this.vault.getAbstractFileByPath(targetPath);
             if (existing instanceof TFile) {
                 await this.vault.modifyBinary(existing, data);
@@ -455,11 +457,21 @@ export class AttachmentHandler {
      */
     private async saveExternalBinaryToAttachments(fileName: string, data: ArrayBuffer): Promise<string | undefined> {
         try {
+            // AUDIT-025 M-1 (CWE-22): sanitise the user-supplied file
+            // name before it lands in a vault path. Browser/Electron
+            // normally strip path components from File.name, but a
+            // malicious sender (e.g. a compromised browser extension)
+            // could pass `../escape/secret.pdf`. Reject any leftover
+            // path separator, parent reference, or NUL char.
+            const safeName = sanitiseAttachmentFileName(fileName);
+            if (!safeName) {
+                new Notice(`Refusing attachment with unsafe name: ${fileName}`, 8000);
+                return undefined;
+            }
             const folder = (await this.readAttachmentFolderPath()).replace(/\/+$/, '') || 'Attachements';
-            console.debug(`[AttachmentHandler] saveExternalBinaryToAttachments: folder=${folder}, fileName=${fileName}, dataBytes=${data.byteLength}`);
             await this.vault.adapter.mkdir(folder);
 
-            const targetPath = `${folder}/${fileName}`;
+            const targetPath = `${folder}/${safeName}`;
             const existing = this.vault.getAbstractFileByPath(targetPath);
             if (existing instanceof TFile) {
                 // Don't clobber an existing file with the same name; the
@@ -524,4 +536,27 @@ export class AttachmentHandler {
         }
         return undefined;
     }
+}
+
+/**
+ * AUDIT-025 M-1: keep agent-controlled vault writes within their
+ * configured folder. Strips path separators (forward + backward
+ * slashes), refuses anything containing a parent-reference (`..`),
+ * a NUL char, or a leading dot-segment ("`./`"). Trims surrounding
+ * whitespace. Returns the safe filename or an empty string when the
+ * input cannot be normalised into a single-segment name; callers
+ * abort the save on empty.
+ */
+export function sanitiseAttachmentFileName(raw: string): string {
+    if (!raw || typeof raw !== 'string') return '';
+    let s = raw.trim();
+    if (s.includes('\0')) return '';
+    if (s.includes('..')) return '';
+    // Strip platform path separators -- a real file-name has none.
+    s = s.replace(/[\\/]/g, '');
+    // Drop a leading dot (so ".env" stays valid as an extension-leading
+    // name only if the user really wants it; we forbid hidden-leading
+    // double-dot which is already covered above).
+    if (s.startsWith('.')) s = s.replace(/^\.+/, '');
+    return s.trim();
 }
