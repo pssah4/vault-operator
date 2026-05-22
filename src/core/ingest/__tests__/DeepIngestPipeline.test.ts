@@ -17,11 +17,18 @@ function makeFile(path: string): TFile {
     return f;
 }
 
-function makeMockApp(sourceMd?: string): { app: App; created: Array<{ path: string; content: string }>; folders: Set<string> } {
+function makeMockApp(sourceMd?: string): {
+    app: App;
+    created: Array<{ path: string; content: string }>;
+    modified: Array<{ path: string; content: string }>;
+    folders: Set<string>;
+} {
     const created: Array<{ path: string; content: string }> = [];
+    const modified: Array<{ path: string; content: string }> = [];
     const folders = new Set<string>();
     return {
         created,
+        modified,
         folders,
         app: {
             vault: {
@@ -32,49 +39,62 @@ function makeMockApp(sourceMd?: string): { app: App; created: Array<{ path: stri
                     return makeFile(p);
                 },
                 cachedRead: async () => sourceMd ?? '',
+                read: async () => sourceMd ?? '',
+                modify: async (file: TFile, content: string) => {
+                    modified.push({ path: file.path, content });
+                },
             },
         } as unknown as App,
     };
 }
 
 describe('DeepIngestPipeline', () => {
-    it('runs source-only with no senseMaking', async () => {
+    it('source-only does NOT duplicate the source -- it stays in its original folder', async () => {
         const m = makeMockApp();
         const planGenerator = vi.fn(async (): Promise<DeepIngestPlan> => ({ takeAways: [] }));
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
         });
+        const sourceFile = makeFile('Inbox/x.md');
         const result = await pipeline.run({
-            sourceFile: makeFile('Inbox/x.md'),
+            sourceFile,
             mode: 'auto',
             outputMode: 'source-only',
             cluster: 'Tech',
         });
-        expect(result.generated.sourceFile).toBeDefined();
-        expect(m.created.length).toBe(1);
-        expect(m.created[0].path).toContain('Sources');
+        // Source-Note is the ORIGINAL file, not a copy.
+        expect(result.generated.sourceFile).toBe(sourceFile);
+        // Nothing new was created. The original may have been modify-d
+        // (block-IDs) when there is a body, but no Sources/ duplicate.
+        expect(m.created.length).toBe(0);
+        // No file path starting with `Sources` was ever touched.
+        expect(m.created.find((c) => c.path.startsWith('Sources/'))).toBeUndefined();
+        expect(m.modified.find((c) => c.path.startsWith('Sources/'))).toBeUndefined();
     });
 
-    it('runs source-plus-summary with sense-making body', async () => {
-        const m = makeMockApp();
+    it('source-plus-summary writes ONLY the sense-making note (source stays in place)', async () => {
+        const m = makeMockApp('Body of source note.\n');
         const planGenerator = vi.fn(async (): Promise<DeepIngestPlan> => ({
             takeAways: ['claim-1', 'claim-2'],
             summaryBody: 'Sense-Making body',
         }));
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
         });
+        const sourceFile = makeFile('Inbox/x.md');
         const result = await pipeline.run({
-            sourceFile: makeFile('Inbox/x.md'),
+            sourceFile,
             mode: 'dialog',
             outputMode: 'source-plus-summary',
             cluster: 'Tech',
         });
-        expect(result.generated.sourceFile).toBeDefined();
+        expect(result.generated.sourceFile).toBe(sourceFile);
         expect(result.generated.senseMakingFile).toBeDefined();
-        expect(m.created.length).toBe(2); // source + sense-making
+        // Only the sense-making note is created -- the source is not duplicated.
+        expect(m.created.length).toBe(1);
+        expect(m.created[0].path).toBe('Inbox/x (Sense-Making).md');
     });
 
     it('appends tension-markers to senseMaking when detector finds them', async () => {
@@ -93,7 +113,7 @@ describe('DeepIngestPipeline', () => {
             summaryBody: 'Body',
         }));
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             tensionDetector: detector,
             planGenerator,
         });
@@ -123,7 +143,7 @@ describe('DeepIngestPipeline', () => {
             },
         }));
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
         });
         const result = await pipeline.run({
@@ -134,15 +154,18 @@ describe('DeepIngestPipeline', () => {
         });
         expect(result.generated.bibliographyFile).toBeDefined();
         expect(result.generated.zettelFiles?.length).toBe(2);
-        // Source + Bibliografie + 2 Zettel = 4 Files
-        expect(m.created.length).toBe(4);
+        // No source duplicate -- only Bibliografie + 2 Zettel = 3 files in notesFolder.
+        expect(m.created.length).toBe(3);
+        for (const c of m.created) {
+            expect(c.path.startsWith('Inbox/')).toBe(true);
+        }
     });
 
     it('triggers MOC-update hook when configured', async () => {
         const m = makeMockApp();
         const mocHook = vi.fn(async () => {});
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator: async () => ({ takeAways: [] }),
             onMOCPageUpdated: mocHook,
         });
@@ -170,7 +193,7 @@ describe('DeepIngestPipeline', () => {
             // SummaryPositionAnnotator nutzen.
         }));
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
         });
         await pipeline.run({
@@ -187,7 +210,7 @@ describe('DeepIngestPipeline', () => {
         expect(senseMakingNote?.content).toContain('B: zweiter Take-Away. [[test#^block-2|↗]]');
     });
 
-    it('FIX-19-28-01: source-note body is no longer empty -- contains source markdown with block-IDs', async () => {
+    it('FIX-19-28-01 / no-duplicate: block-IDs are written in place into the original source', async () => {
         const sourceMd = `Aussage X.\n\nAussage Y.\n`;
         const m = makeMockApp(sourceMd);
         const planGenerator = vi.fn(async (): Promise<DeepIngestPlan> => ({
@@ -196,7 +219,7 @@ describe('DeepIngestPipeline', () => {
             ],
         }));
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
         });
         await pipeline.run({
@@ -205,11 +228,13 @@ describe('DeepIngestPipeline', () => {
             outputMode: 'source-plus-summary',
             cluster: 'Tech',
         });
-        const sourceNote = m.created.find((c) => c.path.includes('Sources/'));
-        expect(sourceNote).toBeDefined();
-        expect(sourceNote?.content).toContain('Aussage X. ^block-1');
-        // Body ist nicht leer (vorher war hardcoded body: '').
-        expect(sourceNote?.content).toContain('Aussage Y.');
+        // No Sources/-duplicate was created.
+        expect(m.created.find((c) => c.path.startsWith('Sources/'))).toBeUndefined();
+        // The original file was modify-d, with block-IDs.
+        const modified = m.modified.find((c) => c.path === 'Inbox/source.md');
+        expect(modified).toBeDefined();
+        expect(modified?.content).toContain('Aussage X. ^block-1');
+        expect(modified?.content).toContain('Aussage Y.');
     });
 
     it('FIX-19-28-01: legacy string[] take-aways still work (backward-compat)', async () => {
@@ -220,7 +245,7 @@ describe('DeepIngestPipeline', () => {
             summaryBody: 'Sense-Making body provided',
         }));
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
         });
         await pipeline.run({
@@ -240,7 +265,7 @@ describe('DeepIngestPipeline', () => {
         const incrementCount = vi.fn();
         const stats = { incrementCount } as unknown as ConstructorParameters<typeof DeepIngestPipeline>[1]['sourceStats'];
         const pipeline = new DeepIngestPipeline(m.app, {
-            folderConfig: { sourceFolder: 'Sources' },
+            folderConfig: { notesFolder: 'Inbox' },
             planGenerator: async () => ({ takeAways: [] }),
             sourceStats: stats,
         });

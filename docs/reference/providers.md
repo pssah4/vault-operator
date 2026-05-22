@@ -7,7 +7,13 @@ description: Setup guides for all supported AI providers. Anthropic, OpenAI, Goo
 
 Vault Operator supports 12 AI providers. Setup instructions for each one follow.
 
-For all providers, open **Settings > Vault Operator > Providers**, click **"+ Add provider"**, and pick your provider type.
+For all providers, open **Settings > Vault Operator > Providers**, click **"+ Add provider"**, and pick your provider type. After you authenticate, click **Refresh** to discover the model list. Vault Operator classifies every model into one of three tiers:
+
+- **Budget** — cheap fast models for routine work
+- **Main** — the default tier for chat
+- **Frontier** — reserved for the on-demand `consult_flagship` escalation
+
+You can override the auto-classification per tier slot. If your active provider has no Frontier-tier model, the `consult_flagship` tool is removed from the agent's schema entirely.
 
 ## Cloud providers
 
@@ -16,7 +22,7 @@ For all providers, open **Settings > Vault Operator > Providers**, click **"+ Ad
 | | |
 |---|---|
 | What you need | API key from [console.anthropic.com](https://console.anthropic.com) |
-| Recommended models | Claude Sonnet 4.6 (best overall), Claude Haiku (fast and cheap) |
+| Tier mapping (auto) | Frontier: Claude Opus 4.6/4.7. Main: Claude Sonnet 4.5. Budget: Claude Haiku 4.5. |
 | Embedding | Not available natively. Use OpenAI for embeddings. |
 
 Setup:
@@ -33,7 +39,7 @@ Anthropic models are the most reliable at calling Vault Operator's tools correct
 | | |
 |---|---|
 | What you need | API key from [platform.openai.com](https://platform.openai.com) |
-| Recommended models | GPT-4o (balanced), o3 (reasoning), GPT-4o-mini (budget) |
+| Tier mapping (auto) | Frontier: GPT-5, GPT-5-pro. Main: GPT-5.1, GPT-4.1. Budget: GPT-4o-mini, GPT-5-mini. |
 | Embedding | Native support. `text-embedding-3-small` recommended. |
 
 Setup:
@@ -50,7 +56,7 @@ An OpenAI key also gives you access to embedding models for semantic search. Con
 | | |
 |---|---|
 | What you need | API key from [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| Recommended models | Gemini 2.5 Flash (fast, free tier available), Gemini 2.5 Pro (best quality) |
+| Tier mapping (auto) | Frontier: Gemini 2.5 Pro. Main: Gemini 2.5 Flash. Budget: Gemini 2.5 Flash-Lite. |
 | Embedding | Not available natively |
 
 Setup:
@@ -68,14 +74,14 @@ Google Gemini has a free tier with reasonable rate limits. Good starting point i
 | | |
 |---|---|
 | What you need | API key from [openrouter.ai](https://openrouter.ai) |
-| Recommended models | Any. OpenRouter gives access to 100+ models from multiple providers. |
+| Tier mapping (auto) | Pricing-based: > $50/M completion = Frontier, $5--50 = Main, < $5 = Budget. Family patterns override pricing where possible. |
 | Embedding | Not available |
 
 Setup:
 1. Create an account at [openrouter.ai](https://openrouter.ai)
 2. Go to **Keys** and create a new API key
 3. In Vault Operator, select **OpenRouter** as provider, paste the key
-4. Browse or type any model ID (e.g., `anthropic/claude-sonnet-4.6`, `google/gemini-2.5-pro`)
+4. Click **Refresh**. The model picker is searchable, so type "opus", "gpt-5", or any pattern to find a specific model
 
 ### Azure OpenAI
 
@@ -99,7 +105,7 @@ Azure OpenAI fits organizations with compliance requirements. Data stays inside 
 | | |
 |---|---|
 | What you need | AWS account with Bedrock enabled, IAM user with invoke permissions, access key ID + secret access key |
-| Recommended models | Claude Sonnet 4.5, Claude Opus 4.5, Amazon Nova (via cross-region inference profiles) |
+| Tier mapping (auto) | Frontier: Claude Opus 4.x. Main: Claude Sonnet 4.x. Budget: Claude Haiku, Amazon Nova Lite. |
 | Embedding | Not supported in phase 1. Use OpenAI or Ollama for embeddings |
 | Regions | eu-central-1, eu-west-1, eu-west-2, eu-west-3, eu-north-1, us-east-1, us-east-2, us-west-2, plus Asia Pacific |
 
@@ -167,7 +173,7 @@ GPT-5 family models require a `reasoning` block in every request. Vault Operator
 | | |
 |---|---|
 | What you need | An active GitHub Copilot subscription (Individual, Business, or Enterprise) |
-| Recommended models | GPT-4o, Claude Sonnet (available through Copilot) |
+| Tier mapping (auto) | Frontier: Claude Opus (when entitled), GPT-5. Main: Claude Sonnet, GPT-4.1. Budget: GPT-4o-mini. |
 | Embedding | Not available |
 
 Setup (OAuth device flow):
@@ -207,7 +213,7 @@ Setup (manual token):
 | | |
 |---|---|
 | What you need | Ollama installed on your machine |
-| Recommended models | Qwen 2.5 7B (balanced), Llama 3.2 (general), Codestral (code) |
+| Tier mapping (auto) | All models classified as Budget unless you override per slot. Pick the largest model you can run locally as your Main override. |
 | Embedding | Supported via `nomic-embed-text` or similar |
 
 Setup:
@@ -251,6 +257,14 @@ Setup:
 4. Type the **model name** exactly as the server expects
 
 This works with any server that implements the OpenAI chat completions API: vLLM, text-generation-inference, LocalAI, and self-hosted endpoints.
+
+## Migrating from the old "Models" tab
+
+Before v2.11 the plugin tracked one row per model in a flat `activeModels[]` list. v2.11 replaces that with `providerConfigs[]`, one row per provider with the discovered model list and tier mapping attached. A one-shot migration on first load groups your existing models by provider type, picks the first enabled model's credentials as the provider's auth, and classifies each enabled model into a tier.
+
+A one-shot notification modal summarises the result and flags anomalies (multi-auth setups, missing Frontier slot, custom endpoints that need manual tier assignment). The original list lives at `legacy_active_models_backup` for 30 days in case you want to roll back.
+
+The Models tab is hidden from the navigation in v2.11. It re-appears for users who configure new OAuth providers until the inline OAuth flow lands in a later release.
 
 ## Provider comparison
 

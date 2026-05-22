@@ -45,6 +45,13 @@ const SKIP_EXTERNALIZATION = new Set([
     // agent verbatim. Externalizing forces a follow-up read_file that
     // gets re-externalized and the model never sees the actual hits.
     'search_history', 'recall_memory',
+    // ingest_triage (FEAT-19-12): the triage card carries the cluster
+    // match + curated top-K hits from Vault/Memory/History. Externalizing
+    // forces the agent to spend a second tool_call re-reading a tmp file
+    // before showing the user the decision card -- the recall is small
+    // enough to live in the prompt cache, and the EPERM cleanup warning
+    // on iCloud is sidestepped entirely.
+    'ingest_triage',
     // ADR-063 (revised 2026-04-29): read_file/read_document return content
     // the agent explicitly requested. Replacing it with a 400-char preview
     // forces a follow-up "re-read" that hits the cache and returns the same

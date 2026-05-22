@@ -74,8 +74,8 @@ Everything lives in a single SQLite database managed by `KnowledgeDB` (`src/core
 | `ingest_triage_log` | Triage decisions per source URI (FEAT-19-12) | `source_uri`, `decision`, `cluster_match`, `created_at` |
 
 The database supports three storage locations with a fallback chain:
-- Global: `~/.obsidian-agent/knowledge.db` (shared across vaults, desktop only)
-- Local: `{vault}/.obsidian-agent/knowledge.db`
+- Global: `~/.vault-operator/knowledge.db` (shared across vaults, desktop only)
+- Local: `{vault}/.vault-operator/knowledge.db`
 - Obsidian Sync: `{vault}/{pluginDir}/knowledge.db`
 
 The schema is versioned (currently v10). When a schema change ships, `KnowledgeDB` runs migration logic on open. Daily snapshots in `.bak/{name}/{YYYY-MM-DD}.db` provide a 7-day recovery window if a write goes wrong, and a lock file prevents two plugin instances from corrupting the same database. Atomic writes plus a multi-file commit journal keep the database consistent across both `global` and `local`/`obsidian-sync` storage modes (FEATURE-0314).

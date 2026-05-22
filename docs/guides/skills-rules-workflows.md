@@ -11,9 +11,9 @@ Vault Operator's behavior is fully customizable. You can give it permanent instr
 
 | Type | What it does | Triggered by | Location |
 |------|-------------|-------------|----------|
-| Rules | Static instructions always injected into the system prompt | Always active (toggle on/off) | `.obsidian-agent/rules/*.md` |
-| Skills | Instruction sets injected when relevant keywords are detected | Automatic keyword matching | `.obsidian-agent/skills/{name}/SKILL.md` |
-| Workflows | Multi-step sequences triggered by slash commands | `/workflow-name` in chat | `.obsidian-agent/workflows/*.md` |
+| Rules | Static instructions always injected into the system prompt | Always active (toggle on/off) | `.vault-operator/rules/*.md` |
+| Skills | Instruction sets injected when relevant keywords are detected | Automatic keyword matching | `.vault-operator/skills/{name}/SKILL.md` |
+| Workflows | Multi-step sequences triggered by slash commands | `/workflow-name` in chat | `.vault-operator/workflows/*.md` |
 | Custom Prompts | Reusable templates with variables | `/` picker in chat | Settings > Custom Prompts |
 
 ## Rules
@@ -21,7 +21,7 @@ Vault Operator's behavior is fully customizable. You can give it permanent instr
 Rules are the simplest customization. A rule is a Markdown file that gets injected into every conversation.
 
 To create one:
-1. Navigate to `.obsidian-agent/rules/` in your vault
+1. Navigate to `.vault-operator/rules/` in your vault
 2. Create a new `.md` file (e.g., `tone.md`)
 3. Write your instruction in plain text
 
@@ -46,7 +46,7 @@ Vault Operator ships with a set of bundled skills you can use right away: `/inge
 :::
 
 To create one:
-1. Create a folder under `.obsidian-agent/skills/` (e.g., `meeting-notes/`)
+1. Create a folder under `.vault-operator/skills/` (e.g., `meeting-notes/`)
 2. Add a `SKILL.md` file with frontmatter:
 
 ```markdown
@@ -89,7 +89,7 @@ You can also create your own skills that build on plugin capabilities. A "Projec
 Workflows are saved procedures. They define a sequence of steps the agent follows when triggered.
 
 To create one:
-1. Create a file in `.obsidian-agent/workflows/` (e.g., `weekly-review.md`)
+1. Create a file in `.vault-operator/workflows/` (e.g., `weekly-review.md`)
 2. Define the steps:
 
 ```markdown

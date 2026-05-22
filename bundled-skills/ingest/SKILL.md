@@ -88,6 +88,14 @@ Schau in deinen Kontext:
 | Reine URL ohne Attachment | requestUrl + write_file (Tool-Pfad ohne ingest_document) |
 | Markdown im Vault | `ingest_document` mit `source_path` ist optional; bei reinen MD-Sources reicht `update_frontmatter` + Block-IDs |
 
+**Ablage-Regel:** ALLE Markdown-Outputs landen in `<defaultOutputFolder>/`
+(Default `Inbox/`, aus den Plugin-Settings). Originale Binaries
+(PDF/DOCX/PPTX/XLSX) gehen nach `Attachements/<Author>-<Year>-<Title>.<ext>`.
+Keine neuen Ordner anlegen, kein `Sources/`, kein `Notes/`. Wenn der
+defaultOutputFolder fehlt, legt das Plugin ihn beim ersten Schreibvorgang
+an. Naming-Convention: `<Author>-<Year>-<Title>` (englisch transliteriert,
+Bindestriche statt Leerzeichen). Ohne bekannten Author/Year: `<Title>`.
+
 ## Step 1: ingest_document aufrufen
 
 Aufrufkonvention:
@@ -95,7 +103,7 @@ Aufrufkonvention:
 ```
 ingest_document
   source_path | attachment_index = "<source>"
-  output_path = "<Notes/Author-Year_Title.md>"
+  output_path = "<defaultOutputFolder>/<Author>-<Year>-<Title>.md"
   header_content = """
     ---
     source: ...
@@ -148,46 +156,93 @@ die ganze Note neu schreiben.**
 
 ## Step 4: Sense-Making-Note (optional, User fragen)
 
-Nach erfolgreichem Ingest **immer** den User fragen:
+Nach erfolgreichem Ingest **immer** via `ask_followup_question`-Tool
+nachfragen, niemals als Plain-Text-Frage:
 
-> "Soll ich aus den Kernaussagen Sense-Making-Notes anlegen?
-> A: Eine zusammenfassende Note. B: Pro Take-Away einen eigenen
-> Zettel. C: Nichts, danke."
+- question: "Soll ich aus den Kernaussagen Sense-Making-Notes anlegen?"
+- options: ["Eine zusammenfassende Note", "Pro Take-Away einen eigenen
+  Zettel", "Nichts, danke"]
 
-Default ist "C: Nichts". Nur bei expliziter A- oder B-Antwort weiter.
+Default ist "Nichts, danke". Nur bei expliziter Sense-Making- oder
+Zettel-Antwort weiter mit Step 4a-4d.
 
-### Step 4a: Template lesen (Pflicht)
+### Step 4a: Template-Frontmatter holen (Pflicht)
 
-Frontmatter-Template fuer die Output-Notes:
-`vaultIngest.templates.quellenNotizTemplate` (vault-relativer Pfad).
-First-Run-Wizard belegt das mit `<TemplatesFolder>/Notiz Template.md`
-(DE) bzw. `<TemplatesFolder>/Note Template.md` (EN). Lesen, Frontmatter
-extrahieren, Felder befuellen.
+`read_file path="<settings.vaultIngest.templates.quellenNotizTemplate>"`
+und den Frontmatter-Block zwischen den beiden `---`-Zeilen
+**verbatim** als String halten. Werte werden hinter den Doppelpunkten
+eingefuellt. Niemals YAML neu rendern -- das bricht das Frontmatter.
 
-**Kategorie-Wert (Pflicht):**
+**Pflicht-Werte:**
+- `Kategorie:` -> `- Quellen-Notiz` (DE) bzw. `- Source note` (EN).
+  Aus dem Template uebernehmen wenn vorhanden.
+- `Quellen:` -> `[[<Quelle-basename>]]` (bidirektionaler Link).
+- `Zusammenfassung:` -> 1-2-Satz-Quintessenz des Take-Aways.
 
-- Deutscher Vault: `- Quellen-Notiz`
-- Englischer Vault: `- Source note`
+### Step 4b: Naming-Konvention
 
-**Quellen-Backref im Frontmatter:** Setze `Quellen:` auf
-`[[<Quelle-basename>]]` damit der Graph eine Kante bekommt.
+Sense-Making-Note und Zettel sind **eigenstaendige Konzept-Notes** mit
+aussagekraeftigen Titeln. Keinen Source-Basename als Prefix.
 
-### Step 4b (Modus A): Sense-Making-Note
+| ❌ Falsch | ✅ Richtig |
+|---|---|
+| `Karpathy ... -- Sense-Making.md` | `Karpathy zu Vibe Coding und Agentic Engineering.md` |
+| `Karpathy ... -- LLMs als Ghosts.md` | `LLMs als Ghosts.md` |
+
+Verbindung zur Quelle: Frontmatter `Quellen: [[<Source>]]` + Backlink
+in der Source (Step 5).
+
+### Step 4c (Modus A): Sense-Making-Note
 
 EINE Note via `write_file`:
 
-- Pfad: `<gleicher Folder wie Quelle>/<Quelle-basename> -- Sense-Making.md`
-- Frontmatter aus Template, `Kategorie: - Quellen-Notiz`, `Quellen: [[<basename>]]`
-- Body: Synthese aus den Kernaussagen, jede Aussage mit dem gleichen
-  `[[<basename>#...|↗]]`-Marker wie in der Quelle.
+- **Pfad:** `<defaultOutputFolder>/<Konzept-Titel>.md`
+- **Content (Reihenfolge strikt, keine Leerzeile vor dem Frontmatter):**
 
-### Step 4c (Modus B): Multi-Zettel
+```
+<TEMPLATE-FRONTMATTER VERBATIM, Werte gefuellt>
 
-N Notes via `write_file`-Calls, einer pro Take-Away:
+# <Konzept-Titel>
 
-- Pfad: `<gleicher Folder wie Quelle>/<Quelle-basename> -- <Take-Away-Kurztitel>.md`
-- Frontmatter wie 4b
-- Body: ein Take-Away, der jeweilige Marker am Satzende
+## Kernaussage
+
+<1-3 Saetze, zentrales Argument der Quelle pointiert.>
+
+## Take-Aways
+
+- <Take-Away 1, ausformuliert.> [[<Source>#Page <N>|↗]]
+- <Take-Away 2.> [[<Source>#^block-<M>|↗]]
+- ...
+```
+
+### Step 4d (Modus B): Multi-Zettel
+
+Ein Zettel pro Take-Away via `write_file`:
+
+- **Pfad:** `<defaultOutputFolder>/<Konzept-Titel>.md`
+- **Content:**
+
+```
+<TEMPLATE-FRONTMATTER VERBATIM, Werte gefuellt>
+
+# <Konzept-Titel>
+
+<EIN Gedanke / Take-Away, ausformuliert in 1-3 Absaetzen. Eigene
+Worte, nicht Source-Wortlaut. Was ist die Insight, warum ist sie
+relevant?>
+
+## Quelle
+
+[[<Source>]] -- siehe [[<Source>#Page <N>|↗]]
+```
+
+**Wichtig:** Body und Frontmatter-`Zusammenfassung:` ergaenzen sich.
+Frontmatter ist die Quintessenz fuer Listing/Suche, Body ist die
+Ausformulierung. Niemals Body leer lassen.
+
+**Namens-Kollision:** Wenn `<Konzept-Titel>.md` schon existiert,
+`read_file` der existierenden Note, User fragen ob Ergaenzung oder
+Variante (`<Titel> (<Autor>).md`). Nie stillschweigend ueberschreiben.
 
 ## Step 5: Backlink in der Quelle (Pflicht nach Step 4)
 
@@ -215,6 +270,24 @@ Notes.
 - Kein Originaltext in der `## Kernaussagen`-Section duplizieren.
 - **Kein `read_document` vor `ingest_document`.** Tool parst selber.
 - **Kein `list_files` zur Pfad-Suche.** User fragen ist billiger.
+- **Keine neuen Ordner.** Erlaubte Ziele sind ausschliesslich
+  `Attachements/` (Binaries) und `<defaultOutputFolder>/` (Markdown).
+  Kein `Sources/`, kein `Notes/`.
+- **Keine Source-Duplikate.** Liegt die Quelle bereits als Markdown im
+  Vault (`source_path` zeigt auf eine `.md`-Datei), schreibe NICHT eine
+  zweite Note in `<defaultOutputFolder>/` -- nutze stattdessen
+  `update_frontmatter` + manuelle Block-ID-Edits direkt in der
+  Original-Note.
+- **Kein Source-Prefix in Sense-Making-/Zettel-Titeln.** Konzept-
+  Titel sind eigenstaendig, die Verbindung zur Quelle steht im
+  Frontmatter (`Quellen:`).
+- **Kein YAML-Re-Render des Templates.** Frontmatter-Block ist ein
+  verbatim String, Werte hinter Doppelpunkten einsetzen. Niemals
+  zerlegen und neu zusammensetzen -- das produziert doppelte `---`
+  und kaputte YAML.
+- **Keine Transkript-Schnipsel als Note-Body.** Eigene Worte, ein
+  klarer Gedanke pro Note. Roher Source-Text gehoert nicht in den
+  Body -- referenziere via Block-Ref.
 
 ## Fehlerfaelle
 

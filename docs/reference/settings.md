@@ -141,8 +141,14 @@ Control how the agent loop runs.
 | Max iterations | Maximum tool calls per conversation turn | 25 | Increase for complex tasks, decrease to limit cost |
 | Context condensing | Summarize older messages when context gets long | On | Keep on. Prevents context overflow errors. |
 | Condensing threshold | Percentage of context window before condensing triggers | 70% | Lower if you see 400-error context overflow |
+| Microcompaction | Compact older tool results in place when their token cost exceeds a threshold | On | Keep on. Cheaper than full condensing for long sessions. |
+| Rolling-summary threshold | Token threshold above which microcompaction triggers | 12000 | Lower if you see truncation, raise to keep more raw history |
 | Power steering | Re-inject key instructions every N messages | 4 | Keep at 4 for consistent behavior |
 | Subtask depth | Maximum nesting depth for sub-agents | 2 | Keep at 2 unless you need deep delegation |
+| Subtask token budget | Token budget per `new_task` spawn message | 8000 | Raise for research-profile subagents that need more context |
+| Cost-warn threshold | EUR cost threshold per task that triggers a warning notice | 0.50 | Lower if you want earlier warnings |
+| Default main-tier model | Which tier the chat loop uses by default | `mid` (Main) | Flip to `flagship` only if you run on a Frontier budget |
+| Helper model | The model used for context condensing, fast-path planning, `plan_presentation`, and recipe promotion | Falls back to active provider's Budget tier | Pick a small cheap model (Haiku, GPT-4o-mini, local Ollama). Fail-closed: invalid setting falls back to main. |
 
 ## Memory
 

@@ -29,13 +29,13 @@ Vault Operator runs implicit connection analysis in the background and finds not
 
 ## It learns how you work
 
-When the agent completes a task successfully, it remembers the tool sequence. After a few repetitions, it builds a "recipe" and runs similar tasks 10x faster using 90% fewer tokens.
+When the agent completes a task successfully, it remembers the tool sequence. After a few repetitions, the helper model plans a single deterministic execution from the matching recipe and skips most of the iterative reasoning. The same task drops from eight LLM calls to two, and from hundreds of thousands of tokens to tens.
 
 It also remembers your preferences, your writing style, and your projects across sessions, not only within a single chat. It builds a profile over time and adapts to how you like things done.
 
 > **Example prompt:** "Summarize this meeting note like last time." (It remembers your preferred format.)
 
-[Memory and personalization](/guides/memory-personalization) | [How memory works](/concepts/memory-system)
+[Memory and personalization](/guides/memory-personalization) | [How memory works](/concepts/memory-system) | [Mastery and recipes](/concepts/mastery)
 
 ## You stay in control
 
@@ -105,6 +105,14 @@ Beyond the everyday read-write-search loop, Vault Operator ships three advanced 
 
 [Power features guide](/guides/power-features)
 
+## It runs the right model at the right time
+
+You configure a provider once. Vault Operator discovers its models, sorts them into Budget / Main / Frontier, and runs the chat loop on Main by default. The `consult_flagship` tool escalates one synthesis step to Frontier when the agent struggles, capped at three calls per task and 3000 output tokens. Cheap background work (context condensing, fast-path planning, presentation planning, recipe promotion) routes to a separate helper model you pick once.
+
+> **No more model-of-the-day shopping.** Pick a provider, refresh, done. The plugin handles the rest.
+
+[Choosing a model](/guides/choosing-a-model) | [Providers reference](/reference/providers)
+
 ## What it costs
 
 Vault Operator itself is free and open source. You pay only for the AI model you use.
@@ -116,7 +124,8 @@ Vault Operator itself is free and open source. You pay only for the AI model you
 | OpenRouter (cloud) | Pay per token, typically $0.50-5 per day |
 | Anthropic / OpenAI (direct) | Pay per token, typically $1-10 per day |
 | GitHub Copilot (subscription) | Included with Copilot subscription |
+| ChatGPT Plus / Pro (OAuth) | Included with the existing subscription |
 
-Vault Operator's token optimization (Fast Path, KV-cache alignment, context externalization) cuts costs by up to 90% compared to a naive agent loop.
+Vault Operator's cost-aware loop (advisor pattern, helper-model routing, KV-cache alignment, context externalization, prompt slim-down) cuts costs by up to 90 percent compared to a naive agent loop.
 
 [Choosing a model](/guides/choosing-a-model) | [Token optimization](/concepts/token-optimization)

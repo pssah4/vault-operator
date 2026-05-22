@@ -9,7 +9,7 @@ Rules are short Markdown files that get injected into the system prompt and alwa
 
 ## Where rules live
 
-Rules sit in a per-vault folder: **`.obsidian-agent/rules/`** by default. The agent folder path is configurable in **Settings > Vault > Agent folder**; if you change it, rules move with it.
+Rules sit in a per-vault folder: **`.vault-operator/rules/`** by default. The agent folder path is configurable in **Settings > Vault > Agent folder**; if you change it, rules move with it.
 
 Each rule is one file, `.md` or `.txt`. There is no schema, no required frontmatter, no naming convention. The filename is just the rule's identifier in the UI and in the toggles record.
 

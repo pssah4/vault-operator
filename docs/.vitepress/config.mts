@@ -79,6 +79,7 @@ const conceptsSidebar = [
     items: [
       { text: 'Tool system', link: '/concepts/tool-system' },
       { text: 'System prompt', link: '/concepts/system-prompt' },
+      { text: 'Advisor pattern', link: '/concepts/advisor-pattern' },
       { text: 'Modes', link: '/concepts/mode-system' },
     ],
   },

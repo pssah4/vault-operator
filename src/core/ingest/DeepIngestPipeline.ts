@@ -97,6 +97,13 @@ export interface DeepIngestResult {
     generated: GenerateResult;
     tensionMarkers: TensionResult[];
     sourceFile: TFile;
+    /**
+     * Mapping anchor-text -> block-id-suffix (e.g. "block-3"). Lets the
+     * caller render `[[<source>#^block-N|↗]]` links that resolve to the
+     * exact spot in the source. Empty entries indicate anchors that did
+     * not match any line in the source body.
+     */
+    anchorToBlockId: Record<string, string>;
 }
 
 /**
@@ -157,10 +164,11 @@ export class DeepIngestPipeline {
             .filter(Boolean)
             .join('\n\n');
 
-        // 6. SourceContent vorbereiten -- Body kommt jetzt aus dem
-        //    Pre-Pass (mit Block-IDs gesetzt). blockAnchors=[] weil
-        //    die IDs schon im Body stehen; OutputModeGenerator's
-        //    markBlockIds-Aufruf ist damit ein No-Op.
+        // 6. SourceContent vorbereiten -- die Original-Note bleibt in
+        //    ihrem Folder (Inbox/), wird NICHT nach notesFolder dupliziert.
+        //    `existingFile` signalisiert dem Generator, dass er die
+        //    Block-IDs in-place einsetzen soll (vault.modify). Body-Hint
+        //    bleibt fuer den Fallback-Pfad (kein existingFile) erhalten.
         const sourceContent: SourceContent = {
             suggestedFilename: input.sourceFile.basename + '.md',
             body: markedSource,
@@ -169,7 +177,11 @@ export class DeepIngestPipeline {
                 ingested_at: new Date().toISOString(),
                 ingest_mode: input.outputMode,
             },
-            blockAnchors: [],
+            // Block-IDs werden im Generator (modifySourceInPlace) gesetzt;
+            // die Pre-Pass-Map (anchorToBlockId) bleibt fuer den
+            // SummaryPositionAnnotator unten erhalten.
+            blockAnchors: blockAnchors,
+            existingFile: input.sourceFile,
         };
 
         // 7. Sense-Making je nach Output-Modus
@@ -225,6 +237,6 @@ export class DeepIngestPipeline {
             catch (err) { console.warn('[DeepIngest] MOC page update failed:', err); }
         }
 
-        return { generated, tensionMarkers, sourceFile: input.sourceFile };
+        return { generated, tensionMarkers, sourceFile: input.sourceFile, anchorToBlockId };
     }
 }

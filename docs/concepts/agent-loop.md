@@ -94,7 +94,7 @@ Context externalization intercepts large tool results before they enter the hist
 
 `ResultExternalizer` (`src/core/tool-execution/ResultExternalizer.ts`) handles this, called from `ToolExecutionPipeline` after each tool execution. Externalization is transparent to tools. They return full results as before, and the pipeline decides what enters the history.
 
-Temporary files live in `.obsidian-agent/tmp/{taskId}/` with deterministic names (`{toolName}-{callIndex}.md`). No timestamps, no random values, so file paths don't invalidate the KV cache. Cleanup happens after task completion, with a safety sweep on plugin startup for orphaned directories older than one hour.
+Temporary files live in `.vault-operator/tmp/{taskId}/` with deterministic names (`{toolName}-{callIndex}.md`). No timestamps, no random values, so file paths don't invalidate the KV cache. Cleanup happens after task completion, with a safety sweep on plugin startup for orphaned directories older than one hour.
 
 During fast path execution, externalization is disabled. The final LLM call needs full content for a good summary, and with only two to three iterations the accumulation is minimal.
 
@@ -133,6 +133,25 @@ The `new_task` tool lets the agent spawn a child `AgentTask` for a subtask. The 
 The parent's approval callback is forwarded to the child, so write operations from child agents still require human approval.
 
 When a child reaches `maxSubtaskDepth` (default 2), the `new_task` tool is removed from its available tools entirely, which prevents unbounded recursive spawning. Token usage from children accumulates into the parent's totals for accurate cost tracking.
+
+`new_task({profile: 'research'})` is the lean variant. It spawns a research-only subagent with a read-only tool allowlist (10 schemas instead of 34 in main) and a per-call token budget (default 8000). The role definition requires the subagent to put the concrete output the parent asked for into `attempt_completion.result`, not a meta-acknowledgement. This keeps the parent's context flat after the subtask returns.
+
+## Advisor escalation: `consult_flagship`
+
+The loop runs on the Main tier of the active provider by default. When the agent hits a hard synthesis step it can call `consult_flagship` to ask the Frontier-tier model a focused question. The advisor subagent is read-only (no write, edit, delete, MCP, or spawn), output is capped at 3000 tokens, and the per-task budget is three calls. The tool is filtered out of the schema entirely if the active provider has no Frontier slot.
+
+See [Advisor pattern](./advisor-pattern) for the full story.
+
+## Helper-model routing
+
+Four internal LLM calls do not run on the main chat model:
+
+- Context condensing
+- Fast-path planning (the planner that turns a recipe match into a deterministic tool sequence)
+- `plan_presentation` (the internal LLM call inside the `create_pptx` template flow)
+- Recipe promotion (the call that decides whether a finished task qualifies as a reusable recipe)
+
+All four route to the `helperModelKey` provider/model pair from Settings > Agent behaviour > Loop > Helper model. Fail-closed: if the setting is invalid the helper calls fall back to the main model. Pick the cheapest model that still understands the prompts (Claude Haiku, GPT-4o-mini, Gemini Flash, local Ollama). The helper is invisible to the user-visible turn; you only see it in the cost log.
 
 ## Next
 
