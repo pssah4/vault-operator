@@ -1,11 +1,11 @@
 ---
 title: Tools Reference
-description: Complete list of all 65 tools available to the Vault Operator, organized by group.
+description: Complete list of all 66 tools available to the Vault Operator, organized by group.
 ---
 
 # Tools reference
 
-Vault Operator has 65 built-in tools across nine groups. The agent picks the right tool based on your request. You never call tools yourself.
+Vault Operator has 66 built-in tools across nine groups. The agent picks the right tool based on your request. You never call tools yourself.
 
 :::tip How tools work
 When you ask Vault Operator to do something, it picks one or more tools, shows its plan in the activity block, and asks for approval before any write operation. See [Safety & Control](/guides/safety-control) for details.
@@ -21,7 +21,7 @@ When you ask Vault Operator to do something, it picks one or more tools, shows i
 | Memory and history | 8 | Yes (memory store) | Yes for writes |
 | Edit | 16 | Yes | Yes |
 | Web | 2 | No | Yes (external access) |
-| Agent control | 15 | Varies | Varies |
+| Agent control | 16 | Varies | Varies |
 | Plugin integration | 5 | Varies | Yes |
 | MCP | 2 | Depends on server | Yes |
 
@@ -123,8 +123,9 @@ Internal tools the agent uses to manage its own workflow and configuration.
 | `ask_followup_question` | Ask you a clarifying question with optional answer choices. | When your request is genuinely ambiguous. |
 | `attempt_completion` | Signal that a multi-step task is done and log a summary. | After completing a tool-based workflow. |
 | `update_todo_list` | Publish a visible task checklist for multi-step work. | For tasks with 3 or more distinct steps. |
-| `new_task` | Spawn a sub-agent with a fresh context for isolated or parallel work. | For tasks (5+ steps) that benefit from delegation. |
-| `switch_mode` | Switch to a different agent mode (e.g., from Ask to Agent). | When the current task needs a different set of tools or behavior. |
+| `new_task` | Spawn a sub-agent with a fresh context for isolated or parallel work. The `profile: 'research'` option uses a lean read-only allowlist (10 tools) with a per-call token budget. | For tasks (5+ steps) that benefit from delegation. |
+| `switch_mode` | Switch to a different agent mode (e.g., from Ask to Agent). UI trigger removed in v2.11; the tool itself is still active. | When the current task needs a different set of tools or behavior. |
+| `consult_flagship` | Escalate one synthesis step to the active provider's Frontier-tier model. Read-only subagent, output capped at 3000 tokens, three calls per task. Filtered out of the schema entirely if the active provider has no Frontier-tier model. | After two consecutive failed attempts on the Main tier, or when the task explicitly demands the strongest model on one step (deep analysis, cross-document synthesis, dense reasoning). |
 | `evaluate_expression` | Execute TypeScript code in an isolated sandbox with vault access. | For batch operations, computations, data transforms, or API calls beyond built-in tools. |
 | `find_tool` | Look up which tool fits a task description, including custom and plugin tools. | When the agent is unsure which tool to use. |
 | `inspect_self` | Read the agent's own configuration, available tools, modes, and active rules. | For debugging or when the user asks "what can you do?". |

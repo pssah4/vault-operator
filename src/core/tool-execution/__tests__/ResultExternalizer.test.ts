@@ -97,6 +97,12 @@ describe('ResultExternalizer', () => {
             expect(result).toBeNull();
         });
 
+        it('should NOT externalize ingest_triage -- curated card with cluster + top-K Vault/Memory/History hits', async () => {
+            const ext = await createExternalizer(fs);
+            const result = await ext.maybeExternalize('ingest_triage', {}, 'x'.repeat(7000), false);
+            expect(result).toBeNull();
+        });
+
         it('should NEVER externalize read_file -- ADR-063 revised 2026-04-29', async () => {
             const ext = await createExternalizer(fs);
             const result = await ext.maybeExternalize(

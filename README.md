@@ -2,7 +2,7 @@
 
 **Agentic AI for Obsidian.**
 
-An autonomous AI operating layer for your Obsidian vault. 60+ tools, semantic search, persistent memory, multi-agent workflows, office document creation, plugin discovery, and full safety controls. Works with 12+ providers including local models. Unifies chat history from ChatGPT, Claude, and Perplexity into your vault. Open source. Free.
+An autonomous AI operating layer for your Obsidian vault. 66 built-in tools, semantic search, persistent memory, multi-agent workflows, office document creation, plugin discovery, and full safety controls. Works with 12 providers including local models. Auto-classifies your models into three tiers (Budget / Main / Frontier) and escalates the hard synthesis steps to the Frontier on demand. Unifies chat history from ChatGPT, Claude, and Perplexity into your vault. Open source. Free.
 
 [pssah4.github.io/vault-operator](https://pssah4.github.io/vault-operator)
 
@@ -19,22 +19,21 @@ Concrete examples:
 - "Compare these two strategy notes, flag contradictions, and propose how to merge them."
 - "Look up the latest research on context-engineering, save the three best papers as ingested notes, and update my Innovation Strategy MOC."
 
-The agent works with one model for chat and (optionally) a cheaper helper model for internal tasks like context condensing, which keeps cost predictable. A sidebar footer shows real-time token usage and cost in EUR per task. 
+A sidebar footer shows real-time token usage and cost in EUR per task. The chat loop runs on the Main tier of your active provider by default. When the agent hits a hard synthesis step it can escalate to the Frontier tier through the `consult_flagship` tool, capped at three calls per task and 3000 tokens per call. Cheap internal work (context condensing, fast-path planning, presentation planning, recipe promotion) routes to a separate helper model you pick once.
 
 ## Features
 
-### 60+ built-in tools
+### 66 built-in tools
 
 Organized into nine groups:
 
-- **Read & Search**: `read_file`, `read_document`, `list_files`, `search_files`, `semantic_search`, `search_history`
-- **Vault Intelligence**: `get_frontmatter`, `search_by_tag`, `get_linked_notes`, `get_vault_stats`, `get_daily_note`, `query_base`, `open_note`, `vault_health_check`
-- **Write & Edit**: `write_file`, `edit_file`, `append_to_file`, `update_frontmatter`, `create_folder`, `delete_file`, `move_file`, `generate_canvas`, `create_excalidraw`, `create_drawio`, `create_base`, `update_base`
-- **Office Documents**: `plan_presentation`, `create_pptx`, `create_docx`, `create_xlsx`
-- **Knowledge Ingest & Maintenance**: `ingest_document`, `ingest_triage`, `ingest_deep`
-- **Web**: `web_fetch`, `web_search` (Brave / Tavily), `anti_echo_search`
-- **Memory**: `recall_memory`, `mark_for_memory`, `update_soul`, `mark_note_as_memory_source`, `unmark_note_as_memory_source`, `list_memory_source_notes`, `list_pinned_conversations`
-- **Agent Control**: `new_task`, `update_todo_list`, `ask_followup_question`, `attempt_completion`, `evaluate_expression`, `manage_skill`, `manage_source`, `switch_mode`, `find_tool`, `read_skill`, `read_agent_logs`, `configure_model`, `update_settings`, `inspect_self`, `manage_mcp_server`
+- **Read**: `read_file`, `read_document`, `list_files`, `search_files`
+- **Vault Intelligence**: `semantic_search`, `get_frontmatter`, `search_by_tag`, `get_linked_notes`, `get_vault_stats`, `get_daily_note`, `query_base`, `open_note`, `vault_health_check`, `anti_echo_search`
+- **Knowledge Ingest**: `ingest_triage`, `ingest_document`, `ingest_deep`
+- **Memory & History**: `recall_memory`, `mark_for_memory`, `update_soul`, `search_history`, `mark_note_as_memory_source`, `unmark_note_as_memory_source`, `list_memory_source_notes`, `list_pinned_conversations`
+- **Edit**: `write_file`, `edit_file`, `append_to_file`, `update_frontmatter`, `create_folder`, `delete_file`, `move_file`, `generate_canvas`, `create_excalidraw`, `create_drawio`, `create_base`, `update_base`, `plan_presentation`, `create_pptx`, `create_docx`, `create_xlsx`
+- **Web**: `web_fetch`, `web_search` (Brave / Tavily)
+- **Agent Control**: `new_task`, `update_todo_list`, `ask_followup_question`, `attempt_completion`, `evaluate_expression`, `manage_source`, `switch_mode`, `find_tool`, `read_skill`, `read_agent_logs`, `configure_model`, `update_settings`, `inspect_self`, `manage_mcp_server`, `consult_flagship`
 - **Plugin Integration**: `execute_command`, `call_plugin_api`, `enable_plugin`, `resolve_capability_gap`, `execute_recipe`
 - **MCP**: `use_mcp_tool`, `read_mcp_tool` (connect any MCP server)
 
@@ -42,9 +41,15 @@ Organized into nine groups:
 
 Local vector index (SQLite-backed via sql.js) with configurable embedding providers. Combines semantic similarity with full-text keyword search (RRF fusion), graph expansion via wikilinks (1-3 hops), local reranking (cross-encoder via WebAssembly), contextual retrieval, and implicit connection discovery between unlinked notes.
 
+### Provider-only setup with automatic tier classification
+
+You configure a provider once (API key or OAuth). Vault Operator discovers the available models and sorts them into three tiers: **Budget**, **Main**, and **Frontier**. The chat loop runs on Main by default. When the agent struggles on a hard synthesis step it escalates to Frontier via the new `consult_flagship` tool (max 3 calls per task, hard-capped at 3000 tokens per call). If your active provider has no Frontier-tier model, the escalation tool is filtered out of the schema entirely.
+
+The chat-header model picker is a popover with search. Type "opus" or "haiku" and Enter to pin a specific model for a single task. "Auto" is always the first option and means: advisor pattern via the Main tier with on-demand Frontier escalation.
+
 ### Agent modes
 
-Two built-in modes: **Ask** (read-only knowledge assistant) and **Agent** (full capabilities). Create custom modes with their own roles, tool sets, and instructions. Per-mode model overrides let you run a fast model for quick questions and a powerful one for complex tasks.
+Two built-in modes: **Ask** (read-only knowledge assistant) and **Agent** (full capabilities). Create custom modes with their own roles, tool sets, and instructions. Per-mode model overrides let you run a fast model for quick questions and a powerful one for complex tasks. The mode-switcher UI moved out of the chat header in v2.11; switch modes through the `switch_mode` tool or by setting a default mode in Settings.
 
 ### Multi-agent workflows
 
@@ -86,9 +91,9 @@ Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as
 
 ### Context injection
 
-- **Rules** (`.obsidian-agent/rules/`): permanent instructions injected into every system prompt
-- **Skills** (`.obsidian-agent/skills/`): keyword-matched mini-instructions auto-injected per message
-- **Workflows** (`.obsidian-agent/workflows/`): slash-command driven instruction sets
+- **Rules** (`.vault-operator/rules/`): permanent instructions injected into every system prompt
+- **Skills** (`.vault-operator/skills/`): keyword-matched mini-instructions auto-injected per message. Three buckets: Built-in (ships with the plugin), Agent (created via the skill-creator workflow, quality-gated), and User (manually written, copied, or imported).
+- **Workflows** (`.vault-operator/workflows/`): slash-command driven instruction sets
 - **Custom Prompts**: `/prompt-slug` templates with `{{userInput}}` and `{{activeFile}}` variables
 
 ### Safety and control
@@ -96,7 +101,7 @@ Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as
 - **Approval-based writes**: every write operation requires explicit approval (or configured auto-approval per category)
 - **Automatic checkpoints**: isomorphic-git shadow repo snapshots before every task's first write
 - **Diff review**: color-coded diffs with per-section Keep / Undo / Edit decisions after each task
-- **Vault governance**: `.obsidian-agentignore` and `.obsidian-agentprotected` access control files
+- **Vault governance**: `.vault-operatorignore` and `.vault-operatorprotected` access control files
 - **Audit log**: JSONL operation trail with parameter sanitization (30-day retention)
 
 ### Provider flexibility
@@ -105,18 +110,20 @@ Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as
 |----------|------|------|-------|
 | Anthropic | Cloud | API key | Claude model family. Best tool use in testing. |
 | OpenAI | Cloud | API key | GPT model family. Fast, good structured output. |
-| Google | Cloud | API key | Gemini models. Free tier available. |
-| AWS Bedrock | Cloud | API key or IAM | Anthropic, Mistral, and other models hosted on AWS. EU region support. |
-| OpenRouter | Gateway | API key | 100+ models from many providers with a single key. |
+| Google Gemini | Cloud | API key | Gemini models. Free tier available. |
+| AWS Bedrock | Cloud | IAM or API key | Anthropic, Amazon Nova, and other models hosted on AWS. EU region support via `eu.*` inference profiles. |
+| OpenRouter | Gateway | API key | 200+ models from many providers with a single key. |
 | Azure OpenAI | Enterprise | API key + endpoint | Enterprise compliance and private endpoints. |
-| GitHub Copilot | Gateway | OAuth | Uses your existing Copilot subscription. No separate API key. |
-| ChatGPT (OAuth) | Subscription | OAuth | Use your existing ChatGPT Plus/Pro subscription via the Responses API. |
+| GitHub Copilot | Gateway | OAuth (device flow) | Uses your existing Copilot subscription. No separate API key. |
+| ChatGPT (OAuth) | Subscription | OAuth (PKCE) | Use your existing ChatGPT Plus / Pro subscription via the Codex backend (gpt-5 family). |
 | Kilo Gateway | Gateway | Device auth / token | Centralized gateway with organization context. |
 | Ollama | Local | None | Free, fully private. Many open-source models. |
 | LM Studio | Local | None | Free, fully private. Visual model browser. |
 | Custom | Any | Varies | Any OpenAI-compatible endpoint. |
 
-You can also pick a **helper model** for cheap internal tasks (context condensing, fast-path planning, presentation planning) while a more capable model handles the main chat. Settings > Vault Operator > Agent behaviour > Loop > Helper model.
+All credentials are encrypted at rest via Electron's `safeStorage` API (OS keychain on macOS, Credential Manager on Windows, libsecret on Linux). The legacy "Models" tab is gone; you now configure providers in **Settings > Providers**, and the plugin discovers models automatically.
+
+You can also pick a **helper model** for cheap internal tasks (context condensing, fast-path planning, `plan_presentation`, recipe promotion) while a more capable model handles the main chat. Settings > Vault Operator > Agent behaviour > Loop > Helper model.
 
 ### MCP integration
 
@@ -125,6 +132,19 @@ Connect MCP servers via stdio, SSE, or streamable-HTTP. Tools are dynamically di
 ### Cross-surface AI workflow
 
 Vault Operator can act as a remote MCP server for ChatGPT, Claude Desktop, Perplexity, and other AI tools. Conversations and facts from those surfaces flow into the same memory layer as the in-Obsidian agent. One thread of thinking, one searchable vault, regardless of which AI client you used to capture the idea.
+
+### Cost-aware agent loop
+
+Vault Operator routes work to the cheapest model that still does the job:
+
+- **Advisor pattern**: chat runs on the Main tier. Hard synthesis steps escalate to Frontier via `consult_flagship`, capped at three calls per task and 3000 tokens per call.
+- **Helper-model routing**: context condensing, fast-path planning, `plan_presentation`, and recipe promotion use a separate cheap model.
+- **Research subagents**: `new_task({profile: 'research'})` spawns a lean subagent with a read-only allowlist (10 tools instead of 34) and a token budget per call.
+- **Prompt slim-down**: in Auto mode without plugin-skill activity, the verbose cost-heuristics section and the plugin-skills directory drop out of the system prompt. About 30 percent off the prompt.
+- **On-demand schemas**: `find_tool`, `read_skill`, and `read_mcp_tool` keep tool descriptions out of the cached prefix until the model actually needs them. The cache stays warm across turns.
+- **KV-cache alignment**: stable prefix first, volatile sections (date/time) last. Tool results that exceed a threshold are externalised to a temp file and replaced with a compact reference.
+
+A simple task that used to cost 634k tokens now runs at about 60k.
 
 ---
 
@@ -179,15 +199,18 @@ Then copy `main.js`, `manifest.json`, and `styles.css` from the repo root into `
 
 ## Quick start
 
-1. **Add a model**: Settings > Vault Operator > Models > click "+ add model"
+A First-Run setup wizard opens automatically the first three times you launch the plugin and walks you through every step below. You can also rerun it from **Settings > Help > Run setup wizard**.
+
+1. **Add a provider**: Settings > Vault Operator > Providers > click "+ Add provider"
    - **Free option**: Get a [Google AI Studio](https://aistudio.google.com/app/apikey) API key (no credit card needed).
-   - **Best quality**: Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o.
+   - **Best quality**: Anthropic (Claude Sonnet 4.5 as Main, Claude Opus 4.6 as Frontier) or OpenAI (GPT-5 family).
    - **Subscription-based**: GitHub Copilot or ChatGPT Plus / Pro via OAuth (no separate API key).
    - **Local & private**: [Ollama](https://ollama.ai) or [LM Studio](https://lmstudio.ai).
-2. **(Optional) Add a helper model**: Settings > Vault Operator > Agent behaviour > Loop > Helper model. Pick something small and cheap (Haiku 4.5, GPT-4o-mini, a local Ollama model). The agent uses it for context condensing and other internal tasks while the main model handles the chat.
-3. **Open the sidebar**: click the Vault Operator icon in the ribbon.
-4. **Ask a question**: type any question about your vault, e.g. *"What are my most-linked notes?"*
-5. **Run a task**: switch to Agent mode and try *"Create a weekly review template"*.
+2. **Refresh model list**: click **Refresh** in the provider modal. Vault Operator pulls the provider's model list and sorts every model into Budget, Main, or Frontier. Override the tier mapping per slot if you disagree.
+3. **(Optional) Add a helper model**: Settings > Vault Operator > Agent behaviour > Loop > Helper model. Pick something small and cheap (Haiku, GPT-4o-mini, a local Ollama model). The plugin uses it for context condensing, fast-path planning, `plan_presentation`, and recipe promotion while the main model handles the chat.
+4. **Open the sidebar**: click the Vault Operator icon in the ribbon.
+5. **Ask a question**: type any question about your vault, e.g. *"What are my most-linked notes?"*
+6. **Run a task**: try *"Create a weekly review template"*.
 
 For search to work at its best, configure an embedding model and build the semantic index in Settings > Embeddings.
 
@@ -261,6 +284,7 @@ Full documentation: **[pssah4.github.io/vault-operator](https://pssah4.github.io
 - [Office Documents](https://pssah4.github.io/vault-operator/guides/office-documents)
 - [Connectors (MCP)](https://pssah4.github.io/vault-operator/guides/connectors)
 - [Multi-Agent & Tasks](https://pssah4.github.io/vault-operator/guides/multi-agent)
+- [Power Features](https://pssah4.github.io/vault-operator/guides/power-features)
 - [Knowledge Ingest](https://pssah4.github.io/vault-operator/guides/knowledge-ingest)
 - [Vault Health Check](https://pssah4.github.io/vault-operator/guides/vault-health)
 

@@ -1441,36 +1441,27 @@ export class AgentSidebarView extends ItemView {
             + (activeFile ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>` : '')
             + (vaultCtx ? `\n\n${vaultCtx}` : '');
 
-        // Build ContentBlock[] when there are attachments, plain string otherwise
-        let messageToSend: string | ContentBlock[];
-        if (attachments.length > 0) {
-            const blocks: ContentBlock[] = [];
-            // Images first (Anthropic convention)
-            for (const att of attachments) {
-                if (att.block.type === 'image') blocks.push(att.block);
-            }
-            // User text
-            blocks.push({ type: 'text', text: textWithContext });
-            // Text file blocks after
-            for (const att of attachments) {
-                if (att.block.type === 'text') blocks.push(att.block);
-            }
-            messageToSend = blocks;
-        } else {
-            messageToSend = textWithContext;
-        }
-
         // Prefix commands (FEATURE-2207 decision 2026-04-19):
         //   '/skill-slug'    -> activate a self-authored skill
         //   '#prompt-slug'   -> inject a custom prompt template
         //   '\u00a7workflow-slug' -> run a workflow
-        // Legacy: '/' used to resolve workflows + prompts + skills. We keep
-        // skills on '/' and redirect the other two to their own prefixes.
-        if (typeof messageToSend === 'string' && /^[/#\u00a7]/.test(text)) {
+        //
+        // Resolved BEFORE the attachment-block build so the expanded
+        // skill/prompt/workflow body ends up inside the text-block when
+        // the user dropped a PDF/image into the chat. Previous order
+        // ran the expansion only on the string branch -- with
+        // attachments the slash command stayed literal "/ingest-deep"
+        // and the agent fell back to invoke_skill, which fails for
+        // Chat-attachments and let the parent improvise the workflow.
+        let expandedText: string | null = null;
+        if (/^[/#\u00a7]/.test(text)) {
             const prefix = text[0];
             const spaceIdx = text.indexOf(' ');
             const slug = spaceIdx === -1 ? text.slice(1) : text.slice(1, spaceIdx);
             const rest = spaceIdx === -1 ? '' : text.slice(spaceIdx + 1).trim();
+            const activeFileTail = activeFile
+                ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
+                : '';
 
             if (prefix === '/') {
                 const skillLoader = this.plugin.selfAuthoredSkillLoader;
@@ -1484,9 +1475,7 @@ export class AgentSidebarView extends ItemView {
                         '</explicit_instructions>',
                     ];
                     if (rest) parts.push('', rest);
-                    messageToSend = parts.join('\n') + (activeFile
-                        ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
-                        : '');
+                    expandedText = parts.join('\n') + activeFileTail;
                 }
             } else if (prefix === '#') {
                 const prompt = (this.plugin.settings.customPrompts ?? []).find(
@@ -1499,9 +1488,7 @@ export class AgentSidebarView extends ItemView {
                         userInput: rest,
                         activeFile: activeFileName,
                     });
-                    messageToSend = resolved + (activeFile
-                        ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
-                        : '');
+                    expandedText = resolved + activeFileTail;
                 }
             } else if (prefix === '\u00a7') {
                 // Workflows expect a leading '/' in the existing loader API so we
@@ -1509,17 +1496,36 @@ export class AgentSidebarView extends ItemView {
                 const workflowLoader = this.plugin.workflowLoader;
                 if (workflowLoader) {
                     const reshaped = `/${slug}${rest ? ' ' + rest : ''}`;
-                    const processedText = await workflowLoader.processSlashCommand(
+                    const workflowText = await workflowLoader.processSlashCommand(
                         reshaped,
                         this.plugin.settings.workflowToggles ?? {},
                     );
-                    if (processedText !== reshaped) {
-                        messageToSend = processedText + (activeFile
-                            ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
-                            : '');
+                    if (workflowText !== reshaped) {
+                        expandedText = workflowText + activeFileTail;
                     }
                 }
             }
+        }
+
+        const finalUserText = expandedText ?? textWithContext;
+
+        // Build ContentBlock[] when there are attachments, plain string otherwise
+        let messageToSend: string | ContentBlock[];
+        if (attachments.length > 0) {
+            const blocks: ContentBlock[] = [];
+            // Images first (Anthropic convention)
+            for (const att of attachments) {
+                if (att.block.type === 'image') blocks.push(att.block);
+            }
+            // User text (with slash command already expanded if applicable)
+            blocks.push({ type: 'text', text: finalUserText });
+            // Text file blocks after
+            for (const att of attachments) {
+                if (att.block.type === 'text') blocks.push(att.block);
+            }
+            messageToSend = blocks;
+        } else {
+            messageToSend = finalUserText;
         }
 
         // EPIC-26 / FEAT-26-05: per-turn override -- when the chat-header

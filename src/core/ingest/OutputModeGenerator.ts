@@ -18,10 +18,16 @@ import { markBlockIds } from './BlockIdSetter';
 
 export type OutputMode = 'source-only' | 'source-plus-summary' | 'source-plus-multi-zettel';
 
+/**
+ * Single notes folder for all ingest output. Source notes are NEVER
+ * duplicated -- if the caller already passed an `existingSourceFile`,
+ * we modify it in place (block-IDs) and write derived notes (sense-
+ * making / bibliography / zettel) into `notesFolder`. The folder is
+ * the user-configured `defaultOutputFolder` (default "Inbox/"). No
+ * cluster-derived subfolders are created.
+ */
 export interface OutputFolderConfig {
-    sourceFolder: string;       // default 'Sources'
-    knowledgeFolder?: string;   // default leer = Cluster-Match aus Ontologie
-    bibliographyFolder?: string; // default = sourceFolder
+    notesFolder: string;
 }
 
 export interface SourceContent {
@@ -33,6 +39,14 @@ export interface SourceContent {
     frontmatter: Record<string, unknown>;
     /** Optional: Anker-Texte, an denen Block-IDs gesetzt werden. */
     blockAnchors?: string[];
+    /**
+     * When the source already lives in the vault as a TFile, the caller
+     * passes it here so the generator updates the existing file in place
+     * (block-IDs injected via `vault.modify`) instead of writing a
+     * duplicate note into `notesFolder`. The original file's frontmatter
+     * is preserved; only the body is rewritten with the marked content.
+     */
+    existingFile?: TFile;
 }
 
 export interface SenseMakingContent {
@@ -111,7 +125,17 @@ export class OutputModeGenerator {
     // -----------------------------------------------------------------------
 
     private async writeSourceNote(source: SourceContent): Promise<TFile> {
-        const folder = await this.ensureFolder(this.folderConfig.sourceFolder);
+        // No-duplication path: when the caller already has the source as a
+        // vault file (every ingest run does — IngestDeepTool resolves the
+        // TFile before calling the pipeline), we inject block-IDs in place
+        // instead of writing a copy into notesFolder. The original
+        // frontmatter is preserved; we only rewrite the body portion of
+        // the existing file.
+        if (source.existingFile) {
+            return this.modifySourceInPlace(source.existingFile, source.body, source.blockAnchors ?? []);
+        }
+
+        const folder = await this.ensureFolder(this.folderConfig.notesFolder);
         const path = `${folder}/${source.suggestedFilename}`;
         const safePath = await this.uniquePath(path);
 
@@ -124,8 +148,29 @@ export class OutputModeGenerator {
         return file;
     }
 
+    /**
+     * Inject block-IDs into the existing source file without touching
+     * its frontmatter. Reads the live content, splits off the frontmatter
+     * block (so the agent / user-edited metadata stays intact), runs
+     * markBlockIds (idempotent) on the body, and writes it back via
+     * vault.modify. Returns the original TFile so downstream code can
+     * keep referencing it.
+     */
+    private async modifySourceInPlace(file: TFile, _bodyHint: string, anchors: string[]): Promise<TFile> {
+        const current = await this.app.vault.read(file);
+        const { frontmatter, body } = splitFrontmatter(current);
+        const { content: markedBody } = markBlockIds(body, anchors);
+        const next = frontmatter ? `${frontmatter}${markedBody}` : markedBody;
+        if (next !== current) {
+            await this.app.vault.modify(file, next);
+        }
+        return file;
+    }
+
     private async writeSenseMakingNote(senseMaking: SenseMakingContent, sourceFile: TFile): Promise<TFile> {
-        const folder = await this.ensureFolder(this.knowledgeFolderFor(senseMaking.cluster));
+        // All derived notes live in the single notesFolder (defaultOutputFolder).
+        // No cluster subdirectories -- they would mean creating new folders.
+        const folder = await this.ensureFolder(this.folderConfig.notesFolder);
         const path = `${folder}/${senseMaking.title}.md`;
         const safePath = await this.uniquePath(path);
 
@@ -142,9 +187,10 @@ export class OutputModeGenerator {
         content: MultiZettelContent,
         sourceFile: TFile,
     ): Promise<GenerateResult> {
-        // 1. Bibliografie-Note in bibliographyFolder
-        const bibFolder = await this.ensureFolder(this.folderConfig.bibliographyFolder ?? this.folderConfig.sourceFolder);
-        const bibPath = await this.uniquePath(`${bibFolder}/${content.bibliographyTitle}.md`);
+        const folder = await this.ensureFolder(this.folderConfig.notesFolder);
+
+        // 1. Bibliografie-Note (lives in notesFolder, same as everything else).
+        const bibPath = await this.uniquePath(`${folder}/${content.bibliographyTitle}.md`);
 
         const bibFm = {
             ...content.bibliographyFrontmatter,
@@ -155,11 +201,10 @@ export class OutputModeGenerator {
         const bibContent = `${renderFrontmatter(bibFm)}${content.bibliographyBody}${baseBlock}`;
         const bibFile = await this.app.vault.create(bibPath, bibContent);
 
-        // 2. Zettel-Notes in knowledgeFolder
-        const knowledgeFolder = await this.ensureFolder(this.knowledgeFolderFor(content.cluster));
+        // 2. Zettel-Notes (same notesFolder).
         const zettelFiles: TFile[] = [];
         for (const zettel of content.zettel) {
-            const zettelPath = await this.uniquePath(`${knowledgeFolder}/${zettel.title}.md`);
+            const zettelPath = await this.uniquePath(`${folder}/${zettel.title}.md`);
             const zettelFm = {
                 ...zettel.frontmatter,
                 source: `[[${bibFile.basename}]]`,
@@ -174,13 +219,6 @@ export class OutputModeGenerator {
             bibliographyFile: bibFile,
             zettelFiles,
         };
-    }
-
-    private knowledgeFolderFor(cluster: string): string {
-        const explicit = this.folderConfig.knowledgeFolder;
-        if (explicit && explicit.length > 0) return explicit;
-        // Fallback: Cluster als Sub-Folder unter "Knowledge/"
-        return `Knowledge/${cluster}`;
     }
 
     private async ensureFolder(folderPath: string): Promise<string> {
@@ -234,6 +272,30 @@ export function renderFrontmatter(fm: Record<string, unknown>): string {
     lines.push('---');
     lines.push(''); // blank line before body
     return lines.join('\n');
+}
+
+/**
+ * Split a markdown string into its leading frontmatter block (including
+ * the trailing `---` and the blank line that usually follows) and the
+ * remaining body. If no frontmatter is present, returns `{ frontmatter:
+ * '', body: input }`.
+ */
+export function splitFrontmatter(input: string): { frontmatter: string; body: string } {
+    if (!input.startsWith('---')) return { frontmatter: '', body: input };
+    const lines = input.split('\n');
+    if (lines[0].trim() !== '---') return { frontmatter: '', body: input };
+    for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim() === '---') {
+            // Include the closing `---` plus an optional blank line.
+            let end = i + 1;
+            if (end < lines.length && lines[end].trim() === '') end += 1;
+            return {
+                frontmatter: lines.slice(0, end).join('\n') + (end < lines.length ? '\n' : ''),
+                body: lines.slice(end).join('\n'),
+            };
+        }
+    }
+    return { frontmatter: '', body: input };
 }
 
 function formatYamlValue(value: unknown): string {

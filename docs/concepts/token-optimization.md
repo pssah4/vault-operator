@@ -46,10 +46,10 @@ Because tools, rules, and mode definitions don't change between turns, the LLM c
 
 When a tool returns a large result (say, the content of a 200-line note), keeping it in the conversation history means the LLM re-reads it on every subsequent turn.
 
-`ResultExternalizer` catches results larger than 4,000 characters, writes them to a temporary file in `.obsidian-agent/context/`, and replaces the result with a compact reference:
+`ResultExternalizer` catches results larger than 4,000 characters, writes them to a temporary file in `.vault-operator/context/`, and replaces the result with a compact reference:
 
 ```
-<context_ref path=".obsidian-agent/context/abc123.md" lines="215"/>
+<context_ref path=".vault-operator/context/abc123.md" lines="215"/>
 ```
 
 If the agent needs the content later, it reads it with `read_file`. Most of the time it doesn't need to, because it already processed the result on the turn it was generated.

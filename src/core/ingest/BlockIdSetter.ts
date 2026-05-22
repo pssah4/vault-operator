@@ -73,16 +73,83 @@ function findNextFreeBlockId(content: string): number {
 }
 
 function findAnchorLine(lines: string[], anchor: string): number {
-    // Try exact match first
+    // Try exact match first.
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].includes(anchor)) return i;
     }
-    // Fallback: case-insensitive, normalized whitespace
-    const normalized = anchor.replace(/\s+/g, ' ').toLowerCase();
+    // Pass 2: case-insensitive, normalised whitespace.
+    const normalizedWs = anchor.replace(/\s+/g, ' ').toLowerCase();
     for (let i = 0; i < lines.length; i++) {
-        if (lines[i].replace(/\s+/g, ' ').toLowerCase().includes(normalized)) return i;
+        if (lines[i].replace(/\s+/g, ' ').toLowerCase().includes(normalizedWs)) return i;
+    }
+    // Pass 3: aggressive normalisation -- strip punctuation, collapse
+    // whitespace, lowercase. Lets the agent pass a take-away phrase that
+    // matches the source line even if quotes / commas / dashes differ.
+    // Requires the anchor to be a meaningful phrase (>= 4 tokens) so we
+    // don't false-match short keywords against random lines.
+    const aggressive = aggressiveNormalize(anchor);
+    if (aggressive.split(' ').filter(Boolean).length >= 4) {
+        for (let i = 0; i < lines.length; i++) {
+            if (aggressiveNormalize(lines[i]).includes(aggressive)) return i;
+        }
+    }
+    // Pass 4: longest-substring match -- score each line by how much of
+    // the anchor's normalised tokens appear contiguously. The line with
+    // the highest contiguous overlap wins, provided the overlap covers
+    // at least half of the anchor tokens. Cheap and tolerant enough to
+    // handle minor wording differences (e.g. the source has an extra
+    // filler word) without resorting to semantic search.
+    const anchorTokens = aggressive.split(' ').filter(Boolean);
+    if (anchorTokens.length >= 5) {
+        let bestIdx = -1;
+        let bestScore = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const lineNorm = aggressiveNormalize(lines[i]);
+            if (!lineNorm) continue;
+            const score = longestContiguousOverlap(anchorTokens, lineNorm.split(' ').filter(Boolean));
+            if (score > bestScore) {
+                bestScore = score;
+                bestIdx = i;
+            }
+        }
+        if (bestScore >= Math.ceil(anchorTokens.length / 2)) return bestIdx;
     }
     return -1;
+}
+
+function aggressiveNormalize(s: string): string {
+    return s
+        .toLowerCase()
+        // Collapse common quote / dash / punctuation variants to plain ascii.
+        .replace(/[‐-―]/g, '-')
+        .replace(/[‘’‚‛]/g, "'")
+        .replace(/[“”„‟]/g, '"')
+        // Strip everything that is not a letter, digit, or space.
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function longestContiguousOverlap(a: string[], b: string[]): number {
+    // O(n*m) LCS-substring over token arrays. Returns the length of the
+    // longest run of tokens that appear in both `a` and `b` in order.
+    if (a.length === 0 || b.length === 0) return 0;
+    let best = 0;
+    const dp: number[] = new Array(b.length + 1).fill(0);
+    for (let i = 1; i <= a.length; i++) {
+        let prev = 0;
+        for (let j = 1; j <= b.length; j++) {
+            const temp = dp[j];
+            if (a[i - 1] === b[j - 1]) {
+                dp[j] = prev + 1;
+                if (dp[j] > best) best = dp[j];
+            } else {
+                dp[j] = 0;
+            }
+            prev = temp;
+        }
+    }
+    return best;
 }
 
 function findBlockEnd(lines: string[], startIdx: number): number {

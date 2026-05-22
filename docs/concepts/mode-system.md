@@ -23,7 +23,7 @@ These two modes are defined in `src/core/modes/builtinModes.ts`.
 
 You can create your own modes beyond Ask and Agent. A custom mode has a slug, a display name, a role definition, one or more tool groups, and optional custom instructions.
 
-Custom modes are stored at two levels. Global modes live in `~/.obsidian-agent/modes.json` and are available across all vaults, managed by `GlobalModeStore` (`src/core/modes/GlobalModeStore.ts`). Vault-local modes live in the plugin's settings for a specific vault and are scoped to that vault only.
+Custom modes are stored at two levels. Global modes live in `~/.vault-operator/modes.json` and are available across all vaults, managed by `GlobalModeStore` (`src/core/modes/GlobalModeStore.ts`). Vault-local modes live in the plugin's settings for a specific vault and are scoped to that vault only.
 
 If a vault-local mode has the same slug as a built-in, the vault version replaces the built-in. This lets you customize the default behavior without losing the originals.
 

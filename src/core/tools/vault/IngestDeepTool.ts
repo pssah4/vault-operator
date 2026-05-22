@@ -33,6 +33,17 @@ interface IngestDeepInput {
     output_mode?: OutputMode;
     /** Optional cluster hint. */
     cluster?: string;
+    /**
+     * Optional list of anchor texts that should receive a `^block-N`
+     * suffix in the source note. The agent passes the exact wording of
+     * each take-away source line; the tool sets a stable block-id on
+     * each matching line so downstream zettel notes can link to the
+     * exact position with `[[<Source>#^block-N|↗]]`. When omitted, the
+     * tool falls back to the legacy naive paragraph-picker (5 first
+     * paragraphs >20 chars) -- pass anchors explicitly for any real
+     * sense-making run.
+     */
+    block_anchors?: string[];
 }
 
 function validateVaultPath(rawPath: string): string | null {
@@ -53,11 +64,17 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
         return {
             name: 'ingest_deep',
             description:
-                'Deep-Ingest einer Source-Note nach BA-25 Karpathy-Pattern. Erzeugt Source-Note plus '
-                + '(je nach Output-Modus) Summary-Note oder Bibliografie + Multi-Zettel. Tension-Marker '
-                + 'werden automatisch detektiert und als Inline-Callouts eingefuegt. Source-Diversity-'
-                + 'Counter wird aktualisiert. MOC-Pages des Cluster-Match werden refreshed. '
-                + 'PDFs koennen optional als Markdown-Mirror zusaetzlich gespiegelt werden (Setting).',
+                'Source-Pass fuer Deep-Ingest: setzt Block-IDs in der Source-Note, aktualisiert '
+                + 'den Source-Diversity-Counter, triggert MOC-Page-Refresh und fuehrt optional '
+                + 'Tension-Detection durch. Die Original-Source bleibt in place -- es entsteht '
+                + 'keine duplizierte Note. \n\n'
+                + 'Rufe IMMER mit `output_mode="source-only"` auf. Sense-Making oder Multi-Zettel '
+                + 'erstellt der Skill anschliessend via write_file mit echter LLM-Synthese: '
+                + 'aussagekraeftige, eigenstaendige Konzept-Titel (kein Source-Prefix), ein Gedanke '
+                + 'pro Zettel sauber ausformuliert, Frontmatter-Template verbatim. Die Modi '
+                + '"source-plus-summary" und "source-plus-multi-zettel" sind technisch erhalten, '
+                + 'erzeugen aber via internem Stub naive Transkript-Splitter und werden vom '
+                + 'Skill nicht genutzt.',
             input_schema: {
                 type: 'object',
                 properties: {
@@ -66,13 +83,20 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
                     output_mode: {
                         type: 'string',
                         enum: ['source-only', 'source-plus-summary', 'source-plus-multi-zettel'],
-                        description: 'Default source-only: Source-Mirror plus Block-Anchors, '
-                            + 'Take-Aways nur im Chat-Dialog. Detail-Notes pro Aspekt entstehen '
-                            + 'on-demand im Dialog. source-plus-summary (Karpathy) und '
-                            + 'source-plus-multi-zettel sind opt-in fuer User die eine '
-                            + 'aggregierte Sense-Making-Note bzw. Multi-Zettel wollen.',
+                        description: 'Empfohlen: "source-only". Die anderen Modi produzieren via '
+                            + 'naivem Default-Stub Transkript-Splitter -- nicht fuer Sense-Making nutzen.',
                     },
                     cluster: { type: 'string', description: 'Optional: Cluster-Hint, sonst aus Ontologie.' },
+                    block_anchors: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description:
+                            'Optional: konkrete Anchor-Texte aus dem Source-Body, an die `^block-N`-Suffix '
+                            + 'gesetzt werden soll. Eine Position pro Take-Away. Beispiel: ["Karpathy nennt '
+                            + 'LLMs Ghosts", "Jagged Intelligence ist die punktuelle Spitzenleistung..."]. '
+                            + 'Wenn nicht angegeben, faellt der Tool auf den naiven Paragraph-Picker zurueck '
+                            + '(erste 5 Absaetze) -- nicht fuer Sense-Making nutzen.',
+                    },
                 },
                 required: ['source_path'],
             },
@@ -83,8 +107,13 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
         // FIX-19-28: Default auf 'source-only' umgestellt. User-Praeferenz
         // 2026-05-08: keine aggregierte Sense-Making-Note, Take-Aways nur im
         // Chat-Dialog, Detail-Notes pro Aspekt on-demand im Dialog.
-        const { source_path, mode = 'dialog', output_mode = 'source-only', cluster: clusterHint }
-            = input as unknown as IngestDeepInput;
+        const {
+            source_path,
+            mode = 'dialog',
+            output_mode = 'source-only',
+            cluster: clusterHint,
+            block_anchors: explicitAnchors,
+        } = input as unknown as IngestDeepInput;
 
         const safePath = validateVaultPath(source_path);
         if (!safePath) {
@@ -97,11 +126,18 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
             return;
         }
 
-        // FEAT-19-29: PDF-Markdown-Mirror wenn Setting opt-in plus PDF
+        // Single notes folder for every ingest output. Strips trailing
+        // slash so path joins (`${folder}/${name}.md`) stay clean.
+        const notesFolder = (this.plugin.settings.defaultOutputFolder ?? 'Inbox/').replace(/\/+$/, '') || 'Inbox';
+
+        // FEAT-19-29: PDF-Markdown-Mirror wenn Setting opt-in plus PDF.
+        // Mirror landet im notesFolder (Inbox/) statt im PDF-Folder --
+        // so wird die PDF im Attachments-Folder belassen, die Markdown-
+        // Arbeitsdatei lebt im Inbox.
         let actualSource: TFile = file;
         if (file.extension === 'pdf'
             && this.plugin.settings.vaultIngest?.pdfStrategy === 'markdown-mirror') {
-            const mirror = new PdfMarkdownMirror(this.plugin.app);
+            const mirror = new PdfMarkdownMirror(this.plugin.app, { mirrorFolder: notesFolder });
             const result = await mirror.createMirror(file);
             if (result) {
                 actualSource = result.mirrorFile;
@@ -142,12 +178,19 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
             } catch (err) {
                 console.warn(`[IngestDeepTool] readSourceAsMarkdown failed for ${f.path}:`, err);
             }
-            const paragraphs = sourceMd
-                .split(/\n{2,}/)
-                .map((p) => p.trim())
-                .filter((p) => p.length > 20)
-                .filter((p) => !/^#{1,6}\s/.test(p)) // skip heading-only paragraphs
-                .slice(0, 5);
+            // Explicit anchors take precedence -- the agent passed exact
+            // take-away source lines, we set stable block-IDs on those.
+            // Fallback to naive paragraph-picker only when no anchors
+            // were provided (legacy auto-trigger path).
+            const anchorsFromAgent = (explicitAnchors ?? []).filter((a) => typeof a === 'string' && a.trim().length > 0);
+            const paragraphs = anchorsFromAgent.length > 0
+                ? anchorsFromAgent
+                : sourceMd
+                    .split(/\n{2,}/)
+                    .map((p) => p.trim())
+                    .filter((p) => p.length > 20)
+                    .filter((p) => !/^#{1,6}\s/.test(p)) // skip heading-only paragraphs
+                    .slice(0, 5);
             const takeAways = paragraphs.map((p) => ({
                 text: p.length > 200 ? `${p.slice(0, 200)}...` : p,
                 position: { kind: 'block-anchor' as const, anchorText: p },
@@ -200,11 +243,7 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
         };
 
         const pipeline = new DeepIngestPipeline(this.plugin.app, {
-            folderConfig: {
-                sourceFolder: 'Sources',
-                knowledgeFolder: undefined,
-                bibliographyFolder: 'Sources',
-            },
+            folderConfig: { notesFolder },
             tensionDetector,
             sourceStats: this.plugin.clusterSourceStatsStore ?? undefined,
             planGenerator,
@@ -224,6 +263,43 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
                 `- Source: [[${result.sourceFile.basename}]]`,
                 `- Cluster: ${cluster}`,
             ];
+            // Block-Anchor-Map: liste explizit auf, welche Block-IDs jetzt
+            // in der Source verfuegbar sind, damit der Agent korrekte
+            // [[<Source>#^block-N|↗]]-Links in den Zetteln rendern kann.
+            const anchorEntries = Object.entries(result.anchorToBlockId ?? {});
+            const requestedAnchors = (explicitAnchors ?? []).filter((a) => typeof a === 'string' && a.trim().length > 0);
+            const matchedSet = new Set(anchorEntries.map(([anchor]) => anchor.trim()));
+            const unmatchedAnchors = requestedAnchors
+                .map((a) => a.trim())
+                .filter((a) => !matchedSet.has(a));
+
+            if (anchorEntries.length > 0) {
+                lines.push('', '**Block-IDs in der Source (fuer ↗-Refs):**');
+                for (const [anchorText, blockId] of anchorEntries) {
+                    const preview = anchorText.length > 80 ? anchorText.slice(0, 80) + '...' : anchorText;
+                    lines.push(`- \`#^${blockId}\` -> "${preview}"`);
+                }
+                lines.push('');
+                lines.push(`_Nutze in den Zetteln: \`[[${result.sourceFile.basename}#^block-N|↗]]\` (N siehe oben)._`);
+            }
+
+            if (unmatchedAnchors.length > 0) {
+                lines.push('', `**WARNUNG: ${unmatchedAnchors.length} Anchor(s) wurden nicht in der Source gefunden:**`);
+                for (const anchor of unmatchedAnchors) {
+                    const preview = anchor.length > 100 ? anchor.slice(0, 100) + '...' : anchor;
+                    lines.push(`- "${preview}"`);
+                }
+                lines.push('');
+                lines.push(
+                    '_Diese Anchors waren keine wortwoertliche Phrase aus dem Source-Markdown -- '
+                    + 'wahrscheinlich eine semantische Beschreibung statt eines Quote-Snippets. '
+                    + 'Fuer die betroffenen Themen: oeffne die Source per `read_file`, suche eine '
+                    + 'wortwoertliche 5-10-Wort-Phrase und ruf `ingest_deep` erneut mit den korrekten '
+                    + '`block_anchors` auf -- ODER referenziere in den Zetteln nur `[[<Source>]]` '
+                    + 'ohne `#^block`-Suffix. Niemals den falschen Block-Ref (z.B. `^block-1`) als '
+                    + 'Ersatz nehmen._',
+                );
+            }
             if (result.generated.senseMakingFile) lines.push(`- Sense-Making: [[${result.generated.senseMakingFile.basename}]]`);
             if (result.generated.bibliographyFile) lines.push(`- Bibliografie: [[${result.generated.bibliographyFile.basename}]]`);
             if (result.generated.zettelFiles?.length) lines.push(`- ${result.generated.zettelFiles.length} Zettel erstellt`);

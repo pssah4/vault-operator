@@ -1,25 +1,30 @@
 ---
 title: Provider Auth
-description: How Vault Operator connects to 10+ AI providers through a single interface, with encrypted credential storage.
+description: How Vault Operator connects to 12 AI providers through a single interface, with encrypted credential storage and provider-only setup.
 ---
 
 # Provider auth
 
-Vault Operator supports Anthropic, OpenAI, GitHub Copilot, Kilo Gateway, Azure, OpenRouter, Ollama, LM Studio, and custom OpenAI-compatible endpoints. Each provider authenticates differently, but the agent talks to a single `ApiHandler` interface.
+Vault Operator supports 12 providers: Anthropic, OpenAI, Google Gemini, AWS Bedrock, OpenRouter, Azure, GitHub Copilot, ChatGPT (OAuth), Kilo Gateway, Ollama, LM Studio, and custom OpenAI-compatible endpoints. Each provider authenticates differently, but the agent talks to a single `ApiHandler` interface.
+
+Since v2.11 the setup is provider-only: you configure a provider once, click **Refresh**, and the plugin discovers the available models and classifies them into three tiers (Budget / Main / Frontier) via `ModelTierClassifier`. The settings shape is `providerConfigs[]` (one row per provider with the discovered models attached), not the older `activeModels[]` (one row per model). See [Advisor pattern](./advisor-pattern) for how the tiers feed into the chat loop.
 
 ## The factory
 
 ```mermaid
 flowchart LR
-    M[Model config] --> F[buildApiHandler]
+    M[Provider config] --> F[buildApiHandler]
     F --> P{Provider type}
     P --> AN[AnthropicProvider]
+    P --> BR[BedrockProvider]
+    P --> GE[GeminiProvider]
     P --> OP[OpenAiProvider]
     P --> GH[GitHubCopilotProvider]
     P --> KG[KiloGatewayProvider]
+    P --> CX[ChatGptOauthProvider]
 ```
 
-The `buildApiHandler` factory (`src/api/index.ts`) takes a provider configuration and returns the right implementation. Anthropic gets its own provider class. GitHub Copilot and Kilo Gateway each have dedicated classes because their auth flows are non-standard. Everything else (OpenAI, Azure, OpenRouter, Ollama, LM Studio, custom endpoints) goes through `OpenAiProvider`, since they all speak the OpenAI API format.
+The `buildApiHandler` factory (`src/api/index.ts`) takes a provider configuration and returns the right implementation. Anthropic, AWS Bedrock, Google Gemini, GitHub Copilot, Kilo Gateway, and ChatGPT-OAuth each have dedicated classes because their auth flows or wire formats are non-standard. Everything else (OpenAI, Azure, OpenRouter, Ollama, LM Studio, custom endpoints) goes through `OpenAiProvider`, since they all speak the OpenAI API format.
 
 The factory uses an exhaustive switch. Add a new provider type to the union and TypeScript forces you to handle it.
 
@@ -43,6 +48,26 @@ A custom fetch wrapper (`getCopilotFetch()`) is injected into the OpenAI SDK for
 
 You can provide a custom GitHub OAuth client ID in settings for enterprise GitHub instances. The default client ID targets github.com.
 
+## ChatGPT (OAuth): PKCE loopback flow
+
+`ChatGptOauthAuthService` (`src/core/security/ChatGptOauthAuthService.ts`) runs the PKCE loopback flow used by the Codex CLI. The plugin opens a short-lived localhost callback server, generates a code verifier and challenge, and points the browser at `auth.openai.com`. After approval the browser redirects to the callback. The plugin exchanges the code for an access token and a refresh token, then closes the callback server.
+
+Requests then route to `chatgpt.com/backend-api/codex/responses` instead of the public `api.openai.com`. The GPT-5 family models on that endpoint require a `reasoning` block in every request body; the plugin sends `reasoning: { effort: 'low', summary: 'auto' }` to all matching models. `low` is the narrowest level accepted by both `gpt-5` and the stricter Codex variants.
+
+Refresh tokens auto-renew before expiry. Tokens are stored encrypted via `SafeStorageService`.
+
+ChatGPT-OAuth bills against your existing Plus or Pro subscription, not a per-token API key. The plugin still tracks the equivalent API cost for transparency.
+
+## Bedrock: SigV4 with optional session token
+
+Bedrock authenticates via AWS SigV4 with an access key ID, secret access key, and optionally a session token for SSO or STS-issued credentials. The provider class signs every request locally; no SDK roundtrip needed. Cross-region inference profiles (model IDs prefixed with `eu.` or `us.`) route requests across all regions in that geography for higher availability. The `eu.*` profiles keep data inside the EU.
+
+For Anthropic models the wire format is the Anthropic Messages API plus a `cachePoint` extension for prompt caching, handled by `BedrockProvider`. For Mistral and Amazon Nova the wire format is the Bedrock Invoke API.
+
+## Google Gemini: API key
+
+Gemini uses simple API-key auth via the v1beta endpoint. The provider class translates the OpenAI-shaped tool calls and messages to Gemini's `functionCall` / `functionResponse` format and back. Free-tier rate limits apply.
+
 ## Kilo Gateway: device auth + manual token
 
 The `KiloAuthService` (`src/core/security/KiloAuthService.ts`) supports two auth modes. The device authorization flow works like GitHub Copilot: you get a code, authorize in a browser, and the service polls until complete. Alternatively, you paste an API token directly for simpler setups.
@@ -55,7 +80,9 @@ On desktop, `SafeStorageService` (`src/core/security/SafeStorageService.ts`) use
 
 The service loads Electron via dynamic `require('electron')`, one of the few places where `require()` is allowed instead of ES imports, because Electron can only be loaded dynamically in the renderer process.
 
-On mobile, Electron isn't available, so credentials fall back to Obsidian's standard plugin data storage. Less secure than OS-level encryption, but mobile Obsidian doesn't expose a keychain API.
+Since v2.11.0 every credential field on `providerConfigs[]` is encrypted at rest, walked by a pure-function helper in `src/core/security/providerCredentialCrypto.ts`. The 30-day `legacy_active_models_backup` is encrypted with the same walker. A regression contract test locks the set of fields that must be treated as credentials, so renaming or adding a field cannot silently leak it. This was the H-1 finding from AUDIT-027.
+
+On mobile, Electron isn't available, so credentials fall back to Obsidian's standard plugin data storage. Less secure than OS-level encryption, but mobile Obsidian doesn't expose a keychain API. The plugin manifest is `isDesktopOnly: true` for now, so this fallback is not exercised in practice.
 
 ## Concurrency
 
@@ -73,8 +100,14 @@ The relevant source files:
 | `src/api/types.ts` | `ApiHandler` interface, stream types |
 | `src/api/providers/anthropic.ts` | Anthropic SDK integration |
 | `src/api/providers/openai.ts` | OpenAI-compatible provider (handles 6+ providers) |
+| `src/api/providers/bedrock.ts` | AWS Bedrock with SigV4 signing and `cachePoint` |
+| `src/api/providers/gemini.ts` | Google Gemini v1beta with tool-call translation |
 | `src/api/providers/github-copilot.ts` | Copilot provider with custom fetch |
 | `src/api/providers/kilo-gateway.ts` | Kilo Gateway with device auth |
+| `src/api/providers/chatgpt-oauth.ts` | ChatGPT OAuth (PKCE) routing to the Codex backend |
+| `src/core/routing/ModelTierClassifier.ts` | Three-tier model classification |
 | `src/core/security/SafeStorageService.ts` | Electron keychain encryption |
+| `src/core/security/providerCredentialCrypto.ts` | Per-provider credential walker (AUDIT-027) |
 | `src/core/security/GitHubCopilotAuthService.ts` | Three-stage Copilot auth |
 | `src/core/security/KiloAuthService.ts` | Kilo device auth + manual token |
+| `src/core/security/ChatGptOauthAuthService.ts` | PKCE loopback flow for ChatGPT-OAuth |

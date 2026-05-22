@@ -137,8 +137,22 @@ export class AttachmentHandler {
 
                 // Auto-save external PPTX/POTX files to vault for template analysis
                 let resolvedVaultPath = vaultPath;
+                console.debug(`[AttachmentHandler] processFile: ext=${ext}, vaultPath=${vaultPath ?? 'undefined'}, fileName=${file.name}`);
                 if (!resolvedVaultPath && (ext === 'pptx' || ext === 'potx')) {
                     resolvedVaultPath = await this.saveExternalTemplateToVault(file.name, arrayBuffer);
+                    console.debug(`[AttachmentHandler] PPTX template-save: ${resolvedVaultPath ?? 'failed'}`);
+                } else if (!resolvedVaultPath) {
+                    // PDF/DOCX/XLSX (everything that lands in the document
+                    // parser path except PPTX/POTX templates) gets persisted
+                    // into the user's attachment folder so later turns can
+                    // reach the binary via vault_path. Without this the
+                    // file lives only in the chat-attachment buffer of the
+                    // current turn -- a move_file in a follow-up turn would
+                    // have nothing to operate on.
+                    resolvedVaultPath = await this.saveExternalBinaryToAttachments(file.name, arrayBuffer);
+                    console.debug(`[AttachmentHandler] binary-save: ${resolvedVaultPath ?? 'FAILED'}`);
+                } else {
+                    console.debug(`[AttachmentHandler] file already in vault, no auto-save: ${vaultPath}`);
                 }
 
                 const vaultPathAttr = resolvedVaultPath ? ` vault_path="${escapeXmlAttr(resolvedVaultPath)}"` : '';
@@ -426,6 +440,62 @@ export class AttachmentHandler {
         } catch (err) {
             console.warn('[AttachmentHandler] Failed to save external template to vault:', err);
             return undefined;
+        }
+    }
+
+    /**
+     * Persist a binary chat-attachment (PDF / DOCX / XLSX) into the user's
+     * Obsidian attachment folder so a follow-up turn can reach the file via
+     * `vault_path`. Skips PPTX/POTX -- those go through the template-folder
+     * path instead. Reads `attachmentFolderPath` from `.obsidian/app.json`
+     * (default `Attachements`) so users with a custom attachment folder
+     * stay consistent. On collision the existing file is left untouched and
+     * the existing path is returned -- the agent decides whether to
+     * rename via `move_file`.
+     */
+    private async saveExternalBinaryToAttachments(fileName: string, data: ArrayBuffer): Promise<string | undefined> {
+        try {
+            const folder = (await this.readAttachmentFolderPath()).replace(/\/+$/, '') || 'Attachements';
+            console.debug(`[AttachmentHandler] saveExternalBinaryToAttachments: folder=${folder}, fileName=${fileName}, dataBytes=${data.byteLength}`);
+            await this.vault.adapter.mkdir(folder);
+
+            const targetPath = `${folder}/${fileName}`;
+            const existing = this.vault.getAbstractFileByPath(targetPath);
+            if (existing instanceof TFile) {
+                // Don't clobber an existing file with the same name; the
+                // user may have a previous version they care about. The
+                // ingest skill can rename / move via `move_file` once the
+                // proper Author-Year_Title naming is known.
+                new Notice(`Attachment already in vault: ${targetPath}`);
+                return targetPath;
+            }
+            await this.vault.createBinary(targetPath, data);
+            new Notice(`Attachment saved to vault: ${targetPath}`);
+            return targetPath;
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn('[AttachmentHandler] Failed to save external binary to vault:', err);
+            new Notice(`Attachment auto-save FAILED: ${msg}`, 8000);
+            return undefined;
+        }
+    }
+
+    /**
+     * Read the Obsidian-core attachment folder setting. Falls back to
+     * `Attachements` (Sebastian's vault default) when the JSON cannot be
+     * parsed; falls back to `Attachments` (Obsidian default) when the key
+     * is missing entirely. We deliberately avoid hard-coding the path so
+     * users that renamed the folder stay consistent.
+     */
+    private async readAttachmentFolderPath(): Promise<string> {
+        try {
+            const raw = await this.vault.adapter.read('.obsidian/app.json');
+            const parsed = JSON.parse(raw) as { attachmentFolderPath?: unknown };
+            const v = parsed.attachmentFolderPath;
+            if (typeof v === 'string' && v.trim()) return v.trim();
+            return 'Attachments';
+        } catch {
+            return 'Attachements';
         }
     }
 

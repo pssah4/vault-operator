@@ -35,25 +35,32 @@ The Vault Operator icon appears in the left sidebar.
 For the latest beta version (pre-release, ahead of the public store), install via [BRAT](https://github.com/TfTHacker/obsidian42-brat): Add `pssah4/vault-operator` as a beta plugin.
 :::
 
-## Add your first model
+## Run the First-Run wizard
 
-Vault Operator needs an AI model to work. Open **Settings > Vault Operator > Models** and click **"+ add model"**.
+A setup wizard opens automatically the first three times you enable the plugin. It walks you through every step on this page. If you skipped it or want to rerun later, open **Settings > Help > Run setup wizard**.
+
+If you prefer to set things up manually, read on.
+
+## Add your first provider
+
+Vault Operator needs an AI provider to work. Open **Settings > Vault Operator > Providers** and click **"+ Add provider"**.
 
 ### Free option (no credit card)
 
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Sign in and click **"Create API Key"**
-3. Copy the key and paste it into Vault Operator
+3. In Vault Operator, pick **Google Gemini** as provider type and paste the key
+4. Click **Refresh**. Vault Operator pulls Gemini's model list and sorts it into Budget / Main / Frontier.
 
 Google Gemini has a free tier with reasonable rate limits, which is enough to try everything out before paying anyone.
 
 ### Best quality
 
-| Provider | Model | Strengths |
-|----------|-------|-----------|
-| Anthropic | Claude Sonnet 4.6 | Best overall quality, excellent tool use |
-| OpenAI | GPT-4o | Fast, good at structured output |
-| Google | Gemini 2.5 Pro | Free tier, large context window |
+| Provider | Default Main | Default Frontier | Notes |
+|----------|--------------|------------------|-------|
+| Anthropic | Claude Sonnet 4.5 | Claude Opus 4.6/4.7 | Best tool use in testing |
+| OpenAI | GPT-5.1 / GPT-4.1 | GPT-5, GPT-5-pro | Fast, good at structured output |
+| Google | Gemini 2.5 Flash | Gemini 2.5 Pro | Free tier, large context window |
 
 ### Local & private
 
@@ -62,8 +69,10 @@ If you want no data leaving your machine, run a model locally:
 - Install [Ollama](https://ollama.ai), then run `ollama pull llama3.2`
 - Or download [LM Studio](https://lmstudio.ai), install a model, and start the server
 
+For local providers the Base URL field pre-fills with the well-known default port. Just click **Refresh** and you are done.
+
 :::info Multiple providers
-Vault Operator supports 10+ providers. You can switch models mid-conversation, so it's fine to configure several and pick per task.
+Vault Operator supports 12 providers. You can configure several and switch between them through the **Active provider** radio, or pin a specific model in the chat header for a single task.
 :::
 
 ## Your first chat
@@ -84,6 +93,8 @@ Vault Operator supports 10+ providers. You can switch models mid-conversation, s
 When you send a message, Vault Operator reads it and decides which tools to use. It then calls those tools (read files, search, write) while you see each call in the activity block. Before any write operation it asks for your approval, unless you've enabled auto-approve for that category. Then it returns a response.
 
 Every write operation creates a checkpoint, so you can undo any change with one click.
+
+By default the chat loop runs on the **Main tier** of your active provider. When the agent hits a hard synthesis step (deep cross-document reasoning, ambiguous instructions) it can escalate one step to the **Frontier tier** via `consult_flagship`, capped at three calls per task. The cost sidebar shows `mode=auto` for normal turns, `mode=advisor` when escalation fires, and `mode=override` when you pin a specific model from the chat header.
 
 ## Next steps
 

@@ -502,7 +502,9 @@ export interface AdvancedApiSettings {
     /**
      * FEAT-24-05: when a running task's (would-be) API cost reaches this many
      * EUR, the cost footer in the sidebar gets a visible warning style. 0
-     * disables the warning. Default 0.5.
+     * disables the warning. Default 0 (disabled) -- many users find the
+     * orange warning more noisy than helpful for routine work; opt-in via
+     * settings/update_settings if desired.
      */
     costWarnThresholdEur?: number;
     /**
@@ -1479,7 +1481,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         subtaskTokenBudget: 8000,           // FEAT-24-04 / ADR-113
         microcompactionEnabled: true,       // FEAT-24-02
         rollingSummaryThreshold: 50,        // FEAT-24-02
-        costWarnThresholdEur: 0.5,          // FEAT-24-05
+        costWarnThresholdEur: 0,            // FEAT-24-05 -- default disabled; opt-in
         telemetryRecordPromptPreview: false, // AUDIT-013 M-2: opt-in
     },
 

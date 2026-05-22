@@ -9,17 +9,29 @@ Vault Operator works with many providers and models. Not all of them are equally
 
 **You will need:** an account at the provider of your choice and an API key (or a local model server running). The [Tutorial](/tutorials/getting-started#before-you-start) lists the most common providers and where to grab a key.
 
-**Use this guide when:** you are setting up a new model, deciding between cloud and local, picking a cheaper model for background tasks, or you need to understand the trade-offs to make this decision.
+**Use this guide when:** you are setting up a new provider, deciding between cloud and local, picking a cheaper helper model for background tasks, or you need to understand the trade-offs.
 
-**You will know it works when:** you have at least one frontier model configured for primary use, optionally a cheaper model for background work (memory extraction, embeddings), and the **Test connection** button reports success for both.
+**You will know it works when:** you have at least one provider configured with a populated Main tier (and ideally a Frontier slot for the on-demand `consult_flagship` escalation), and the **Test connection** button reports success.
+
+## Provider-first, not model-first
+
+Vault Operator's setup is provider-centric, not model-centric. You configure a provider once (API key or OAuth). The plugin discovers the available models and sorts them into three tiers automatically.
+
+- **Budget tier** — cheap fast models for routine work. Also used as the fallback helper model.
+- **Main tier** — the default for chat.
+- **Frontier tier** — used on demand by the `consult_flagship` tool when the agent hits a hard synthesis step (max 3 calls per task, capped at 3000 output tokens per call).
+
+If your active provider has no Frontier-tier model, the escalation tool is filtered out of the schema. The agent runs Main-only and never knows the escalation tool existed.
 
 ## What makes a good model for Vault Operator
 
-Vault Operator is an agent, not a chat assistant. The model needs to:
+Vault Operator is an agent, not a chat assistant. The Main-tier model needs to:
 
 - Support tool use (function calling). It has to call Vault Operator's 60+ tools.
 - Follow instructions precisely. The system prompt is dense with rules, skills, and mode definitions.
 - Reason about multi-step tasks. Reading files, searching, editing, and verifying takes planning.
+
+The Frontier tier exists exactly because some steps need the absolute strongest model and the rest do not. Routing Frontier-class work to one tool call instead of the whole loop keeps cost predictable.
 
 :::tip Use the latest, most capable models
 Vault Operator works best with strong frontier models that are good at tool use and reasoning. Older or smaller models may struggle with bigger tasks, skip approval steps, or call the wrong tools. Most of the testing has been done with Anthropic Claude models.
@@ -82,9 +94,16 @@ For API-key providers, the "Quick pick" dropdown shows popular models with pre-f
 
 ## Using different models for different tasks
 
-You don't have to use the same model everywhere. Vault Operator lets you assign models per context. In Settings > Modes, each mode can override the default model: a strong model for Agent mode and a cheaper one for Ask mode works well. Settings > Memory lets you pick a small model for background memory extraction (it only summarizes conversations). Settings > Interface > Chat Linking has its own model for generating conversation titles. Settings > Embeddings lets you pick a cheap model for enriching search chunks in the background.
+You don't have to use the same model everywhere. Vault Operator splits model usage across four layers:
 
-A typical setup is one frontier model for interactive work and one lightweight model for everything in the background.
+1. **Main tier (chat loop):** the default for every conversational turn. Driven by the active provider's Main slot.
+2. **Frontier tier (`consult_flagship`):** the on-demand escalation. Same provider as Main, different tier.
+3. **Helper model:** context condensing, fast-path planning, `plan_presentation`, and recipe promotion. Set in Settings > Agent behaviour > Loop > Helper model. Pick the cheapest model that still understands the prompts (Claude Haiku, GPT-4o-mini, Gemini Flash, local Ollama).
+4. **Per-mode overrides:** Ask mode can run on a tiny model; Agent mode on the main one. Settings > Modes.
+
+You can also pin a specific model for a single task through the chat-header model picker. Pinning shows as `mode=override` in the cost log.
+
+A typical setup is one provider with a populated Main + Frontier slot, plus a cheap helper model from any provider.
 
 ## Embedding models
 
