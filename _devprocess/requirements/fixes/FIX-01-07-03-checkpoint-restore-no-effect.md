@@ -52,7 +52,14 @@ Wirkungsbereich groesser als zunaechst gedacht: nicht nur Restore, sondern auch 
 
 ## Fix
 
-Helper-Funktion `refreshOpenMarkdownViewsFor(app, file)` in `src/core/utils/refreshMarkdownView.ts`. Nach jedem `vault.modify` auf einer Note wird jedem offenen MarkdownView fuer diese Datei `leaf.openFile(file)` aufgerufen, was das CodeMirror-Buffer mit dem aktuellen Disk-Stand neu lae dt. Cursor-Position geht dabei verloren -- akzeptabel, weil ein Agent-getriebener Write den Editor-State eh ueberholt.
+3-Phasen-Iteration ueber 2026-05-22/23, weil der erste Ansatz nur die Disk-Seite traf und nicht den Editor-View. Endstand:
+
+Helper-Funktion `refreshOpenMarkdownViewsFor(app, file, content?)` in `src/core/utils/refreshMarkdownView.ts`. Nach jedem `vault.modify` auf einer Note wird jeder offenen MarkdownView fuer diese Datei `view.editor.setValue(content)` aufgerufen -- das schreibt das CodeMirror-Buffer direkt, forciert ein DOM-Repaint und synchronisiert den Buffer mit Disk, sodass die naechste Auto-Save ein No-Op statt eines Overwrite ist. Cursor + Scroll werden bestmoeglich erhalten (Clamping auf die neue Zeilenanzahl).
+
+Phase-Iteration:
+- **Phase 1 (Diagnose):** Read-Back nach `vault.modify` plus Content-Snippet. Zeigte: Disk wird korrekt geschrieben, aber Editor zeigt weiter alten Stand.
+- **Phase 2 (erster Fix-Versuch):** `leaf.openFile(sameFile)` nach `vault.modify`. Wirkung: Disk-Persistenz stabil, Char-Count waechst (15348 -> 15984 -> 16049). Aber: `leaf.openFile(sameFile)` ist Obsidian-No-Op (skip re-bind wenn `view.file === file`), Editor zeigte weiter alt.
+- **Phase 3 (final):** `view.editor.setValue(content)` direkt. Forciert DOM + Buffer-Sync.
 
 Konsumenten:
 - `GitCheckpointService.restore()` ([src/core/checkpoints/GitCheckpointService.ts](src/core/checkpoints/GitCheckpointService.ts)) -- delegiert an den Helper.
@@ -60,11 +67,13 @@ Konsumenten:
 - `WriteFileTool` ([src/core/tools/vault/WriteFileTool.ts](src/core/tools/vault/WriteFileTool.ts)) -- nach modify im Existing-File-Pfad.
 - `AppendToFileTool` ([src/core/tools/vault/AppendToFileTool.ts](src/core/tools/vault/AppendToFileTool.ts)) -- nach modify im Existing-File-Pfad.
 
-Zusatzlich: Phase-1-Diagnose-Logging bleibt drin (read-back + Content-Snippet) damit zukuenftige Symptome schneller diagnostizierbar sind.
+Fallback im Helper: wenn `editor.setValue` throwt, fallback auf `leaf.openFile` (nicht ideal aber besser als Crash).
+
+Zusaetzlich: Phase-1-Diagnose-Logging bleibt drin (read-back + Content-Snippet) damit zukuenftige Symptome schneller diagnostizierbar sind.
 
 `update_frontmatter` ist nicht betroffen (nutzt Obsidians `fileManager.processFrontMatter`, was Editor-State korrekt synchronisiert). Bilder/Canvas/drawio/Excalidraw sind eigene Views, nicht MarkdownView.
 
-Implementation pointer: PLAN-38 + Commit-Kette.
+Implementation pointer: PLAN-38 + Commits 92f78fdc + edf116dd + fe86c5ab + e355be76.
 
 ## Regression test
 
@@ -76,7 +85,9 @@ Manuelle Repro (datengetrieben statt synthetisch, da Editor-View-Interaktion):
 4. Erwartet: bei naechstem Agent-Edit liest der Pre-Change-Snapshot eine groessere Char-Anzahl (Disk wurde NICHT vom Editor zurueckgesetzt).
 5. Erwartet bei restore: Editor zeigt den restored Stand und der naechste Edit/Auto-Save ueberschreibt ihn nicht.
 
-Synthetischer Unit-Test schwer abzubilden weil CodeMirror-Buffer-Verhalten Obsidian-spezifisch ist. Konsole liefert die Marker `refreshed N open MarkdownView(s)` als positiv-Befund.
+Synthetischer Unit-Test schwer abzubilden weil CodeMirror-Buffer-Verhalten Obsidian-spezifisch ist. Konsole liefert die Marker `refreshed N open MarkdownView(s)` als positiv-Befund (nur im Restore-Pfad, Edit-Tools rufen silent).
+
+**Verifikation 2026-05-23 (Sebastian):** Phase-3-Build deployt + Plugin reloaded + "entferne die GPS Daten beim Hotel" -> Editor zeigt sofort den neuen Stand ohne GPS-Koordinaten. Bestaetigt OK.
 
 ## Status
 

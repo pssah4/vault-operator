@@ -92,7 +92,27 @@ Coverage Gate Status:
 | 2026-05-23 | initial | PLAN-38 angelegt. 2-Phasen-Fix-Strategie. Phase 1 Diagnose-Logging startet sofort. |
 | 2026-05-23 | implementation | Phase 1 deployt. Repro-Logs bestaetigen Hypothese 3 (Editor-View-Cache), Hypothese 2 (Plugin-Overwrite) widerlegt. Read-Back zeigt identischen Disk-Stand zur restored-Length. |
 | 2026-05-23 | scope-expand | Sebastians 2. Bug-Repro (Agent-Edits zeigen sich nicht im Editor) hat denselben Root Cause. Scope von PLAN-38 erweitert: Helper `refreshOpenMarkdownViewsFor` extrahiert, GitCheckpointService + EditFileTool (2 Stellen) + WriteFileTool + AppendToFileTool angepasst. FIX-01-04-01 separat erfasst fuer den orthogonalen Tool-Choice-Bug (read_file statt edit_file -> Duplikate). |
+| 2026-05-23 | phase-2-test | Sebastian Repro: Disk-Persistenz funktioniert (Char-Count waechst 15348 -> 15984 -> 16049), aber Editor zeigt weiter alt. Befund: `leaf.openFile(sameFile)` ist Obsidian-No-Op. Phase 3 noetig. |
+| 2026-05-23 | phase-3 | Helper umgestellt auf `view.editor.setValue(content)` + Cursor/Scroll-Clamping. Alle 4 Aufrufstellen reichen content durch. Fallback auf leaf.openFile bleibt fuer Edge-Cases. Sebastian verifiziert OK. |
 
 ## Implementation Notes
 
-(wird nach Phase 1 + Phase 2 gefuellt: per-Phase commit SHA, Repro-Log-Auszug, Phase-2-Entscheidung)
+**Abgeschlossen 2026-05-23.**
+
+- **Phase 1 Commit:** `edf116dd` (`fix(checkpoints): FIX-01-07-03 phase 1 diagnostic logging`) -- read-back + content-snippet logs in snapshot/restore. Reine Diagnose.
+- **Phase 2 Commit:** `fe86c5ab` (`fix(vault): FIX-01-07-03 phase 2 view-refresh after vault.modify`) -- Helper `refreshOpenMarkdownViewsFor` mit `leaf.openFile(file)`. Disk persistierte, View nicht.
+- **Phase 3 Commit:** `e355be76` (`fix(vault): FIX-01-07-03 phase 3 editor.setValue replaces leaf.openFile`) -- Helper auf `view.editor.setValue(content)` umgestellt mit Cursor/Scroll-Clamping. Funktioniert.
+
+**Test count delta:** 0 neue automatische Tests (Editor-Verhalten ist Obsidian-spezifisch, schwer reproduzierbar in vitest-Stub). Manuelle Repro auf Sebastians Vault dokumentiert.
+
+**Wayfinder-Updates:** keine. Neue Helper-Datei `src/core/utils/refreshMarkdownView.ts` ist Sub-Komponente, kein eigener Concept-Eintrag noetig (zu klein, kein eigener Lifecycle).
+
+**Lessons Learned:**
+- `leaf.openFile(sameFile)` ist No-Op in Obsidian wenn `view.file === file`. Nicht als View-Refresh-Hammer geeignet.
+- `vault.modify` schreibt zur Disk, aber updatet NICHT den offenen Editor-Buffer. Wenn Plugin-Code von ausserhalb des Editors die Datei aendert und der Editor offen ist, ueberschreibt der Editor seinen Buffer beim naechsten Auto-Save -- Plugin-Aenderung wird silent rueckgaengig gemacht.
+- Saubere Loesung: `editor.setValue(newContent)` direkt. Cursor + Scroll mit Clamping.
+- Diagnose-Logging zahlt sich aus: ohne den Read-Back-Log in Phase 1 haetten wir Phase 2 vs. Phase 3 nicht trennen koennen.
+
+**Cycle time:** 2026-05-22 18:42 (Phase 1 commit) -> 2026-05-23 15:32 (Phase 3 commit) = ~21h inkl. zweier Sebastian-Repro-Wartezyklen.
+
+**Folge-Beobachtung:** FIX-01-04-01 (Agent waehlt read_file statt edit_file) ist eventuell als Folgefehler von 01-07-03 entstanden -- nach diesem Fix beobachten ob Bug B noch auftritt. Falls nein, kann 01-04-01 als resolved-without-fix geschlossen werden.
