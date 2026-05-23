@@ -28,6 +28,7 @@ import * as path from 'path';
 // no longer an option for repo-internal I/O.
 const rawFs = require('fs') as typeof import('fs');
 import { TFile, TFolder, type App, type Vault } from 'obsidian';
+import { refreshOpenMarkdownViewsFor } from '../utils/refreshMarkdownView';
 
 export interface CheckpointInfo {
     taskId: string;
@@ -390,11 +391,13 @@ export class GitCheckpointService {
                             if (existingFile instanceof TFile) {
                             await this.vault.modify(existingFile, content);
                             console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: restored via vault.modify`);
-                            // FIX-01-07-03 diagnostic: read back what's on disk right after the
-                            // write so we can spot reactive plugins (pretty-properties, TaskNotes,
-                            // templater, etc.) that hook vault.on('modify') and overwrite the
-                            // frontmatter. If readBack diverges from `content`, the restore was
-                            // physically applied but immediately mutated by another listener.
+                            // FIX-01-07-03 diagnostic (kept): read back what's on disk right
+                            // after the write. Originally added to spot reactive plugins
+                            // (pretty-properties, TaskNotes, templater) that hook
+                            // vault.on('modify') and mutate the file. Sebastian's
+                            // 2026-05-23 repro proved no mismatch -- the disk is correctly
+                            // restored. The warning still helps if a future plugin starts
+                            // overwriting.
                             try {
                                 const readBack = await this.vault.read(existingFile);
                                 if (readBack.length !== content.length) {
@@ -404,6 +407,13 @@ export class GitCheckpointService {
                             } catch (readBackErr) {
                                 console.warn(`[Checkpoints] read-back failed for ${JSON.stringify(vaultRelPath)}:`, readBackErr);
                             }
+                            // FIX-01-07-03 actual fix: the disk write succeeded but any
+                            // currently open MarkdownView for this file is still showing
+                            // its in-memory CodeMirror buffer. When the user types or
+                            // Obsidian auto-saves, that buffer overwrites the disk back to
+                            // the pre-restore state. Force every open leaf for this file
+                            // to re-read from disk.
+                            await this.refreshOpenViewsFor(existingFile);
                         }
                     } else {
                         await this.vault.adapter.write(vaultRelPath, content);
@@ -735,6 +745,19 @@ export class GitCheckpointService {
 
     private async ensureInit(): Promise<void> {
         if (!this.initialized) await this.initialize();
+    }
+
+    /**
+     * FIX-01-07-03: force every open MarkdownView that holds this file to
+     * re-read the disk state. Delegates to the shared helper because edit
+     * tools (write_file, edit_file, append_to_file) have the same issue
+     * and need the same fix.
+     */
+    private async refreshOpenViewsFor(file: TFile): Promise<void> {
+        const refreshed = await refreshOpenMarkdownViewsFor(this.app, file);
+        if (refreshed > 0) {
+            console.debug(`[Checkpoints] ${JSON.stringify(file.path)}: refreshed ${refreshed} open MarkdownView(s) after restore`);
+        }
     }
 
     /**

@@ -12,6 +12,7 @@ import { TFile } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { refreshOpenMarkdownViewsFor } from '../../utils/refreshMarkdownView';
 
 interface EditFileInput {
     path: string;
@@ -108,6 +109,10 @@ export class EditFileTool extends BaseTool<'edit_file'> {
                 if (normalized !== null) {
                     if (file) {
                         await this.app.vault.modify(file, normalized);
+                        // FIX-01-07-03: force open MarkdownView to re-read disk,
+                        // otherwise the stale CodeMirror buffer flushes back and
+                        // silently reverts this edit.
+                        await refreshOpenMarkdownViewsFor(this.app, file);
                     } else {
                         await this.app.vault.adapter.write(path, normalized);
                     }
@@ -146,6 +151,8 @@ export class EditFileTool extends BaseTool<'edit_file'> {
             const newContent = this.replaceFirst(content, old_str, new_str, expected_replacements);
             if (file) {
                 await this.app.vault.modify(file, newContent);
+                // FIX-01-07-03: see note above; same view-refresh guard.
+                await refreshOpenMarkdownViewsFor(this.app, file);
             } else {
                 await this.app.vault.adapter.write(path, newContent);
             }

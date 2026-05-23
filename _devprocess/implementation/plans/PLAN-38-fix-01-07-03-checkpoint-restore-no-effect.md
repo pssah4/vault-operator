@@ -90,6 +90,8 @@ Coverage Gate Status:
 | Date | Trigger | Summary |
 |---|---|---|
 | 2026-05-23 | initial | PLAN-38 angelegt. 2-Phasen-Fix-Strategie. Phase 1 Diagnose-Logging startet sofort. |
+| 2026-05-23 | implementation | Phase 1 deployt. Repro-Logs bestaetigen Hypothese 3 (Editor-View-Cache), Hypothese 2 (Plugin-Overwrite) widerlegt. Read-Back zeigt identischen Disk-Stand zur restored-Length. |
+| 2026-05-23 | scope-expand | Sebastians 2. Bug-Repro (Agent-Edits zeigen sich nicht im Editor) hat denselben Root Cause. Scope von PLAN-38 erweitert: Helper `refreshOpenMarkdownViewsFor` extrahiert, GitCheckpointService + EditFileTool (2 Stellen) + WriteFileTool + AppendToFileTool angepasst. FIX-01-04-01 separat erfasst fuer den orthogonalen Tool-Choice-Bug (read_file statt edit_file -> Duplikate). |
 
 ## Implementation Notes
 

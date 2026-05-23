@@ -8,7 +8,7 @@ depends-on: []
 created: 2026-05-22
 ---
 
-# FIX-01-07-03: Checkpoint-Restore meldet "Restored", aber Datei behaelt geaenderten Inhalt
+# FIX-01-07-03: Editor-View-Cache uebermalt vault.modify (restore + edit/write/append)
 
 ## Symptom
 
@@ -18,7 +18,19 @@ Reproduktion: Note `Notes/Backpropagation (Fehlerrückführung).md` im NexusOS-V
 
 ## Root cause
 
-Unbekannt -- mehrere Hypothesen, keine im Logging eindeutig belegt:
+**Bestaetigt 2026-05-23 via Repro-Logs nach Phase-1-Diagnose:** Editor-View-Cache uebermalt vault.modify-Schreibvorgaenge. Der Disk-Stand wird korrekt geschrieben (Read-Back nach vault.modify beweist das), aber der offene MarkdownView haelt seinen CodeMirror-Buffer mit dem Pre-Change-Stand. Beim naechsten Auto-Save oder Keystroke flusht der Editor seinen Buffer zurueck zur Disk und macht den restore (oder edit) silent rueckgaengig.
+
+Diagnose-Logs aus dem 2026-05-23-Repro:
+
+```
+[Checkpoints] Restoring "...": 15348 chars from oid cba60da4 head="---\nZusammenfassung..."
+[Checkpoints] "...": restored via vault.modify
+[Checkpoints] "...": read-back 15348 chars head="---\nZusammenfassung..."   ← IDENTISCH
+```
+
+Read-Back stimmt exakt mit dem geschriebenen Inhalt ueberein -- der Disk-Stand ist korrekt restored. Gleichzeitig sieht Sebastian im Editor weder die Aenderung noch den Restore-Stand. Alle 5 Snapshots haben EXAKT 15348 chars ueber 4-5 Edit-Aufrufe, was beweist: jeder Edit + Restore wird vom Editor-Cache wieder ueberschrieben.
+
+Damit fallen die fruehen Hypothesen:
 
 ```
 agent edit -> pipeline pre-write snapshot (oid A)
@@ -32,26 +44,39 @@ user clicks Undo from here
 
 Verdaechtig: snapshot vor Restore liest 28192 chars, restore schreibt 28192 chars von einem ANDEREN Oid. Wenn beide identisch lang sind, ist der Inhalt entweder zufaellig gleich (Frontmatter-Aenderung gleicht zeichen-neutral aus) oder der Pre-Change-Snapshot enthielt schon die Aenderung (z.B. weil pre-write-Snapshot zeitlich nach dem Edit lief).
 
-Hypothesen, in Reihenfolge der Wahrscheinlichkeit:
+- Hypothese 1 (falscher Pre-Change-Oid) -- falsch. Pipeline triggert snapshot vor jedem Write korrekt.
+- Hypothese 2 (externes Plugin ueberschreibt) -- falsch. Read-Back zeigt korrekten Disk-Stand.
+- Hypothese 3 (Editor-View-Cache) -- **bestaetigt**. CodeMirror-Buffer flusht den Pre-Change-Stand zurueck.
 
-1. **Falscher Snapshot-Oid:** `commitOid=34dd329d` ist nicht der Pre-Change-Snapshot sondern der erste Snapshot der Datei, der bereits den aktuellen Stand enthielt. Pre-Write-Checkpoint wurde verpasst (z.B. weil das Agent-Tool kein `isWriteOperation` triggert oder weil ein anderes Plugin das Frontmatter geschrieben hat ohne Checkpoint).
-2. **vault.modify ueberschrieben:** Restore-Call schreibt korrekt, aber direkt danach feuert ein Sync- oder Frontmatter-Plugin (templater, frontmatter-property, dataview-cache) und schreibt den vorherigen aktuellen Stand zurueck.
-3. **Editor-View-Cache:** vault.modify schreibt korrekt auf Disk, aber Obsidians Editor-View ist nicht refreshed und zeigt den alten Pufferinhalt. Sebastian wuerde aber nach Note-Switch + Re-Open den Disk-Stand sehen.
-4. **Falsche Datei restored:** Restored taskId ist `task-1779486137419`, aber der Pre-Change-Snapshot gehoert zu einem anderen Task. Cross-Task-Restore zeigt einen anderen Inhalt als erwartet.
-
-Logs liefern Restore-Pfad bis vault.modify, aber kein nachgelagertes Verify (Read-back nach Write). Das macht die Ursachendiagnose ohne Reproduktion mit zusaetzlichem Logging unmoeglich.
+Wirkungsbereich groesser als zunaechst gedacht: nicht nur Restore, sondern auch `edit_file`, `write_file`, `append_to_file` sind betroffen (gleicher vault.modify-Pfad). Sebastians 2026-05-23-Repro mit Agent-Edits zeigte das gleiche Symptom: Tool meldet Erfolg, aber Editor zeigt unveraenderte Note.
 
 ## Fix
 
-{Offen -- braucht Reproduktion mit Zusatz-Logging.}
+Helper-Funktion `refreshOpenMarkdownViewsFor(app, file)` in `src/core/utils/refreshMarkdownView.ts`. Nach jedem `vault.modify` auf einer Note wird jedem offenen MarkdownView fuer diese Datei `leaf.openFile(file)` aufgerufen, was das CodeMirror-Buffer mit dem aktuellen Disk-Stand neu lae dt. Cursor-Position geht dabei verloren -- akzeptabel, weil ein Agent-getriebener Write den Editor-State eh ueberholt.
 
-Erster Schritt waere: `GitCheckpointService.restore()` um einen post-write-Read-back ergaenzen, der den geschriebenen Inhalt liest und mit dem erwarteten oid-Inhalt vergleicht. Diff dokumentiert ob vault.modify durchgegangen ist oder ob ein externer Schreibvorgang den Inhalt ueberschrieben hat. Optional Marker fuer "expected pre-write checkpoint missing" wenn der Snapshot vor dem ersten Edit nicht angelegt wurde.
+Konsumenten:
+- `GitCheckpointService.restore()` ([src/core/checkpoints/GitCheckpointService.ts](src/core/checkpoints/GitCheckpointService.ts)) -- delegiert an den Helper.
+- `EditFileTool` ([src/core/tools/vault/EditFileTool.ts](src/core/tools/vault/EditFileTool.ts)) -- nach beiden vault.modify-Stellen (fuzzy + exact).
+- `WriteFileTool` ([src/core/tools/vault/WriteFileTool.ts](src/core/tools/vault/WriteFileTool.ts)) -- nach modify im Existing-File-Pfad.
+- `AppendToFileTool` ([src/core/tools/vault/AppendToFileTool.ts](src/core/tools/vault/AppendToFileTool.ts)) -- nach modify im Existing-File-Pfad.
 
-Implementation pointer: TBD.
+Zusatzlich: Phase-1-Diagnose-Logging bleibt drin (read-back + Content-Snippet) damit zukuenftige Symptome schneller diagnostizierbar sind.
+
+`update_frontmatter` ist nicht betroffen (nutzt Obsidians `fileManager.processFrontMatter`, was Editor-State korrekt synchronisiert). Bilder/Canvas/drawio/Excalidraw sind eigene Views, nicht MarkdownView.
+
+Implementation pointer: PLAN-38 + Commit-Kette.
 
 ## Regression test
 
-Offen. Reproduktions-Setup braucht: realer Vault (sehr wahrscheinlich plugin-Interferenz), Note mit verschachtelter Frontmatter, Agent-Tool-Call der Frontmatter aendert, dann Undo. Reproduktion auf synthetischem Test-Vault unklar.
+Manuelle Repro (datengetrieben statt synthetisch, da Editor-View-Interaktion):
+
+1. Note in Obsidian oeffnen.
+2. Agent edit_file/write_file/append_to_file ausfuehren lassen.
+3. Erwartet: Editor zeigt nach Tool-Erfolg den neuen Inhalt sofort (ohne Note schliessen+oeffnen).
+4. Erwartet: bei naechstem Agent-Edit liest der Pre-Change-Snapshot eine groessere Char-Anzahl (Disk wurde NICHT vom Editor zurueckgesetzt).
+5. Erwartet bei restore: Editor zeigt den restored Stand und der naechste Edit/Auto-Save ueberschreibt ihn nicht.
+
+Synthetischer Unit-Test schwer abzubilden weil CodeMirror-Buffer-Verhalten Obsidian-spezifisch ist. Konsole liefert die Marker `refreshed N open MarkdownView(s)` als positiv-Befund.
 
 ## Status
 
