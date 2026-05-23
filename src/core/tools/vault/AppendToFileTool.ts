@@ -9,6 +9,7 @@ import { TFile, TFolder } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { refreshOpenMarkdownViewsFor } from '../../utils/refreshMarkdownView';
 
 interface AppendToFileInput {
     path: string;
@@ -72,6 +73,10 @@ export class AppendToFileTool extends BaseTool<'append_to_file'> {
                 const currentContent = await this.app.vault.read(existing);
                 const newContent = currentContent ? currentContent + separator + content : content;
                 await this.app.vault.modify(existing, newContent);
+                // FIX-01-07-03: push the new content directly into the open
+                // CodeMirror buffer so the editor view shows the append
+                // immediately.
+                await refreshOpenMarkdownViewsFor(this.app, existing, newContent);
                 const appendedLines = content.split('\n').length;
                 callbacks.pushToolResult(
                     this.formatSuccess(`Appended to ${path} (+${appendedLines} lines)`) +

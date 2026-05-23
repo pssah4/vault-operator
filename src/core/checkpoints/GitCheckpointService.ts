@@ -28,6 +28,7 @@ import * as path from 'path';
 // no longer an option for repo-internal I/O.
 const rawFs = require('fs') as typeof import('fs');
 import { TFile, TFolder, type App, type Vault } from 'obsidian';
+import { refreshOpenMarkdownViewsFor } from '../utils/refreshMarkdownView';
 
 export interface CheckpointInfo {
     taskId: string;
@@ -58,6 +59,17 @@ function isVaultRelative(p: string): boolean {
  *  the restore-fallback into a CPU sink. AUDIT-030 M-2. */
 const NEW_FILES_MAX_BYTES = 64 * 1024;
 const NEW_FILES_MAX_ENTRIES = 10_000;
+
+/** FIX-01-07-03 diagnostic helper: compact preview of file content for
+ *  console.debug. First 200 chars, with visible markers for whitespace
+ *  so a frontmatter shift (e.g. dropped null line) is recognisable in
+ *  the log. */
+function contentSnippet(content: string): string {
+    const head = content.slice(0, 200)
+        .replace(/\n/g, '\\n')
+        .replace(/\t/g, '\\t');
+    return content.length > 200 ? `${head}...` : head;
+}
 
 export interface RestoreResult {
     restored: string[];
@@ -169,7 +181,7 @@ export class GitCheckpointService {
                     this.vault.adapter.read(vaultRelPath),
                     `Read ${vaultRelPath}`
                 );
-                console.debug(`[Checkpoints] ${vaultRelPath}: read ${content.length} chars from vault`);
+                console.debug(`[Checkpoints] ${vaultRelPath}: read ${content.length} chars from vault head=${JSON.stringify(contentSnippet(content))}`);
 
                 // Write into shadow repo at same relative path
                 const destPath = `${this.repoPath}/${repoRelative}`;
@@ -372,17 +384,49 @@ export class GitCheckpointService {
                         filepath: vaultRelPath,
                     });
                     const content = new TextDecoder().decode(blob);
-                    console.debug(`[Checkpoints] Restoring ${JSON.stringify(vaultRelPath)}: ${content.length} chars from oid ${checkpoint.commitOid.substring(0, 8)}`);
+                    console.debug(`[Checkpoints] Restoring ${JSON.stringify(vaultRelPath)}: ${content.length} chars from oid ${checkpoint.commitOid.substring(0, 8)} head=${JSON.stringify(contentSnippet(content))}`);
 
                     const existingFile = this.vault.getAbstractFileByPath(vaultRelPath);
                     if (existingFile) {
                             if (existingFile instanceof TFile) {
                             await this.vault.modify(existingFile, content);
                             console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: restored via vault.modify`);
+                            // FIX-01-07-03 diagnostic (kept): read back what's on disk right
+                            // after the write. Originally added to spot reactive plugins
+                            // (pretty-properties, TaskNotes, templater) that hook
+                            // vault.on('modify') and mutate the file. Sebastian's
+                            // 2026-05-23 repro proved no mismatch -- the disk is correctly
+                            // restored. The warning still helps if a future plugin starts
+                            // overwriting.
+                            try {
+                                const readBack = await this.vault.read(existingFile);
+                                if (readBack.length !== content.length) {
+                                    console.warn(`[Checkpoints] [restore-mismatch] ${JSON.stringify(vaultRelPath)}: wrote ${content.length} chars, read back ${readBack.length} chars (delta=${readBack.length - content.length}); reactive plugin most likely mutated the file`);
+                                }
+                                console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: read-back ${readBack.length} chars head=${JSON.stringify(contentSnippet(readBack))}`);
+                            } catch (readBackErr) {
+                                console.warn(`[Checkpoints] read-back failed for ${JSON.stringify(vaultRelPath)}:`, readBackErr);
+                            }
+                            // FIX-01-07-03 phase 3 fix: the disk write succeeded but
+                            // any currently open MarkdownView still shows the stale
+                            // CodeMirror buffer. Push the restored content directly
+                            // into the editor so the user sees it and the next
+                            // auto-save does not revert the disk.
+                            await this.refreshOpenViewsFor(existingFile, content);
                         }
                     } else {
                         await this.vault.adapter.write(vaultRelPath, content);
                         console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: restored via vault.adapter.write (file was deleted)`);
+                        // FIX-01-07-03 diagnostic: same read-back for the adapter path.
+                        try {
+                            const readBack = await this.vault.adapter.read(vaultRelPath);
+                            if (readBack.length !== content.length) {
+                                console.warn(`[Checkpoints] [restore-mismatch] ${JSON.stringify(vaultRelPath)}: wrote ${content.length} chars via adapter, read back ${readBack.length} chars (delta=${readBack.length - content.length})`);
+                            }
+                            console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: adapter read-back ${readBack.length} chars head=${JSON.stringify(contentSnippet(readBack))}`);
+                        } catch (readBackErr) {
+                            console.warn(`[Checkpoints] adapter read-back failed for ${JSON.stringify(vaultRelPath)}:`, readBackErr);
+                        }
                     }
                     restored.push(vaultRelPath);
                 } catch (e) {
@@ -700,6 +744,19 @@ export class GitCheckpointService {
 
     private async ensureInit(): Promise<void> {
         if (!this.initialized) await this.initialize();
+    }
+
+    /**
+     * FIX-01-07-03: push the restored content into every open
+     * MarkdownView that holds this file. Delegates to the shared helper
+     * because edit tools (write_file, edit_file, append_to_file) have the
+     * same issue and need the same fix.
+     */
+    private async refreshOpenViewsFor(file: TFile, content?: string): Promise<void> {
+        const refreshed = await refreshOpenMarkdownViewsFor(this.app, file, content);
+        if (refreshed > 0) {
+            console.debug(`[Checkpoints] ${JSON.stringify(file.path)}: refreshed ${refreshed} open MarkdownView(s) after restore`);
+        }
     }
 
     /**
