@@ -59,6 +59,17 @@ function isVaultRelative(p: string): boolean {
 const NEW_FILES_MAX_BYTES = 64 * 1024;
 const NEW_FILES_MAX_ENTRIES = 10_000;
 
+/** FIX-01-07-03 diagnostic helper: compact preview of file content for
+ *  console.debug. First 200 chars, with visible markers for whitespace
+ *  so a frontmatter shift (e.g. dropped null line) is recognisable in
+ *  the log. */
+function contentSnippet(content: string): string {
+    const head = content.slice(0, 200)
+        .replace(/\n/g, '\\n')
+        .replace(/\t/g, '\\t');
+    return content.length > 200 ? `${head}...` : head;
+}
+
 export interface RestoreResult {
     restored: string[];
     errors: string[];
@@ -169,7 +180,7 @@ export class GitCheckpointService {
                     this.vault.adapter.read(vaultRelPath),
                     `Read ${vaultRelPath}`
                 );
-                console.debug(`[Checkpoints] ${vaultRelPath}: read ${content.length} chars from vault`);
+                console.debug(`[Checkpoints] ${vaultRelPath}: read ${content.length} chars from vault head=${JSON.stringify(contentSnippet(content))}`);
 
                 // Write into shadow repo at same relative path
                 const destPath = `${this.repoPath}/${repoRelative}`;
@@ -372,17 +383,41 @@ export class GitCheckpointService {
                         filepath: vaultRelPath,
                     });
                     const content = new TextDecoder().decode(blob);
-                    console.debug(`[Checkpoints] Restoring ${JSON.stringify(vaultRelPath)}: ${content.length} chars from oid ${checkpoint.commitOid.substring(0, 8)}`);
+                    console.debug(`[Checkpoints] Restoring ${JSON.stringify(vaultRelPath)}: ${content.length} chars from oid ${checkpoint.commitOid.substring(0, 8)} head=${JSON.stringify(contentSnippet(content))}`);
 
                     const existingFile = this.vault.getAbstractFileByPath(vaultRelPath);
                     if (existingFile) {
                             if (existingFile instanceof TFile) {
                             await this.vault.modify(existingFile, content);
                             console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: restored via vault.modify`);
+                            // FIX-01-07-03 diagnostic: read back what's on disk right after the
+                            // write so we can spot reactive plugins (pretty-properties, TaskNotes,
+                            // templater, etc.) that hook vault.on('modify') and overwrite the
+                            // frontmatter. If readBack diverges from `content`, the restore was
+                            // physically applied but immediately mutated by another listener.
+                            try {
+                                const readBack = await this.vault.read(existingFile);
+                                if (readBack.length !== content.length) {
+                                    console.warn(`[Checkpoints] [restore-mismatch] ${JSON.stringify(vaultRelPath)}: wrote ${content.length} chars, read back ${readBack.length} chars (delta=${readBack.length - content.length}); reactive plugin most likely mutated the file`);
+                                }
+                                console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: read-back ${readBack.length} chars head=${JSON.stringify(contentSnippet(readBack))}`);
+                            } catch (readBackErr) {
+                                console.warn(`[Checkpoints] read-back failed for ${JSON.stringify(vaultRelPath)}:`, readBackErr);
+                            }
                         }
                     } else {
                         await this.vault.adapter.write(vaultRelPath, content);
                         console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: restored via vault.adapter.write (file was deleted)`);
+                        // FIX-01-07-03 diagnostic: same read-back for the adapter path.
+                        try {
+                            const readBack = await this.vault.adapter.read(vaultRelPath);
+                            if (readBack.length !== content.length) {
+                                console.warn(`[Checkpoints] [restore-mismatch] ${JSON.stringify(vaultRelPath)}: wrote ${content.length} chars via adapter, read back ${readBack.length} chars (delta=${readBack.length - content.length})`);
+                            }
+                            console.debug(`[Checkpoints] ${JSON.stringify(vaultRelPath)}: adapter read-back ${readBack.length} chars head=${JSON.stringify(contentSnippet(readBack))}`);
+                        } catch (readBackErr) {
+                            console.warn(`[Checkpoints] adapter read-back failed for ${JSON.stringify(vaultRelPath)}:`, readBackErr);
+                        }
                     }
                     restored.push(vaultRelPath);
                 } catch (e) {
