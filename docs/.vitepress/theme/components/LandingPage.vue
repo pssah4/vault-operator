@@ -175,8 +175,8 @@ onMounted(() => {
 <template>
   <section class="landing-hero">
     <a href="https://github.com/pssah4/vault-operator/releases" class="landing-badge" target="_blank" rel="noopener">
-      <span class="landing-badge-version">v2.12.3</span>
-      <span>Undo-from-here actually rolls back the open note. Editor-view cache no longer overwrites checkpoint restores and edit_file writes.</span>
+      <span class="landing-badge-version">v2.12.4</span>
+      <span>Security maintenance: qs DoS (CVE-2026-8723) closed via npm override. npm audit baseline back to zero.</span>
     </a>
 
     <h1 class="landing-title">Your Obsidian vault,<br>with a real AI Agent.</h1>
