@@ -155,7 +155,7 @@ export default withMermaid(
       ['meta', { property: 'og:description', content: 'An autonomous AI agent for Obsidian with 60+ tools, block-level provenance, cross-surface MCP, semantic search, persistent memory, and full safety controls.' }],
     ],
 
-    appearance: 'dark',
+    appearance: { initialValue: 'dark' },
     lastUpdated: true,
     cleanUrls: true,
 
