@@ -1,185 +1,100 @@
 # Vault Operator
 
-**Agentic AI for Obsidian.**
+**An autonomous AI agent inside your Obsidian vault.**
 
-An autonomous AI operating layer for your Obsidian vault. 66 built-in tools, semantic search, persistent memory, multi-agent workflows, office document creation, plugin discovery, and full safety controls. Works with 12 providers including local models. Auto-classifies your models into three tiers (Budget / Main / Frontier) and escalates the hard synthesis steps to the Frontier on demand. Unifies chat history from ChatGPT, Claude, and Perplexity into your vault. Open source. Free.
+You describe a task, it plans, searches, reads, writes, and reports back. Every action is visible. Every write needs your approval. Every change is undoable in one click.
 
-[pssah4.github.io/vault-operator](https://pssah4.github.io/vault-operator)
+Free. Open source. Local-first. Works with cloud models, with your existing ChatGPT or Copilot subscription, or fully offline with Ollama or LM Studio.
 
----
-
-## What it does
-
-Like in Cowork or Copilot you describe a task in natural language. Vault Operator plans, searches your vault, reads relevant notes, creates or edits content, generates PowerPoint / Word / Excel files, browses the web, calls MCP servers, and reports back. Every step is visible in the sidebar in real time. Every write operation requires your approval and creates a checkpoint you can undo with one click.
-
-Concrete examples:
-
-- "Read this PDF, link the key concepts to my existing notes, then create a summary in my Inbox."
-- "Find all my meeting notes about the EnBW project from the last 6 weeks and build a status presentation from my corporate PPTX template."
-- "Compare these two strategy notes, flag contradictions, and propose how to merge them."
-- "Look up the latest research on context-engineering, save the three best papers as ingested notes, and update my Innovation Strategy MOC."
-
-A sidebar footer shows real-time token usage and cost in EUR per task. The chat loop runs on the Main tier of your active provider by default. When the agent hits a hard synthesis step it can escalate to the Frontier tier through the `consult_flagship` tool, capped at three calls per task and 3000 tokens per call. Cheap internal work (context condensing, fast-path planning, presentation planning, recipe promotion) routes to a separate helper model you pick once.
-
-## Features
-
-### 66 built-in tools
-
-Organized into nine groups:
-
-- **Read**: `read_file`, `read_document`, `list_files`, `search_files`
-- **Vault Intelligence**: `semantic_search`, `get_frontmatter`, `search_by_tag`, `get_linked_notes`, `get_vault_stats`, `get_daily_note`, `query_base`, `open_note`, `vault_health_check`, `anti_echo_search`
-- **Knowledge Ingest**: `ingest_triage`, `ingest_document`, `ingest_deep`
-- **Memory & History**: `recall_memory`, `mark_for_memory`, `update_soul`, `search_history`, `mark_note_as_memory_source`, `unmark_note_as_memory_source`, `list_memory_source_notes`, `list_pinned_conversations`
-- **Edit**: `write_file`, `edit_file`, `append_to_file`, `update_frontmatter`, `create_folder`, `delete_file`, `move_file`, `generate_canvas`, `create_excalidraw`, `create_drawio`, `create_base`, `update_base`, `plan_presentation`, `create_pptx`, `create_docx`, `create_xlsx`
-- **Web**: `web_fetch`, `web_search` (Brave / Tavily)
-- **Agent Control**: `new_task`, `update_todo_list`, `ask_followup_question`, `attempt_completion`, `evaluate_expression`, `manage_source`, `switch_mode`, `find_tool`, `read_skill`, `read_agent_logs`, `configure_model`, `update_settings`, `inspect_self`, `manage_mcp_server`, `consult_flagship`
-- **Plugin Integration**: `execute_command`, `call_plugin_api`, `enable_plugin`, `resolve_capability_gap`, `execute_recipe`
-- **MCP**: `use_mcp_tool`, `read_mcp_tool` (connect any MCP server)
-
-### Knowledge discovery
-
-Local vector index (SQLite-backed via sql.js) with configurable embedding providers. Combines semantic similarity with full-text keyword search (RRF fusion), graph expansion via wikilinks (1-3 hops), local reranking (cross-encoder via WebAssembly), contextual retrieval, and implicit connection discovery between unlinked notes.
-
-### Provider-only setup with automatic tier classification
-
-You configure a provider once (API key or OAuth). Vault Operator discovers the available models and sorts them into three tiers: **Budget**, **Main**, and **Frontier**. The chat loop runs on Main by default. When the agent struggles on a hard synthesis step it escalates to Frontier via the new `consult_flagship` tool (max 3 calls per task, hard-capped at 3000 tokens per call). If your active provider has no Frontier-tier model, the escalation tool is filtered out of the schema entirely.
-
-The chat-header model picker is a popover with search. Type "opus" or "haiku" and Enter to pin a specific model for a single task. "Auto" is always the first option and means: advisor pattern via the Main tier with on-demand Frontier escalation.
-
-### Agent modes
-
-Two built-in modes: **Ask** (read-only knowledge assistant) and **Agent** (full capabilities). Create custom modes with their own roles, tool sets, and instructions. Per-mode model overrides let you run a fast model for quick questions and a powerful one for complex tasks. The mode-switcher UI moved out of the chat header in v2.11; switch modes through the `switch_mode` tool or by setting a default mode in Settings.
-
-### Multi-agent workflows
-
-Spawn sub-agents with `new_task` for complex parallel or sequential workflows. Built-in patterns: Orchestrator-Worker, Prompt Chaining, Evaluator-Optimizer, and Routing. Depth-limited to 2 levels with parallel execution for read-safe tools.
-
-### Office documents
-
-Create PowerPoint, Word, and Excel files directly in your vault:
-- **Template mode**: Use your corporate `.pptx` template. The agent analyzes every layout and placeholder, plans content with an internal LLM call, and builds the presentation in your exact design.
-- **Ad-hoc mode**: Create presentations from scratch without a template.
-- **Reading**: Parse existing PPTX, DOCX, XLSX, PDF, CSV, and JSON files as conversation context.
-- **Visual QA**: Render presentations to images for layout verification (requires LibreOffice).
-
-### Sandbox code execution
-
-Run TypeScript directly in a secure sandboxed iframe. Import npm packages (pptxgenjs, xlsx, pdf-lib, d3, etc.) from CDN, with no Node.js or shell required. Process data, automate complex batch operations, and create reusable skills with code modules.
-
-### Knowledge ingest and maintenance
-
-Keep your vault clean and discoverable as it grows.
-
-- `ingest_document` parses PDF, DOCX, PPTX, XLSX, CSV, and JSON into structured Markdown with extracted metadata.
-- `ingest_triage` makes a quick keep / skim / skip decision on a new source before deeper processing.
-- `ingest_deep` runs a thorough multi-pass ingest with summary, tension detection, ontology mapping, and graph linking back into the vault.
-- `vault_health_check` audits for orphaned notes, broken links, missing frontmatter, duplicate titles, and stale content. It proposes fixes you can approve in batches.
-
-### Plugin integration
-
-Vault Operator automatically scans your installed Obsidian plugins and generates skill files that teach the agent how to use them. The agent learns each plugin's commands, settings, and file formats, so it can create Excalidraw drawings, build Kanban boards, populate Dataview tables, or use any other plugin on your behalf.
-
-### Memory and personalization
-
-Three-tier memory system:
-- **Session memory**: summaries of each conversation (decisions, outcomes, open questions).
-- **Long-term memory**: durable facts promoted from sessions (your preferences, projects, workflow patterns). Pin individual chats to memory with one click.
-- **Soul**: core understanding of your communication style and how you like the agent to behave.
-
-Mark any vault note as a **memory source** (via frontmatter or the `mark_note_as_memory_source` tool) and the agent extracts facts from it automatically on save. Chat-linking adds frontmatter references back to conversations, so you can trace any change to the chat that caused it.
-
-### Context injection
-
-- **Rules** (`.vault-operator/rules/`): permanent instructions injected into every system prompt
-- **Skills** (`.vault-operator/skills/`): keyword-matched mini-instructions auto-injected per message. Three buckets: Built-in (ships with the plugin), Agent (created via the skill-creator workflow, quality-gated), and User (manually written, copied, or imported).
-- **Workflows** (`.vault-operator/workflows/`): slash-command driven instruction sets
-- **Custom Prompts**: `/prompt-slug` templates with `{{userInput}}` and `{{activeFile}}` variables
-
-### Safety and control
-
-- **Approval-based writes**: every write operation requires explicit approval (or configured auto-approval per category)
-- **Automatic checkpoints**: isomorphic-git shadow repo snapshots before every task's first write
-- **Diff review**: color-coded diffs with per-section Keep / Undo / Edit decisions after each task
-- **Vault governance**: `.vault-operatorignore` and `.vault-operatorprotected` access control files
-- **Audit log**: JSONL operation trail with parameter sanitization (30-day retention)
-
-### Provider flexibility
-
-| Provider | Type | Auth | Notes |
-|----------|------|------|-------|
-| Anthropic | Cloud | API key | Claude model family. Best tool use in testing. |
-| OpenAI | Cloud | API key | GPT model family. Fast, good structured output. |
-| Google Gemini | Cloud | API key | Gemini models. Free tier available. |
-| AWS Bedrock | Cloud | IAM or API key | Anthropic, Amazon Nova, and other models hosted on AWS. EU region support via `eu.*` inference profiles. |
-| OpenRouter | Gateway | API key | 200+ models from many providers with a single key. |
-| Azure OpenAI | Enterprise | API key + endpoint | Enterprise compliance and private endpoints. |
-| GitHub Copilot | Gateway | OAuth (device flow) | Uses your existing Copilot subscription. No separate API key. |
-| ChatGPT (OAuth) | Subscription | OAuth (PKCE) | Use your existing ChatGPT Plus / Pro subscription via the Codex backend (gpt-5 family). |
-| Kilo Gateway | Gateway | Device auth / token | Centralized gateway with organization context. |
-| Ollama | Local | None | Free, fully private. Many open-source models. |
-| LM Studio | Local | None | Free, fully private. Visual model browser. |
-| Custom | Any | Varies | Any OpenAI-compatible endpoint. |
-
-All credentials are encrypted at rest via Electron's `safeStorage` API (OS keychain on macOS, Credential Manager on Windows, libsecret on Linux). The legacy "Models" tab is gone; you now configure providers in **Settings > Providers**, and the plugin discovers models automatically.
-
-You can also pick a **helper model** for cheap internal tasks (context condensing, fast-path planning, `plan_presentation`, recipe promotion) while a more capable model handles the main chat. Settings > Vault Operator > Agent behaviour > Loop > Helper model.
-
-### MCP integration
-
-Connect MCP servers via stdio, SSE, or streamable-HTTP. Tools are dynamically discovered and exposed to the agent. Per-mode whitelisting available. Vault Operator can also act as an MCP server, exposing your vault to Claude Desktop or any MCP client.
-
-### Cross-surface AI workflow
-
-Vault Operator can act as a remote MCP server for ChatGPT, Claude Desktop, Perplexity, and other AI tools. Conversations and facts from those surfaces flow into the same memory layer as the in-Obsidian agent. One thread of thinking, one searchable vault, regardless of which AI client you used to capture the idea.
-
-### Cost-aware agent loop
-
-Vault Operator routes work to the cheapest model that still does the job:
-
-- **Advisor pattern**: chat runs on the Main tier. Hard synthesis steps escalate to Frontier via `consult_flagship`, capped at three calls per task and 3000 tokens per call.
-- **Helper-model routing**: context condensing, fast-path planning, `plan_presentation`, and recipe promotion use a separate cheap model.
-- **Research subagents**: `new_task({profile: 'research'})` spawns a lean subagent with a read-only allowlist (10 tools instead of 34) and a token budget per call.
-- **Prompt slim-down**: in Auto mode without plugin-skill activity, the verbose cost-heuristics section and the plugin-skills directory drop out of the system prompt. About 30 percent off the prompt.
-- **On-demand schemas**: `find_tool`, `read_skill`, and `read_mcp_tool` keep tool descriptions out of the cached prefix until the model actually needs them. The cache stays warm across turns.
-- **KV-cache alignment**: stable prefix first, volatile sections (date/time) last. Tool results that exceed a threshold are externalised to a temp file and replaced with a compact reference.
-
-A simple task that used to cost 634k tokens now runs at about 60k.
+[Documentation](https://pssah4.github.io/vault-operator) | [Install from Obsidian](obsidian://show-plugin?id=vault-operator) | [Community page](https://community.obsidian.md/plugins/vault-operator)
 
 ---
 
-## Installation
+## Why this is more than a sidebar AI chat
 
-### Obsidian Community Plugins (recommended)
+A chatbot reads your prompt and answers. Vault Operator runs a loop: it picks tools, executes them against your vault, feeds the results back to the model, and continues until the task is done. That loop is the difference.
 
-1. Open **Settings** > **Community Plugins** > **Browse**
-2. Search for **"Vault Operator"**
-3. Click **Install**, then **Enable**
+- **It acts on your vault, not just about it.** Reading, editing, creating, linking, refactoring. Not "here is what you could write", but the actual file in front of you.
+- **It learns your vault structure.** Folders, wikilinks, frontmatter, tags, plugins. It uses what is there instead of starting from scratch every turn.
+- **It learns you.** Three-tier memory across sessions: short-term session summaries, long-term durable facts, and a profile of how you write and how you like the agent to behave.
+- **It works across your AI surfaces.** Runs as an MCP server so ChatGPT, Claude Desktop, or Perplexity can read the same memory and history as the in-Obsidian agent. One thread of thinking, regardless of which AI client captured the idea.
+- **It picks the right model for each step.** Configure a provider once, the plugin sorts the models into Budget, Main, and Frontier tiers and routes work to the cheapest tier that still does the job.
 
-Direct deep link (opens Obsidian): [obsidian://show-plugin?id=vault-operator](obsidian://show-plugin?id=vault-operator)
-Community page: [community.obsidian.md/plugins/vault-operator](https://community.obsidian.md/plugins/vault-operator)
+---
 
-### BRAT (beta releases)
+## What it does for knowledge work
 
-To run the latest pre-release ahead of the public store:
+The plugin is built around the daily reality of a serious vault: capturing new sources without losing context, finding what you wrote six months ago, building documents from material you already have, and keeping the whole thing navigable as it grows.
 
-1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from Community Plugins
-2. Open BRAT settings and select **Add Beta Plugin**
-3. Enter `https://github.com/pssah4/vault-operator`
-4. Enable "Vault Operator" in Settings > Community Plugins
+### Capture sources with provenance
 
-### Manual installation
+The most expensive failure mode in a knowledge vault is forgetting why you trusted a conclusion. A note without a path back to its source decays.
 
-Download the three release assets and drop them into your plugin folder:
+Vault Operator solves this with block-level provenance. Drop a PDF into the chat, ask for an ingest, and the agent runs a triage step (ten seconds, looks at vault, memory, and chat history before reading anything), then produces a clean source note. Every key claim ends with a `↗` link that resolves to the exact paragraph in the source. One click and you are back at the original wording.
 
-1. Open the [latest GitHub release](https://github.com/pssah4/vault-operator/releases/latest)
-2. Download `main.js`, `manifest.json`, and `styles.css`
-3. Move them into `<vault>/.obsidian/plugins/vault-operator/` (create the folder if it does not exist)
-4. Reload Obsidian, then enable the plugin in Settings > Community Plugins
+Two paths:
 
-The three files are everything you need. Workers, WASM, bundled skills and templates are bundled into `main.js`. Optional features that need a one-time download (Semantic Reranker, Self-Development) prompt for installation from inside the plugin's Settings page.
+- **`/ingest`** for quick capture. One drop, one approval, one note. About three minutes.
+- **`/ingest-deep`** for sense-making. A guided seven-step dialog that asks which topics to extract and in what shape, then writes derived notes that all trace back to the source paragraph. Five to fifteen minutes for a real research paper.
 
-### Building from source
+[Sense-making tutorial](https://pssah4.github.io/vault-operator/tutorials/deep-ingest) | [Block-level provenance concept](https://pssah4.github.io/vault-operator/concepts/provenance)
+
+### Search by meaning, not by filename
+
+A local vector index over your vault, combined with full-text keyword search, graph expansion through wikilinks, and a local cross-encoder reranker. Ask "what do I know about X?" and the agent finds notes whose meaning is related, even if none of them contain the words you used.
+
+The background analysis also surfaces note pairs that discuss similar topics without any wikilink between them. This is the moment most vaults reveal hidden structure.
+
+[Knowledge discovery guide](https://pssah4.github.io/vault-operator/guides/knowledge-discovery)
+
+### Build documents from what you already have
+
+Turn meeting notes into a PowerPoint with your corporate template, project notes into a Word document, structured data into Excel. The agent reads your template, plans the content, fills the placeholders, and renders the result inside your vault.
+
+[Office documents guide](https://pssah4.github.io/vault-operator/guides/office-documents)
+
+### Keep the vault navigable
+
+The vault health check audits your knowledge graph for orphaned notes, broken links, missing backlinks, weak clusters, inconsistent tags, and over-connected hub notes. Findings come with actions: apply a mechanical fix, open a discussion with the agent, or dismiss. Every repair creates a checkpoint you can undo.
+
+[Vault health check guide](https://pssah4.github.io/vault-operator/guides/vault-health)
+
+### Stay in control
+
+Vault Operator is fail-closed. Write operations need your approval unless you opted into auto-approve for that category. Every task creates checkpoints in a shadow git repository (separate from your own git history). Click "Undo all changes" in the chat and the files go back. Sensitive folders can be locked from the agent via a `.obsidian-agentignore` file.
+
+[Safety and control guide](https://pssah4.github.io/vault-operator/guides/safety-control) | [Checkpoints concept](https://pssah4.github.io/vault-operator/concepts/checkpoints)
+
+---
+
+## Try it
+
+1. **Install.** Obsidian Settings > Community Plugins > Browse > "Vault Operator" > Install + Enable.
+2. **Add a provider.** Settings > Vault Operator > Providers > "+ Add provider". A free [Google AI Studio](https://aistudio.google.com/app/apikey) key is enough to try everything.
+3. **Open the sidebar and ask a question.** "What are my most-linked notes?" works on any vault. The First-Run wizard walks you through the rest.
+
+For semantic search and the ingest workflows, also configure an embedding model in Settings > Embeddings. The [Quick Start tutorial](https://pssah4.github.io/vault-operator/tutorials/getting-started) covers every step.
+
+---
+
+## Documentation
+
+Full documentation lives at [pssah4.github.io/vault-operator](https://pssah4.github.io/vault-operator).
+
+For end users:
+
+- [Tutorials](https://pssah4.github.io/vault-operator/tutorials/getting-started). Step-by-step walkthroughs from first install to sense-making with `/ingest-deep`.
+- [Guides](https://pssah4.github.io/vault-operator/guides/capabilities). Reference for daily work.
+- [Reference](https://pssah4.github.io/vault-operator/reference/tools). Tools, providers, settings, troubleshooting.
+
+For developers:
+
+- [Codebase tour](https://pssah4.github.io/vault-operator/concepts/codebase-tour). Directory layout, reading order, Kilo Code heritage.
+- [Concepts](https://pssah4.github.io/vault-operator/concepts/). Agent loop, governance, knowledge layer, memory system, MCP architecture.
+
+---
+
+## Building from source
 
 ```bash
 git clone https://github.com/pssah4/vault-operator.git
@@ -188,143 +103,37 @@ npm install
 npm run build
 ```
 
-Then copy `main.js`, `manifest.json`, and `styles.css` from the repo root into `<vault>/.obsidian/plugins/vault-operator/`.
+Then copy `main.js`, `manifest.json`, and `styles.css` from the repo root into `<vault>/.obsidian/plugins/vault-operator/`. For watch mode + auto-deploy during development, point `PLUGIN_DIR` in `.env` at your test vault and run `npm run dev`.
 
-### Requirements
-- Obsidian 1.4.0 or later (1.8+ for Bases features)
-- Desktop only (not available on mobile)
-- Node.js 18+ for building from source
+Requirements: Obsidian 1.4+ (1.8+ for Bases features), desktop only, Node.js 18+ for building.
 
 ---
 
-## Quick start
+## Network usage and local capabilities
 
-A First-Run setup wizard opens automatically the first three times you launch the plugin and walks you through every step below. You can also rerun it from **Settings > Help > Run setup wizard**.
+Vault Operator is local-first. No telemetry, no analytics, no accounts.
 
-1. **Add a provider**: Settings > Vault Operator > Providers > click "+ Add provider"
-   - **Free option**: Get a [Google AI Studio](https://aistudio.google.com/app/apikey) API key (no credit card needed).
-   - **Best quality**: Anthropic (Claude Sonnet 4.5 as Main, Claude Opus 4.6 as Frontier) or OpenAI (GPT-5 family).
-   - **Subscription-based**: GitHub Copilot or ChatGPT Plus / Pro via OAuth (no separate API key).
-   - **Local & private**: [Ollama](https://ollama.ai) or [LM Studio](https://lmstudio.ai).
-2. **Refresh model list**: click **Refresh** in the provider modal. Vault Operator pulls the provider's model list and sorts every model into Budget, Main, or Frontier. Override the tier mapping per slot if you disagree.
-3. **(Optional) Add a helper model**: Settings > Vault Operator > Agent behaviour > Loop > Helper model. Pick something small and cheap (Haiku, GPT-4o-mini, a local Ollama model). The plugin uses it for context condensing, fast-path planning, `plan_presentation`, and recipe promotion while the main model handles the chat.
-4. **Open the sidebar**: click the Vault Operator icon in the ribbon.
-5. **Ask a question**: type any question about your vault, e.g. *"What are my most-linked notes?"*
-6. **Run a task**: try *"Create a weekly review template"*.
+The plugin makes network requests in three situations, all under your control:
 
-For search to work at its best, configure an embedding model and build the semantic index in Settings > Embeddings.
+- **LLM API calls** to the provider you configured (Anthropic, OpenAI, Google, AWS Bedrock, OpenRouter, Azure, GitHub Copilot OAuth, ChatGPT OAuth, Kilo Gateway, Ollama, LM Studio, or any OpenAI-compatible endpoint).
+- **Web search** (optional, disabled by default) when you use the `web_search` tool, going to Brave or Tavily.
+- **MCP servers** you connected explicitly, plus the optional remote-MCP relay if you want cross-surface workflows with ChatGPT or Claude Desktop.
 
----
+The plugin also uses a few Node.js capabilities that go beyond the standard Obsidian API: filesystem access for the local knowledge database and the office document pipeline, shadow git for checkpoints, sandbox process spawning for `evaluate_expression`, and optional LibreOffice spawning for presentation rendering. All writes stay under the vault path or the plugin data directory. Commands are fixed binaries with structured arguments; the agent does not construct shell commands from chat text.
 
-## Network usage
-
-This plugin makes network requests depending on your configuration:
-
-- **LLM API calls**: every message is sent to the configured model provider (Anthropic, OpenAI, Google, AWS Bedrock, OpenRouter, Azure, GitHub Copilot, ChatGPT-OAuth, Kilo Gateway, or a local server like Ollama / LM Studio). No data is sent without a configured provider.
-- **Web search** (optional): when using `web_search`, requests go to the configured search API (Brave or Tavily). Disabled by default.
-- **MCP servers** (optional): connected MCP servers may make additional network requests depending on their configuration. Vault Operator can also expose your vault as a remote MCP server (cross-surface workflows with ChatGPT, Claude, Perplexity); the remote-MCP path is opt-in and uses a token-protected Cloudflare relay.
-- **Sandbox npm CDN** (only when you run custom agent code): the EvaluateExpression sandbox can load npm packages on demand from `esm.sh` (with `jsdelivr` as fallback). Triggered only when an agent script or `evaluate_expression` call declares dependencies. Packages are cached locally and pinned by version. No requests are made unless user-initiated sandbox code declares a dependency.
-- **No telemetry**: The plugin does not collect analytics, usage data, or crash reports.
-- **API key storage**: API keys are encrypted via Electron's safeStorage API when available. On systems without safeStorage support, keys fall back to Obsidian's plugin settings (`data.json`), which is not encrypted. If you use Obsidian Sync, your settings will be synced.
-
----
-
-## Local capabilities
-
-Vault Operator runs on desktop Obsidian and uses several Node.js APIs that go beyond the standard vault API. The plugin only does this where the Obsidian API does not cover the feature; nothing is invoked without a user-initiated action.
-
-- **Filesystem access (`fs`)**: required for the local knowledge database (sql.js WASM with atomic writes and snapshots), the office document pipeline (PPTX, DOCX, XLSX, PDF temp files), the shadow git checkpoint store, the semantic index persistence, and the optional asset downloader. All writes stay under the vault path, the plugin data directory (`<vault>/.obsidian/plugins/vault-operator/`), or a dedicated temp folder that is cleaned up after use.
-- **Shell execution (`child_process`)**: used to spawn the Node-based sandbox worker (isolated child process for `evaluate_expression`), the local MCP server proxy, the shadow git executable for checkpoints, and the optional LibreOffice converter when generating presentations. Arguments are not constructed from chat text; commands are fixed binaries with structured argv.
-- **Vault enumeration**: standard vault listing (`vault.getFiles`) is used by semantic search, `list_files`, MOC generation, and inventory tools. The agent only acts on files you reference or explicitly approve.
-- **Clipboard access**: read and write only on user-initiated commands (the "Copy" buttons in chat / system-prompt previews and the optional clipboard-paste flow). No automatic clipboard monitoring.
-- **Dynamic code execution**: limited to the sandbox (`evaluate_expression`). Sandbox code runs inside a sealed iframe or a Node `vm.runInNewContext` realm with an AST allow-list (no `eval`, no `require`, no `process`). Third-party packages from `esm.sh` are integrity-pinned by version. The sandbox cannot access plugin internals, settings, or other vault files outside the explicit `ctx.vault` bridge.
-
----
-
-## Directory structure
-
-```
-<vault>/
-├── .vault-operator/      # User-facing agent state (renamed from legacy
-│   │                     # `.obsidian-agent` / `.obsilo-vault`, auto-migrated
-│   │                     # on first launch)
-│   ├── rules/            # Permanent system prompt instructions
-│   ├── workflows/        # Slash-command workflow files
-│   ├── skills/           # Keyword-matched skill instructions
-│   ├── plugin-skills/    # Discovered plugin API skills (VaultDNA cache)
-│   └── knowledge.db      # Local sql.js knowledge database (vectors, edges,
-│                         # tags, memory) -- atomic writes, daily snapshots
-│
-└── .obsidian/plugins/vault-operator/
-    ├── checkpoints/      # Shadow git repo (automatic undo)
-    ├── data.json         # Plugin settings (API keys encrypted via OS keychain)
-    └── dynamic-tools/    # User-authored sandbox skill code
-```
-
----
-
-## Documentation
-
-Full documentation: **[pssah4.github.io/vault-operator](https://pssah4.github.io/vault-operator)**
-
-**Tutorials**
-- [Installation & Quick Start](https://pssah4.github.io/vault-operator/tutorials/getting-started)
-- [Your First Conversation](https://pssah4.github.io/vault-operator/tutorials/first-conversation)
-- [Your First Knowledge Workflow](https://pssah4.github.io/vault-operator/tutorials/knowledge-workflow)
-
-**Guides**
-- [What Vault Operator Can Do](https://pssah4.github.io/vault-operator/guides/capabilities)
-- [Choosing a Model](https://pssah4.github.io/vault-operator/guides/choosing-a-model)
-- [Chat Interface](https://pssah4.github.io/vault-operator/guides/chat-interface)
-- [Vault Operations](https://pssah4.github.io/vault-operator/guides/vault-operations)
-- [Knowledge Discovery](https://pssah4.github.io/vault-operator/guides/knowledge-discovery)
-- [Memory & Personalization](https://pssah4.github.io/vault-operator/guides/memory-personalization)
-- [Safety & Control](https://pssah4.github.io/vault-operator/guides/safety-control)
-- [Skills, Rules & Workflows](https://pssah4.github.io/vault-operator/guides/skills-rules-workflows)
-- [Office Documents](https://pssah4.github.io/vault-operator/guides/office-documents)
-- [Connectors (MCP)](https://pssah4.github.io/vault-operator/guides/connectors)
-- [Multi-Agent & Tasks](https://pssah4.github.io/vault-operator/guides/multi-agent)
-- [Power Features](https://pssah4.github.io/vault-operator/guides/power-features)
-- [Knowledge Ingest](https://pssah4.github.io/vault-operator/guides/knowledge-ingest)
-- [Vault Health Check](https://pssah4.github.io/vault-operator/guides/vault-health)
-
-**Reference**
-- [Tools](https://pssah4.github.io/vault-operator/reference/tools)
-- [Providers & Models](https://pssah4.github.io/vault-operator/reference/providers)
-- [Settings](https://pssah4.github.io/vault-operator/reference/settings)
-- [Troubleshooting](https://pssah4.github.io/vault-operator/reference/troubleshooting)
-
-**Concepts**
-- [How Vault Operator Works](https://pssah4.github.io/vault-operator/concepts/)
-- [The Agent Loop](https://pssah4.github.io/vault-operator/concepts/agent-loop)
-- [Tool System](https://pssah4.github.io/vault-operator/concepts/tool-system)
-- [Knowledge Layer](https://pssah4.github.io/vault-operator/concepts/knowledge-layer)
-- [Memory System](https://pssah4.github.io/vault-operator/concepts/memory-system)
-- [Governance](https://pssah4.github.io/vault-operator/concepts/governance)
-
----
-
-## Development
-
-```bash
-npm install       # Install dependencies
-npm run dev       # Dev build with watch mode
-npm run build     # Production build
-```
+API keys are encrypted via Electron's `safeStorage` (OS keychain on macOS, Credential Manager on Windows, libsecret on Linux). Where `safeStorage` is not available, keys fall back to plain plugin settings.
 
 ---
 
 ## License
 
-Apache 2.0
-
----
+Apache 2.0.
 
 ## Acknowledgements
 
-- [Kilo Code](https://kilocode.ai) for architectural inspiration
-- [Obsidian](https://obsidian.md) as the platform
-- [sql.js](https://github.com/sql-js/sql.js) for SQLite in WebAssembly powering the knowledge layer
-- [Hugging Face Transformers.js](https://github.com/huggingface/transformers.js) for local ONNX reranking
-- [isomorphic-git](https://isomorphic-git.org) as pure JS git for checkpoints
-- [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) for the Model Context Protocol
+- [Kilo Code](https://kilocode.ai) for architectural inspiration.
+- [Obsidian](https://obsidian.md) as the platform.
+- [sql.js](https://github.com/sql-js/sql.js) for SQLite in WebAssembly powering the knowledge layer.
+- [Hugging Face Transformers.js](https://github.com/huggingface/transformers.js) for local ONNX reranking.
+- [isomorphic-git](https://isomorphic-git.org) for pure-JS git checkpoints.
+- [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) for the Model Context Protocol.
