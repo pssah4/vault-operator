@@ -100,10 +100,10 @@ Tools that create, modify, or delete files in your vault. Each one triggers an a
 | `create_drawio` | Create a Draw.io / diagrams.net flowchart (`.drawio` or `.drawio.svg`) with nodes, shapes, and arrows. | For programmatically created flowcharts that the user then extends in the plugin. |
 | `create_base` | Create an Obsidian Bases (`.base`) database view from vault notes. | To build structured database views filtered by frontmatter. |
 | `update_base` | Add or replace a view in an existing Bases file. | To modify database views without recreating the file. |
-| `plan_presentation` | Plan a presentation from source material and a template using an internal AI call. Source-grounded, outline-first. | Always before `create_pptx` when using corporate templates. |
-| `create_pptx` | Create a PowerPoint presentation (`.pptx`) from structured slide data, either from a template or ad-hoc. | For creating PowerPoint files. |
-| `create_docx` | Create a Word document (`.docx`) with headings, sections, bullets, and tables. | For creating Word documents. |
-| `create_xlsx` | Create an Excel spreadsheet (`.xlsx`) with sheets, headers, data rows, and formulas. | For creating Excel files. |
+| `plan_presentation` *(beta)* | Plan a deck from source material and a theme via an internal AI call. Reads the source, picks layouts from the chosen theme catalog, and proposes content for every slide. Output is a structured plan, not a file. | Before `create_pptx` whenever a non-trivial deck is requested. |
+| `create_pptx` *(beta)* | Create a `.pptx` file from structured slide data using PptxGenJS. Five fixed layouts (title, section, content, two-column, closing), themed by color and font. Does not clone corporate `.pptx` templates. See [office documents](/guides/office-documents) for limitations. | For draft decks and internal-use presentations. For client-facing decks, expect to finish the polish in PowerPoint. |
+| `create_docx` | Create a `.docx` file with headings, sections, bullets, numbered lists, and tables via the `docx` library. Output is clean and reliable. | For Word documents. |
+| `create_xlsx` | Create an `.xlsx` file with sheets, headers, data rows, formulas, and column widths via `exceljs`. | For Excel spreadsheets. |
 
 ## Web tools
 
@@ -206,5 +206,5 @@ Common tasks mapped to the right tool.
 - **Edit tools run sequentially.** Write operations go one at a time to avoid conflicts.
 - **Checkpoints run automatically.** Before any edit tool modifies a file, Vault Operator creates a snapshot so you can undo the change.
 - **`evaluate_expression` runs in a sandbox.** No direct file system access, no shell. Vault access goes through a bridge with the user's permission settings.
-- **Office-document tools self-check after output.** `create_pptx`, `create_docx`, `create_xlsx`, `generate_canvas`, and `create_excalidraw` produce real binary files that open in Microsoft Office, Google Docs, or LibreOffice.
+- **Office-document tools self-check after output.** `create_pptx`, `create_docx`, `create_xlsx`, `generate_canvas`, and `create_excalidraw` produce real binary files that open in Microsoft Office, Google Docs, or LibreOffice. PPTX creation is in beta; see the [office documents guide](/guides/office-documents) for the practical constraints.
 - **Knowledge-ingest tools enforce provenance.** Every key statement in an ingest output carries a `[[source#position\|↗]]` link to the exact block, page, slide, or anchor in the source. See [Knowledge Ingest](/guides/knowledge-ingest).

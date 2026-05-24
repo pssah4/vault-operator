@@ -57,15 +57,13 @@ Dataview queries, Kanban boards, Templater templates, Tasks plugin, Excalidraw d
 
 [Skills, rules, and workflows](/guides/skills-rules-workflows) | [How plugin discovery works](/concepts/vault-dna)
 
-## It creates documents from your knowledge
+## It creates Word, Excel, and PowerPoint files (beta)
 
-Need a presentation for Monday? Vault Operator turns your meeting notes into a PowerPoint. It also creates Word documents from project notes and Excel sheets from structured data.
+Vault Operator can write `.docx`, `.xlsx`, and `.pptx` files from your vault content. DOCX and XLSX output is clean and reliable. PPTX output is in beta: the plugin ships with three default themes and five layouts, but real corporate template cloning is not supported in this version (the earlier `pptx-automizer` attempt was retired after extensive iteration). Treat generated decks as drafts that you finish manually for client-facing use.
 
-You can bring your own PPTX templates. The agent reads the slide layouts and fills them with content from your vault, so you skip the manual copy-paste.
+> **Example prompts:** "Turn this note into a Word document with proper headings and a table of contents." "Build a five-slide internal status presentation from my meeting notes."
 
-> **Example prompt:** "Create a presentation about Q2 results using the corporate template."
-
-[Office documents guide](/guides/office-documents) | [How the office pipeline works](/concepts/office-pipeline)
+[Office documents guide (beta details)](/guides/office-documents) | [How the office pipeline works](/concepts/office-pipeline)
 
 ## It works across your AI tools
 

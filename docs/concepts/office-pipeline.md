@@ -1,9 +1,13 @@
 ---
-title: Office Pipeline
-description: How Vault Operator creates and reads PPTX, DOCX, XLSX, and PDF files inside your vault.
+title: Office Pipeline (Beta)
+description: How Vault Operator creates and reads PPTX, DOCX, XLSX, and PDF files inside your vault. Reading is solid, creation is still maturing.
 ---
 
 # Office pipeline
+
+:::warning Beta on the creation side
+The reading side of the office pipeline (parsing PPTX, DOCX, XLSX, PDF into structured text the agent can use as context) is production-ready and powers the chat-attachment, `@`-mention, and `/ingest` paths. The creation side (writing those formats back) is beta. It produces working files, but the visual quality of generated PPTX is constrained by a small set of fixed layouts. Real corporate template cloning is not active in this version. See the [office documents guide](/guides/office-documents) for the user-facing implications.
+:::
 
 Vault Operator can create PowerPoint, Word, and Excel files directly in your vault. It can also read them, extracting text and structure from office documents to use as context in conversations.
 
@@ -11,24 +15,34 @@ Vault Operator can create PowerPoint, Word, and Excel files directly in your vau
 
 Three built-in tools handle file creation: `create_pptx`, `create_docx`, and `create_xlsx`. Each writes binary output to the vault through a shared `writeBinaryToVault()` utility that enforces path-traversal protection.
 
-DOCX and XLSX generation are straightforward. PPTX is where most of the complexity lives, because presentations have visual structure that matters.
+DOCX and XLSX generation are straightforward. The `docx` library handles Word output (headings, paragraphs, bullet lists, numbered lists, tables). The `exceljs` library handles Excel output (sheets, headers, rows, formulas, column widths). Both produce clean, reliable files.
 
-## Two PPTX modes
+PPTX is where the interesting architecture lives, and also where the limitations are.
+
+## How PPTX generation actually works
 
 ```mermaid
 flowchart TD
-    R[Request] --> D{Template available?}
-    D -->|No| A[Ad-hoc mode: PptxGenJS]
-    D -->|Yes| T[Template mode: pptx-automizer]
-    A --> F[PPTX file]
-    T --> F
+    R[User request] --> S[Source material from vault]
+    S --> P[plan_presentation: internal LLM call]
+    P --> D[DeckPlan: structured JSON]
+    D --> C[create_pptx: PptxGenJS build]
+    C --> F[PPTX file]
 ```
 
-Ad-hoc mode builds slides from scratch using PptxGenJS. The agent specifies slide content (titles, bullets, images) and the library generates a clean but generic presentation. The output uses sensible defaults for fonts and colors but won't match your company's brand guidelines. Good for quick drafts, or when no corporate template exists.
+The current implementation uses [PptxGenJS](https://gitbrent.github.io/PptxGenJS/) as the generator. Five fixed layouts are available: title, section, content, two-column, closing. The agent picks a layout per slide and fills it with title, subtitle, body, bullets, table, image, or speaker notes as appropriate. Theme parameters (primary color, accent color, background color, text color, font family) apply across the deck for a coherent look.
 
-Template mode uses existing `.pptx` templates through pptx-automizer. Your corporate slide deck becomes the foundation. The agent fills in content while preserving the template's design, fonts, and layout. This is the mode that produces presentation-quality output.
+### What the theme catalog does
 
-Template mode depends on a catalog. The `TemplateCatalogLoader` (`src/core/office/pptx/TemplateCatalog.ts`) resolves templates from two locations: bundled defaults (executive, modern, minimal) and user-provided themes stored in `.obsilo/themes/{theme_name}/`. Each catalog is a JSON file describing available slide layouts, their shapes, and content capacity. User themes take priority over bundled ones, so you can override a default theme by creating one with the same name.
+The `TemplateCatalogLoader` (`src/core/office/pptx/TemplateCatalog.ts`) reads a JSON catalog that describes the available layouts and their content slots for each theme. Three default themes ship bundled: executive (dark), modern (light), minimal (black and white). User themes can be added under `.vault-operator/themes/{theme_name}/`, but they describe a layout vocabulary, not a cloned PPTX master.
+
+This catalog feeds `plan_presentation`. The internal LLM call sees the layout vocabulary as structured input and produces a `DeckPlan` that respects it. The plan is what `create_pptx` consumes.
+
+### What the catalog does not do
+
+It does not replace pptx-automizer. The original design (ADR-032 to ADR-048) intended to clone real corporate `.pptx` files, preserve their slide masters, and inject content into existing placeholders. After 50+ iterations the approach was retired in ADR-049 because the corner cases (group shapes, conditional layouts, master-slide inheritance, font fallback) consistently produced broken output. The plugin now produces a clean default deck with your theme colors, but it does not reproduce a corporate `.pptx` design.
+
+This is the single biggest constraint on the current PPTX path. If you need brand-matched output, generate a draft and finish the polish manually in PowerPoint.
 
 ## The plan_presentation step
 
@@ -36,37 +50,42 @@ The important part of the PPTX pipeline is what happens before generation. Raw s
 
 The `plan_presentation` tool (`src/core/tools/vault/PlanPresentationTool.ts`) solves this with a dedicated internal LLM call. It is a tool that calls the LLM itself, separate from the main conversation:
 
-1. Read the source material and the template catalog
+1. Read the source material and the theme catalog
 2. Extract key messages from the source
-3. Select appropriate slide types from the catalog
-4. Generate content for every non-decorative shape on each slide
-5. Validate the plan against the catalog (do all required shapes have content? are shape names valid? are placeholders resolved?)
+3. Choose layouts for each slide from the catalog
+4. Generate content for every populated slot (title, body, bullets, table, etc.)
+5. Validate the plan (do all required slots have content? is the layout sequence sensible?)
 
-The output is a `DeckPlan`, a structured JSON object that `create_pptx` consumes directly. Separating planning from generation lets the agent review and adjust the plan before committing to a file. You can ask the agent to show the plan, request changes ("move the financials section earlier", "add a slide about timeline"), and only generate the file once the plan looks right.
+The output is a `DeckPlan`, a structured JSON object that `create_pptx` consumes directly. Separating planning from generation lets you review and adjust the plan before committing to a file. You can ask the agent to show the plan, request changes ("move the financials section earlier", "add a slide about timeline"), and only generate the file once the plan looks right.
 
 The internal LLM call is constrained. It receives the source material and the catalog as structured input, and has to produce output conforming to the DeckPlan schema. This is more reliable than asking the conversational LLM to produce the same structure inline, because the constrained call has a single focused task and no conversation history eating context.
 
-## Template catalog structure
+## Tools referenced in skills but not yet shipped
 
-Catalogs describe what each slide layout offers. For each slide type, the catalog lists available shapes with their names and content types (text, bullet list, image placeholder, chart data), required shapes that must have content, shape groups (elements that belong together visually), and special roles like section numbers or page indicators.
+The bundled office workflow skill mentions two tools that the current build does not ship:
 
-The agent selects slide types based on the content it needs to present. A "key findings" section might use a title + two-column layout, while a data summary might use a chart slide.
+- **`ingest_template`**: would derive a custom theme catalog from a user-provided `.pptx` file. Not present in this version. Use the three default themes.
+- **`render_presentation`**: would render the generated PPTX to PNG images via headless LibreOffice for visual verification. The renderer library code exists (`src/core/office/pptxRenderer.ts` and `libreOfficeDetector.ts`), but no tool exposes it yet.
 
-## Document parsing
+If you see these in skill text, treat them as future work, not as current capabilities.
+
+## Document parsing (production-ready)
 
 Reading office files is the reverse direction. The `parseDocument` function (`src/core/document-parsers/parseDocument.ts`) routes by file extension to specialized parsers:
 
 | Format | Parser | What it extracts |
-|--------|--------|-----------------|
-| PPTX/POTX | `PptxParser` | Slide text, speaker notes, slide order |
+|--------|--------|------------------|
+| PPTX / POTX | `PptxParser` | Slide text, speaker notes, slide order |
 | DOCX | `DocxParser` | Paragraphs, headings, tables |
 | XLSX | `XlsxParser` | Sheet names, cell data, formulas |
 | PDF | `PdfParser` | Page text, basic structure |
-| CSV/JSON | `CsvParser` / `parseJson` | Structured data |
+| CSV / JSON | `CsvParser` / `parseJson` | Structured data |
 
 Parsed content returns as structured text the agent can use as context. The agent reads a 50-slide presentation or a large spreadsheet through the extracted text, not the raw binary.
 
 Document parsing runs in two places: the `read_document` tool (when the agent explicitly reads a file) and the `AttachmentHandler` (when you drag a file into the chat).
+
+This side of the pipeline is mature. PPTX, DOCX, XLSX, and PDF parsing are the foundation for chat attachments, `@`-mentions, and the `/ingest` workflows.
 
 ## Why binary tools can't run in the sandbox
 

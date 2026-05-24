@@ -52,7 +52,7 @@ const guidesSidebar = [
     text: 'Advanced',
     items: [
       { text: 'Skills, Rules & Workflows', link: '/guides/skills-rules-workflows' },
-      { text: 'Office Documents', link: '/guides/office-documents' },
+      { text: 'Office Documents (beta)', link: '/guides/office-documents' },
       { text: 'Connectors', link: '/guides/connectors' },
       { text: 'Multi-Agent & Tasks', link: '/guides/multi-agent' },
       { text: 'Power Features', link: '/guides/power-features' },
@@ -129,7 +129,7 @@ const conceptsSidebar = [
   {
     text: 'Specialized systems',
     items: [
-      { text: 'Office pipeline', link: '/concepts/office-pipeline' },
+      { text: 'Office pipeline (beta)', link: '/concepts/office-pipeline' },
       { text: 'Task extraction', link: '/concepts/task-extraction' },
       { text: 'Provider auth', link: '/concepts/provider-auth' },
       { text: 'UI architecture', link: '/concepts/ui-architecture' },

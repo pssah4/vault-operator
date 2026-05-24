@@ -47,11 +47,11 @@ The background analysis also surfaces note pairs that discuss similar topics wit
 
 [Knowledge discovery guide](https://pssah4.github.io/vault-operator/guides/knowledge-discovery)
 
-### Build documents from what you already have
+### Build Word, Excel, and draft PPTX files (beta)
 
-Turn meeting notes into a PowerPoint with your corporate template, project notes into a Word document, structured data into Excel. The agent reads your template, plans the content, fills the placeholders, and renders the result inside your vault.
+Turn project notes into a Word document, structured data into Excel, or meeting notes into a draft PowerPoint deck. DOCX and XLSX output is clean and reliable. PPTX is in beta: the plugin ships with three default themes and five layouts, but real corporate template cloning is not supported in this version. For client-facing decks, treat the generated file as a starting point and finish the polish manually.
 
-[Office documents guide](https://pssah4.github.io/vault-operator/guides/office-documents)
+[Office documents guide (beta details)](https://pssah4.github.io/vault-operator/guides/office-documents)
 
 ### Keep the vault navigable
 

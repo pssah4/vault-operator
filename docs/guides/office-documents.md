@@ -1,97 +1,86 @@
 ---
-title: Office Documents
-description: Create PPTX, DOCX, and XLSX presentations and documents from your notes.
+title: Office Documents (Beta)
+description: Create PPTX, DOCX, and XLSX files from your notes. Read existing Office files as conversation context. The creation side is still maturing.
 ---
 
 # Office documents
 
-Vault Operator can create PowerPoint presentations, Word documents, and Excel spreadsheets directly inside your vault. It can also read existing office files and use them as context in conversations.
-
-## What you can create
-
-| Format | Tool | What it produces |
-|--------|------|-----------------|
-| PPTX | `create_pptx` | PowerPoint presentations with slides, text, images, layouts |
-| DOCX | `create_docx` | Word documents with headings, paragraphs, lists, tables, images |
-| XLSX | `create_xlsx` | Excel spreadsheets with multiple sheets, formatting, and formulas |
-
-## Simple creation
-
-The easiest path is to describe what you want:
-
-- *"Create a presentation about our Q1 results based on my notes in Reports/"*
-- *"Turn this note into a Word document with proper headings and a table of contents"*
-- *"Create a spreadsheet tracking my reading list with columns for title, author, status, and rating"*
-
-The agent reads the relevant notes, structures the content, and writes the file into your vault.
-
-:::tip Start simple
-You don't need to spell out exact slide layouts or cell formatting. The agent picks reasonable defaults. Refine afterwards by saying "make the title slide more prominent" or "add a chart for the monthly data."
+:::warning Beta feature
+Office document creation is a beta feature. Reading existing Office files (the parsing side used by `/ingest`, `@`-mentions, and chat attachments) is solid and production-ready. Creation produces working files, but the visual quality is closer to a clean default deck than to a brand-matched corporate output. Read the [What works today](#what-works-today) and [What does not work yet](#what-does-not-work-yet) sections before relying on it for client deliverables.
 :::
 
-## Template workflow for presentations
+Vault Operator can read existing Office files (PPTX, DOCX, XLSX, PDF, CSV, JSON) and use their content as context in conversations. It can also create PPTX, DOCX, and XLSX files from structured input.
 
-For corporate decks, Vault Operator supports a template-based pipeline. This is the best way to create presentations that match your organization's design.
+## Reading Office files (production-ready)
 
-### How it works
+Drop a file into the chat, mention it with `@filename.pptx`, or ask the agent to read a vault file. Parsing happens automatically:
 
-1. You provide a `.pptx` template file in your vault
-2. The agent scans every slide layout, placeholder, and shape in the template (stored as a TemplateCatalog)
-3. An internal LLM call maps your source material to the template's structure, planning content for each slide and shape
-4. The final presentation is built using your template's exact design
+- **PPTX**: text from all slides plus speaker notes
+- **DOCX**: headings, paragraphs, tables
+- **XLSX**: sheet names, cell data, formulas
+- **PDF**: page text with structure preserved
+- **CSV / JSON**: structured data
 
-### Step by step
+Once parsed, the content behaves like any other note in the conversation. The agent can summarize it, extract action items, compare it to other material, or feed it into an ingest workflow.
 
-1. Attach or mention your template: *"Use @corporate-template.pptx to create a presentation about our product roadmap"*
-2. The agent runs `plan_presentation` internally. You'll see it in the activity block.
-3. It writes the final `.pptx` file with your content in your template's design
+For deeper capture into the vault, see [Knowledge ingest](/guides/knowledge-ingest). PDFs and Office files are first-class sources for `/ingest` and `/ingest-deep`.
 
-### The 6-step office workflow
+## Creating Office files (beta)
 
-For best results, Vault Operator follows a built-in workflow:
+### What works today
 
-1. Context: gather source material from your vault
-2. Template: analyze the provided template (or use ad-hoc mode)
-3. Plan: map content to slides and shapes
-4. Generate: build the document
-5. Verify: check for missing placeholders or layout issues
-6. Deliver: save to your vault and confirm
+The plugin ships three creation tools:
 
-:::info Two modes
-Ad-hoc mode creates presentations from scratch without a template (using PptxGenJS). Template mode uses your corporate `.pptx` file to keep brand consistency. The agent picks the right mode based on whether you provide a template.
-:::
+- **`create_pptx`** writes a `.pptx` file. It uses PptxGenJS internally and supports five fixed layouts: title, section, content, two-column, closing. You can theme the deck with colors and fonts (primary, accent, background, text colors plus a font family). Bullets, tables, images, and speaker notes are supported.
+- **`create_docx`** writes a `.docx` file with headings, paragraphs, bullet lists, numbered lists, and tables. Output is clean, readable, and reliable.
+- **`create_xlsx`** writes an `.xlsx` file with sheets, headers, data rows, formulas, and column widths.
 
-## Reading office documents
+A planning helper, `plan_presentation`, runs an internal AI call that analyzes source material and proposes a complete deck plan (titles, content per slide, layout choices) before generation. You review the plan in the chat, request adjustments, and then `create_pptx` consumes the plan.
 
-Vault Operator can parse existing office files and use their content in conversations:
+Three default themes ship with the plugin: **executive** (dark), **modern** (light), **minimal** (black and white). Pick one in the agent's planning step.
 
-- PPTX: text from all slides
-- DOCX: headings, paragraphs, tables
-- XLSX: sheet data and formulas
-- PDF: text content
-- CSV: structured data
+### What does not work yet
 
-How to use it:
-- Drag and drop an office file into the chat
-- Use `@filename.pptx` to mention it
-- Ask *"Summarize the attached spreadsheet"* or *"What are the key points in this presentation?"*
+The plugin does not clone real PowerPoint templates. Earlier versions tried this with the `pptx-automizer` library; after extensive iteration the approach was dropped in favor of the simpler PptxGenJS path. Practical consequences for you:
 
-The agent uses the `read_document` tool to parse the file, then works with the extracted content like any other note.
+- Corporate `.pptx` templates with custom slide masters, branded layouts, and complex shape arrangements are not reproduced. The output uses one of the five built-in layouts with your chosen theme colors and fonts.
+- Visual rendering of the generated PPTX for layout verification (the `render_presentation` step you may see referenced in some skills) is not active in this version. The library code for it exists, but no tool exposes it yet.
+- A template ingest workflow (`ingest_template`) for deriving custom themes from a `.pptx` is referenced in the bundled office workflow skill, but the tool is not present in the current build. Stick with the three default themes.
 
-## Self-check after generation
+For brand-critical decks, the realistic recipe today is:
 
-After `create_pptx`, `create_docx`, or `create_xlsx` writes a file, the tool runs a structural validation pass: required shapes filled, no leftover placeholders, group consistency, no empty slides. The result comes back in the tool output so the agent can fix gaps in a follow-up edit before you open the file. This is a structural check, not a visual render.
+1. Generate a draft with `create_pptx` using the closest default theme.
+2. Open the file in PowerPoint or Keynote.
+3. Apply your real template via PowerPoint's "Reset Layout" or by copying slides into a template file.
 
-## Tips for better documents
+This works, but it adds manual steps. If brand-perfect output matters, expect to spend time on the polish pass.
 
-1. Provide source material. The more context you give (notes, data, outlines), the better the output.
-2. Be specific about structure. "5 slides with an intro, 3 content slides, and a summary" gives much better results than "make a presentation."
-3. Use templates for consistency. If you create presentations regularly, invest in a good template. The agent reuses it cleanly every time.
-4. Iterate. After the first version, ask the agent to adjust specific slides or sections instead of regenerating everything.
-5. Check the activity block. It shows the plan the agent built, so you can see why it made the choices it did.
+### Tips for getting useful output
 
-## Next steps
+1. **Provide a real source.** The deeper your source material (notes, data, an outline), the better the plan and the result.
+2. **Be explicit about structure.** "Five slides: intro, three content slides, summary" beats "make a presentation."
+3. **Use `plan_presentation` first.** It surfaces the deck structure before you commit to a file. You can correct course before any binary is written.
+4. **Iterate per slide.** After the first version, ask the agent to adjust specific slides instead of regenerating the whole deck.
+5. **Keep expectations matched to the tool.** Use this for internal docs, drafts, agenda decks, structured handouts. For external pitch decks and client deliverables, treat the generated file as a starting point you finish manually.
 
-- [Skills, Rules & Workflows](/guides/skills-rules-workflows): Automate your document creation process
-- [Connectors](/guides/connectors): Hook up external tools and data sources
-- [Multi-Agent & Tasks](/guides/multi-agent): Hand off document tasks to sub-agents
+## Example prompts
+
+The honest happy path looks like this:
+
+- "Create a Word document from this note with headings for each section and a table at the end."
+- "Turn the data in `Reports/Q1.md` into an Excel file with one sheet per region and a total row at the bottom."
+- "Build a five-slide internal status presentation about the EnBW project from my meeting notes. Use the modern theme."
+
+## How to read the activity block
+
+When the agent runs the office workflow, the activity block shows the steps in order: source reading, `plan_presentation` (for decks), the create tool, and any self-check output. The self-check is a structural pass (are required fields filled, no empty slides, no stray placeholder text). It is not a visual render. Reviewing the file after writing is still your job.
+
+## Where this is going
+
+The creation side is a work in progress. Two paths are open: invest further in real template cloning (re-attempting `pptx-automizer` or moving to a different engine), or stay on the PptxGenJS path and grow the layout library to cover more design patterns. Direction depends on user feedback. If brand-matched output is your blocker, open an issue or discussion on GitHub.
+
+## Related
+
+- [Knowledge ingest guide](/guides/knowledge-ingest): the reading side, where PPTX, DOCX, XLSX, and PDF feed structured notes back into the vault.
+- [Tools reference](/reference/tools): the full input schema for `create_pptx`, `create_docx`, `create_xlsx`, and `plan_presentation`.
+- [Office pipeline concept](/concepts/office-pipeline): the architecture of the creation pipeline and why template cloning was hard.
