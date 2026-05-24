@@ -175,8 +175,8 @@ onMounted(() => {
 <template>
   <section class="landing-hero">
     <a href="https://github.com/pssah4/vault-operator/releases" class="landing-badge" target="_blank" rel="noopener">
-      <span class="landing-badge-version">v2.11.7</span>
-      <span>Internal caches moved out of vault. iCloud Sync no longer stalls Obsidian Mobile when the vault contains the plugin.</span>
+      <span class="landing-badge-version">v2.12.3</span>
+      <span>Undo-from-here actually rolls back the open note. Editor-view cache no longer overwrites checkpoint restores and edit_file writes.</span>
     </a>
 
     <h1 class="landing-title">Your Obsidian vault,<br>with a real AI Agent.</h1>
