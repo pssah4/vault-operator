@@ -146,4 +146,43 @@ describe('GitCheckpointService rehydration', () => {
             );
         });
     });
+
+    // FIX-01-07-01: a snapshot whose only change is a NEW file used to log
+    // "No files staged (newFiles=1)" and return commitOid 'none' -- isomorphic-git
+    // refuses an empty commit, so the new-file list was never committed and a
+    // later rollback could not delete the leaked file. The fix stages a marker
+    // blob so the commit goes through with a real oid and the new-file list
+    // survives in the commit message. snapshot() for a pure-new-file set only
+    // calls vault.adapter.exists() (never read), so we can drive it in node
+    // with a fake vault that reports the file as not-yet-existing.
+    describe('snapshot of new-file-only set (FIX-01-07-01)', () => {
+        function newFileService(repo: string): GitCheckpointService {
+            const fakeVault = {
+                adapter: { exists: () => Promise.resolve(false) },
+            } as unknown as Vault;
+            return new GitCheckpointService(new App(), fakeVault, repo);
+        }
+
+        it('commits a real oid and tracks the new file (not "none"/"empty")', async () => {
+            const s = newFileService(tmpdir);
+            const info = await s.snapshot('task-newfile', ['brandnew.md'], 'write_file');
+
+            expect(info.commitOid).not.toBe('none');
+            expect(info.commitOid).not.toBe('empty');
+            expect(info.commitOid).toMatch(/^[0-9a-f]{40}$/);
+            expect(info.filesChanged).toEqual([]);
+            expect(info.newFiles).toEqual(['brandnew.md']);
+        });
+
+        it('the committed new-file list rehydrates after a reload', async () => {
+            const s = newFileService(tmpdir);
+            await s.snapshot('task-reload', ['fresh-note.md'], 'write_file');
+
+            // Fresh service against the same shadow repo -- mirrors a plugin reload.
+            const reloaded = newFileService(tmpdir);
+            const list = await reloaded.loadCheckpointsForTask('task-reload');
+            expect(list).toHaveLength(1);
+            expect(list[0]?.newFiles).toEqual(['fresh-note.md']);
+        });
+    });
 });
