@@ -15,6 +15,8 @@ For all providers, open **Settings > Vault Operator > Providers**, click **"+ Ad
 
 You can override the auto-classification per tier slot. If your active provider has no Frontier-tier model, the `consult_flagship` tool is removed from the agent's schema entirely.
 
+If **Refresh** finds no models -- some custom OpenAI-compatible endpoints do not implement the `/v1/models` route -- type the model ID straight into the **Model ID** field and save. Discovery is a convenience, not a requirement; a provider works fine with a manually entered model ID.
+
 ## Cloud providers
 
 ### Anthropic

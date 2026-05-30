@@ -4469,3 +4469,40 @@ Coverage-Tooling ist im Projekt nicht installiert (`@vitest/coverage-v8` fehlt).
 
 `/security-audit` fuer FEAT-29-10. Schwerpunkte: (1) SC-03-Fix verifizieren (Whitelist-Check vor stack.push, keine race condition), (2) Group=agent vs mcp Approval-Konsistenz, (3) Cycle-Detection + Max-Depth gegen prompt-injection-Szenarien (ein Skill versucht aus seinem Body heraus eine Loop zu starten oder ueber `invoke_mcp_server` einen Server zu erreichen den der User nicht enabled hat).
 
+## 2026-05-29 -- /security-audit AUDIT-032 (v2.12.5 SCA + FIX-04-03-07 delta)
+
+**Scope:** targeted audit, ausgeloest durch Dependabot Alert #53 (CVE-2026-44705, `tmp < 0.2.6`, CWE-22 Path Traversal, CVSS v4 7.7) plus Delta-Review der gerade released-en FIX-04-03-07 (ThinkingBlock, `reasoning_content` Passback fuer DeepSeek deepseek-reasoner, defensiver `stripThinkingBlocks` fuer Anthropic/Bedrock, UI-Replay).
+
+**Verdict:** Green nach Fix. Vor Fix: Yellow.
+
+### Findings
+
+- **H-1 (Resolved):** `tmp@0.2.5` Path Traversal via prefix/postfix/dir. Transitive Dep via `exceljs`. Effective-nil Exploit-Pfad: einzige Call-Site in der Dep-Kette ist `node_modules/exceljs/lib/stream/xlsx/workbook-reader.js` (streaming reader), das Plugin nutzt nur den XLSX-Writer in `create_xlsx`. Same Pattern wie qs in AUDIT-031. Fix: `"tmp": ">=0.2.6"` in package.json overrides, `npm ci` resolved `tmp@0.2.7`, `npm audit` clean, voller Test-Suite-Run zeigt identische Baseline (20 pre-existing failures, kein neuer). Branch `chore/audit-032-tmp-override` -> dev (commit 6661fed7). Awaiting next patch release; Dependabot-Alert schliesst automatisch wenn lockfile-Change auf `main` via sync-public landet.
+
+### FIX-04-03-07 Delta -- SAST review (clean)
+
+Sieben Kategorien geprueft, keine Findings:
+
+- **Prompt/log injection:** reasoning_content ist string-guarded an der Quelle, nie als Format/Regex/Log-Template verwendet, nur als OpenAI-Message-Feldwert.
+- **DoS/token cost:** 50_000-char Cap greift VOR Persistierung und VOR Passback. `estimateTokens` zaehlt thinking blocks mit guarded `chars/4` branch, kein OOM-Pfad.
+- **XSS in UI:** `createDiv` + `setText`, kein `innerHTML`. `MarkdownRenderer.render` laeuft nur auf dem text body, nicht auf `reasoningText`.
+- **Persistence injection:** natives `JSON.stringify`/`JSON.parse` round-trip, `reasoningText` als plain optional string field.
+- **Type confusion:** alle drei Call-Sites fuer `block.type === 'thinking'` (openai.ts convertMessages, AgentTask.estimateTokens, sidebar replay) guarden `text` mit Type-Predicate oder `typeof === 'string'`.
+- **Cross-provider leakage:** `stripThinkingBlocks` laeuft unconditional in Anthropic + Bedrock `createMessage` vor `convertMessages`. OpenAI Allow-List schliesst `openai`/`azure`/`openrouter`/`gemini` aus; nur die letzte Assistant-Message mit tool_use emittiert `reasoning_content` auf dem Wire.
+- **Race conditions:** `thinkingParts` buffer ist per-iteration scoped in AgentTask streaming loop. `spawnSubtask` erzeugt fresh AgentTask-Instanz mit eigenem Buffer, kein shared state.
+
+### Open Concerns
+
+- Keine Architektur-Themen fuer Folge-/architecture/. FIX-04-03-07 hat den ThinkingBlock-Slot in der ContentBlock-Union bewusst minimal gehalten; der naechste sinnvolle Schritt ist Anthropic Extended-Thinking + Tool-Use mit signierten `thinking_signed`-Bloecken, aber das ist ein latent existierender Bug ohne aktuelle User-Beschwerde und steht in der MEMORY-Notiz als deferred follow-up.
+- OpenRouter im Reasoning-Allow-List ausgeschlossen, weil OpenRouters serverseitige Reasoning-Passthrough fuer Claude-ET nicht gleichzeitig mit reasoning_content-Echo getestet ist. Falls OpenRouter+DeepSeek-Reasoner User-Reports kommen, separates IMP-Item plus Live-Regression-Test gegen OpenRouter+Claude+ET.
+
+### Release Recommendation
+
+**Green fuer 2.12.5** -- veroeffentlicht. Override fuer tmp wartet auf dev, geht mit naechstem regulaeren Patch (kein dedicated 2.12.6 fuer pure SCA noetig, exposure-Pfad nil).
+
+### Naechster Schritt
+
+Issue #38 abwarten -- User-Verifikation fuer DeepSeek-Passback steht. Wenn positiv: regular cadence weiter. Wenn negativ und User auf OpenRouter routet: separates IMP-Item fuer Allow-List-Erweiterung.
+
+Report: `_devprocess/analysis/AUDIT-032-v2.12.5-2026-05-29.md`.
+
