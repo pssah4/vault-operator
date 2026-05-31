@@ -4546,3 +4546,69 @@ Naechster periodischer Full-Audit wird etwa 2026-06-19 faellig (ein Monat nach A
 `chore/review-bot-score-pass` ueber `scripts/merge-to-dev.sh` nach dev mergen, dann den naechsten dev-zu-main-Schwung anstossen. Audit-Branch `feature/audit-2026-05-30` kann nach Review geloescht werden (Report ist der einzige Deliverable und liegt unter `_devprocess/analysis/`).
 
 Report: `_devprocess/analysis/AUDIT-033-v2.12.6-2026-05-30.md`.
+
+
+---
+
+## 2026-05-31 -- AUDIT-034 v2.12.8 pre-release delta-audit
+
+**Verdict:** GREEN (0 Critical / 0 High / 0 Medium / 0 Low / 1 Info).
+
+### Scope
+
+Delta against the seven FIXes from commit `407f21fc` on
+`fix/code-review-7-findings`:
+FIX-01-05-02 (EditFileTool fuzzy-match), FIX-01-12-02 (AttachmentHandler
+collision), FIX-04-03-09 (OpenAI-shape providers image-block),
+FIX-13-02-01 (Kilo tool_calls flush), FIX-13-02-02 (Kilo delta.content
+array), FIX-18-04-02 (estimatePromptTokens tools), FIX-18-04-03
+(truncatedToolInputError wasMaxTokens).
+
+### SAST + OWASP + LLM Top 10
+
+Clean across all categories. The image data-URL is constructed from a
+typed `ImageMediaType` union sourced inside the AttachmentHandler trust
+boundary and emitted only to the LLM API, not to a browser DOM.
+`tryNormalizedMatch` regex is linear (no ReDoS). The collision-rename
+cascade respects the existing `sanitiseAttachmentFileName` boundary
+from AUDIT-025 M-1.
+
+### SCA
+
+`npm audit` reports 0 vulnerabilities across 1006 packages, unchanged
+from AUDIT-033. No new dependency added.
+
+### Unresolved findings
+
+I-1 (Info, accepted): TOCTOU between getAbstractFileByPath and
+createBinary in `resolveAttachmentTargetPath`. Obsidian is
+single-process; the only writer is the sidebar drop handler. Worst
+case is local-vault inconsistency, no remote attack vector. Revisit
+if telemetry shows it firing.
+
+### Open concerns
+
+None blocking the v2.12.8 release.
+
+### Architectural notes
+
+`utils/openAiContent.ts` and `utils/toolCallFlush.ts` are the new
+canonical seam for OpenAI-shape provider quirks. Future provider
+patches that touch tool-call streaming or delta content should land
+here, not as parallel one-offs.
+
+`chatgpt-oauth.ts` has a different Responses-API surface (incomplete
+status reason instead of finish_reason chunks). FIX-18-04-03 is wired
+for the three streaming providers; the chatgpt-oauth equivalent is
+tracked in that spec as a follow-up and is out of scope for v2.12.8.
+
+### Release Recommendation
+
+GREEN. Merge `fix/code-review-7-findings` -> dev -> main, ship v2.12.8.
+
+### Next step
+
+User-initiated `/release` continues with Schritt 5 (merge-to-dev) on
+the existing `fix/code-review-7-findings` branch.
+
+Report: `_devprocess/analysis/AUDIT-034-v2.12.8-2026-05-31.md`.
