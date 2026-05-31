@@ -10,19 +10,25 @@
 import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
-import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import type { IncomingMessage } from 'http';
 import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
+import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
 
 // ---------------------------------------------------------------------------
 // OpenAI REST API types (subset we need)
 // ---------------------------------------------------------------------------
 
+// FIX-04-03-09: content may be a content-part array on user messages to
+// carry multimodal input ({type:'image_url'|'text'}).
+type OpenAIContentPart =
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string } };
+
 interface OpenAIMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
-    content: string | null;
+    content: string | null | OpenAIContentPart[];
     tool_calls?: OpenAIToolCall[];
     tool_call_id?: string;
     name?: string;
@@ -63,15 +69,7 @@ interface OpenAITool {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Tool call accumulator for streaming
-// ---------------------------------------------------------------------------
-
-interface ToolCallAccumulator {
-    id: string;
-    name: string;
-    argumentsJson: string;
-}
+// ToolCallAccumulator moved to utils/toolCallFlush.ts (FIX-13-02-01); see import above.
 
 // ---------------------------------------------------------------------------
 // Provider
@@ -283,7 +281,7 @@ export class OpenAiProvider implements ApiHandler {
             {
                 enabled: openRouterThinking,
                 budgetTokens: this.config.thinkingBudgetTokens,
-                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages, tools),
             },
         );
 
@@ -334,6 +332,10 @@ export class OpenAiProvider implements ApiHandler {
 
         // Accumulate tool calls across chunks (keyed by index)
         const toolCallAccumulators = new Map<number, ToolCallAccumulator>();
+        // FIX-18-04-03: track the most recent finish_reason so the post-loop
+        // tool_call flush can distinguish a "length"-cutoff from a "stop"
+        // and emit the right recovery message.
+        let lastFinishReason: string | null | undefined = null;
 
         for await (const chunk of stream) {
             // Usage (sent at end with stream_options)
@@ -396,9 +398,21 @@ export class OpenAiProvider implements ApiHandler {
                 }
             }
 
-            // When the turn ends with tool_calls, yield complete tool_use chunks
+            // Track the most recent finish_reason so the post-loop fallback
+            // flush (FIX-18-04-03) can decide whether a JSON-parse failure
+            // came from a max-tokens cutoff vs a normal "stop".
+            if (choice.finish_reason) {
+                lastFinishReason = choice.finish_reason;
+            }
+
+            // When the turn ends with tool_calls, yield complete tool_use chunks.
+            // wasMaxTokens=false here -- a finish_reason of tool_calls means
+            // the arguments were intended to be complete.
             if (choice.finish_reason === 'tool_calls') {
-                yield* this.flushToolCallAccumulators(toolCallAccumulators);
+                yield* flushToolCallAccumulators(toolCallAccumulators, {
+                    wasMaxTokens: false,
+                    providerLabel: 'OpenAi',
+                });
             }
         }
 
@@ -408,50 +422,15 @@ export class OpenAiProvider implements ApiHandler {
         // Without this post-loop flush the accumulated tool calls are silently
         // dropped and the agent treats the response as text only.
         // If finish_reason==="tool_calls" already flushed the map, this is a no-op.
+        // FIX-18-04-03: wasMaxTokens flag wired so a JSON parse failure on a
+        // length-truncated payload surfaces as the "split write_file + append_to_file"
+        // hint instead of the generic recovery message.
         if (toolCallAccumulators.size > 0) {
-            yield* this.flushToolCallAccumulators(toolCallAccumulators);
+            yield* flushToolCallAccumulators(toolCallAccumulators, {
+                wasMaxTokens: lastFinishReason === 'length',
+                providerLabel: 'OpenAi',
+            });
         }
-    }
-
-    /**
-     * Yield tool_use chunks for every accumulated tool call, then clear the map.
-     * Extracted so the streaming loop can flush both mid-stream (on
-     * finish_reason==="tool_calls") and post-stream (BUG-013 fallback).
-     */
-    private *flushToolCallAccumulators(
-        accumulators: Map<number, ToolCallAccumulator>,
-    ): Generator<ApiStreamChunk> {
-        for (const [, acc] of accumulators) {
-            // Skip incomplete accumulators (no id or no name -- defensive).
-            if (!acc.id || !acc.name) {
-                console.warn(
-                    `[OpenAi] Skipping incomplete tool_call accumulator: id="${acc.id}", name="${acc.name}"`,
-                );
-                continue;
-            }
-            let input: Record<string, unknown> = {};
-            try {
-                input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
-            } catch (e) {
-                // BUG-032: Emit tool_error so AgentTask increments the mistake
-                // counter and breaks after consecutiveMistakeLimit. Text chunks
-                // hide the failure from the loop, causing infinite retries.
-                yield {
-                    type: 'tool_error',
-                    id: acc.id,
-                    name: acc.name,
-                    error: truncatedToolInputError(acc.name, (e as Error).message),
-                } satisfies ApiStreamChunk;
-                continue;
-            }
-            yield {
-                type: 'tool_use',
-                id: acc.id,
-                name: acc.name,
-                input,
-            } satisfies ApiStreamChunk;
-        }
-        accumulators.clear();
     }
 
     // ---------------------------------------------------------------------------
@@ -544,10 +523,35 @@ export class OpenAiProvider implements ApiHandler {
                     result.push({ role: 'assistant', content: textParts });
                 }
             } else {
-                // User messages may contain text + tool_result blocks. Thinking
-                // blocks cannot legally appear on user role; ignored if they do.
+                // User messages may contain text + image + tool_result blocks.
+                // Thinking blocks cannot legally appear on user role; ignored
+                // if they do. FIX-04-03-09: image blocks used to be silently
+                // dropped (text/tool_result-only branches) so gpt-4o /
+                // Gemini-via-OpenAI / OpenRouter vision models received text
+                // only and answered "I don't see an image". They are now
+                // emitted in the canonical content-array format.
+                const hasImage = blocks.some((b) => b.type === 'image');
+                if (hasImage) {
+                    const contentArr: Array<
+                        | { type: 'text'; text: string }
+                        | { type: 'image_url'; image_url: { url: string } }
+                    > = [];
+                    for (const block of blocks) {
+                        if (block.type === 'text') {
+                            contentArr.push({ type: 'text', text: block.text });
+                        } else if (block.type === 'image') {
+                            contentArr.push({
+                                type: 'image_url',
+                                image_url: { url: `data:${block.source.media_type};base64,${block.source.data}` },
+                            });
+                        }
+                    }
+                    if (contentArr.length > 0) {
+                        result.push({ role: 'user', content: contentArr });
+                    }
+                }
                 for (const block of blocks) {
-                    if (block.type === 'text') {
+                    if (!hasImage && block.type === 'text') {
                         result.push({ role: 'user', content: block.text });
                     } else if (block.type === 'tool_result') {
                         // Tool results become separate 'tool' role messages in OpenAI format.

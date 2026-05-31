@@ -14,19 +14,26 @@
 import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
-import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { KiloAuthService } from '../../core/security/KiloAuthService';
 import { resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
+import { normalizeDeltaContent } from './utils/openAiContent';
+import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
 
 // ---------------------------------------------------------------------------
 // OpenAI REST API types (subset — mirrors github-copilot.ts)
 // ---------------------------------------------------------------------------
 
+// FIX-04-03-09: content may be a content-part array on user messages to
+// carry multimodal input ({type:'image_url'|'text'}).
+type OpenAIContentPart =
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string } };
+
 interface OpenAIMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
-    content: string | null;
+    content: string | null | OpenAIContentPart[];
     tool_calls?: OpenAIToolCall[];
     tool_call_id?: string;
     name?: string;
@@ -50,11 +57,7 @@ interface OpenAITool {
     };
 }
 
-interface ToolCallAccumulator {
-    id: string;
-    name: string;
-    argumentsJson: string;
-}
+// ToolCallAccumulator moved to utils/toolCallFlush.ts (FIX-13-02-01); see import above.
 
 // ---------------------------------------------------------------------------
 // Provider
@@ -110,7 +113,7 @@ export class KiloGatewayProvider implements ApiHandler {
         const { maxTokens: effectiveMaxTokens } = resolveOutputBudget(
             this.config.model,
             this.config.maxTokens,
-            { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages) },
+            { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages, tools) },
         );
         const requestBody: Record<string, unknown> = {
             model: this.config.model,
@@ -138,6 +141,8 @@ export class KiloGatewayProvider implements ApiHandler {
         }
 
         const toolCallAccumulators = new Map<number, ToolCallAccumulator>();
+        // FIX-18-04-03: see openai.ts comment.
+        let lastFinishReason: string | null | undefined = null;
 
         for await (const chunk of stream) {
             if (chunk.usage) {
@@ -166,7 +171,12 @@ export class KiloGatewayProvider implements ApiHandler {
 
             const delta = choice.delta;
 
-            const text = typeof delta?.content === 'string' ? delta.content : null;
+            // FIX-13-02-02: delta.content can arrive either as a plain
+            // string or as an Anthropic-style array of content blocks
+            // when the gateway proxies to a Claude tier. Strict-string
+            // typecheck used to drop the array form and the user saw
+            // empty output despite a billed completion.
+            const text = normalizeDeltaContent(delta?.content);
             if (text) {
                 yield { type: 'text', text } satisfies ApiStreamChunk;
             }
@@ -184,30 +194,33 @@ export class KiloGatewayProvider implements ApiHandler {
                 }
             }
 
-            if (choice.finish_reason === 'tool_calls') {
-                for (const [, acc] of toolCallAccumulators) {
-                    let input: Record<string, unknown> = {};
-                    try {
-                        input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
-                    } catch (e) {
-                        // BUG-032: tool_error increments AgentTask mistake counter.
-                        yield {
-                            type: 'tool_error',
-                            id: acc.id,
-                            name: acc.name,
-                            error: truncatedToolInputError(acc.name, (e as Error).message),
-                        } satisfies ApiStreamChunk;
-                        continue;
-                    }
-                    yield {
-                        type: 'tool_use',
-                        id: acc.id,
-                        name: acc.name,
-                        input,
-                    } satisfies ApiStreamChunk;
-                }
-                toolCallAccumulators.clear();
+            // FIX-18-04-03: track finish_reason for the post-loop fallback.
+            if (choice.finish_reason) {
+                lastFinishReason = choice.finish_reason;
             }
+
+            // When the turn ends with tool_calls, flush via the shared helper
+            // so kilo-gateway, openai and copilot stay in lockstep.
+            if (choice.finish_reason === 'tool_calls') {
+                yield* flushToolCallAccumulators(toolCallAccumulators, {
+                    wasMaxTokens: false,
+                    providerLabel: 'Kilo',
+                });
+            }
+        }
+
+        // FIX-13-02-01 / BUG-013-pattern: Kilo Gateway routes to varied
+        // upstream models (Groq, OpenRouter shapes, Claude tiers); any of them
+        // can stream tool_calls deltas and finish with finish_reason="stop"
+        // or "length" instead of "tool_calls". Without this post-loop flush
+        // the accumulated tool calls were silently discarded -- the exact bug
+        // openai.ts and github-copilot.ts already guard against.
+        // FIX-18-04-03 wires the wasMaxTokens flag.
+        if (toolCallAccumulators.size > 0) {
+            yield* flushToolCallAccumulators(toolCallAccumulators, {
+                wasMaxTokens: lastFinishReason === 'length',
+                providerLabel: 'Kilo',
+            });
         }
     }
 
@@ -275,8 +288,28 @@ export class KiloGatewayProvider implements ApiHandler {
                     result.push({ role: 'assistant', content: textParts });
                 }
             } else {
+                // FIX-04-03-09: image blocks used to be silently dropped.
+                // See openai.ts for the same fix; kept symmetric so the
+                // three OpenAI-shape providers behave identically.
+                const hasImage = blocks.some((b) => b.type === 'image');
+                if (hasImage) {
+                    const contentArr: OpenAIContentPart[] = [];
+                    for (const block of blocks) {
+                        if (block.type === 'text') {
+                            contentArr.push({ type: 'text', text: block.text });
+                        } else if (block.type === 'image') {
+                            contentArr.push({
+                                type: 'image_url',
+                                image_url: { url: `data:${block.source.media_type};base64,${block.source.data}` },
+                            });
+                        }
+                    }
+                    if (contentArr.length > 0) {
+                        result.push({ role: 'user', content: contentArr });
+                    }
+                }
                 for (const block of blocks) {
-                    if (block.type === 'text') {
+                    if (!hasImage && block.type === 'text') {
                         result.push({ role: 'user', content: block.text });
                     } else if (block.type === 'tool_result') {
                         const textContent = typeof block.content === 'string'

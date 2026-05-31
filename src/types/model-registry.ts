@@ -336,13 +336,21 @@ export function resolveOutputBudget(
 
 /**
  * Cheap pre-request estimate of how many input tokens a system prompt + message
- * history will cost. Char-count / 4 is the usual rule of thumb for English/markdown;
- * good enough to size the output budget against the context window. Image blocks
- * are counted as a flat estimate (their token cost is resolution-based, not byte-based).
+ * history + tool definitions will cost. Char-count / 4 is the usual rule of
+ * thumb for English/markdown; good enough to size the output budget against
+ * the context window. Image blocks are counted as a flat estimate (their token
+ * cost is resolution-based, not byte-based).
+ *
+ * FIX-18-04-02: `tools` was added because vault-operator ships ~60 tool
+ * definitions (~20-30k tokens of JSON Schema) that every OpenAI-compatible
+ * API counts toward the input window. Without verifying them here
+ * `resolveOutputBudget` would leave a max_tokens value that pushed
+ * `input + max_tokens` past the context window and triggered a provider 400.
  */
 export function estimatePromptTokens(
     systemPrompt: string,
     messages: Array<{ content: string | Array<unknown> }>,
+    tools?: Array<unknown>,
 ): number {
     let chars = systemPrompt.length;
     let imageBlocks = 0;
@@ -357,6 +365,11 @@ export function estimatePromptTokens(
             if (typeof b?.text === 'string') chars += b.text.length;
             else chars += JSON.stringify(block).length;
         }
+    }
+    if (tools && tools.length > 0) {
+        // JSON-stringify the whole array once: handles strings, plain
+        // objects, and nested schemas in one pass.
+        chars += JSON.stringify(tools).length;
     }
     return Math.ceil(chars / 4) + imageBlocks * 1_500;
 }

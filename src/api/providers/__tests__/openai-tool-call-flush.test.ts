@@ -156,4 +156,52 @@ describe('OpenAiProvider tool_call streaming flush (BUG-013 / FEATURE-0409)', ()
         const toolUse = chunks.filter((c) => c.type === 'tool_use');
         expect(toolUse).toHaveLength(0);
     });
+
+    // FIX-18-04-03: when the provider truncates a tool_call mid-JSON because
+    // the model hit max_tokens (finish_reason='length'), the tool_error must
+    // carry the actionable "split write_file + append_to_file" guidance from
+    // truncatedToolInputError(..., wasMaxTokens=true). The previous call
+    // omitted the flag and the model saw the generic "arguments were
+    // truncated or malformed" hint, retried the same payload, and burned
+    // through consecutiveMistakeLimit.
+    describe('FIX-18-04-03 wasMaxTokens flag wiring', () => {
+        it('marks the tool_error with the max-tokens guidance when finish_reason="length" truncates JSON', async () => {
+            setStream(provider, [
+                {
+                    choices: [{
+                        delta: { tool_calls: [{ index: 0, id: 'call_len', function: { name: 'write_file', arguments: '{"path":"x.md","content":"abc' } }] },
+                        finish_reason: null,
+                    }],
+                },
+                { choices: [{ delta: {}, finish_reason: 'length' }] },
+            ]);
+
+            const chunks = await collect(provider.createMessage('sys', [], []));
+            const err = chunks.find((c) => c.type === 'tool_error') as { error: string } | undefined;
+            expect(err).toBeDefined();
+            // Anthropic provider already produces this exact wording when
+            // wasMaxTokens=true; OpenAI-shape providers must match.
+            expect(err!.error).toMatch(/max output token limit|hit the max/i);
+        });
+
+        it('keeps the generic guidance when JSON parse fails but finish_reason="stop"', async () => {
+            setStream(provider, [
+                {
+                    choices: [{
+                        delta: { tool_calls: [{ index: 0, id: 'call_stop', function: { name: 'write_file', arguments: '{bogus' } }] },
+                        finish_reason: null,
+                    }],
+                },
+                { choices: [{ delta: {}, finish_reason: 'stop' }] },
+            ]);
+
+            const chunks = await collect(provider.createMessage('sys', [], []));
+            const err = chunks.find((c) => c.type === 'tool_error') as { error: string } | undefined;
+            expect(err).toBeDefined();
+            // Must NOT include the max-tokens wording -- the model would
+            // misdiagnose the failure as a budget issue.
+            expect(err!.error).not.toMatch(/max output token limit|hit the max/i);
+            expect(err!.error).toMatch(/truncated|malformed|JSON/i);
+        });
+    });
 });

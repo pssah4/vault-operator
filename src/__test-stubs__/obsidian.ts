@@ -9,6 +9,9 @@ export class Plugin {}
 export class TFile {}
 export class TFolder {}
 
+/** Notice constructor stub — production code does `new Notice(msg)`. */
+export class Notice { constructor(_msg?: string, _timeout?: number) { /* no-op */ } }
+
 /** Ambient `requestUrl` stub so modules that import it at the top level load. */
 export function requestUrl(_opts: unknown): Promise<unknown> {
     throw new Error('requestUrl stub called -- wire a mock in the test.');
