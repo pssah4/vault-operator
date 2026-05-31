@@ -105,8 +105,19 @@ export class EditFileTool extends BaseTool<'edit_file'> {
 
             if (occurrences === 0) {
                 // Try normalized whitespace match as fallback
-                const normalized = this.tryNormalizedMatch(content, old_str, new_str);
-                if (normalized !== null) {
+                const fuzzy = this.tryNormalizedMatch(content, old_str, new_str);
+                if (fuzzy.kind === 'ambiguous') {
+                    // FIX-01-05-02: refuse to guess which occurrence the user
+                    // meant. The old behaviour would silently rewrite the first
+                    // hit; better to error out so the agent adds disambiguating
+                    // context.
+                    throw new Error(
+                        `old_str matches ${fuzzy.matches} times in "${path}" after whitespace normalization. ` +
+                        `Add more surrounding context to old_str so it identifies a single location.`
+                    );
+                }
+                if (fuzzy.kind === 'match') {
+                    const normalized = fuzzy.result;
                     if (file) {
                         await this.app.vault.modify(file, normalized);
                         // FIX-01-07-03: push the new content directly into the
@@ -204,24 +215,92 @@ export class EditFileTool extends BaseTool<'edit_file'> {
     }
 
     /**
-     * Fallback: try matching after normalizing whitespace differences
-     * Returns the modified content if match found, null otherwise.
+     * Fallback: locate `oldStr` in `content` under whitespace-lenient
+     * normalisation and replace ONLY the matched region of the ORIGINAL
+     * content -- not the whole file.
+     *
+     * FIX-01-05-02: the previous implementation normalised the whole file
+     * (`[ \t]+` -> ` `, CRLF -> LF, `.trim()`) and persisted the normalised
+     * blob, silently collapsing tab-indented code fences, aligned tables,
+     * YAML frontmatter and CRLF line endings anywhere in the file. The
+     * blast radius spanned the entire content while the agent had only
+     * asked for a punctual edit. The new behaviour normalises only for the
+     * SEARCH step, maps the normalised hit back to an original-content
+     * range via the dedicated index mapper, and splices `newStr` into
+     * exactly that range so untouched lines remain byte-identical.
+     *
+     * Multi-match ambiguity is escalated to the caller as `ambiguous`
+     * instead of silently picking the first hit -- the caller turns it
+     * into an actionable tool error so the agent adds context.
      */
-    private tryNormalizedMatch(content: string, oldStr: string, newStr: string): string | null {
-        // Normalize: collapse multiple spaces/tabs to single space, trim line endings
-        const normalize = (s: string) => s.replace(/[ \t]+/g, ' ').replace(/\r\n/g, '\n').trim();
-        const normContent = normalize(content);
-        const normOld = normalize(oldStr);
+    private tryNormalizedMatch(
+        content: string,
+        oldStr: string,
+        newStr: string,
+    ): { kind: 'match'; result: string } | { kind: 'ambiguous'; matches: number } | { kind: 'none' } {
+        // No .trim() on body normalisation so positions stay mappable back
+        // to the original. We only trim the search needle.
+        const normalizeBody = (s: string): string => s.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ');
+        const normContent = normalizeBody(content);
+        const normOld = normalizeBody(oldStr).trim();
+        if (!normOld) return { kind: 'none' };
 
-        if (normContent.includes(normOld)) {
-            // Find approximate position in original content
-            // Simple approach: rebuild using the normalized replacement
-            const normNew = normalize(newStr);
-            const replaced = normContent.replace(normOld, normNew);
-            // Use the normalized replacement — whitespace is collapsed but the edit succeeds
-            return replaced;
+        const firstIdx = normContent.indexOf(normOld);
+        if (firstIdx === -1) return { kind: 'none' };
+        const lastIdx = normContent.lastIndexOf(normOld);
+        if (lastIdx !== firstIdx) {
+            // Multi-match ambiguity: count occurrences for the error message.
+            let matches = 0;
+            let pos = 0;
+            while ((pos = normContent.indexOf(normOld, pos)) !== -1) {
+                matches++;
+                pos += normOld.length;
+            }
+            return { kind: 'ambiguous', matches };
         }
-        return null;
+
+        const origStart = this.mapNormToOrigIndex(content, firstIdx);
+        const origEnd = this.mapNormToOrigIndex(content, firstIdx + normOld.length);
+        if (origStart < 0 || origEnd < 0 || origEnd < origStart) {
+            return { kind: 'none' };
+        }
+
+        return {
+            kind: 'match',
+            result: content.slice(0, origStart) + newStr + content.slice(origEnd),
+        };
+    }
+
+    /**
+     * Walk the original content and the (CRLF->LF, [\t ]+->' ') normalised
+     * projection in lockstep so a normalised character index maps back to
+     * the matching index in the original string. Whitespace runs and CRLF
+     * pairs both collapse to a single normalised character; we treat them
+     * as atomic when stepping the original cursor.
+     *
+     * Returns -1 if the target index can't be reached (defensive; the
+     * caller should fall back to no-match).
+     */
+    private mapNormToOrigIndex(orig: string, targetNormIdx: number): number {
+        if (targetNormIdx === 0) return 0;
+        let origIdx = 0;
+        let normIdx = 0;
+        while (origIdx < orig.length && normIdx < targetNormIdx) {
+            const c = orig[origIdx];
+            if (c === '\r' && orig[origIdx + 1] === '\n') {
+                origIdx += 2;
+                normIdx += 1;
+            } else if (c === ' ' || c === '\t') {
+                let runEnd = origIdx;
+                while (runEnd < orig.length && (orig[runEnd] === ' ' || orig[runEnd] === '\t')) runEnd++;
+                origIdx = runEnd;
+                normIdx += 1;
+            } else {
+                origIdx += 1;
+                normIdx += 1;
+            }
+        }
+        return normIdx === targetNormIdx ? origIdx : -1;
     }
 
     /**

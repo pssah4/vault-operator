@@ -992,7 +992,23 @@ Pflicht-Form:
   gilt das.
 - **Keine Komma-Strings fuer Listen-Felder.** `Themen: A, B, C` ist
   EIN String. YAML-Liste mit `-` Bindestrichen schreiben, sonst
-  greifen Obsidian-Tag-/Property-Filter nicht.
+  greifen Obsidian-Tag-/Property-Filter nicht. Das gilt fuer JEDES
+  Wikilink-Property (`Themen`, `Konzepte`, `Personen`, `Quellen`,
+  `Notizen`). Block-Form (`Themen:\n  - "[[X]]"`) oder Flow-Form
+  (`Themen: ["[[X]]"]`) sind beide ok. Auch bei einem einzigen Wert
+  bleibt es eine ein-elementige Liste, damit spaetere Ergaenzungen den
+  Type nicht wechseln muessen.
+- **`Themen` und `Konzepte` sind kategoriegebunden, nicht
+  austauschbar.**
+  - `Themen:` zeigt ausschliesslich auf Notes mit `Kategorie: Thema`
+    (Hub-Notes, breit/generisch, z.B. `[[Agentic AI]]`).
+  - `Konzepte:` zeigt ausschliesslich auf Notes mit `Kategorie: Konzept`
+    (spezifisch/abgegrenzt, z.B. `[[AI Agents]]`).
+  - Cluster-Match aus der Triage-Karte ist ein **Thema** und gehoert
+    nach `Themen:`. Take-Away-Kernbegriffe sind **Konzepte** und
+    gehoeren nach `Konzepte:`. Verwandte-Notes aus der Triage werden
+    je nach `Kategorie:` der jeweiligen Ziel-Note einsortiert; im
+    Zweifel kurz `read_file` und das `Kategorie:`-Feld pruefen.
 - **Keine multi-value Kategorie.** Aus den Template-Optionen genau
   EINE behalten.
 - **Kategorie ist NIE `- Konzept`, `- Notiz`, `- MOC` oder `- Permanent`

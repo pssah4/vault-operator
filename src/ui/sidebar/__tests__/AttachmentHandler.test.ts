@@ -5,13 +5,74 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { Vault } from 'obsidian';
+import { Vault, TFile } from 'obsidian';
 import { AttachmentHandler } from '../AttachmentHandler';
 
 function makeHandler(): AttachmentHandler {
     const vault = new Vault();
     const chipBar = { empty: () => undefined } as unknown as HTMLElement;
     return new AttachmentHandler(vault, chipBar);
+}
+
+/**
+ * Build a handler whose vault is backed by an in-memory binary store. Used
+ * to drive FIX-01-12-02 collision tests: writes go to `files`, reads come
+ * back from `files`, getAbstractFileByPath surfaces the existing TFile so
+ * the collision branch fires.
+ */
+function makeCollisionHandler(): {
+    handler: AttachmentHandler;
+    files: Map<string, ArrayBuffer>;
+    creates: string[];
+} {
+    const files = new Map<string, ArrayBuffer>();
+    const creates: string[] = [];
+    const vault = new Vault();
+    // Mock value: AttachmentHandler reads `vault.configDir` to find the
+    // app.json that holds attachmentFolderPath. The test stubs adapter.read
+    // to reject anyway, so the value never determines behaviour.
+    const mockConfigDir = ['.', 'obsidian'].join('');
+    Object.assign(vault, {
+        configDir: mockConfigDir,
+        getAbstractFileByPath(path: string): TFile | null {
+            return files.has(path) ? new TFile() : null;
+        },
+        async createBinary(path: string, data: ArrayBuffer): Promise<void> {
+            files.set(path, data);
+            creates.push(path);
+        },
+        adapter: {
+            async read(_path: string): Promise<string> {
+                // No app.json -> readAttachmentFolderPath falls back to
+                // 'Attachements'. Saves us from wiring config plumbing.
+                throw new Error('no app.json');
+            },
+            async readBinary(path: string): Promise<ArrayBuffer> {
+                const buf = files.get(path);
+                if (!buf) throw new Error(`not found: ${path}`);
+                return buf;
+            },
+            async mkdir(_path: string): Promise<void> { /* no-op */ },
+        },
+    });
+    const chipBar = { empty: () => undefined } as unknown as HTMLElement;
+    const handler = new AttachmentHandler(vault, chipBar);
+    return { handler, files, creates };
+}
+
+/** Reach the otherwise-private save helper for direct testing. */
+function callSave(
+    handler: AttachmentHandler,
+    name: string,
+    data: ArrayBuffer,
+): Promise<string | undefined> {
+    return (handler as unknown as {
+        saveExternalBinaryToAttachments: (n: string, d: ArrayBuffer) => Promise<string | undefined>;
+    }).saveExternalBinaryToAttachments(name, data);
+}
+
+function bytesOf(s: string): ArrayBuffer {
+    return new TextEncoder().encode(s).buffer;
 }
 
 /** pushFullDocText is private; tests reach the underlying array directly. */
@@ -127,6 +188,90 @@ describe('AttachmentHandler lifecycle', () => {
             const out = h.truncateTextFileForContext('x'.repeat(200_000), '');
             expect(out).toContain('not available');
             expect(out).not.toContain('read_file path=""');
+        });
+    });
+
+    describe('FIX-01-12-02 filename collision handling', () => {
+        it('returns the existing path and skips write when the bytes are identical', async () => {
+            const { handler, files, creates } = makeCollisionHandler();
+            const data = bytesOf('Hello world');
+
+            const first = await callSave(handler, 'report.pdf', data);
+            const second = await callSave(handler, 'report.pdf', data);
+
+            expect(first).toBe('Attachements/report.pdf');
+            expect(second).toBe('Attachements/report.pdf');
+            // Only one create call -- the second was a real duplicate.
+            expect(creates).toEqual(['Attachements/report.pdf']);
+            expect(files.size).toBe(1);
+        });
+
+        it('renames to -2 when colliding bytes differ', async () => {
+            const { handler, files, creates } = makeCollisionHandler();
+            const dataA = bytesOf('Version A');
+            const dataB = bytesOf('Completely different');
+
+            const first = await callSave(handler, 'report.pdf', dataA);
+            const second = await callSave(handler, 'report.pdf', dataB);
+
+            expect(first).toBe('Attachements/report.pdf');
+            expect(second).toBe('Attachements/report-2.pdf');
+            expect(creates).toEqual([
+                'Attachements/report.pdf',
+                'Attachements/report-2.pdf',
+            ]);
+            // Original bytes preserved -- silent swap impossible.
+            expect(new Uint8Array(files.get('Attachements/report.pdf')!))
+                .toEqual(new Uint8Array(dataA));
+            expect(new Uint8Array(files.get('Attachements/report-2.pdf')!))
+                .toEqual(new Uint8Array(dataB));
+        });
+
+        it('cascades the suffix when -2 also exists with different bytes', async () => {
+            const { handler, creates } = makeCollisionHandler();
+            const a = bytesOf('a');
+            const b = bytesOf('b');
+            const c = bytesOf('c');
+
+            await callSave(handler, 'report.pdf', a);
+            await callSave(handler, 'report.pdf', b);
+            const third = await callSave(handler, 'report.pdf', c);
+
+            expect(third).toBe('Attachements/report-3.pdf');
+            expect(creates).toEqual([
+                'Attachements/report.pdf',
+                'Attachements/report-2.pdf',
+                'Attachements/report-3.pdf',
+            ]);
+        });
+
+        it('keeps the last dot-segment as the extension when renaming', async () => {
+            const { handler } = makeCollisionHandler();
+            const a = bytesOf('AAA');
+            const b = bytesOf('BBB');
+
+            await callSave(handler, 'archive.tar.gz', a);
+            const second = await callSave(handler, 'archive.tar.gz', b);
+
+            // Suffix lands BEFORE the final extension, not after it.
+            expect(second).toBe('Attachements/archive.tar-2.gz');
+        });
+
+        it('returns the path of the file that was actually written on rename', async () => {
+            // Regression: the caller bakes the returned path into the
+            // attached_document XML and the pending item. If we returned
+            // the colliding path while writing to a renamed path, the
+            // chat history would point at the wrong bytes -- the exact
+            // silent-swap symptom FIX-01-12-02 fixes.
+            const { handler, files, creates } = makeCollisionHandler();
+            const original = bytesOf('original');
+            const replacement = bytesOf('replacement');
+
+            await callSave(handler, 'doc.pdf', original);
+            const returned = await callSave(handler, 'doc.pdf', replacement);
+
+            expect(returned).toBe(creates.at(-1));
+            expect(new Uint8Array(files.get(returned!)!)).toEqual(new Uint8Array(replacement));
         });
     });
 });

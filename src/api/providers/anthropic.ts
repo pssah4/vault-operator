@@ -145,7 +145,7 @@ export class AnthropicProvider implements ApiHandler {
             {
                 enabled: thinkingEnabled,
                 budgetTokens: this.config.thinkingBudgetTokens,
-                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages, tools),
             },
         );
         // FIX-04-03-02: Some recent models (Opus 4.7+) reject any temperature

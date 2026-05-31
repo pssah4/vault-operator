@@ -288,6 +288,20 @@ Notes.
 - **Keine Transkript-Schnipsel als Note-Body.** Eigene Worte, ein
   klarer Gedanke pro Note. Roher Source-Text gehoert nicht in den
   Body -- referenziere via Block-Ref.
+- **`Themen` und `Konzepte` nicht vermischen.** `Themen:` haelt
+  ausschliesslich Wikilinks auf Notes mit `Kategorie: Thema`
+  (breit/generisch, Hub-Note, z.B. `[[Agentic AI]]`).
+  `Konzepte:` haelt ausschliesslich Wikilinks auf Notes mit
+  `Kategorie: Konzept` (spezifisch/abgegrenzt, z.B. `[[AI Agents]]`).
+  Im Zweifel kurz mit `read_file` das `Kategorie:`-Feld der Ziel-Note
+  pruefen, bevor du sie einsortierst.
+- **Wikilink-Properties ausschliesslich als YAML-Listen.** `Themen`,
+  `Konzepte`, `Personen`, `Quellen`, `Notizen` jede mit Eintraegen als
+  Listen-Elementen, niemals als Komma-String. Block-Form
+  (`Themen:\n  - "[[X]]"\n  - "[[Y]]"`) oder Flow-Form
+  (`Themen: ["[[X]]", "[[Y]]"]`) sind beide ok; `Themen: [[X]], [[Y]]`
+  ist falsch und wird von Obsidian nicht als Liste geparsed. Auch ein
+  einzelner Wert bleibt eine ein-elementige Liste.
 
 ## Fehlerfaelle
 

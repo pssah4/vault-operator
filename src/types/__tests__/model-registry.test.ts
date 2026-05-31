@@ -135,6 +135,50 @@ describe('estimatePromptTokens', () => {
         // ~1500 tokens, not 100k.
         expect(estimatePromptTokens('', messages)).toBe(1_500);
     });
+
+    // FIX-18-04-02: the helper used to ignore tool-definition payloads.
+    // vault-operator ships ~60 tools (~20-30k tokens of JSON Schema) which
+    // OpenAI/Gemini/OpenRouter count toward the input window. Without this
+    // verification resolveOutputBudget under-shrinks max_tokens and the
+    // provider 400s with "context_length_exceeded".
+    describe('FIX-18-04-02 tool-schema accounting', () => {
+        it('adds the JSON-Schema char-count of supplied tools', () => {
+            const sys = 'sys'; // 3 chars
+            const messages = [{ content: 'hi' }]; // 2 chars
+            // 8000 char tool schema -> +2000 tokens
+            const tools = [{ name: 't', input_schema: { type: 'object', filler: 'x'.repeat(7960) } }];
+            const without = estimatePromptTokens(sys, messages);
+            const withTools = estimatePromptTokens(sys, messages, tools);
+            expect(withTools - without).toBeGreaterThanOrEqual(1_900);
+            expect(withTools - without).toBeLessThanOrEqual(2_100);
+        });
+
+        it('treats undefined / empty tools as no extra cost (backwards-compat)', () => {
+            const sys = 'x'.repeat(4_000);
+            const messages = [{ content: 'y'.repeat(4_000) }];
+            const baseline = estimatePromptTokens(sys, messages);
+            expect(estimatePromptTokens(sys, messages, undefined)).toBe(baseline);
+            expect(estimatePromptTokens(sys, messages, [])).toBe(baseline);
+        });
+
+        it('resolveOutputBudget shrinks further once tools are accounted for', () => {
+            // Tight scenario: gpt-4o has a 128k context. With 110k of chat
+            // input the budget helper happily returns ~14k. Add 30k of
+            // tool-schema tokens and the room collapses to the MIN floor.
+            const sys = 'x'.repeat(110_000 * 4); // ~110k tokens
+            const messages: Array<{ content: string }> = [];
+            const tools = [{ name: 'big', schema: 'x'.repeat(30_000 * 4) }]; // ~30k tokens
+
+            const withoutTools = resolveOutputBudget('gpt-4o', undefined, {
+                estimatedInputTokens: estimatePromptTokens(sys, messages),
+            });
+            const withTools = resolveOutputBudget('gpt-4o', undefined, {
+                estimatedInputTokens: estimatePromptTokens(sys, messages, tools),
+            });
+            // Tool accounting must visibly tighten the cap.
+            expect(withTools.maxTokens).toBeLessThan(withoutTools.maxTokens);
+        });
+    });
 });
 
 describe('modelSupportsTemperature (FIX-04-03-02)', () => {

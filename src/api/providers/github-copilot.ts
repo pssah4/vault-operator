@@ -15,19 +15,26 @@
 import OpenAI from 'openai';
 import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
-import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
 import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
+import { normalizeDeltaContent } from './utils/openAiContent';
+import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
 
 // ---------------------------------------------------------------------------
 // OpenAI REST API types (subset — mirrors openai.ts)
 // ---------------------------------------------------------------------------
 
+// FIX-04-03-09: content may be a content-part array on user messages to
+// carry multimodal input ({type:'image_url'|'text'}).
+type OpenAIContentPart =
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string } };
+
 interface OpenAIMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
-    content: string | null;
+    content: string | null | OpenAIContentPart[];
     tool_calls?: OpenAIToolCall[];
     tool_call_id?: string;
     name?: string;
@@ -51,11 +58,7 @@ interface OpenAITool {
     };
 }
 
-interface ToolCallAccumulator {
-    id: string;
-    name: string;
-    argumentsJson: string;
-}
+// ToolCallAccumulator moved to utils/toolCallFlush.ts (FIX-13-02-01); see import above.
 
 // ---------------------------------------------------------------------------
 // Known models — fallback when model is not in the global registry.
@@ -88,25 +91,11 @@ const DEFAULT_MODEL_INFO: ModelInfo = {
 /**
  * Normalize streaming delta.content for Copilot API responses.
  *
- * Claude via Copilot sends `delta.content` as an array of content blocks:
- *   `[{ type: "text", text: "Hello" }]`
- * instead of a plain string. Other models (GPT) send a normal string.
- *
- * Returns null if there is no content (e.g. tool_call-only delta).
+ * Re-exported from the shared helper since FIX-13-02-02 -- kilo-gateway
+ * needed the same normalisation, and one shared helper is easier to
+ * keep in lockstep than two parallel one-offs.
  */
-function normalizeDeltaContent(content: unknown): string | null {
-    if (content == null) return null;
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-        const text = content
-            .filter((c): c is { type: string; text: string } =>
-                c != null && typeof c === 'object' && 'text' in c && typeof c.text === 'string')
-            .map((c) => c.text)
-            .join('');
-        return text || null;
-    }
-    return null;
-}
+// (helper now lives in utils/openAiContent.ts -- imported above)
 
 // ---------------------------------------------------------------------------
 // Provider
@@ -152,7 +141,7 @@ export class GitHubCopilotProvider implements ApiHandler {
             {
                 enabled: thinkingEnabled,
                 budgetTokens: this.config.thinkingBudgetTokens,
-                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages),
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages, tools),
             },
         );
 
@@ -214,6 +203,8 @@ export class GitHubCopilotProvider implements ApiHandler {
 
         // Accumulate tool calls across chunks (keyed by index)
         const toolCallAccumulators = new Map<number, ToolCallAccumulator>();
+        // FIX-18-04-03: see openai.ts comment.
+        let lastFinishReason: string | null | undefined = null;
 
         for await (const chunk of stream) {
             // Usage (sent at end with stream_options)
@@ -263,9 +254,17 @@ export class GitHubCopilotProvider implements ApiHandler {
                 }
             }
 
-            // When the turn ends with tool_calls, yield complete tool_use chunks
+            // FIX-18-04-03: track finish_reason for the post-loop fallback.
+            if (choice.finish_reason) {
+                lastFinishReason = choice.finish_reason;
+            }
+
+            // When the turn ends with tool_calls, yield complete tool_use chunks.
             if (choice.finish_reason === 'tool_calls') {
-                yield* this.flushToolCallAccumulators(toolCallAccumulators);
+                yield* flushToolCallAccumulators(toolCallAccumulators, {
+                    wasMaxTokens: false,
+                    providerLabel: 'Copilot',
+                });
             }
         }
 
@@ -273,51 +272,13 @@ export class GitHubCopilotProvider implements ApiHandler {
         // finish_reason="stop" or "length" while still streaming tool_calls
         // deltas. Without this post-loop flush the accumulated tool calls are
         // silently dropped. If the in-loop branch already cleared the map, this
-        // is a no-op.
+        // is a no-op. FIX-18-04-03 wires the wasMaxTokens flag.
         if (toolCallAccumulators.size > 0) {
-            yield* this.flushToolCallAccumulators(toolCallAccumulators);
+            yield* flushToolCallAccumulators(toolCallAccumulators, {
+                wasMaxTokens: lastFinishReason === 'length',
+                providerLabel: 'Copilot',
+            });
         }
-    }
-
-    /**
-     * Yield tool_use chunks for every accumulated tool call, then clear the map.
-     * Mirrors the helper in OpenAiProvider so both providers share the same
-     * flush semantics (BUG-013 fallback).
-     */
-    private *flushToolCallAccumulators(
-        accumulators: Map<number, ToolCallAccumulator>,
-    ): Generator<ApiStreamChunk> {
-        for (const [, acc] of accumulators) {
-            if (!acc.id || !acc.name) {
-                console.warn(
-                    `[Copilot] Skipping incomplete tool_call accumulator: id="${acc.id}", name="${acc.name}"`,
-                );
-                continue;
-            }
-            let input: Record<string, unknown> = {};
-            try {
-                input = acc.argumentsJson.trim() ? JSON.parse(acc.argumentsJson) : {};
-            } catch (e) {
-                // BUG-032: Emit tool_error (not text) so AgentTask records a
-                // failed tool_use, increments consecutiveMistakes, and breaks
-                // the loop after the configured limit. Emitting text causes
-                // the model to retry the same broken call indefinitely.
-                yield {
-                    type: 'tool_error',
-                    id: acc.id,
-                    name: acc.name,
-                    error: truncatedToolInputError(acc.name, (e as Error).message),
-                } satisfies ApiStreamChunk;
-                continue;
-            }
-            yield {
-                type: 'tool_use',
-                id: acc.id,
-                name: acc.name,
-                input,
-            } satisfies ApiStreamChunk;
-        }
-        accumulators.clear();
     }
 
     /**
@@ -385,8 +346,28 @@ export class GitHubCopilotProvider implements ApiHandler {
                     result.push({ role: 'assistant', content: textParts });
                 }
             } else {
+                // FIX-04-03-09: image blocks used to be silently dropped.
+                // See openai.ts for the same fix; kept symmetric so the
+                // three OpenAI-shape providers behave identically.
+                const hasImage = blocks.some((b) => b.type === 'image');
+                if (hasImage) {
+                    const contentArr: OpenAIContentPart[] = [];
+                    for (const block of blocks) {
+                        if (block.type === 'text') {
+                            contentArr.push({ type: 'text', text: block.text });
+                        } else if (block.type === 'image') {
+                            contentArr.push({
+                                type: 'image_url',
+                                image_url: { url: `data:${block.source.media_type};base64,${block.source.data}` },
+                            });
+                        }
+                    }
+                    if (contentArr.length > 0) {
+                        result.push({ role: 'user', content: contentArr });
+                    }
+                }
                 for (const block of blocks) {
-                    if (block.type === 'text') {
+                    if (!hasImage && block.type === 'text') {
                         result.push({ role: 'user', content: block.text });
                     } else if (block.type === 'tool_result') {
                         const textContent = typeof block.content === 'string'

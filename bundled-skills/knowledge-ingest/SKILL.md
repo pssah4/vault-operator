@@ -66,8 +66,8 @@ Quellen-Note fuer "[Titel]":
 - Quelle: [Pfad oder URL zur Original-Datei]
 - Zusammenfassung: "[1 Satz, max 25 Woerter]"
 - Kategorie: Quelle
-- Themen: [[Thema A]], [[Thema B]]
-- Konzepte: [[Konzept X]]
+- Themen: ["[[Thema A]]", "[[Thema B]]"]
+- Konzepte: ["[[Konzept X]]"]
 - tags: [keyword-1, keyword-2, ...]
 
 **Neue Entitaeten** (noch keine Note im Vault):
@@ -177,9 +177,9 @@ Zeige dem User alle Vorschlaege gesammelt. Warte auf Bestaetigung.
 Vorschlaege fuer "[Note-Titel]":
 
 **Properties:**
-- Themen: [[Thema A]], [[Thema B]]
-- Konzepte: [[Konzept X]]
-- Personen: [[Person Y]]
+- Themen: ["[[Thema A]]", "[[Thema B]]"]  (alle mit Kategorie: Thema)
+- Konzepte: ["[[Konzept X]]"]              (alle mit Kategorie: Konzept)
+- Personen: ["[[Person Y]]"]
 - Zusammenfassung: "Ein Satz mit max 25 Woertern."
 - tags: [keyword-1, keyword-2, keyword-3, ...]
 
@@ -250,6 +250,23 @@ Frage fuer jede neue Stub-Note:
 4. **KEINE bestehenden Notes inhaltlich aendern** -- Nur Backlinks/Callouts zu neuen Quellen-Notes ergaenzen (via `edit_file`), niemals den Kern-Inhalt veraendern.
 5. **KEINE dangling Wikilinks** -- Jeder `[[Wikilink]]` im Body oder Frontmatter MUSS auf eine existierende Note zeigen. Wenn die Note nicht existiert, Stub-Note erstellen oder den Wikilink weglassen.
 6. **KEIN PDF-Embed als Ersatz** -- NIEMALS `![[datei.pdf]]` statt Originaltext verwenden.
+7. **`Themen` und `Konzepte` sind disjunkte Property-Slots:**
+   - `Themen:` enthaelt **ausschliesslich** Wikilinks auf Notes mit `Kategorie: Thema` (breit/generisch, Hub-Note, z.B. `[[Agentic AI]]`).
+   - `Konzepte:` enthaelt **ausschliesslich** Wikilinks auf Notes mit `Kategorie: Konzept` (spezifisch/abgegrenzt, z.B. `[[AI Agents]]`).
+   - Niemals einen Themen-Hub unter `Konzepte` listen, niemals ein Konzept unter `Themen`. Im Zweifel `read_file` auf die Ziel-Note und ihr `Kategorie:`-Feld pruefen.
+8. **Properties mit Wikilink-Werten IMMER als YAML-Liste schreiben, niemals als String:**
+   - Richtig (Block-Form):
+     ```yaml
+     Themen:
+       - "[[Agentic AI]]"
+       - "[[Wissensmanagement]]"
+     Konzepte:
+       - "[[AI Agents]]"
+     ```
+   - Auch richtig (Flow-Form): `Themen: ["[[Agentic AI]]", "[[Wissensmanagement]]"]`
+   - **Falsch**: `Themen: [[Agentic AI]], [[Wissensmanagement]]` (komma-getrennter String -- Obsidian parsed das nicht als Liste).
+   - **Falsch**: `Themen: "[[Agentic AI]]"` (Einzelwert als String -- spaetere Ergaenzungen muessten den Type wechseln).
+   - Auch bei genau einem Wert bleibt es eine Liste mit einem Element.
 
 ### ALLGEMEINE REGELN
 

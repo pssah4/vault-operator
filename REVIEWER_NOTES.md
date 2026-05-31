@@ -340,6 +340,10 @@ identically.
 | AUDIT-027 | 2026-05-16 | EPIC-26 advisor-pattern + provider-only setup | Green (after H-1 plaintext credential fix) |
 | AUDIT-028 | 2026-05-16 | v2.11.2 delta (FIX-28 safeFs hang) | Green |
 | AUDIT-029 | 2026-05-16 | v2.11.3 delta (provider polish + GPT-5 reasoning + security tightening) | Green |
+| AUDIT-030 | 2026-05-19 | v2.11.5 full re-audit baseline | Green |
+| AUDIT-031 | 2026-05-24 | v2.12.3 targeted (qs DoS override + FIX-01-07-03 editor-refresh surface) | Green |
+| AUDIT-032 | 2026-05-29 | v2.12.5 targeted (tmp symlink CVE override + FIX-04-03-07 reasoning passback) | Green |
+| AUDIT-033 | 2026-05-30 | v2.12.6 / v2.12.7 delta (Review-bot ESLint cleanup pass + i18n hint update) | Green |
 
 Audit reports live in a private development tree and are not part of the
 public release output by design (they reference internal incidents and
@@ -348,20 +352,23 @@ plugin maintainer. The full archive is markdown only and contains no
 binaries.
 
 Dependency audit (`npm audit --omit=dev`) reports zero vulnerabilities
-across all production packages as of 2026-05-16.
+across all production packages as of 2026-05-30.
 
 Vulnerability reporting contact and SLA: see [SECURITY.md](SECURITY.md).
 
 ## Compliance notes
 
-Mapping of community plugin scanner findings (Obsidian Releases v2.11.x) to
-the mitigations in this document:
+Mapping of community plugin scanner findings (Obsidian Releases v2.11.x and
+v2.12.x) to the mitigations in this document:
 
 | Scanner finding | Severity | Mitigation in this document |
 |-----------------|----------|----------------------------|
-| Direct filesystem access | Warning | "Direct filesystem access (`fs`)" section above, `safeFs` wrapper |
-| Shell execution | Warning | "Shell execution (`child_process`)" section above, `spawnAllowlist` |
+| Direct filesystem access (`fs`) | Warning | "Direct filesystem access (`fs`)" section above, `safeFs` wrapper |
+| Shell execution (`child_process`) | Warning | "Shell execution (`child_process`)" section above, `spawnAllowlist` |
 | Vault enumeration | Recommendation | "Vault enumeration" section, Obsidian `vault.*` API only |
 | Clipboard access | Recommendation | "Clipboard access" section, user-trigger only |
 | Dynamic code execution | Recommendation | "Dynamic code execution" section, two-layer sandbox + AST allowlist |
 | Vault read / vault write | Pass | Standard `vault.read` / `vault.modify` API |
+| `uuid` reachable through `exceljs` (GHSA-w5hq-g745-h8pq) | Warning | False positive. Installed `uuid@14.0.0` is past the advisory's vulnerable ranges (`< 11.1.1`, `>= 12.0.0 < 12.0.1`, `>= 13.0.0 < 13.0.1`), pinned via `"uuid": ">= 11.1.1"` in `package.json#overrides`. The advisory affects `v3()`/`v5()`/`v6()` with a caller-provided `buf`; `exceljs` only calls `v4()`, which the advisory explicitly excludes. `npm audit` confirms zero. |
+| `tmp` reachable through `exceljs` (GHSA-ph9p-34f9-6g65) | Warning | Resolved. `"tmp": ">= 0.2.6"` override in place, resolves to `tmp@0.2.7`. The vulnerable code path is the streaming `WorkbookReader` (with caller-controlled `prefix`/`postfix`/`dir`); the plugin only uses the writer side of `exceljs` (`create_xlsx`). See AUDIT-032. |
+| `authorUrl` not reachable | Warning | Transient. `https://github.com/pssah4` returns HTTP 200 in live checks; the bot occasionally hits a GitHub Pages or CDN 5xx during its scan. No code change resolves a transient probe; the warning is expected to disappear on the next scan. |

@@ -242,7 +242,7 @@ export class BedrockProvider implements ApiHandler {
         const { maxTokens } = resolveOutputBudget(
             this.config.model,
             this.config.maxTokens,
-            { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages) },
+            { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages, tools) },
         );
         // FIX-04-03-02: omit temperature for default-only models (Opus 4.7+,
         // GPT-5.x on Bedrock if it ever ships there); Bedrock surfaces the

@@ -471,15 +471,17 @@ export class AttachmentHandler {
             const folder = (await this.readAttachmentFolderPath()).replace(/\/+$/, '') || 'Attachements';
             await this.vault.adapter.mkdir(folder);
 
-            const targetPath = `${folder}/${safeName}`;
-            const existing = this.vault.getAbstractFileByPath(targetPath);
-            if (existing instanceof TFile) {
-                // Don't clobber an existing file with the same name; the
-                // user may have a previous version they care about. The
-                // ingest skill can rename / move via `move_file` once the
-                // proper Author-Year_Title naming is known.
-                new Notice(`Attachment already in vault: ${targetPath}`);
-                return targetPath;
+            // FIX-01-12-02: don't return the existing path blind. Compare
+            // bytes first; on a real duplicate reuse the path, on a true
+            // collision pick the next available `<base>-N.<ext>` slot.
+            // Returning the existing path while pushing the NEW parsed
+            // text into the chat was a silent content swap: chat history
+            // pointed at `report.pdf` while every follow-up tool read the
+            // previous bytes.
+            const targetPath = await this.resolveAttachmentTargetPath(folder, safeName, data);
+            if (!targetPath) {
+                // Identical bytes already in vault — nothing to write.
+                return `${folder}/${safeName}`;
             }
             await this.vault.createBinary(targetPath, data);
             new Notice(`Attachment saved to vault: ${targetPath}`);
@@ -490,6 +492,70 @@ export class AttachmentHandler {
             new Notice(`Attachment auto-save FAILED: ${msg}`, 8000);
             return undefined;
         }
+    }
+
+    /**
+     * FIX-01-12-02: pick the path the next attachment write should land
+     * on. Returns:
+     *   - `<folder>/<name>` when no file exists there;
+     *   - `null` when a byte-identical file already exists (reuse, skip write);
+     *   - `<folder>/<base>-N.<ext>` otherwise, cascading until a free slot
+     *     is found.
+     *
+     * The suffix lands BEFORE the final dot-segment so `archive.tar.gz`
+     * becomes `archive.tar-2.gz`, not `archive-2.tar.gz` -- the file
+     * stays openable by extension-based tools.
+     */
+    private async resolveAttachmentTargetPath(
+        folder: string,
+        safeName: string,
+        data: ArrayBuffer,
+    ): Promise<string | null> {
+        const primary = `${folder}/${safeName}`;
+        if (!(this.vault.getAbstractFileByPath(primary) instanceof TFile)) {
+            return primary;
+        }
+        // Same name exists — compare bytes to decide between reuse and rename.
+        try {
+            const existingBytes = await this.vault.adapter.readBinary(primary);
+            if (this.bytesEqual(existingBytes, data)) {
+                new Notice(`Attachment already in vault (identical bytes): ${primary}`);
+                return null;
+            }
+        } catch {
+            // Read failed — fall through and rename defensively. Better
+            // to write a new file than risk a silent overwrite or skip.
+        }
+        const dotIdx = safeName.lastIndexOf('.');
+        const base = dotIdx > 0 ? safeName.slice(0, dotIdx) : safeName;
+        const ext = dotIdx > 0 ? safeName.slice(dotIdx) : '';
+        for (let n = 2; n < 1000; n++) {
+            const candidate = `${folder}/${base}-${n}${ext}`;
+            if (this.vault.getAbstractFileByPath(candidate) instanceof TFile) {
+                // Slot taken — if its bytes match, reuse; else keep cascading.
+                try {
+                    const otherBytes = await this.vault.adapter.readBinary(candidate);
+                    if (this.bytesEqual(otherBytes, data)) {
+                        new Notice(`Attachment already in vault (identical bytes): ${candidate}`);
+                        return null;
+                    }
+                } catch { /* fall through to next slot */ }
+                continue;
+            }
+            return candidate;
+        }
+        // Defensive ceiling — extremely unlikely. Treat as failure.
+        throw new Error(`No free attachment slot under ${folder}/${safeName} after 1000 tries`);
+    }
+
+    private bytesEqual(a: ArrayBuffer, b: ArrayBuffer): boolean {
+        if (a.byteLength !== b.byteLength) return false;
+        const va = new Uint8Array(a);
+        const vb = new Uint8Array(b);
+        for (let i = 0; i < va.length; i++) {
+            if (va[i] !== vb[i]) return false;
+        }
+        return true;
     }
 
     /**
