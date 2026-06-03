@@ -442,7 +442,7 @@ export class AgentTask {
         });
 
         const stigmergyCandidateIds: string[] = [
-            ...stigmergyCandidates.map((t) => t.name as string),
+            ...stigmergyCandidates.map((t) => t.name),
             ...stigmergySkillsList.map((s) => stigmergySkillId(s.name)),
             ...stigmergyMcpList.map((m) => stigmergyMcpId(m.server, m.name)),
             ...stigmergySubagentList.map((a) => stigmergySubagentId(a.name)),
@@ -483,7 +483,7 @@ export class AgentTask {
         // description, not a bare id.
         const stigmergyDescById = new Map<string, string>();
         for (const t of stigmergyCandidates) {
-            stigmergyDescById.set(t.name as string, t.description ?? '');
+            stigmergyDescById.set(t.name, t.description ?? '');
         }
         for (const s of stigmergySkillsList) {
             stigmergyDescById.set(stigmergySkillId(s.name), s.description);
