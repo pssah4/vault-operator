@@ -21,6 +21,7 @@ import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import type { SelfAuthoredSkillLoader, SelfAuthoredSkill } from '../../skills/SelfAuthoredSkillLoader';
 import { stigmergySkillId } from '../../stigmergy/StigmergyAdapter';
+import { emitStigmergyInvoked, emitStigmergyReturned } from '../../stigmergy/stigmergyEmitGate';
 
 /**
  * Hard cap on the body returned to the LLM. Skills above this size point to
@@ -75,10 +76,11 @@ export class ReadSkillTool extends BaseTool<'read_skill'> {
         // (success path, not-found path) emit the returned event with the
         // right success flag. The pipeline still emits `read_skill`
         // invoked/returned around this whole call.
+        // FEAT-32-01 PR 1.2 / ADR-131: gate inner skill emit on dispatchSource.
         const stigmergyTurn = context.stigmergyTurn;
-        const stigmergyOn = stigmergyTurn?.enabled === true;
+        const dispatchSource = context.dispatchSource;
         const capId = stigmergySkillId(rawName);
-        if (stigmergyOn) await stigmergyTurn.emitInvoked(capId);
+        await emitStigmergyInvoked(stigmergyTurn, capId, dispatchSource);
         let loaded = false;
         try {
             // 1. Try self-authored / bundled skills (carries inventory + code modules).
@@ -123,7 +125,7 @@ export class ReadSkillTool extends BaseTool<'read_skill'> {
                 )),
             );
         } finally {
-            if (stigmergyOn) await stigmergyTurn.emitReturned(capId, loaded);
+            await emitStigmergyReturned(stigmergyTurn, capId, loaded, dispatchSource);
         }
     }
 

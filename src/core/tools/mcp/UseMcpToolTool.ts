@@ -10,6 +10,7 @@ import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import type { McpClient } from '../../mcp/McpClient';
 import { stigmergyMcpId } from '../../stigmergy/StigmergyAdapter';
+import { emitStigmergyInvoked, emitStigmergyReturned } from '../../stigmergy/stigmergyEmitGate';
 
 interface UseMcpToolInput {
     server_name: string;
@@ -87,20 +88,19 @@ export class UseMcpToolTool extends BaseTool<'use_mcp_tool'> {
         // (the pipeline already emits the outer pair). callTool catches
         // transport errors and returns an "Error: ..." string instead of
         // throwing, so we treat both shapes as negative evidence.
+        // FEAT-32-01 PR 1.2 / ADR-131: gate inner mcp emit on dispatchSource.
         const stigmergyTurn = context.stigmergyTurn;
-        const stigmergyOn = stigmergyTurn?.enabled === true;
+        const dispatchSource = context.dispatchSource;
         const capId = stigmergyMcpId(server_name, tool_name);
-        if (stigmergyOn) await stigmergyTurn.emitInvoked(capId);
+        await emitStigmergyInvoked(stigmergyTurn, capId, dispatchSource);
 
         try {
             const result = await this.mcpClient.callTool(server_name, tool_name, args);
             callbacks.pushToolResult(result);
             callbacks.log(`MCP tool ${server_name}/${tool_name} returned ${result.length} chars`);
-            if (stigmergyOn) {
-                await stigmergyTurn.emitReturned(capId, !result.startsWith('Error'));
-            }
+            await emitStigmergyReturned(stigmergyTurn, capId, !result.startsWith('Error'), dispatchSource);
         } catch (error) {
-            if (stigmergyOn) await stigmergyTurn.emitReturned(capId, false);
+            await emitStigmergyReturned(stigmergyTurn, capId, false, dispatchSource);
             callbacks.pushToolResult(this.formatError(error));
             await callbacks.handleError('use_mcp_tool', error);
         }

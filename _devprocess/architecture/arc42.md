@@ -904,6 +904,22 @@ Provider-zentriertes Settings-Schema und automatisches Modell-Tier-Routing:
 
 ADRs: [ADR-120](ADR-120-advisor-pattern-loop-default.md), [ADR-121](ADR-121-tier-classifier-strategy.md), [ADR-122](ADR-122-provider-only-settings-schema.md), [ADR-123](ADR-123-settings-schema-migration.md), [ADR-115](ADR-115-helper-model-routing.md) Amendment 2026-05-15. Feature-Specs: `FEAT-26-01..06`. BA: `BA-27`.
 
+### 8.16 Stigmergy als externer Recall-Layer (EPIC-32)
+
+Vault Operator integriert seit Anfang Juni 2026 den externen Stigmergy-Daemon (`@agentic-stigmergy/client` und `@agentic-stigmergy/loop`) als unabhaengige Beratungsschicht. Der Daemon laeuft ausserhalb des Plugins, kommuniziert via Unix-Socket-RPC und ist optional: ohne Installation oder Studio-Toggle-Off liefert der Adapter NOOP_TURN und der Loop laeuft unveraendert.
+
+**Rolle im Stack:** Stigmergy ist Recall, kein Selector. VO-eigene Selektoren (Recipes inkl. FastPath, Memory v2 Composer, `find_tool` Progressive Disclosure) haben harte Praezedenz. Stigmergy wirkt drei Mal pro Turn: (1) Capability-Registration der vollen Tool-/Skill-/MCP-/Subagent-Inventur, hash-gated, (2) `pathGuidance` am Turn-Start mit optionalem `text`-Hint am User-Message-Tail und einer `path` fuer Pre-Activation deferred Tools, (3) `capability_invoked` und `capability_returned` Substrate-Beobachtung um jeden Pipeline-Dispatch.
+
+**Praezedenz-Regel (ADR-131):** Wenn ein Recipe matched und FastPath erfolgreich laeuft, wird `guidance.text` unterdrueckt (kein Doppel-Hint). `guidance.path` bleibt aktiv (Pre-Activation ist `find_tool`-Substitution, nicht Selector-Konkurrenz). `recipesSection` bleibt im cached System-Prompt-Prefix; `guidance.text` bleibt am User-Message-Tail. Cache-Prefix ist invariant (ADR-062).
+
+**Substrate-Hygiene:** `ToolExecutionPipeline.executeTool` traegt einen `source`-Tag (`'model'` / `'fastpath'` / `'planner'`). Substrate-Emits feuern nur bei `'model'`. FastPath-Tools sind sichtbar fuer Recipe-Promotion, aber nicht fuer Stigmergy-Substrate (by design).
+
+**Promotion-Pfad (ADR-132):** `RecipePromotionService.checkForPromotion` hat drei Gates in Reihenfolge: (1) Recipe-wins (`evidence.recipeWinner` -> `incrementSuccess`), (2) Stigmergy-Shortcut (`mode === 'sequence'` plus `pathFollowed` plus `attempt_completion` -> `promoteFromStigmergyPath` mit `successCount: 1` und `provenance: 'stigmergy-shortcut'`), (3) Fallback ADR-058 (3 organische similar). Daemon-down faellt automatisch auf Gate 3 zurueck.
+
+**Episode-Recording (ADR-133):** `onEpisodeData` wandert vom Success-Branch in den `finally`-Block, sodass auch Iteration-Cap und Abort-Episoden persistiert werden. `indexEpisode` feuert nur bei `success === true` (Fail-Episoden bleiben in DB fuer Telemetrie, pollutten aber nicht den MemoryRetriever-Index). FIFO-Eviction ueber `rowid` statt `created_at` (clock-skew-sicher). Schema-Migration v9 -> v10 additiv mit WriterLock VOR `ALTER` (FIX-12-Lehre).
+
+ADRs: [ADR-130](ADR-130-stigmergy-recall-layer.md), [ADR-131](ADR-131-vo-selector-precedence.md), [ADR-132](ADR-132-stigmergy-pinned-sequence-promotion.md), [ADR-133](ADR-133-episode-recording-in-finally.md). Feature-Specs: `FEAT-32-01..03`. Code: `src/core/stigmergy/StigmergyAdapter.ts`, `src/core/AgentTask.ts:340-720`, `src/core/tool-execution/ToolExecutionPipeline.ts:230-480`.
+
 ---
 
 ## 9. Architekturentscheidungen

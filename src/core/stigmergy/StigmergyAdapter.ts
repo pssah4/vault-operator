@@ -102,6 +102,15 @@ export interface StigmergyTurn {
     /** The taskId the daemon associates with this turn. */
     readonly taskId: string;
     /**
+     * The raw decision mode for this turn. Mirrors `raw.decision?.mode`, with
+     * `'none'` for the missing-decision case (and for every NOOP turn). This is
+     * the stable read-only surface FEAT-32-01 (ADR-131) reads to enforce the
+     * precedence rule and FEAT-32-02 (ADR-133) snapshots into the episode
+     * record. No new daemon RPC is involved -- the value is derived once from
+     * the closure-bound decision and cached for the lifetime of the turn.
+     */
+    readonly decisionMode: 'sequence' | 'enforce' | 'ranked' | 'none';
+    /**
      * Reorder the tool list by Stigmergy's per-turn ranking, KEEPING every
      * tool (nothing hidden -- ranked first by surfaced index, all other tools
      * appended in their original order). When the turn is disabled or there
@@ -182,6 +191,7 @@ export interface StigmergyTurn {
 const NOOP_TURN: StigmergyTurn = {
     enabled: false,
     taskId: '',
+    decisionMode: 'none',
     instrument: (t) => t,
     orderTools: (tools) => Array.from(tools),
     pathGuidance: () => ({ path: [], text: '' }),
@@ -467,6 +477,10 @@ export async function beginStigmergyTurn(params: {
         const enabled = raw.enabled !== false;
         const surfaced = Array.isArray(raw.surfaced) ? raw.surfaced.slice() : [];
         const decision = raw.decision;
+        // ADR-130 / FEAT-32-01: stable decisionMode surface for the precedence
+        // resolver in AgentTask and the episode snapshot in EpisodicExtractor.
+        // Derived once here; consumers must not re-read raw.decision.
+        const decisionMode: StigmergyTurn['decisionMode'] = decision?.mode ?? 'none';
         let ended = false;
         // First-resolver-wins across accept / iterate / abandon. The loop
         // SDK treats the first resolution as authoritative; a duplicate or
@@ -478,6 +492,7 @@ export async function beginStigmergyTurn(params: {
         return {
             enabled,
             taskId: params.taskId,
+            decisionMode,
             instrument: (tools) => {
                 try {
                     return raw.instrument(tools);
@@ -643,3 +658,43 @@ export function stigmergyPromptOf(userMessage: string | Array<{ type: string; te
         .map((b) => b.text)
         .join(' ');
 }
+
+// ---------------------------------------------------------------------------
+// Test-only seam (FEAT-32-01 PR 1.1; AUDIT-036 L-1 hardening).
+//
+// `setCachedLoop` lets unit tests inject a fake loop without going through
+// `initStigmergy` (which would require mocking two dynamic ESM imports).
+// `reset` clears every module-level cache so each test starts from the same
+// pre-init state. Production callers must NEVER use these hooks; the export
+// is named with a double underscore prefix so a search for "__test" makes the
+// usage easy to find and lint against.
+//
+// AUDIT-036 L-1: the hooks are gated behind a NODE_ENV check so the
+// production bundle ships `undefined`. The esbuild production config sets
+// NODE_ENV=production at build time, which lets the dead-code elimination
+// pass drop the object literal entirely. In dev / vitest the check returns
+// truthy and the hooks are real. Tests dereference via `__testHooks!` since
+// the union now includes `undefined`.
+const __testHooksImpl = {
+    setCachedLoop(loop: unknown): void {
+        cachedLoop = loop as RawStigmergyLoop;
+        // beginStigmergyTurn requires both engine and loop. Provide a minimal
+        // engine stub so the function does not early-return NOOP_TURN. Tests
+        // that need real engine behaviour can pass an object with registerCapability/emit.
+        cachedEngine = { registerCapability: () => undefined, emit: () => undefined };
+        cachedSafeEmit = null;
+        initPromise = Promise.resolve();
+    },
+    reset(): void {
+        cachedLoop = null;
+        cachedEngine = null;
+        cachedSafeEmit = null;
+        initPromise = null;
+        lastCapabilitiesHash = null;
+    },
+};
+
+export const __testHooks: typeof __testHooksImpl | undefined =
+    (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production')
+        ? __testHooksImpl
+        : undefined;

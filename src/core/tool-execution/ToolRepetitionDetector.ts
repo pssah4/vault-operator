@@ -111,6 +111,31 @@ export class ToolRepetitionDetector {
     }
 
     /**
+     * Record a FastPath / planner-driven tool dispatch for episodic memory
+     * ONLY (FEAT-32-02 PR 2.2 / ADR-133). Appends to `allCalls` so the call
+     * shows up in `getToolSequence()` and `getLedger()`, but does NOT push to
+     * `recentKeys` -- FastPath batches are deterministic and must not trip
+     * the exact-repetition sliding window for subsequent loop calls. Pairs
+     * with `FastPathExecutor.onToolRecorded`.
+     */
+    recordForEpisodeOnly(
+        toolName: string,
+        input: Record<string, unknown>,
+        resultSummary: string,
+        iteration: number,
+    ): void {
+        const key = `${toolName}:${JSON.stringify(input)}`;
+        const rawQ = input.query ?? input.pattern ?? '';
+        const queryText = SEARCH_TOOLS.has(toolName)
+            ? (typeof rawQ === 'string' ? rawQ : '').toLowerCase()
+            : '';
+        const queryTerms = new Set(queryText.split(/\s+/).filter((t) => t.length > 2));
+        this.allCalls.push({ tool: toolName, inputKey: key, queryTerms, resultSummary, iteration });
+        // Deliberately skip `recentKeys.push(key)` -- FastPath batches must
+        // not feed the exact-repetition sliding window (ADR-133 rationale).
+    }
+
+    /**
      * Structured tool-call ledger for injection into condensing prompt.
      * Returns empty string if no calls recorded.
      */

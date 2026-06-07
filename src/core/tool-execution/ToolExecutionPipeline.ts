@@ -29,6 +29,11 @@ import { getTmpRoot } from '../utils/agentFolder';
 import { findAllowedMethod } from '../tools/agent/pluginApiAllowlist';
 import { scanUnreadSources } from '../quality-gates';
 import type { StigmergyTurn } from '../stigmergy/StigmergyAdapter';
+import {
+    emitStigmergyInvoked,
+    emitStigmergyReturned,
+    type DispatchSource,
+} from '../stigmergy/stigmergyEmitGate';
 
 /**
  * FEAT-24-03 (ADR-63 amendment): hard ceiling on the characters of any single
@@ -297,11 +302,18 @@ export class ToolExecutionPipeline {
 
     /**
      * CENTRAL EXECUTION METHOD — all tools MUST flow through here.
+     *
+     * `opts.source` (FEAT-32-01 PR 1.2 / ADR-131) tags the dispatch origin so
+     * the Pipeline can keep the Stigmergy substrate free of FastPath /
+     * planner mechanics. Default `'model'` preserves existing behavior; the
+     * FastPath executor passes `'fastpath'` so the substrate stays blind to
+     * Recipe-driven batches (by design -- the agent did not pick the tool).
      */
     async executeTool(
         toolCall: ToolUse,
         callbacks: ToolCallbacks,
         extensions?: ContextExtensions,
+        opts?: { source?: DispatchSource },
     ): Promise<ToolResult> {
         const startTime = Date.now();
 
@@ -448,6 +460,10 @@ export class ToolExecutionPipeline {
                 // Stigmergy is off / the daemon is down, so passing it
                 // through unconditionally is safe.
                 stigmergyTurn: this.stigmergyTurn,
+                // FEAT-32-01 PR 1.2 / ADR-131: propagate the dispatch source
+                // so dispatcher tools can suppress their inner emits when the
+                // outer call came from FastPath / planner. Default `'model'`.
+                dispatchSource: opts?.source ?? 'model',
             };
 
             // Stigmergy: emit capability_invoked BEFORE the dispatch and
@@ -461,16 +477,20 @@ export class ToolExecutionPipeline {
             // `success=false` covers BOTH a throw AND the codebase's
             // pushToolResult('<error>...') convention (executionHadError),
             // since both are negative evidence for the substrate.
+            // FEAT-32-01 PR 1.2 / ADR-131: route every emit through the gate
+            // helper so the Pipeline cannot drift from the dispatchers. The
+            // helper is a no-op when the source is `'fastpath'` / `'planner'`
+            // or when the turn is missing / disabled.
             const stigmergyTurn = this.stigmergyTurn;
-            const stigmergyOn = stigmergyTurn?.enabled === true;
-            if (stigmergyOn) await stigmergyTurn.emitInvoked(toolCall.name);
+            const dispatchSource = context.dispatchSource;
+            await emitStigmergyInvoked(stigmergyTurn, toolCall.name, dispatchSource);
             try {
                 await tool.execute(toolCall.input, context);
             } catch (e) {
-                if (stigmergyOn) await stigmergyTurn.emitReturned(toolCall.name, false);
+                await emitStigmergyReturned(stigmergyTurn, toolCall.name, false, dispatchSource);
                 throw e;
             }
-            if (stigmergyOn) await stigmergyTurn.emitReturned(toolCall.name, !executionHadError);
+            await emitStigmergyReturned(stigmergyTurn, toolCall.name, !executionHadError, dispatchSource);
 
             // FIX-H: track successful file reads for todo-verification (ADR-090 follow-up)
             // Must happen BEFORE the hallucination scan below so this same call's

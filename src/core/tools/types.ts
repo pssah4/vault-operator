@@ -330,6 +330,16 @@ export interface ToolExecutionContext {
      * fast-path on that and skip the emits without awaiting anything.
      */
     stigmergyTurn?: import('../stigmergy/StigmergyAdapter').StigmergyTurn;
+
+    /**
+     * Source of the dispatch (FEAT-32-01 PR 1.2 / ADR-131). Propagated by
+     * the Pipeline into the tool's ToolExecutionContext so dispatcher tools
+     * (use_mcp_tool, invoke_skill, read_skill) can suppress their inner
+     * `capability_invoked` / `capability_returned` emits when the outer call
+     * was driven by FastPath rather than the model. Default `'model'` keeps
+     * backward compatibility for callers that have not been migrated.
+     */
+    dispatchSource?: import('../stigmergy/stigmergyEmitGate').DispatchSource;
 }
 
 /**

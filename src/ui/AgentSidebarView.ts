@@ -2159,19 +2159,32 @@ export class AgentSidebarView extends ItemView {
                     scheduleScroll();
                 },
                 onEpisodeData: (data) => {
-                    // Episodic memory: record successful multi-tool task (ADR-018, fire-and-forget)
+                    // Episodic memory: record task outcome (ADR-018 + FEAT-32-02 / ADR-133).
+                    // FEAT-32-02 PR 2.2: payload now includes success, mistakesEncountered,
+                    // attemptCompletionFired, fastPathFired, stigmergy. Fires for ALL exit
+                    // paths (success, iteration-cap, abort, error). Fire-and-forget.
                     if (this.plugin.episodicExtractor && this.plugin.settings.mastery.enabled) {
+                        const resultSummary = data.success
+                            ? accumulatedText.slice(0, 300)
+                            : (data.attemptCompletionFired ? 'partial' : 'incomplete');
                         const episode = {
                             userMessage: text,
                             mode: activeMode.slug,
                             toolSequence: data.toolSequence,
                             toolLedger: data.toolLedger,
-                            success: true,
-                            resultSummary: accumulatedText.slice(0, 300),
+                            success: data.success,
+                            resultSummary,
+                            stigmergy: data.stigmergy,
                         };
                         this.plugin.episodicExtractor.recordEpisode(episode).then((ep) => {
                             if (ep && this.plugin.recipePromotionService) {
-                                this.plugin.recipePromotionService.checkForPromotion(ep).catch((e) =>
+                                // FEAT-32-02 PR 2.4 / ADR-132: hand the
+                                // Stigmergy decision snapshot to the promotion
+                                // service so Gate 1 (recipe-wins) and Gate 2
+                                // (sequence shortcut) can fire. Daemon-down
+                                // -> data.stigmergy is undefined and the
+                                // service falls through to Gate 3 ADR-058.
+                                this.plugin.recipePromotionService.checkForPromotion(ep, data.stigmergy).catch((e) =>
                                     console.warn('[Mastery] Promotion check failed:', e)
                                 );
                             }
@@ -2511,10 +2524,16 @@ export class AgentSidebarView extends ItemView {
 
         // Recipe matching (ADR-017) — find procedural recipes before starting the task
         let recipesSection: string | undefined;
+        // FEAT-32-01 PR 1.3 / ADR-131: capture the matches so we can pass
+        // them into AgentTask.run via `recipeMatches`. Without this the
+        // FastPath gate inside AgentTask would re-run `match()` and could
+        // diverge from the Sidebar's `recipesSection` source.
+        let recipeMatchesForRun: import('../core/mastery/RecipeMatchingService').RecipeMatchResult[] | undefined;
         if (this.plugin.settings.mastery.enabled && this.plugin.recipeMatchingService) {
             try {
                 const matches = this.plugin.recipeMatchingService.match(text, activeMode.slug);
                 console.debug(`[Mastery] Recipe matching: ${matches.length} match(es) for mode "${activeMode.slug}"`, matches.map(m => `${m.recipe.id} (${m.score.toFixed(2)})`));
+                recipeMatchesForRun = matches;
                 if (matches.length > 0) {
                     recipesSection = this.plugin.recipeMatchingService.buildPromptSection(matches);
                     console.debug(`[Mastery] Recipe section injected (${recipesSection.length} chars)`);
@@ -2542,6 +2561,9 @@ export class AgentSidebarView extends ItemView {
             memoryContext,
             pluginSkillsSection: pluginSkillsSection || undefined,
             recipesSection,
+            // FEAT-32-01 PR 1.3 / ADR-131: hand the SAME matches to AgentTask
+            // so the FastPath gate sees what `recipesSection` was built from.
+            recipeMatches: recipeMatchesForRun,
             configDir: this.app.vault.configDir,
             conversationId: this.activeConversationId ?? undefined,
         });
