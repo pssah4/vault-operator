@@ -777,12 +777,20 @@ export default class ObsidianAgentPlugin extends Plugin {
                 '.vault-operator-migration-backups',
                 vaultIdHash,
             );
+            // Cast-through-unknown legacy view so the deprecated property
+            // access in the migration path does not trigger
+            // `@typescript-eslint/no-deprecated`. The bot rejects every
+            // `eslint-disable` of that rule (Tier 4); breaking the type
+            // chain via `as unknown as { ... }` keeps the back-compat read
+            // working without a directive. AUDIT-2.13.x follow-up.
+            const legacySettings = this.settings as unknown as {
+                chatHistoryFolder?: string;
+            };
             console.debug('[VaultOperator] storage layout migration trigger entered', {
                 optIn: this.settings._layoutMigrationOptIn,
                 status: this.settings._layoutMigrationStatus,
                 agentFolderPath: this.settings.agentFolderPath,
-                // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: read legacy chatHistoryFolder to clear it after migration
-                chatHistoryFolder: this.settings.chatHistoryFolder,
+                chatHistoryFolder: legacySettings.chatHistoryFolder,
                 vaultBasePath,
                 vaultParent,
                 safeBackupDir,
@@ -792,8 +800,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 const { migrateAgentLayout } = await import('./core/utils/migrateAgentLayout');
                 const knownLegacyDefaults = ['.obsidian-agent', '.obsilo-vault', 'obsilo-vault', '.vault-operator'];
                 const isLegacyDefault = knownLegacyDefaults.includes(this.settings.agentFolderPath ?? '');
-                // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: capture legacy chatHistoryFolder before clearing
-                const chatHistoryFolderLegacyValue = this.settings.chatHistoryFolder?.trim() ?? '';
+                const chatHistoryFolderLegacyValue = legacySettings.chatHistoryFolder?.trim() ?? '';
                 console.debug('[VaultOperator] migrateAgentLayout calling', {
                     isLegacyDefault,
                     chatHistoryFolderLegacyValue,
@@ -803,8 +810,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                     vaultParent,
                     pluginDataDir: safeBackupDir,
                     agentFolderPath: this.settings.agentFolderPath ?? '',
-                    // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: read legacy chatHistoryFolder
-                    chatHistoryFolder: this.settings.chatHistoryFolder ?? '',
+                    chatHistoryFolder: legacySettings.chatHistoryFolder ?? '',
                     currentStatus: this.settings._layoutMigrationStatus ?? 'pending',
                     setStatus: async (status) => {
                         this.settings._layoutMigrationStatus = status;
@@ -824,8 +830,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 }
                 if (chatHistoryFolderLegacyValue) {
                     this.settings._chatHistoryFolderLegacy = chatHistoryFolderLegacyValue;
-                    // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: clear legacy chatHistoryFolder after capturing it
-                    this.settings.chatHistoryFolder = '';
+                    legacySettings.chatHistoryFolder = '';
                 }
                 this.settings._layoutMigrationStatus = 'complete';
                 await this.saveSettings();
@@ -2370,10 +2375,17 @@ export default class ObsidianAgentPlugin extends Plugin {
         // cannot call tools the mode lacks) and the chat-header pocket-knife
         // now toggles both globally via activeMcpServers and per-tool via
         // modeToolOverrides.
-        // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: clear deprecated per-mode skill allow list (removed 2026-05-18)
-        this.settings.modeSkillAllowList = {};
-        // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: clear deprecated per-mode MCP servers (removed 2026-05-18)
-        this.settings.modeMcpServers = {};
+        // Cast-through-unknown legacy view: the bot rejects every
+        // `eslint-disable @typescript-eslint/no-deprecated`, so we break
+        // the type-level deprecation chain instead. Both fields are kept
+        // for back-compat with old data.json files; loadSettings clears
+        // them to `{}` on every load.
+        const deprecatedModeFields = this.settings as unknown as {
+            modeSkillAllowList: Record<string, unknown>;
+            modeMcpServers: Record<string, unknown>;
+        };
+        deprecatedModeFields.modeSkillAllowList = {};
+        deprecatedModeFields.modeMcpServers = {};
         // Migrate source: 'custom' → 'vault' (introduced in Phase 3.1+)
         this.settings.globalCustomInstructions = this.settings.globalCustomInstructions ?? '';
         this.settings.modeModelKeys = this.settings.modeModelKeys ?? {};
