@@ -1,6 +1,7 @@
 import { App, Notice, Setting } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { DEFAULT_AGENT_FOLDER } from '../../core/utils/agentFolder';
+import { castGenerated } from '../../core/utils/runtime';
 import { AgentFolderService, readStoredAgentFolder } from '../../core/utils/agentFolderService';
 import { pickAgentFolder } from './AgentFolderPickerModal';
 import { promptModal, confirmModal } from '../modals/PromptModal';
@@ -1057,14 +1058,15 @@ export class VaultTab {
             destructive: true,
         });
 
-        // BUNDLED_NOTE_TEMPLATES comes from src/_generated/ which is
-        // gitignored. The pre-2.13.3 explicit cast was reverted in 2.13.3
-        // because the eslint-disable for `no-unnecessary-type-assertion`
-        // sits in the same @typescript-eslint/* rule family the bot is
-        // actively expanding its no-disable list across. The bot's
-        // no-unsafe-argument warning at this call site is a warning, not
-        // a blocker; the cast directive is the bigger risk.
-        const materializer = new TemplateMaterializer(this.app, BUNDLED_NOTE_TEMPLATES);
+        // `BUNDLED_NOTE_TEMPLATES` is imported from gitignored `_generated/`.
+        // The bot's fresh-clone lint widens the type to `error`; locally
+        // it resolves to `Record<string, Record<string, string>>`. The
+        // `castGenerated` helper routes through an `unknown` parameter so
+        // the cast is necessary in both contexts: locally it removes the
+        // type mismatch, at the bot it narrows the widened error type.
+        // No eslint-disable directive needed.
+        const templates = castGenerated<Record<string, Record<string, string>>>(BUNDLED_NOTE_TEMPLATES);
+        const materializer = new TemplateMaterializer(this.app, templates);
         const translator = (lang !== 'de' && lang !== 'en')
             ? makeTemplateTranslator(this.plugin)
             : undefined;

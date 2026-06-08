@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- File-level disable: interacts with the untyped transformers.js/onnxruntime SDK whose runtime model/tokenizer/tensor outputs cannot be statically typed. Inputs (query/documents) are validated by callers; outputs (logits/scores) are coerced to plain numbers before crossing the boundary. */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- File-level disable: interacts with the untyped transformers.js/onnxruntime SDK whose runtime model/tokenizer/tensor outputs cannot be statically typed. Inputs (query/documents) are validated by callers; outputs (logits/scores) are coerced to plain numbers before crossing the boundary. */
 /**
  * RerankerService -- Local cross-encoder reranking via transformers.js (WASM).
  *

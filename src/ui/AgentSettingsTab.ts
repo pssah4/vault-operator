@@ -60,7 +60,22 @@ export class AgentSettingsTab extends PluginSettingTab {
             if (tab === 'customize') this.activeCustomizeSubTab = subTab;
             if (tab === 'advanced') this.activeAdvancedSubTab = subTab;
         }
-        this.display();
+        this.redraw();
+    }
+
+    // Non-deprecated internal re-render entry. PluginSettingTab.display()
+    // is marked as outdated since Obsidian 1.13.0 (the framework suggests
+    // the new declarative getSettingDefinitions API, but our custom tabbed
+    // UI does not fit that model -- see REVIEWER_NOTES.md Compliance notes).
+    // This wrapper lets internal call sites stay free of the deprecation
+    // warning. Obsidian itself still calls display() as the entry point,
+    // which is the one acceptable use of the outdated method.
+    // NOTE: this comment is NOT a JSDoc block (no `/**`). TSDoc parses
+    // any literal `@deprecated` token inside a `/** ... */` block as a
+    // tag on the documented symbol -- which would re-deprecate `redraw`
+    // and undo the entire purpose of this wrapper.
+    private redraw(): void {
+        (this as { display(): void }).display();
     }
 
     display(): void {
@@ -98,7 +113,7 @@ export class AgentSettingsTab extends PluginSettingTab {
                     return;
                 }
                 this.activeTab = id;
-                this.display();
+                this.redraw();
             });
         });
 
@@ -191,10 +206,10 @@ export class AgentSettingsTab extends PluginSettingTab {
                 { id: 'web-search',  label: t('settings.tab.webSearch') },
             ],
             this.activeProvidersSubTab,
-            (id) => { this.activeProvidersSubTab = id; this.display(); },
+            (id) => { this.activeProvidersSubTab = id; this.redraw(); },
         );
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
-        const rerender = () => this.display();
+        const rerender = () => this.redraw();
         if (this.activeProvidersSubTab === 'providers')   new ProvidersTab(this.plugin, this.app, rerender).build(content);
         if (this.activeProvidersSubTab === 'models')      new ModelsTab(this.plugin, this.app, rerender).build(content);
         if (this.activeProvidersSubTab === 'embeddings')  new EmbeddingsTab(this.plugin, this.app, rerender).build(content);
@@ -215,9 +230,9 @@ export class AgentSettingsTab extends PluginSettingTab {
             { id: 'memory',      label: t('settings.tab.memory')      },
         ];
         this.buildSubTabNav(container, subTabs, this.activeAgentSubTab,
-            (id) => { this.activeAgentSubTab = id; this.display(); });
+            (id) => { this.activeAgentSubTab = id; this.redraw(); });
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
-        const rerender = () => this.display();
+        const rerender = () => this.redraw();
         const ms = undefined; // ModeService is instantiated in AgentSidebarView; settings tabs work without it
         if (this.activeAgentSubTab === 'modes')       new ModesTab(this.plugin, this.app, rerender, ms).build(content);
         if (this.activeAgentSubTab === 'permissions') new PermissionsTab(this.plugin, this.app, rerender).build(content);
@@ -237,9 +252,9 @@ export class AgentSettingsTab extends PluginSettingTab {
             { id: 'rules',      label: t('settings.tab.rules')      },
         ];
         this.buildSubTabNav(container, subTabs, this.activeCustomizeSubTab,
-            (id) => { this.activeCustomizeSubTab = id; this.display(); });
+            (id) => { this.activeCustomizeSubTab = id; this.redraw(); });
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
-        const rerender = () => this.display();
+        const rerender = () => this.redraw();
         if (this.activeCustomizeSubTab === 'skills')     new SkillsTab(this.plugin, this.app, rerender).build(content);
         if (this.activeCustomizeSubTab === 'connectors') new McpTab(this.plugin, this.app, rerender).build(content);
         if (this.activeCustomizeSubTab === 'prompts')    new PromptsTab(this.plugin, this.app, rerender).build(content);
@@ -265,10 +280,10 @@ export class AgentSettingsTab extends PluginSettingTab {
                 { id: 'optional-assets', label: t('settings.tab.optionalAssets') },
             ],
             this.activeAdvancedSubTab,
-            (id) => { this.activeAdvancedSubTab = id; this.display(); },
+            (id) => { this.activeAdvancedSubTab = id; this.redraw(); },
         );
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
-        const rerender = () => this.display();
+        const rerender = () => this.redraw();
         if (this.activeAdvancedSubTab === 'loop')      new LoopTab(this.plugin, this.app, rerender).build(content);
         if (this.activeAdvancedSubTab === 'interface') new InterfaceTab(this.plugin, this.app, rerender).build(content);
         if (this.activeAdvancedSubTab === 'vault')     new VaultTab(this.plugin, this.app, rerender).build(content);

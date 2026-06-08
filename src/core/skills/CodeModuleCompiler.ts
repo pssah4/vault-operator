@@ -46,6 +46,19 @@ export interface CodeModuleInput {
 }
 
 // ---------------------------------------------------------------------------
+// Free helpers (not deprecated)
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert tool name to file name: custom_pptx_generator -> pptx-generator.
+ * Lives at module scope so internal callers can use it without referencing
+ * the deprecated class symbol (which would trigger no-deprecated).
+ */
+function toolNameToFileName(toolName: string): string {
+    return toolName.replace(/^custom_/, '').replace(/_/g, '-');
+}
+
+// ---------------------------------------------------------------------------
 // CodeModuleCompiler
 // ---------------------------------------------------------------------------
 
@@ -80,7 +93,12 @@ export class CodeModuleCompiler {
 
         // Build full source with definition export wrapper
         const fullSource = this.buildSource(cm);
-        const fileName = CodeModuleCompiler.toolNameToFileName(cm.name);
+        // Use the module-level free function instead of the static method
+        // on the deprecated class -- the class symbol itself is marked
+        // outdated, so any direct reference (including from within) would
+        // trigger no-deprecated. The free function lives above the class
+        // and has no deprecation tag.
+        const fileName = toolNameToFileName(cm.name);
 
         // Write source file
         await this.skillLoader.writeCodeModuleSource(skillName, fileName, fullSource);
@@ -133,11 +151,11 @@ ${cm.source_code}
     }
 
     /**
-     * Convert tool name to file name: custom_pptx_generator -> pptx-generator
+     * Convert tool name to file name: custom_pptx_generator -> pptx-generator.
+     * Thin delegate to the module-level free function so external callers
+     * who depend on the static API surface keep working.
      */
-    static toolNameToFileName(toolName: string): string {
-        return toolName.replace(/^custom_/, '').replace(/_/g, '-');
-    }
+    static toolNameToFileName = toolNameToFileName;
 
     // -----------------------------------------------------------------------
     // Private

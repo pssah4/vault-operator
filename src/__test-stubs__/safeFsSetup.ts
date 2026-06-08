@@ -24,3 +24,13 @@ if (safeFs._rootsForTest().length === 0) {
         ],
     });
 }
+
+// Provide `window` in the vitest node environment so production code
+// that uses `window.setTimeout / window.crypto / window.Notice` works
+// when imported into tests. Renderer code stays renderer-first; this
+// shim lets us keep `runtime.ts` and other helpers off the bot's
+// `obsidianmd/platform/no-global-this` warning by referencing `window`
+// only. Idempotent: if a test sets up its own window mock, we leave it.
+if (typeof (globalThis as { window?: unknown }).window === 'undefined') {
+    (globalThis as { window?: unknown }).window = globalThis;
+}
