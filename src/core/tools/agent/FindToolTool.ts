@@ -51,7 +51,6 @@ export class FindToolTool extends BaseTool<'find_tool'> {
         };
     }
 
-    // eslint-disable-next-line @typescript-eslint/require-await -- BaseTool contract requires a Promise<void> return; this tool's work is CPU-bound only
     async execute(input: Record<string, unknown>, context: ToolExecutionContext): Promise<void> {
         const { callbacks } = context;
         const rawQuery = ((input.query as string) ?? '').trim().toLowerCase();
@@ -129,8 +128,34 @@ export class FindToolTool extends BaseTool<'find_tool'> {
             return;
         }
 
+        // ADR-26 Recall-feeds-Retrieval: the discovery edge (this turn's
+        // task -> this tool) is the lesson Stigmergy needs to learn so a
+        // future repeat of the same task can pre-activate the tool via
+        // pathGuidance.path without going through find_tool. Emit the
+        // capability_invoked + capability_returned(success=true) pair on
+        // the active turn for each tool we just activated. Gated on
+        // turn.enabled (NOOP_TURN fast-paths skip the await), non-fatal
+        // (the adapter swallows transport errors). The id matches what
+        // the tool registers with the daemon (the bare tool name), so
+        // no phantom nodes appear in the substrate.
+        const stigmergyTurn = context.stigmergyTurn;
+        const stigmergyOn = stigmergyTurn?.enabled === true;
         for (const match of top) {
             context.activateDeferredTool(match.name);
+            if (stigmergyOn) {
+                try {
+                    await stigmergyTurn.emitInvoked(match.name);
+                    await stigmergyTurn.emitReturned(match.name, true);
+                } catch (e) {
+                    // Non-fatal by contract -- adapter already wraps the
+                    // raw emit; a thrown error here means the adapter
+                    // itself misbehaved. Log and continue.
+                    console.debug(
+                        `[find_tool] stigmergy emit for "${match.name}" failed (non-fatal):`,
+                        e instanceof Error ? e.message : e,
+                    );
+                }
+            }
         }
 
         const lines = top.map((m) => `- ${m.name}: ${m.description}`);

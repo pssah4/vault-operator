@@ -175,8 +175,8 @@ onMounted(() => {
 <template>
   <section class="landing-hero">
     <a href="https://github.com/pssah4/vault-operator/releases" class="landing-badge" target="_blank" rel="noopener">
-      <span class="landing-badge-version">v2.12</span>
-      <span>Seven correctness fixes from a focused code-review, plus a Themen/Konzepte property discipline in the ingest skills.</span>
+      <span class="landing-badge-version">v2.13</span>
+      <span>Recipe promotion learns from advisor-pinned sequences in a single run.</span>
     </a>
 
     <h1 class="landing-title">Your Obsidian vault,<br>with a real AI Agent.</h1>

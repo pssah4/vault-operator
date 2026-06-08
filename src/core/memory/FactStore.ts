@@ -17,6 +17,7 @@
 
 import type { MemoryDB } from '../knowledge/MemoryDB';
 import { AuditLog } from './AuditLog';
+import { normalizeTopics } from './topicSlug';
 
 export type FactKind = 'fact' | 'preference' | 'identity' | 'event';
 
@@ -98,6 +99,12 @@ export class FactStore {
 
     insert(input: NewFactInput): Fact {
         validateInput(input);
+        // FEAT-32-03 PR 3.2 / Audit Finding 17: normalize topics on the
+        // write side so the inverted index stores `plan-mode` regardless
+        // of whether the extractor produced `Plan Mode`, ` plan-mode `,
+        // or `planMode`. Existing rows are migrated by the
+        // MemoryV2UpgradeOrchestrator one-time backfill (separate FIX).
+        const normalizedTopics = normalizeTopics(input.topics);
         const now = new Date().toISOString();
         const db = this.memoryDB.getDB();
         db.run(
@@ -108,7 +115,7 @@ export class FactStore {
              VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, 1, ?)`,
             [
                 input.text,
-                JSON.stringify(input.topics),
+                JSON.stringify(normalizedTopics),
                 input.importance ?? 0.5,
                 input.kind ?? 'fact',
                 now,

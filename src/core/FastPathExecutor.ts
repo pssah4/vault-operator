@@ -135,6 +135,16 @@ export class FastPathExecutor {
         // FIX-H (ADR-090 follow-up): forward the parent task's readFiles set so
         // FastPath stage-2 reads contribute to todo-verification.
         readFiles?: Set<string>,
+        // FEAT-32-02 PR 2.2 / ADR-133: optional callback invoked for every
+        // successful FastPath tool dispatch so AgentTask can record the call
+        // into the episodic ToolRepetitionDetector (`recordForEpisodeOnly`),
+        // independent of the Pipeline-driven repetition window.
+        onToolRecorded?: (
+            tool: string,
+            input: Record<string, unknown>,
+            summary: string,
+            source: 'fastpath',
+        ) => void,
     ): Promise<FastPathResult> {
         const failed: FastPathResult = { success: false, historyEntries: [], toolCallsExecuted: 0 };
 
@@ -172,6 +182,15 @@ export class FastPathExecutor {
 
                 allResults.push(...searchResults);
                 toolCallsExecuted += searchResults.length;
+                // FEAT-32-02 PR 2.2 / ADR-133: feed successful FastPath tools
+                // into the episodic detector so the toolSequence is complete.
+                if (onToolRecorded) {
+                    for (const r of searchResults) {
+                        if (!r.isError) {
+                            onToolRecorded(r.tool, r.input, r.content.slice(0, 200), 'fastpath');
+                        }
+                    }
+                }
 
                 // ── Stage 2: Read (externalization DISABLED — Presenter needs full
                 //    file content to write a quality summary) ──────────────────────
@@ -220,6 +239,15 @@ export class FastPathExecutor {
                         const readResults = await this.executeBatch(filteredRead, callbacks, abortSignal, readFiles);
                         allResults.push(...readResults);
                         toolCallsExecuted += readResults.length;
+                        // FEAT-32-02 PR 2.2 / ADR-133: episodic recording for
+                        // stage-2 reads (same gate as stage 1).
+                        if (onToolRecorded) {
+                            for (const r of readResults) {
+                                if (!r.isError) {
+                                    onToolRecorded(r.tool, r.input, r.content.slice(0, 200), 'fastpath');
+                                }
+                            }
+                        }
                     }
 
                     externalizer?.enable();
@@ -350,6 +378,7 @@ export class FastPathExecutor {
                         { type: 'tool_use', id, name: call.tool as ToolName, input: call.input },
                         callbacks,
                         readFiles ? { readFiles } : undefined,
+                        { source: 'fastpath' },
                     );
                     return {
                         tool: call.tool,
@@ -369,6 +398,7 @@ export class FastPathExecutor {
                 { type: 'tool_use', id, name: call.tool as ToolName, input: call.input },
                 callbacks,
                 readFiles ? { readFiles } : undefined,
+                { source: 'fastpath' },
             );
             results.push({
                 tool: call.tool,

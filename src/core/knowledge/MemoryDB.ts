@@ -23,7 +23,7 @@ import type { SqlJsDatabase } from './KnowledgeDB';
 // Schema versioning
 // ---------------------------------------------------------------------------
 
-export const MEMORY_SCHEMA_VERSION = 4;
+export const MEMORY_SCHEMA_VERSION = 5;
 
 // ---------------------------------------------------------------------------
 // v1 schema -- legacy memory pipeline (unchanged from FEATURE-1505)
@@ -296,6 +296,9 @@ export class MemoryDB {
         // SingleCallExtractor can pull only new messages and persist a
         // ~200 token rolling summary.
         this.applyV4ConversationDeltaColumns(db);
+        // Phase 5 (FEAT-32-02 / ADR-133): Stigmergy decision snapshot per
+        // episode. Additive TEXT column on the existing `episodes` table.
+        this.applyV5StigmergyColumn(db);
         this.bumpSchemaVersion(db);
         console.debug(`[MemoryDB] Schema initialized (version ${MEMORY_SCHEMA_VERSION})`);
     }
@@ -329,6 +332,27 @@ export class MemoryDB {
         }
         if (!names.includes('delta_summary')) {
             db.run(`ALTER TABLE conversation_threads ADD COLUMN delta_summary TEXT`);
+        }
+    }
+
+    /**
+     * Idempotent ADD COLUMN for episodes.stigmergy_json (FEAT-32-02 / ADR-133).
+     * Skips when the column already exists. The column persists the per-turn
+     * Stigmergy decision snapshot ({ enabled, mode, pinnedPath,
+     * guidanceTextSuppressed, recipeWinner }) as a JSON string. Old rows
+     * keep `stigmergy_json = NULL`; the EpisodicExtractor SELECT path parses
+     * defensively. Additive: no existing reader breaks, no existing row is
+     * touched. FIX-12-Lehre: the schema bump runs inside MemoryDB.open()
+     * BEFORE any concurrent writer (SemanticIndex, ExtractionQueue) wakes
+     * up; sql.js is single-threaded so no extra WriterLock is required at
+     * this level.
+     */
+    private applyV5StigmergyColumn(db: SqlJsDatabase): void {
+        const cols = db.exec('PRAGMA table_info(episodes)');
+        if (cols.length === 0) return;
+        const names = cols[0].values.map((r) => r[1] as string);
+        if (!names.includes('stigmergy_json')) {
+            db.run('ALTER TABLE episodes ADD COLUMN stigmergy_json TEXT');
         }
     }
 

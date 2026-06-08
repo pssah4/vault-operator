@@ -318,6 +318,28 @@ export interface ToolExecutionContext {
      * rebuildPromptCache. No-op if the tool is already active or not deferred.
      */
     activateDeferredTool?: (toolName: string) => void;
+
+    /**
+     * Active Stigmergy turn (StigmergyAdapter) for the current AgentTask.
+     * Threaded through so the inner dispatch points of dispatcher tools
+     * (use_mcp_tool, read_skill / invoke_skill) can emit lifecycle events
+     * with a namespaced capability id (`mcp:<server>:<tool>`,
+     * `skill:<name>`) -- otherwise the substrate only sees the outer
+     * dispatcher tool that the pipeline already instruments. Undefined or
+     * `enabled === false` means observe-only mode is off; tools should
+     * fast-path on that and skip the emits without awaiting anything.
+     */
+    stigmergyTurn?: import('../stigmergy/StigmergyAdapter').StigmergyTurn;
+
+    /**
+     * Source of the dispatch (FEAT-32-01 PR 1.2 / ADR-131). Propagated by
+     * the Pipeline into the tool's ToolExecutionContext so dispatcher tools
+     * (use_mcp_tool, invoke_skill, read_skill) can suppress their inner
+     * `capability_invoked` / `capability_returned` emits when the outer call
+     * was driven by FastPath rather than the model. Default `'model'` keeps
+     * backward compatibility for callers that have not been migrated.
+     */
+    dispatchSource?: import('../stigmergy/stigmergyEmitGate').DispatchSource;
 }
 
 /**

@@ -15,6 +15,38 @@ import type { FileAdapter } from '../storage/types';
 import type { MemoryDB } from '../knowledge/MemoryDB';
 import type { SemanticIndexService } from '../semantic/SemanticIndexService';
 
+/**
+ * Stigmergy decision snapshot persisted with an episode (FEAT-32-02 / ADR-133).
+ * Capability ids only -- no user text -- so the snapshot is privacy-safe.
+ * `enabled === false` plus `mode === 'none'` covers daemon-down and NOOP turns;
+ * the SELECT path parses defensively (`undefined` on parse failure).
+ */
+export interface EpisodeStigmergySnapshot {
+    enabled: boolean;
+    mode: 'sequence' | 'enforce' | 'ranked' | 'none';
+    pinnedPath: string[];
+    guidanceTextSuppressed: boolean;
+    recipeWinner: string | null;
+}
+
+/**
+ * AUDIT-036 L-2: runtime shape guard for `EpisodeStigmergySnapshot`. Validates
+ * a JSON-parsed unknown value against the snapshot contract before the
+ * EpisodicExtractor hands it to the promotion gates. Conservative: reject any
+ * field whose type does not match. A manually edited DB or a future writer
+ * that drifts cannot feed garbage downstream.
+ */
+function isEpisodeStigmergySnapshot(value: unknown): value is EpisodeStigmergySnapshot {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+    const v = value as Record<string, unknown>;
+    if (typeof v.enabled !== 'boolean') return false;
+    if (typeof v.guidanceTextSuppressed !== 'boolean') return false;
+    if (v.mode !== 'sequence' && v.mode !== 'enforce' && v.mode !== 'ranked' && v.mode !== 'none') return false;
+    if (!Array.isArray(v.pinnedPath) || !v.pinnedPath.every((s) => typeof s === 'string')) return false;
+    if (v.recipeWinner !== null && typeof v.recipeWinner !== 'string') return false;
+    return true;
+}
+
 export interface TaskEpisode {
     id: string;
     timestamp: string;
@@ -24,6 +56,14 @@ export interface TaskEpisode {
     toolLedger: string;
     success: boolean;
     resultSummary: string;
+    /**
+     * Optional Stigmergy decision snapshot for this turn (FEAT-32-02 / ADR-133).
+     * Absent for legacy rows (v4 DBs) and for turns where the daemon was down
+     * (NOOP_TURN). Present from FEAT-32-02 onward for every turn where the
+     * decision could be captured. Drives RecipePromotionService Gate 1 and
+     * Gate 2.
+     */
+    stigmergy?: EpisodeStigmergySnapshot;
 }
 
 /** Maximum episodes before FIFO eviction starts. */
@@ -75,6 +115,8 @@ export class EpisodicExtractor {
         toolLedger: string;
         success: boolean;
         resultSummary: string;
+        /** FEAT-32-02 / ADR-133: Stigmergy decision snapshot. Optional. */
+        stigmergy?: EpisodeStigmergySnapshot;
     }): Promise<TaskEpisode | null> {
         if (params.toolSequence.length < 2) return null;
 
@@ -87,6 +129,7 @@ export class EpisodicExtractor {
             toolLedger: params.toolLedger.slice(0, 1500),
             success: params.success,
             resultSummary: params.resultSummary.slice(0, 300),
+            stigmergy: params.stigmergy,
         };
 
         try {
@@ -153,9 +196,15 @@ export class EpisodicExtractor {
 
     private insertToDB(episode: TaskEpisode): void {
         const db = this.memoryDB!.getDB();
+        // FEAT-32-02 / ADR-133: persist Stigmergy snapshot in `stigmergy_json`.
+        // The column is additive (v4 -> v5) and accepts NULL for legacy
+        // callers that have not been migrated to pass the snapshot.
+        const stigmergyJson = episode.stigmergy
+            ? JSON.stringify(episode.stigmergy)
+            : null;
         db.run(
-            `INSERT INTO episodes (id, user_message, mode, tool_sequence, tool_ledger, success, result_summary, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO episodes (id, user_message, mode, tool_sequence, tool_ledger, success, result_summary, created_at, stigmergy_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 episode.id,
                 episode.userMessage,
@@ -165,6 +214,7 @@ export class EpisodicExtractor {
                 episode.success ? 1 : 0,
                 episode.resultSummary,
                 episode.timestamp,
+                stigmergyJson,
             ],
         );
         this.memoryDB!.markDirty();
@@ -173,11 +223,32 @@ export class EpisodicExtractor {
     private loadEpisodeFromDB(id: string): TaskEpisode | null {
         const db = this.memoryDB!.getDB();
         const result = db.exec(
-            'SELECT id, user_message, mode, tool_sequence, tool_ledger, success, result_summary, created_at FROM episodes WHERE id = ?',
+            'SELECT id, user_message, mode, tool_sequence, tool_ledger, success, result_summary, created_at, stigmergy_json FROM episodes WHERE id = ?',
             [id],
         );
         if (result.length === 0 || result[0].values.length === 0) return null;
         const row = result[0].values[0];
+        // FEAT-32-02 / ADR-133: defensive parse so a malformed snapshot does
+        // not break episode loading. Returns `undefined` for legacy v4 rows
+        // (column added but row pre-dates it) and for malformed JSON.
+        // AUDIT-036 L-2: also reject parses that succeed but produce a
+        // non-object or an object missing the required fields, so a
+        // manually-edited DB or a future writer that drifts from the contract
+        // cannot feed garbage to the promotion gates.
+        let stigmergy: EpisodeStigmergySnapshot | undefined;
+        const rawSnap = row[8] as string | null | undefined;
+        if (rawSnap) {
+            try {
+                const parsed: unknown = JSON.parse(rawSnap);
+                if (isEpisodeStigmergySnapshot(parsed)) {
+                    stigmergy = parsed;
+                } else {
+                    console.debug('[EpisodicExtractor] stigmergy_json failed shape validation, ignoring');
+                }
+            } catch (e) {
+                console.debug('[EpisodicExtractor] Malformed stigmergy_json, ignoring:', e);
+            }
+        }
         return {
             id: row[0] as string,
             timestamp: row[7] as string,
@@ -187,12 +258,16 @@ export class EpisodicExtractor {
             toolLedger: (row[4] as string) ?? '',
             success: (row[5] as number) === 1,
             resultSummary: (row[6] as string) ?? '',
+            stigmergy,
         };
     }
 
     private evictOldestFromDB(): void {
         const db = this.memoryDB!.getDB();
-        db.run('DELETE FROM episodes WHERE id = (SELECT id FROM episodes ORDER BY created_at ASC LIMIT 1)');
+        // FEAT-32-02 / ADR-133: ORDER BY rowid (monotonic per INSERT) instead
+        // of created_at TEXT. Clock-skew (manual datetime reset, multi-device
+        // sync) could otherwise evict the wrong row.
+        db.run('DELETE FROM episodes WHERE id = (SELECT id FROM episodes ORDER BY rowid ASC LIMIT 1)');
         this.memoryDB!.markDirty();
         this.episodeCount = Math.max(0, this.episodeCount - 1);
     }

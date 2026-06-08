@@ -4612,3 +4612,54 @@ User-initiated `/release` continues with Schritt 5 (merge-to-dev) on
 the existing `fix/code-review-7-findings` branch.
 
 Report: `_devprocess/analysis/AUDIT-034-v2.12.8-2026-05-31.md`.
+
+---
+
+## 2026-06-07 -- EPIC-32 Stigmergy-VO Vertrag und Haertung: Coding + Security Audit -> Release Closure
+
+**Phase:** Coding (Phase 1+2+3 implementiert) + Security Audit (AUDIT-036) abgeschlossen. Ready for Release Closure auf branch `stigmergy-test`.
+
+### Artefakte erzeugt
+
+- AUDIT-036: `_devprocess/analysis/AUDIT-036-epic32-stigmergy-hardening-2026-06-07.md` (Per-Item Delta auf AUDIT-035)
+- V-Model-Doku: EPIC-32, FEAT-32-01/02/03, ADR-130/131/132/133, arc42 Sektion 8.16
+- Code: 14 modifizierte Source-Files plus 4 neue Helper-Module (`precedenceResolver`, `stigmergyEmitGate`, `topicSlug`, `withTimeout`) plus 1 DB-Schema-Migration v4 -> v5
+- Tests: 75 / 75 GREEN ueber 10 neue Test-Suites
+
+### Overall risk verdict
+
+**Low** (Release-readiness GREEN). 8 Findings initial (0 H, 1 M, 5 L, 2 I); nach Fix-Loop 0 H, 0 M, 0 L, 2 I (beide akzeptiert per Design).
+
+### Unresolved P0 / P1
+
+Keine.
+
+### Resolved im Fix-Loop
+
+- **M-1** hono <4.12.21 (4 GHSA-Advisories transitiv via @modelcontextprotocol/sdk): `package.json` overrides bumped auf `>=4.12.21`, npm audit jetzt 0 vulns ueber 1010 packages.
+- **L-1** `__testHooks` runtime export: NODE_ENV-Guard, Production-Bundle shipped `undefined`, tree-shake-bar.
+- **L-2** JSON-Shape-Validation fuer `stigmergy_json`: Runtime type guard `isEpisodeStigmergySnapshot` rejected malformed snapshots vor Promotion-Gates.
+- **L-3** Pipeline source trust boundary: `[Substrate-Skip]` debug log macht non-model dispatches sichtbar fuer Code-Review-Grep.
+- **L-4** LLM01 adjacency in `promoteFromStigmergyPath`: User-Message in `<user_message>`-Markern, ASCII-control-strip, 500-Char-Cap, System-Prompt-Instruktion gegen Imperative im Marker-Block.
+- **L-5** `appendGuidanceText` shallow-copy: Input-Typ verstaerkt auf `ReadonlyArray<UserContentBlock>`, Contract-Doc explizit, kein Deep-Clone (Hot-Path).
+
+### Deferred (bleiben akzeptiert per Design)
+
+- **I-1** `withTimeout` abortet inner Promise nicht: bounded fuer aktuellen Caller (`discoverSkills`, Read-only Files). Erweitern um `AbortSignal` wenn erster heavy Caller auftaucht.
+- **I-2** MemoryDB v5 Migration ohne expliziten WriterLock: additiv `ADD COLUMN` ohne Row-Mutation, sql.js single-threaded, kein Korruptionsfenster. ADR-133 dokumentiert die FIX-12-Lehre fuer kuenftige spaltenmutierende Migrationen.
+- **FIX-32-03-01/02/03** Pause-Notice, SingleCallProcessor Abort, ExtractionQueue Retry-Backoff: deferred ins Backlog (siehe BACKLOG.md), brauchen separate Plumb-Schritte mit isolierten Live-Tests.
+
+### Architectural security concerns
+
+Keine. Die Stigmergy-Integration bleibt eine externe Beratungsschicht ohne Code-Execution-Surface zum Plugin (Socket-RPC liefert nur Capability-IDs und Mode-Enums; jeder Pfad ist NOOP-faehig). Episode-Snapshot persistiert nur Capability-IDs, keine User-Texte, Privacy-safe by construction. Recipe-Promotion-Pfade laufen durch dieselben Length-Caps und Schema-Validierung wie ADR-058.
+
+### Release Recommendation
+
+GREEN. Merge `stigmergy-test` -> `dev` -> `main` ready. v2.12.9 oder v2.13.0 Release-Cycle kann starten.
+
+### Next step
+
+User-initiated `/release` oder `/dia-orchestrator` fuer Phase 7 (Release Closure: Version bump, Release Notes, sync-public, GitHub Release).
+
+Report: `_devprocess/analysis/AUDIT-036-epic32-stigmergy-hardening-2026-06-07.md`.
+
