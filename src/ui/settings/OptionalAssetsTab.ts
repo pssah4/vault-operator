@@ -2,6 +2,22 @@ import { App, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
 import { addSectionHeading } from './utils';
+// Top-level imports for the three committed modules. Avoids the
+// dynamic-import-derived "Unsafe object destructuring" warnings the review
+// bot reported in v2.13.0 when the promise's resolved type widened to
+// `error`. The OptionalAssetManager + assetHashes + renderOptionalAssetBlock
+// modules are part of the regular source tree and import cost is bounded
+// to one extra eager load per Settings open.
+import {
+    buildOfficeBundleSpec,
+    buildPdfjsBundleSpec,
+    buildSelfDevSourceSpec,
+} from '../../core/assets/OptionalAssetManager';
+import {
+    OFFICE_BUNDLE_SHA256,
+    PDFJS_BUNDLE_SHA256,
+} from '../../core/assets/assetHashes';
+import { renderOptionalAssetBlock } from './renderOptionalAssetBlock';
 
 
 export class OptionalAssetsTab {
@@ -24,14 +40,14 @@ export class OptionalAssetsTab {
             t('settings.optionalAssets.headingOffice'),
             { body: t('settings.optionalAssets.sectionOfficeInfo') },
         );
-        void this.renderOfficeBundle(containerEl);
+        this.renderOfficeBundle(containerEl);
 
         addSectionHeading(
             containerEl,
             t('settings.optionalAssets.headingPdf'),
             { body: t('settings.optionalAssets.sectionPdfInfo') },
         );
-        void this.renderPdfjsBundle(containerEl);
+        this.renderPdfjsBundle(containerEl);
 
         addSectionHeading(
             containerEl,
@@ -41,10 +57,7 @@ export class OptionalAssetsTab {
         void this.renderSelfDevSource(containerEl);
     }
 
-    private async renderOfficeBundle(containerEl: HTMLElement): Promise<void> {
-        const { buildOfficeBundleSpec } = await import('../../core/assets/OptionalAssetManager');
-        const { OFFICE_BUNDLE_SHA256 } = await import('../../core/assets/assetHashes');
-        const { renderOptionalAssetBlock } = await import('./renderOptionalAssetBlock');
+    private renderOfficeBundle(containerEl: HTMLElement): void {
         const version = this.plugin.manifest.version;
         renderOptionalAssetBlock({
             plugin: this.plugin,
@@ -58,10 +71,7 @@ export class OptionalAssetsTab {
         });
     }
 
-    private async renderPdfjsBundle(containerEl: HTMLElement): Promise<void> {
-        const { buildPdfjsBundleSpec } = await import('../../core/assets/OptionalAssetManager');
-        const { PDFJS_BUNDLE_SHA256 } = await import('../../core/assets/assetHashes');
-        const { renderOptionalAssetBlock } = await import('./renderOptionalAssetBlock');
+    private renderPdfjsBundle(containerEl: HTMLElement): void {
         const version = this.plugin.manifest.version;
         renderOptionalAssetBlock({
             plugin: this.plugin,
@@ -76,9 +86,12 @@ export class OptionalAssetsTab {
     }
 
     private async renderSelfDevSource(containerEl: HTMLElement): Promise<void> {
-        const { buildSelfDevSourceSpec } = await import('../../core/assets/OptionalAssetManager');
-        const { SELF_DEV_SOURCE_SHA256 } = await import('../../_generated/source-hash');
-        const { renderOptionalAssetBlock } = await import('./renderOptionalAssetBlock');
+        // _generated/source-hash is gitignored: the file only exists after
+        // `npm run build` produces it. Use Pattern H (explicit shape cast)
+        // so ESLint trusts the destructured type even when the file is not
+        // present at lint time.
+        const sourceHashMod = (await import('../../_generated/source-hash')) as { SELF_DEV_SOURCE_SHA256: string };
+        const { SELF_DEV_SOURCE_SHA256 } = sourceHashMod;
         const version = this.plugin.manifest.version;
         renderOptionalAssetBlock({
             plugin: this.plugin,

@@ -16,6 +16,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import { withNoticeCapture, type CapturedNotice } from '../../utils/NoticeCapture';
+import { globalRef } from '../../utils/runtime';
 
 export class ExecuteCommandTool extends BaseTool<'execute_command'> {
     readonly name = 'execute_command' as const;
@@ -80,11 +81,12 @@ export class ExecuteCommandTool extends BaseTool<'execute_command'> {
             // failures surface in tool_result. Includes a 250ms async tail
             // window for plugins that raise their notice slightly after
             // executeCommandById returns.
-            // ExecuteCommandTool runs in the renderer; `window` carries the
-            // global `Notice` constructor. Replaces the previous globalThis
-            // cast (review-bot Tier 3 `no-global-this`).
+            // Notice constructor sits on the global object. globalRef()
+            // centralises the renderer/node-test fallback in runtime.ts so
+            // this file does not reference globalThis or window directly
+            // (review-bot Tier 3 `no-global-this`).
             const capture = await withNoticeCapture(
-                window as { Notice?: unknown },
+                globalRef<{ Notice?: unknown }>(),
                 () => {
                     this.app.commands.executeCommandById(commandId);
                 },

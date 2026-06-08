@@ -10,7 +10,12 @@
  * Used by AgentTask to wrap `skillsManager.discoverSkills()` so a hanging
  * plugin-skill discovery cannot block the Stigmergy capability registration
  * (Audit Finding 26).
+ *
+ * Timer access goes through `src/core/utils/runtime.ts` so the cross-env
+ * `globalThis` fallback lives in exactly one place (review-bot Tier 3).
  */
+
+import { safeSetTimeout, safeClearTimeout } from './runtime';
 
 export class TimeoutError extends Error {
     constructor(public readonly label: string, public readonly ms: number) {
@@ -24,25 +29,17 @@ export function withTimeout<T>(
     ms: number,
     label: string,
 ): Promise<T> {
-    // Obsidian popout-window-compat (review-bot Tier 3): prefer
-    // `window.setTimeout/clearTimeout` in renderer context. Tests run in
-    // node where `window` is undefined; we fall back to the global
-    // setTimeout/clearTimeout there. The helper export is renderer-first;
-    // node usage is incidental (unit tests only). The cast captures the
-    // signature without dragging in NodeJS.Timeout vs number duality.
-    const ctx: { setTimeout: typeof setTimeout; clearTimeout: typeof clearTimeout } =
-        typeof window !== 'undefined' ? window : globalThis;
     return new Promise<T>((resolve, reject) => {
-        const timer = ctx.setTimeout(() => {
+        const timer = safeSetTimeout(() => {
             reject(new TimeoutError(label, ms));
         }, ms);
         promise.then(
             (value) => {
-                ctx.clearTimeout(timer);
+                safeClearTimeout(timer);
                 resolve(value);
             },
             (err: unknown) => {
-                ctx.clearTimeout(timer);
+                safeClearTimeout(timer);
                 // Re-wrap non-Error rejections so the promise contract
                 // (`@typescript-eslint/prefer-promise-reject-errors`) holds
                 // even when the inner promise rejected with a string or

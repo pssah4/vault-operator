@@ -108,11 +108,10 @@ class ConfirmModalImpl extends Modal {
                 .onClick(() => this.decide(false)))
             .addButton((btn) => {
                 btn.setButtonText(opts.confirmLabel ?? 'Confirm').setCta();
-                // setWarning() is the right API on minAppVersion 1.8.7. The
-                // bot's deprecation hint targets setDestructive() which is
-                // only available since Obsidian 1.13.0. Migrate when
-                // minAppVersion is bumped to >= 1.13.0.
-                if (opts.destructive) btn.setWarning();
+                // setDestructive (Obsidian 1.13.0+) replaces setWarning;
+                // combined with setCta() it produces a destructive primary
+                // action. manifest.minAppVersion is gated to >= 1.13.0.
+                if (opts.destructive) btn.setDestructive();
                 btn.onClick(() => this.decide(true));
             });
     }

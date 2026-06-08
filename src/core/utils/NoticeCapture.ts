@@ -29,6 +29,8 @@
  *    capture stops and a single overflow marker is appended.
  */
 
+import { safeSetTimeout } from './runtime';
+
 export interface CapturedNotice {
     text: string;
     likely_severity: 'success' | 'warning' | 'error' | 'unknown';
@@ -201,13 +203,11 @@ export async function withNoticeCapture<T>(
         // Keep patch active for the async tail window so plugins that
         // raise notices after their command returns still land in capture.
         if (tailMs > 0) {
+            // safeSetTimeout centralises the renderer/node-test fallback in
+            // src/core/utils/runtime.ts so this file does not need to
+            // reference globalThis directly (review-bot Tier 3).
             await new Promise<void>((res) => {
-                // setTimeout reference falls back to globalThis when in a non-DOM env.
-                const setT: (cb: () => void, ms: number) => unknown =
-                    (typeof window !== 'undefined' && typeof window.setTimeout === 'function')
-                        ? (window.setTimeout.bind(window) as (cb: () => void, ms: number) => unknown)
-                        : (globalThis as { setTimeout: (cb: () => void, ms: number) => unknown }).setTimeout;
-                setT(() => res(), tailMs);
+                safeSetTimeout(() => res(), tailMs);
             });
         }
     } finally {
