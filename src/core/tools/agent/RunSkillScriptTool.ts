@@ -27,12 +27,6 @@ import { getSelfAuthoredSkillsDir } from '../../utils/agentFolder';
 import { RunSkillScriptCache } from '../../sandbox/RunSkillScriptCache';
 import { isSafePathSegment } from '../../utils/safePathName';
 
-interface RunSkillScriptArgs {
-    skill_name: string;
-    script_name: string;
-    args?: Record<string, unknown>;
-}
-
 export class RunSkillScriptTool extends BaseTool<'run_skill_script'> {
     readonly name = 'run_skill_script' as const;
     // Scripts can mutate state, do HTTP, write files. Treat as write op so
