@@ -270,7 +270,10 @@ async function contentHash(files: BackupFile[]): Promise<string> {
         buf.set(c, offset);
         offset += c.byteLength;
     }
-    const cryptoLike = (globalThis as { crypto?: { subtle?: SubtleCrypto } }).crypto;
+    // BackupExportService runs in the renderer; `window.crypto.subtle` is
+    // the standard Web Crypto handle. Replaces the previous globalThis cast
+    // (review-bot Tier 3 `no-global-this`).
+    const cryptoLike = (window as { crypto?: { subtle?: SubtleCrypto } }).crypto;
     if (cryptoLike?.subtle) {
         const digest = await cryptoLike.subtle.digest('SHA-256', buf);
         return Array.from(new Uint8Array(digest))

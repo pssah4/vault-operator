@@ -173,7 +173,6 @@ export function classifyModelTier(
     if (pricingTier) {
         // Outlier signal: pricing-only classification means our pattern table
         // doesn't know this id. Surface it so we can extend the table later.
-        // eslint-disable-next-line no-console -- review-bot allows .debug
         console.debug(
             `[ModelTierClassifier] outlier (pricing-only): id=${modelId} normalized=${normalized} -> ${pricingTier}`,
         );
@@ -182,14 +181,12 @@ export function classifyModelTier(
 
     const capTier = classifyByCapability(opts.modelInfo);
     if (capTier) {
-        // eslint-disable-next-line no-console -- review-bot allows .debug
         console.debug(
             `[ModelTierClassifier] outlier (capability-only): id=${modelId} normalized=${normalized} -> ${capTier}`,
         );
         return { tier: capTier, source: 'capability' };
     }
 
-    // eslint-disable-next-line no-console -- review-bot allows .debug
     console.debug(
         `[ModelTierClassifier] unclassified: id=${modelId} normalized=${normalized} providerType=${opts.providerType ?? 'unknown'}`,
     );

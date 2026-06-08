@@ -17,8 +17,6 @@ import {
     getPluginSkillsDir,
     getPluginSkillManifestPath,
     getPluginSkillFolderPath,
-    getPluginSkillReadmePath,
-    getPluginSkillCommandsRefPath,
     getVaultDnaPath,
 } from '../utils/agentFolder';
 import type { ObsidianAgentSettings } from '../../types/settings';

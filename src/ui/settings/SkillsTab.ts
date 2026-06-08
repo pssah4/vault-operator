@@ -11,7 +11,6 @@ import {
     getPluginSkillsDir,
     getPluginSkillManifestPath,
     getPluginSkillFolderPath,
-    getPluginSkillReadmePath,
     getSelfAuthoredSkillsDir,
 } from '../../core/utils/agentFolder';
 import { importSkill, detectSourceFromFile, SkillPackageImportError, SkillFolderImportError } from '../../core/skills/SkillImportRouter';

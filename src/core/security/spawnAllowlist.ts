@@ -111,4 +111,4 @@ export function _allowedForTest(): string[] {
     return Object.keys(ALLOWED_BINARIES);
 }
 
-/* eslint-enable @typescript-eslint/no-require-imports -- end of spawnAllowlist file scope */
+/* eslint-enable @typescript-eslint/no-require-imports, security/detect-child-process -- end of spawnAllowlist file scope (review-bot Tier 4: both disabled rules need matching enable) */
