@@ -18,14 +18,6 @@ export const RERANKER_WASM_SHA256 = 'f4f290847a4df02d0b93cdbf39b4b0e71acefbe8057
 
 // OFFICE_BUNDLE_SHA256 + PDFJS_BUNDLE_SHA256 live in
 // src/_generated/asset-bundle-hashes.ts, regenerated on every build by
-// generateOfficeBundles(). Re-exported here with an explicit string
-// annotation so the type stays sharp even when the generated file is
-// absent at lint time (review-bot CI fresh-clone scenario).
-import {
-    OFFICE_BUNDLE_SHA256 as _OFFICE_BUNDLE_SHA256,
-    PDFJS_BUNDLE_SHA256 as _PDFJS_BUNDLE_SHA256,
-} from '../../_generated/asset-bundle-hashes';
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- pinned `string` keeps callers safe when _generated/ is absent at bot CI lint time
-export const OFFICE_BUNDLE_SHA256: string = _OFFICE_BUNDLE_SHA256 as string;
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- pinned `string` keeps callers safe when _generated/ is absent at bot CI lint time
-export const PDFJS_BUNDLE_SHA256: string = _PDFJS_BUNDLE_SHA256 as string;
+// generateOfficeBundles(). Re-exported here so the rest of the codebase
+// imports asset SHAs from one place.
+export { OFFICE_BUNDLE_SHA256, PDFJS_BUNDLE_SHA256 } from '../../_generated/asset-bundle-hashes';
