@@ -1057,7 +1057,18 @@ export class VaultTab {
             destructive: true,
         });
 
-        const materializer = new TemplateMaterializer(this.app, BUNDLED_NOTE_TEMPLATES);
+        // Explicit cast (Pattern H): BUNDLED_NOTE_TEMPLATES comes from
+        // src/_generated/ which is gitignored. ESLint widens the type to
+        // `error` at the bot's CI lint time when the generated file is
+        // absent; the cast pins the contract the generator is guaranteed
+        // to produce. Local ESLint sees the file present and flags the
+        // cast as "unnecessary"; we silence that one rule on the cast
+        // expression itself with the documented reason.
+        const materializer = new TemplateMaterializer(
+            this.app,
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast is necessary at bot CI when _generated/bundled-templates is not yet present (Pattern H)
+            BUNDLED_NOTE_TEMPLATES as Record<string, Record<string, string>>,
+        );
         const translator = (lang !== 'de' && lang !== 'en')
             ? makeTemplateTranslator(this.plugin)
             : undefined;

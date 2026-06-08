@@ -71,19 +71,23 @@ export class RerankerService {
             // Electron exposes process.versions.node, so transformers'
             // IS_NODE_ENV check is true and it would otherwise try to load
             // the native onnxruntime-node binding (which fails in the
-            // Obsidian sandbox). Pre-populating
-            // globalThis[Symbol.for("onnxruntime")] tips the very first
-            // branch of its ONNX selection chain so the IS_NODE_ENV check
-            // is never reached.
+            // Obsidian sandbox). Pre-populating the onnxruntime symbol on
+            // the global object tips the first branch of transformers'
+            // ONNX selection chain so the IS_NODE_ENV check is never
+            // reached. In Electron `window` IS the global object, so the
+            // symbol is visible via `globalThis[Symbol.for("onnxruntime")]`
+            // which is what transformers actually reads (review-bot Tier 3
+            // prefers `window` over the literal globalThis reference).
             const ortSymbol = Symbol.for('onnxruntime');
-            if (!(ortSymbol in (globalThis as Record<symbol, unknown>))) {
+            const globalSlot = window as unknown as Record<symbol, unknown>;
+            if (!(ortSymbol in globalSlot)) {
                 // onnxruntime-web is a transitive dep of @huggingface/transformers.
                 // Subpath `/webgpu` has no published .d.ts so we silence the
                 // import-resolution error and rely on the runtime resolver.
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- runtime subpath, no type declarations published for /webgpu
                 // @ts-ignore -- runtime subpath, no type declarations
                 const ort = await import('onnxruntime-web/webgpu');
-                (globalThis as Record<symbol, unknown>)[ortSymbol] = ort;
+                globalSlot[ortSymbol] = ort;
             }
 
             const { AutoModelForSequenceClassification, AutoTokenizer, env } = await import('@huggingface/transformers');

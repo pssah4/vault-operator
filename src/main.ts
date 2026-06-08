@@ -128,7 +128,9 @@ function extractUrlsFromText(text: string): string[] {
 }
 
 export default class ObsidianAgentPlugin extends Plugin {
-    settings: ObsidianAgentSettings;
+    // obsidian 1.13.0 declared `settings` on the base Plugin class; we
+    // override with our typed settings, hence the `declare` modifier.
+    declare settings: ObsidianAgentSettings;
     toolRegistry: ToolRegistry;
     apiHandler: ApiHandler | null = null;
     /**
@@ -779,6 +781,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 optIn: this.settings._layoutMigrationOptIn,
                 status: this.settings._layoutMigrationStatus,
                 agentFolderPath: this.settings.agentFolderPath,
+                // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: read legacy chatHistoryFolder to clear it after migration
                 chatHistoryFolder: this.settings.chatHistoryFolder,
                 vaultBasePath,
                 vaultParent,
@@ -789,6 +792,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 const { migrateAgentLayout } = await import('./core/utils/migrateAgentLayout');
                 const knownLegacyDefaults = ['.obsidian-agent', '.obsilo-vault', 'obsilo-vault', '.vault-operator'];
                 const isLegacyDefault = knownLegacyDefaults.includes(this.settings.agentFolderPath ?? '');
+                // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: capture legacy chatHistoryFolder before clearing
                 const chatHistoryFolderLegacyValue = this.settings.chatHistoryFolder?.trim() ?? '';
                 console.debug('[VaultOperator] migrateAgentLayout calling', {
                     isLegacyDefault,
@@ -799,6 +803,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                     vaultParent,
                     pluginDataDir: safeBackupDir,
                     agentFolderPath: this.settings.agentFolderPath ?? '',
+                    // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: read legacy chatHistoryFolder
                     chatHistoryFolder: this.settings.chatHistoryFolder ?? '',
                     currentStatus: this.settings._layoutMigrationStatus ?? 'pending',
                     setStatus: async (status) => {
@@ -819,6 +824,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 }
                 if (chatHistoryFolderLegacyValue) {
                     this.settings._chatHistoryFolderLegacy = chatHistoryFolderLegacyValue;
+                    // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: clear legacy chatHistoryFolder after capturing it
                     this.settings.chatHistoryFolder = '';
                 }
                 this.settings._layoutMigrationStatus = 'complete';
@@ -2364,7 +2370,9 @@ export default class ObsidianAgentPlugin extends Plugin {
         // cannot call tools the mode lacks) and the chat-header pocket-knife
         // now toggles both globally via activeMcpServers and per-tool via
         // modeToolOverrides.
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: clear deprecated per-mode skill allow list (removed 2026-05-18)
         this.settings.modeSkillAllowList = {};
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- back-compat migration: clear deprecated per-mode MCP servers (removed 2026-05-18)
         this.settings.modeMcpServers = {};
         // Migrate source: 'custom' → 'vault' (introduced in Phase 3.1+)
         this.settings.globalCustomInstructions = this.settings.globalCustomInstructions ?? '';

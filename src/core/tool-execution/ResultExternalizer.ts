@@ -13,6 +13,7 @@
  */
 
 import type { FileAdapter } from '../storage/types';
+import { safeSetTimeout } from '../utils/runtime';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -306,10 +307,11 @@ async function removeWithRetry(fs: FileAdapter, path: string): Promise<void> {
     const delays = [0, 150, 500, 1500];
     let lastError: unknown = null;
     for (const delay of delays) {
-        // globalThis.setTimeout works in Electron (browser) and in Node
-        // (vitest). window.setTimeout was browser-only and broke the
-        // BUG-023 + FIX-24-03-03 tests under vitest's default env.
-        if (delay > 0) await new Promise((r) => globalThis.setTimeout(r, delay));
+        // safeSetTimeout works in Electron (browser) and Node (vitest);
+        // the literal globalThis fallback lives in src/core/utils/runtime.ts.
+        // window.setTimeout alone would break the BUG-023 + FIX-24-03-03
+        // tests under vitest's default node env.
+        if (delay > 0) await new Promise((r) => safeSetTimeout(r, delay));
         try {
             await fs.remove(path);
             return;
