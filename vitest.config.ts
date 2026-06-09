@@ -14,13 +14,13 @@ export default defineConfig({
             'bundled-skills/**/__tests__/**/*.test.js',
         ],
         globals: false,
-        setupFiles: [path.resolve(__dirname, 'src/__test-stubs__/safeFsSetup.ts')],
+        setupFiles: [path.resolve(__dirname, 'tests/stubs/safeFsSetup.ts')],
     },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
             // vitest stub for obsidian types (import type only — no runtime import)
-            'obsidian': path.resolve(__dirname, 'src/__test-stubs__/obsidian.ts'),
+            'obsidian': path.resolve(__dirname, 'tests/stubs/obsidian.ts'),
         },
     },
 });

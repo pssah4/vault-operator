@@ -4,9 +4,9 @@
  * Renderer code MUST prefer `window.setTimeout` / `window.clearTimeout`
  * directly. These wrappers exist for code that has to share a tested path
  * with vitest's node environment, where `window` is stubbed to `globalThis`
- * via `src/__test-stubs__/safeFsSetup.ts`. The setup file shim means this
- * module can reference `window` only -- the bot's
- * `obsidianmd/platform/no-global-this` rule then has zero hits here.
+ * via `tests/stubs/safeFsSetup.ts`. The setup file shim means this
+ * module can reference `window` only -- the bot's no-globalThis check
+ * then has zero hits here.
  */
 
 // Browser-flavoured timer types. `window.setTimeout` returns `number` in
