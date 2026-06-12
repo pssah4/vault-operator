@@ -388,3 +388,47 @@ describe('SemanticSearchTool reranking call-site', () => {
         expect(out.indexOf('Notes/A.md')).toBeLessThan(out.indexOf('Notes/B.md'));
     });
 });
+
+/**
+ * Post-review fix (retrieval wave 1): the cross-encoder must judge the
+ * chunk that actually matched the query, not the opener lede that item 1
+ * promotes for display. Feeding the opener to the reranker would make it
+ * score query relevance against the wrong passage for long notes whose
+ * best hit sits mid-document.
+ */
+describe('SemanticSearchTool reranker input (matched chunk, not opener)', () => {
+    it('feeds the matched chunk to the cross-encoder and still renders the opener', async () => {
+        const received: { path: string; text: string; score: number }[][] = [];
+        const rerankerService: RerankerStub = {
+            rerank: (_q: string, cands: { path: string; text: string; score: number }[]) => {
+                received.push(cands.map((c) => ({ ...c })));
+                return Promise.resolve(cands.map((c) => ({ ...c, rerankScore: 0.5 })));
+            },
+        };
+        const plugin = mockPlugin({
+            // Semantic arm matched a mid-document chunk (first write, so it
+            // is the fallback/matched excerpt). The keyword arm contributes
+            // the opener for display.
+            semanticResults: [
+                { path: 'Notes/A.md', excerpt: 'MATCHED middle chunk', score: 0.9, chunkIndex: 5 },
+            ],
+            keywordResults: [
+                { path: 'Notes/A.md', excerpt: 'OPENER lede chunk', score: 0.8, chunkIndex: 0 },
+                { path: 'Notes/B.md', excerpt: 'B matched chunk', score: 0.5, chunkIndex: 2 },
+            ],
+            rerankerService,
+        });
+        const tool = new SemanticSearchTool(plugin);
+        const { ctx: c, results } = ctx();
+        await tool.execute({ query: 'test query' }, c);
+
+        // Cross-encoder input is the matched chunk, not the opener.
+        expect(received).toHaveLength(1);
+        const texts = received[0].map((cand) => cand.text);
+        expect(texts).toContain('MATCHED middle chunk');
+        expect(texts).not.toContain('OPENER lede chunk');
+        // Rendered output still prefers the opener for display.
+        expect(results[0]).toContain('OPENER lede chunk');
+        expect(results[0]).not.toContain('MATCHED middle chunk');
+    });
+});

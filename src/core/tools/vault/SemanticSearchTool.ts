@@ -146,6 +146,11 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
             for (const r of tagResults) remember(r.path, r.excerpt, r.chunkIndex);
             const excerptFor = (path: string): string =>
                 openerExcerptByPath.get(path) ?? fallbackExcerptByPath.get(path) ?? '';
+            // The chunk that actually matched the query (first-write-wins
+            // across arms, the pre-wave behavior). The cross-encoder must
+            // judge THIS text, not the opener lede promoted for display.
+            const matchedExcerptFor = (path: string): string =>
+                fallbackExcerptByPath.get(path) ?? openerExcerptByPath.get(path) ?? '';
 
             // Reciprocal Rank Fusion via the engine-public utility from
             // FEATURE-0316 task 1. Method tag mirrors which signals contributed
@@ -155,11 +160,17 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
             // into the final ordering; flag off keeps plain RRF.
             const weightedFusion = this.plugin.settings.weightedFusionEnabled !== false;
             // Best dense cosine per path (the dense arm may return more
-            // than one chunk per file, keep the strongest).
+            // than one chunk per file, keep the strongest). Only needed in
+            // weighted mode; non-finite scores (corrupted embedding blobs)
+            // are skipped so a NaN can neither win the max-tracking here
+            // nor reach the fusion sort.
             const cosineByPath = new Map<string, number>();
-            for (const r of semanticResults) {
-                const prev = cosineByPath.get(r.path);
-                if (prev === undefined || r.score > prev) cosineByPath.set(r.path, r.score);
+            if (weightedFusion) {
+                for (const r of semanticResults) {
+                    if (!Number.isFinite(r.score)) continue;
+                    const prev = cosineByPath.get(r.path);
+                    if (prev === undefined || r.score > prev) cosineByPath.set(r.path, r.score);
+                }
             }
             const fused = fuseHybridArms(
                 {
@@ -214,17 +225,22 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                 try {
                     const rerankCount = Math.min(results.length, this.plugin.settings.rerankCandidates ?? 20);
                     const toRerank = results.slice(0, rerankCount);
+                    // Feed the cross-encoder the chunk that actually
+                    // matched the query, NOT the opener excerpt promoted
+                    // for display: relevance must be judged against the
+                    // matching passage of long notes.
                     const reranked = await reranker.rerank(
                         query,
-                        toRerank.map(r => ({ path: r.path, text: r.excerpt, score: r.score })),
+                        toRerank.map(r => ({ path: r.path, text: matchedExcerptFor(r.path) || r.excerpt, score: r.score })),
                     );
                     // Keep the original fusion score in `score`; the
                     // cross-encoder output rides along as `rerankScore`.
                     // Ordering still follows the reranker (the service
-                    // returns candidates sorted by rerankScore).
+                    // returns candidates sorted by rerankScore). The
+                    // rendered excerpt keeps the opener preference.
                     results = reranked.map(r => ({
                         path: r.path,
-                        excerpt: r.text,
+                        excerpt: excerptFor(r.path) || r.text,
                         score: r.score,
                         rerankScore: r.rerankScore,
                         method: 'hybrid' as const,
@@ -305,7 +321,7 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                         const edgeLabel = getGraphEdgeLabel(n);
                         const marker = edgeLabel.contradicts ? '[contradicts] ' : '';
                         const ctx = `via ${toWikilink(n.viaPath)} (${edgeLabel.label}, confidence: ${n.confidence.toFixed(2)})`;
-                        graphLines.push(`${graphLines.length + 1}. ${marker}${toWikilink(n.path)} — \`${n.path}\` (${ctx})`);
+                        graphLines.push(`${graphLines.length + 1}. ${marker}${toWikilink(n.path)} - \`${n.path}\` (${ctx})`);
                         graphLines.push(truncate(chunks[0]));
                         graphLines.push('');
                     }

@@ -9,9 +9,13 @@
  *
  *  1. The tag arm contribution is multiplied by TAG_ARM_WEIGHT (0.6),
  *     keeping tag recall while removing its power to outvote real matches.
- *  2. A cosine sanity blend: the fused RRF score is normalized to [0, 1]
- *     and, for paths the dense arm actually scored, blended with the dense
- *     cosine similarity (0.7 * normalizedRrf + 0.3 * cosine).
+ *  2. A bonus-only cosine blend: the fused RRF score is normalized to
+ *     [0, 1] and, for paths the dense arm actually scored, multiplied by
+ *     (1 + 0.3 * cosine). The blend can only lift dense-validated paths,
+ *     never demote them. A weighted average (0.7 * rrf + 0.3 * cosine)
+ *     would cap dense paths below the 1.0 that keyword/tag-only paths
+ *     keep, re-creating for the dense arm exactly the displacement this
+ *     module removes for the tag arm.
  *
  * With the flag disabled the function reproduces the previous direct
  * rrf() call exactly, so flag off is byte-identical to the old code path.
@@ -25,10 +29,8 @@ import type { RrfResult } from '../memory/rrf';
 
 /** RRF weight of the tag arm in weighted mode. */
 export const TAG_ARM_WEIGHT = 0.6;
-/** Share of the normalized RRF score in the cosine sanity blend. */
-export const RRF_BLEND_SHARE = 0.7;
-/** Share of the dense cosine similarity in the cosine sanity blend. */
-export const COSINE_BLEND_SHARE = 0.3;
+/** Weight of the dense cosine similarity in the bonus-only blend. */
+export const COSINE_BONUS_WEIGHT = 0.3;
 
 export interface HybridFusionArms {
     /** Dense (embedding) arm paths, best first. */
@@ -80,13 +82,15 @@ export function fuseHybridArms(arms: HybridFusionArms, options: HybridFusionOpti
     for (const entry of fused) {
         const normalizedRrf = entry.score / maxScore;
         const cosine = cosineByPath?.get(entry.id);
-        // Asymmetric blend by design: only paths the dense arm actually
-        // scored get the cosine blend. Paths without a dense cosine keep
-        // their plain normalized RRF (no blend, no penalty); blending an
-        // implicit cosine of 0 would punish keyword/tag-only hits for a
-        // signal that was never computed for them.
-        entry.score = typeof cosine === 'number'
-            ? RRF_BLEND_SHARE * normalizedRrf + COSINE_BLEND_SHARE * cosine
+        // Bonus-only blend: paths the dense arm scored get lifted by up to
+        // 1 + COSINE_BONUS_WEIGHT, paths without a dense cosine keep their
+        // plain normalized RRF. Nobody is penalized: blending an implicit
+        // cosine of 0 would punish keyword/tag-only hits, and a weighted
+        // average would cap dense paths below keyword/tag-only ones.
+        // Non-finite cosines (corrupted embedding blobs) are ignored so a
+        // NaN cannot propagate into the sort.
+        entry.score = typeof cosine === 'number' && Number.isFinite(cosine)
+            ? normalizedRrf * (1 + COSINE_BONUS_WEIGHT * cosine)
             : normalizedRrf;
     }
     return fused.sort((a, b) => b.score - a.score);

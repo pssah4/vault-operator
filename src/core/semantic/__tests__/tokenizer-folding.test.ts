@@ -52,11 +52,18 @@ describe('foldToken: umlaut and sharp s folding', () => {
 
 describe('ACRONYM_ALLOWLIST', () => {
     it('contains the agreed short acronyms in lowercase', () => {
-        const expected = ['ki', 'ai', 'os', 'ba', 're', 'js', 'db', 'ml', 'ui', 'ux', 'ci', 'it'];
+        const expected = ['ki', 'ai', 'os', 'ba', 'js', 'db', 'ml', 'ui', 'ux', 'ci', 'it'];
         for (const acro of expected) {
             expect(ACRONYM_ALLOWLIST.has(acro), `missing acronym: ${acro}`).toBe(true);
         }
         expect(ACRONYM_ALLOWLIST.size).toBe(expected.length);
+    });
+
+    it('does not contain "re" (would flood the index via hyphen-split re-* words)', () => {
+        // tokenize() splits on hyphens, so "re-index", "re-test", "re-run"
+        // all shed a "re" token. Allowlisting it would index that noise
+        // term in nearly every technical note.
+        expect(ACRONYM_ALLOWLIST.has('re')).toBe(false);
     });
 });
 

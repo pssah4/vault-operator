@@ -87,9 +87,19 @@ const DEFAULT_EMBED_BATCH = 16;    // texts per API request
 
 // Short acronyms that bypass the minimum token length filter.
 // Checked case-insensitively: tokens are lowercased before the check.
+// "re" is deliberately absent: tokenize() splits on hyphens, so every
+// "re-index"/"re-test"/"re-run" would shed a noise "re" token into the
+// index and into queries.
 export const ACRONYM_ALLOWLIST: ReadonlySet<string> = new Set([
-    'ki', 'ai', 'os', 'ba', 're', 'js', 'db', 'ml', 'ui', 'ux', 'ci', 'it',
+    'ki', 'ai', 'os', 'ba', 'js', 'db', 'ml', 'ui', 'ux', 'ci', 'it',
 ]);
+
+// foldToken() runs on every token of every chunk during keywordSearch(),
+// which re-tokenizes the corpus per query. The vocabulary is small and
+// highly repetitive, so memoizing the fold turns five regex passes plus
+// an NFKD normalize into a Map lookup for almost every call.
+const FOLD_CACHE_MAX = 50000;
+const foldCache = new Map<string, string>();
 
 /**
  * Fold a lowercased token to its ASCII search form:
@@ -101,13 +111,20 @@ export const ACRONYM_ALLOWLIST: ReadonlySet<string> = new Set([
  *    transliteration of the same word produce an identical token.
  */
 export function foldToken(token: string): string {
-    return token
+    const cached = foldCache.get(token);
+    if (cached !== undefined) return cached;
+    const folded = token
         .replace(/ß/g, 'ss')
         .normalize('NFKD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/ae/g, 'a')
         .replace(/oe/g, 'o')
         .replace(/(?<![aeiouq])ue/g, 'u');
+    // Bounded cache: a full clear is rare (the vocabulary of a vault stays
+    // far below the cap) and cheaper than LRU bookkeeping on the hot path.
+    if (foldCache.size >= FOLD_CACHE_MAX) foldCache.clear();
+    foldCache.set(token, folded);
+    return folded;
 }
 
 // Common stop words that add noise to TF-IDF (German plus English).
@@ -677,9 +694,13 @@ export class SemanticIndexService {
                 if (!tokenSet) continue;
 
                 let score = 0;
+                // Tokenize the chunk at most once per chunk (not once per
+                // matching query term): the TF loop only needs the token
+                // list when at least one term is present in the token set.
+                let tokens: string[] | null = null;
                 for (const qt of queryTerms) {
                     if (!tokenSet.has(qt)) continue;
-                    const tokens = SemanticIndexService.tokenize(chunk);
+                    tokens ??= SemanticIndexService.tokenize(chunk);
                     const tf = tokens.filter((t) => t === qt).length;
                     const df = docFreq.get(qt) ?? 1;
                     const idf = Math.log((N + 1) / (df + 1));

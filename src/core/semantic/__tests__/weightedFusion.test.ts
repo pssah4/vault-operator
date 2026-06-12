@@ -8,10 +8,14 @@
  *    code path.
  *  - weighted: true multiplies the tag arm contribution by 0.6 so tag-only
  *    hits stop displacing real keyword/dense hits.
- *  - weighted: true blends dense cosine into the final ordering score:
- *    paths WITH a dense cosine get 0.7 * normalizedRrf + 0.3 * cosine,
- *    paths WITHOUT a dense cosine keep their plain normalizedRrf
- *    (no blend, no penalty).
+ *  - weighted: true applies a bonus-only cosine blend: paths WITH a dense
+ *    cosine get normalizedRrf * (1 + 0.3 * cosine), paths WITHOUT a dense
+ *    cosine keep their plain normalizedRrf. The blend can only lift
+ *    dense-validated paths, never demote them below keyword/tag-only hits
+ *    (the earlier 0.7/0.3 weighted-average variant capped dense paths at
+ *    0.7 + 0.3 * cosine while non-dense paths kept 1.0, which re-created
+ *    the displacement problem for the dense arm).
+ *  - non-finite cosine values (corrupted vectors) are ignored.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -19,8 +23,7 @@ import { rrf } from '../../memory/rrf';
 import {
     fuseHybridArms,
     TAG_ARM_WEIGHT,
-    RRF_BLEND_SHARE,
-    COSINE_BLEND_SHARE,
+    COSINE_BONUS_WEIGHT,
 } from '../weightedFusion';
 
 describe('fuseHybridArms / legacy path (weighted: false)', () => {
@@ -86,7 +89,7 @@ describe('fuseHybridArms / weighted path (weighted: true)', () => {
         expect(fused.some((f) => f.id === 'Notes/TagOnly.md')).toBe(true);
     });
 
-    it('blends cosine for dense-scored paths with the 0.7/0.3 split', () => {
+    it('applies the cosine bonus to dense-scored paths', () => {
         // Dense.md: semantic rank 1 + keyword rank 1 -> raw 2/61 (max).
         // Keyword.md: keyword rank 2 -> raw 1/62, no cosine.
         const cosine = 0.9;
@@ -104,17 +107,18 @@ describe('fuseHybridArms / weighted path (weighted: true)', () => {
         const rawDense = 1 / 61 + 1 / 61;
         const rawKw = 1 / 62;
 
-        // Dense has the max raw score -> normalizedRrf 1.0, then blended.
-        expect(dense?.score).toBeCloseTo(RRF_BLEND_SHARE * 1.0 + COSINE_BLEND_SHARE * cosine, 10);
+        // Dense has the max raw score -> normalizedRrf 1.0, then boosted.
+        expect(dense?.score).toBeCloseTo(1.0 * (1 + COSINE_BONUS_WEIGHT * cosine), 10);
         // Keyword-only path keeps its plain normalized RRF: no blend, no penalty.
         expect(kw?.score).toBeCloseTo(rawKw / rawDense, 10);
     });
 
-    it('does not penalize paths without a dense cosine (asymmetric blend)', () => {
+    it('never penalizes dense-scored paths (bonus-only blend)', () => {
         // A (dense, cosine 0.5) and B (keyword-only) both sit at rank 1 of
-        // their arm, so both normalize to 1.0. A is blended down to
-        // 0.7 + 0.3 * 0.5 = 0.85 while B keeps 1.0. If B were blended with
-        // an implicit cosine of 0 it would drop to 0.7 instead.
+        // their arm, so both normalize to 1.0. A gets the bonus
+        // 1.0 * (1 + 0.3 * 0.5) = 1.15 while B keeps 1.0. Under the earlier
+        // weighted-average variant A dropped to 0.85 and lost a contested
+        // boundary to B even though the dense arm validated it.
         const fused = fuseHybridArms(
             { semantic: ['Notes/A.md'], keyword: ['Notes/B.md'], tag: [] },
             { weighted: true, cosineByPath: new Map([['Notes/A.md', 0.5]]) },
@@ -123,8 +127,23 @@ describe('fuseHybridArms / weighted path (weighted: true)', () => {
         const a = fused.find((f) => f.id === 'Notes/A.md');
         const b = fused.find((f) => f.id === 'Notes/B.md');
         expect(b?.score).toBeCloseTo(1.0, 10);
-        expect(a?.score).toBeCloseTo(0.85, 10);
-        expect(fused[0]?.id).toBe('Notes/B.md');
+        expect(a?.score).toBeCloseTo(1.15, 10);
+        expect(fused[0]?.id).toBe('Notes/A.md');
+    });
+
+    it('ignores non-finite cosine values (corrupted vector guard)', () => {
+        // A NaN cosine (corrupted embedding blob) must not propagate into
+        // the fused score and sort; the path keeps its plain normalizedRrf.
+        const fused = fuseHybridArms(
+            { semantic: ['Notes/A.md'], keyword: ['Notes/B.md'], tag: [] },
+            { weighted: true, cosineByPath: new Map([['Notes/A.md', Number.NaN]]) },
+        );
+
+        const a = fused.find((f) => f.id === 'Notes/A.md');
+        const b = fused.find((f) => f.id === 'Notes/B.md');
+        expect(a?.score).toBeCloseTo(1.0, 10);
+        expect(b?.score).toBeCloseTo(1.0, 10);
+        expect(Number.isFinite(a?.score)).toBe(true);
     });
 
     it('preserves per-signal contributions for method classification', () => {
@@ -151,9 +170,8 @@ describe('fuseHybridArms / weighted path (weighted: true)', () => {
 });
 
 describe('weighted fusion constants', () => {
-    it('uses the agreed weights (tag 0.6, blend 0.7/0.3)', () => {
+    it('uses the agreed weights (tag 0.6, cosine bonus 0.3)', () => {
         expect(TAG_ARM_WEIGHT).toBe(0.6);
-        expect(RRF_BLEND_SHARE).toBe(0.7);
-        expect(COSINE_BLEND_SHARE).toBe(0.3);
+        expect(COSINE_BONUS_WEIGHT).toBe(0.3);
     });
 });
