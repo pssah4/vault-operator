@@ -83,7 +83,10 @@ function makePlugin(tools: FakeTool[]): PluginStub {
 
 describe('handleExecuteVaultOp -- pipeline-routed (AUDIT-013 C-1 proper)', () => {
     it.each([
-        'switch_mode',
+        // switch_mode was renamed to switch_agent in the Modes -> Agents
+        // rename (commit 58bfa393). switch_mode no longer exists as a tool
+        // and falls through to "Unknown operation" instead.
+        'switch_agent',
         'new_task',
         'update_todo_list',
         'update_settings',
@@ -116,7 +119,7 @@ describe('handleExecuteVaultOp -- pipeline-routed (AUDIT-013 C-1 proper)', () =>
         const text = (result.content[0] as { text: string }).text;
         expect(text).toContain('Unknown operation');
         expect(text).toContain('list_files');
-        expect(text).not.toContain('switch_mode');
+        expect(text).not.toContain('switch_agent');
     });
 
     it('routes a registered read tool through the pipeline and returns its output', async () => {

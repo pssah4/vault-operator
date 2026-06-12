@@ -122,6 +122,32 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         commonMistakes: 'Using broad patterns that return too many results. Be specific with file_pattern.',
     },
 
+    // ── Checkpoints (IMP-01-07-01) ────────────────────────────────────────
+    list_checkpoints: {
+        group: 'read', label: 'List Checkpoints', icon: 'history',
+        signature: 'list_checkpoints(taskId?, path?, limit?, verbose?)',
+        description: 'List automatic pre-write snapshots from the checkpoint shadow repository. Returns commitOids for read_checkpoint, diff_checkpoint and restore_checkpoint.',
+        example: 'list_checkpoints(undefined, "Notes/Madrid.md")',
+        whenToUse: 'When the user wants to recover or inspect an earlier version of a note. Start here to find the commitOid.',
+        commonMistakes: 'Guessing a commitOid instead of listing first. Use the path filter to narrow the results to one file.',
+    },
+    read_checkpoint: {
+        group: 'read', label: 'Read Checkpoint', icon: 'file-clock',
+        signature: 'read_checkpoint(commitOid, path)',
+        description: 'Read the snapshot content of a single file from a specific checkpoint (the state before the matching write tool ran).',
+        example: 'read_checkpoint("a1b2c3d4...", "Notes/Madrid.md")',
+        whenToUse: 'After list_checkpoints, to inspect what a note looked like at snapshot time.',
+        commonMistakes: 'Omitting commitOid or path. Both are required; get the commitOid from list_checkpoints.',
+    },
+    diff_checkpoint: {
+        group: 'read', label: 'Diff Checkpoint', icon: 'file-diff',
+        signature: 'diff_checkpoint(commitOid, path?)',
+        description: 'Diff a checkpoint snapshot against the current vault state. Without path: per-file summary. With path: line-level diff for that file.',
+        example: 'diff_checkpoint("a1b2c3d4...", "Notes/Madrid.md")',
+        whenToUse: 'Before restore_checkpoint, to confirm what a restore would change.',
+        commonMistakes: 'Restoring without diffing first. Run this to preview the change set.',
+    },
+
     // ── Vault Intelligence ────────────────────────────────────────────────
     get_vault_stats: {
         group: 'vault', label: 'Vault Stats', icon: 'bar-chart-2',
@@ -249,6 +275,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         example: 'move_file("Inbox/note.md", "Projects/note.md")',
         whenToUse: 'To reorganize vault structure. Obsidian automatically updates wikilinks.',
         commonMistakes: 'Moving to a non-existent folder — create it first with create_folder.',
+    },
+    restore_checkpoint: {
+        group: 'edit', label: 'Restore Checkpoint', icon: 'archive-restore',
+        signature: 'restore_checkpoint(commitOid, path?, mode?)',
+        description: 'Roll a vault file (or every file a task touched) back to a checkpoint snapshot. Mode "file" restores one path, mode "task" restores all files in the checkpoint and trashes newly created ones.',
+        example: 'restore_checkpoint("a1b2c3d4...", "Notes/Madrid.md")',
+        whenToUse: 'After list_checkpoints and diff_checkpoint, to recover an earlier version. Takes its own pre-restore snapshot, so the restore itself can be undone.',
+        commonMistakes: 'Restoring without confirming the diff first. Mode "task" also trashes files the task newly created.',
     },
     generate_canvas: {
         group: 'edit', label: 'Canvas', icon: 'layout-dashboard',
@@ -677,6 +711,14 @@ export const DEFERRED_TOOL_NAMES: ReadonlySet<string> = new Set([
     'create_drawio',
     'create_base',
     'update_base',
+    // Checkpoints (IMP-01-07-01): rarely-needed recovery helpers, same
+    // bucket as get_vault_stats/vault_health_check. find_tool hits
+    // "checkpoint" strongly in all four names, so deferring them saves
+    // four schemas per prompt without hurting discoverability.
+    'list_checkpoints',
+    'read_checkpoint',
+    'diff_checkpoint',
+    'restore_checkpoint',
     // Office / presentation pipeline
     // Note v2.10.0: create_xlsx, create_docx, create_pptx removed from the
     // deferred set. Even though their schemas add ~150 tokens to every

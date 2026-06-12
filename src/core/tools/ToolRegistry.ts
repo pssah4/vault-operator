@@ -143,6 +143,9 @@ export class ToolRegistry {
             // listing in the system prompt. NOT in DEFERRED_TOOL_NAMES.
             this.register(new ReadMcpToolTool(this.plugin, mcpClient));
         }
+        // Log here instead of inside registerInternalTools so the count
+        // includes the two MCP companion tools registered above.
+        console.debug(`ToolRegistry: Registered ${this.getToolCount()} tools`);
     }
 
     /**
@@ -279,8 +282,6 @@ export class ToolRegistry {
         if (sourceManager && pluginBuilder && pluginReloader) {
             this.register(new ManageSourceTool(this.plugin, sourceManager, pluginBuilder, pluginReloader));
         }
-
-        console.debug(`ToolRegistry: Registered ${this.getToolCount()} tools`);
     }
 
     /**

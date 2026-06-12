@@ -20,6 +20,7 @@ import type { ToolName } from '../../tools/types';
 const MUST_BE_REACHABLE: ToolName[] = [
     // Read
     'read_file', 'read_document', 'list_files', 'search_files',
+    'list_checkpoints', 'read_checkpoint', 'diff_checkpoint',
     // Vault structured
     'get_frontmatter', 'search_by_tag', 'get_vault_stats', 'get_linked_notes',
     'get_daily_note', 'open_note', 'semantic_search', 'query_base',
@@ -29,6 +30,7 @@ const MUST_BE_REACHABLE: ToolName[] = [
     'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw',
     'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx',
     'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage',
+    'restore_checkpoint',
     // Web
     'web_fetch', 'web_search',
     // Agent control
