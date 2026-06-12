@@ -3,6 +3,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import { fuseHybridArms } from '../../semantic/weightedFusion';
+import { getGraphEdgeLabel } from '../../knowledge/graphEdgeLabel';
 
 export class SemanticSearchTool extends BaseTool<'semantic_search'> {
     readonly name = 'semantic_search' as const;
@@ -293,9 +294,13 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                         seenGraph.add(n.path);
                         const chunks: string[] = await semanticIndex.getChunksByPath(n.path);
                         if (chunks.length === 0) continue;
-                        const linkLabel = n.linkType === 'implicit' ? 'similar' : (n.propertyName ?? 'link');
-                        const ctx = `via ${toWikilink(n.viaPath)} (${linkLabel}, confidence: ${n.confidence.toFixed(2)})`;
-                        graphLines.push(`${graphLines.length + 1}. ${toWikilink(n.path)} — \`${n.path}\` (${ctx})`);
+                        // Typed graph labels (retrieval wave 1, item 5):
+                        // frontmatter property name > 'wikilink' > 'similar',
+                        // contradiction properties get a line marker.
+                        const edgeLabel = getGraphEdgeLabel(n);
+                        const marker = edgeLabel.contradicts ? '[contradicts] ' : '';
+                        const ctx = `via ${toWikilink(n.viaPath)} (${edgeLabel.label}, confidence: ${n.confidence.toFixed(2)})`;
+                        graphLines.push(`${graphLines.length + 1}. ${marker}${toWikilink(n.path)} — \`${n.path}\` (${ctx})`);
                         graphLines.push(truncate(chunks[0]));
                         graphLines.push('');
                     }

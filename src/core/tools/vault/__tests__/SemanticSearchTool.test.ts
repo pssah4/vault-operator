@@ -16,6 +16,7 @@ import { SemanticSearchTool } from '../SemanticSearchTool';
 import type ObsidianAgentPlugin from '../../../../main';
 import type { ToolExecutionContext } from '../../types';
 import type { SemanticResult } from '../../../semantic/SemanticIndexService';
+import type { GraphNeighbor } from '../../../knowledge/GraphStore';
 
 function ctx(): { ctx: ToolExecutionContext; results: string[]; logs: string[] } {
     const results: string[] = [];
@@ -38,20 +39,24 @@ function mockPlugin(opts: {
     keywordResults?: SemanticResult[];
     tagResults?: SemanticResult[];
     weightedFusionEnabled?: boolean;
+    graphNeighbors?: GraphNeighbor[];
+    chunksByPath?: Record<string, string[]>;
 }): ObsidianAgentPlugin {
-    const { semanticResults = [], keywordResults = [], tagResults = [] } = opts;
+    const { semanticResults = [], keywordResults = [], tagResults = [], graphNeighbors, chunksByPath = {} } = opts;
     return {
         app: {},
         settings: {
             hydeEnabled: false,
             enableReranking: false,
-            enableGraphExpansion: false,
+            enableGraphExpansion: graphNeighbors !== undefined,
             enableImplicitConnections: false,
             weightedFusionEnabled: opts.weightedFusionEnabled ?? false,
         },
         apiHandler: undefined,
         rerankerService: undefined,
-        graphStore: undefined,
+        graphStore: graphNeighbors !== undefined
+            ? { getNeighborsWithImplicit: () => graphNeighbors }
+            : undefined,
         ontologyStore: undefined,
         implicitConnectionService: undefined,
         semanticIndex: {
@@ -59,7 +64,7 @@ function mockPlugin(opts: {
             search: async () => semanticResults,
             keywordSearch: async () => keywordResults,
             tagMatchSearch: async () => tagResults,
-            getChunksByPath: async () => [],
+            getChunksByPath: async (p: string) => chunksByPath[p] ?? [],
         },
     } as unknown as ObsidianAgentPlugin;
 }
@@ -207,5 +212,94 @@ describe('SemanticSearchTool weighted fusion flag', () => {
         await tool.execute({ query: 'test query' }, c);
 
         expect(results[0]).toContain('Notes/TagOnly.md');
+    });
+});
+
+/**
+ * Retrieval wave 1, item 5: typed graph labels in the graph appendix.
+ *
+ * Graph neighbors used to render as "via [[X]] (link, confidence: 1.00)"
+ * even though frontmatter edges carry the property name in the DB. The
+ * appendix now shows the real predicate (for example "Themen"), labels
+ * body wikilinks as "wikilink" and marks contradiction edges with a
+ * "[contradicts] " prefix.
+ */
+describe('SemanticSearchTool graph appendix labels (typed predicates)', () => {
+    function graphPlugin(neighbor: GraphNeighbor): ObsidianAgentPlugin {
+        return mockPlugin({
+            semanticResults: [
+                { path: 'Notes/Meeting.md', excerpt: 'meeting excerpt', score: 0.9, chunkIndex: 0 },
+            ],
+            graphNeighbors: [neighbor],
+            chunksByPath: { [neighbor.path]: ['neighbor chunk content'] },
+        });
+    }
+
+    it('labels frontmatter edges with the real property name instead of link', async () => {
+        const tool = new SemanticSearchTool(graphPlugin({
+            path: 'Notes/Projekt X.md',
+            hopDistance: 1,
+            viaPath: 'Notes/Meeting.md',
+            linkType: 'frontmatter',
+            propertyName: 'Themen',
+            confidence: 1.0,
+        }));
+        const { ctx: c, results } = ctx();
+        await tool.execute({ query: 'test query' }, c);
+
+        const out = results[0];
+        expect(out).toContain('(Themen, confidence: 1.00)');
+        expect(out).not.toContain('(link,');
+    });
+
+    it('labels body edges as wikilink', async () => {
+        const tool = new SemanticSearchTool(graphPlugin({
+            path: 'Notes/Other.md',
+            hopDistance: 1,
+            viaPath: 'Notes/Meeting.md',
+            linkType: 'body',
+            propertyName: null,
+            confidence: 1.0,
+        }));
+        const { ctx: c, results } = ctx();
+        await tool.execute({ query: 'test query' }, c);
+
+        const out = results[0];
+        expect(out).toContain('(wikilink, confidence: 1.00)');
+        expect(out).not.toContain('(link,');
+    });
+
+    it('prefixes contradiction edges with a [contradicts] marker', async () => {
+        const tool = new SemanticSearchTool(graphPlugin({
+            path: 'Notes/Contra.md',
+            hopDistance: 1,
+            viaPath: 'Notes/Meeting.md',
+            linkType: 'frontmatter',
+            propertyName: 'widerspricht',
+            confidence: 1.0,
+        }));
+        const { ctx: c, results } = ctx();
+        await tool.execute({ query: 'test query' }, c);
+
+        const out = results[0];
+        expect(out).toContain('[contradicts] [[Contra]]');
+        expect(out).toContain('(widerspricht, confidence: 1.00)');
+    });
+
+    it('keeps the similar label for implicit edges', async () => {
+        const tool = new SemanticSearchTool(graphPlugin({
+            path: 'Notes/Sim.md',
+            hopDistance: 1,
+            viaPath: 'Notes/Meeting.md',
+            linkType: 'implicit',
+            propertyName: null,
+            confidence: 0.83,
+        }));
+        const { ctx: c, results } = ctx();
+        await tool.execute({ query: 'test query' }, c);
+
+        const out = results[0];
+        expect(out).toContain('(similar, confidence: 0.83)');
+        expect(out).not.toContain('[contradicts]');
     });
 });

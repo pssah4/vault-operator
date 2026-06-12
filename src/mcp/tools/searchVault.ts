@@ -9,6 +9,7 @@
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
 import { wrapVaultContentForMcp } from '../McpBridge';
+import { getGraphEdgeLabel } from '../../core/knowledge/graphEdgeLabel';
 
 export async function handleSearchVault(
     plugin: ObsidianAgentPlugin,
@@ -111,8 +112,12 @@ export async function handleSearchVault(
                     topKPaths.add(n.path);
                     const chunks = await semanticIndex.getChunksByPath(n.path);
                     if (chunks.length === 0) continue;
-                    const ctx = n.propertyName ? `via ${n.viaPath} (${n.propertyName})` : `via ${n.viaPath}`;
-                    graphLines.push(`[graph] ${n.path} (${ctx})\n${wrapVaultContentForMcp(n.path, chunks[0].slice(0, 500))}`);
+                    // Typed graph labels (retrieval wave 1, item 5): real
+                    // frontmatter predicate or 'wikilink', plus contradiction marker.
+                    const edgeLabel = getGraphEdgeLabel(n);
+                    const marker = edgeLabel.contradicts ? '[contradicts] ' : '';
+                    const ctx = `via ${n.viaPath} (${edgeLabel.label})`;
+                    graphLines.push(`[graph] ${marker}${n.path} (${ctx})\n${wrapVaultContentForMcp(n.path, chunks[0].slice(0, 500))}`);
                 }
             }
         }
