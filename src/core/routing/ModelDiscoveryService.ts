@@ -23,7 +23,11 @@ import type {
     ProviderType,
 } from '../../types/settings';
 import { getModelInfo, normalizeModelId } from '../../types/model-registry';
-import { classifyModelTier } from './ModelTierClassifier';
+import {
+    classifyModelTier,
+    isLocalProviderType,
+    isNonChatModelId,
+} from './ModelTierClassifier';
 
 /** 24 hours in milliseconds. */
 export const DISCOVERY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -134,7 +138,8 @@ export class ModelDiscoveryService {
         raw: RawDiscoveredModel[],
         providerType: ProviderType,
     ): DiscoveredModel[] {
-        return raw.map((r) => {
+        const unclassified: string[] = [];
+        const enriched = raw.map((r) => {
             const registryInfo = getModelInfo(normalizeModelId(r.id));
             const contextWindow = r.contextWindow ?? registryInfo?.contextWindow;
             const maxOutputTokens = r.maxOutputTokens ?? registryInfo?.maxTokens;
@@ -148,6 +153,9 @@ export class ModelDiscoveryService {
                     completionUsd: r.pricingCompletionUsd,
                 },
             });
+            if (classification === null && !isNonChatModelId(r.id)) {
+                unclassified.push(r.id);
+            }
             return {
                 id: r.id,
                 displayName: r.displayName,
@@ -159,6 +167,23 @@ export class ModelDiscoveryService {
                 autoTierSource: classification?.source,
             };
         });
+
+        // One summary line per refresh instead of one debug line per id
+        // (ISSUE-C). Local providers are skipped: unclassified is by
+        // design there, tiers come from user tierOverrides.
+        if (unclassified.length > 0 && !isLocalProviderType(providerType)) {
+            const examples = unclassified.slice(0, 5).join(', ');
+            console.debug(
+                `[ModelDiscoveryService] ${providerType}: ${unclassified.length}/${raw.length} models unclassified (no pattern/pricing/capability signal), e.g. ${examples}`,
+            );
+            if (unclassified.length > 5) {
+                console.debug(
+                    `[ModelDiscoveryService] ${providerType} full unclassified list: ${unclassified.join(', ')}`,
+                );
+            }
+        }
+
+        return enriched;
     }
 
     private deriveTierMapping(models: DiscoveredModel[]): ProviderConfig['tierMapping'] {
