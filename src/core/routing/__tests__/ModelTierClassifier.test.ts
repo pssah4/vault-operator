@@ -288,4 +288,16 @@ describe('classifyModelTier - unknown models', () => {
     it('returns null for empty id', () => {
         expect(classifyModelTier('')).toBeNull();
     });
+
+    it.each([
+        'glm-4.5-air',
+        'glm-4-9b-chat',
+        'glm-4v-9b',
+        'glm-4.6v',
+        'glm-5-turbo',
+    ])('leaves ambiguous GLM variant %s unclassified (tierOverrides territory)', (id) => {
+        // Small/vision/turbo GLM variants have no clear tier; forcing them
+        // to mid would override the user's tierOverrides intent.
+        expect(classifyModelTier(id)).toBeNull();
+    });
 });

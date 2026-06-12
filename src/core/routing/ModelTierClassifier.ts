@@ -43,12 +43,16 @@ const FLAGSHIP_PATTERNS: RegExp[] = [
     /\bo3(?!-mini)\b/i,
     /\bo4(?!-mini)\b/i,
     /\bgemini-(?:1\.5|2\.0|2\.5|3)-pro\b/i,
-    /\bgemini-3(?:\.\d+)?-pro\b/i,
+    // Single-digit minor versions only ((?:\.\d)?): a quantifier inside an
+    // optional group trips security/detect-unsafe-regex, and no vendor
+    // ships two-digit minors today. A hypothetical gemini-3.10-pro would
+    // fall through to unclassified, which is the safe direction.
+    /\bgemini-3(?:\.\d)?-pro\b/i,
     /\bgemini-pro\b/i,
     /\bdeepseek-(?:reasoner|r1)\b/i,
     /\bgrok-4(?!-mini)\b/i,
     /\bllama[-_]?3.*405b\b/i,
-    /\bqwen3(?:\.\d+)?-max\b/i,
+    /\bqwen3(?:\.\d)?-max\b/i,
 ];
 
 const MID_PATTERNS: RegExp[] = [
@@ -67,23 +71,27 @@ const MID_PATTERNS: RegExp[] = [
     /\bllama[-_]?3.*70b\b/i,
     /\bllama[-_]?3.*120b\b/i,
     /\bllama[-_]?4\b/i,
-    /\bglm-[45](?:\.\d+)?(?!.*flash)/i,
-    /\bqwen3(?:\.\d+)?-plus\b/i,
+    // End-anchored ((?=$|:) allows a :free/:thinking suffix): only the
+    // base glm-4.x/glm-5.x ids are mid. Small/vision/turbo variants
+    // (glm-4-9b-chat, glm-4v-9b, glm-4.5-air, glm-5-turbo) stay
+    // unclassified so tierOverrides keep authority over them.
+    /\bglm-[45](?:\.\d)?(?=$|:)/i,
+    /\bqwen3(?:\.\d)?-plus\b/i,
     /\bminimax-m[23]\b/i,
     /\bkimi-k2\b/i,
-    /\bnova(?:-\d+(?:\.\d+)?)?-(?:premier|pro)\b/i,
+    /\bnova(?:-\d)?-(?:premier|pro)\b/i,
 ];
 
 const FAST_PATTERNS: RegExp[] = [
     /\bclaude.*haiku\b/i,
     /\bhaiku-[34](?:[-.]|$)/i,
     /\bgpt-5-mini\b/i,
-    /\bgpt-5(?:\.\d+)?-nano\b/i,
+    /\bgpt-5(?:\.\d)?-nano\b/i,
     /\bgpt-4o-mini\b/i,
     /\bgpt-4\.1-(?:mini|nano)\b/i,
     /\bgpt-3\.5\b/i,
     /\bgemini-(?:1\.5|2(?:\.0|\.5)?)-flash(?:-(?:lite|8b))\b/i,
-    /\bgemini-3(?:\.\d+)?-flash(?:-lite)?\b/i,
+    /\bgemini-3(?:\.\d)?-flash(?:-lite)?\b/i,
     /\bgemini-flash-lite\b/i,
     /\bgemini-1\.5-flash\b/i,
     /\bgrok-3-mini\b/i,
@@ -91,10 +99,10 @@ const FAST_PATTERNS: RegExp[] = [
     /\bllama[-_]?3.*(?:8b|3b|1b)\b/i,
     /\bphi-3\b/i,
     /\bdeepseek-coder\b/i,
-    /\bdeepseek-v\d+(?:\.\d+)?-flash\b/i,
-    /\bglm-[45](?:\.\d+)?-flash\b/i,
-    /\bqwen3(?:\.\d+)?-flash\b/i,
-    /\bnova(?:-\d+(?:\.\d+)?)?-(?:lite|micro)\b/i,
+    /\bdeepseek-v\d+(?:\.\d)?-flash\b/i,
+    /\bglm-[45](?:\.\d)?-flash\b/i,
+    /\bqwen3(?:\.\d)?-flash\b/i,
+    /\bnova(?:-\d)?-(?:lite|micro)\b/i,
 ];
 
 /**
