@@ -240,24 +240,34 @@ export function getModelOutputCeiling(modelId: string): number | undefined {
 }
 
 /**
- * FIX-04-03-02: Some recent models reject any custom `temperature` value with
- * a 400 and require the parameter to be omitted entirely.
+ * FIX-04-03-02 / BUG-1: Some recent models removed the sampling parameters
+ * (`temperature`, `top_p`, `top_k`) from their request surface and reject any
+ * value with a 400 (on Bedrock the Converse API surfaces this as a
+ * `ValidationException`). The parameter has to be omitted entirely.
  *
- * - Anthropic Claude Opus 4.7 (April 2026 and later snapshots): replies
- *   `400 - 'temperature' is deprecated for this model`.
+ * - Anthropic Claude Opus 4.7 and Opus 4.8 (and any later 4.x snapshot):
+ *   sampling parameters are removed and 400. Opus 4.8 inherits the same
+ *   request surface as 4.7.
+ * - Anthropic Claude Fable 5 and Mythos 5 (incl. the `mythos-preview` id):
+ *   same removal, sampling parameters 400.
  * - OpenAI GPT-5.x family: replies `400 - Unsupported value: 'temperature'
  *   does not support 0.2 with this model. Only the default (1) value is
  *   supported.` Even sending `1.0` is risky and version-dependent, so it is
  *   safer to let the API use its default than to send anything explicitly.
  *
- * The check normalises the id first (so OpenRouter `anthropic/claude-opus-4-7`
- * and Bedrock `eu.anthropic.claude-opus-4-7-v1` map to the same answer as the
- * direct id `claude-opus-4-7`).
+ * Opus 4.6 and Sonnet 4.6 (and older 4.x) still accept temperature, so the
+ * minor version digit is pinned (4-7 and up, never 4-6).
+ *
+ * The check normalises the id first (so OpenRouter `anthropic/claude-opus-4-8`
+ * and Bedrock `eu.anthropic.claude-opus-4-8-v1` map to the same answer as the
+ * direct id `claude-opus-4-8`).
  */
 export function modelSupportsTemperature(modelId: string): boolean {
     const normalized = normalizeModelId(modelId).toLowerCase();
-    // Anthropic Opus 4.7 and later 4.x snapshots that drop temperature
-    if (/^claude-opus-4-7\b/.test(normalized)) return false;
+    // Anthropic Opus 4.7+ snapshots that drop the sampling parameters
+    if (/^claude-opus-4-(7|8|9)\b/.test(normalized)) return false;
+    // Anthropic Fable / Mythos families: sampling parameters removed
+    if (/^claude-(fable|mythos)-/.test(normalized)) return false;
     // OpenAI GPT-5 family: default-only temperature
     if (/^gpt-5(\b|[.-])/.test(normalized)) return false;
     return true;

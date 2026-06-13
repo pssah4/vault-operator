@@ -192,6 +192,27 @@ describe('modelSupportsTemperature (FIX-04-03-02)', () => {
         expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-7-v1')).toBe(false);
     });
 
+    it('flags Opus 4.8 and later 4.x snapshots as default-only', () => {
+        expect(modelSupportsTemperature('claude-opus-4-8')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-8-20260601')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-9')).toBe(false);
+    });
+
+    it('flags Opus 4.8 across normalized aliases (OpenRouter, Bedrock)', () => {
+        expect(modelSupportsTemperature('anthropic/claude-opus-4-8')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-8-v1')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-8')).toBe(false);
+    });
+
+    it('flags the Fable and Mythos families as default-only', () => {
+        expect(modelSupportsTemperature('claude-fable-5')).toBe(false);
+        expect(modelSupportsTemperature('claude-mythos-5')).toBe(false);
+        expect(modelSupportsTemperature('claude-mythos-preview')).toBe(false);
+        expect(modelSupportsTemperature('anthropic/claude-fable-5')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-fable-5')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-mythos-5')).toBe(false);
+    });
+
     it('flags GPT-5 family as default-only', () => {
         expect(modelSupportsTemperature('gpt-5')).toBe(false);
         expect(modelSupportsTemperature('gpt-5.5')).toBe(false);
