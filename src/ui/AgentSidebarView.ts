@@ -1581,7 +1581,14 @@ export class AgentSidebarView extends ItemView {
             };
         };
         let resolvedApiHandler = this.plugin.apiHandler;
+        // modelOverrideActive means the user pinned a specific model via the
+        // chat dropdown: it suppresses TaskRouter and the lean cost-heuristics
+        // (#44). handlerResolved is the separate "a handler was already built"
+        // signal so the default-active thinking rebuild below does not clobber
+        // a mode-specific handler. A mode model is NOT a manual override, so it
+        // sets handlerResolved only, keeping its pre-#44 routing behavior.
         let modelOverrideActive = false;
+        let handlerResolved = false;
         if (activeProvider && this.chatModelOverride) {
             const m = resolveOverrideModel(activeProvider, this.chatModelOverride);
             if (m) {
@@ -1591,6 +1598,7 @@ export class AgentSidebarView extends ItemView {
                     );
                     resolvedApiHandler = buildApiHandlerForModel(cm);
                     modelOverrideActive = true;
+                    handlerResolved = true;
                 } catch {
                     resolvedApiHandler = this.plugin.apiHandler;
                 }
@@ -1602,11 +1610,11 @@ export class AgentSidebarView extends ItemView {
         const modeModelKey = this.resolveEnabledModelKey(currentModeSlug);
         const resolvedModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === modeModelKey);
 
-        if (!modelOverrideActive && resolvedModel && modeModelKey !== this.plugin.settings.activeModelKey) {
+        if (!handlerResolved && resolvedModel && modeModelKey !== this.plugin.settings.activeModelKey) {
             // Mode has a different model — build a fresh handler for it
             try {
                 resolvedApiHandler = buildApiHandler(modelToLLMProvider(applyThinkingOverride(resolvedModel)));
-                modelOverrideActive = true;
+                handlerResolved = true;
             } catch {
                 resolvedApiHandler = this.plugin.apiHandler;
             }
@@ -1616,7 +1624,7 @@ export class AgentSidebarView extends ItemView {
         // override nor a mode-specific model rebuilt the handler, but the user
         // forced thinking on/off for this conversation, rebuild from the same
         // default model main.ts uses so the override applies.
-        if (!modelOverrideActive && thinkingIsExplicit) {
+        if (!handlerResolved && thinkingIsExplicit) {
             const defaultTier = this.plugin.settings.defaultMainModelTier ?? 'mid';
             const defaultModel = this.plugin.getTierModel(defaultTier) ?? this.plugin.getActiveModel();
             if (defaultModel) {

@@ -617,7 +617,11 @@ export class ModelConfigModal extends Modal {
         // IMP-18-01-01: prompt-caching toggle visibility is data-driven via the capability table.
         const cacheCap = getCacheCapability(p, this.formName);
         if (this.promptCachingRow) this.promptCachingRow.classList.toggle('agent-u-hidden', !cacheCap.supportsPromptCache);
-        const supportsThinking = p === 'anthropic' || p === 'openrouter' || p === 'bedrock' || isCopilotClaude;
+        // Bedrock is intentionally excluded: BedrockProvider does not send a
+        // reasoning_config request field yet, so the toggle would have no
+        // effect (it only reads reasoningContent from the response). Re-add
+        // once the request side wires extended thinking.
+        const supportsThinking = p === 'anthropic' || p === 'openrouter' || isCopilotClaude;
         if (this.thinkingRow) this.thinkingRow.classList.toggle('agent-u-hidden', !supportsThinking);
         if (this.thinkingBudgetRow) this.thinkingBudgetRow.classList.toggle('agent-u-hidden', !supportsThinking || !this.formThinkingEnabled);
 
