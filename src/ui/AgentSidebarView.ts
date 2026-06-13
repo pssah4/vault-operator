@@ -19,9 +19,7 @@ import {
 } from './sidebar/thinkingOverride';
 import {
     DEFAULT_EFFORT_OVERRIDE,
-    isExplicitEffortOverride,
     resolveEffectiveEffort,
-    resolveEffectiveModelForEffort,
     thinkingSwitchIsOn,
     type EffortOverride,
 } from './sidebar/effortOverride';
@@ -931,9 +929,12 @@ export class AgentSidebarView extends ItemView {
             getCurrent: () => this.chatModelOverride,
             onSelect: (overrideId) => {
                 this.chatModelOverride = overrideId;
-                // Effort is no longer pin-tied, so it survives an unpin: in
-                // auto mode it threads onto the default-active model. The full
-                // reset lives in clearConversation (new chat).
+                // Effort is a pin-only control. Unpinning (back to Auto) clears
+                // any chosen effort so Auto mode falls back to the model's own
+                // vendor default; a stale level must not leak onto the router.
+                if (overrideId === null) {
+                    this.chatEffortOverride = DEFAULT_EFFORT_OVERRIDE;
+                }
                 this.updateModelButton();
             },
             getThinking: () => this.chatThinkingOverride,
@@ -946,37 +947,25 @@ export class AgentSidebarView extends ItemView {
                 this.chatEffortOverride = override;
                 this.updateModelButton();
             },
-            getEffortLevels: () => this.resolveEffortLevelsForActiveModel(provider),
+            getEffortLevels: () => this.resolveEffortLevelsForPinnedModel(provider),
         });
     }
 
     /**
-     * Resolve the native effort levels for the model the next turn will run on,
-     * so the picker can render model-native slider stops and decide capability.
-     * The pinned chat-header model wins (the router is off when one is pinned);
-     * otherwise the default-active model main.ts uses (getTierModel of the
-     * configured main tier, else getActiveModel). Returns [] when the model has
-     * no native effort surface, which hides the effort control.
+     * Native effort levels for the PINNED chat-header model, or [] when nothing
+     * is pinned. Effort is a pin-only control: in Auto mode the tier router
+     * already picks the model for the task, so no effort dial is offered and the
+     * model keeps its own vendor default (the provider layer sends no effort
+     * field). The empty array hides the effort slider, which is how Auto mode and
+     * effort-incapable models (Gemini, local) both end up with no control.
      */
-    private resolveEffortLevelsForActiveModel(
+    private resolveEffortLevelsForPinnedModel(
         provider: import('../types/settings').ProviderConfig,
     ): EffortLevel[] {
-        let pinned: { modelId: string; providerType: string } | null = null;
-        if (this.chatModelOverride) {
-            const m = resolveOverrideModel(provider, this.chatModelOverride);
-            if (m) pinned = { modelId: m.id, providerType: provider.type };
-        }
-
-        let defaultActive: { modelId: string; providerType: string } | null = null;
-        const defaultTier = this.plugin.settings.defaultMainModelTier ?? 'mid';
-        const defaultModel = this.plugin.getTierModel(defaultTier) ?? this.plugin.getActiveModel();
-        if (defaultModel) {
-            defaultActive = { modelId: defaultModel.name, providerType: defaultModel.provider };
-        }
-
-        const effective = resolveEffectiveModelForEffort(pinned, defaultActive);
-        if (!effective) return [];
-        return getModelEffortLevels(effective.modelId, effective.providerType);
+        if (!this.chatModelOverride) return [];
+        const m = resolveOverrideModel(provider, this.chatModelOverride);
+        if (!m) return [];
+        return getModelEffortLevels(m.id, provider.type);
     }
 
     /**
@@ -1631,13 +1620,12 @@ export class AgentSidebarView extends ItemView {
         // thinking on/off. When it does, a fresh handler is built even for
         // the default-active model so the override takes effect.
         const activeProvider = resolveActiveProvider(this.plugin.settings);
-        // The effort control is now revealed only when the thinking toggle is
-        // On, so a contradictory Thinking=Off + Effort pair can no longer be
+        // The effort control is pin-only and only revealed while thinking is On,
+        // so a contradictory Thinking=Off + Effort pair can no longer be
         // expressed and no coherence collapse is needed: the thinking override
         // passes through untouched. The thinking resolution itself is unchanged.
         const effectiveThinkingOverride = this.chatThinkingOverride;
         const thinkingIsExplicit = isExplicitThinkingOverride(effectiveThinkingOverride);
-        const effortIsExplicit = isExplicitEffortOverride(this.chatEffortOverride);
         // Apply the per-conversation thinking override to a model before it is
         // built. In 'follow' mode the model's own value is kept unchanged.
         const applyThinkingOverride = (model: CustomModel): CustomModel => {
@@ -1650,13 +1638,17 @@ export class AgentSidebarView extends ItemView {
                 ),
             };
         };
-        // Apply the per-conversation effort override to a model before it is
-        // built. Threaded on every model-resolution path (chat-pin, mode,
-        // default-active), exactly like the thinking override, so it works in
-        // auto mode too. 'auto' leaves the model unchanged so no effort field
-        // is sent. The provider layer only emits a level valid for the model
-        // family, so a mismatch is dropped there rather than here.
+        // Apply the per-conversation effort override. Effort is a PIN-ONLY
+        // control, so this only runs on the chat-pin path below (the mode and
+        // default-active paths do not call it): in Auto mode no effort is sent
+        // and the model keeps its own vendor default. 'auto' leaves the model
+        // unchanged. It is also gated on the thinking switch being On, since an
+        // effort level is meaningless with thinking off and the UI hides the
+        // control there; this keeps a stale level from being sent. The provider
+        // layer only emits a level valid for the model family, so a mismatch is
+        // dropped there rather than here.
         const applyEffortOverride = (model: CustomModel): CustomModel => {
+            if (!thinkingSwitchIsOn(this.chatThinkingOverride)) return model;
             const effort = resolveEffectiveEffort(this.chatEffortOverride);
             if (effort === undefined) return model;
             return { ...model, reasoningEffort: effort };
@@ -1697,10 +1689,12 @@ export class AgentSidebarView extends ItemView {
         const resolvedModel = this.plugin.settings.activeModels.find((m) => getModelKey(m) === modeModelKey);
 
         if (!handlerResolved && resolvedModel && modeModelKey !== this.plugin.settings.activeModelKey) {
-            // Mode has a different model — build a fresh handler for it
+            // Mode has a different model, so build a fresh handler for it.
+            // Effort is pin-only, so a mode model carries only the thinking
+            // override; its own effort/default is left untouched.
             try {
                 resolvedApiHandler = buildApiHandler(
-                    modelToLLMProvider(applyEffortOverride(applyThinkingOverride(resolvedModel))),
+                    modelToLLMProvider(applyThinkingOverride(resolvedModel)),
                 );
                 handlerResolved = true;
             } catch {
@@ -1710,15 +1704,17 @@ export class AgentSidebarView extends ItemView {
 
         // Issue #44: default-active model path. When neither a chat-model
         // override nor a mode-specific model rebuilt the handler, but the user
-        // forced thinking or effort for this conversation, rebuild from the same
-        // default model main.ts uses so the override applies.
-        if (!handlerResolved && (thinkingIsExplicit || effortIsExplicit)) {
+        // forced thinking for this conversation, rebuild from the same default
+        // model main.ts uses so the thinking override applies. Effort is NOT
+        // threaded here: it is pin-only, so in Auto mode the default model keeps
+        // its own vendor effort default.
+        if (!handlerResolved && thinkingIsExplicit) {
             const defaultTier = this.plugin.settings.defaultMainModelTier ?? 'mid';
             const defaultModel = this.plugin.getTierModel(defaultTier) ?? this.plugin.getActiveModel();
             if (defaultModel) {
                 try {
                     resolvedApiHandler = buildApiHandler(
-                        modelToLLMProvider(applyEffortOverride(applyThinkingOverride(defaultModel))),
+                        modelToLLMProvider(applyThinkingOverride(defaultModel)),
                     );
                 } catch {
                     resolvedApiHandler = this.plugin.apiHandler;

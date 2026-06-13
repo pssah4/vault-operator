@@ -279,12 +279,25 @@ describe('getModelEffortSupport', () => {
         expect(getModelEffortSupport('eu.anthropic.claude-opus-4-8-v1', 'bedrock')).toBe(true);
     });
 
-    it('supports Claude on anthropic-direct', () => {
-        expect(getModelEffortSupport('claude-sonnet-4-6', 'anthropic')).toBe(true);
+    it('supports the effort-capable Claude lineup on anthropic-direct', () => {
+        expect(getModelEffortSupport('claude-opus-4-8', 'anthropic')).toBe(true);
+        expect(getModelEffortSupport('claude-opus-4-7', 'anthropic')).toBe(true);
+        expect(getModelEffortSupport('claude-fable-5', 'anthropic')).toBe(true);
     });
 
     it('supports Claude on OpenRouter', () => {
         expect(getModelEffortSupport('anthropic/claude-opus-4-8', 'openrouter')).toBe(true);
+    });
+
+    it('does NOT support budget-tokens Claude (Sonnet 4.6, Opus 4.6, Haiku, 3.x)', () => {
+        // These take thinking budget_tokens, not output_config.effort: sending an
+        // effort enum makes Bedrock 400 with "thinking.enabled.budget_tokens: Field
+        // required". They must be classified as effort-incapable.
+        expect(getModelEffortSupport('claude-sonnet-4-6', 'anthropic')).toBe(false);
+        expect(getModelEffortSupport('eu.anthropic.claude-sonnet-4-6', 'bedrock')).toBe(false);
+        expect(getModelEffortSupport('claude-opus-4-6', 'anthropic')).toBe(false);
+        expect(getModelEffortSupport('eu.anthropic.claude-haiku-4-5-20251001-v1:0', 'bedrock')).toBe(false);
+        expect(getModelEffortSupport('anthropic/claude-3-haiku-20240307', 'openrouter')).toBe(false);
     });
 
     it('supports GPT-5 on OpenAI', () => {
@@ -342,8 +355,8 @@ describe('getModelEffortLevels', () => {
         ]);
     });
 
-    it('returns the five Claude levels on anthropic-direct and OpenRouter-Claude', () => {
-        expect(getModelEffortLevels('claude-sonnet-4-6', 'anthropic')).toEqual([
+    it('returns the five Claude levels for the effort-capable lineup on anthropic-direct and OpenRouter-Claude', () => {
+        expect(getModelEffortLevels('claude-opus-4-8', 'anthropic')).toEqual([
             'low',
             'medium',
             'high',
@@ -357,6 +370,13 @@ describe('getModelEffortLevels', () => {
             'xhigh',
             'max',
         ]);
+    });
+
+    it('returns [] for budget-tokens Claude (they take budget_tokens, not effort)', () => {
+        expect(getModelEffortLevels('claude-sonnet-4-6', 'anthropic')).toEqual([]);
+        expect(getModelEffortLevels('eu.anthropic.claude-sonnet-4-6', 'bedrock')).toEqual([]);
+        expect(getModelEffortLevels('claude-opus-4-6', 'anthropic')).toEqual([]);
+        expect(getModelEffortLevels('anthropic/claude-3-5-sonnet', 'openrouter')).toEqual([]);
     });
 
     it('returns the four GPT levels (minimal..high) for GPT-5 and the o-series', () => {

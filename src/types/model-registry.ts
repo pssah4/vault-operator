@@ -349,9 +349,11 @@ const OPENAI_EFFORT_LEVELS: EffortLevel[] = ['minimal', 'low', 'medium', 'high']
  * ascending order. An empty array means the pair has no native effort surface,
  * so the per-conversation effort selector stays hidden and no field is sent.
  *
- * - Claude on anthropic / bedrock / openrouter: low, medium, high, xhigh, max
- *   (output_config.effort on Anthropic and OpenRouter, reasoning_config on
- *   Bedrock).
+ * - The effort-capable Claude lineup (Opus 4.7/4.8, Fable, Mythos) on anthropic
+ *   / bedrock / openrouter: low, medium, high, xhigh, max (output_config.effort
+ *   on Anthropic and OpenRouter, reasoning_config on Bedrock). Budget-tokens
+ *   Claude (Sonnet 4.6, Opus 4.6 and older, Haiku, 3.x) returns [] because it
+ *   takes a thinking budget, not an effort enum, and 400s on one.
  * - GPT-5 and the o-series (o1, o3, o4, ...) on openai / github-copilot /
  *   chatgpt-oauth / openrouter: minimal, low, medium, high (reasoning.effort /
  *   reasoning_effort).
@@ -365,12 +367,20 @@ export function getModelEffortLevels(modelId: string, providerType: string): Eff
     const provider = providerType.toLowerCase();
     const normalized = normalizeModelId(modelId).toLowerCase();
 
-    const isClaude = /^claude-/.test(normalized);
+    // Only the adaptive-thinking Claude lineup (Opus 4.7/4.8, Fable, Mythos)
+    // accepts output_config.effort / reasoning_config effort. The budget-tokens
+    // models (Sonnet 4.6, Opus 4.6 and earlier, Haiku, the 3.x snapshots) take a
+    // thinking budget instead and 400 on an effort enum (Bedrock:
+    // "thinking.enabled.budget_tokens: Field required"), so they are NOT
+    // effort-capable. modelUsesBudgetTokensThinking is the single source of truth
+    // for that split (false == adaptive == effort-capable).
+    const isEffortCapableClaude = /^claude-/.test(normalized)
+        && !modelUsesBudgetTokensThinking(modelId);
     // GPT-5 family and the reasoning o-series (o1..o9 plus o-mini variants).
     const isOpenAiReasoning = /^gpt-5(\b|[.-])/.test(normalized) || /^o[1-9](\b|[.-])/.test(normalized);
 
     // Claude-capable providers send the effort via the native Anthropic surface.
-    if (isClaude && (provider === 'anthropic' || provider === 'bedrock' || provider === 'openrouter')) {
+    if (isEffortCapableClaude && (provider === 'anthropic' || provider === 'bedrock' || provider === 'openrouter')) {
         return [...CLAUDE_EFFORT_LEVELS];
     }
 

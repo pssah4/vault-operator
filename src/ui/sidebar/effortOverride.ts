@@ -2,10 +2,11 @@
  * Per-conversation reasoning-effort override for the chat model picker.
  *
  * The chat-header picker lets a user pick a reasoning-effort level for the
- * current conversation. The control is revealed only when the thinking toggle
- * is On and the active model is effort-capable. The default is 'auto', which
- * sends no effort field at all, so untouched conversations are byte-identical
- * to before.
+ * current conversation. Effort is a pin-only control: it is revealed only when
+ * a specific model is pinned (so the tier router is off), the thinking toggle
+ * is On, and that model is effort-capable. In Auto mode no effort is offered;
+ * the model keeps its own vendor default. The default is 'auto', which sends no
+ * effort field at all, so untouched conversations are byte-identical to before.
  *
  * This module owns only the pure decision logic so it stays unit-testable and
  * free of any Obsidian import.
@@ -130,24 +131,7 @@ export function effortIndexForFraction(fraction: number, stopCount: number): num
     return Math.min(Math.max(raw, 0), stopCount - 1);
 }
 
-/** A resolved (model id, provider type) pair the effort control reasons about. */
-export interface EffortModelRef {
-    modelId: string;
-    providerType: string;
-}
-
-/**
- * Resolve the model the effort control should reason about.
- *
- * Effort now threads on every model-resolution path, so the control reflects
- * whatever model the turn actually runs on: the pinned chat-header model when
- * one is pinned (the router is off in that case), otherwise the default-active
- * model the main loop uses. Returns null when neither resolves, so the caller
- * renders no effort control.
- */
-export function resolveEffectiveModelForEffort(
-    pinned: EffortModelRef | null,
-    defaultActive: EffortModelRef | null,
-): EffortModelRef | null {
-    return pinned ?? defaultActive;
-}
+// Effort is a pin-only control: it threads onto the model only when one is
+// pinned via the chat header (the tier router is off in that case). In Auto
+// mode no effort is offered or sent, so the model keeps its own vendor default.
+// There is therefore no "effective model for effort" fall-back to resolve.

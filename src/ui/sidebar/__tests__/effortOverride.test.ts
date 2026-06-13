@@ -17,7 +17,6 @@ import {
     effortStops,
     isExplicitEffortOverride,
     resolveEffectiveEffort,
-    resolveEffectiveModelForEffort,
     thinkingSwitchIsOn,
 } from '../effortOverride';
 
@@ -192,26 +191,3 @@ describe('effortIndexForFraction', () => {
     });
 });
 
-describe('resolveEffectiveModelForEffort', () => {
-    it('uses the pinned model when one is pinned (router off, pin wins)', () => {
-        expect(
-            resolveEffectiveModelForEffort(
-                { modelId: 'claude-opus-4-8', providerType: 'anthropic' },
-                { modelId: 'gpt-5', providerType: 'openai' },
-            ),
-        ).toEqual({ modelId: 'claude-opus-4-8', providerType: 'anthropic' });
-    });
-
-    it('falls back to the default-active model when nothing is pinned', () => {
-        expect(
-            resolveEffectiveModelForEffort(
-                null,
-                { modelId: 'gpt-5', providerType: 'openai' },
-            ),
-        ).toEqual({ modelId: 'gpt-5', providerType: 'openai' });
-    });
-
-    it('returns null when neither a pinned nor a default model resolves', () => {
-        expect(resolveEffectiveModelForEffort(null, null)).toBe(null);
-    });
-});
