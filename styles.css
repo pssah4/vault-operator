@@ -6061,15 +6061,23 @@
     cursor: default;
 }
 
-/* Per-conversation reasoning-effort selector (pin-mode only) */
+/* Per-conversation reasoning-effort selector (pin-mode only).
+   Slider styling matching the Claude Code effort control. */
 .chat-model-picker-effort {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 12px;
     border-top: 1px solid var(--background-modifier-border);
     padding: 8px 10px;
     flex-shrink: 0;
+}
+
+.chat-model-picker-effort-labelwrap {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
 }
 
 .chat-model-picker-effort-label {
@@ -6077,35 +6085,42 @@
     color: var(--text-muted);
 }
 
-.chat-model-picker-effort-group {
-    display: inline-flex;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.chat-model-picker-effort-btn {
+.chat-model-picker-effort-value {
     font-size: 11px;
-    line-height: 1.6;
-    padding: 2px 8px;
-    border: none;
-    border-left: 1px solid var(--background-modifier-border);
-    background: var(--background-secondary);
-    color: var(--text-muted);
-    cursor: pointer;
-}
-
-.chat-model-picker-effort-btn:first-child {
-    border-left: none;
-}
-
-.chat-model-picker-effort-btn:hover {
+    font-weight: 600;
     color: var(--text-normal);
 }
 
-.chat-model-picker-effort-btn.is-active {
+.chat-model-picker-effort-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 132px;
+    height: 6px;
+    border-radius: 999px;
+    cursor: pointer;
+    background: linear-gradient(
+        to right,
+        var(--interactive-accent) 0%,
+        var(--interactive-accent) var(--effort-fill, 0%),
+        var(--background-modifier-border) var(--effort-fill, 0%),
+        var(--background-modifier-border) 100%
+    );
+}
+
+.chat-model-picker-effort-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
     background: var(--interactive-accent);
-    color: var(--text-on-accent);
+    box-shadow: 0 0 0 2px var(--background-primary);
+    cursor: pointer;
+}
+
+.chat-model-picker-effort-slider:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
 }
 
 .chat-model-picker-effort-hint {

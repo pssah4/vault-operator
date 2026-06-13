@@ -306,42 +306,52 @@ export class ChatModelPickerPopover {
         callbacks: ChatModelPickerCallbacks,
         setThinkingDisabled: (disabled: boolean) => void,
     ): void {
-        const footer = popover.createDiv('chat-model-picker-effort');
-        footer.createDiv({
+        // Ordered stops, left (Auto = no override) to right (High). A slider
+        // rather than buttons, matching the Claude Code effort selector.
+        const LEVELS: EffortOverride[] = ['auto', 'low', 'medium', 'high'];
+        const labelFor = (level: EffortOverride): string => {
+            switch (level) {
+                case 'low': return t('ui.sidebar.effortLow');
+                case 'medium': return t('ui.sidebar.effortMedium');
+                case 'high': return t('ui.sidebar.effortHigh');
+                case 'auto':
+                default: return t('ui.sidebar.effortAuto');
+            }
+        };
+
+        const row = popover.createDiv('chat-model-picker-effort');
+        const labelWrap = row.createDiv('chat-model-picker-effort-labelwrap');
+        labelWrap.createSpan({
             cls: 'chat-model-picker-effort-label',
             text: t('ui.sidebar.effortLabel'),
         });
-        const group = footer.createDiv('chat-model-picker-effort-group');
+        const valueEl = labelWrap.createSpan('chat-model-picker-effort-value');
 
-        const options: Array<{ value: EffortOverride; label: string }> = [
-            { value: 'auto', label: t('ui.sidebar.effortAuto') },
-            { value: 'low', label: t('ui.sidebar.effortLow') },
-            { value: 'medium', label: t('ui.sidebar.effortMedium') },
-            { value: 'high', label: t('ui.sidebar.effortHigh') },
-        ];
+        const slider = row.createEl('input', {
+            cls: 'chat-model-picker-effort-slider',
+            attr: { type: 'range', min: '0', max: String(LEVELS.length - 1), step: '1' },
+        });
+        slider.setAttr('aria-label', t('ui.sidebar.effortLabel'));
 
-        const buttons: Array<{ value: EffortOverride; el: HTMLElement }> = [];
         const sync = () => {
             const current = callbacks.getEffort();
-            for (const b of buttons) {
-                b.el.classList.toggle('is-active', b.value === current);
-                b.el.setAttr('aria-pressed', b.value === current ? 'true' : 'false');
-            }
+            const idx = Math.max(0, LEVELS.indexOf(current));
+            slider.value = String(idx);
+            // Filled portion of the pill track, driven by a CSS var so no
+            // inline style property is assigned directly (bot-compliant).
+            const pct = (idx / (LEVELS.length - 1)) * 100;
+            slider.setCssProps({ '--effort-fill': `${pct}%` });
+            const label = labelFor(current);
+            valueEl.setText(label);
+            slider.setAttr('aria-valuetext', label);
             setThinkingDisabled(isExplicitEffortOverride(current));
         };
 
-        for (const opt of options) {
-            const btn = group.createEl('button', {
-                cls: 'chat-model-picker-effort-btn',
-                text: opt.label,
-                attr: { type: 'button' },
-            });
-            btn.addEventListener('click', () => {
-                callbacks.onEffortChange(opt.value);
-                sync();
-            });
-            buttons.push({ value: opt.value, el: btn });
-        }
+        slider.addEventListener('input', () => {
+            const level = LEVELS[Number(slider.value)] ?? 'auto';
+            callbacks.onEffortChange(level);
+            sync();
+        });
         sync();
     }
 
