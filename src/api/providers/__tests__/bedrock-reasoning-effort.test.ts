@@ -91,6 +91,17 @@ describe('BedrockProvider - reasoning effort passthrough', () => {
         }
     });
 
+    it('maps the Claude-only xhigh and max levels through verbatim', async () => {
+        for (const level of ['xhigh', 'max'] as const) {
+            const { provider, lastInput } = makeBedrock({ reasoningEffort: level });
+            await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+            const amrf = lastInput()?.additionalModelRequestFields as
+                | { reasoning_config?: { effort?: string } }
+                | undefined;
+            expect(amrf?.reasoning_config?.effort).toBe(level);
+        }
+    });
+
     it('omits additionalModelRequestFields when reasoningEffort is unset (byte-identical to today)', async () => {
         const { provider, lastInput } = makeBedrock({});
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));

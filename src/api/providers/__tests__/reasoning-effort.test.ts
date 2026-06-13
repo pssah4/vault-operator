@@ -129,6 +129,20 @@ describe('AnthropicProvider - reasoning effort', () => {
         }
     });
 
+    it('maps the Claude-only xhigh and max levels through verbatim', async () => {
+        for (const level of ['xhigh', 'max'] as const) {
+            const { provider, lastRequest } = makeAnthropic({ reasoningEffort: level });
+            await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+            expect(lastRequest()?.output_config).toEqual({ effort: level });
+        }
+    });
+
+    it('ignores a GPT-only minimal level (not valid for Claude) and sends no output_config', async () => {
+        const { provider, lastRequest } = makeAnthropic({ reasoningEffort: 'minimal' });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect('output_config' in lastRequest()!).toBe(false);
+    });
+
     it('sends NO output_config when reasoningEffort is unset (byte-identical to today)', async () => {
         const { provider, lastRequest } = makeAnthropic({});
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
@@ -196,6 +210,50 @@ describe('OpenAiProvider - reasoning effort', () => {
         const { provider, lastRequest } = makeOpenAi({ type: 'github-copilot', model: 'o3', reasoningEffort: 'high' });
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
         expect(lastRequest()?.reasoning_effort).toBe('high');
+    });
+
+    it('adds the GPT-native minimal level as reasoning_effort on openai', async () => {
+        const { provider, lastRequest } = makeOpenAi({ type: 'openai', model: 'gpt-5', reasoningEffort: 'minimal' });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect(lastRequest()?.reasoning_effort).toBe('minimal');
+    });
+
+    it('drops a Claude-only level (xhigh) set on a GPT model: no reasoning_effort field', async () => {
+        const { provider, lastRequest } = makeOpenAi({ type: 'openai', model: 'gpt-5', reasoningEffort: 'xhigh' });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect('reasoning_effort' in lastRequest()!).toBe(false);
+        expect('reasoning' in lastRequest()!).toBe(false);
+    });
+
+    it('OpenRouter Claude: drops a GPT-only level (minimal) as out-of-family', async () => {
+        const { provider, lastRequest } = makeOpenAi({
+            type: 'openrouter',
+            model: 'anthropic/claude-opus-4-8',
+            reasoningEffort: 'minimal',
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect('reasoning' in lastRequest()!).toBe(false);
+    });
+
+    it('OpenRouter Claude: allows the Claude-only max level', async () => {
+        const { provider, lastRequest } = makeOpenAi({
+            type: 'openrouter',
+            model: 'anthropic/claude-opus-4-8',
+            reasoningEffort: 'max',
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        const reasoning = lastRequest()?.reasoning as Record<string, unknown> | undefined;
+        expect(reasoning?.effort).toBe('max');
+    });
+
+    it('OpenRouter GPT: drops a Claude-only level (max) as out-of-family', async () => {
+        const { provider, lastRequest } = makeOpenAi({
+            type: 'openrouter',
+            model: 'openai/gpt-5',
+            reasoningEffort: 'max',
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect('reasoning' in lastRequest()!).toBe(false);
     });
 
     it('OpenRouter Claude: sends reasoning.effort (normalized shape)', async () => {

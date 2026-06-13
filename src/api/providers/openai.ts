@@ -12,7 +12,7 @@ import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import type { IncomingMessage } from 'http';
-import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortSupport } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortLevels } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
 import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
 
@@ -297,14 +297,19 @@ export class OpenAiProvider implements ApiHandler {
         //     Claude and non-Claude reasoning models, and merges with the
         //     existing reasoning.max_tokens passthrough).
         //   - openai / github-copilot use the chat-completions reasoning_effort.
+        // Defensive per-family validity: getModelEffortLevels returns the exact
+        // native set for this (model, provider) pair (OpenRouter Claude -> low..
+        // max, GPT -> minimal..high), so a cross-family level (a Claude-only
+        // xhigh/max accidentally set on a GPT model, or a GPT-only minimal on an
+        // OpenRouter Claude) is dropped, not sent.
         const effort = this.config.reasoningEffort;
-        const effortCapable = effort !== undefined
-            && getModelEffortSupport(this.config.model, this.config.type);
+        const effortLevels = getModelEffortLevels(this.config.model, this.config.type);
+        const effortValid = effort !== undefined && effortLevels.includes(effort);
         // OpenRouter reasoning object: merge the existing extended-thinking
         // max_tokens passthrough (if any) with the effort field (if any).
         const openRouterReasoning: Record<string, unknown> = {};
         if (openRouterThinking) openRouterReasoning.max_tokens = budgetTokens;
-        if (effortCapable && this.config.type === 'openrouter') openRouterReasoning.effort = effort;
+        if (effortValid && this.config.type === 'openrouter') openRouterReasoning.effort = effort;
 
         // Build request body
         const requestBody: OpenAI.ChatCompletionCreateParamsStreaming = {
@@ -327,7 +332,7 @@ export class OpenAiProvider implements ApiHandler {
                 ? { reasoning: openRouterReasoning } as Record<string, unknown>
                 : {}),
             // openai / github-copilot reasoning effort (chat-completions field).
-            ...(effortCapable && this.config.type !== 'openrouter'
+            ...(effortValid && this.config.type !== 'openrouter'
                 ? { reasoning_effort: effort } as Record<string, unknown>
                 : {}),
             // OpenRouter: disable automatic model fallback to prevent silent model switches.
