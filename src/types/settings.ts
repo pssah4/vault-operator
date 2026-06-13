@@ -2,6 +2,8 @@
  * Plugin Settings
  */
 
+import type { EffortLevel } from './model-registry';
+
 // ---------------------------------------------------------------------------
 // CustomModel — single unified model entry (replaces per-provider LLMProvider)
 // Adapted from Obsidian Copilot's CustomModel pattern
@@ -40,7 +42,7 @@ export interface CustomModel {
     /** Thinking budget in tokens (used when thinkingEnabled is true, default 10000) */
     thinkingBudgetTokens?: number;
     /** Native reasoning-effort level for effort-capable models; undefined sends no effort field. */
-    reasoningEffort?: 'low' | 'medium' | 'high';
+    reasoningEffort?: EffortLevel;
     /** AWS region (Bedrock only), e.g. "eu-central-1", "us-east-1" */
     awsRegion?: string;
     /** Auth mode for Bedrock: 'api-key' uses a single bearer token (new AWS Bedrock API Keys),
@@ -280,7 +282,7 @@ export interface LLMProvider {
     /** Thinking budget in tokens */
     thinkingBudgetTokens?: number;
     /** Native reasoning-effort level for effort-capable models; undefined sends no effort field. */
-    reasoningEffort?: 'low' | 'medium' | 'high';
+    reasoningEffort?: EffortLevel;
     /** AWS region (Bedrock only) */
     awsRegion?: string;
     /** Bedrock auth mode */

@@ -9,8 +9,8 @@
 import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_EFFORT_OVERRIDE,
+    effortControlVisibility,
     isExplicitEffortOverride,
-    resolveConversationOverrides,
     resolveEffectiveEffort,
 } from '../effortOverride';
 
@@ -19,10 +19,13 @@ describe('resolveEffectiveEffort', () => {
         expect(resolveEffectiveEffort('auto')).toBe(undefined);
     });
 
-    it('low / medium / high resolve to their level', () => {
+    it('resolves every native level verbatim (minimal..max)', () => {
+        expect(resolveEffectiveEffort('minimal')).toBe('minimal');
         expect(resolveEffectiveEffort('low')).toBe('low');
         expect(resolveEffectiveEffort('medium')).toBe('medium');
         expect(resolveEffectiveEffort('high')).toBe('high');
+        expect(resolveEffectiveEffort('xhigh')).toBe('xhigh');
+        expect(resolveEffectiveEffort('max')).toBe('max');
     });
 });
 
@@ -31,10 +34,13 @@ describe('isExplicitEffortOverride', () => {
         expect(isExplicitEffortOverride('auto')).toBe(false);
     });
 
-    it('is true for low, medium and high', () => {
+    it('is true for every native level', () => {
+        expect(isExplicitEffortOverride('minimal')).toBe(true);
         expect(isExplicitEffortOverride('low')).toBe(true);
         expect(isExplicitEffortOverride('medium')).toBe(true);
         expect(isExplicitEffortOverride('high')).toBe(true);
+        expect(isExplicitEffortOverride('xhigh')).toBe(true);
+        expect(isExplicitEffortOverride('max')).toBe(true);
     });
 });
 
@@ -46,59 +52,17 @@ describe('DEFAULT_EFFORT_OVERRIDE', () => {
     });
 });
 
-describe('resolveConversationOverrides (within-pin coherence)', () => {
-    it('passes the thinking override through untouched when effort is auto', () => {
-        expect(resolveConversationOverrides('on', 'auto')).toEqual({
-            effort: undefined,
-            thinking: 'on',
-            effortIsExplicit: false,
-        });
-        expect(resolveConversationOverrides('off', 'auto')).toEqual({
-            effort: undefined,
-            thinking: 'off',
-            effortIsExplicit: false,
-        });
-        expect(resolveConversationOverrides('follow', 'auto')).toEqual({
-            effort: undefined,
-            thinking: 'follow',
-            effortIsExplicit: false,
-        });
-    });
-
-    it('forces thinking to follow when effort is explicit (effort wins)', () => {
-        // Thinking=Off + Effort=High is contradictory on Claude, so effort wins
-        // and the explicit thinking override is suppressed.
-        expect(resolveConversationOverrides('off', 'high')).toEqual({
-            effort: 'high',
-            thinking: 'follow',
-            effortIsExplicit: true,
-        });
-        expect(resolveConversationOverrides('on', 'low')).toEqual({
-            effort: 'low',
-            thinking: 'follow',
-            effortIsExplicit: true,
-        });
-        expect(resolveConversationOverrides('follow', 'medium')).toEqual({
-            effort: 'medium',
-            thinking: 'follow',
-            effortIsExplicit: true,
-        });
-    });
-});
-
-import { effortControlVisibility } from '../effortOverride';
-
 describe('effortControlVisibility', () => {
-    it('shows the control only when a model is pinned and effort is supported', () => {
+    it('shows the control only when thinking is on and the model is effort-capable', () => {
         expect(effortControlVisibility(true, true)).toBe('control');
     });
 
-    it('shows the hint in auto mode (no model pinned)', () => {
-        expect(effortControlVisibility(false, true)).toBe('hint');
-        expect(effortControlVisibility(false, false)).toBe('hint');
+    it('renders nothing when thinking is off (effort is hidden, no coherence collapse needed)', () => {
+        expect(effortControlVisibility(false, true)).toBe('none');
+        expect(effortControlVisibility(false, false)).toBe('none');
     });
 
-    it('renders nothing when a model is pinned but cannot send effort', () => {
+    it('renders nothing when thinking is on but the model cannot send effort', () => {
         expect(effortControlVisibility(true, false)).toBe('none');
     });
 });

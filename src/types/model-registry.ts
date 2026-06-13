@@ -329,22 +329,39 @@ export function modelUsesBudgetTokensThinking(modelId: string): boolean {
 }
 
 /**
- * Whether a (model, provider) pair can SEND a native reasoning-effort field.
+ * Native reasoning-effort level. The full union spans both families:
+ *  - Claude (anthropic, bedrock, openrouter): low, medium, high, xhigh, max.
+ *    output_config.effort, GA, no beta header. Default is high; xhigh sits
+ *    between high and max and is the Claude Code default for agentic work.
+ *  - GPT-5 / o-series (openai, github-copilot, chatgpt-oauth, openrouter):
+ *    minimal, low, medium, high. reasoning_effort / reasoning.effort,
+ *    default medium.
+ */
+export type EffortLevel = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/** The five Claude-native effort levels, in ascending order. */
+const CLAUDE_EFFORT_LEVELS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+/** The four GPT-5 / o-series effort levels, in ascending order. */
+const OPENAI_EFFORT_LEVELS: EffortLevel[] = ['minimal', 'low', 'medium', 'high'];
+
+/**
+ * The native reasoning-effort levels a (model, provider) pair accepts, in
+ * ascending order. An empty array means the pair has no native effort surface,
+ * so the per-conversation effort selector stays hidden and no field is sent.
  *
- * This gates the per-conversation effort selector: the control is only rendered
- * and a native effort field is only sent for combinations we know how to wire.
- *
- * - Claude on anthropic / bedrock / openrouter: output_config.effort (Anthropic
- *   and OpenRouter) or additionalModelRequestFields reasoning (Bedrock).
+ * - Claude on anthropic / bedrock / openrouter: low, medium, high, xhigh, max
+ *   (output_config.effort on Anthropic and OpenRouter, reasoning_config on
+ *   Bedrock).
  * - GPT-5 and the o-series (o1, o3, o4, ...) on openai / github-copilot /
- *   chatgpt-oauth / openrouter: reasoning.effort / reasoning_effort.
+ *   chatgpt-oauth / openrouter: minimal, low, medium, high (reasoning.effort /
+ *   reasoning_effort).
  *
  * Everything else (Gemini, Ollama, LM Studio, custom, GPT-4 lineage, any
- * unknown id) returns false: control hidden, no field sent. The id is
- * normalized first so OpenRouter `anthropic/claude-*` and Bedrock
+ * unknown id, a cross-provider mismatch like Claude under openai) returns [].
+ * The id is normalized first so OpenRouter `anthropic/claude-*` and Bedrock
  * `eu.anthropic.claude-*-v1` map to the same answer as the direct id.
  */
-export function getModelEffortSupport(modelId: string, providerType: string): boolean {
+export function getModelEffortLevels(modelId: string, providerType: string): EffortLevel[] {
     const provider = providerType.toLowerCase();
     const normalized = normalizeModelId(modelId).toLowerCase();
 
@@ -354,7 +371,7 @@ export function getModelEffortSupport(modelId: string, providerType: string): bo
 
     // Claude-capable providers send the effort via the native Anthropic surface.
     if (isClaude && (provider === 'anthropic' || provider === 'bedrock' || provider === 'openrouter')) {
-        return true;
+        return [...CLAUDE_EFFORT_LEVELS];
     }
 
     // OpenAI-style reasoning providers send reasoning.effort / reasoning_effort.
@@ -365,10 +382,22 @@ export function getModelEffortSupport(modelId: string, providerType: string): bo
             provider === 'chatgpt-oauth' ||
             provider === 'openrouter')
     ) {
-        return true;
+        return [...OPENAI_EFFORT_LEVELS];
     }
 
-    return false;
+    return [];
+}
+
+/**
+ * Whether a (model, provider) pair can SEND a native reasoning-effort field.
+ *
+ * This gates the per-conversation effort selector: the control is only rendered
+ * and a native effort field is only sent for combinations we know how to wire.
+ * Kept as a thin wrapper over getModelEffortLevels so existing boolean callers
+ * (provider request bodies, the picker capability gate) stay unchanged.
+ */
+export function getModelEffortSupport(modelId: string, providerType: string): boolean {
+    return getModelEffortLevels(modelId, providerType).length > 0;
 }
 
 /** Output ceiling assumed for models we have no registry entry for (local models, gateways, ...). */

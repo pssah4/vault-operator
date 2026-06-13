@@ -19,6 +19,9 @@ import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
 import { stripThinkingBlocks } from '../../core/utils/stripThinkingBlocks';
 
+/** The Claude-native reasoning-effort levels accepted by output_config.effort. */
+const CLAUDE_EFFORT_SET = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
+
 /** Put an ephemeral cache_control marker on the last content block of a message. */
 export function markLastBlock(msg: Anthropic.MessageParam): void {
     if (typeof msg.content === 'string') {
@@ -175,8 +178,19 @@ export class AnthropicProvider implements ApiHandler {
         // Per-conversation reasoning effort (GA, no beta header). Only sent when
         // the user pinned an explicit level; 'auto'/undefined sends nothing, so
         // the request stays byte-identical to today. The chat-header gate already
-        // restricts this to effort-capable (model, provider) pairs.
+        // restricts this to effort-capable (model, provider) pairs. Defensive:
+        // only a level in the Claude family set is forwarded, so a GPT-only
+        // 'minimal' accidentally set on a Claude model is dropped, not sent.
         const reasoningEffort = this.config.reasoningEffort;
+        const claudeEffort = reasoningEffort && CLAUDE_EFFORT_SET.has(reasoningEffort)
+            ? reasoningEffort
+            : undefined;
+        // output_config.effort accepts low|medium|high|xhigh|max on the wire; the
+        // SDK type does not yet list 'xhigh', so the field is built as a loose
+        // record and merged below (the GA wire surface is the source of truth).
+        const outputConfig: Record<string, unknown> | undefined = claudeEffort
+            ? { effort: claudeEffort }
+            : undefined;
 
         // Create streaming request (pass abort signal for cancellation support)
         const stream = this.client.messages.stream(
@@ -189,7 +203,7 @@ export class AnthropicProvider implements ApiHandler {
                 tools: anthropicTools.length > 0 ? anthropicTools : undefined,
                 tool_choice: anthropicTools.length > 0 ? { type: 'auto' } : undefined,
                 ...(thinkingParam ? { thinking: thinkingParam } : {}),
-                ...(reasoningEffort ? { output_config: { effort: reasoningEffort } } : {}),
+                ...(outputConfig ? { output_config: outputConfig } : {}),
             },
             { signal: abortSignal },
         );

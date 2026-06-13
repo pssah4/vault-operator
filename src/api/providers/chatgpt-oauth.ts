@@ -188,6 +188,19 @@ interface ResponsesTool {
 
 type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 
+/** The GPT-5 / o-series effort levels accepted on the Codex Responses surface. */
+const GPT_EFFORT_LEVELS: ReasoningEffort[] = ['minimal', 'low', 'medium', 'high'];
+
+/**
+ * Resolve the reasoning effort to send. The configured level may be a wider
+ * EffortLevel (Claude has xhigh/max) so only a GPT-valid level is forwarded;
+ * anything else (unset, or a Claude-only level) falls back to the documented
+ * 'low' 400-avoidance floor. An explicit GPT-valid value overrides the floor.
+ */
+function resolveGptEffort(level: string | undefined): ReasoningEffort {
+    return GPT_EFFORT_LEVELS.find((valid) => valid === level) ?? 'low';
+}
+
 interface ResponsesRequestBody {
     model: string;
     instructions?: string;
@@ -254,7 +267,7 @@ export class ChatGptOAuthProvider implements ApiHandler {
             // Default to 'low' (the documented 400-avoidance value); an explicit
             // user-chosen effort overrides it. Never derive medium/high without
             // an explicit user value -- the hardcoded low stays the floor.
-            body.reasoning = { effort: this.config.reasoningEffort ?? 'low', summary: 'auto' };
+            body.reasoning = { effort: resolveGptEffort(this.config.reasoningEffort), summary: 'auto' };
             body.include = ['reasoning.encrypted_content'];
         }
         // FIX-04-03-02: omit temperature for default-only models (e.g. GPT-5.x)
@@ -286,7 +299,7 @@ export class ChatGptOAuthProvider implements ApiHandler {
             // Same low-floor default as createMessage; an explicit user effort
             // overrides it. (This is a tiny classification call, so the effort
             // rarely matters, but the surface stays consistent.)
-            body.reasoning = { effort: this.config.reasoningEffort ?? 'low', summary: 'auto' };
+            body.reasoning = { effort: resolveGptEffort(this.config.reasoningEffort), summary: 'auto' };
         }
         const response = await this.streamRequest(body, abortSignal);
         if (response.status >= 400) {

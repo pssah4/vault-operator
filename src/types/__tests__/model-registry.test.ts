@@ -7,6 +7,7 @@ import {
     estimatePromptTokens,
     modelSupportsTemperature,
     getModelEffortSupport,
+    getModelEffortLevels,
     modelUsesBudgetTokensThinking,
 } from '../model-registry';
 
@@ -327,6 +328,65 @@ describe('getModelEffortSupport', () => {
     it('does NOT support GPT-4 lineage (no reasoning effort surface)', () => {
         expect(getModelEffortSupport('gpt-4o', 'openai')).toBe(false);
         expect(getModelEffortSupport('gpt-4.1', 'openai')).toBe(false);
+    });
+});
+
+describe('getModelEffortLevels', () => {
+    it('returns the five Claude levels (low..max) on bedrock', () => {
+        expect(getModelEffortLevels('eu.anthropic.claude-opus-4-8-v1', 'bedrock')).toEqual([
+            'low',
+            'medium',
+            'high',
+            'xhigh',
+            'max',
+        ]);
+    });
+
+    it('returns the five Claude levels on anthropic-direct and OpenRouter-Claude', () => {
+        expect(getModelEffortLevels('claude-sonnet-4-6', 'anthropic')).toEqual([
+            'low',
+            'medium',
+            'high',
+            'xhigh',
+            'max',
+        ]);
+        expect(getModelEffortLevels('anthropic/claude-opus-4-8', 'openrouter')).toEqual([
+            'low',
+            'medium',
+            'high',
+            'xhigh',
+            'max',
+        ]);
+    });
+
+    it('returns the four GPT levels (minimal..high) for GPT-5 and the o-series', () => {
+        expect(getModelEffortLevels('gpt-5', 'openai')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('gpt-5.5', 'openai')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('o3', 'github-copilot')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('o4-mini', 'chatgpt-oauth')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('openai/gpt-5', 'openrouter')).toEqual(['minimal', 'low', 'medium', 'high']);
+    });
+
+    it('returns [] for non-effort families (gemini, ollama, custom, gpt-4 lineage)', () => {
+        expect(getModelEffortLevels('gemini-2.5-pro', 'gemini')).toEqual([]);
+        expect(getModelEffortLevels('llama-3.1-70b', 'ollama')).toEqual([]);
+        expect(getModelEffortLevels('qwen3.5:9b', 'lmstudio')).toEqual([]);
+        expect(getModelEffortLevels('some-model', 'custom')).toEqual([]);
+        expect(getModelEffortLevels('gpt-4o', 'openai')).toEqual([]);
+    });
+
+    it('returns [] for cross-provider mismatches (Claude under openai, GPT under anthropic)', () => {
+        expect(getModelEffortLevels('claude-sonnet-4-6', 'openai')).toEqual([]);
+        expect(getModelEffortLevels('gpt-4o', 'anthropic')).toEqual([]);
+    });
+
+    it('stays consistent with getModelEffortSupport (length > 0)', () => {
+        expect(getModelEffortLevels('claude-sonnet-4-6', 'anthropic').length > 0).toBe(
+            getModelEffortSupport('claude-sonnet-4-6', 'anthropic'),
+        );
+        expect(getModelEffortLevels('gemini-2.5-pro', 'gemini').length > 0).toBe(
+            getModelEffortSupport('gemini-2.5-pro', 'gemini'),
+        );
     });
 });
 

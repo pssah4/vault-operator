@@ -125,21 +125,16 @@ export class ChatModelPickerPopover {
         searchInput.addEventListener('input', applyFilter);
 
         // ── Thinking + reasoning-effort overrides (per conversation) ─────
-        // The thinking toggle always shows. The effort control only shows
-        // when a model is pinned (router off) AND that model can send a
-        // native effort field; in auto mode it is replaced by a hint, and
-        // for a pinned-but-effort-incapable model it is omitted entirely.
+        // The thinking toggle always shows. The effort control is revealed
+        // only when thinking is On AND the active model can send a native
+        // effort field; otherwise it is omitted (no inert control, no hint).
         const setThinkingDisabled = this.makeThinkingControl(popover, callbacks);
         const pinnedId = callbacks.getCurrent();
-        const effortSupported = pinnedId !== null && getModelEffortSupport(pinnedId, provider.type);
-        const visibility = effortControlVisibility(pinnedId !== null, effortSupported);
+        const effortCapable = pinnedId !== null && getModelEffortSupport(pinnedId, provider.type);
+        const thinkingOn = callbacks.getThinking() !== 'off';
+        const visibility = effortControlVisibility(thinkingOn, effortCapable);
         if (visibility === 'control') {
             this.makeEffortControl(popover, callbacks, setThinkingDisabled);
-        } else if (visibility === 'hint') {
-            popover.createDiv({
-                cls: 'chat-model-picker-effort-hint',
-                text: t('ui.sidebar.effortAutoHint'),
-            });
         }
         // Coherence on open: if effort is already explicit, the thinking
         // toggle is greyed (effort drives reasoning depth on Claude).

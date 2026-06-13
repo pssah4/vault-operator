@@ -19,7 +19,6 @@ import {
 } from './sidebar/thinkingOverride';
 import {
     DEFAULT_EFFORT_OVERRIDE,
-    resolveConversationOverrides,
     resolveEffectiveEffort,
     type EffortOverride,
 } from './sidebar/effortOverride';
@@ -1591,16 +1590,11 @@ export class AgentSidebarView extends ItemView {
         // thinking on/off. When it does, a fresh handler is built even for
         // the default-active model so the override takes effect.
         const activeProvider = resolveActiveProvider(this.plugin.settings);
-        // Within-pin coherence (effort feature): when an explicit effort level
-        // is set, the effort dial drives reasoning depth on Claude, so the
-        // explicit thinking on/off override is suppressed (effort wins). When
-        // effort is 'auto' the thinking override passes through unchanged, so
-        // the pre-existing thinking-only behavior stays byte-identical.
-        const coherentOverrides = resolveConversationOverrides(
-            this.chatThinkingOverride,
-            this.chatEffortOverride,
-        );
-        const effectiveThinkingOverride = coherentOverrides.thinking;
+        // The effort control is now revealed only when the thinking toggle is
+        // On, so a contradictory Thinking=Off + Effort pair can no longer be
+        // expressed and no coherence collapse is needed: the thinking override
+        // passes through untouched. The thinking resolution itself is unchanged.
+        const effectiveThinkingOverride = this.chatThinkingOverride;
         const thinkingIsExplicit = isExplicitThinkingOverride(effectiveThinkingOverride);
         // Apply the per-conversation thinking override to a model before it is
         // built. In 'follow' mode the model's own value is kept unchanged.
