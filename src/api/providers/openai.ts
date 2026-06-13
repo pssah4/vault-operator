@@ -265,10 +265,14 @@ export class OpenAiProvider implements ApiHandler {
         }
 
         // OpenRouter extended thinking: when enabled for Anthropic models via OpenRouter,
-        // force temperature to 1 and pass reasoning parameter
+        // force temperature to 1 and pass reasoning parameter. The guard must
+        // not override models that reject temperature outright (Opus 4.7+,
+        // Fable, Mythos via supportsTemperature) or pin it API-side (o-series),
+        // otherwise sending temperature: 1 re-introduces the 400 the
+        // supportsTemperature gate above just prevented.
         const openRouterThinking = this.config.type === 'openrouter'
             && (this.config.thinkingEnabled ?? false);
-        if (openRouterThinking) {
+        if (openRouterThinking && supportsTemperature && !isOSeries) {
             temperature = 1;
         }
         // Clamp the output budget to the model's real ceiling and (for thinking)

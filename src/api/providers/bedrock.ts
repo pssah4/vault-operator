@@ -390,11 +390,15 @@ export class BedrockProvider implements ApiHandler {
      * Uses ConverseCommand (no stream) to keep it cheap.
      */
     async classifyText(prompt: string, abortSignal?: AbortSignal): Promise<string> {
+        // No temperature: Opus 4.7+, Fable and Mythos reject any sampling
+        // parameter with a ValidationException, and the direct Anthropic and
+        // OpenAI classify paths omit it too. The classification is short and
+        // deterministic enough without it.
         const response = await this.client.send(
             new ConverseCommand({
                 modelId: this.config.model,
                 messages: [{ role: 'user', content: [{ text: prompt }] }],
-                inferenceConfig: { maxTokens: 50, temperature: 0 },
+                inferenceConfig: { maxTokens: 50 },
             }),
             { abortSignal },
         );

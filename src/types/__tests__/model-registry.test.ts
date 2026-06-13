@@ -227,6 +227,14 @@ describe('modelSupportsTemperature (FIX-04-03-02)', () => {
         expect(modelSupportsTemperature('claude-opus-4-9')).toBe(false);
     });
 
+    it('flags hypothetical two-digit minor snapshots, keeps 4-6 and earlier', () => {
+        // The regex covers a future 4-10 / 4-11 without matching 4-6.
+        expect(modelSupportsTemperature('claude-opus-4-10')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-11')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-6')).toBe(true);
+        expect(modelSupportsTemperature('claude-opus-4-5')).toBe(true);
+    });
+
     it('flags Opus 4.8 across normalized aliases (OpenRouter, Bedrock)', () => {
         expect(modelSupportsTemperature('anthropic/claude-opus-4-8')).toBe(false);
         expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-8-v1')).toBe(false);

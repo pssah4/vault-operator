@@ -290,8 +290,11 @@ export function getModelOutputCeiling(modelId: string): number | undefined {
  */
 export function modelSupportsTemperature(modelId: string): boolean {
     const normalized = normalizeModelId(modelId).toLowerCase();
-    // Anthropic Opus 4.7+ snapshots that drop the sampling parameters
-    if (/^claude-opus-4-(7|8|9)\b/.test(normalized)) return false;
+    // Anthropic Opus 4.7+ snapshots that drop the sampling parameters. The
+    // minor version is matched as 7/8/9 or any two-or-more digit minor
+    // (a future 4-10, 4-11) so later snapshots stay covered, while 4-6 and
+    // earlier single-digit minors keep temperature.
+    if (/^claude-opus-4-(?:[7-9]|\d\d+)\b/.test(normalized)) return false;
     // Anthropic Fable / Mythos families: sampling parameters removed
     if (/^claude-(fable|mythos)-/.test(normalized)) return false;
     // OpenAI GPT-5 family: default-only temperature
