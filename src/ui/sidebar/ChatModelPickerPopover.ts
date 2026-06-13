@@ -18,12 +18,17 @@ import { setIcon } from 'obsidian';
 import type { DiscoveredModel, ProviderConfig } from '../../types/settings';
 import { getTierBadgeLabel } from '../../types/settings';
 import { t } from '../../i18n';
+import type { ThinkingOverride } from './thinkingOverride';
 
 export interface ChatModelPickerCallbacks {
     /** Currently selected override (null = Auto). */
     getCurrent: () => string | null;
     /** Called when the user picks a new override (null = Auto). */
     onSelect: (overrideId: string | null) => void;
+    /** Current per-conversation thinking override. */
+    getThinking: () => ThinkingOverride;
+    /** Called when the user changes the thinking override. */
+    onThinkingChange: (override: ThinkingOverride) => void;
 }
 
 export class ChatModelPickerPopover {
@@ -111,6 +116,9 @@ export class ChatModelPickerPopover {
             }
         };
         searchInput.addEventListener('input', applyFilter);
+
+        // ── Thinking override (per conversation) ─────────────────────────
+        this.makeThinkingControl(popover, callbacks);
 
         // ── Keyboard: Esc closes, Enter selects first visible ───────────
         this.keyHandler = (e: KeyboardEvent) => {
@@ -207,6 +215,50 @@ export class ChatModelPickerPopover {
             setIcon(check, 'check');
         }
         return row;
+    }
+
+    /**
+     * Per-conversation thinking override (issue #44): a small segmented
+     * control with Follow / On / Off. "Follow" is the default and keeps the
+     * active model's own thinking setting, so an untouched picker changes
+     * nothing.
+     */
+    private makeThinkingControl(popover: HTMLElement, callbacks: ChatModelPickerCallbacks): void {
+        const footer = popover.createDiv('chat-model-picker-thinking');
+        footer.createDiv({
+            cls: 'chat-model-picker-thinking-label',
+            text: t('ui.sidebar.thinkingOverrideLabel'),
+        });
+        const group = footer.createDiv('chat-model-picker-thinking-group');
+
+        const options: Array<{ value: ThinkingOverride; label: string }> = [
+            { value: 'follow', label: t('ui.sidebar.thinkingOverrideFollow') },
+            { value: 'on', label: t('ui.sidebar.thinkingOverrideOn') },
+            { value: 'off', label: t('ui.sidebar.thinkingOverrideOff') },
+        ];
+
+        const buttons: Array<{ value: ThinkingOverride; el: HTMLElement }> = [];
+        const sync = () => {
+            const current = callbacks.getThinking();
+            for (const b of buttons) {
+                b.el.classList.toggle('is-active', b.value === current);
+                b.el.setAttr('aria-pressed', b.value === current ? 'true' : 'false');
+            }
+        };
+
+        for (const opt of options) {
+            const btn = group.createEl('button', {
+                cls: 'chat-model-picker-thinking-btn',
+                text: opt.label,
+                attr: { type: 'button' },
+            });
+            btn.addEventListener('click', () => {
+                callbacks.onThinkingChange(opt.value);
+                sync();
+            });
+            buttons.push({ value: opt.value, el: btn });
+        }
+        sync();
     }
 
     private positionPopover(popover: HTMLElement, anchorBtn: HTMLElement, containerEl: HTMLElement): void {

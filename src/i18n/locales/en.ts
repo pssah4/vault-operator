@@ -1644,4 +1644,14 @@ export const en: Translations = {
     'ui.sidebar.modelPickerTitle': '{{provider}} models',
     'ui.sidebar.modelPickerSearch': 'Filter models…',
     'ui.sidebar.modelPickerNoModels': 'No discovered models yet; open settings, then providers, then refresh.',
+
+    // Issue #44 -- per-conversation extended-thinking override
+    'ui.sidebar.thinkingOverrideLabel': 'Thinking',
+    'ui.sidebar.thinkingOverrideFollow': 'Follow model',
+    'ui.sidebar.thinkingOverrideOn': 'On',
+    'ui.sidebar.thinkingOverrideOff': 'Off',
+    'ui.sidebar.thinkingBadgeOn': 'thinking on',
+    'ui.sidebar.thinkingBadgeOff': 'thinking off',
+    'ui.sidebar.thinkingOverrideTitleOn': '{{label}} Extended thinking forced on for this conversation.',
+    'ui.sidebar.thinkingOverrideTitleOff': '{{label}} Extended thinking forced off for this conversation.',
 };

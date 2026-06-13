@@ -5,11 +5,18 @@ import { AgentTask } from '../core/AgentTask';
 import { ModeService } from '../core/modes/ModeService';
 import type { MessageParam, ContentBlock } from '../api/types';
 import { getModelKey, getFirstEnabledModelKey, modelToLLMProvider } from '../types/settings';
+import type { CustomModel } from '../types/settings';
 import { buildApiHandler, buildApiHandlerForModel } from '../api/index';
 import { ToolPickerPopover } from './sidebar/ToolPickerPopover';
 import { McpServerPopover } from './sidebar/McpServerPopover';
 import { ChatModelPickerPopover } from './sidebar/ChatModelPickerPopover';
 import { resolveOverrideModel } from './sidebar/chatModelDropdown';
+import {
+    DEFAULT_THINKING_OVERRIDE,
+    isExplicitThinkingOverride,
+    resolveEffectiveThinkingEnabled,
+    type ThinkingOverride,
+} from './sidebar/thinkingOverride';
 import { providerConfigToCustomModel, resolveActiveProvider } from '../core/routing/tierResolution';
 import { TOOL_METADATA } from '../core/tools/toolMetadata';
 import { AttachmentHandler } from './sidebar/AttachmentHandler';
@@ -62,6 +69,13 @@ export class AgentSidebarView extends ItemView {
      * Reset to null when the active provider changes.
      */
     private chatModelOverride: string | null = null;
+    /**
+     * Per-conversation extended-thinking override (issue #44).
+     * 'follow' -> use the active model's own thinkingEnabled (default, no change)
+     * 'on'/'off' -> force thinking on/off for this conversation only.
+     * Lives alongside chatModelOverride; reset to 'follow' on a fresh chat.
+     */
+    private chatThinkingOverride: ThinkingOverride = DEFAULT_THINKING_OVERRIDE;
     /** EPIC-26 / FEAT-26-05: searchable popover for picking the chat-header model. */
     private chatModelPicker: ChatModelPickerPopover | null = null;
     private sendButton: HTMLElement | null = null;
@@ -759,6 +773,18 @@ export class AgentSidebarView extends ItemView {
             title = hasModeOverride ? t('ui.sidebar.modeOverride', { label }) : label;
         }
         this.modelButton.createSpan('model-label').setText(label);
+        // Issue #44: surface an explicit per-conversation thinking override on
+        // the button so the user can see it is active. 'follow' shows nothing.
+        if (isExplicitThinkingOverride(this.chatThinkingOverride)) {
+            const isOn = this.chatThinkingOverride === 'on';
+            const badge = this.modelButton.createSpan('model-thinking-badge');
+            badge.setText(isOn
+                ? t('ui.sidebar.thinkingBadgeOn')
+                : t('ui.sidebar.thinkingBadgeOff'));
+            title = isOn
+                ? t('ui.sidebar.thinkingOverrideTitleOn', { label: title })
+                : t('ui.sidebar.thinkingOverrideTitleOff', { label: title });
+        }
         setIcon(this.modelButton.createSpan('mode-chevron'), 'chevron-down');
         this.modelButton.title = title;
         // Use the effective key for context-tracker logic below.
@@ -879,6 +905,11 @@ export class AgentSidebarView extends ItemView {
             getCurrent: () => this.chatModelOverride,
             onSelect: (overrideId) => {
                 this.chatModelOverride = overrideId;
+                this.updateModelButton();
+            },
+            getThinking: () => this.chatThinkingOverride,
+            onThinkingChange: (override) => {
+                this.chatThinkingOverride = override;
                 this.updateModelButton();
             },
         });
@@ -1532,14 +1563,32 @@ export class AgentSidebarView extends ItemView {
         // dropdown has an explicit model picked, build a fresh api handler
         // for it. Falls through to the legacy mode-model resolution when
         // override is null (Auto).
+        // Issue #44: a per-conversation thinking override may also force
+        // thinking on/off. When it does, a fresh handler is built even for
+        // the default-active model so the override takes effect.
         const activeProvider = resolveActiveProvider(this.plugin.settings);
+        const thinkingIsExplicit = isExplicitThinkingOverride(this.chatThinkingOverride);
+        // Apply the per-conversation thinking override to a model before it is
+        // built. In 'follow' mode the model's own value is kept unchanged.
+        const applyThinkingOverride = (model: CustomModel): CustomModel => {
+            if (!thinkingIsExplicit) return model;
+            return {
+                ...model,
+                thinkingEnabled: resolveEffectiveThinkingEnabled(
+                    this.chatThinkingOverride,
+                    model.thinkingEnabled,
+                ),
+            };
+        };
         let resolvedApiHandler = this.plugin.apiHandler;
         let modelOverrideActive = false;
         if (activeProvider && this.chatModelOverride) {
             const m = resolveOverrideModel(activeProvider, this.chatModelOverride);
             if (m) {
                 try {
-                    const cm = providerConfigToCustomModel(activeProvider, m.id, m);
+                    const cm = applyThinkingOverride(
+                        providerConfigToCustomModel(activeProvider, m.id, m),
+                    );
                     resolvedApiHandler = buildApiHandlerForModel(cm);
                     modelOverrideActive = true;
                 } catch {
@@ -1556,9 +1605,28 @@ export class AgentSidebarView extends ItemView {
         if (!modelOverrideActive && resolvedModel && modeModelKey !== this.plugin.settings.activeModelKey) {
             // Mode has a different model — build a fresh handler for it
             try {
-                resolvedApiHandler = buildApiHandler(modelToLLMProvider(resolvedModel));
+                resolvedApiHandler = buildApiHandler(modelToLLMProvider(applyThinkingOverride(resolvedModel)));
+                modelOverrideActive = true;
             } catch {
                 resolvedApiHandler = this.plugin.apiHandler;
+            }
+        }
+
+        // Issue #44: default-active model path. When neither a chat-model
+        // override nor a mode-specific model rebuilt the handler, but the user
+        // forced thinking on/off for this conversation, rebuild from the same
+        // default model main.ts uses so the override applies.
+        if (!modelOverrideActive && thinkingIsExplicit) {
+            const defaultTier = this.plugin.settings.defaultMainModelTier ?? 'mid';
+            const defaultModel = this.plugin.getTierModel(defaultTier) ?? this.plugin.getActiveModel();
+            if (defaultModel) {
+                try {
+                    resolvedApiHandler = buildApiHandler(
+                        modelToLLMProvider(applyThinkingOverride(defaultModel)),
+                    );
+                } catch {
+                    resolvedApiHandler = this.plugin.apiHandler;
+                }
             }
         }
 

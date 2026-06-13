@@ -6004,6 +6004,66 @@
     margin-bottom: 4px;
 }
 
+/* Issue #44: per-conversation thinking override control */
+.chat-model-picker-thinking {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-top: 1px solid var(--background-modifier-border);
+    padding: 8px 10px;
+    flex-shrink: 0;
+}
+
+.chat-model-picker-thinking-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.chat-model-picker-thinking-group {
+    display: inline-flex;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.chat-model-picker-thinking-btn {
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 2px 8px;
+    border: none;
+    border-left: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.chat-model-picker-thinking-btn:first-child {
+    border-left: none;
+}
+
+.chat-model-picker-thinking-btn:hover {
+    color: var(--text-normal);
+}
+
+.chat-model-picker-thinking-btn.is-active {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+/* Issue #44: thinking-override badge on the chat-header model button */
+.model-thinking-badge {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 7px;
+    color: var(--text-on-accent, white);
+    background: var(--text-accent, var(--interactive-accent));
+}
+
 /* Footer */
 .tool-picker-footer {
     border-top: 1px solid var(--background-modifier-border);
