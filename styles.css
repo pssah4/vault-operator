@@ -2419,6 +2419,11 @@
     width: 100%;
     max-width: 320px;
 }
+.provider-detail-modal .mcm-tier-manual-back {
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
 
 /* EPIC-26 / FEAT-26-03 -- section header inside .mcm-form */
 .mcm-section {
