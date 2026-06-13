@@ -68,7 +68,7 @@ describe('getModelOutputCeiling / getModelMaxTokens', () => {
 
 describe('resolveOutputBudget', () => {
     it('clamps a configured value to the model output ceiling', () => {
-        // Haiku tops out at 8192 — an over-eager Settings value must not reach the API.
+        // Haiku tops out at 8192 - an over-eager Settings value must not reach the API.
         expect(resolveOutputBudget('claude-haiku-4-5-20251001', 100_000)).toEqual({
             maxTokens: 8_192,
             thinkingBudgetTokens: 0,
@@ -332,7 +332,7 @@ describe('getModelEffortSupport', () => {
 
 describe('modelUsesBudgetTokensThinking', () => {
     it('returns false for the adaptive-thinking Claude family (Opus 4.7/4.8/4.9)', () => {
-        // These reject thinking.budget_tokens with a 400 — adaptive only.
+        // These reject thinking.budget_tokens with a 400, adaptive only.
         expect(modelUsesBudgetTokensThinking('claude-opus-4-7')).toBe(false);
         expect(modelUsesBudgetTokensThinking('claude-opus-4-8')).toBe(false);
         expect(modelUsesBudgetTokensThinking('claude-opus-4-9')).toBe(false);

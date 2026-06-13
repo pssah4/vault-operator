@@ -113,7 +113,7 @@ function makeOpenAi(config: Partial<LLMProvider>): {
 // Anthropic-direct: output_config.effort
 // ===========================================================================
 
-describe('AnthropicProvider — reasoning effort', () => {
+describe('AnthropicProvider - reasoning effort', () => {
     it('adds output_config.effort when reasoningEffort is set', async () => {
         const { provider, lastRequest } = makeAnthropic({ reasoningEffort: 'high' });
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
@@ -141,7 +141,7 @@ describe('AnthropicProvider — reasoning effort', () => {
 // Anthropic budget_tokens latent-bug fix
 // ===========================================================================
 
-describe('AnthropicProvider — thinking budget_tokens latent bug', () => {
+describe('AnthropicProvider - thinking budget_tokens latent bug', () => {
     it('adaptive family + thinking enabled -> adaptive type, NO budget_tokens', async () => {
         const { provider, lastRequest } = makeAnthropic({
             model: 'claude-opus-4-8',
@@ -185,7 +185,7 @@ describe('AnthropicProvider — thinking budget_tokens latent bug', () => {
 // OpenAI family: reasoning_effort / reasoning.effort
 // ===========================================================================
 
-describe('OpenAiProvider — reasoning effort', () => {
+describe('OpenAiProvider - reasoning effort', () => {
     it('adds reasoning_effort for an effort-capable model on openai', async () => {
         const { provider, lastRequest } = makeOpenAi({ type: 'openai', model: 'gpt-5', reasoningEffort: 'medium' });
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
@@ -276,7 +276,7 @@ function makeChatGptOAuth(config: Partial<LLMProvider>): {
     return { provider, lastRequest: () => captured };
 }
 
-describe('ChatGptOAuthProvider — reasoning effort', () => {
+describe('ChatGptOAuthProvider - reasoning effort', () => {
     it('keeps the hardcoded low default when reasoningEffort is unset (400-avoidance)', async () => {
         const { provider, lastRequest } = makeChatGptOAuth({ model: 'gpt-5' });
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));

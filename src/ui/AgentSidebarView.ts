@@ -920,6 +920,10 @@ export class AgentSidebarView extends ItemView {
             getCurrent: () => this.chatModelOverride,
             onSelect: (overrideId) => {
                 this.chatModelOverride = overrideId;
+                // Effort is pin-only: unpinning (back to Auto) hides the
+                // effort control, so a stale explicit effort would silently
+                // keep collapsing the thinking override to follow. Clear it.
+                if (overrideId === null) this.chatEffortOverride = DEFAULT_EFFORT_OVERRIDE;
                 this.updateModelButton();
             },
             getThinking: () => this.chatThinkingOverride,
