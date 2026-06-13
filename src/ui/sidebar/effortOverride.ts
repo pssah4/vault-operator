@@ -63,3 +63,25 @@ export function effortControlVisibility(
 ): EffortControlVisibility {
     return thinkingOn && effortCapable ? 'control' : 'none';
 }
+
+/** A resolved (model id, provider type) pair the effort control reasons about. */
+export interface EffortModelRef {
+    modelId: string;
+    providerType: string;
+}
+
+/**
+ * Resolve the model the effort control should reason about.
+ *
+ * Effort now threads on every model-resolution path, so the control reflects
+ * whatever model the turn actually runs on: the pinned chat-header model when
+ * one is pinned (the router is off in that case), otherwise the default-active
+ * model the main loop uses. Returns null when neither resolves, so the caller
+ * renders no effort control.
+ */
+export function resolveEffectiveModelForEffort(
+    pinned: EffortModelRef | null,
+    defaultActive: EffortModelRef | null,
+): EffortModelRef | null {
+    return pinned ?? defaultActive;
+}

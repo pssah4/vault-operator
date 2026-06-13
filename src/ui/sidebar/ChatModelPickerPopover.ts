@@ -17,7 +17,7 @@
 import { setIcon } from 'obsidian';
 import type { DiscoveredModel, ProviderConfig } from '../../types/settings';
 import { getTierBadgeLabel } from '../../types/settings';
-import { getModelEffortSupport } from '../../types/model-registry';
+import type { EffortLevel } from '../../types/model-registry';
 import { t } from '../../i18n';
 import type { ThinkingOverride } from './thinkingOverride';
 import type { EffortOverride } from './effortOverride';
@@ -36,6 +36,12 @@ export interface ChatModelPickerCallbacks {
     getEffort: () => EffortOverride;
     /** Called when the user changes the reasoning-effort override. */
     onEffortChange: (override: EffortOverride) => void;
+    /**
+     * Native effort levels for the model the next turn runs on (the pinned
+     * model, else the default-active model). Empty means the model has no
+     * native effort surface, so the effort control stays hidden.
+     */
+    getEffortLevels: () => EffortLevel[];
 }
 
 export class ChatModelPickerPopover {
@@ -129,8 +135,7 @@ export class ChatModelPickerPopover {
         // only when thinking is On AND the active model can send a native
         // effort field; otherwise it is omitted (no inert control, no hint).
         const setThinkingDisabled = this.makeThinkingControl(popover, callbacks);
-        const pinnedId = callbacks.getCurrent();
-        const effortCapable = pinnedId !== null && getModelEffortSupport(pinnedId, provider.type);
+        const effortCapable = callbacks.getEffortLevels().length > 0;
         const thinkingOn = callbacks.getThinking() !== 'off';
         const visibility = effortControlVisibility(thinkingOn, effortCapable);
         if (visibility === 'control') {
