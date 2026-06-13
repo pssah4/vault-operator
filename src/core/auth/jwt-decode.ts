@@ -40,14 +40,36 @@ function base64UrlDecode(input: string): string {
 }
 
 /**
+ * Object-valued claims that namespace their fields. OpenAI nests the
+ * chatgpt-account-id and plan type inside `https://api.openai.com/auth`
+ * rather than as flat dotted keys, so a name written as
+ * `https://api.openai.com/auth.chatgpt_account_id` must descend into that
+ * object. The namespace itself contains dots, so the path cannot be split
+ * naively; match the known prefixes explicitly.
+ */
+const NESTED_CLAIM_NAMESPACES = ['https://api.openai.com/auth'];
+
+/**
  * Read a string claim, trying multiple possible claim names. Returns the
- * first non-empty match or `''`. Use this when the exact claim name is
- * not yet confirmed empirically.
+ * first non-empty match or `''`. A name of the form `<namespace>.<field>`
+ * (where namespace is a known nested object claim) reads `<field>` from that
+ * object; everything else is a flat key lookup. Use this when the exact claim
+ * name is not yet confirmed empirically.
  */
 export function readStringClaim(claims: JwtClaims, ...names: string[]): string {
     for (const name of names) {
-        const value = claims[name];
-        if (typeof value === 'string' && value.length > 0) return value;
+        const direct = claims[name];
+        if (typeof direct === 'string' && direct.length > 0) return direct;
+
+        for (const ns of NESTED_CLAIM_NAMESPACES) {
+            const prefix = ns + '.';
+            if (!name.startsWith(prefix)) continue;
+            const obj = claims[ns];
+            if (!obj || typeof obj !== 'object') continue;
+            const field = name.slice(prefix.length);
+            const nested = (obj as Record<string, unknown>)[field];
+            if (typeof nested === 'string' && nested.length > 0) return nested;
+        }
     }
     return '';
 }
