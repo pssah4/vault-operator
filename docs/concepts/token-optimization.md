@@ -13,7 +13,7 @@ Vault Operator uses three complementary strategies that brought this down to 60,
 
 Without optimization:
 
-1. The system prompt includes 60+ tool definitions (each with input schemas, descriptions, examples).
+1. The system prompt includes dozens of tool definitions (each with input schemas, descriptions, examples). Vault Operator ships 80 tools today; roughly 58 are always loaded and 22 are deferred behind `find_tool`.
 2. Every tool result stays in the conversation history.
 3. The LLM re-reads everything on every turn, even parts that haven't changed.
 4. A task that could be done in 2 tool calls takes 8 because the agent plans one step at a time.
@@ -46,13 +46,19 @@ Because tools, rules, and mode definitions don't change between turns, the LLM c
 
 When a tool returns a large result (say, the content of a 200-line note), keeping it in the conversation history means the LLM re-reads it on every subsequent turn.
 
-`ResultExternalizer` catches results larger than 4,000 characters, writes them to a temporary file in `.vault-operator/context/`, and replaces the result with a compact reference:
+`ResultExternalizer` catches results larger than 2,000 characters, writes them to a temporary file under `.obsidian-agent/tmp/{taskId}/`, and replaces the result with a compact, tool-specific summary that includes a path the agent can re-read:
 
 ```
-<context_ref path=".vault-operator/context/abc123.md" lines="215"/>
+[search_files] Found 42 matches.
+Top files:
+  - notes/foo.md
+  - notes/bar.md
+...
+Full results saved to: .obsidian-agent/tmp/<taskId>/search_files-3.md
+Use read_file("...") to see all matches with context.
 ```
 
-If the agent needs the content later, it reads it with `read_file`. Most of the time it doesn't need to, because it already processed the result on the turn it was generated.
+If the agent needs the full content later, it reads it with `read_file`. Most of the time it doesn't, because it already acted on the summary the turn the result was generated.
 
 ## Combined effect
 

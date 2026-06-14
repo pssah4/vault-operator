@@ -9,7 +9,7 @@ Semantic search needs an index. Vault Operator builds one locally, embeds chunks
 
 ## What the index holds
 
-For every text file in your vault (Markdown by default, optionally PDF), the index stores:
+For every indexable file in your vault (Markdown by default, plus optional PDF, PPTX, XLSX, and DOCX), the index stores:
 
 - A row in the `documents` table with path, mtime, and file size.
 - One row per chunk in the `vectors` table, with the chunk text, an offset, and a Float32Array BLOB for the embedding.
@@ -22,11 +22,11 @@ The database itself (`knowledge.db`) lives under the agent folder (default `.obs
 
 Notes are split on heading boundaries with a soft cap of 2000 characters per chunk by default. A note longer than that gets multiple chunks; a short note becomes a single chunk. The chunk size is configurable in `SemanticIndexService`, but changing it forces a full rebuild because chunk offsets shift.
 
-PDF indexing is off by default. Enabling it adds OCR for image-only PDFs, which is slower and error-prone.
+Binary document indexing (PDF, PPTX, XLSX, DOCX) is off by default. Enabling it adds parsing per format, plus an OCR fallback for image-only PDFs that is slower and error-prone.
 
 ## Embedding
 
-Each chunk is embedded by whichever model you picked in **Settings > Embeddings**. The default is a local ONNX model (Xenova/all-MiniLM-L6-v2 via transformers.js), which downloads on first use and runs entirely on your machine. Cloud options (OpenAI `text-embedding-3-small`, Google, custom OpenAI-compatible endpoints) are available for higher quality at the price of API calls.
+Each chunk is embedded by whichever model you picked in **Settings > Embeddings**. There is no built-in default; the onboarding flow recommends OpenAI `text-embedding-3-small` (cheapest cloud option), `openai/text-embedding-3-small` via OpenRouter (one key for everything), or `nomic-embed-text` via a local Ollama install (free, fully local). Custom OpenAI-compatible endpoints work too.
 
 Embeddings are batched (16 chunks per call by default) and the database commits every 20 files. These numbers balance memory use against latency and are configurable in `SemanticIndexService`.
 
@@ -40,11 +40,11 @@ Three triggers update the index:
 
 A queue serializes concurrent updates so the embedding API never gets pummeled.
 
-## Contextual retrieval (opt-in)
+## Contextual retrieval
 
 Plain chunk embeddings sometimes miss domain-specific queries. Contextual retrieval prepends an LLM-generated summary of the chunk's context (the surrounding section, the note's topic) before embedding. The prepended context is short but disambiguates chunks that would otherwise read the same.
 
-This is the Phase 2 stage from ADR-51. It adds latency and an LLM call per chunk to the build, so it is opt-in. If the context model fails mid-build, contextual retrieval silently disables for the session and falls back to plain chunks.
+This is the Phase 2 stage from ADR-51. It is on by default and runs as a background pass after the initial build, so it adds an LLM call per chunk over time rather than blocking the index. If no contextual model is configured or the model fails mid-build, the pass is skipped and the index falls back to plain chunks.
 
 During context generation, chunks are also tagged volatile, evolving, or stable. Downstream features (freshness scoring, implicit-connection ranking) use these tags. See FEATURE-2006 for details.
 
@@ -60,11 +60,11 @@ Most retrieval calls hit Stage 1 only. The other two stages activate when the us
 
 ## Limits
 
-- The Xenova model (~23 to 90 MB depending on variant) downloads once and caches locally. First indexing is slow.
+- First-time indexing is slow because every chunk has to be embedded. Subsequent builds only touch changed files.
 - Changing the chunk size forces a full rebuild. It is deterministic but slow on large vaults.
-- Contextual retrieval is on by default but silently disables if the context model fails. Check the logs if results feel weaker than expected.
+- Contextual retrieval is on by default but silently disables if no contextual model is configured or the model fails. Check the logs if results feel weaker than expected.
 - The index does not deduplicate near-identical notes. Two notes that say the same thing both appear in results.
-- PDF indexing trades cost for coverage. Keep it off unless you actually need it.
+- Binary document indexing (PDF, PPTX, XLSX, DOCX) trades cost for coverage. Keep it off unless you actually need it.
 
 ## Related decisions
 

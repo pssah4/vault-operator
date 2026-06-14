@@ -27,7 +27,7 @@ That's it. Everything else on this page is about controlling, protecting, and ex
 
 ## What happens at each step
 
-The loop starts by assembling a system prompt from 16 modular sections: mode definition, available tools, active rules, loaded skills, memory context, and a few others. The system prompt is cached and only rebuilt when something changes, for example a mode switch or a tool availability toggle.
+The loop starts by assembling a system prompt from 16 modular sections: agent definition, available tools, active rules, loaded skills, memory context, and a few others. The system prompt is cached and only rebuilt when something changes, for example an agent switch or a tool availability toggle.
 
 The assembled prompt and conversation history go to the AI provider. Vault Operator streams the response, firing `onText()` for each text chunk and collecting any `tool_use` blocks.
 
@@ -41,24 +41,28 @@ When the model responds with only text and no tool calls, or when it calls `atte
 
 ## AgentTask constructor
 
-`AgentTask` takes 12 parameters that control loop behavior.
+`AgentTask` takes 16 parameters that control loop behavior.
 
 | Parameter | Default | What it does |
 |-----------|---------|-------------|
-| `api` | required | AI provider handler (Anthropic or OpenAI) |
+| `api` | required | AI provider handler (any of the 12 supported providers, e.g. Anthropic, OpenAI, Bedrock, GitHub Copilot) |
 | `toolRegistry` | required | Central tool registry |
 | `taskCallbacks` | required | UI callbacks for text, tool events, completion |
-| `modeService` | optional | Mode switching and web-tools toggle |
+| `modeService` | optional | Agent switching and web-tools toggle |
 | `consecutiveMistakeLimit` | `0` (off) | Abort after N consecutive tool errors |
 | `rateLimitMs` | `0` (off) | Minimum milliseconds between iterations |
 | `condensingEnabled` | `true` | Automatic context condensing |
 | `condensingThreshold` | `70` | Condense when tokens exceed this % of context window |
-| `powerSteeringFrequency` | `0` (off) | Re-inject mode instructions every N iterations |
+| `powerSteeringFrequency` | `0` (off) | Re-inject agent instructions every N iterations |
 | `maxIterations` | `25` | Hard cap on loop iterations |
 | `depth` | `0` | Current sub-agent nesting depth |
 | `maxSubtaskDepth` | `2` | Maximum nesting depth for spawned child agents |
+| `microcompactionEnabled` | `true` | Prune old `tool_result` contents to skeletons at turn boundaries |
+| `rollingSummaryThreshold` | `50` | Trigger a rolling summary when history sits between this percentage and the full-condensing threshold |
+| `modelOverrideActive` | `false` | Skip `TaskRouter` auto-routing when the user pinned a model |
+| `compositionStack` | optional | Cycle and depth guard for `invoke_skill` / `invoke_mcp_server` composition |
 
-The `run()` method takes a config object with the user message, task ID, initial mode, conversation history, and optional context like rules, skills, and memory.
+The `run()` method takes a config object with the user message, task ID, initial agent, conversation history, and optional context like rules, skills, and memory.
 
 ## Fast path execution
 
@@ -124,11 +128,11 @@ If the API returns a 400-class error indicating context overflow, emergency cond
 
 Models drift. In a long loop with many iterations, the agent can gradually forget its assigned role and start behaving generically. Power steering counters this.
 
-When `powerSteeringFrequency` is set to a value like 4, the loop injects a synthetic user message every 4 iterations. This message reminds the model of its active mode, role definition, and active skill names. It doesn't cost an extra API call. It is just an additional message in the conversation history before the next iteration.
+When `powerSteeringFrequency` is set to a value like 4, the loop injects a synthetic user message every 4 iterations. This message reminds the model of its active agent, role definition, and active skill names. It doesn't cost an extra API call. It is just an additional message in the conversation history before the next iteration.
 
 ## Multi-agent: spawning child agents
 
-The `new_task` tool lets the agent spawn a child `AgentTask` for a subtask. The child gets a fresh conversation history (no parent context leaks), its own mode, and a depth counter incremented by one. Condensing and power steering are disabled for children to keep them lean.
+The `new_task` tool lets the agent spawn a child `AgentTask` for a subtask. The child gets a fresh conversation history (no parent context leaks), its own agent profile, and a depth counter incremented by one. Condensing and power steering are disabled for children to keep them lean.
 
 The parent's approval callback is forwarded to the child, so write operations from child agents still require human approval.
 

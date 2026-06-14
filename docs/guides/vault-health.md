@@ -29,7 +29,7 @@ Each check is a SQL query against the knowledge graph. Together they cover the w
 | Weak clusters | Notes that are semantically very close but unlinked | These are connections you likely meant to make but didn't, and now the agent can surface them for you |
 | Inconsistent tags | Spelling variants of the same tag, like `#meeting` and `#meetings` | Fragmented tags fragment search and MOC coverage |
 | Category mismatches | A note's category property disagrees with the topic cluster it actually belongs to | Either the note is miscategorized or your ontology needs updating |
-| God nodes | Hub notes with far more connections than they can usefully organize | A hub with eighty backlinks isn't a hub anymore, it's a bottleneck |
+| God nodes | Hub notes with far more connections than they can usefully organize | A hub with eighty backlinks has become a bottleneck |
 
 Weak clusters and category mismatches need the [semantic index](/guides/knowledge-discovery) to be built. Without the index the check still runs, it just returns fewer findings.
 

@@ -70,7 +70,7 @@ A handful of tools let the agent inspect and modify itself. They are optional an
 
 ### `inspect_self`
 
-Read the agent's own runtime state: active settings, available tools, configured modes, active rules. The output is a Markdown summary of what is actually loaded, not what the docs claim.
+Read the agent's own runtime state: active settings, available tools, configured agents, active rules. The output is a Markdown summary of what is actually loaded, separate from what the docs claim.
 
 > **Example prompt:** "What tools do you have right now?" or "Are my approval settings actually set the way I think they are?"
 
@@ -88,7 +88,7 @@ Useful when something behaved oddly and you want the agent to introspect what ha
 
 Read the plugin's own TypeScript source code so the agent can answer "how does feature X work?" questions and propose code patches.
 
-**Setup:** This tool needs an optional source bundle (~5 MB) that ships outside the main plugin to keep Obsidian Sync fast for users who do not need it. Install it from **Settings > Debug > Self-Development source bundle > Install**. The bundle is verified by SHA256 against the plugin's GitHub release.
+**Setup:** This tool needs an optional source bundle (~5 MB) that ships outside the main plugin to keep Obsidian Sync fast for users who do not need it. Install it from **Settings > Optional Assets > Self-Development source > Install**. The bundle is verified by SHA256 against the plugin's GitHub release.
 
 > **Example prompt:** "Show me how `semantic_search` picks the embedding model" or "Propose a patch that lowers the default chunk size."
 
@@ -98,7 +98,7 @@ Without the source bundle installed, `manage_source` is disabled and the agent w
 
 - These tools read state and source; they do not modify the running plugin. Code patches are written to disk for you to review, not hot-loaded.
 - All three respect the regular approval and audit pipeline.
-- If you want to keep the plugin fully sealed, leave the source bundle uninstalled and disable `inspect_self` and `read_agent_logs` in your active mode.
+- If you want to keep the plugin fully sealed, leave the source bundle uninstalled and disable `inspect_self` and `read_agent_logs` in your active agent.
 
 ## Where to go next
 

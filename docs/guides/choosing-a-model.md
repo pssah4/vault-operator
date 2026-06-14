@@ -17,9 +17,9 @@ Vault Operator works with many providers and models. Not all of them are equally
 
 Vault Operator's setup is provider-centric, not model-centric. You configure a provider once (API key or OAuth). The plugin discovers the available models and sorts them into three tiers automatically.
 
-- **Budget tier** — cheap fast models for routine work. Also used as the fallback helper model.
-- **Main tier** — the default for chat.
-- **Frontier tier** — used on demand by the `consult_flagship` tool when the agent hits a hard synthesis step (max 3 calls per task, capped at 3000 output tokens per call).
+- **Budget tier**: cheap fast models for routine work. Also used as the fallback helper model.
+- **Main tier**: the default for chat.
+- **Frontier tier**: used on demand by the `consult_flagship` tool when the agent hits a hard synthesis step (max 3 calls per task, capped at 3000 output tokens per call).
 
 If your active provider has no Frontier-tier model, the escalation tool is filtered out of the schema. The agent runs Main-only and never knows the escalation tool existed.
 
@@ -27,8 +27,8 @@ If your active provider has no Frontier-tier model, the escalation tool is filte
 
 Vault Operator is an agent, not a chat assistant. The Main-tier model needs to:
 
-- Support tool use (function calling). It has to call Vault Operator's 60+ tools.
-- Follow instructions precisely. The system prompt is dense with rules, skills, and mode definitions.
+- Support tool use (function calling). It has to call Vault Operator's 80 tools.
+- Follow instructions precisely. The system prompt is dense with rules, skills, and agent definitions.
 - Reason about multi-step tasks. Reading files, searching, editing, and verifying takes planning.
 
 The Frontier tier exists exactly because some steps need the absolute strongest model and the rest do not. Routing Frontier-class work to one tool call instead of the whole loop keeps cost predictable.
@@ -86,7 +86,7 @@ Models run on your machine. No data leaves your device. Free, but needs decent h
    - Local providers (Ollama, LM Studio): the Base URL pre-fills with the default port; adjust if needed
 5. Click **"Refresh"** to discover the provider's model list. Vault Operator classifies each model into one of three tiers (Budget / Main / Frontier) automatically; you can override the tier mapping per slot.
 6. Optionally pick a display name. The active provider radio drives chat by default; the chat-header model picker can override per-task.
-6. Click **Add**
+7. Click **Add**
 
 :::info Quick pick
 For API-key providers, the "Quick pick" dropdown shows popular models with pre-filled IDs. For Ollama and LM Studio, the "Browse installed/available models" button fetches what is running on your local server.
@@ -99,7 +99,7 @@ You don't have to use the same model everywhere. Vault Operator splits model usa
 1. **Budget tier:** the cheapest slot. It doubles as the "helper" model used for context condensing, fast-path planning, `plan_presentation`, and recipe promotion, and the task router sends simple prompts here. Configure it in the provider's Budget tier slot. Pick the cheapest model that still understands the prompts (Claude Haiku, GPT-4o-mini, Gemini Flash, a local Ollama or MLX model).
 2. **Main tier (chat loop):** the default for every conversational turn. The active provider's Main slot.
 3. **Frontier tier (`consult_flagship`):** the on-demand escalation. The active provider's Frontier slot.
-4. **Per-mode overrides:** Ask mode can run on a tiny model, Agent mode on the main one. Settings > Modes.
+4. **Per-agent overrides:** Ask agent can run on a tiny model, the default agent on the main one. Settings > Agents.
 
 Automatic routing to the Budget tier is controlled by **Settings > Agent behaviour > Loop > Task routing**. Turn that toggle off if you want every turn to use the Main tier instead. (Earlier docs called the Budget tier a separate "Helper model" setting; it is now the provider's Budget slot, and the Loop section is named "Task routing".)
 

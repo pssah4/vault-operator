@@ -1,11 +1,11 @@
 ---
 title: Tools Reference
-description: Complete list of all 66 tools available to the Vault Operator, organized by group.
+description: Complete list of all 80 tools available to the Vault Operator, organized by group.
 ---
 
 # Tools reference
 
-Vault Operator has 66 built-in tools across nine groups. The agent picks the right tool based on your request. You never call tools yourself.
+Vault Operator has 80 built-in tools across seven groups (read, vault, edit, web, agent, mcp, skill). The agent picks the right tool based on your request. You never call tools yourself.
 
 :::tip How tools work
 When you ask Vault Operator to do something, it picks one or more tools, shows its plan in the activity block, and asks for approval before any write operation. See [Safety & Control](/guides/safety-control) for details.
@@ -13,21 +13,21 @@ When you ask Vault Operator to do something, it picks one or more tools, shows i
 
 ## Tool groups at a glance
 
+The code defines seven canonical groups. Some groups split into thematic sub-tables below for easier scanning.
+
 | Group | Tools | Modifies vault | Needs approval |
 |-------|-------|----------------|----------------|
-| Read | 4 | No | No |
-| Vault intelligence | 10 | No (except `open_note`) | No |
-| Knowledge ingest | 3 | Yes | Yes |
-| Memory and history | 8 | Yes (memory store) | Yes for writes |
-| Edit | 16 | Yes | Yes |
-| Web | 2 | No | Yes (external access) |
-| Agent control | 16 | Varies | Varies |
-| Plugin integration | 5 | Varies | Yes |
+| Read | 11 | No | No |
+| Vault | 9 | No (except `open_note`) | No |
+| Edit | 22 | Yes | Yes |
+| Web | 3 | No | Yes (external access) |
+| Agent | 20 | Varies | Varies |
 | MCP | 2 | Depends on server | Yes |
+| Skill | 6 | Varies | Yes |
 
 ## Read tools
 
-Tools for reading, searching, and exploring your vault. They never modify anything.
+Tools for reading, searching, and exploring your vault, conversation history, skills, and checkpoints. They never modify anything.
 
 | Tool | Description | When to use |
 |------|-------------|-------------|
@@ -35,8 +35,15 @@ Tools for reading, searching, and exploring your vault. They never modify anythi
 | `read_document` | Parse and extract text from Office and data files (PPTX, XLSX, DOCX, PDF, JSON, XML, CSV). Supports `start_page` / `end_page` for large files. | For binary document formats and large PDFs. |
 | `list_files` | List files and folders in a directory, optionally recursive. | To discover folder structure or find files by location. |
 | `search_files` | Search for text or regex patterns across files, returning matching lines with line numbers. | For exact text or pattern matching across your vault. |
+| `search_history` | Full-text search across past conversations, optionally filtered by source interface. | When the user references a past chat ("what did we say about X last week?"). |
+| `read_skill` | Load the full step-by-step body of a skill listed in the SKILLS directory of the system prompt. | Before doing the work when a skill matches the task. Skip when no skill applies. |
+| `list_memory_source_notes` | List all notes currently marked as memory sources. | To audit which notes drive the memory layer. |
+| `list_pinned_conversations` | List chat conversations pinned to memory. Read-only, complementary to `list_memory_source_notes`. | To audit which chats are saved to long-term memory. |
+| `list_checkpoints` | List checkpoints taken before edit-tool runs. | To find a snapshot to inspect or restore. |
+| `read_checkpoint` | Read the file contents stored in a specific checkpoint. | To inspect a snapshot before restoring it. |
+| `diff_checkpoint` | Show the diff between a checkpoint and the current vault state. | To preview what `restore_checkpoint` would change. |
 
-## Vault intelligence tools
+## Vault tools
 
 Tools that understand your vault's structure, metadata, and connections.
 
@@ -51,40 +58,16 @@ Tools that understand your vault's structure, metadata, and connections.
 | `semantic_search` | Find notes by meaning using embedding-based similarity search. | For natural-language questions about vault content ("What do I know about X?"). |
 | `query_base` | Query an Obsidian Bases database file and return matching records. | To retrieve structured data from a `.base` file. |
 | `vault_health_check` | Run structural checks on the knowledge graph: orphans, broken links, missing backlinks, weak clusters, inconsistent tags, category mismatches, god-nodes. | To audit vault quality or diagnose a specific issue area. Runs against the knowledge database, no LLM tokens used. See [Vault Health](/guides/vault-health). |
-| `anti_echo_search` | Find sources that contradict or extend the current note instead of confirming it. | To break out of confirmation bias when researching a topic. |
 
 :::info Semantic search setup
 `semantic_search` requires an embedding model and a built index. Configure both in **Settings > Embeddings**. See [Knowledge Discovery](/guides/knowledge-discovery) for setup instructions.
 :::
 
-## Knowledge ingest tools
-
-Tools for bringing external sources (PDFs, Office files, web clips) into the vault as structured notes with provenance back to the source.
-
-| Tool | Description | When to use |
-|------|-------------|-------------|
-| `ingest_triage` | Ten-second pre-triage of a source against the vault's ontology. Returns cluster match, source-diversity hint, tension hint, and a recommendation (ingest / later / discard). Costs about $0.05 per pass. | Before deep-reading a source, to decide whether it is worth the effort. |
-| `ingest_document` | Single-pass ingest of a document into one note: frontmatter, overview, key statements with `[[basename#Page N\|↗]]` provenance refs, and the full original text. | For quick inbox capture of PDFs, DOCX, PPTX, XLSX, or web clips. |
-| `ingest_deep` | Karpathy-style multi-turn deep ingest. Converts PDFs into a Markdown mirror with block IDs, then produces either a single dense sense-making note or a bibliography note plus N atomic zettel. Every claim carries a `[[mirror#^block-N\|↗]]` link to the exact paragraph. | For research papers, long reports, or anything that requires sense-making instead of summarization. See [Knowledge Ingest](/guides/knowledge-ingest). |
-
-## Memory and history tools
-
-Tools for the agent's persistent memory layer (facts, preferences, soul) and the conversation history index.
-
-| Tool | Description | When to use |
-|------|-------------|-------------|
-| `recall_memory` | Retrieve relevant facts and preferences from the persistent memory store, filtered by source interface (Obsidian, Claude Desktop, ChatGPT, etc.). | When the agent needs personal context to answer well. |
-| `mark_for_memory` | Mark a piece of information from the current conversation as memory-worthy. | When the user says "remember this" or shares a stable preference. |
-| `update_soul` | Update the user's soul layer (long-term identity, values, working style). | For deep, slow-changing personality updates, not day-to-day facts. |
-| `search_history` | Full-text search across past conversations, optionally filtered by source interface. | When the user references a past chat ("what did we say about X last week?"). |
-| `mark_note_as_memory_source` | Mark a vault note as a memory source. The frontmatter indexer will keep facts derived from it in sync as the note changes. | When a note holds canonical knowledge that should feed the memory layer. |
-| `unmark_note_as_memory_source` | Remove a note from the memory-source set. | When a note should no longer feed the memory layer. |
-| `list_memory_source_notes` | List all notes currently marked as memory sources. | To audit which notes drive the memory layer. |
-| `list_pinned_conversations` | List chat conversations pinned to memory (via the star button or `mark_for_memory`). Read-only, complementary to `list_memory_source_notes`. | To audit which chats are saved to long-term memory. |
-
 ## Edit tools
 
-Tools that create, modify, or delete files in your vault. Each one triggers an approval prompt unless auto-approved.
+Tools that create, modify, or delete files in your vault, plus knowledge ingest and memory-source curation. Each one triggers an approval prompt unless auto-approved.
+
+### File editing
 
 | Tool | Description | When to use |
 |------|-------------|-------------|
@@ -95,15 +78,43 @@ Tools that create, modify, or delete files in your vault. Each one triggers an a
 | `create_folder` | Create a new folder, including parent folders if needed. | Before writing files to a new location. |
 | `delete_file` | Move a file or empty folder to the system trash (recoverable). | When you explicitly ask to delete something. |
 | `move_file` | Move or rename a file or folder. Obsidian auto-updates wikilinks. | To reorganize vault structure. |
+| `restore_checkpoint` | Restore a previous checkpoint, undoing one or more edit-tool runs. | When the user wants to revert recent changes. |
+
+### Diagrams, canvases, and Bases
+
+| Tool | Description | When to use |
+|------|-------------|-------------|
 | `generate_canvas` | Create an Obsidian Canvas (`.canvas`) visualizing notes and their connections. | To visualize note relationships as a spatial map. |
 | `create_excalidraw` | Create an Excalidraw drawing with labeled boxes and connections. | To create diagrams and visual overviews. |
 | `create_drawio` | Create a Draw.io / diagrams.net flowchart (`.drawio` or `.drawio.svg`) with nodes, shapes, and arrows. | For programmatically created flowcharts that the user then extends in the plugin. |
 | `create_base` | Create an Obsidian Bases (`.base`) database view from vault notes. | To build structured database views filtered by frontmatter. |
 | `update_base` | Add or replace a view in an existing Bases file. | To modify database views without recreating the file. |
+
+### Office documents
+
+| Tool | Description | When to use |
+|------|-------------|-------------|
 | `plan_presentation` *(beta)* | Plan a deck from source material and a theme via an internal AI call. Reads the source, picks layouts from the chosen theme catalog, and proposes content for every slide. Output is a structured plan, not a file. | Before `create_pptx` whenever a non-trivial deck is requested. |
 | `create_pptx` *(beta)* | Create a `.pptx` file from structured slide data using PptxGenJS. Five fixed layouts (title, section, content, two-column, closing), themed by color and font. Does not clone corporate `.pptx` templates. See [office documents](/guides/office-documents) for limitations. | For draft decks and internal-use presentations. For client-facing decks, expect to finish the polish in PowerPoint. |
 | `create_docx` | Create a `.docx` file with headings, sections, bullets, numbered lists, and tables via the `docx` library. Output is clean and reliable. | For Word documents. |
 | `create_xlsx` | Create an `.xlsx` file with sheets, headers, data rows, formulas, and column widths via `exceljs`. | For Excel spreadsheets. |
+
+### Knowledge ingest
+
+Tools for bringing external sources (PDFs, Office files, web clips) into the vault as structured notes with provenance back to the source.
+
+| Tool | Description | When to use |
+|------|-------------|-------------|
+| `ingest_triage` | Ten-second pre-triage of a source against the vault's ontology. Returns cluster match, source-diversity hint, tension hint, and a recommendation (ingest / later / discard). Costs about $0.05 per pass. | Before deep-reading a source, to decide whether it is worth the effort. |
+| `ingest_document` | Single-pass ingest of a document into one note: frontmatter, overview, key statements with `[[basename#Page N\|↗]]` provenance refs, and the full original text. | For quick inbox capture of PDFs, DOCX, PPTX, XLSX, or web clips. |
+| `ingest_deep` | Karpathy-style multi-turn deep ingest. Converts PDFs into a Markdown mirror with block IDs, then produces either a single dense sense-making note or a bibliography note plus N atomic zettel. Every claim carries a `[[mirror#^block-N\|↗]]` link to the exact paragraph. | For research papers, long reports, or anything that requires sense-making instead of summarization. See [Knowledge Ingest](/guides/knowledge-ingest). |
+
+### Memory-source curation
+
+| Tool | Description | When to use |
+|------|-------------|-------------|
+| `mark_note_as_memory_source` | Mark a vault note as a memory source. The frontmatter indexer will keep facts derived from it in sync as the note changes. | When a note holds canonical knowledge that should feed the memory layer. |
+| `unmark_note_as_memory_source` | Remove a note from the memory-source set. | When a note should no longer feed the memory layer. |
 
 ## Web tools
 
@@ -113,10 +124,11 @@ Tools for accessing the internet. Require Web Tools to be enabled in settings.
 |------|-------------|-------------|
 | `web_fetch` | Fetch a URL and return its content as Markdown. Supports pagination for long pages. | To read a specific web page, documentation, or article. |
 | `web_search` | Search the web and return titles, URLs, and snippets. | For current or external information not in your vault. |
+| `anti_echo_search` | Find sources that contradict or extend the current note instead of confirming it. | To break out of confirmation bias when researching a topic. |
 
-## Agent control tools
+## Agent tools
 
-Internal tools the agent uses to manage its own workflow and configuration.
+Internal tools the agent uses to manage its own workflow, memory, configuration, and composition with skills or MCP servers.
 
 | Tool | Description | When to use |
 |------|-------------|-------------|
@@ -124,27 +136,32 @@ Internal tools the agent uses to manage its own workflow and configuration.
 | `attempt_completion` | Signal that a multi-step task is done and log a summary. | After completing a tool-based workflow. |
 | `update_todo_list` | Publish a visible task checklist for multi-step work. | For tasks with 3 or more distinct steps. |
 | `new_task` | Spawn a sub-agent with a fresh context for isolated or parallel work. The `profile: 'research'` option uses a lean read-only allowlist (10 tools) with a per-call token budget. | For tasks (5+ steps) that benefit from delegation. |
-| `switch_mode` | Switch to a different agent mode (e.g., from Ask to Agent). UI trigger removed in v2.11; the tool itself is still active. | When the current task needs a different set of tools or behavior. |
+| `switch_agent` | Switch to a different agent profile. UI trigger removed in v2.11 when Modes were renamed to Agents; the tool itself is still active. | When the current task needs a different set of tools or behavior. |
 | `consult_flagship` | Escalate one synthesis step to the active provider's Frontier-tier model. Read-only subagent, output capped at 3000 tokens, three calls per task. Filtered out of the schema entirely if the active provider has no Frontier-tier model. | After two consecutive failed attempts on the Main tier, or when the task explicitly demands the strongest model on one step (deep analysis, cross-document synthesis, dense reasoning). |
 | `evaluate_expression` | Execute TypeScript code in an isolated sandbox with vault access. | For batch operations, computations, data transforms, or API calls beyond built-in tools. |
-| `find_tool` | Look up which tool fits a task description, including custom and plugin tools. | When the agent is unsure which tool to use. |
-| `inspect_self` | Read the agent's own configuration, available tools, modes, and active rules. | For debugging or when the user asks "what can you do?". |
-| `read_skill` | Load the full step-by-step body of a skill listed in the SKILLS directory of the system prompt. | Before doing the work when a skill matches the task. Skip when no skill applies. |
-| `manage_skill` | Create, update, delete, or list skills (persistent instruction sets). | To save a reusable approach for a specific task type. |
+| `run_skill_script` | Run a script (TypeScript, Python, or shell) that ships in a skill's `scripts/` folder. | When a skill provides a script to do the work instead of free-form steps. |
+| `invoke_skill` | Invoke another skill as a sub-task with its own allowlist. Cycle detection and max-depth limits prevent runaway recursion. | When a skill composes work that another skill already encapsulates. |
+| `invoke_mcp_server` | Invoke an MCP server tool as a sub-task from inside a skill. | When a skill composes work that an external MCP server already exposes. |
+| `find_tool` | Look up which tool fits a task description, including deferred, custom, and plugin tools. | When the agent is unsure which tool to use, or to load a deferred tool's schema on demand. |
+| `inspect_self` | Read the agent's own configuration, available tools, agents, and active rules. | For debugging or when the user asks "what can you do?". |
+| `recall_memory` | Retrieve relevant facts and preferences from the persistent memory store, filtered by source interface (Obsidian, Claude Desktop, ChatGPT, etc.). | When the agent needs personal context to answer well. |
+| `mark_for_memory` | Mark a piece of information from the current conversation as memory-worthy. | When the user says "remember this" or shares a stable preference. |
+| `update_soul` | Update the user's soul layer (long-term identity, values, working style). | For deep, slow-changing personality updates, not day-to-day facts. |
 | `manage_source` | Manage context sources: persistent text blocks injected into every conversation. | To always include certain context like project rules. |
 | `manage_mcp_server` | Add, remove, or test MCP server connections. | To connect external tool servers. |
 | `configure_model` | Add, select, or test an LLM model configuration. | To set up a new AI model or switch the active one. |
 | `update_settings` | Change Vault Operator plugin settings or apply permission presets. | When you ask the agent to adjust its own configuration. |
 | `read_agent_logs` | Read the agent's internal console logs for self-debugging. | To diagnose errors or understand what happened. |
 
-## Plugin integration tools
+## Skill tools
 
-Tools that interact with other Obsidian plugins installed in your vault.
+The SKILL group covers tools that bridge the agent to other Obsidian plugins and to external shell recipes. Skills (the Markdown instruction files) use these tools as the building blocks for plugin-as-skills workflows.
 
 | Tool | Description | When to use |
 |------|-------------|-------------|
 | `execute_command` | Run an Obsidian command by ID (e.g., `daily-notes:open`). | To trigger any plugin's commands. |
 | `call_plugin_api` | Call a JavaScript API method on a plugin (Dataview, Omnisearch, etc.). | To retrieve structured data from plugins. |
+| `probe_plugin` | Probe an enabled plugin for its exposed commands and API surface. | When the agent needs to discover what a plugin can do before calling it. |
 | `enable_plugin` | Enable or disable an installed community plugin. | When a disabled plugin is needed for a task. |
 | `resolve_capability_gap` | Search for plugins that could help when no built-in tool matches. | When the agent cannot fulfill a request with existing tools. |
 | `execute_recipe` | Run a pre-defined recipe for external CLI tools (e.g., Pandoc export). | For validated command-line integrations. |
@@ -156,8 +173,8 @@ Tools that interact with other Obsidian plugins installed in your vault.
 | `use_mcp_tool` | Call any tool provided by a connected MCP server. | When an external MCP server offers the functionality you need. |
 | `read_mcp_tool` | Read the full description and a compact input-schema summary for a single MCP tool. | When the MCP listing shows a truncated description and the agent needs the full text or schema before calling `use_mcp_tool`. |
 
-:::tip Custom modes control tool access
-Each mode (Ask, Agent, or your custom modes) can enable or disable specific tool groups. Configure per-mode tools in **Settings > Modes**. Ask mode only has read tools enabled by default.
+:::tip Agents control tool access
+Each agent (Ask, Agent, or your custom agents) can enable or disable specific tool groups. Configure per-agent tools in **Settings > Agents**. Ask only has read tools enabled by default.
 :::
 
 ## Cross-surface tools (MCP outbound)
@@ -208,3 +225,4 @@ Common tasks mapped to the right tool.
 - **`evaluate_expression` runs in a sandbox.** No direct file system access, no shell. Vault access goes through a bridge with the user's permission settings.
 - **Office-document tools self-check after output.** `create_pptx`, `create_docx`, `create_xlsx`, `generate_canvas`, and `create_excalidraw` produce real binary files that open in Microsoft Office, Google Docs, or LibreOffice. PPTX creation is in beta; see the [office documents guide](/guides/office-documents) for the practical constraints.
 - **Knowledge-ingest tools enforce provenance.** Every key statement in an ingest output carries a `[[source#position\|↗]]` link to the exact block, page, slide, or anchor in the source. See [Knowledge Ingest](/guides/knowledge-ingest).
+- **22 tools are deferred.** Rarely-used tools (checkpoints, Bases edits, diagram creators, `evaluate_expression`, `update_settings`, and others) stay out of the default system prompt to save tokens. The agent loads them on demand via `find_tool`. You do not have to do anything; this is transparent.

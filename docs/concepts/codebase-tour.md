@@ -15,13 +15,16 @@ If you want to read the source, build a plugin on top, or just learn how an agen
 |-----------|------------------|
 | `src/core/` | AgentTask, pipeline, system prompt, modes, governance, checkpoints |
 | `src/core/tools/` | All built-in tool implementations (vault, web, agent, memory, MCP, dynamic) |
-| `src/core/tool-execution/` | Execution pipeline, repetition detector, operation logger, result externalizer |
+| `src/core/tool-execution/` | Execution pipeline, repetition detector, result externalizer, input schema validator |
+| `src/core/governance/` | Approval flow plumbing, operation logger, ignore-list service |
 | `src/core/prompts/sections/` | Modular prompt section builders (one per stable block of the system prompt) |
-| `src/core/memory/` | Memory v2 layer: FactStore, RecipeStore, soul, source-interface tagging |
-| `src/core/knowledge/` | Knowledge graph, ontology, vault-health checks, tension detection |
-| `src/core/ingest/` | Karpathy-style deep ingest pipeline, triage, block-id mirror, source-position annotator |
+| `src/core/memory/` | Memory v2 layer: FactStore, EdgeStore, SingleCallExtractor/Processor, ContextComposer, soul, source-interface tagging |
+| `src/core/mastery/` | Recipe storage, matching, and semantic promotion (RecipeStore, RecipeMatchingService, RecipePromotionService) |
+| `src/core/stigmergy/` | Pheromone-based recall adapter that observes tool, skill, and MCP usage (StigmergyAdapter, precedence resolver) |
+| `src/core/knowledge/` | KnowledgeDB (sql.js), VectorStore, graph store, ontology, vault-health checks, reranker |
+| `src/core/ingest/` | Karpathy-style deep ingest pipeline, triage, block-id mirror, source-position annotator, tension detection, MOC maintainer |
 | `src/mcp/` | MCP server (cross-surface read/write to memory, history, vault) and the Cloudflare relay |
-| `src/api/` | AI provider abstraction (Anthropic, OpenAI, Bedrock, Gemini, Copilot, Kilo Gateway, OpenRouter) |
+| `src/api/` | AI provider abstraction for 12 provider types (Anthropic, OpenAI, Gemini, Bedrock, GitHub Copilot, Kilo Gateway, OpenRouter, Azure, Ollama, LM Studio, custom OpenAI-compatible, ChatGPT OAuth) |
 | `src/ui/` | Sidebar, settings, modals, onboarding wizard |
 | `src/i18n/` | Internationalization (EN, DE) |
 | `src/types/` | Shared TypeScript types and settings |

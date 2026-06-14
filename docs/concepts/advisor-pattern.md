@@ -15,9 +15,9 @@ Vault Operator splits chat work across three tiers and lets the agent ask for a 
 
 When you add a provider in Settings > Providers and click **Refresh**, the plugin pulls the model list and classifies every model into one of three tiers:
 
-- **Budget** — cheap fast models. Default helper-model target if no helper model is set.
-- **Main** — the default tier for chat.
-- **Frontier** — reserved for `consult_flagship`. Never used directly by the loop.
+- **Budget**: cheap fast models. Default helper-model target if no helper model is set.
+- **Main**: the default tier for chat.
+- **Frontier**: reserved for `consult_flagship`. Never used directly by the loop.
 
 `ModelTierClassifier` (`src/core/routing/ModelTierClassifier.ts`) does the classification. It matches model IDs against family patterns first (claude-opus, gpt-5, gemini-pro, deepseek-r1, ...). Unknown models go through a capability-based fallback that looks at context-window and max-output-tokens. For OpenRouter, pricing thresholds also apply: > 50 USD per million completion tokens classifies as Frontier, 5 to 50 as Main, < 5 as Budget.
 
@@ -47,10 +47,10 @@ When the Main-tier model gets stuck (parse error after parse error, half-baked s
 
 Every turn writes a `mode` tag to the cost log:
 
-- `mode=auto` — normal Main-tier call
-- `mode=advisor` — `consult_flagship` escalation to Frontier
-- `mode=subagent` — `new_task({profile: 'research'})` spawn
-- `mode=override` — user pinned a specific model from the chat header
+- `mode=auto`: normal Main-tier call
+- `mode=advisor`: `consult_flagship` escalation to Frontier
+- `mode=subagent`: `new_task({profile: 'research'})` spawn
+- `mode=override`: user pinned a specific model from the chat header
 
 The cost sidebar aggregates these so you can see at a glance how much of a session was Main vs. Frontier vs. helper.
 
@@ -74,7 +74,7 @@ For the opposite extreme (Budget-only), set the active provider's Main slot to a
 
 ## Related concepts
 
-- [Agent loop](./agent-loop) — the loop that runs on the Main tier.
-- [Provider auth](./provider-auth) — how the plugin authenticates to each provider.
-- [Quality and cost](./quality-and-cost) — the broader cost-aware loop story (helper model, prompt slim-down, KV-cache alignment).
-- [Token optimization](./token-optimization) — the techniques that keep the cached prefix stable.
+- [Agent loop](./agent-loop): the loop that runs on the Main tier.
+- [Provider auth](./provider-auth): how the plugin authenticates to each provider.
+- [Quality and cost](./quality-and-cost): the broader cost-aware loop story (helper model, prompt slim-down, KV-cache alignment).
+- [Token optimization](./token-optimization): the techniques that keep the cached prefix stable.

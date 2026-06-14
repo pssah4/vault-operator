@@ -92,9 +92,9 @@ Symptom: The plugin logs "knowledge.db is corrupt", "database is locked", "integ
 
 | Cause | Solution |
 |-------|----------|
-| Corrupt write after a crash or power loss | The plugin runs an `integrity_check` and auto-recovers from the last good state on the next open. Reopen Obsidian. If it does not recover, restore from `.obsidian/plugins/vault-operator/.bak/{db-name}/{YYYY-MM-DD}.db` (daily snapshots, 7-day retention). |
+| Corrupt write after a crash or power loss | The plugin runs an `integrity_check` and auto-recovers from the last good state on the next open. Reopen Obsidian. If it does not recover, restore from `.bak/{db-name}/{YYYY-MM-DD}.db` next to the active database (daily snapshots, 7-day retention). The active path depends on the storage mode: `~/.obsidian-agent/` (global), `{vault}/.obsidian-agent/` (local), or `{vault}/{pluginDir}/` (obsidian-sync). |
 | Another Obsidian window has the database open | A second running instance holds a lock file. Close the other window or restart Obsidian. |
-| Storage mode mismatch after switching `global` ↔ `local` | A switch resets the active database. Set the desired mode in **Settings > Embeddings > Storage location** and rebuild the index. |
+| Storage mode mismatch after switching `global`, `local`, or `obsidian-sync` | A switch resets the active database. Set the desired mode in **Settings > Embeddings > Storage location** and rebuild the index. |
 | Database wedged after a failed upgrade | Quit Obsidian. Move `knowledge.db` and `knowledge.db-journal` aside and copy the most recent file from the `.bak/` snapshot folder into place. Reopen. |
 | Semantic index missing after restoring a vault from backup | The index lives outside the vault. Open **Settings > Embeddings** and click **Rebuild index**. |
 

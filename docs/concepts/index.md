@@ -13,7 +13,7 @@ The Concepts section is for two kinds of readers. If you use Vault Operator dail
 
 Forget chat interfaces for a moment. A chatbot takes your message, generates a response, and stops. Vault Operator does something different. It takes your message, generates a response that may include tool calls (read a file, run a search, edit a note), executes those tools, feeds the results back to the language model, and repeats. The loop continues until the model decides it has finished or a safety limit cuts it off.
 
-That loop is the entire architecture. Everything else (the approval system, the prompt assembly, the memory layer, the mode system) exists to make that loop safe and extensible.
+That loop is the entire architecture. Everything else (the approval system, the prompt assembly, the memory layer, the agent system) exists to make that loop safe and extensible.
 
 ## Layers
 

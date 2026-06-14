@@ -36,7 +36,7 @@ ADR-90 outlines a multi-lever approach to keep agent cost predictable. Three of 
 Less visible but equally important:
 
 - Errors are re-framed as "try a simpler path" cues in the system prompt, not as "escalate" triggers.
-- A telemetry service logs token count, cost, tool sequence, and outcome per task to `taskTelemetry.json` so before / after experiments are measurable.
+- A telemetry service logs token count, cost, tool sequence, and outcome per task to `<vault>/.obsidian-agent/telemetry/tasks.jsonl` so before / after experiments are measurable.
 - Stufe 3 vault-health checks (see [Vault health](./vault-health.md)) carry a weekly USD budget and notify at 80% spend.
 
 ## How the two systems interact

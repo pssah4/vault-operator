@@ -59,7 +59,7 @@ Dataview queries, Kanban boards, Templater templates, Tasks plugin, Excalidraw d
 
 ## It creates Word, Excel, and PowerPoint files (beta)
 
-Vault Operator can write `.docx`, `.xlsx`, and `.pptx` files from your vault content. DOCX and XLSX output is clean and reliable. PPTX output is in beta: the plugin ships with three default themes and five layouts, but real corporate template cloning is not supported in this version (the earlier `pptx-automizer` attempt was retired after extensive iteration). Treat generated decks as drafts that you finish manually for client-facing use.
+Vault Operator can write `.docx`, `.xlsx`, and `.pptx` files from your vault content. DOCX and XLSX output is clean and reliable. PPTX has two modes: an ad-hoc mode (PptxGenJS) for quick decks from notes, and a template mode (`pptx-automizer` + `plan_presentation`) that fills shapes in your own PPTX template. Treat generated decks as drafts that you finish manually for client-facing use.
 
 > **Example prompts:** "Turn this note into a Word document with proper headings and a table of contents." "Build a five-slide internal status presentation from my meeting notes."
 

@@ -25,7 +25,7 @@ Memory v2 keeps facts as atomic statements with metadata. It retrieves them dyna
 
 ```mermaid
 flowchart TD
-    L1["Layer 1: Facts<br/>FactStore, EdgeStore, StyleStore"]
+    L1["Layer 1: Facts<br/>FactStore, EdgeStore, CommunicationStyleStore"]
     L2["Layer 2: Retrieval<br/>ContextComposer, TopicInference, RRF"]
     L3["Layer 3: Updates<br/>SingleCallExtractor, FactIntegrator, AgingService"]
 

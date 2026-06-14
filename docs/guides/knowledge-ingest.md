@@ -5,7 +5,7 @@ description: Integrate PDFs, web clips, and Office documents into your vault wit
 
 # Knowledge ingest
 
-Adding a new source to a well-kept vault is more work than reading the source. You decide whether it is worth the effort, figure out where it belongs, link it to hubs that already exist, write a summary that does not lose nuance, and keep a way to trace any claim back to the paragraph that produced it. That is the bookkeeping layer that makes a vault useful six months later, and most people quietly skip it until everything is a mess.
+Adding a new source to a well-kept vault is more work than reading the source. You decide whether it is worth the effort, figure out where it belongs, link it to hubs that already exist, write a summary that keeps the caveats, and keep a way to trace any claim back to the paragraph that produced it. That is the bookkeeping layer that makes a vault useful six months later, and most people quietly skip it until everything is a mess.
 
 Vault Operator's ingest workflow does the bookkeeping with you. Two paths cover the daily cases: a quick single-pass `/ingest` for inbox capture, and a multi-turn `/ingest-deep` for sense-making on research papers, long reports, and anything that needs more than a summary.
 

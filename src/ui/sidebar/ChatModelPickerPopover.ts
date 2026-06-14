@@ -382,7 +382,7 @@ export class ChatModelPickerPopover {
         // Map a pointer x to the nearest stop. The knob is KNOB_PX wide and its
         // centre travels from KNOB_PX/2 to width-KNOB_PX/2, matching the CSS
         // calc(var(--effort-frac) * (100% - KNOB_PX)).
-        const KNOB_PX = 14;
+        const KNOB_PX = 18;
         const indexFromClientX = (clientX: number): number => {
             const rect = pill.getBoundingClientRect();
             const travel = rect.width - KNOB_PX;

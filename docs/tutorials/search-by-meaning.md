@@ -18,8 +18,8 @@ Semantic search needs an embedding model to convert your notes into vectors. Ope
 
 | Option | Provider | Why |
 |--------|----------|-----|
+| Default | OpenRouter `qwen/qwen3-embedding-8b` | Strong quality, one API key covers chat and embeddings |
 | Cheapest | OpenAI `text-embedding-3-small` | Fast, low cost, good quality |
-| Free | Google Gemini (if available) | No cost, decent quality |
 | Local | Ollama `nomic-embed-text` | Private, no API key needed |
 
 Enter your API key if the provider needs one, click **Test connection** to verify it works, and leave the other settings at their defaults.

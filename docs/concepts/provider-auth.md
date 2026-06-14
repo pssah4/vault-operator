@@ -17,14 +17,13 @@ flowchart LR
     F --> P{Provider type}
     P --> AN[AnthropicProvider]
     P --> BR[BedrockProvider]
-    P --> GE[GeminiProvider]
-    P --> OP[OpenAiProvider]
     P --> GH[GitHubCopilotProvider]
     P --> KG[KiloGatewayProvider]
-    P --> CX[ChatGptOauthProvider]
+    P --> CX[ChatGptOAuthProvider]
+    P --> OP[OpenAiProvider]
 ```
 
-The `buildApiHandler` factory (`src/api/index.ts`) takes a provider configuration and returns the right implementation. Anthropic, AWS Bedrock, Google Gemini, GitHub Copilot, Kilo Gateway, and ChatGPT-OAuth each have dedicated classes because their auth flows or wire formats are non-standard. Everything else (OpenAI, Azure, OpenRouter, Ollama, LM Studio, custom endpoints) goes through `OpenAiProvider`, since they all speak the OpenAI API format.
+The `buildApiHandler` factory (`src/api/index.ts`) takes a provider configuration and returns the right implementation. Anthropic, AWS Bedrock, GitHub Copilot, Kilo Gateway, and ChatGPT-OAuth each have dedicated classes because their auth flows or wire formats are non-standard. Everything else (OpenAI, Google Gemini, Azure, OpenRouter, Ollama, LM Studio, custom endpoints) goes through `OpenAiProvider`, since they all speak the OpenAI API format.
 
 The factory uses an exhaustive switch. Add a new provider type to the union and TypeScript forces you to handle it.
 
@@ -50,9 +49,9 @@ You can provide a custom GitHub OAuth client ID in settings for enterprise GitHu
 
 ## ChatGPT (OAuth): PKCE loopback flow
 
-`ChatGptOauthAuthService` (`src/core/security/ChatGptOauthAuthService.ts`) runs the PKCE loopback flow used by the Codex CLI. The plugin opens a short-lived localhost callback server, generates a code verifier and challenge, and points the browser at `auth.openai.com`. After approval the browser redirects to the callback. The plugin exchanges the code for an access token and a refresh token, then closes the callback server.
+`ChatGptOAuthService` (`src/core/auth/ChatGptOAuthService.ts`) runs the PKCE loopback flow used by the Codex CLI. The plugin opens a short-lived localhost callback server, generates a code verifier and challenge, and points the browser at `auth.openai.com`. After approval the browser redirects to the callback. The plugin exchanges the code for an access token and a refresh token, then closes the callback server.
 
-Requests then route to `chatgpt.com/backend-api/codex/responses` instead of the public `api.openai.com`. The GPT-5 family models on that endpoint require a `reasoning` block in every request body; the plugin sends `reasoning: { effort: 'low', summary: 'auto' }` to all matching models. `low` is the narrowest level accepted by both `gpt-5` and the stricter Codex variants.
+Requests then route to `chatgpt.com/backend-api/codex/responses` (the Codex Responses API) instead of the public `api.openai.com` `/chat/completions` endpoint. The GPT-5 family models on that endpoint require a `reasoning` block in every request body; the plugin resolves the user's configured `reasoningEffort` to one of `minimal | low | medium | high` via `resolveGptEffort()` and sends `reasoning: { effort, summary: 'auto' }`. The default floor is `low`, the narrowest level accepted by both `gpt-5` and the stricter Codex variants.
 
 Refresh tokens auto-renew before expiry. Tokens are stored encrypted via `SafeStorageService`.
 
@@ -66,7 +65,7 @@ For Anthropic models the wire format is the Anthropic Messages API plus a `cache
 
 ## Google Gemini: API key
 
-Gemini uses simple API-key auth via the v1beta endpoint. The provider class translates the OpenAI-shaped tool calls and messages to Gemini's `functionCall` / `functionResponse` format and back. Free-tier rate limits apply.
+Gemini uses simple API-key auth against Google's OpenAI-compatible endpoint at `generativelanguage.googleapis.com/v1beta/openai`, so requests flow through `OpenAiProvider` with no translation layer. Free-tier rate limits apply.
 
 ## Kilo Gateway: device auth + manual token
 
@@ -101,7 +100,6 @@ The relevant source files:
 | `src/api/providers/anthropic.ts` | Anthropic SDK integration |
 | `src/api/providers/openai.ts` | OpenAI-compatible provider (handles 6+ providers) |
 | `src/api/providers/bedrock.ts` | AWS Bedrock with SigV4 signing and `cachePoint` |
-| `src/api/providers/gemini.ts` | Google Gemini v1beta with tool-call translation |
 | `src/api/providers/github-copilot.ts` | Copilot provider with custom fetch |
 | `src/api/providers/kilo-gateway.ts` | Kilo Gateway with device auth |
 | `src/api/providers/chatgpt-oauth.ts` | ChatGPT OAuth (PKCE) routing to the Codex backend |
@@ -110,4 +108,4 @@ The relevant source files:
 | `src/core/security/providerCredentialCrypto.ts` | Per-provider credential walker (AUDIT-027) |
 | `src/core/security/GitHubCopilotAuthService.ts` | Three-stage Copilot auth |
 | `src/core/security/KiloAuthService.ts` | Kilo device auth + manual token |
-| `src/core/security/ChatGptOauthAuthService.ts` | PKCE loopback flow for ChatGPT-OAuth |
+| `src/core/auth/ChatGptOAuthService.ts` | PKCE loopback flow for ChatGPT-OAuth |

@@ -27,7 +27,7 @@ flowchart LR
     Claude["Claude Desktop / Claude Code"]
     Chat["ChatGPT (Dev Mode)"]
     Perp["Perplexity"]
-    Vault Operator["Vault Operator"]
+    VO["Vault Operator"]
 
     Claude -- MCP --> Bridge[Vault Operator MCP Server]
     Chat -- MCP --> Bridge
@@ -36,8 +36,8 @@ flowchart LR
     Bridge --> History[(history.db)]
     Bridge --> Memory[(memory.db)]
 
-    Vault Operator --> History
-    Vault Operator --> Memory
+    VO --> History
+    VO --> Memory
 ```
 
 Five MCP tools form the UCM contract. They are documented in the [tools reference](../reference/tools), but here is what each one does in plain language:
@@ -111,7 +111,7 @@ Threads also exist purely inside Vault Operator. Every conversation in the sideb
 
 Every fact in Memory v2 carries the `source_interface` tag of the tool that produced it. This means:
 
-- A fact saved from Claude Code can surface in an Vault Operator conversation.
+- A fact saved from Claude Code can surface in a Vault Operator conversation.
 - The other way around works too: a fact Vault Operator learned about you can be recalled from Claude Desktop via `recall_memory`.
 - You can filter recall to a single source. "What did Claude Code learn about my codebase?" is a single `recall_memory` call with `source_interface: 'claude-code'`.
 

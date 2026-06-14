@@ -31,7 +31,7 @@ Semantic search requires an embedding model to convert text into embeddings. You
 3. Click **Build Index** to process your vault
 
 :::tip Which embedding model?
-Any configured provider that supports embeddings will work. If you are using OpenAI or a compatible API, the default embedding model is a good starting point. Local models via Ollama work well if you want everything to stay on your machine.
+Any configured provider that supports embeddings will work. The default is qwen3-embedding-8b via OpenRouter, which gives strong multilingual results for most vaults. OpenAI embeddings are a solid alternative, and local models via Ollama work well if you want everything to stay on your machine.
 :::
 
 ### Building the index

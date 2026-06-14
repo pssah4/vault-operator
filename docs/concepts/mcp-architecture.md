@@ -17,11 +17,11 @@ flowchart LR
 
 On the left, Vault Operator reaches out to MCP servers you have configured. A GitHub server that can search issues, a database server that can run queries, whatever tools those servers expose. They become available to the agent alongside its built-in tools.
 
-On the right, Vault Operator itself is the server. External clients connect to it and get access to the vault, the persistent memory layer, and the conversation history. Each call carries a `source_interface` tag (`obsilo`, `claude`, `chatgpt`, `perplexity`, `other`, `unknown`) so memory and history stay separable per surface. See [Unified Chat Memory](./unified-chat-memory.md) for the cross-surface UX.
+On the right, Vault Operator itself is the server. External clients connect to it and get access to the vault, the persistent memory layer, and the conversation history. Each call carries a `source_interface` tag (`obsilo`, `claude-ai`, `claude-code`, `chatgpt`, `perplexity`, `unknown`) so memory and history stay separable per surface. See [Unified Chat Memory](./unified-chat-memory.md) for the cross-surface UX.
 
 ## Client side
 
-You configure external MCP servers in **Settings > Providers > MCP Servers**. Each server needs a transport type (stdio for local processes, Streamable HTTP for modern remote servers, or SSE as a fallback for older servers) and connection details.
+You configure external MCP servers in **Settings > Providers > MCP Servers**. Each server needs a transport type (Streamable HTTP for modern remote servers, or SSE as a fallback for older servers) and connection details. Only HTTP-based transports are supported. stdio is blocked because it would spawn host processes outside the sandbox.
 
 When Vault Operator connects to a server, it discovers available tools and resources through MCP's standard discovery protocol. Those tools appear in the agent's tool list alongside built-in tools. The agent calls them like any other tool and does not need to know they run in a separate process.
 
@@ -38,7 +38,7 @@ The `McpBridge` (`src/mcp/McpBridge.ts`) runs an HTTP server on localhost (defau
 | Read | `get_context`, `search_vault`, `read_notes`, `get_vault_note_metadata`, `get_vault_implicit_edges` | Retrieve vault, ontology, and structural information |
 | Memory | `recall_memory`, `save_to_memory`, `update_memory` (deprecated) | Cross-surface memory access. `update_memory` is kept for legacy clients and routes to `save_to_memory` internally. |
 | History | `save_conversation`, `close_conversation`, `search_history`, `sync_session` | Persist a conversation as a living document, or look up past chats |
-| Write | `write_vault`, `execute_vault_op` | Create, edit, delete files; run any of ~60 vault operations (the list is generated from the tool registry at runtime) |
+| Write | `write_vault`, `execute_vault_op` | `write_vault` creates, edits, and deletes files in batch. `execute_vault_op` dispatches any registered read-side agent tool from the registry (around 80 tools, the list is generated at runtime). Write tools and agent-internal tools are fail-closed from this dispatcher; dedicated MCP tools cover the cases where writes are wanted. |
 
 The `get_context` tool is meant to be called first in every conversation. It returns the user profile, memory, behavioral patterns, vault statistics, available skills, and rules. The same context Vault Operator's internal agent gets from its system prompt. Under strict source isolation (Settings > Memory > Cross-Surface Sync), the response for non-`obsilo` callers omits memory, soul, skills, and rules; only vault stats and structural info come through.
 

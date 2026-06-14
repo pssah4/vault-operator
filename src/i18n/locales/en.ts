@@ -1655,8 +1655,6 @@ export const en: Translations = {
     // Binary thinking switch state text
     'ui.sidebar.thinkingOn': 'On',
     'ui.sidebar.thinkingOff': 'Off',
-    'ui.sidebar.thinkingBadgeOn': 'thinking on',
-    'ui.sidebar.thinkingBadgeOff': 'thinking off',
     'ui.sidebar.thinkingOverrideTitleOn': '{{label}} Extended thinking forced on for this conversation.',
     'ui.sidebar.thinkingOverrideTitleOff': '{{label}} Extended thinking forced off for this conversation.',
     // Per-conversation reasoning-effort override (shown when thinking is on)

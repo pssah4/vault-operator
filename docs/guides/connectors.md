@@ -52,7 +52,7 @@ Most external AI clients cannot access your Obsidian notes on their own. With Va
 - Persistent memory: cross-surface facts and preferences
 - Conversation history: search past chats across surfaces
 
-Each external call carries a `source_interface` tag (`claude`, `chatgpt`, `perplexity`, `obsilo`, `other`) so memory and history stay separable per surface. See [Unified Chat Memory](/concepts/unified-chat-memory) for the cross-surface UX.
+Each external call carries a `source_interface` tag (`obsilo`, `claude-ai`, `claude-code`, `chatgpt`, `perplexity`, `unknown`) so memory and history stay separable per surface. See [Unified Chat Memory](/concepts/unified-chat-memory) for the cross-surface UX.
 
 ### Available tools (four tiers)
 
@@ -131,14 +131,15 @@ Multiple `save_conversation` calls within 30 minutes from the same source interf
 
 ## Provider overview
 
-Vault Operator supports 10+ AI providers. Most use a plain API key. A few use different auth flows.
+Vault Operator supports 12 AI providers. Most use a plain API key. A few use different auth flows.
 
 | Provider | Auth method | Notes |
 |----------|------------|-------|
 | GitHub Copilot | OAuth device flow | Uses your existing GitHub Copilot subscription. No separate API key needed. |
 | Kilo Gateway | Device auth + manual token | Community gateway with shared rate limits. |
-| AWS Bedrock | AWS credential providers | Region-aware, supports Claude on Bedrock. Cache-points enabled per ADR-061. |
-| Anthropic, OpenAI, Google, OpenRouter, etc. | API key | Paste your key in Settings > Models. |
+| AWS Bedrock | Bedrock API key (bearer) or AWS access keys | Region-aware, supports Claude on Bedrock. Cache-points enabled. |
+| ChatGPT (OAuth) | Sign in with ChatGPT | Uses your ChatGPT account against the Codex Responses API. |
+| Anthropic, OpenAI, Google Gemini, OpenRouter, Azure, Ollama, LM Studio, custom | API key (or local URL) | Paste your key or set the local endpoint in Settings > Models. |
 
 ### Setting up GitHub Copilot
 

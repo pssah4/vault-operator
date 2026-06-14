@@ -17,9 +17,9 @@ Three built-in tools handle file creation: `create_pptx`, `create_docx`, and `cr
 
 DOCX and XLSX generation are straightforward. The `docx` library handles Word output (headings, paragraphs, bullet lists, numbered lists, tables). The `exceljs` library handles Excel output (sheets, headers, rows, formulas, column widths). Both produce clean, reliable files.
 
-PPTX is where the interesting architecture lives, and also where the limitations are.
+PPTX is where the architecture gets involved, and also where the limitations are.
 
-## How PPTX generation actually works
+## How PPTX generation works
 
 ```mermaid
 flowchart TD

@@ -1490,11 +1490,9 @@
 }
 
 
-/* ── Model button (toolbar) — ghost, icon only ────────────────────────── */
 /* ── Model button (toolbar) — no border, label + chevron, compact ───────── */
 .model-button {
-    max-width: 140px;
-    flex-shrink: 1;
+    flex-shrink: 0;
     background: none;
     border: none;
     color: var(--text-muted);
@@ -1514,10 +1512,7 @@
 }
 
 .model-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 100px;
     font-size: 11px;
 }
 
@@ -6098,26 +6093,33 @@
     color: var(--text-normal);
 }
 
+/* A visible pill track with a round knob slightly larger than the pill so the
+   circle stands proud above and below the track at every stop. The knob box
+   always stays inside the pill horizontally (left travels 0..width-KNOB), so
+   the full circle is visible at both extremes ('auto' flush-left, 'max'
+   flush-right) without any visual clipping by the pill's rounded ends. */
 .chat-model-picker-effort-pill {
     position: relative;
     width: 148px;
-    height: 18px;
+    height: 14px;
     flex-shrink: 0;
     border-radius: 999px;
     background: var(--background-modifier-border);
     cursor: pointer;
     /* let a pointer drag move the knob without the list scrolling underneath */
     touch-action: none;
+    /* knob overhangs the track vertically; never clip it. */
+    overflow: visible;
 }
 
 /* Accent track filled up to the knob centre: KNOB_PX/2 + frac * (100% - KNOB_PX),
-   with KNOB_PX = 14px, so the fill always ends exactly under the knob. */
+   with KNOB_PX = 18px, so the fill always ends exactly under the knob. */
 .chat-model-picker-effort-fill {
     position: absolute;
     top: 0;
     left: 0;
     height: 100%;
-    width: calc(7px + var(--effort-frac, 0) * (100% - 14px));
+    width: calc(9px + var(--effort-frac, 0) * (100% - 18px));
     border-radius: 999px;
     background: var(--interactive-accent);
     pointer-events: none;
@@ -6129,9 +6131,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* 5.5px = knob-centre inset (7px) minus half a dot (1.5px), so the dot
+    /* 7.5px = knob-centre inset (9px) minus half a dot (1.5px), so the dot
        centres line up exactly with the knob stops. */
-    padding: 0 5.5px;
+    padding: 0 7.5px;
     pointer-events: none;
 }
 
@@ -6140,22 +6142,24 @@
     height: 3px;
     border-radius: 50%;
     background: var(--background-primary);
-    opacity: 0.55;
+    opacity: 0.65;
 }
 
-/* The knob centre travels from 7px to width-7px, i.e.
-   left = frac * (100% - 14px); flush-left at 'auto', flush-right at 'max'. */
+/* The knob: 18px circle that sits ON TOP of the 6px track. Its top-left
+   travels from left=0 to left=width-18px, so the full circle is always
+   visible inside the pill's horizontal bounding box -- flush-left at 'auto'
+   and flush-right at 'max' without any visual clipping. */
 .chat-model-picker-effort-knob {
     position: absolute;
     top: 50%;
-    left: calc(var(--effort-frac, 0) * (100% - 14px));
-    width: 14px;
-    height: 14px;
+    left: calc(var(--effort-frac, 0) * (100% - 18px));
+    width: 18px;
+    height: 18px;
     transform: translateY(-50%);
     border-radius: 50%;
     background: var(--background-primary);
     border: 2px solid var(--interactive-accent);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: none;
 }
 
@@ -6165,29 +6169,6 @@
 }
 
 /* Issue #44: thinking-override badge on the chat-header model button */
-/* Thinking state on the chat-header model button. Always present so it mirrors
-   the picker switch. 'on' (incl. the follow default) is muted so the persistent
-   badge stays quiet; 'off' is accented so a disabled-thinking deviation stands
-   out at a glance. */
-.model-thinking-badge {
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-left: 4px;
-    padding: 1px 5px;
-    border-radius: 7px;
-    flex-shrink: 0;
-    white-space: nowrap;
-    color: var(--text-muted);
-    background: var(--background-modifier-border);
-}
-
-.model-thinking-badge.is-off {
-    color: var(--text-on-accent, white);
-    background: var(--text-accent, var(--interactive-accent));
-}
-
 /* Footer */
 .tool-picker-footer {
     border-top: 1px solid var(--background-modifier-border);

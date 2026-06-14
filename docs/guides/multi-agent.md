@@ -7,7 +7,7 @@ description: Sub-tasks, task extraction, and how Vault Operator delegates work t
 
 For complex work, a single agent conversation can get unwieldy. Vault Operator handles this with sub-agents: child agents that take on specific parts of a larger task on their own. It also pulls actionable tasks out of conversations and turns them into trackable notes.
 
-**You will need:** a working chat with at least one configured model. Sub-agents inherit the parent's model unless you give them their own mode with a different model assigned.
+**You will need:** a working chat with at least one configured model. Sub-agents inherit the parent's model unless you give them their own agent profile with a different model assigned.
 
 **Use this guide when:** a task is too large for one chat (researching three topics in parallel, processing a folder of files, comparing vault content against external research), or when you want extracted tasks to land as notes you can track.
 
@@ -16,18 +16,18 @@ For complex work, a single agent conversation can get unwieldy. Vault Operator h
 ### When to delegate vs. stay in one chat
 
 - **Stay in one chat** for sequential work in a single domain ("read note A, then edit note B").
-- **Delegate** when steps are independent (three searches that do not depend on each other), when one step needs a different mode (Ask for analysis while Agent does writes), or when context would balloon (large research with many tool results).
+- **Delegate** when steps are independent (three searches that do not depend on each other), when one step needs a different agent profile (a read-only analyst while the parent writes), or when context would balloon (large research with many tool results).
 - **Avoid delegating** for tasks that finish in 2-3 tool calls. The cost of spawning a sub-agent outweighs the benefit.
 
 ## What are sub-agents?
 
-A sub-agent is a separate agent instance spawned by the main agent. It gets its own conversation, its own mode, and its own tool access. The parent hands off a specific job, waits for the result, then carries on.
+A sub-agent is a separate agent instance spawned by the main agent. It gets its own conversation, its own agent profile, and its own tool access. The parent hands off a specific job, waits for the result, then carries on.
 
 ### When sub-agents help
 
 - Research fan-out: search multiple topics in parallel instead of one after the other
 - Divide and conquer: break a large task into independent pieces
-- Mode isolation: run a read-only analysis in Ask mode while the parent works in Agent mode
+- Profile isolation: run a read-only analysis under a restricted agent profile while the parent keeps full tool access
 - Long tasks: keep the main conversation focused while a sub-agent handles a side errand
 
 ## How `new_task` works
@@ -38,7 +38,7 @@ The agent spawns sub-agents through the `new_task` tool. You don't call this too
 
 | Parameter | Purpose |
 |-----------|---------|
-| Mode | Which mode the child agent runs in (Ask or Agent) |
+| Agent profile | Which agent profile the child runs in (controls tools and system prompt) |
 | Message | The specific task description for the child |
 | Context | Relevant information passed from the parent conversation |
 

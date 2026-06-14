@@ -771,15 +771,15 @@ export class AgentSidebarView extends ItemView {
                 label = t('ui.sidebar.modelAuto');
                 title = t('ui.sidebar.modelAutoTitle');
             } else {
-                const m = resolveOverrideModel(activeProvider, this.chatModelOverride);
-                // Chat-header is narrow -- keep the label short:
-                // displayName when available, otherwise the bare model name
-                // (normalized to strip vendor/region/version prefixes so e.g.
-                // "anthropic/claude-opus-4-6" or "eu.anthropic.claude-opus-4-6-v1"
-                // collapses to "claude-opus-4-6"). Full id stays in the tooltip.
-                const shortName = m?.displayName
-                    ?? this.shortenModelId(this.chatModelOverride);
-                label = shortName;
+                // Chat-header always renders the bare core model id, not the
+                // provider-supplied displayName. Bedrock cross-region profiles
+                // expand into long strings like "EU Anthropic Claude Opus 4.8
+                // [Cross-Region Profile]" that push the composer row off-screen.
+                // shortenModelId collapses the underlying id to its core form
+                // ("eu.anthropic.claude-opus-4-8-v1:0" -> "claude-opus-4-8");
+                // the full id and the descriptive displayName stay in the
+                // tooltip and inside the picker popover.
+                label = this.shortenModelId(this.chatModelOverride);
                 title = t('ui.sidebar.modelOverrideTitle', { label: this.chatModelOverride });
             }
         } else {
@@ -791,20 +791,12 @@ export class AgentSidebarView extends ItemView {
             title = hasModeOverride ? t('ui.sidebar.modeOverride', { label }) : label;
         }
         this.modelButton.createSpan('model-label').setText(label);
-        // Mirror the picker's binary thinking switch on the chat header so the
-        // two never disagree. The footer always shows on/off via the same
-        // predicate as the switch: 'follow' (the byte-identical default) and
-        // 'on' read as On, only explicit 'off' reads as Off. (Previously the
-        // badge rendered only for explicit overrides, so the default showed
-        // nothing in the footer while the switch already read On.) The "forced"
-        // tooltip wording stays reserved for an explicit deviation.
-        const thinkingOn = thinkingSwitchIsOn(this.chatThinkingOverride);
-        const badge = this.modelButton.createSpan('model-thinking-badge');
-        badge.classList.toggle('is-off', !thinkingOn);
-        badge.setText(thinkingOn
-            ? t('ui.sidebar.thinkingBadgeOn')
-            : t('ui.sidebar.thinkingBadgeOff'));
+        // The thinking state stays visible inside the picker popover
+        // (chat-model-picker-thinking-switch); the chat composer pill row only
+        // shows the model identity, so a thinking deviation is conveyed via the
+        // tooltip without a second chip cluttering the row.
         if (isExplicitThinkingOverride(this.chatThinkingOverride)) {
+            const thinkingOn = thinkingSwitchIsOn(this.chatThinkingOverride);
             title = thinkingOn
                 ? t('ui.sidebar.thinkingOverrideTitleOn', { label: title })
                 : t('ui.sidebar.thinkingOverrideTitleOff', { label: title });

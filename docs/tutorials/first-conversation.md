@@ -16,17 +16,17 @@ Vault Operator has two built-in modes:
 | **Ask** | Read-only. Searches and analyzes but never changes your vault. | Questions, research, analysis |
 | **Agent** | Full access. Can read, write, edit, create, and delete files. | Active work, content creation, refactoring |
 
-The mode dropdown sits at the top of the chat panel, next to the model selector. Click it to switch between **Ask** and **Agent**. The agent can also switch modes mid-conversation when the task calls for it.
+Every chat starts in **Agent** mode. The agent itself can switch to **Ask** mid-conversation when the task is read-only. You can also change the default mode in **Settings > Modes**, and approvals still gate any write the Agent mode wants to perform.
 
-:::tip Start with Ask mode
-If you are new to Vault Operator, start in **Ask** mode. It cannot change anything, so you can explore safely. Switch to **Agent** mode when you are ready to let it work.
+:::tip Use approvals if you want safety
+The mode-switcher button is no longer in the chat header (it was removed in v2.11). If you want to explore without any risk of changes, keep the approval prompts on so every write needs an explicit click.
 :::
 
 ## Context: what the agent knows
 
 The agent sees:
 - Your message and the conversation history
-- The active note (if "auto-add active file" is enabled in Settings > Interface)
+- The active note (if "Auto-add active note as context" is enabled in Settings > Interface)
 - Attached files (drag & drop or click the paperclip icon)
 - @-mentioned files (type `@` in the chat to search your vault)
 - Its memory of past conversations (if memory is enabled)

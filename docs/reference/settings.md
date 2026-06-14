@@ -28,6 +28,21 @@ The Main tier drives chat by default. The agent escalates to Frontier on hard sy
 Ollama and LM Studio prefill their Base URL field with the well-known default port. The Refresh button uses Ollama's native `/api/tags` endpoint to enumerate installed models. ChatGPT (OAuth) bills against your existing Plus or Pro subscription instead of a per-token API key.
 :::
 
+:::info Supported provider types
+The provider modal supports: Anthropic, OpenAI, Gemini, Ollama, LM Studio, OpenRouter, Azure, Custom (OpenAI-compatible), GitHub Copilot, Kilo Gateway, AWS Bedrock, and ChatGPT (OAuth).
+:::
+
+### Per-model reasoning and thinking
+
+Each model row in the provider modal exposes reasoning controls when the underlying model supports them. Pin a specific model in the chat-header picker to use these (Auto mode uses defaults).
+
+| Setting | What it does | Default | Recommendation |
+|---------|-------------|---------|----------------|
+| Extended thinking | Enables Claude budget-token thinking on Sonnet 4.6, Opus 4.6 and older, Haiku, and 3.x models | Off | Turn on for hard synthesis with budget-token Claudes |
+| Thinking budget (tokens) | Token budget reserved for the model's internal reasoning before visible output | 10000 (Sonnet/Opus), 5000 (Haiku) | Raise for harder synthesis, lower to save cost |
+| Reasoning effort | Effort level for adaptive Claude (Opus 4.7+, Fable, Mythos) and GPT-5/o-series. Claude: Low, Medium, High, XHigh, Max. OpenAI: Minimal, Low, Medium, High | Model default | High or XHigh for complex tasks; Low for short answers |
+| Max output tokens (Auto) | Output budget is clamped to the model ceiling and remaining context room | Auto | Leave on Auto unless you have a specific reason to cap |
+
 ## Embeddings
 
 Configure the semantic index for meaning-based vault search.
@@ -225,7 +240,7 @@ Checkpoint and snapshot settings for the undo system.
 
 ### Agent folder
 
-Vault-relative folder where Vault Operator keeps its own files: plugin skills, the vault-dna snapshot, externalised tmp results, and the local knowledge database. Default is `.obsidian-agent`.
+Vault-relative folder where Vault Operator keeps its own files: plugin skills, the vault-dna snapshot, externalised tmp results, and the local knowledge database. Default is `.vault-operator`.
 
 Use the **Pick folder...** button to choose an existing folder from a fuzzy picker (works the same on Windows, macOS, and Linux), or type a new path that will be created on next use. Existing files are not auto-migrated when you change this path. Move them manually if needed.
 

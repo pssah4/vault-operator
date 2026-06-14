@@ -31,10 +31,6 @@ The Vault Operator icon appears in the left sidebar.
 - Community page: [community.obsidian.md/plugins/vault-operator](https://community.obsidian.md/plugins/vault-operator)
 :::
 
-:::tip BRAT (Beta Testing)
-For the latest beta version (pre-release, ahead of the public store), install via [BRAT](https://github.com/TfTHacker/obsidian42-brat): Add `pssah4/vault-operator` as a beta plugin.
-:::
-
 ## Run the First-Run wizard
 
 A setup wizard opens automatically the first three times you enable the plugin. It walks you through every step on this page. If you skipped it or want to rerun later, open **Settings > Help > Run setup wizard**.

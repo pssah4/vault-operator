@@ -17,7 +17,7 @@ The Vault Operator sidebar is where you talk to the agent, attach files, browse 
 
 Open Vault Operator by clicking its icon in the left sidebar. The panel has three areas:
 
-- Toolbar at the top: mode selector, model picker, history button
+- Toolbar at the top: model picker, tool picker, history button
 - Message area in the center: your conversation, activity blocks, approval cards
 - Input bar at the bottom: text field, attachment button, send button
 
@@ -26,7 +26,7 @@ Open Vault Operator by clicking its icon in the left sidebar. The panel has thre
 The model picker controls which model the conversation runs on, plus two per-conversation reasoning controls that apply to the current chat without changing your saved settings.
 
 - **Auto** keeps the tier router on: it picks a model strength (Budget / Main / Frontier) based on the task. Pinning a specific model turns the router off for that conversation.
-- **Thinking** is an On/Off toggle. On models that support extended thinking it forces it on or off for this chat; on models without it, the toggle is gracefully ignored. The current state is shown on the chat header.
+- **Thinking** is an On/Off toggle. On models that support extended thinking it forces it on or off for this chat; on models without it, the toggle is ignored. The current state is shown on the chat header.
 - **Reasoning effort** is a slider that appears when you pin a model and turn thinking on. It uses the model's own native levels (Claude: Low / Medium / High / XHigh / Max; GPT-5 and o-series: Minimal / Low / Medium / High). The leftmost stop, **Auto**, sends no effort field, so the model keeps its own default. In Auto model mode the slider stays hidden, because the router is already choosing model strength for you.
 
 ## Sending messages

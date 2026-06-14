@@ -19,7 +19,7 @@ the desired outcome, because most users never change defaults.
 [[Thaler-2008_Nudge#^block-42|↗]]
 ```
 
-The `↗` is an Obsidian wikilink with a custom display text. The link target is one of four shapes, depending on the source type:
+The `↗` is an Obsidian wikilink with a custom display text. The link target is one of five shapes, depending on the source type:
 
 | Source type | Link target |
 |-------------|-------------|
@@ -29,7 +29,7 @@ The `↗` is an Obsidian wikilink with a custom display text. The link target is
 | PPTX | `[[basename#Slide N|↗]]` |
 | XLSX | `[[basename#Sheet name|↗]]` |
 
-The display text stays uniform across all four. No `[1]` style citations, no "see source" filler. Visual minimalism keeps the reading flow intact.
+The display text stays uniform across all five. No `[1]` style citations, no "see source" filler. Visual minimalism keeps the reading flow intact.
 
 ## Why blocks, not pages
 

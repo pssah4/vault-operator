@@ -5,7 +5,9 @@ description: How Vault Operator turns checkbox lines from agent responses into t
 
 # Task extraction
 
-When the agent writes a Markdown checkbox in a response, Vault Operator can turn it into a real note in your vault. The feature is off by default and lives in **Settings > Interface > Task extraction**. Once enabled, every agent response is scanned post-hoc; matching lines become task notes that you can track, query, or feed into the Bases or Tasks plugins.
+When the agent writes a Markdown checkbox in a response, Vault Operator can turn it into a real note in your vault. The feature is on by default and lives in **Settings > Vault > Task extraction**. Every agent response is scanned post-hoc; matching lines become task notes that you can track, query, or feed into the Bases or TaskNotes plugins.
+
+If the TaskNotes community plugin (id `tasknotes`) is active and `preferTaskNotesPlugin` is on, Vault Operator writes TaskNotes-compatible frontmatter (`TaskNotesAdapter`) so tasks show up in the TaskNotes list, kanban, and calendar views. Otherwise it falls back to the internal schema (`TaskNoteCreator`).
 
 ## What gets extracted
 
@@ -25,20 +27,31 @@ Duplicate task texts in the same response are merged. The agent does not need to
 
 ## What you get
 
-For each extracted task, the post-processing hook offers a dialog: **X tasks found. Create notes?** You see the task list, can deselect individual tasks, and confirm. Each accepted task becomes a note in the configured task folder (default `TaskNotes/Tasks/`) with frontmatter like:
+For each extracted task, the post-processing hook offers a dialog: **X tasks found. Create notes?** You see the task list, can deselect individual tasks, and confirm. Each accepted task becomes a note in the configured task folder (default `Tasks`).
+
+Internal schema (`TaskNoteCreator`, ADR-027). Frontmatter is German and Bases-friendly:
 
 ```yaml
 ---
-kategorie: [Task]
-assignee: Tom
-dueDate: 2026-06-01
-sourceNote: Chats/2026-05-13-1234.md
+Kategorie:
+  - Task
+Zusammenfassung: Review the proposal
+Status: Todo
+Dringend: false
+Wichtig: false
+Fälligkeit: 2026-06-01
+Assignee: "@Tom"
+Quelle: "[[Chats/2026-05-13-1234]]"
+created: 2026-06-14
+Notizen: []
 ---
 
 # Review the proposal
 ```
 
-The `kategorie: [Task]` convention lets the Base plugin recognize task notes for view and timeline rendering. The `sourceNote` field points to the conversation note that produced the task, so you can jump back to the context.
+The `Kategorie: Task` convention lets the Bases plugin recognize task notes for view and timeline rendering. The `Quelle` field links back to the conversation note that produced the task.
+
+TaskNotes schema (`TaskNotesAdapter`). When the TaskNotes plugin is active, Vault Operator reads its `fieldMapping` and `tasksFolder` from `data.json` and writes the matching property names (`title`, `status`, `due`, `dateCreated` with full ISO 8601 timezone offset) plus the configured task tag, so TaskNotes views pick the notes up automatically.
 
 ## Title generation
 
@@ -56,11 +69,11 @@ If task extraction is off, the scan does not run, and checkbox lines stay as pla
 - Strict date format. `due: 2026-06-01` works; `due tomorrow` or `next Friday` does not.
 - Text-based deduplication. Two tasks with slightly different wording count as separate notes.
 - The `sourceNote` backlink is a path. If you move or rename the source chat note, the backlink breaks.
-- The Interface-tab toggle is binary. There is no per-mode or per-prompt switch yet.
+- The Vault-tab toggle is binary. There is no per-agent or per-prompt switch yet.
 
 ## Related decisions
 
 - ADR-26: post-processing hook architecture
 - ADR-27: task-note frontmatter schema (the `kategorie: [Task]` convention)
 
-See also: [Multi-agent and tasks guide](/guides/multi-agent), [Settings reference: Interface](/reference/settings#interface).
+See also: [Multi-agent and tasks guide](/guides/multi-agent), [Settings reference: Vault](/reference/settings#vault-checkpoints).

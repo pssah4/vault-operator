@@ -9,13 +9,13 @@ Vault Operator supports 12 AI providers. Setup instructions for each one follow.
 
 For all providers, open **Settings > Vault Operator > Providers**, click **"+ Add provider"**, and pick your provider type. After you authenticate, click **Refresh** to discover the model list. Vault Operator classifies every model into one of three tiers:
 
-- **Budget** — cheap fast models for routine work
-- **Main** — the default tier for chat
-- **Frontier** — reserved for the on-demand `consult_flagship` escalation
+- **Budget**: cheap fast models for routine work
+- **Main**: the default tier for chat
+- **Frontier**: reserved for the on-demand `consult_flagship` escalation
 
 You can override the auto-classification per tier slot. If your active provider has no Frontier-tier model, the `consult_flagship` tool is removed from the agent's schema entirely.
 
-If **Refresh** finds no models -- some custom OpenAI-compatible endpoints do not implement the `/v1/models` route -- type the model ID straight into the **Model ID** field and save. Discovery is a convenience, not a requirement; a provider works fine with a manually entered model ID.
+If **Refresh** finds no models (some custom OpenAI-compatible endpoints do not implement the `/v1/models` route), type the model ID straight into the **Model ID** field and save. Discovery is a convenience, not a requirement. A provider works fine with a manually entered model ID.
 
 ## Cloud providers
 
@@ -76,7 +76,7 @@ Google Gemini has a free tier with reasonable rate limits. Good starting point i
 | | |
 |---|---|
 | What you need | API key from [openrouter.ai](https://openrouter.ai) |
-| Tier mapping (auto) | Pricing-based: > $50/M completion = Frontier, $5--50 = Main, < $5 = Budget. Family patterns override pricing where possible. |
+| Tier mapping (auto) | Pricing-based: > $50/M completion = Frontier, $5 to $50 = Main, < $5 = Budget. Family patterns override pricing where possible. |
 | Embedding | Not available |
 
 Setup:
@@ -150,7 +150,7 @@ Bedrock bills per-token directly through your AWS account. There is no free tier
 | | |
 |---|---|
 | What you need | An active ChatGPT Plus or Pro subscription |
-| Available models | gpt-5, gpt-5.1, gpt-5.2, gpt-5-codex, gpt-5-codex-mini, gpt-5.1-codex variants, gpt-5.2-codex, gpt-5.3-codex (Codex-backend lineup) |
+| Available models | gpt-5.5, gpt-5.4, gpt-5.4-mini (Codex-backend lineup as of v2.14; the live `/codex/models` fetch supersedes this fallback when reachable) |
 | Embedding | Not available |
 
 Setup (OAuth PKCE loopback flow, desktop only):
@@ -166,8 +166,8 @@ Behind the scenes the plugin routes requests through `chatgpt.com/backend-api/co
 ChatGPT-OAuth bills against your existing Plus / Pro plan, not against an OpenAI API key. There is no per-token cost; rate limits follow the subscription tier. The plugin still tracks the equivalent API cost in the sidebar footer for transparency.
 :::
 
-:::warning Reasoning effort fixed at `low`
-GPT-5 family models require a `reasoning` block in every request. Vault Operator sends `reasoning: { effort: 'low' }`, the narrowest value accepted across the family. This minimises latency and cost. Higher reasoning effort is not currently exposed as a setting; if you need it for a specific task, use the OpenAI API provider with a `gpt-5*-pro` model via the standard `/v1/responses` endpoint.
+:::info Reasoning effort
+GPT-5 family models require a `reasoning` block on every request. The default effort is `low` (the narrowest value accepted across the family) to minimise latency and cost. Since v2.14 you can override it per pinned model via the **Reasoning effort** slider (`minimal`, `low`, `medium`, `high`) in the model config modal.
 :::
 
 ### GitHub Copilot

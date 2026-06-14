@@ -144,4 +144,4 @@ Vault Operator never accesses `.git/`, the Obsidian workspace cache, or internal
 
 6. Back up your vault. Checkpoints give you undo inside Vault Operator, but a proper vault backup (Obsidian Sync, git, or a file-system backup) protects against everything else.
 
-7. Use Ask mode for exploration. When you just want answers without changes, switch to Ask mode. It is read-only, so nothing in your vault can be modified.
+7. Create a read-only custom agent for exploration. When you just want answers without changes, define a custom agent in **Settings > Vault Operator > Agents** with only the `read` and `vault` tool groups. Switch to it for read-only sessions where nothing in your vault can be modified.

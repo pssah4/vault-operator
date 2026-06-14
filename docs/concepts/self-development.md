@@ -25,12 +25,12 @@ Tier 5 is proactive improvement. The agent observes usage patterns across conver
 
 Alongside the five tiers, four tools let the agent reason about its own state and capabilities at runtime:
 
-- `inspect_self`: read the agent's own configuration, tool list, active modes, skills, and rules. Used when the user asks "what can you do?" or when the agent needs to plan against its current capabilities.
+- `inspect_self`: read the agent's own state across four areas (settings, tools, capabilities, code). Used when the user asks "what can you do?" or when the agent needs to plan against its current capabilities.
 - `find_tool`: search the registry (built-in, dynamic, plugin) for a tool that fits a task description. Useful when the agent is unsure which tool to call.
 - `update_soul`: update the user's long-term identity layer (values, working style). Slow-changing, deliberate, and gated.
 - `anti_echo_search`: find sources that contradict or extend the current note instead of confirming it. A small lever against confirmation bias when researching a topic.
 
-These tools sit in the `agent` and `vault` groups, depending on what they touch. They are not a separate tier; they support tier 1 (skill self-authoring) and tier 5 (pattern detection) by giving the agent a way to look in the mirror without a user prompt asking it to.
+These tools sit in the `agent` and `web` groups, depending on what they touch. They are not a separate tier; they support tier 1 (skill self-authoring) and tier 5 (pattern detection) by giving the agent a way to look in the mirror without a user prompt asking it to.
 
 ## Sandbox isolation
 
@@ -56,7 +56,7 @@ CDN imports use esm.sh with the `?bundle` flag as the preferred source, falling 
 
 Tier 1 and tier 2 feed into each other naturally. The agent might start by writing a skill file (tier 1) that describes a workflow. After using it several times, it might notice that part of the workflow could be automated with code and propose a dynamic tool (tier 2) to handle that part. The skill file then references the dynamic tool instead of describing the manual steps.
 
-Tier 5 draws on the memory system's pattern detection. When the `patterns` table in MemoryDB shows a recurring tool sequence with high success rates, tier 5 can propose turning it into a skill or dynamic tool. That closes the loop: usage patterns become automation proposals.
+Tier 5 draws on the memory system's pattern detection. `RecipePromotionService` watches for repeated successful episodes (the default threshold is three semantically similar runs), and Stigmergy can promote pinned tool sequences via its substrate. When a pattern crosses the threshold, tier 5 can propose turning it into a skill or recipe. That closes the loop: usage patterns become automation proposals.
 
 ## Embedded source: tier 3 in detail
 

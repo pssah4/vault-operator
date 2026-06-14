@@ -5,7 +5,7 @@ description: How Vault Operator remembers your preferences, projects, and patter
 
 # Memory & Personalization
 
-Vault Operator remembers what you care about, how you like to work, and what you have discussed before. The same memory store also takes input from the other AI tools you use, so a fact learned in Claude Code can surface in an Vault Operator conversation.
+Vault Operator remembers what you care about, how you like to work, and what you have discussed before. The same memory store also takes input from the other AI tools you use, so a fact learned in Claude Code can surface in a Vault Operator conversation.
 
 The mechanics behind this are explained in [Memory](../concepts/memory-system) and [Unified Chat Memory](../concepts/unified-chat-memory). This page covers how to use it day to day.
 
@@ -79,9 +79,9 @@ When Vault Operator creates or edits a note, it can add a link back to the conve
 
 How it works:
 
-- A `obsilo-chat` field is added to the note's YAML frontmatter
-- The value is a clickable link in the format `obsidian://obsilo-chat?id=...`
-- Clicking the link opens Vault Operator and jumps straight to that conversation
+- A `chats` field is added to the note's YAML frontmatter
+- The value is a list of clickable links in the format `obsidian://vault-operator-chat?id=...`
+- Clicking a link opens Vault Operator and jumps straight to that conversation
 
 To configure Chat-Linking, go to **Settings > Vault Operator > Interface** and look for the "Auto-link chats in frontmatter" toggle.
 

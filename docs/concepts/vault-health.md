@@ -23,7 +23,7 @@ Nine classes of finding, computed against the [knowledge layer](./knowledge-laye
 | Source concentration | A cluster draws too heavily from one source domain |
 | Frontmatter conflicts | Conflicting or contradictory property values across a cluster |
 
-The freshness score is the heart of the system. It runs per cluster, on a 0-100 scale, with three weighted inputs (see `src/core/health/FreshnessScorer.ts`):
+Freshness scoring drives the system. It runs per cluster, on a 0-100 scale, with three weighted inputs (see `src/core/health/FreshnessScorer.ts`):
 
 - 60% content age, scaled against the cluster's half-life
 - 30% coverage drift (how many linked notes have themselves gone stale)
@@ -55,13 +55,14 @@ A colored badge in the sidebar reflects the worst-severity finding. The badge is
 
 ## Tunables
 
-In **Settings > Embeddings > Vault health check**:
+In **Settings > Vault**:
 
-- **Enable vault health check** keeps the structural scans running on vault open.
-- **Show health badge** toggles the sidebar badge.
-- **God-node threshold** sets the connection count above which a hub is flagged. Default is 50; raise it for very large vaults.
+- **Hot clusters (periodic freshness lint)** lets you mark which clusters the weekly Stufe 3 job covers. Default: none selected.
+- **Enable activity hint** turns the Stufe 2 nudges on or off (default off).
+- **Freshness score threshold** sets the cluster score below which a hint may fire (default 70).
+- **Minimum days since last external check**, **Cooldown per cluster (days)** (default 7), and **Max hints per day (global)** (default 5) shape the Stufe 2 rate-limiter.
 
-Stufe 2 cooldowns and the Stufe 3 budget are currently code constants. ADR-106 and ADR-105 cover the design rationale.
+The Stufe 3 weekly USD budget (default 2.00) and the god-node connection threshold (default 50) are currently code constants. ADR-106 and ADR-105 cover the design rationale.
 
 ## Limits
 
@@ -70,4 +71,4 @@ Stufe 2 cooldowns and the Stufe 3 budget are currently code constants. ADR-106 a
 - The daily hint cap is global, so a noisy cluster can swallow the day's budget and block hints elsewhere.
 - Freshness is computed at indexing time. Real-time edits to linked notes do not reflect until the next index pass.
 
-See also: [Knowledge layer](./knowledge-layer.md), [Vault health guide](/guides/vault-health), [Tools reference](/reference/tools#vault-intelligence-tools).
+See also: [Knowledge layer](./knowledge-layer.md), [Vault health guide](/guides/vault-health), [Tools reference](/reference/tools#vault-tools).

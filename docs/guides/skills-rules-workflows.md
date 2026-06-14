@@ -51,7 +51,7 @@ To create one:
 
 ```markdown
 ---
-name: Meeting Notes
+name: meeting-notes
 description: Formats meeting notes with attendees, decisions, and action items
 ---
 
@@ -62,11 +62,11 @@ When the user asks you to create or format meeting notes:
 4. Add frontmatter with type: meeting, date, and participants
 ```
 
-The agent automatically matches this skill when the user mentions meetings, agendas, or action items.
+The `name` must be kebab-case (lowercase letters, digits, hyphens). The agent matches this skill when the user mentions meetings, agendas, or action items.
 
-### Per-mode filtering
+### Per-agent filtering
 
-Skills can be restricted to specific modes. A skill meant for Agent mode (writing) won't activate in Ask mode (read-only), so the agent won't suggest write actions it can't execute.
+Skills can be restricted to specific agents. A skill meant for the writing agent won't activate in a read-only agent, so the suggestion won't include write actions it can't execute.
 
 ### Plugin integration
 

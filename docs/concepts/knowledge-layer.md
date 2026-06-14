@@ -67,15 +67,12 @@ Everything lives in a single SQLite database managed by `KnowledgeDB` (`src/core
 | `tags` | Note tags | `path`, `tag` |
 | `implicit_edges` | Pre-computed similar pairs | `source_path`, `target_path`, `similarity` |
 | `dismissed_pairs` | User-dismissed implicit connections | `path_a`, `path_b` |
-| `cluster_summaries` | Auto-generated cluster summaries (BA-25 phase 1) | `cluster_id`, `summary`, `confidence`, `last_updated` |
 | `cluster_source_stats` | Source-domain diversity per cluster | `cluster_id`, `domain`, `count`, `last_seen` |
-| `tension_pairs` | Notes that contradict or extend each other (BA-25 phase 2) | `path_a`, `path_b`, `tension_kind`, `confidence` |
-| `frontmatter_conflicts` | Notes whose frontmatter disagrees with cluster ontology (BA-25 phase 4) | `path`, `property`, `expected`, `actual` |
 | `ingest_triage_log` | Triage decisions per source URI (FEAT-19-12) | `source_uri`, `decision`, `cluster_match`, `created_at` |
 
 The database supports three storage locations with a fallback chain:
-- Global: `~/.vault-operator/knowledge.db` (shared across vaults, desktop only)
-- Local: `{vault}/.vault-operator/knowledge.db`
+- Global: `~/.obsidian-agent/knowledge.db` (shared across vaults, desktop only)
+- Local: `{vault}/.obsidian-agent/knowledge.db`
 - Obsidian Sync: `{vault}/{pluginDir}/knowledge.db`
 
 The schema is versioned (currently v10). When a schema change ships, `KnowledgeDB` runs migration logic on open. Daily snapshots in `.bak/{name}/{YYYY-MM-DD}.db` provide a 7-day recovery window if a write goes wrong, and a lock file prevents two plugin instances from corrupting the same database. Atomic writes plus a multi-file commit journal keep the database consistent across both `global` and `local`/`obsidian-sync` storage modes (FEATURE-0314).
@@ -92,13 +89,13 @@ The store itself is small. It holds schema facts, not content. The real knowledg
 
 The knowledge layer powers more than just retrieval. A five-phase background pipeline (BA-25) keeps cluster summaries fresh, surfaces sources that contradict or extend the vault, and runs triage before any deep ingest.
 
-**Phase 1: Auto-summary.** For each cluster the Louvain algorithm produced, an `AutoSummaryService` keeps a short summary in `cluster_summaries`. The summary lists the cluster's core concepts and the canonical sources behind them, with a half-life so older sources fade if they are not refreshed. Stale summaries get a refresh marker in the vault health view.
+**Phase 1: Auto-summary.** For each cluster the Louvain algorithm produced, a short summary is kept that lists the cluster's core concepts and the canonical sources behind them, with a half-life so older sources fade if they are not refreshed. Stale summaries get a refresh marker in the vault health view.
 
-**Phase 2: Tension detection.** The `TensionDetector` (hybrid: cosine similarity plus an LLM judge for ambiguous pairs) finds notes that talk about the same concept but say different things. Pairs land in `tension_pairs` and surface in the vault health modal. The user can mark a tension as "resolved" or "by design"; resolutions persist so the same pair does not nag twice.
+**Phase 2: Tension detection.** The `TensionDetector` (`src/core/ingest/TensionDetector.ts`) uses a hybrid approach (cosine similarity plus an LLM judge for ambiguous pairs) to find notes that talk about the same concept but say different things. Detected tensions surface in the vault health modal. The user can mark a tension as "resolved" or "by design", and resolutions persist so the same pair does not nag twice.
 
 **Phase 3: Pre-triage.** The `ingest_triage` tool runs against the ontology and `cluster_source_stats` to produce a 10-second decision card for any new source. Cluster match, source-diversity hint (echo-chamber warning), tension hint (does it confirm, extend, or contradict). Decisions are logged in `ingest_triage_log` so the same source never triggers triage twice. See [Knowledge Ingest](/guides/knowledge-ingest).
 
-**Phase 4: Frontmatter-conflict detection.** When a note's category property disagrees with the cluster the graph places it in, `FrontmatterConflictDetector` records the discrepancy in `frontmatter_conflicts`. The vault health check shows these as actionable items.
+**Phase 4: Frontmatter-conflict detection.** When a note's category property disagrees with the cluster the graph places it in, the discrepancy gets recorded and the vault health check shows it as an actionable item.
 
 **Phase 5: Stage-3 runner.** Long-running maintenance jobs (cluster recompute, full tension sweep, top-hub block refresh) run on a token-budget-bounded scheduler. Each pass has a hard ceiling for LLM tokens and a soft ceiling for wall time. The "top-hub block" is a small, KV-cache-friendly summary of the vault's biggest clusters that gets injected into the system prompt; the runner refreshes it on a bounded cadence so the system prompt prefix stays cacheable across iterations.
 

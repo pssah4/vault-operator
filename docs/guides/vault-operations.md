@@ -83,8 +83,8 @@ These tools help you restructure your vault.
 - *"Rename @old-project-name to new-project-name"* (uses `move_file`)
 - *"Delete all empty notes in the Inbox folder"* (uses `delete_file`)
 
-:::warning Deletion uses Obsidian trash
-Deleted files go to Obsidian's trash (`.trash` folder), not permanent deletion. You can recover them from there.
+:::warning Deletion respects Obsidian trash settings
+Deleted files go to your configured Obsidian trash (system trash or the vault `.trash` folder). You can recover them from there.
 :::
 
 ## Vault statistics

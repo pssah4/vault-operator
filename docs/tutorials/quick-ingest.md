@@ -16,7 +16,7 @@ About three minutes per source. Use `/ingest` when you want the material capture
 
 ## Step 1: Drop the PDF into the chat
 
-Drag the PDF onto the chat input. The file uploads, and Vault Operator writes it into your Obsidian attachment folder (defaults to `Attachements/`). The chat shows a file chip with the saved vault path. You did not need to save the PDF manually first.
+Drag the PDF onto the chat input. The file uploads, and Vault Operator writes it into your Obsidian attachment folder (whatever you set in Obsidian's File and Links settings). The chat shows a file chip with the saved vault path. You did not need to save the PDF manually first.
 
 ## Step 2: Ask for the ingest
 

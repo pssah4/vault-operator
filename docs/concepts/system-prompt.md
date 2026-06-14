@@ -10,12 +10,12 @@ The system prompt is the first thing the model sees. It tells the agent who it i
 The orchestrator is `buildSystemPromptForMode()` in `src/core/systemPrompt.ts`, and the sections live in `src/core/prompts/sections/`. Those are paths in the plugin **source code** (this repository), for contributors building from source. They are not files inside the installed plugin, so you will not find them in your vault or in `.obsidian/plugins/vault-operator/`.
 
 :::tip Trimming the prompt as a user
-You do not need to edit source files to make the prompt smaller. Turn on **Settings > Agent behaviour > Loop > Lean system prompt** to switch to the compact prompt variants (it drops the long cost-heuristics text and collapses the plugin-skill catalogue, which re-expands when a skill is mentioned). It saves several thousand tokens without removing tool, safety, or response-format guidance.
+You do not need to edit source files to make the prompt smaller. Turn on **Settings > Loop > Lean system prompt** to switch to the compact prompt variants (it drops the long cost-heuristics text and collapses the plugin-skill catalogue, which re-expands when a skill is mentioned). It saves several thousand tokens without removing tool, safety, or response-format guidance.
 :::
 
 ## Why modular?
 
-A monolithic prompt becomes unworkable past a few hundred lines. Vault Operator's prompt routinely exceeds 5,000 tokens because the agent needs to understand 60+ tools, safety rules, vault conventions, and user-specific context. Modules solve two real problems. First, different modes need different prompts: a read-only mode shouldn't include write-tool descriptions, and subtasks should skip skills and memory to stay lean. With modules, you toggle sections on or off. Second, adding a skill or a new tool group shouldn't require editing a monolithic template. Each concern lives in its own file.
+A monolithic prompt becomes unworkable past a few hundred lines. Vault Operator's prompt routinely exceeds 5,000 tokens because the agent needs to understand 80 tools, safety rules, vault conventions, and user-specific context. Modules solve two real problems. First, different modes need different prompts: a read-only mode shouldn't include write-tool descriptions, and subtasks should skip skills and memory to stay lean. With modules, you toggle sections on or off. Second, adding a skill or a new tool group shouldn't require editing a monolithic template. Each concern lives in its own file.
 
 ## Assembly order
 
@@ -48,8 +48,8 @@ The sections are now ordered by stability, with the stable prefix first and dyna
 | 10 | Active Skills | High-priority workflow instructions (skipped in subtasks) |
 | 11 | Memory | User memory context (skipped in subtasks) |
 | 12 | Procedural Recipes | Learned and static recipes for known task patterns |
-| 13 | Self-Authored Skills | Skills the agent created via `manage_skill` |
-| 14 | Custom Instructions + Rules | User's global + per-mode instructions, rules from `.obsilo/rules/` |
+| 13 | Self-Authored Skills | Skills created through the bundled `skill-creator` skill |
+| 14 | Custom Instructions + Rules | User's global + per-mode instructions, rules from `~/.obsidian-agent/rules/` |
 | 15 | Vault Context | Current vault state and structure |
 | 16 | Date/Time | Current timestamp (must be last, changes every call) |
 
@@ -61,13 +61,13 @@ Moving skills from position 3 to position 10 loses some primacy effect. To compe
 
 Skills are markdown files that contain workflow instructions. They activate when a user message matches their trigger keywords:
 
-1. `SkillLoader` reads skills from `.obsilo/skills/` and the bundled skill directory.
+1. `SelfAuthoredSkillLoader` reads user and learned skills from the configured agent folder (default `~/.obsidian-agent/skills/`), and `BuiltinSkillMaterializer` writes bundled skills to that same folder on plugin load.
 2. The user's message is compared against each skill's trigger patterns.
 3. Matching skills are concatenated into the active skills section at position 10.
 
 Skills sit in the dynamic block because different messages activate different skills. Placing them in the stable prefix would invalidate the KV cache whenever the active skill set changes. To compensate for the reduced primacy, skills are marked with a `SKILL PRECEDENCE (MANDATORY)` header that the model treats as a strong instruction signal. The recency anchor (task list as last user message) provides additional reinforcement.
 
-Self-authored skills (ones the agent created via `manage_skill`) land at position 13, after active skills and memory. They supplement the primary skills rather than replacing them.
+Self-authored skills (ones created through the bundled `skill-creator` skill, written to disk with `write_file`) land at position 13, after active skills and memory. They supplement the primary skills rather than replacing them.
 
 ## How memory gets injected
 

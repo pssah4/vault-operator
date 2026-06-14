@@ -20,6 +20,7 @@ import { describe, it, expect } from 'vitest';
 import { AnthropicProvider } from '../anthropic';
 import { OpenAiProvider } from '../openai';
 import { ChatGptOAuthProvider } from '../chatgpt-oauth';
+import { GitHubCopilotProvider } from '../github-copilot';
 import type { LLMProvider } from '../../../types/settings';
 import type { ApiStreamChunk } from '../../types';
 
@@ -333,6 +334,136 @@ function makeChatGptOAuth(config: Partial<LLMProvider>): {
 
     return { provider, lastRequest: () => captured };
 }
+
+// ===========================================================================
+// GitHub Copilot: thinking shape per Claude family
+// ===========================================================================
+
+function makeCopilot(config: Partial<LLMProvider>): {
+    provider: GitHubCopilotProvider;
+    lastRequest: () => Captured | null;
+} {
+    const full: LLMProvider = {
+        id: 'test',
+        name: 'Test',
+        type: 'github-copilot',
+        apiKey: 'copilot',
+        model: 'claude-opus-4-8',
+        ...config,
+    } as LLMProvider;
+    const provider = new GitHubCopilotProvider(full);
+
+    let captured: Captured | null = null;
+    const stream = makeAsyncIterable([
+        { choices: [{ delta: { content: 'ok' }, finish_reason: 'stop' }] },
+    ]);
+    (provider as unknown as { client: { chat: { completions: { create: unknown } } } }).client = {
+        chat: {
+            completions: {
+                create: (body: Captured) => {
+                    captured = body;
+                    return Promise.resolve(stream);
+                },
+            },
+        },
+    };
+
+    return { provider, lastRequest: () => captured };
+}
+
+describe('GitHubCopilotProvider - extended thinking shape', () => {
+    it('adaptive Claude (Opus 4.8) + thinking on -> thinking: {type: "adaptive"} (no budget_tokens)', async () => {
+        const { provider, lastRequest } = makeCopilot({
+            model: 'claude-opus-4-8',
+            thinkingEnabled: true,
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        const thinking = lastRequest()?.thinking as Record<string, unknown> | undefined;
+        expect(thinking).toEqual({ type: 'adaptive' });
+        expect(thinking && 'budget_tokens' in thinking).toBe(false);
+    });
+
+    it('adaptive Claude (Fable) + thinking on -> thinking: {type: "adaptive"}', async () => {
+        const { provider, lastRequest } = makeCopilot({
+            model: 'claude-fable-5',
+            thinkingEnabled: true,
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect(lastRequest()?.thinking).toEqual({ type: 'adaptive' });
+    });
+
+    it('budget-tokens Claude (Opus 4.6) + thinking on -> {type: "enabled", budget_tokens: N}', async () => {
+        const { provider, lastRequest } = makeCopilot({
+            model: 'claude-opus-4-6',
+            thinkingEnabled: true,
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        const thinking = lastRequest()?.thinking as Record<string, unknown> | undefined;
+        expect(thinking?.type).toBe('enabled');
+        expect(typeof thinking?.budget_tokens).toBe('number');
+        expect(thinking?.budget_tokens as number).toBeGreaterThan(0);
+    });
+
+    it('thinking off -> no thinking field at all', async () => {
+        const { provider, lastRequest } = makeCopilot({ model: 'claude-opus-4-8' });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect('thinking' in lastRequest()!).toBe(false);
+    });
+
+    it('non-Claude (gpt-5) + thinking on -> no thinking field (Copilot only routes Claude thinking)', async () => {
+        const { provider, lastRequest } = makeCopilot({
+            model: 'gpt-5',
+            thinkingEnabled: true,
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        expect('thinking' in lastRequest()!).toBe(false);
+    });
+});
+
+// ===========================================================================
+// OpenRouter: reasoning.max_tokens must be skipped for the adaptive Claude lineup
+// ===========================================================================
+
+describe('OpenRouter - reasoning.max_tokens skipped for adaptive Claude', () => {
+    it('Opus 4.8 + thinking on -> reasoning has NO max_tokens (adaptive 400s on budget_tokens at the Anthropic layer)', async () => {
+        const { provider, lastRequest } = makeOpenAi({
+            type: 'openrouter',
+            model: 'anthropic/claude-opus-4-8',
+            thinkingEnabled: true,
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        const reasoning = lastRequest()?.reasoning as Record<string, unknown> | undefined;
+        // With no effort and skipped max_tokens, the reasoning object is empty
+        // and is therefore omitted from the body.
+        expect('reasoning' in lastRequest()!).toBe(false);
+        expect(reasoning).toBeUndefined();
+    });
+
+    it('Opus 4.8 + thinking on + effort=max -> reasoning has effort only, no max_tokens', async () => {
+        const { provider, lastRequest } = makeOpenAi({
+            type: 'openrouter',
+            model: 'anthropic/claude-opus-4-8',
+            thinkingEnabled: true,
+            reasoningEffort: 'max',
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        const reasoning = lastRequest()?.reasoning as Record<string, unknown> | undefined;
+        expect(reasoning?.effort).toBe('max');
+        expect(reasoning && 'max_tokens' in reasoning).toBe(false);
+    });
+
+    it('Sonnet 4.6 (budget-tokens) + thinking on -> reasoning.max_tokens kept', async () => {
+        const { provider, lastRequest } = makeOpenAi({
+            type: 'openrouter',
+            model: 'anthropic/claude-sonnet-4-6',
+            thinkingEnabled: true,
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        const reasoning = lastRequest()?.reasoning as Record<string, unknown> | undefined;
+        expect(typeof reasoning?.max_tokens).toBe('number');
+        expect(reasoning?.max_tokens as number).toBeGreaterThan(0);
+    });
+});
 
 describe('ChatGptOAuthProvider - reasoning effort', () => {
     it('keeps the hardcoded low default when reasoningEffort is unset (400-avoidance)', async () => {

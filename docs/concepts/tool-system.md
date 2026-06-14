@@ -30,9 +30,9 @@ abstract class BaseTool<TName extends ToolName = ToolName> {
 
 ## ToolRegistry
 
-`ToolRegistry` (`src/core/tools/ToolRegistry.ts`) is a `Map<ToolName, BaseTool>`. Its constructor takes the plugin instance and optional service references (MCP client, sandbox executor, skill loader) and registers all internal tools at startup.
+`ToolRegistry` (`src/core/tools/ToolRegistry.ts`) is a `Map<ToolName, BaseTool>`. Its constructor takes the plugin instance and optional service references (MCP client, sandbox executor, skill loader) and registers all 80 internal tools at startup.
 
-The registry has one job beyond storage: `getToolDefinitions(mode)` filters tools by the active mode's `toolGroups` setting. A mode that only enables the `read` group won't expose write tools to the LLM. The model can't call what it can't see.
+Beyond storage, the registry handles two filtering passes. `getToolDefinitions({ includeDeferred: false })` strips the 22 deferred tools from the default system prompt so the schema stays compact; the agent loads them on demand via `find_tool`. `getFilteredToolDefinitions(allowedTools)` narrows the set to a specific allowlist, used by the agent system to restrict tool access per profile. The model cannot call what it cannot see.
 
 ## Tool groups
 
@@ -40,15 +40,21 @@ Tools are organized into seven groups. Each group maps to a permission category.
 
 | Group | What it contains | Effect on vault |
 |-------|-----------------|-----------------|
-| `read` | read_file, read_document, list_files, search_files | Never changes anything |
-| `vault` | get_frontmatter, search_by_tag, get_vault_stats, semantic_search, query_base, anti_echo_search, ... | Read-only metadata, search, and ontology checks |
-| `edit` | write_file, edit_file, delete_file, move_file, create_pptx, generate_canvas, ingest_document, ingest_deep, ingest_triage, ... | Modifies or creates files. Ingest tools live here because they write source notes. |
-| `web` | web_fetch, web_search | External network access |
-| `agent` | attempt_completion, switch_mode, new_task, evaluate_expression, manage_skill, find_tool, inspect_self, ... | Controls the agent's own behavior |
-| `mcp` | use_mcp_tool | Calls external MCP servers |
-| `skill` | execute_command, call_plugin_api, execute_recipe, enable_plugin, resolve_capability_gap | Runs Obsidian commands and plugin APIs |
+| `read` | read_file, read_document, list_files, search_files, list_checkpoints, read_checkpoint, diff_checkpoint, read_skill, search_history, ... | Never changes anything |
+| `vault` | get_frontmatter, search_by_tag, get_vault_stats, semantic_search, query_base, get_linked_notes, vault_health_check, ... | Read-only metadata, search, and ontology checks |
+| `edit` | write_file, edit_file, delete_file, move_file, create_pptx, create_docx, create_xlsx, generate_canvas, restore_checkpoint, ingest_document, ingest_deep, ingest_triage, ... | Modifies or creates files. Ingest tools live here because they write source notes. |
+| `web` | web_fetch, web_search, anti_echo_search | External network access |
+| `agent` | attempt_completion, switch_agent, new_task, evaluate_expression, find_tool, invoke_skill, invoke_mcp_server, consult_flagship, inspect_self, ... | Controls the agent's own behavior |
+| `mcp` | use_mcp_tool, read_mcp_tool | Calls external MCP servers |
+| `skill` | execute_command, call_plugin_api, execute_recipe, enable_plugin, probe_plugin, resolve_capability_gap | Runs Obsidian commands and plugin APIs |
 
-When you create a [custom mode](/concepts/mode-system), you pick which groups it gets. An "Ask" mode with only `read` and `vault` is physically unable to write files. The ingest tools (`ingest_triage`, `ingest_document`, `ingest_deep`) sit in the `edit` group rather than a separate ingest group, because they all produce vault writes; this keeps the permission model simple.
+When you create a [custom agent profile](/concepts/mode-system), you pick which groups it gets. An "Ask" profile with only `read` and `vault` is physically unable to write files. The ingest tools (`ingest_triage`, `ingest_document`, `ingest_deep`) sit in the `edit` group rather than a separate ingest group, because they all produce vault writes; this keeps the permission model simple.
+
+## Deferred tools
+
+Of the 80 tools, 58 are always loaded into the default system prompt and 22 are deferred. Deferred tools (checkpoint inspectors, presentation planning, base creation, settings inspection, etc.) are listed by name only, with full schemas loaded on demand via `find_tool`. This keeps the base prompt compact without hurting discoverability: when the agent needs a deferred tool, it calls `find_tool` with a keyword and gets back the full schema for one or two follow-up turns.
+
+The deferred set is maintained as a hardcoded `DEFERRED_TOOL_NAMES` Set in `src/core/tools/toolMetadata.ts`. Office document tools (`create_pptx`, `create_docx`, `create_xlsx`) used to be deferred but were promoted to always-loaded in v2.10, because the `find_tool` round trip kept invalidating the prompt cache.
 
 ## Execution pipeline
 

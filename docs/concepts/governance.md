@@ -51,20 +51,20 @@ Every tool is classified into an approval group. The group determines whether th
 | `vault-change` | create_folder, delete_file, move_file | Requires approval |
 | `ingest` | ingest_triage, ingest_document, ingest_deep | Triage is auto-approved (read-only). Document and deep ingest write source notes and require approval. |
 | `web` | web_fetch, web_search | Auto-approved when web tools are enabled |
-| `agent` | attempt_completion, switch_mode, update_todo_list, find_tool, inspect_self | Always auto-approved |
+| `agent` | attempt_completion, switch_agent, update_todo_list, find_tool, inspect_self | Always auto-approved |
 | `subtask` | new_task | Configurable |
 | `mcp` | use_mcp_tool | Configurable |
 | `skill` | execute_command, call_plugin_api | Configurable |
 | `sandbox` | evaluate_expression | Requires explicit opt-in |
-| `self-modify` | manage_skill, manage_source, update_soul | Always requires human approval, no bypass |
+| `self-modify` | manage_source, update_soul, update_settings | Always requires human approval, no bypass |
 
-Self-modification tools are the strictest category. The agent can create and edit its own skills and source code, but a human must approve every change. There is no auto-approve setting for this group.
+Self-modification tools are the strictest category. The agent can edit its own source code and settings, but a human must approve every change. There is no auto-approve setting for this group. Skill authoring goes through the built-in skill-creator skill plus the regular file tools (write_file, edit_file), so each new SKILL.md still passes through note-edit approval.
 
 For note edits, the approval UI can show a semantic diff grouped by Markdown structure (frontmatter, headings, lists, code blocks) instead of raw line hunks. You can approve, reject, or edit individual sections before confirming.
 
 ## Checkpoints
 
-Before any write operation, the pipeline takes a git snapshot of the affected file. This uses a shadow repository at `.obsidian/plugins/vault-operator/checkpoints/` powered by `isomorphic-git` (pure JavaScript, no native git binary needed).
+Before any write operation, the pipeline takes a git snapshot of the affected file. This uses a shadow repository at `{vault-parent}/vault-operator-shared/checkpoints/` (outside the vault, so Obsidian Sync and iCloud do not replicate it) powered by `isomorphic-git` (pure JavaScript, no native git binary needed).
 
 `GitCheckpointService` (`src/core/checkpoints/GitCheckpointService.ts`) commits the file's current content into the shadow repo before the tool modifies it. Each checkpoint records the task ID, commit hash, timestamp, changed files, and the tool that triggered it. Files that didn't exist before the checkpoint are tracked separately so restore can delete them.
 

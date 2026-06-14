@@ -87,7 +87,7 @@ You can review each proposed write before approving. The approval cards show ful
 
 ## Click a take-away to feel the value
 
-Open one of the derived notes. Click any `↗`. You land at the source paragraph, not at a page you have to scan. That is the payoff: six months from now you can re-verify any claim in two clicks.
+Open one of the derived notes. Click any `↗`. You land directly at the source paragraph, with no page to scan. That is the payoff: six months from now you can re-verify any claim in two clicks.
 
 ## Try it again with a different output mode
 
