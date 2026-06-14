@@ -1917,7 +1917,12 @@ export default class ObsidianAgentPlugin extends Plugin {
                     tokenBudget: this.tokenBudget,
                     telemetry: this.memoryV2Telemetry,
                 });
-                this.extractionQueue.setProcessor((item) => singleCallProcessor.process(item));
+                // FIX-32-03-02: forward the AbortSignal so a reload mid-extract
+                // can interrupt the API call instead of letting it race the DB close.
+                this.extractionQueue.setProcessor((item, signal) => singleCallProcessor.process(item, signal));
+                // FIX-32-03-03: route park/drop events through the same JSONL sink
+                // the rest of the memory pipeline already writes to.
+                this.extractionQueue.setTelemetry(this.memoryV2Telemetry);
             }
 
             // Process any pending extractions from a previous session
@@ -2235,6 +2240,11 @@ export default class ObsidianAgentPlugin extends Plugin {
             this.rerankerService?.unload();
             this.bundleLoader?.reset();
             this.mcpBridge?.stop();
+            // FIX-32-03-02: abort the in-flight memory extraction (and clear any
+            // pending retry timer) BEFORE memoryDB.close() so SingleCallProcessor
+            // sees the abort first and skips its post-extract block, instead of
+            // racing the close and emitting closed-DB errors.
+            this.extractionQueue?.cancelInFlight();
             // Close databases (final save + cleanup)
             await this.memoryDB?.close().catch((e) =>
                 console.warn('[Plugin] MemoryDB close failed (non-fatal):', e)

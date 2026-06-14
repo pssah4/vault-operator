@@ -25,7 +25,10 @@
 export type MemoryV2TelemetryKind =
     | 'cache' | 'retrieval' | 'drift' | 'recall'
     | 'single_call' | 'integration' | 'aging' | 'budget'
-    | 'legacy_update_memory_called';
+    | 'legacy_update_memory_called'
+    // FIX-32-03-03: ExtractionQueue parks/drops items when transient failures
+    // exceed the failureCount threshold OR a permanent provider error fires.
+    | 'memory.extraction.dropped';
 
 export interface MemoryV2TelemetryEvent {
     kind: MemoryV2TelemetryKind;
@@ -107,5 +110,22 @@ export class MemoryV2Telemetry {
      */
     async legacyUpdateMemory(payload: { category: string; sourceInterface: string }) {
         return this.record({ kind: 'legacy_update_memory_called', payload });
+    }
+    /**
+     * FIX-32-03-03: emitted when ExtractionQueue moves a pending item out
+     * of the active queue. Two reasons:
+     *  - transient-failures: failureCount hit the parking threshold (3),
+     *    item moved to parkedItems[] and will not be retried until the
+     *    user manually clears it.
+     *  - permanent-error: the upstream provider returned 401/402/403 or
+     *    a credit/quota message; the whole session is paused.
+     */
+    async extractionDropped(payload: {
+        reason: 'transient-failures' | 'permanent-error';
+        failureCount: number;
+        conversationId?: string;
+        message?: string;
+    }) {
+        return this.record({ kind: 'memory.extraction.dropped', payload });
     }
 }

@@ -2603,8 +2603,22 @@ export class AgentSidebarView extends ItemView {
                 const { ContextComposer } = await import('../core/memory/ContextComposer');
                 const inference = new TopicInference(this.plugin.memoryDB);
                 const profileView = new UserProfileView(this.plugin.memoryDB);
+                // FIX-32-03-01: the composer renders a stable pause-notice
+                // trailer when TokenBudgetGuard has blocked further writes.
+                // dayKey comes from the same snapshot the guard uses so the
+                // line flips deterministically at the daily reset.
                 const composer = new ContextComposer(
-                    this.plugin.memoryDB, inference, profileView, this.plugin.driftBus,
+                    this.plugin.memoryDB,
+                    inference,
+                    profileView,
+                    this.plugin.driftBus,
+                    () => {
+                        const guard = this.plugin.tokenBudget;
+                        if (!guard) return null;
+                        const reason = guard.blockReason();
+                        if (!reason) return null;
+                        return { reason, dayKey: guard.snapshot().day };
+                    },
                 );
                 let userEmbedding: Float32Array | null = null;
                 if (text.trim()) {

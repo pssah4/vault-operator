@@ -41,10 +41,25 @@ export interface SingleCallProcessorDeps {
     telemetry?: MemoryV2Telemetry | null;
 }
 
+/**
+ * FIX-32-03-03: thrown by SingleCallProcessor when the extractor returns no
+ * new facts, no mentions and no session summary -- i.e. nothing worth writing.
+ * ExtractionQueue.processQueue() catches this by name and dequeues the item
+ * WITHOUT bumping failureCount or emitting drop telemetry: empty extraction
+ * is a normal outcome (delta-window already covered, very short turn, ...)
+ * and must not consume the retry budget.
+ */
+export class EmptyExtractionError extends Error {
+    constructor(message = 'extractor returned empty result') {
+        super(message);
+        this.name = 'EmptyExtractionError';
+    }
+}
+
 export class SingleCallProcessor {
     constructor(private readonly deps: SingleCallProcessorDeps) {}
 
-    async process(item: PendingExtraction): Promise<void> {
+    async process(item: PendingExtraction, signal?: AbortSignal): Promise<void> {
         const model = this.deps.getMemoryModel();
         if (!model) {
             console.warn('[SingleCall] No memory model configured, skipping extraction');
@@ -97,12 +112,34 @@ export class SingleCallProcessor {
         const api = buildApiHandlerForModel(model);
         const extractor = new SingleCallExtractor(api);
         const startedAt = Date.now();
+        // FIX-32-03-02: thread the AbortSignal from ExtractionQueue through to
+        // the API call so a plugin reload mid-extraction aborts the stream.
         const result = await extractor.extract({
             messages,
             startMessageIndex,
             conversationSoFar: delta?.deltaSummary ?? undefined,
+            abortSignal: signal,
         });
         const durationMs = Date.now() - startedAt;
+
+        // FIX-32-03-02: the API call may complete just as memoryDB.close() runs
+        // in onunload. Re-check before any DB write so a closed-DB race becomes
+        // a silent debug log instead of a noisy unhandled rejection.
+        if (!this.deps.memoryDB.isOpen()) {
+            console.debug('[SingleCall] memoryDB closed mid-extraction, skipping post-extract writes');
+            return;
+        }
+
+        // FIX-32-03-03: empty extraction is a normal outcome but the queue
+        // must distinguish it from real failures. Throw a typed error so
+        // ExtractionQueue can dequeue without bumping failureCount.
+        if (
+            result.facts.length === 0
+            && result.mentions.length === 0
+            && result.sessionSummary.trim().length === 0
+        ) {
+            throw new EmptyExtractionError();
+        }
 
         if (budget && result.usage) {
             await budget.record(result.usage.inputTokens, result.usage.outputTokens);

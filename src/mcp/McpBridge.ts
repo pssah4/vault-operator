@@ -42,14 +42,15 @@ const TOOLS: McpToolDefinition[] = [
     },
     {
         name: 'search_vault',
-        description: 'Intelligent vault search: combines semantic similarity, keyword matching, graph expansion (Wikilinks + MOC), implicit connections, and cross-encoder reranking in one call. Returns rich results with excerpts, scores, and connection context.',
+        description: 'Intelligent vault search: combines semantic similarity, keyword matching, tag-match, weighted RRF fusion, graph expansion (Wikilinks + MOC + implicit), and cross-encoder reranking in one call. Returns rich results with excerpts, scores, and connection context.',
         inputSchema: {
             type: 'object',
             properties: {
                 query: { type: 'string', description: 'Natural-language search query' },
-                top_k: { type: 'number', description: 'Max results (default: 8)' },
+                top_k: { type: 'number', description: 'Max results (default: 8, max: 20)' },
                 folder: { type: 'string', description: 'Restrict to folder (prefix match)' },
                 tags: { type: 'array', items: { type: 'string' }, description: 'Filter by tags (any match)' },
+                since: { type: 'string', description: 'Only notes modified on or after this date (ISO: "2026-01-01")' },
             },
             required: ['query'],
         },

@@ -84,7 +84,12 @@ export class TokenBudgetGuard {
     }
 }
 
-function localDateKey(d: Date): string {
+/**
+ * Local-time `YYYY-MM-DD` key for a Date. Exported so other modules
+ * (ContextComposer pause-notice, ExtractionQueue health) can share the
+ * exact same day-key format the budget guard uses internally.
+ */
+export function localDateKey(d: Date): string {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');

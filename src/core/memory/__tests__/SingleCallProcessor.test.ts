@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import initSqlJs from 'sql.js';
-import { SingleCallProcessor } from '../SingleCallProcessor';
+import { SingleCallProcessor, EmptyExtractionError } from '../SingleCallProcessor';
 import { ThreadDeltaStore } from '../ThreadDeltaStore';
 import { EmbeddingService, type EmbeddingProvider } from '../EmbeddingService';
 import type { PendingExtraction } from '../ExtractionQueue';
@@ -355,7 +355,7 @@ describe('SingleCallProcessor (PLAN-007 task C.1)', () => {
         expect(events.find(e => e.kind === 'single_call')).toBeUndefined();
     });
 
-    it('does not write a session summary when extractor returns empty summary', async () => {
+    it('throws EmptyExtractionError when the extractor returns nothing useful (FIX-32-03-03)', async () => {
         nextMockApi = mockApi({
             session_summary: '',
             episode_outcome: { success: true, result_summary: '' },
@@ -370,7 +370,9 @@ describe('SingleCallProcessor (PLAN-007 task C.1)', () => {
             embeddingService: embeddings,
             getMemoryModel: () => ({} as never),
         });
-        await proc.process(buildItem());
+        await expect(proc.process(buildItem())).rejects.toThrowError(EmptyExtractionError);
+        // No session summary written -- the throw happens before any DB write
+        // and the ExtractionQueue catches the typed error to dequeue silently.
         expect(memSvc.writeSessionSummary).not.toHaveBeenCalled();
     });
 });

@@ -345,3 +345,98 @@ describe('ContextComposer (PLAN-006 task 6)', () => {
         expect(texts).toContain('personal fact');
     });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// FIX-32-03-01: pause-notice trailer + cold-start suppression
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('ContextComposer pause-notice (FIX-32-03-01)', () => {
+    let rawDb: SqlJsDatabase;
+    let factStore: FactStore;
+    let memDB: ReturnType<typeof makeFakeMemoryDB>;
+
+    beforeEach(async () => {
+        const SQL = await getSQL();
+        rawDb = new SQL.Database() as unknown as SqlJsDatabase;
+        for (const stmt of SCHEMA.split(';').map(s => s.trim()).filter(Boolean)) {
+            rawDb.run(stmt + ';');
+        }
+        memDB = makeFakeMemoryDB(rawDb);
+        factStore = new FactStore(memDB);
+    });
+
+    function buildComposer(getPause: (() => { reason: string; dayKey: string } | null) | undefined) {
+        const inference = new TopicInference(memDB);
+        const view = new UserProfileView(memDB);
+        return new ContextComposer(memDB, inference, view, null, getPause);
+    }
+
+    it('appends a single italic trailer line when the callback returns a pause-state', () => {
+        seedCentroid(rawDb, 'coding', Float32Array.from([1, 0, 0]));
+        for (let i = 0; i < 6; i++) {
+            factStore.insert({ text: `fact ${i}`, topics: ['coding'], importance: 0.5 });
+        }
+        const composer = buildComposer(() => ({ reason: 'daily output cap reached (200000 >= 200000)', dayKey: '2026-06-14' }));
+        const out = composer.compose({
+            sessionId: 's1',
+            userMessageEmbedding: Float32Array.from([1, 0, 0]),
+            now: NOW,
+        });
+        expect(out.markdown).toMatch(/_Memory writes paused today \(2026-06-14\): daily output cap reached \(200000 >= 200000\)\._\s*$/);
+    });
+
+    it('renders byte-identical markdown for two consecutive compose() calls on the same dayKey', () => {
+        seedCentroid(rawDb, 'coding', Float32Array.from([1, 0, 0]));
+        factStore.insert({ text: 'fact 1', topics: ['coding'], importance: 0.5 });
+        const composer = buildComposer(() => ({ reason: 'budget', dayKey: '2026-06-14' }));
+        const first = composer.compose({ sessionId: 's1', userMessageEmbedding: Float32Array.from([1, 0, 0]), now: NOW }).markdown;
+        const second = composer.compose({ sessionId: 's1', userMessageEmbedding: null, now: NOW }).markdown;
+        expect(second).toBe(first);
+    });
+
+    it('flips the trailer when dayKey changes (midnight rollover)', () => {
+        seedCentroid(rawDb, 'coding', Float32Array.from([1, 0, 0]));
+        factStore.insert({ text: 'fact 1', topics: ['coding'], importance: 0.5 });
+        let day = '2026-06-14';
+        const composer = buildComposer(() => ({ reason: 'budget', dayKey: day }));
+        const before = composer.compose({ sessionId: 's1', userMessageEmbedding: Float32Array.from([1, 0, 0]), now: NOW }).markdown;
+        day = '2026-06-15';
+        const after = composer.compose({ sessionId: 's1', userMessageEmbedding: null, now: NOW }).markdown;
+        expect(before).toContain('2026-06-14');
+        expect(after).toContain('2026-06-15');
+        expect(after).not.toContain('2026-06-14');
+    });
+
+    it('renders no pause line when the callback returns null (writes not paused)', () => {
+        seedCentroid(rawDb, 'coding', Float32Array.from([1, 0, 0]));
+        factStore.insert({ text: 'fact 1', topics: ['coding'], importance: 0.5 });
+        const composer = buildComposer(() => null);
+        const out = composer.compose({ sessionId: 's1', userMessageEmbedding: Float32Array.from([1, 0, 0]), now: NOW });
+        expect(out.markdown).not.toContain('Memory writes paused');
+    });
+
+    it('NOOP path: no callback at all renders identically to the legacy composer', () => {
+        seedCentroid(rawDb, 'coding', Float32Array.from([1, 0, 0]));
+        factStore.insert({ text: 'fact 1', topics: ['coding'], importance: 0.5 });
+        const composer = buildComposer(undefined);
+        const out = composer.compose({ sessionId: 's1', userMessageEmbedding: Float32Array.from([1, 0, 0]), now: NOW });
+        expect(out.markdown).not.toContain('Memory writes paused');
+    });
+
+    it('suppresses the cold-start hint while paused (cold-start moot if no writes happen)', () => {
+        seedCentroid(rawDb, 'coding', Float32Array.from([1, 0, 0]));
+        factStore.insert({ text: 'fact 1', topics: ['coding'], importance: 0.5 });
+        const paused = buildComposer(() => ({ reason: 'r', dayKey: '2026-06-14' }));
+        const out = paused.compose({ sessionId: 's1', userMessageEmbedding: Float32Array.from([1, 0, 0]), now: NOW });
+        expect(out.coldStart).toBe(true); // semantic flag unchanged
+        expect(out.markdown).not.toContain('Cold-start');
+    });
+
+    it('a throwing callback degrades to no-pause instead of crashing compose()', () => {
+        seedCentroid(rawDb, 'coding', Float32Array.from([1, 0, 0]));
+        factStore.insert({ text: 'fact 1', topics: ['coding'], importance: 0.5 });
+        const composer = buildComposer(() => { throw new Error('boom'); });
+        const out = composer.compose({ sessionId: 's1', userMessageEmbedding: Float32Array.from([1, 0, 0]), now: NOW });
+        expect(out.markdown).not.toContain('Memory writes paused');
+    });
+});

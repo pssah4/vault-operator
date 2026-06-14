@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { TokenBudgetGuard, type TokenBudgetState } from '../TokenBudgetGuard';
+import { TokenBudgetGuard, localDateKey, type TokenBudgetState } from '../TokenBudgetGuard';
 
 function makeGuard(initial: TokenBudgetState | null = null, today = '2026-04-28') {
     let state = initial;
@@ -70,6 +70,22 @@ describe('TokenBudgetGuard (PLAN-007 task A.4)', () => {
             const stale: TokenBudgetState = { day: '2026-04-27', inputTokens: 99999, outputTokens: 99999 };
             const { guard } = makeGuard(stale, '2026-04-28');
             expect(guard.blockReason()).toBeNull();
+        });
+    });
+
+    // FIX-32-03-01: the helper is now exported so ContextComposer can share
+    // the same day-key format. Lock the contract down with a few spot checks.
+    describe('localDateKey export (FIX-32-03-01)', () => {
+        it('returns YYYY-MM-DD for the local-time fields of the given Date', () => {
+            // Construct the date from local-time components to dodge the UTC
+            // vs local timezone ambiguity of the Date(year, month, day) form.
+            const d = new Date(2026, 5, 14); // June (month is 0-indexed) 14, local
+            expect(localDateKey(d)).toBe('2026-06-14');
+        });
+
+        it('pads single-digit months and days', () => {
+            const d = new Date(2026, 0, 3); // January 3
+            expect(localDateKey(d)).toBe('2026-01-03');
         });
     });
 });

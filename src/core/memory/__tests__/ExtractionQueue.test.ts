@@ -364,4 +364,180 @@ describe('ExtractionQueue', () => {
             expect(() => queue.clearThrottle('does-not-exist')).not.toThrow();
         });
     });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FIX-32-03-02 + FIX-32-03-03: cancellation + failureCount + park + backoff
+    // + getQueueHealth + EmptyExtractionError + telemetry
+    // ─────────────────────────────────────────────────────────────────────────
+
+    describe('FIX-32-03-02 cancelInFlight', () => {
+        it('aborts the processor signal and dequeues nothing', async () => {
+            queue.setThrottleMs(0);
+            const seen: { signal?: AbortSignal } = {};
+            queue.setProcessor(async (_item, signal) => {
+                seen.signal = signal;
+                await new Promise((resolve) => {
+                    signal?.addEventListener('abort', () => resolve(undefined), { once: true });
+                });
+                // Mirror what SingleCallExtractor does on abort
+                const err = new Error('aborted');
+                err.name = 'AbortError';
+                throw err;
+            });
+            await queue.enqueue(makeItem('cancel-1'));
+            // give the processQueue microtasks a chance to spin up
+            await new Promise((r) => setTimeout(r, 0));
+            queue.cancelInFlight();
+            // wait one more tick for the catch + finally to run
+            await new Promise((r) => setTimeout(r, 0));
+            expect(seen.signal?.aborted).toBe(true);
+            expect(queue.size()).toBe(1); // item survives for next session
+            expect(queue.parkedSize()).toBe(0);
+        });
+
+        it('cancelInFlight is idempotent and safe when nothing is in flight', () => {
+            expect(() => queue.cancelInFlight()).not.toThrow();
+            expect(() => queue.cancelInFlight()).not.toThrow();
+        });
+
+        it('cancelled flag clears on the next enqueue so future drains can run', async () => {
+            queue.setThrottleMs(0);
+            let calls = 0;
+            queue.setProcessor(async () => { calls += 1; });
+            queue.cancelInFlight();
+            await queue.enqueue(makeItem('drain-after-cancel'));
+            // give processQueue the chance to drain
+            await new Promise((r) => setTimeout(r, 0));
+            expect(calls).toBe(1);
+            expect(queue.size()).toBe(0);
+        });
+    });
+
+    describe('FIX-32-03-03 failureCount + park + backoff + telemetry', () => {
+        function transient(message = 'boom'): Error {
+            return new Error(message);
+        }
+
+        function emptyExtractionError(): Error {
+            const e = new Error('extractor returned empty result');
+            e.name = 'EmptyExtractionError';
+            return e;
+        }
+
+        it('initialises new items with failureCount=0', async () => {
+            queue.setThrottleMs(0);
+            // Block the processor so the item stays in queue and we can peek it.
+            queue.setProcessor(() => new Promise<void>(() => { /* never resolves */ }));
+            void queue.enqueue(makeItem('fresh'));
+            await new Promise((r) => setTimeout(r, 0));
+            expect(queue.peek()?.failureCount).toBe(0);
+            // Detach to let the test exit cleanly.
+            queue.cancelInFlight();
+        });
+
+        it('parks items after three transient failures and emits dropped telemetry', async () => {
+            queue.setThrottleMs(0);
+            queue.setProcessor(async () => { throw transient(); });
+            const dropEvents: unknown[] = [];
+            queue.setTelemetry({
+                extractionDropped: (payload: unknown) => {
+                    dropEvents.push(payload);
+                    return Promise.resolve();
+                },
+            } as never);
+            await queue.enqueue(makeItem('park-me'));
+            // Let the implicit processQueue from enqueue settle (failureCount=1).
+            await new Promise((r) => setTimeout(r, 0));
+            expect(queue.size()).toBe(1);
+            expect(queue.peek()?.failureCount).toBe(1);
+            expect(queue.parkedSize()).toBe(0);
+            // Drive failures 2 and 3 by re-entering processQueue without the
+            // 60s timer; the cancelInFlight in between guarantees the prior
+            // void call already settled and processing=false again.
+            await queue.processQueue();
+            await new Promise((r) => setTimeout(r, 0));
+            expect(queue.peek()?.failureCount).toBe(2);
+            await queue.processQueue();
+            await new Promise((r) => setTimeout(r, 0));
+            expect(queue.size()).toBe(0);
+            expect(queue.parkedSize()).toBe(1);
+            expect(dropEvents).toHaveLength(1);
+            expect((dropEvents[0] as Record<string, unknown>).reason).toBe('transient-failures');
+            expect((dropEvents[0] as Record<string, unknown>).failureCount).toBe(3);
+        });
+
+        it('EmptyExtractionError dequeues without bumping failureCount', async () => {
+            queue.setThrottleMs(0);
+            const dropped: unknown[] = [];
+            queue.setTelemetry({ extractionDropped: (p: unknown) => { dropped.push(p); return Promise.resolve(); } } as never);
+            queue.setProcessor(async () => { throw emptyExtractionError(); });
+            await queue.enqueue(makeItem('empty'));
+            await new Promise((r) => setTimeout(r, 0));
+            expect(queue.size()).toBe(0);
+            expect(queue.parkedSize()).toBe(0);
+            expect(dropped).toEqual([]);
+        });
+
+        it('permanent provider error parks the session and emits dropped telemetry', async () => {
+            queue.setThrottleMs(0);
+            const dropped: unknown[] = [];
+            queue.setTelemetry({ extractionDropped: (p: unknown) => { dropped.push(p); return Promise.resolve(); } } as never);
+            queue.setProcessor(async () => {
+                const e = new Error('credit balance is too low');
+                throw e;
+            });
+            await queue.enqueue(makeItem('no-credits'));
+            await new Promise((r) => setTimeout(r, 0));
+            expect(queue.isSessionDisabled()).toBe(true);
+            expect(dropped).toHaveLength(1);
+            expect((dropped[0] as Record<string, unknown>).reason).toBe('permanent-error');
+            const health = queue.getQueueHealth();
+            expect(health.sessionDisabledReason).toContain('credit balance');
+            expect(health.lastError?.kind).toBe('permanent');
+        });
+
+        it('getQueueHealth exposes pending, parked, sessionDisabledReason, lastError', async () => {
+            queue.setThrottleMs(0);
+            queue.setProcessor(async () => { /* noop */ });
+            await queue.enqueue(makeItem('a'));
+            await queue.enqueue(makeItem('b'));
+            // mid-state right after enqueue: items have already drained because
+            // the noop processor resolved instantly. Re-enqueue to capture a
+            // non-empty pending state.
+            await queue.enqueue(makeItem('c'));
+            const health = queue.getQueueHealth();
+            expect(health.pending).toBeGreaterThanOrEqual(0);
+            expect(health.parked).toBe(0);
+            expect(health.sessionDisabledReason).toBeUndefined();
+        });
+
+        it('persists parkedItems + failureCount across save and load', async () => {
+            queue.setThrottleMs(0);
+            queue.setProcessor(async () => { throw transient(); });
+            await queue.enqueue(makeItem('save-me'));
+            await new Promise((r) => setTimeout(r, 0)); // fc=1
+            await queue.processQueue();                  // fc=2
+            await new Promise((r) => setTimeout(r, 0));
+            await queue.processQueue();                  // fc=3 -> park
+            await new Promise((r) => setTimeout(r, 0));
+            expect(queue.parkedSize()).toBe(1);
+
+            const queue2 = new ExtractionQueue(mockFs);
+            await queue2.load();
+            expect(queue2.parkedSize()).toBe(1);
+            expect(queue2.size()).toBe(0);
+        });
+
+        it('load() back-fills failureCount=0 on v1 plain-array files', async () => {
+            // Write a v1 plain-array file directly through the FS mock
+            await mockFs.write('pending-extractions.json', JSON.stringify([
+                { conversationId: 'legacy', messages: [], title: 't', queuedAt: 'x' },
+            ]));
+            const fresh = new ExtractionQueue(mockFs);
+            await fresh.load();
+            expect(fresh.size()).toBe(1);
+            expect(fresh.peek()?.failureCount).toBe(0);
+            expect(fresh.parkedSize()).toBe(0);
+        });
+    });
 });

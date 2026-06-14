@@ -41,6 +41,17 @@ export interface TopicLock {
     centroid?: Float32Array;
 }
 
+/**
+ * FIX-32-03-01: pause-state passed in by the host. `dayKey` MUST come from
+ * the same source TokenBudgetGuard uses (snapshot().day) so the pause notice
+ * lines up with the budget reset and so the trailer flips deterministically
+ * at midnight local time, not at some independent counter.
+ */
+export interface MemoryPauseState {
+    reason: string;
+    dayKey: string;
+}
+
 export interface ComposeInput {
     sessionId: string;
     /** Embedding of the latest user message; null = use cached lock as-is. */
@@ -94,6 +105,13 @@ export class ContextComposer {
         private readonly profileView: UserProfileView,
         /** Optional drift bus -- emits when mid-conversation drift fires. */
         private readonly driftBus: DriftEventBus | null = null,
+        /**
+         * FIX-32-03-01: returns the active pause state, or null if writes are
+         * not paused. Re-evaluated on every compose() so the trailer reflects
+         * the current budget reading. Optional so existing callers stay
+         * byte-identical when nothing is passed.
+         */
+        private readonly getMemoryWritesPaused?: () => MemoryPauseState | null,
     ) {
         this.factStore = new FactStore(memoryDB);
     }
@@ -126,7 +144,18 @@ export class ContextComposer {
             now,
         }).slice(0, maxHits);
 
-        let markdown = this.renderMarkdown(reranked, lock, profile, coldStart);
+        // FIX-32-03-01: evaluate pause-state per compose() so the trailer
+        // tracks the live budget reading. Defensive: a throwing callback
+        // never crashes context composition, just degrades to "no pause".
+        let pauseState: MemoryPauseState | null = null;
+        try {
+            pauseState = this.getMemoryWritesPaused?.() ?? null;
+        } catch (e) {
+            console.debug('[ContextComposer] getMemoryWritesPaused threw, treating as not paused', e);
+            pauseState = null;
+        }
+
+        let markdown = this.renderMarkdown(reranked, lock, profile, coldStart, pauseState);
         // FEAT-03-26: Top-Hub-Block bleibt cache-stabil oben (Hub-Liste
         // aendert sich selten), Memory-Block darunter (variabel pro Topic).
         if (input.topHubBlockMarkdown && input.topHubBlockMarkdown.trim().length > 0) {
@@ -240,6 +269,7 @@ export class ContextComposer {
         lock: TopicLock | null,
         profile: UserProfile,
         coldStart: boolean,
+        pauseState: MemoryPauseState | null,
     ): string {
         const lines: string[] = [];
         // Stable identity block first -- supports ADR-062 cache-friendliness.
@@ -265,7 +295,10 @@ export class ContextComposer {
                 const tag = h.kind ? ` _(${h.kind})_` : '';
                 lines.push(`- ${h.text}${tag}`);
             }
-            if (coldStart) {
+            // FIX-32-03-01: while writes are paused the cold-start hint is
+            // moot (no fact ingestion is going to top up the topic anyway),
+            // so it stays suppressed for the whole pause window.
+            if (coldStart && pauseState === null) {
                 lines.push('');
                 lines.push('_Cold-start: showing the most recent facts; topic context still warming up._');
                 lines.push(
@@ -274,6 +307,13 @@ export class ContextComposer {
                 );
             }
             lines.push('');
+        }
+        // FIX-32-03-01: pause-notice trailer. Single italic line, attached at
+        // the very end so it lives at the stable trailer anchor (ADR-062);
+        // dayKey-keyed by the caller so the line is identical for every
+        // compose() within the same calendar day, then flips at midnight.
+        if (pauseState !== null) {
+            lines.push(`_Memory writes paused today (${pauseState.dayKey}): ${pauseState.reason}._`);
         }
         return lines.join('\n').trimEnd();
     }
