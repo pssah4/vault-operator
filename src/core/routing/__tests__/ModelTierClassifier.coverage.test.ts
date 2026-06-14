@@ -97,11 +97,42 @@ const BEDROCK: Fixture[] = [
     { id: 'meta.llama3-1-8b-instruct-v1:0', expected: 'fast' },
 ];
 
+// 2026-06 frontier families (ISSUE-C): ids that surfaced after the
+// 2026-05 pattern freeze and were previously unclassified.
+const FRONTIER_2026: Fixture[] = [
+    { id: 'claude-fable-5', expected: 'flagship' },
+    { id: 'anthropic/claude-fable-5', expected: 'flagship' },
+    { id: 'gpt-5.4', expected: 'flagship' },
+    { id: 'gemini-3.5-pro', expected: 'flagship' },
+    { id: 'qwen3.7-max', expected: 'flagship' },
+    { id: 'gpt-5.4-mini', expected: 'mid' },
+    { id: 'glm-5', expected: 'mid' },
+    { id: 'glm-4.6', expected: 'mid' },
+    { id: 'qwen3.7-plus', expected: 'mid' },
+    { id: 'minimax-m3', expected: 'mid' },
+    { id: 'kimi-k2.7-code', expected: 'mid' },
+    { id: 'kimi-k2-thinking', expected: 'mid' },
+    { id: 'deepseek-v4', expected: 'mid' },
+    { id: 'deepseek-v4-pro', expected: 'mid' },
+    { id: 'amazon.nova-pro-v1:0', expected: 'mid' },
+    { id: 'nova-premier', expected: 'mid' },
+    { id: 'llama-4-scout', expected: 'mid' },
+    { id: 'gpt-5.4-nano', expected: 'fast' },
+    { id: 'gemini-3.5-flash', expected: 'fast' },
+    { id: 'gemini-3.5-flash-lite', expected: 'fast' },
+    { id: 'glm-4.5-flash', expected: 'fast' },
+    { id: 'qwen3.7-flash', expected: 'fast' },
+    { id: 'deepseek-v4-flash', expected: 'fast' },
+    { id: 'amazon/nova-2-lite-v1', expected: 'fast' },
+    { id: 'nova-micro', expected: 'fast' },
+];
+
 const PROVIDERS: Record<string, Fixture[]> = {
     anthropic: ANTHROPIC,
     openai: OPENAI,
     gemini: GEMINI,
     bedrock: BEDROCK,
+    frontier2026: FRONTIER_2026,
 };
 
 const PROVIDER_THRESHOLDS: Record<string, number> = {
@@ -109,6 +140,7 @@ const PROVIDER_THRESHOLDS: Record<string, number> = {
     openai: 0.9,
     gemini: 0.9,
     bedrock: 0.9,
+    frontier2026: 0.9,
 };
 
 const UNION_THRESHOLD = 0.9;

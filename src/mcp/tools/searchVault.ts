@@ -9,6 +9,7 @@
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
 import { wrapVaultContentForMcp } from '../McpBridge';
+import { getGraphEdgeLabel } from '../../core/knowledge/graphEdgeLabel';
 
 export async function handleSearchVault(
     plugin: ObsidianAgentPlugin,
@@ -45,7 +46,7 @@ export async function handleSearchVault(
 
         // RRF Fusion
         const RRF_K = 60;
-        type FusedEntry = { path: string; excerpt: string; score: number; method: string };
+        type FusedEntry = { path: string; excerpt: string; score: number; method: string; rerankScore?: number };
         const fused = new Map<string, FusedEntry>();
 
         semanticResults.forEach((r, i) => {
@@ -90,7 +91,10 @@ export async function handleSearchVault(
             try {
                 const toRerank = results.slice(0, plugin.settings.rerankCandidates ?? 20);
                 const reranked = await reranker.rerank(query, toRerank.map(r => ({ path: r.path, text: r.excerpt, score: r.score })));
-                results = reranked.map(r => ({ path: r.path, excerpt: r.text, score: r.rerankScore, method: 'reranked' }));
+                // Keep the original fusion score in `score`; the cross-encoder
+                // output rides along as `rerankScore`. Ordering still follows
+                // the reranker (the service sorts by rerankScore).
+                results = reranked.map(r => ({ path: r.path, excerpt: r.text, score: r.score, rerankScore: r.rerankScore, method: 'reranked' }));
             } catch { /* fallback to original order */ }
         }
 
@@ -111,8 +115,12 @@ export async function handleSearchVault(
                     topKPaths.add(n.path);
                     const chunks = await semanticIndex.getChunksByPath(n.path);
                     if (chunks.length === 0) continue;
-                    const ctx = n.propertyName ? `via ${n.viaPath} (${n.propertyName})` : `via ${n.viaPath}`;
-                    graphLines.push(`[graph] ${n.path} (${ctx})\n${wrapVaultContentForMcp(n.path, chunks[0].slice(0, 500))}`);
+                    // Typed graph labels (retrieval wave 1, item 5): real
+                    // frontmatter predicate or 'wikilink', plus contradiction marker.
+                    const edgeLabel = getGraphEdgeLabel(n);
+                    const marker = edgeLabel.contradicts ? '[contradicts] ' : '';
+                    const ctx = `via ${n.viaPath} (${edgeLabel.label})`;
+                    graphLines.push(`[graph] ${marker}${n.path} (${ctx})\n${wrapVaultContentForMcp(n.path, chunks[0].slice(0, 500))}`);
                 }
             }
         }
@@ -139,7 +147,10 @@ export async function handleSearchVault(
         // the downstream agent does not treat it as instructions.
         const lines: string[] = [`Search results for: "${query}" (${results.length} results)\n`];
         for (const r of results) {
-            lines.push(`--- ${r.path} (${r.method}, score: ${r.score.toFixed(4)}) ---`);
+            const scorePart = r.rerankScore !== undefined
+                ? `score: ${r.score.toFixed(4)}, rerank: ${r.rerankScore.toFixed(4)}`
+                : `score: ${r.score.toFixed(4)}`;
+            lines.push(`--- ${r.path} (${r.method}, ${scorePart}) ---`);
             lines.push(wrapVaultContentForMcp(r.path, r.excerpt.slice(0, 1500)));
             lines.push('');
         }

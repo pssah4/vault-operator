@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { classifyModelTier } from '../ModelTierClassifier';
+import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
+import { classifyModelTier, isNonChatModelId } from '../ModelTierClassifier';
 
 describe('classifyModelTier - pattern matching', () => {
     beforeEach(() => {
@@ -23,6 +23,11 @@ describe('classifyModelTier - pattern matching', () => {
             'deepseek-reasoner',
             'deepseek-r1',
             'grok-4',
+            'claude-fable-5',
+            'anthropic/claude-fable-5',
+            'gpt-5.4',
+            'gemini-3.5-pro',
+            'qwen3.7-max',
         ])('classifies %s as flagship', (id) => {
             const result = classifyModelTier(id);
             expect(result?.tier).toBe('flagship');
@@ -45,6 +50,18 @@ describe('classifyModelTier - pattern matching', () => {
             'gemini-2.0-flash',
             'deepseek-chat',
             'grok-3',
+            'gpt-5.4-mini',
+            'glm-5',
+            'glm-4.6',
+            'qwen3.7-plus',
+            'minimax-m3',
+            'kimi-k2.7-code',
+            'kimi-k2-thinking',
+            'deepseek-v4',
+            'deepseek-v4-pro',
+            'nova-premier',
+            'amazon.nova-pro-v1:0',
+            'llama-4-scout',
         ])('classifies %s as mid', (id) => {
             const result = classifyModelTier(id);
             expect(result?.tier).toBe('mid');
@@ -65,6 +82,14 @@ describe('classifyModelTier - pattern matching', () => {
             'gemini-1.5-flash-8b',
             'gemini-flash-lite',
             'grok-3-mini',
+            'gpt-5.4-nano',
+            'gemini-3.5-flash',
+            'gemini-3.5-flash-lite',
+            'glm-4.5-flash',
+            'qwen3.7-flash',
+            'deepseek-v4-flash',
+            'amazon/nova-2-lite-v1',
+            'nova-micro',
         ])('classifies %s as fast', (id) => {
             const result = classifyModelTier(id);
             expect(result?.tier).toBe('fast');
@@ -181,9 +206,73 @@ describe('classifyModelTier - local providers', () => {
     });
 });
 
-describe('classifyModelTier - unknown models', () => {
+describe('classifyModelTier - non-chat models', () => {
+    let debugSpy: MockInstance;
+
     beforeEach(() => {
-        vi.spyOn(console, 'debug').mockImplementation(() => {});
+        debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+        debugSpy.mockClear();
+    });
+
+    it.each([
+        'text-embedding-3-small',
+        'cohere.rerank-v3-5',
+        'eu.cohere.embed-v4',
+        'gpt-audio',
+        'trajectory-compaction',
+    ])('returns null for %s without logging', (id) => {
+        expect(classifyModelTier(id)).toBeNull();
+        expect(debugSpy).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        'text-embedding-3-small',
+        'text-embedding-ada-002',
+        'cohere.rerank-v3-5',
+        'eu.cohere.embed-v4',
+        'mxbai-embed-large',
+        'gpt-audio',
+        'gpt-4o-audio-preview',
+        'gpt-4o-realtime-preview',
+        'whisper-1',
+        'omni-moderation-latest',
+        'dall-e-3',
+        'trajectory-compaction',
+    ])('isNonChatModelId detects %s', (id) => {
+        expect(isNonChatModelId(id)).toBe(true);
+    });
+
+    it.each([
+        'claude-opus-4-6',
+        'gpt-5.4',
+        'gemini-3.5-flash',
+        'deepseek-v4',
+        'kimi-k2',
+    ])('isNonChatModelId does not flag chat model %s', (id) => {
+        expect(isNonChatModelId(id)).toBe(false);
+    });
+
+    it('non-chat exclusion wins over pricing fallback', () => {
+        const result = classifyModelTier('text-embedding-3-small', {
+            pricing: { completionUsd: 75 },
+        });
+        expect(result).toBeNull();
+    });
+
+    it('non-chat exclusion wins over capability fallback', () => {
+        const result = classifyModelTier('eu.cohere.embed-v4', {
+            modelInfo: { contextWindow: 200_000, maxTokens: 64_000 },
+        });
+        expect(result).toBeNull();
+    });
+});
+
+describe('classifyModelTier - unknown models', () => {
+    let debugSpy: MockInstance;
+
+    beforeEach(() => {
+        debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+        debugSpy.mockClear();
     });
 
     it('returns null when no signal is available', () => {
@@ -191,7 +280,24 @@ describe('classifyModelTier - unknown models', () => {
         expect(result).toBeNull();
     });
 
+    it('does not emit a per-id unclassified log line (aggregation lives in ModelDiscoveryService)', () => {
+        classifyModelTier('completely-unknown-xyz-v0');
+        expect(debugSpy).not.toHaveBeenCalled();
+    });
+
     it('returns null for empty id', () => {
         expect(classifyModelTier('')).toBeNull();
+    });
+
+    it.each([
+        'glm-4.5-air',
+        'glm-4-9b-chat',
+        'glm-4v-9b',
+        'glm-4.6v',
+        'glm-5-turbo',
+    ])('leaves ambiguous GLM variant %s unclassified (tierOverrides territory)', (id) => {
+        // Small/vision/turbo GLM variants have no clear tier; forcing them
+        // to mid would override the user's tierOverrides intent.
+        expect(classifyModelTier(id)).toBeNull();
     });
 });

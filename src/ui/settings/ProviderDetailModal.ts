@@ -34,6 +34,11 @@ import { ChatGptOAuthService } from '../../core/auth/ChatGptOAuthService';
 import { isOpenAIChatCompletionModel } from './testModelConnection';
 import { t } from '../../i18n';
 import { openInfoPopover } from './utils';
+import {
+    MANUAL_TIER_OPTION_VALUE,
+    providerSupportsManualModelId,
+    resolveTierSlotView,
+} from './manualModelEntry';
 
 const TIER_ORDER: ModelTier[] = ['fast', 'mid', 'flagship'];
 
@@ -71,6 +76,14 @@ export class ProviderDetailModal extends Modal {
     private lastRefreshAt: number;
     private tierMapping: ProviderConfig['tierMapping'];
     private tierOverrides: ProviderConfig['tierOverrides'];
+
+    /**
+     * Per-tier flag: the user picked "enter id manually" for a slot whose
+     * override is still empty. Keeps the free-text input visible across the
+     * re-render so it does not snap back to the dropdown before anything is
+     * typed. Only relevant for providers without a model listing endpoint.
+     */
+    private manualTierRequested: Partial<Record<ModelTier, boolean>> = {};
 
     constructor(
         app: App,
@@ -830,9 +843,20 @@ export class ProviderDetailModal extends Modal {
         const stamp = this.lastRefreshAt
             ? new Date(this.lastRefreshAt).toLocaleString()
             : 'never';
-        const desc = count > 0
-            ? t('settings.providers.discoveryDesc', { count, stamp })
-            : t('settings.providers.discoveryEmpty');
+        // Providers without a model-listing endpoint (ChatGPT OAuth / Codex)
+        // get wording that does not imply the static list is exhaustive and
+        // points at the manual-entry option in the tier slots.
+        const isCodexLike = providerSupportsManualModelId(this.formType);
+        let desc: string;
+        if (isCodexLike) {
+            desc = count > 0
+                ? t('settings.providers.discoveryCodex', { count })
+                : t('settings.providers.discoveryCodexEmpty');
+        } else {
+            desc = count > 0
+                ? t('settings.providers.discoveryDesc', { count, stamp })
+                : t('settings.providers.discoveryEmpty');
+        }
         this.compactRow(parent, {
             label: t('settings.providers.discovery'),
             desc,
@@ -928,6 +952,19 @@ export class ProviderDetailModal extends Modal {
         });
         badge.setAttr('aria-label', `tier: ${getTierBadgeLabel(tier)}`);
 
+        const manualAllowed = providerSupportsManualModelId(this.formType);
+        const view = resolveTierSlotView({
+            override: this.tierOverrides?.[tier],
+            discoveredIds: this.discoveredModels.map((m) => m.id),
+            manualAllowed,
+            manualRequested: this.manualTierRequested[tier],
+        });
+
+        if (view.mode === 'manual') {
+            this.renderManualTierControl(controlCol, tier, view.manualValue);
+            return;
+        }
+
         const select = controlCol.createEl('select', { cls: 'dropdown mcm-tier-dropdown' });
         const autoSuggested = this.tierMapping?.[tier];
         const autoLabel = autoSuggested
@@ -941,12 +978,59 @@ export class ProviderDetailModal extends Modal {
             const opt = select.createEl('option', { text: this.modelOptionLabel(m, tier) });
             opt.value = m.id;
         }
+        if (manualAllowed) {
+            const manualOpt = select.createEl('option', {
+                text: t('settings.providers.tier.manualOption'),
+            });
+            manualOpt.value = MANUAL_TIER_OPTION_VALUE;
+        }
         select.value = this.tierOverrides?.[tier] ?? '';
         select.addEventListener('change', () => {
             const v = select.value;
+            if (v === MANUAL_TIER_OPTION_VALUE) {
+                this.manualTierRequested = { ...this.manualTierRequested, [tier]: true };
+                this.render();
+                return;
+            }
+            this.manualTierRequested = { ...this.manualTierRequested, [tier]: false };
             this.tierOverrides = { ...this.tierOverrides };
             if (!v) delete this.tierOverrides[tier];
             else this.tierOverrides[tier] = v;
+            this.render();
+        });
+    }
+
+    /**
+     * Free-text model-id control for providers without a reliable model
+     * listing endpoint (ChatGPT OAuth / Codex, and custom OpenAI-compatible
+     * endpoints that may not expose /v1/models -- issue #40). Lets the user
+     * type a model id we cannot enumerate. An unknown id degrades gracefully:
+     * the provider falls back to default model info and the endpoint's own
+     * error surfaces if the id is wrong.
+     */
+    private renderManualTierControl(parent: HTMLElement, tier: ModelTier, value: string): void {
+        const input = parent.createEl('input', {
+            cls: 'dropdown mcm-tier-dropdown mcm-tier-manual-input',
+            attr: { type: 'text' },
+        });
+        input.value = value;
+        input.placeholder = t('settings.providers.tier.manualPlaceholder');
+        input.addEventListener('input', () => {
+            const v = input.value.trim();
+            this.tierOverrides = { ...this.tierOverrides };
+            if (!v) delete this.tierOverrides[tier];
+            else this.tierOverrides[tier] = v;
+        });
+
+        const back = parent.createEl('button', {
+            cls: 'mcm-tier-manual-back',
+            text: t('settings.providers.tier.manualBack'),
+            attr: { type: 'button' },
+        });
+        back.addEventListener('click', () => {
+            this.manualTierRequested = { ...this.manualTierRequested, [tier]: false };
+            this.tierOverrides = { ...this.tierOverrides };
+            delete this.tierOverrides[tier];
             this.render();
         });
     }

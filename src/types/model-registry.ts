@@ -15,6 +15,32 @@ export interface ModelInfo {
 // Anthropic Models
 // https://docs.anthropic.com/en/docs/about-claude/models
 export const ANTHROPIC_MODELS: Record<string, ModelInfo> = {
+    // BUG-2: the post-4.6 lineup must be registered so resolveOutputBudget
+    // gives them the generous output budget instead of the 8192 legacy cap
+    // used for unknown models (the silent long-write truncation). 1M context
+    // window, 128K output ceiling. These also drop the sampling parameters --
+    // see modelSupportsTemperature below.
+    'claude-fable-5': {
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
+        supportsTools: true,
+        supportsStreaming: true,
+        displayName: 'Claude Fable 5',
+    },
+    'claude-opus-4-8': {
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
+        supportsTools: true,
+        supportsStreaming: true,
+        displayName: 'Claude Opus 4.8',
+    },
+    'claude-opus-4-7': {
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
+        supportsTools: true,
+        supportsStreaming: true,
+        displayName: 'Claude Opus 4.7',
+    },
     'claude-opus-4-6': {
         contextWindow: 200_000,
         maxTokens: 128_000,
@@ -240,27 +266,148 @@ export function getModelOutputCeiling(modelId: string): number | undefined {
 }
 
 /**
- * FIX-04-03-02: Some recent models reject any custom `temperature` value with
- * a 400 and require the parameter to be omitted entirely.
+ * FIX-04-03-02 / BUG-1: Some recent models removed the sampling parameters
+ * (`temperature`, `top_p`, `top_k`) from their request surface and reject any
+ * value with a 400 (on Bedrock the Converse API surfaces this as a
+ * `ValidationException`). The parameter has to be omitted entirely.
  *
- * - Anthropic Claude Opus 4.7 (April 2026 and later snapshots): replies
- *   `400 - 'temperature' is deprecated for this model`.
+ * - Anthropic Claude Opus 4.7 and Opus 4.8 (and any later 4.x snapshot):
+ *   sampling parameters are removed and 400. Opus 4.8 inherits the same
+ *   request surface as 4.7.
+ * - Anthropic Claude Fable 5 and Mythos 5 (incl. the `mythos-preview` id):
+ *   same removal, sampling parameters 400.
  * - OpenAI GPT-5.x family: replies `400 - Unsupported value: 'temperature'
  *   does not support 0.2 with this model. Only the default (1) value is
  *   supported.` Even sending `1.0` is risky and version-dependent, so it is
  *   safer to let the API use its default than to send anything explicitly.
  *
- * The check normalises the id first (so OpenRouter `anthropic/claude-opus-4-7`
- * and Bedrock `eu.anthropic.claude-opus-4-7-v1` map to the same answer as the
- * direct id `claude-opus-4-7`).
+ * Opus 4.6 and Sonnet 4.6 (and older 4.x) still accept temperature, so the
+ * minor version digit is pinned (4-7 and up, never 4-6).
+ *
+ * The check normalises the id first (so OpenRouter `anthropic/claude-opus-4-8`
+ * and Bedrock `eu.anthropic.claude-opus-4-8-v1` map to the same answer as the
+ * direct id `claude-opus-4-8`).
  */
 export function modelSupportsTemperature(modelId: string): boolean {
     const normalized = normalizeModelId(modelId).toLowerCase();
-    // Anthropic Opus 4.7 and later 4.x snapshots that drop temperature
-    if (/^claude-opus-4-7\b/.test(normalized)) return false;
+    // Anthropic Opus 4.7+ snapshots that drop the sampling parameters. The
+    // minor version is matched as 7/8/9 or any two-or-more digit minor
+    // (a future 4-10, 4-11) so later snapshots stay covered, while 4-6 and
+    // earlier single-digit minors keep temperature.
+    if (/^claude-opus-4-(?:[7-9]|\d\d+)\b/.test(normalized)) return false;
+    // Anthropic Fable / Mythos families: sampling parameters removed
+    if (/^claude-(fable|mythos)-/.test(normalized)) return false;
     // OpenAI GPT-5 family: default-only temperature
     if (/^gpt-5(\b|[.-])/.test(normalized)) return false;
     return true;
+}
+
+/**
+ * Whether a Claude model still accepts the legacy extended-thinking request
+ * shape `thinking: { type: 'enabled', budget_tokens: N }`.
+ *
+ * The adaptive-thinking lineup (Opus 4.7+, Fable, Mythos) removed budget_tokens
+ * and returns a 400 if it is sent -- those models only accept
+ * `thinking: { type: 'adaptive' }`. Older Claude (Opus 4.6 and earlier, Sonnet
+ * 4.6, the 3.x snapshots) still take budget_tokens.
+ *
+ * Returns false ONLY for the adaptive-thinking Claude families; everything else
+ * (older Claude, non-Claude, unknown ids) returns true so the existing
+ * budget_tokens path stays the default. The id is normalized first so
+ * OpenRouter `anthropic/claude-*` and Bedrock `eu.anthropic.claude-*-v1` map to
+ * the same answer as the direct id.
+ */
+export function modelUsesBudgetTokensThinking(modelId: string): boolean {
+    const normalized = normalizeModelId(modelId).toLowerCase();
+    // Opus 4.7/4.8/4.9 and later snapshots: adaptive only, budget_tokens 400s.
+    // Mirrors the minor-version matching in modelSupportsTemperature so a future
+    // 4-10/4-11 stays covered while 4-6 and earlier keep budget_tokens.
+    if (/^claude-opus-4-(?:[7-9]|\d\d+)\b/.test(normalized)) return false;
+    // Fable / Mythos families: adaptive only.
+    if (/^claude-(fable|mythos)-/.test(normalized)) return false;
+    return true;
+}
+
+/**
+ * Native reasoning-effort level. The full union spans both families:
+ *  - Claude (anthropic, bedrock, openrouter): low, medium, high, xhigh, max.
+ *    output_config.effort, GA, no beta header. Default is high; xhigh sits
+ *    between high and max and is the Claude Code default for agentic work.
+ *  - GPT-5 / o-series (openai, github-copilot, chatgpt-oauth, openrouter):
+ *    minimal, low, medium, high. reasoning_effort / reasoning.effort,
+ *    default medium.
+ */
+export type EffortLevel = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/** The five Claude-native effort levels, in ascending order. */
+const CLAUDE_EFFORT_LEVELS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+/** The four GPT-5 / o-series effort levels, in ascending order. */
+const OPENAI_EFFORT_LEVELS: EffortLevel[] = ['minimal', 'low', 'medium', 'high'];
+
+/**
+ * The native reasoning-effort levels a (model, provider) pair accepts, in
+ * ascending order. An empty array means the pair has no native effort surface,
+ * so the per-conversation effort selector stays hidden and no field is sent.
+ *
+ * - The effort-capable Claude lineup (Opus 4.7/4.8, Fable, Mythos) on anthropic
+ *   / bedrock / openrouter: low, medium, high, xhigh, max (output_config.effort
+ *   on Anthropic and OpenRouter, reasoning_config on Bedrock). Budget-tokens
+ *   Claude (Sonnet 4.6, Opus 4.6 and older, Haiku, 3.x) returns [] because it
+ *   takes a thinking budget, not an effort enum, and 400s on one.
+ * - GPT-5 and the o-series (o1, o3, o4, ...) on openai / github-copilot /
+ *   chatgpt-oauth / openrouter: minimal, low, medium, high (reasoning.effort /
+ *   reasoning_effort).
+ *
+ * Everything else (Gemini, Ollama, LM Studio, custom, GPT-4 lineage, any
+ * unknown id, a cross-provider mismatch like Claude under openai) returns [].
+ * The id is normalized first so OpenRouter `anthropic/claude-*` and Bedrock
+ * `eu.anthropic.claude-*-v1` map to the same answer as the direct id.
+ */
+export function getModelEffortLevels(modelId: string, providerType: string): EffortLevel[] {
+    const provider = providerType.toLowerCase();
+    const normalized = normalizeModelId(modelId).toLowerCase();
+
+    // Only the adaptive-thinking Claude lineup (Opus 4.7/4.8, Fable, Mythos)
+    // accepts output_config.effort / reasoning_config effort. The budget-tokens
+    // models (Sonnet 4.6, Opus 4.6 and earlier, Haiku, the 3.x snapshots) take a
+    // thinking budget instead and 400 on an effort enum (Bedrock:
+    // "thinking.enabled.budget_tokens: Field required"), so they are NOT
+    // effort-capable. modelUsesBudgetTokensThinking is the single source of truth
+    // for that split (false == adaptive == effort-capable).
+    const isEffortCapableClaude = /^claude-/.test(normalized)
+        && !modelUsesBudgetTokensThinking(modelId);
+    // GPT-5 family and the reasoning o-series (o1..o9 plus o-mini variants).
+    const isOpenAiReasoning = /^gpt-5(\b|[.-])/.test(normalized) || /^o[1-9](\b|[.-])/.test(normalized);
+
+    // Claude-capable providers send the effort via the native Anthropic surface.
+    if (isEffortCapableClaude && (provider === 'anthropic' || provider === 'bedrock' || provider === 'openrouter')) {
+        return [...CLAUDE_EFFORT_LEVELS];
+    }
+
+    // OpenAI-style reasoning providers send reasoning.effort / reasoning_effort.
+    if (
+        isOpenAiReasoning &&
+        (provider === 'openai' ||
+            provider === 'github-copilot' ||
+            provider === 'chatgpt-oauth' ||
+            provider === 'openrouter')
+    ) {
+        return [...OPENAI_EFFORT_LEVELS];
+    }
+
+    return [];
+}
+
+/**
+ * Whether a (model, provider) pair can SEND a native reasoning-effort field.
+ *
+ * This gates the per-conversation effort selector: the control is only rendered
+ * and a native effort field is only sent for combinations we know how to wire.
+ * Kept as a thin wrapper over getModelEffortLevels so existing boolean callers
+ * (provider request bodies, the picker capability gate) stay unchanged.
+ */
+export function getModelEffortSupport(modelId: string, providerType: string): boolean {
+    return getModelEffortLevels(modelId, providerType).length > 0;
 }
 
 /** Output ceiling assumed for models we have no registry entry for (local models, gateways, ...). */

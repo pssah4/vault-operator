@@ -40,14 +40,72 @@ function base64UrlDecode(input: string): string {
 }
 
 /**
+ * Object-valued claims that namespace their fields. OpenAI nests the
+ * chatgpt-account-id and plan type inside `https://api.openai.com/auth`
+ * rather than as flat dotted keys, so a name written as
+ * `https://api.openai.com/auth.chatgpt_account_id` must descend into that
+ * object. The namespace itself contains dots, so the path cannot be split
+ * naively; match the known prefixes explicitly.
+ */
+const NESTED_CLAIM_NAMESPACES = ['https://api.openai.com/auth'];
+
+/**
  * Read a string claim, trying multiple possible claim names. Returns the
- * first non-empty match or `''`. Use this when the exact claim name is
- * not yet confirmed empirically.
+ * first non-empty match or `''`. A name of the form `<namespace>.<field>`
+ * (where namespace is a known nested object claim) reads `<field>` from that
+ * object; everything else is a flat key lookup. Use this when the exact claim
+ * name is not yet confirmed empirically.
  */
 export function readStringClaim(claims: JwtClaims, ...names: string[]): string {
     for (const name of names) {
-        const value = claims[name];
-        if (typeof value === 'string' && value.length > 0) return value;
+        const direct = claims[name];
+        if (typeof direct === 'string' && direct.length > 0) return direct;
+
+        for (const ns of NESTED_CLAIM_NAMESPACES) {
+            const prefix = ns + '.';
+            if (!name.startsWith(prefix)) continue;
+            const obj = claims[ns];
+            if (!obj || typeof obj !== 'object') continue;
+            const field = name.slice(prefix.length);
+            const nested = (obj as Record<string, unknown>)[field];
+            if (typeof nested === 'string' && nested.length > 0) return nested;
+        }
     }
     return '';
+}
+
+/**
+ * Last-resort deep scan: look for any of the given field names one level deep
+ * inside every object-valued claim, regardless of the namespace key. Used when
+ * the expected namespace paths miss because a provider nests a value under a
+ * key we do not enumerate. Returns the first non-empty string match or `''`.
+ */
+export function findClaimInNestedObjects(claims: JwtClaims, ...fieldNames: string[]): string {
+    for (const value of Object.values(claims)) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+        const obj = value as Record<string, unknown>;
+        for (const field of fieldNames) {
+            const v = obj[field];
+            if (typeof v === 'string' && v.length > 0) return v;
+        }
+    }
+    return '';
+}
+
+/**
+ * Describe a claims object's shape for diagnostics: top-level keys, with
+ * nested object claims expanded to `key:{subkey,subkey}`. KEYS ONLY, never
+ * values, so it is safe to log a token's structure without leaking the
+ * account id, email, or other claim values.
+ */
+export function describeClaimStructure(claims: JwtClaims): string {
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(claims)) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            parts.push(`${key}:{${Object.keys(value as Record<string, unknown>).join(',')}}`);
+        } else {
+            parts.push(key);
+        }
+    }
+    return parts.join(', ');
 }

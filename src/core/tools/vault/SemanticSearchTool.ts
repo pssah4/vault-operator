@@ -2,7 +2,8 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
-import { rrf } from '../../memory/rrf';
+import { fuseHybridArms } from '../../semantic/weightedFusion';
+import { getGraphEdgeLabel } from '../../knowledge/graphEdgeLabel';
 
 export class SemanticSearchTool extends BaseTool<'semantic_search'> {
     readonly name = 'semantic_search' as const;
@@ -128,25 +129,59 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
             ]);
 
             // Cache excerpts per path so the fused result can pick the best
-            // available text (cosine excerpt > keyword excerpt > tag excerpt).
-            const excerptByPath = new Map<string, string>();
-            const remember = (path: string, text: string) => {
-                if (text && !excerptByPath.has(path)) excerptByPath.set(path, text);
+            // available text. Prefer the opener chunk (chunkIndex 0) so the
+            // agent sees the lede of a note instead of a random middle
+            // paragraph. Results without chunkIndex (older code paths, MCP)
+            // only feed the fallback map, which keeps the previous
+            // first-write-wins behavior (cosine > keyword > tag).
+            const openerExcerptByPath = new Map<string, string>();
+            const fallbackExcerptByPath = new Map<string, string>();
+            const remember = (path: string, text: string, chunkIndex?: number) => {
+                if (!text) return;
+                if (chunkIndex === 0 && !openerExcerptByPath.has(path)) openerExcerptByPath.set(path, text);
+                if (!fallbackExcerptByPath.has(path)) fallbackExcerptByPath.set(path, text);
             };
-            for (const r of semanticResults) remember(r.path, r.excerpt);
-            for (const r of keywordResults) remember(r.path, r.excerpt);
-            for (const r of tagResults) remember(r.path, r.excerpt);
+            for (const r of semanticResults) remember(r.path, r.excerpt, r.chunkIndex);
+            for (const r of keywordResults) remember(r.path, r.excerpt, r.chunkIndex);
+            for (const r of tagResults) remember(r.path, r.excerpt, r.chunkIndex);
+            const excerptFor = (path: string): string =>
+                openerExcerptByPath.get(path) ?? fallbackExcerptByPath.get(path) ?? '';
+            // The chunk that actually matched the query (first-write-wins
+            // across arms, the pre-wave behavior). The cross-encoder must
+            // judge THIS text, not the opener lede promoted for display.
+            const matchedExcerptFor = (path: string): string =>
+                fallbackExcerptByPath.get(path) ?? openerExcerptByPath.get(path) ?? '';
 
             // Reciprocal Rank Fusion via the engine-public utility from
             // FEATURE-0316 task 1. Method tag mirrors which signals contributed
             // (semantic / keyword / tag / hybrid) for the result line.
-            const fused = rrf([
-                { name: 'semantic', items: semanticResults.map(r => r.path) },
-                { name: 'keyword', items: keywordResults.map(r => r.path) },
-                { name: 'tag', items: tagResults.map(r => r.path) },
-            ]);
+            // With weightedFusionEnabled (retrieval wave 1, item 4) the tag
+            // arm is downweighted to 0.6 and the dense cosine is blended
+            // into the final ordering; flag off keeps plain RRF.
+            const weightedFusion = this.plugin.settings.weightedFusionEnabled !== false;
+            // Best dense cosine per path (the dense arm may return more
+            // than one chunk per file, keep the strongest). Only needed in
+            // weighted mode; non-finite scores (corrupted embedding blobs)
+            // are skipped so a NaN can neither win the max-tracking here
+            // nor reach the fusion sort.
+            const cosineByPath = new Map<string, number>();
+            if (weightedFusion) {
+                for (const r of semanticResults) {
+                    if (!Number.isFinite(r.score)) continue;
+                    const prev = cosineByPath.get(r.path);
+                    if (prev === undefined || r.score > prev) cosineByPath.set(r.path, r.score);
+                }
+            }
+            const fused = fuseHybridArms(
+                {
+                    semantic: semanticResults.map(r => r.path),
+                    keyword: keywordResults.map(r => r.path),
+                    tag: tagResults.map(r => r.path),
+                },
+                { weighted: weightedFusion, cosineByPath },
+            );
 
-            type HybridEntry = { path: string; excerpt: string; score: number; method: 'semantic' | 'keyword' | 'hybrid' };
+            type HybridEntry = { path: string; excerpt: string; score: number; method: 'semantic' | 'keyword' | 'hybrid'; rerankScore?: number };
             const classify = (contribs: Record<string, number>): HybridEntry['method'] => {
                 const signals = Object.keys(contribs).filter(k => contribs[k] > 0);
                 if (signals.length >= 2) return 'hybrid';
@@ -156,7 +191,7 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
 
             let results: HybridEntry[] = fused.map(f => ({
                 path: f.id,
-                excerpt: excerptByPath.get(f.id) ?? '',
+                excerpt: excerptFor(f.id),
                 score: f.score,
                 method: classify(f.contributions),
             }));
@@ -190,14 +225,24 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                 try {
                     const rerankCount = Math.min(results.length, this.plugin.settings.rerankCandidates ?? 20);
                     const toRerank = results.slice(0, rerankCount);
+                    // Feed the cross-encoder the chunk that actually
+                    // matched the query, NOT the opener excerpt promoted
+                    // for display: relevance must be judged against the
+                    // matching passage of long notes.
                     const reranked = await reranker.rerank(
                         query,
-                        toRerank.map(r => ({ path: r.path, text: r.excerpt, score: r.score })),
+                        toRerank.map(r => ({ path: r.path, text: matchedExcerptFor(r.path) || r.excerpt, score: r.score })),
                     );
+                    // Keep the original fusion score in `score`; the
+                    // cross-encoder output rides along as `rerankScore`.
+                    // Ordering still follows the reranker (the service
+                    // returns candidates sorted by rerankScore). The
+                    // rendered excerpt keeps the opener preference.
                     results = reranked.map(r => ({
                         path: r.path,
-                        excerpt: r.text,
-                        score: r.rerankScore,
+                        excerpt: excerptFor(r.path) || r.text,
+                        score: r.score,
+                        rerankScore: r.rerankScore,
                         method: 'hybrid' as const,
                     }));
                 } catch (e) {
@@ -270,9 +315,13 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                         seenGraph.add(n.path);
                         const chunks: string[] = await semanticIndex.getChunksByPath(n.path);
                         if (chunks.length === 0) continue;
-                        const linkLabel = n.linkType === 'implicit' ? 'similar' : (n.propertyName ?? 'link');
-                        const ctx = `via ${toWikilink(n.viaPath)} (${linkLabel}, confidence: ${n.confidence.toFixed(2)})`;
-                        graphLines.push(`${graphLines.length + 1}. ${toWikilink(n.path)} — \`${n.path}\` (${ctx})`);
+                        // Typed graph labels (retrieval wave 1, item 5):
+                        // frontmatter property name > 'wikilink' > 'similar',
+                        // contradiction properties get a line marker.
+                        const edgeLabel = getGraphEdgeLabel(n);
+                        const marker = edgeLabel.contradicts ? '[contradicts] ' : '';
+                        const ctx = `via ${toWikilink(n.viaPath)} (${edgeLabel.label}, confidence: ${n.confidence.toFixed(2)})`;
+                        graphLines.push(`${graphLines.length + 1}. ${marker}${toWikilink(n.path)} - \`${n.path}\` (${ctx})`);
                         graphLines.push(truncate(chunks[0]));
                         graphLines.push('');
                     }

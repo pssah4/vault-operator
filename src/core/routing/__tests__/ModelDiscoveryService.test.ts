@@ -129,9 +129,9 @@ describe('ModelDiscoveryService', () => {
     });
 
     it('refreshOnStartup refreshes only enabled stale providers', async () => {
-        const fetcher: ModelFetcher = vi.fn().mockResolvedValue([
+        const fetcher = vi.fn<ModelFetcher>().mockResolvedValue([
             { id: 'claude-opus-4-6' },
-        ] as RawDiscoveredModel[]);
+        ]);
         const harness = makeHost([
             makeProvider({ id: 'p1', enabled: true }),
             makeProvider({ id: 'p2', enabled: false }),
@@ -147,7 +147,7 @@ describe('ModelDiscoveryService', () => {
 
         // p1 stale + enabled -> fetched. p2 disabled -> skipped. p3 fresh -> skipped.
         expect(fetcher).toHaveBeenCalledTimes(1);
-        expect((fetcher as ReturnType<typeof vi.fn>).mock.calls[0][0].id).toBe('p1');
+        expect(fetcher.mock.calls[0][0].id).toBe('p1');
     });
 
     it('uses openrouter pricing for classification when pattern misses', async () => {
@@ -159,6 +159,86 @@ describe('ModelDiscoveryService', () => {
         const result = await svc.refreshProvider('anthropic-main');
         expect(result[0].autoTier).toBe('flagship');
         expect(result[0].autoTierSource).toBe('pricing');
+    });
+
+    it('aggregates unclassified models into a single summary log line', async () => {
+        const debugSpy = vi
+            .spyOn(console, 'debug')
+            .mockImplementation(() => {});
+        debugSpy.mockClear();
+        const fetcher: ModelFetcher = vi.fn().mockResolvedValue([
+            { id: 'gpt-5.4' }, // known pattern -> flagship
+            { id: 'mystery-model-a' }, // unknown -> unclassified
+            { id: 'mystery-model-b' }, // unknown -> unclassified
+            { id: 'text-embedding-3-small' }, // non-chat -> silently skipped
+            { id: 'whisper-1' }, // non-chat -> silently skipped
+        ] as RawDiscoveredModel[]);
+        const harness = makeHost([makeProvider({ type: 'openai' })]);
+        const svc = new ModelDiscoveryService(harness.host, fetcher);
+        const result = await svc.refreshProvider('anthropic-main');
+
+        // Non-chat entries get no tier at all.
+        expect(result.find((m) => m.id === 'text-embedding-3-small')?.autoTier).toBeUndefined();
+        expect(result.find((m) => m.id === 'whisper-1')?.autoTier).toBeUndefined();
+
+        const debugMessages = debugSpy.mock.calls.map((c) => String(c[0]));
+        // No per-id unclassified lines.
+        expect(
+            debugMessages.filter((m) => m.includes('unclassified: id=')),
+        ).toEqual([]);
+        // Exactly one summary line with count and example ids.
+        const summaries = debugMessages.filter((m) =>
+            m.includes('models unclassified'),
+        );
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]).toContain('2/5');
+        expect(summaries[0]).toContain('mystery-model-a');
+        expect(summaries[0]).toContain('mystery-model-b');
+    });
+
+    it('logs the full unclassified list only when more than five ids miss', async () => {
+        const debugSpy = vi
+            .spyOn(console, 'debug')
+            .mockImplementation(() => {});
+        debugSpy.mockClear();
+        const fetcher: ModelFetcher = vi.fn().mockResolvedValue(
+            Array.from({ length: 7 }, (_, i): RawDiscoveredModel => ({
+                id: `mystery-model-${i}`,
+            })),
+        );
+        const harness = makeHost([makeProvider({ type: 'openrouter' })]);
+        const svc = new ModelDiscoveryService(harness.host, fetcher);
+        await svc.refreshProvider('anthropic-main');
+
+        const debugMessages = debugSpy.mock.calls.map((c) => String(c[0]));
+        const summaries = debugMessages.filter((m) =>
+            m.includes('models unclassified'),
+        );
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]).toContain('7/7');
+        const fullLists = debugMessages.filter((m) =>
+            m.includes('full unclassified list'),
+        );
+        expect(fullLists).toHaveLength(1);
+        expect(fullLists[0]).toContain('mystery-model-6');
+    });
+
+    it('does not log an unclassified summary for local providers', async () => {
+        const debugSpy = vi
+            .spyOn(console, 'debug')
+            .mockImplementation(() => {});
+        debugSpy.mockClear();
+        const fetcher: ModelFetcher = vi.fn().mockResolvedValue([
+            { id: 'my-local-model' },
+        ] as RawDiscoveredModel[]);
+        const harness = makeHost([makeProvider({ type: 'ollama' })]);
+        const svc = new ModelDiscoveryService(harness.host, fetcher);
+        await svc.refreshProvider('anthropic-main');
+
+        const debugMessages = debugSpy.mock.calls.map((c) => String(c[0]));
+        expect(
+            debugMessages.filter((m) => m.includes('models unclassified')),
+        ).toEqual([]);
     });
 
     it('skips classification for local providers', async () => {

@@ -14,10 +14,13 @@ import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, ContentBlock, MessageParam, ModelInfo } from '../types';
 import { truncatedToolInputError } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
-import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, modelUsesBudgetTokensThinking } from '../../types/model-registry';
 import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
 import { stripThinkingBlocks } from '../../core/utils/stripThinkingBlocks';
+
+/** The Claude-native reasoning-effort levels accepted by output_config.effort. */
+const CLAUDE_EFFORT_SET = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
 /** Put an ephemeral cache_control marker on the last content block of a message. */
 export function markLastBlock(msg: Anthropic.MessageParam): void {
@@ -157,6 +160,38 @@ export class AnthropicProvider implements ApiHandler {
                 ? 1
                 : Math.min(this.config.temperature ?? 0.2, 1.0);
 
+        // Extended thinking shape depends on the model family:
+        //  - Adaptive lineup (Opus 4.7/4.8, Fable, Mythos) removed budget_tokens
+        //    and 400s if it is sent -> { type: 'adaptive' }.
+        //  - Older Claude (Opus 4.6 and earlier, Sonnet 4.6, 3.x) still takes the
+        //    legacy { type: 'enabled', budget_tokens } shape.
+        // budgetTokens is computed regardless (resolveOutputBudget already added
+        // it on top of the visible budget) but only emitted for the older family.
+        const usesBudgetTokens = modelUsesBudgetTokensThinking(this.config.model);
+        let thinkingParam: Anthropic.Messages.ThinkingConfigParam | undefined;
+        if (thinkingEnabled) {
+            thinkingParam = usesBudgetTokens
+                ? { type: 'enabled' as const, budget_tokens: budgetTokens }
+                : { type: 'adaptive' as const };
+        }
+
+        // Per-conversation reasoning effort (GA, no beta header). Only sent when
+        // the user pinned an explicit level; 'auto'/undefined sends nothing, so
+        // the request stays byte-identical to today. The chat-header gate already
+        // restricts this to effort-capable (model, provider) pairs. Defensive:
+        // only a level in the Claude family set is forwarded, so a GPT-only
+        // 'minimal' accidentally set on a Claude model is dropped, not sent.
+        const reasoningEffort = this.config.reasoningEffort;
+        const claudeEffort = reasoningEffort && CLAUDE_EFFORT_SET.has(reasoningEffort)
+            ? reasoningEffort
+            : undefined;
+        // output_config.effort accepts low|medium|high|xhigh|max on the wire; the
+        // SDK type does not yet list 'xhigh', so the field is built as a loose
+        // record and merged below (the GA wire surface is the source of truth).
+        const outputConfig: Record<string, unknown> | undefined = claudeEffort
+            ? { effort: claudeEffort }
+            : undefined;
+
         // Create streaming request (pass abort signal for cancellation support)
         const stream = this.client.messages.stream(
             {
@@ -167,9 +202,8 @@ export class AnthropicProvider implements ApiHandler {
                 messages: anthropicMessages,
                 tools: anthropicTools.length > 0 ? anthropicTools : undefined,
                 tool_choice: anthropicTools.length > 0 ? { type: 'auto' } : undefined,
-                ...(thinkingEnabled
-                    ? { thinking: { type: 'enabled' as const, budget_tokens: budgetTokens } }
-                    : {}),
+                ...(thinkingParam ? { thinking: thinkingParam } : {}),
+                ...(outputConfig ? { output_config: outputConfig } : {}),
             },
             { signal: abortSignal },
         );

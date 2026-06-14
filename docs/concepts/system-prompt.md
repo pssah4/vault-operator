@@ -5,9 +5,13 @@ description: How the agent's system prompt is assembled from modular sections, s
 
 # System prompt
 
-The system prompt is the first thing the model sees. It tells the agent who it is, what tools it has, what rules to follow, and what the user's vault looks like. The prompt is not a static string. It is assembled from 16 independent section modules, filtered by the active mode, and enriched with runtime context like skills and memory.
+The system prompt is the first thing the model sees. It tells the agent who it is, what tools it has, what rules to follow, and what the user's vault looks like. The prompt is not a static string. It is assembled from around 20 modular sections, filtered by the active mode, and enriched with runtime context like skills and memory.
 
-The orchestrator is `buildSystemPromptForMode()` in `src/core/systemPrompt.ts`. The sections live in `src/core/prompts/sections/`.
+The orchestrator is `buildSystemPromptForMode()` in `src/core/systemPrompt.ts`, and the sections live in `src/core/prompts/sections/`. Those are paths in the plugin **source code** (this repository), for contributors building from source. They are not files inside the installed plugin, so you will not find them in your vault or in `.obsidian/plugins/vault-operator/`.
+
+:::tip Trimming the prompt as a user
+You do not need to edit source files to make the prompt smaller. Turn on **Settings > Agent behaviour > Loop > Lean system prompt** to switch to the compact prompt variants (it drops the long cost-heuristics text and collapses the plugin-skill catalogue, which re-expands when a skill is mentioned). It saves several thousand tokens without removing tool, safety, or response-format guidance.
+:::
 
 ## Why modular?
 
@@ -30,7 +34,7 @@ The sections are now ordered by stability, with the stable prefix first and dyna
 | 1 | Mode Definition | Sets the role, shaping everything that follows |
 | 2 | Capabilities | Compact summary of what the agent can do |
 | 3 | Obsidian Conventions | Vault-specific rules: frontmatter, wikilinks, etc. |
-| 4 | Tools | Tool list, filtered by the mode's `toolGroups` (~8,000 tokens) |
+| 4 | Tools | Tool list, filtered by the mode's `toolGroups` (the largest section, roughly 1,000 to 4,000 tokens depending on the active tool groups) |
 | 5 | Tool Routing | Tool selection rules and decision guidelines |
 | 6 | Objective | Task decomposition strategy |
 | 7 | Response Format | Output structure rules (skipped in subtasks) |

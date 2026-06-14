@@ -132,5 +132,17 @@ export class LoopTab {
                     await this.plugin.saveSettings();
                 }),
         );
+
+        const leanPromptSetting = new Setting(containerEl)
+            .setName(t('settings.loop.leanSystemPromptName'))
+            .setDesc(t('settings.loop.leanSystemPromptDesc'));
+        leanPromptSetting.addToggle((toggle) =>
+            toggle
+                .setValue(this.plugin.settings.leanSystemPrompt ?? false)
+                .onChange(async (v) => {
+                    this.plugin.settings.leanSystemPrompt = v;
+                    await this.plugin.saveSettings();
+                }),
+        );
     }
 }

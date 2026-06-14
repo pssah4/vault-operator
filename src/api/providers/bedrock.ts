@@ -43,7 +43,7 @@ import type {
 } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { truncatedToolInputError } from '../types';
-import { resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
+import { resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortSupport, modelUsesBudgetTokensThinking } from '../../types/model-registry';
 import { getCacheCapability } from '../capabilities';
 import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
@@ -237,18 +237,77 @@ export class BedrockProvider implements ApiHandler {
             }
             : undefined;
 
+        // Extended thinking on Bedrock for budget-tokens Claude (Sonnet 4.6,
+        // Opus 4.6 and older): the thinking toggle sets thinkingEnabled and
+        // Bedrock Converse takes the legacy reasoning_config budget_tokens shape.
+        // Effort-capable Claude (Opus 4.7/4.8, Fable, Mythos) goes through the
+        // effort branch below instead; non-Claude (Nova) never gets a thinking
+        // field.
+        const thinkingEnabled = this.config.thinkingEnabled ?? false;
+        const sendBudgetThinking =
+            thinkingEnabled
+            && /claude/i.test(this.config.model)
+            && modelUsesBudgetTokensThinking(this.config.model);
         // Auto by default: undefined -> model-scaled budget; clamped to the
         // model's output ceiling and to the room left in the context window.
-        const { maxTokens } = resolveOutputBudget(
+        // Pass the thinking flag so resolveOutputBudget reserves the thinking
+        // budget on top of the visible-output budget.
+        const { maxTokens, thinkingBudgetTokens } = resolveOutputBudget(
             this.config.model,
             this.config.maxTokens,
-            { estimatedInputTokens: estimatePromptTokens(systemPrompt, messages, tools) },
+            {
+                enabled: thinkingEnabled,
+                budgetTokens: this.config.thinkingBudgetTokens,
+                estimatedInputTokens: estimatePromptTokens(systemPrompt, messages, tools),
+            },
         );
         // FIX-04-03-02: omit temperature for default-only models (Opus 4.7+,
-        // GPT-5.x on Bedrock if it ever ships there); Bedrock surfaces the
-        // same provider 400 as direct calls when temperature is rejected.
+        // GPT-5.x on Bedrock if it ever ships there); Bedrock surfaces the same
+        // provider 400 as direct calls when temperature is rejected. Extended
+        // thinking additionally requires temperature == 1, mirroring the direct
+        // Anthropic provider.
         const supportsTemperature = modelSupportsTemperature(this.config.model);
-        const temperature = supportsTemperature ? (this.config.temperature ?? 0.2) : undefined;
+        const temperature = !supportsTemperature
+            ? undefined
+            : sendBudgetThinking
+                ? 1
+                : (this.config.temperature ?? 0.2);
+
+        // Reasoning passthrough for Claude on Bedrock (maintainer opt-in, NOT
+        // CI-tested live). Bedrock Converse exposes Anthropic extended thinking
+        // via `additionalModelRequestFields` -- a loose DocumentType the SDK does
+        // not type-check. Two mutually exclusive Claude shapes:
+        //   - effort-capable lineup (Opus 4.7/4.8, Fable/Mythos): an effort enum
+        //       { reasoning_config: { type: 'enabled', effort: <level> } }
+        //   - budget-tokens lineup (Sonnet 4.6, Opus 4.6 and older): a token
+        //     budget (this is what the thinking toggle drives)
+        //       { reasoning_config: { type: 'enabled', budget_tokens: N } }
+        // The exact wire shape cannot be verified against a live endpoint here;
+        // Sebastian live-tests it. Fail-safe: with no effort and thinking off the
+        // field is omitted entirely (byte-identical to today), and if building it
+        // ever throws we proceed WITHOUT the field rather than break the request.
+        let additionalModelRequestFields: DocumentType | undefined;
+        try {
+            if (this.config.reasoningEffort && getModelEffortSupport(this.config.model, this.config.type)) {
+                additionalModelRequestFields = {
+                    reasoning_config: {
+                        type: 'enabled',
+                        effort: this.config.reasoningEffort,
+                    },
+                };
+            } else if (sendBudgetThinking && typeof thinkingBudgetTokens === 'number' && thinkingBudgetTokens > 0) {
+                additionalModelRequestFields = {
+                    reasoning_config: {
+                        type: 'enabled',
+                        budget_tokens: thinkingBudgetTokens,
+                    },
+                };
+            }
+        } catch (e) {
+            // Untested live path: never let a malformed field break the call.
+            console.debug('[Bedrock] reasoning_config construction failed, omitting field', e);
+            additionalModelRequestFields = undefined;
+        }
 
         const command = new ConverseStreamCommand({
             modelId: this.config.model,
@@ -259,6 +318,7 @@ export class BedrockProvider implements ApiHandler {
                 ...(temperature !== undefined ? { temperature } : {}),
             },
             toolConfig,
+            ...(additionalModelRequestFields !== undefined ? { additionalModelRequestFields } : {}),
         });
 
         const response = await this.client.send(command, { abortSignal });
@@ -390,11 +450,15 @@ export class BedrockProvider implements ApiHandler {
      * Uses ConverseCommand (no stream) to keep it cheap.
      */
     async classifyText(prompt: string, abortSignal?: AbortSignal): Promise<string> {
+        // No temperature: Opus 4.7+, Fable and Mythos reject any sampling
+        // parameter with a ValidationException, and the direct Anthropic and
+        // OpenAI classify paths omit it too. The classification is short and
+        // deterministic enough without it.
         const response = await this.client.send(
             new ConverseCommand({
                 modelId: this.config.model,
                 messages: [{ role: 'user', content: [{ text: prompt }] }],
-                inferenceConfig: { maxTokens: 50, temperature: 0 },
+                inferenceConfig: { maxTokens: 50 },
             }),
             { abortSignal },
         );

@@ -6,6 +6,9 @@ import {
     resolveOutputBudget,
     estimatePromptTokens,
     modelSupportsTemperature,
+    getModelEffortSupport,
+    getModelEffortLevels,
+    modelUsesBudgetTokensThinking,
 } from '../model-registry';
 
 describe('normalizeModelId', () => {
@@ -44,6 +47,20 @@ describe('getModelOutputCeiling / getModelMaxTokens', () => {
         expect(getModelOutputCeiling('some-custom-model')).toBeUndefined();
     });
 
+    // BUG-2: the post-4.6 Anthropic lineup (Opus 4.7/4.8, Fable 5) was missing
+    // from the registry, so resolveOutputBudget treated them as unknown and
+    // capped visible output at the 8192 legacy default -- the silent
+    // truncation that produced the "Write file" failure mode. These models
+    // have a 1M context window and a 128K output ceiling.
+    it('resolves the post-4.6 Anthropic lineup (Opus 4.7/4.8, Fable 5)', () => {
+        expect(getModelOutputCeiling('claude-opus-4-7')).toBe(128_000);
+        expect(getModelOutputCeiling('claude-opus-4-8')).toBe(128_000);
+        expect(getModelOutputCeiling('claude-fable-5')).toBe(128_000);
+        // Bedrock-decorated IDs normalize to the same registry entry.
+        expect(getModelOutputCeiling('eu.anthropic.claude-opus-4-8-v1')).toBe(128_000);
+        expect(getModelOutputCeiling('anthropic/claude-fable-5')).toBe(128_000);
+    });
+
     it('getModelMaxTokens falls back to 8192 for unknown models', () => {
         expect(getModelMaxTokens('llama3.2')).toBe(8_192);
         expect(getModelMaxTokens('eu.anthropic.claude-opus-4-6-v1')).toBe(128_000);
@@ -52,7 +69,7 @@ describe('getModelOutputCeiling / getModelMaxTokens', () => {
 
 describe('resolveOutputBudget', () => {
     it('clamps a configured value to the model output ceiling', () => {
-        // Haiku tops out at 8192 — an over-eager Settings value must not reach the API.
+        // Haiku tops out at 8192 - an over-eager Settings value must not reach the API.
         expect(resolveOutputBudget('claude-haiku-4-5-20251001', 100_000)).toEqual({
             maxTokens: 8_192,
             thinkingBudgetTokens: 0,
@@ -78,6 +95,21 @@ describe('resolveOutputBudget', () => {
     it('stays conservative (8192) for unknown models with no configured value', () => {
         expect(resolveOutputBudget('llama3.2', undefined)).toEqual({
             maxTokens: 8_192,
+            thinkingBudgetTokens: 0,
+        });
+    });
+
+    // BUG-2: before the post-4.6 lineup was registered, Opus 4.8 / Fable 5 hit
+    // the unknown-model path and were capped at 8192 visible output -- long
+    // writes silently truncated. With registry entries they get the generous
+    // 32k default like any other known cloud model.
+    it('gives the post-4.6 Anthropic lineup the generous default, not the legacy 8192 cap', () => {
+        expect(resolveOutputBudget('claude-opus-4-8', undefined)).toEqual({
+            maxTokens: 32_000,
+            thinkingBudgetTokens: 0,
+        });
+        expect(resolveOutputBudget('claude-fable-5', undefined)).toEqual({
+            maxTokens: 32_000,
             thinkingBudgetTokens: 0,
         });
     });
@@ -192,6 +224,35 @@ describe('modelSupportsTemperature (FIX-04-03-02)', () => {
         expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-7-v1')).toBe(false);
     });
 
+    it('flags Opus 4.8 and later 4.x snapshots as default-only', () => {
+        expect(modelSupportsTemperature('claude-opus-4-8')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-8-20260601')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-9')).toBe(false);
+    });
+
+    it('flags hypothetical two-digit minor snapshots, keeps 4-6 and earlier', () => {
+        // The regex covers a future 4-10 / 4-11 without matching 4-6.
+        expect(modelSupportsTemperature('claude-opus-4-10')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-11')).toBe(false);
+        expect(modelSupportsTemperature('claude-opus-4-6')).toBe(true);
+        expect(modelSupportsTemperature('claude-opus-4-5')).toBe(true);
+    });
+
+    it('flags Opus 4.8 across normalized aliases (OpenRouter, Bedrock)', () => {
+        expect(modelSupportsTemperature('anthropic/claude-opus-4-8')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-8-v1')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-opus-4-8')).toBe(false);
+    });
+
+    it('flags the Fable and Mythos families as default-only', () => {
+        expect(modelSupportsTemperature('claude-fable-5')).toBe(false);
+        expect(modelSupportsTemperature('claude-mythos-5')).toBe(false);
+        expect(modelSupportsTemperature('claude-mythos-preview')).toBe(false);
+        expect(modelSupportsTemperature('anthropic/claude-fable-5')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-fable-5')).toBe(false);
+        expect(modelSupportsTemperature('eu.anthropic.claude-mythos-5')).toBe(false);
+    });
+
     it('flags GPT-5 family as default-only', () => {
         expect(modelSupportsTemperature('gpt-5')).toBe(false);
         expect(modelSupportsTemperature('gpt-5.5')).toBe(false);
@@ -210,5 +271,175 @@ describe('modelSupportsTemperature (FIX-04-03-02)', () => {
     it('does not flag unknown local model names', () => {
         expect(modelSupportsTemperature('llama-3.1-70b')).toBe(true);
         expect(modelSupportsTemperature('qwen3.5:9b')).toBe(true);
+    });
+});
+
+describe('getModelEffortSupport', () => {
+    it('supports Claude on Bedrock', () => {
+        expect(getModelEffortSupport('eu.anthropic.claude-opus-4-8-v1', 'bedrock')).toBe(true);
+    });
+
+    it('supports the effort-capable Claude lineup on anthropic-direct', () => {
+        expect(getModelEffortSupport('claude-opus-4-8', 'anthropic')).toBe(true);
+        expect(getModelEffortSupport('claude-opus-4-7', 'anthropic')).toBe(true);
+        expect(getModelEffortSupport('claude-fable-5', 'anthropic')).toBe(true);
+    });
+
+    it('supports Claude on OpenRouter', () => {
+        expect(getModelEffortSupport('anthropic/claude-opus-4-8', 'openrouter')).toBe(true);
+    });
+
+    it('does NOT support budget-tokens Claude (Sonnet 4.6, Opus 4.6, Haiku, 3.x)', () => {
+        // These take thinking budget_tokens, not output_config.effort: sending an
+        // effort enum makes Bedrock 400 with "thinking.enabled.budget_tokens: Field
+        // required". They must be classified as effort-incapable.
+        expect(getModelEffortSupport('claude-sonnet-4-6', 'anthropic')).toBe(false);
+        expect(getModelEffortSupport('eu.anthropic.claude-sonnet-4-6', 'bedrock')).toBe(false);
+        expect(getModelEffortSupport('claude-opus-4-6', 'anthropic')).toBe(false);
+        expect(getModelEffortSupport('eu.anthropic.claude-haiku-4-5-20251001-v1:0', 'bedrock')).toBe(false);
+        expect(getModelEffortSupport('anthropic/claude-3-haiku-20240307', 'openrouter')).toBe(false);
+    });
+
+    it('supports GPT-5 on OpenAI', () => {
+        expect(getModelEffortSupport('gpt-5', 'openai')).toBe(true);
+        expect(getModelEffortSupport('gpt-5.5', 'openai')).toBe(true);
+    });
+
+    it('supports o-series on OpenAI / Copilot / ChatGPT-OAuth', () => {
+        expect(getModelEffortSupport('o3', 'openai')).toBe(true);
+        expect(getModelEffortSupport('o1-mini', 'github-copilot')).toBe(true);
+        expect(getModelEffortSupport('o4-mini', 'chatgpt-oauth')).toBe(true);
+    });
+
+    it('supports GPT-5 / o-series via OpenRouter (non-Claude path)', () => {
+        expect(getModelEffortSupport('openai/gpt-5', 'openrouter')).toBe(true);
+        expect(getModelEffortSupport('openai/o3', 'openrouter')).toBe(true);
+    });
+
+    it('does NOT support Gemini', () => {
+        expect(getModelEffortSupport('gemini-2.5-pro', 'gemini')).toBe(false);
+    });
+
+    it('does NOT support ollama / lmstudio / custom', () => {
+        expect(getModelEffortSupport('llama-3.1-70b', 'ollama')).toBe(false);
+        expect(getModelEffortSupport('qwen3.5:9b', 'lmstudio')).toBe(false);
+        expect(getModelEffortSupport('some-model', 'custom')).toBe(false);
+    });
+
+    it('does NOT support a random custom id', () => {
+        expect(getModelEffortSupport('totally-made-up-1234', 'custom')).toBe(false);
+        expect(getModelEffortSupport('totally-made-up-1234', 'openai')).toBe(false);
+    });
+
+    it('does NOT support a non-Claude model on a Claude-only provider', () => {
+        // A GPT model accidentally configured under anthropic must not flip on.
+        expect(getModelEffortSupport('gpt-4o', 'anthropic')).toBe(false);
+        // Claude under openai is not a real combination either.
+        expect(getModelEffortSupport('claude-sonnet-4-6', 'openai')).toBe(false);
+    });
+
+    it('does NOT support GPT-4 lineage (no reasoning effort surface)', () => {
+        expect(getModelEffortSupport('gpt-4o', 'openai')).toBe(false);
+        expect(getModelEffortSupport('gpt-4.1', 'openai')).toBe(false);
+    });
+});
+
+describe('getModelEffortLevels', () => {
+    it('returns the five Claude levels (low..max) on bedrock', () => {
+        expect(getModelEffortLevels('eu.anthropic.claude-opus-4-8-v1', 'bedrock')).toEqual([
+            'low',
+            'medium',
+            'high',
+            'xhigh',
+            'max',
+        ]);
+    });
+
+    it('returns the five Claude levels for the effort-capable lineup on anthropic-direct and OpenRouter-Claude', () => {
+        expect(getModelEffortLevels('claude-opus-4-8', 'anthropic')).toEqual([
+            'low',
+            'medium',
+            'high',
+            'xhigh',
+            'max',
+        ]);
+        expect(getModelEffortLevels('anthropic/claude-opus-4-8', 'openrouter')).toEqual([
+            'low',
+            'medium',
+            'high',
+            'xhigh',
+            'max',
+        ]);
+    });
+
+    it('returns [] for budget-tokens Claude (they take budget_tokens, not effort)', () => {
+        expect(getModelEffortLevels('claude-sonnet-4-6', 'anthropic')).toEqual([]);
+        expect(getModelEffortLevels('eu.anthropic.claude-sonnet-4-6', 'bedrock')).toEqual([]);
+        expect(getModelEffortLevels('claude-opus-4-6', 'anthropic')).toEqual([]);
+        expect(getModelEffortLevels('anthropic/claude-3-5-sonnet', 'openrouter')).toEqual([]);
+    });
+
+    it('returns the four GPT levels (minimal..high) for GPT-5 and the o-series', () => {
+        expect(getModelEffortLevels('gpt-5', 'openai')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('gpt-5.5', 'openai')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('o3', 'github-copilot')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('o4-mini', 'chatgpt-oauth')).toEqual(['minimal', 'low', 'medium', 'high']);
+        expect(getModelEffortLevels('openai/gpt-5', 'openrouter')).toEqual(['minimal', 'low', 'medium', 'high']);
+    });
+
+    it('returns [] for non-effort families (gemini, ollama, custom, gpt-4 lineage)', () => {
+        expect(getModelEffortLevels('gemini-2.5-pro', 'gemini')).toEqual([]);
+        expect(getModelEffortLevels('llama-3.1-70b', 'ollama')).toEqual([]);
+        expect(getModelEffortLevels('qwen3.5:9b', 'lmstudio')).toEqual([]);
+        expect(getModelEffortLevels('some-model', 'custom')).toEqual([]);
+        expect(getModelEffortLevels('gpt-4o', 'openai')).toEqual([]);
+    });
+
+    it('returns [] for cross-provider mismatches (Claude under openai, GPT under anthropic)', () => {
+        expect(getModelEffortLevels('claude-sonnet-4-6', 'openai')).toEqual([]);
+        expect(getModelEffortLevels('gpt-4o', 'anthropic')).toEqual([]);
+    });
+
+    it('stays consistent with getModelEffortSupport (length > 0)', () => {
+        expect(getModelEffortLevels('claude-sonnet-4-6', 'anthropic').length > 0).toBe(
+            getModelEffortSupport('claude-sonnet-4-6', 'anthropic'),
+        );
+        expect(getModelEffortLevels('gemini-2.5-pro', 'gemini').length > 0).toBe(
+            getModelEffortSupport('gemini-2.5-pro', 'gemini'),
+        );
+    });
+});
+
+describe('modelUsesBudgetTokensThinking', () => {
+    it('returns false for the adaptive-thinking Claude family (Opus 4.7/4.8/4.9)', () => {
+        // These reject thinking.budget_tokens with a 400, adaptive only.
+        expect(modelUsesBudgetTokensThinking('claude-opus-4-7')).toBe(false);
+        expect(modelUsesBudgetTokensThinking('claude-opus-4-8')).toBe(false);
+        expect(modelUsesBudgetTokensThinking('claude-opus-4-9')).toBe(false);
+        expect(modelUsesBudgetTokensThinking('claude-opus-4-8-20260601')).toBe(false);
+    });
+
+    it('returns false for the Fable and Mythos families', () => {
+        expect(modelUsesBudgetTokensThinking('claude-fable-5')).toBe(false);
+        expect(modelUsesBudgetTokensThinking('claude-mythos-5')).toBe(false);
+        expect(modelUsesBudgetTokensThinking('claude-mythos-preview')).toBe(false);
+    });
+
+    it('normalizes provider-decorated ids before deciding', () => {
+        expect(modelUsesBudgetTokensThinking('anthropic/claude-opus-4-8')).toBe(false);
+        expect(modelUsesBudgetTokensThinking('eu.anthropic.claude-opus-4-8-v1')).toBe(false);
+        expect(modelUsesBudgetTokensThinking('eu.anthropic.claude-fable-5')).toBe(false);
+    });
+
+    it('returns true for older Claude that still takes budget_tokens', () => {
+        expect(modelUsesBudgetTokensThinking('claude-opus-4-6')).toBe(true);
+        expect(modelUsesBudgetTokensThinking('claude-sonnet-4-6')).toBe(true);
+        expect(modelUsesBudgetTokensThinking('claude-opus-4-5')).toBe(true);
+        expect(modelUsesBudgetTokensThinking('claude-3-5-sonnet-20241022')).toBe(true);
+    });
+
+    it('returns true for non-Claude and unknown ids (default to the existing budget path)', () => {
+        expect(modelUsesBudgetTokensThinking('gpt-4o')).toBe(true);
+        expect(modelUsesBudgetTokensThinking('totally-made-up-1234')).toBe(true);
     });
 });

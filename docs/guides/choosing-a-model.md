@@ -94,16 +94,16 @@ For API-key providers, the "Quick pick" dropdown shows popular models with pre-f
 
 ## Using different models for different tasks
 
-You don't have to use the same model everywhere. Vault Operator splits model usage across four layers:
+You don't have to use the same model everywhere. Vault Operator splits model usage across the provider's three tier slots, plus per-mode and per-conversation overrides:
 
-1. **Main tier (chat loop):** the default for every conversational turn. Driven by the active provider's Main slot.
-2. **Frontier tier (`consult_flagship`):** the on-demand escalation. Same provider as Main, different tier.
-3. **Helper model:** context condensing, fast-path planning, `plan_presentation`, and recipe promotion. Set in Settings > Agent behaviour > Loop > Helper model. Pick the cheapest model that still understands the prompts (Claude Haiku, GPT-4o-mini, Gemini Flash, local Ollama).
-4. **Per-mode overrides:** Ask mode can run on a tiny model; Agent mode on the main one. Settings > Modes.
+1. **Budget tier:** the cheapest slot. It doubles as the "helper" model used for context condensing, fast-path planning, `plan_presentation`, and recipe promotion, and the task router sends simple prompts here. Configure it in the provider's Budget tier slot. Pick the cheapest model that still understands the prompts (Claude Haiku, GPT-4o-mini, Gemini Flash, a local Ollama or MLX model).
+2. **Main tier (chat loop):** the default for every conversational turn. The active provider's Main slot.
+3. **Frontier tier (`consult_flagship`):** the on-demand escalation. The active provider's Frontier slot.
+4. **Per-mode overrides:** Ask mode can run on a tiny model, Agent mode on the main one. Settings > Modes.
 
-You can also pin a specific model for a single task through the chat-header model picker. Pinning shows as `mode=override` in the cost log.
+Automatic routing to the Budget tier is controlled by **Settings > Agent behaviour > Loop > Task routing**. Turn that toggle off if you want every turn to use the Main tier instead. (Earlier docs called the Budget tier a separate "Helper model" setting; it is now the provider's Budget slot, and the Loop section is named "Task routing".)
 
-A typical setup is one provider with a populated Main + Frontier slot, plus a cheap helper model from any provider.
+You can also pin a specific model for a single conversation through the chat-header model picker (shown as `mode=override` in the cost log). A pinned model always wins over the task router, so it will not be swapped to the Budget tier. The same picker has a per-conversation thinking on/off toggle.
 
 ## Embedding models
 

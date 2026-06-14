@@ -498,8 +498,15 @@ const mainBuildOptions = {
         {
             // Force transformers.js to use the web ONNX backend in Electron.
             // Electron's renderer is detected as IS_NODE_ENV=true, which selects
-            // onnxruntime-node (native addon that can't load). Patching to false
-            // makes it take the web branch with proper device registration.
+            // onnxruntime-node (native addon that can't load).
+            //
+            // NOTE: the onEnd marker patch below only matches unminified dev
+            // builds; in minified production builds the marker string never
+            // occurs, so this plugin is effectively a no-op there. The
+            // operative mechanism in production is the runtime injection of
+            // onnxruntime-web via globalThis[Symbol.for('onnxruntime')] in
+            // RerankerService.initBackend(), which short-circuits transformers'
+            // backend selection before the IS_NODE_ENV check is reached.
             name: "force-onnx-web-backend",
             setup(build) {
                 build.onResolve({ filter: /backends\/onnx\.js/ }, (args) => {

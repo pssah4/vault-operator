@@ -2419,6 +2419,11 @@
     width: 100%;
     max-width: 320px;
 }
+.provider-detail-modal .mcm-tier-manual-back {
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
 
 /* EPIC-26 / FEAT-26-03 -- section header inside .mcm-form */
 .mcm-section {
@@ -5997,6 +6002,190 @@
 .chat-model-picker-auto {
     border-bottom: 1px solid var(--background-modifier-border);
     margin-bottom: 4px;
+}
+
+/* Issue #44: per-conversation thinking binary switch.
+   A pill track with a sliding knob, accent-filled when on. */
+.chat-model-picker-thinking {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-top: 1px solid var(--background-modifier-border);
+    padding: 8px 10px;
+    flex-shrink: 0;
+}
+
+.chat-model-picker-thinking-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.chat-model-picker-thinking-switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 34px;
+    height: 18px;
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 999px;
+    background: var(--background-modifier-border);
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.chat-model-picker-thinking-switch.is-on {
+    background: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+}
+
+.chat-model-picker-thinking-knob {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--background-primary);
+    transition: transform 0.12s ease;
+}
+
+.chat-model-picker-thinking-switch.is-on .chat-model-picker-thinking-knob {
+    transform: translateX(16px);
+}
+
+.chat-model-picker-thinking-switch:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+.chat-model-picker-thinking-state {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-normal);
+    min-width: 22px;
+    text-align: right;
+}
+
+/* Per-conversation reasoning-effort slider: a Claude-Code-style pill slider
+   with discrete dot markers and a round knob, accent-filled up to the knob. */
+.chat-model-picker-effort {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid var(--background-modifier-border);
+    padding: 8px 10px;
+    flex-shrink: 0;
+}
+
+.chat-model-picker-effort-labelwrap {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.chat-model-picker-effort-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.chat-model-picker-effort-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.chat-model-picker-effort-pill {
+    position: relative;
+    width: 148px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--background-modifier-border);
+    cursor: pointer;
+    /* let a pointer drag move the knob without the list scrolling underneath */
+    touch-action: none;
+}
+
+/* Accent track filled up to the knob centre: KNOB_PX/2 + frac * (100% - KNOB_PX),
+   with KNOB_PX = 14px, so the fill always ends exactly under the knob. */
+.chat-model-picker-effort-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: calc(7px + var(--effort-frac, 0) * (100% - 14px));
+    border-radius: 999px;
+    background: var(--interactive-accent);
+    pointer-events: none;
+}
+
+.chat-model-picker-effort-dots {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* 5.5px = knob-centre inset (7px) minus half a dot (1.5px), so the dot
+       centres line up exactly with the knob stops. */
+    padding: 0 5.5px;
+    pointer-events: none;
+}
+
+.chat-model-picker-effort-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--background-primary);
+    opacity: 0.55;
+}
+
+/* The knob centre travels from 7px to width-7px, i.e.
+   left = frac * (100% - 14px); flush-left at 'auto', flush-right at 'max'. */
+.chat-model-picker-effort-knob {
+    position: absolute;
+    top: 50%;
+    left: calc(var(--effort-frac, 0) * (100% - 14px));
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: var(--background-primary);
+    border: 2px solid var(--interactive-accent);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+}
+
+.chat-model-picker-effort-pill:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+/* Issue #44: thinking-override badge on the chat-header model button */
+/* Thinking state on the chat-header model button. Always present so it mirrors
+   the picker switch. 'on' (incl. the follow default) is muted so the persistent
+   badge stays quiet; 'off' is accented so a disabled-thinking deviation stands
+   out at a glance. */
+.model-thinking-badge {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 7px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    color: var(--text-muted);
+    background: var(--background-modifier-border);
+}
+
+.model-thinking-badge.is-off {
+    color: var(--text-on-accent, white);
+    background: var(--text-accent, var(--interactive-accent));
 }
 
 /* Footer */

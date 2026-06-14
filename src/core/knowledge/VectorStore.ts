@@ -115,6 +115,22 @@ export class VectorStore {
         return map;
     }
 
+    /**
+     * Paths that look like stub entries: exactly one chunk whose stored text
+     * (including the title and frontmatter prefix) is shorter than maxLen.
+     * Used by the one-time body-gate cleanup sweep (ISSUE-E). Legit notes
+     * that slip in are re-read by the caller and kept.
+     */
+    getStubCandidatePaths(maxLen: number): string[] {
+        const db = this.getDB();
+        const result = db.exec(
+            'SELECT path FROM vectors GROUP BY path HAVING COUNT(*) = 1 AND MAX(LENGTH(text)) < ?',
+            [maxLen],
+        );
+        if (result.length === 0) return [];
+        return result[0].values.map((row) => row[0] as string);
+    }
+
     /** Get total number of unique indexed files. */
     getFileCount(): number {
         const db = this.getDB();

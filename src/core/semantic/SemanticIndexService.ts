@@ -32,6 +32,12 @@ export interface SemanticResult {
     path: string;
     excerpt: string;
     score: number;
+    /**
+     * Index of the chunk the excerpt was taken from (0 = opener chunk).
+     * Optional: older code paths and MCP callers may omit it; consumers
+     * must treat undefined as "unknown" and fall back to the excerpt as-is.
+     */
+    chunkIndex?: number;
 }
 
 export interface BuildResult {
@@ -72,6 +78,87 @@ export interface SemanticIndexOptions {
 const DEFAULT_CHUNK_SIZE = 2000;   // chars — larger chunks → fewer API calls
 const DEFAULT_COMMIT_EVERY = 20;   // files between disk commits
 const DEFAULT_EMBED_BATCH = 16;    // texts per API request
+
+// Minimum body length (chars, frontmatter excluded) for a note to enter the
+// index (ISSUE-E). Near-empty stubs embed close to the embedding-space
+// centroid and weakly cosine-match every query, so they surface at rank 1 in
+// the semantic arm and add noise to the keyword arm (same vectors table).
+// 40 chars: known stubs carry at most 10 chars of body ("# COWORK"), while
+// the smallest legit retrieval-bench fixture body has 63 chars.
+const MIN_INDEXABLE_BODY_CHARS = 40;
+
+// Max stored chunk text length (including the title and frontmatter prefix)
+// for the one-time stub cleanup sweep to consider a path a stub candidate.
+const STUB_SWEEP_MAX_TEXT_CHARS = 300;
+
+// ---------------------------------------------------------------------------
+// Keyword tokenization helpers. Shared by ALL token producers in this file
+// (query terms, chunk tokens, filename tokens, tag tokens); folding only one
+// side would silently break matching.
+// ---------------------------------------------------------------------------
+
+// Short acronyms that bypass the minimum token length filter.
+// Checked case-insensitively: tokens are lowercased before the check.
+// "re" is deliberately absent: tokenize() splits on hyphens, so every
+// "re-index"/"re-test"/"re-run" would shed a noise "re" token into the
+// index and into queries.
+export const ACRONYM_ALLOWLIST: ReadonlySet<string> = new Set([
+    'ki', 'ai', 'os', 'ba', 'js', 'db', 'ml', 'ui', 'ux', 'ci', 'it',
+]);
+
+// foldToken() runs on every token of every chunk during keywordSearch(),
+// which re-tokenizes the corpus per query. The vocabulary is small and
+// highly repetitive, so memoizing the fold turns five regex passes plus
+// an NFKD normalize into a Map lookup for almost every call.
+const FOLD_CACHE_MAX = 50000;
+const foldCache = new Map<string, string>();
+
+/**
+ * Fold a lowercased token to its ASCII search form:
+ * 1. Map German sharp s to "ss".
+ * 2. NFKD-decompose and strip combining marks (u-umlaut becomes "u").
+ * 3. Collapse the German transliteration digraphs ae/oe/ue to a/o/u
+ *    ("ue" only when not preceded by a vowel or "q", mirroring Lucene's
+ *    GermanNormalizationFilter) so the umlaut spelling and the ASCII
+ *    transliteration of the same word produce an identical token.
+ */
+export function foldToken(token: string): string {
+    const cached = foldCache.get(token);
+    if (cached !== undefined) return cached;
+    const folded = token
+        .replace(/ß/g, 'ss')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ae/g, 'a')
+        .replace(/oe/g, 'o')
+        .replace(/(?<![aeiouq])ue/g, 'u');
+    // Bounded cache: a full clear is rare (the vocabulary of a vault stays
+    // far below the cap) and cheaper than LRU bookkeeping on the hot path.
+    if (foldCache.size >= FOLD_CACHE_MAX) foldCache.clear();
+    foldCache.set(token, folded);
+    return folded;
+}
+
+// Common stop words that add noise to TF-IDF (German plus English).
+// Kept minimal: IDF handles most stop words, but very common words like
+// "ist", "wie", "the" appear in nearly every chunk and dilute scores.
+// Entries pass through foldToken() so the set lives in the same folded
+// space as the tokens it filters. "ueber" is intentionally NOT in the
+// list: folded it would collide with the content word "über" and make
+// notes like "Über das Projekt" unfindable. None of the folded entries
+// collide with ACRONYM_ALLOWLIST (guarded by tokenizer-folding.test.ts).
+export const KEYWORD_STOP_WORDS: ReadonlySet<string> = new Set([
+    // German
+    'der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einer', 'eines',
+    'ist', 'sind', 'war', 'hat', 'haben', 'wird', 'werden', 'kann', 'koennen',
+    'wie', 'was', 'wer', 'wir', 'ich', 'sie', 'und', 'oder', 'aber', 'auch',
+    'mit', 'von', 'aus', 'fuer', 'bei', 'nach', 'unter', 'auf',
+    'nicht', 'noch', 'nur', 'sehr', 'schon', 'doch', 'dass', 'wenn', 'weil',
+    // English
+    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her',
+    'was', 'one', 'our', 'out', 'has', 'had', 'this', 'that', 'with', 'from',
+    'have', 'been', 'will', 'they', 'were', 'which', 'their', 'what', 'about',
+].map((w) => foldToken(w)));
 
 // ---------------------------------------------------------------------------
 // SemanticIndexService
@@ -335,6 +422,20 @@ export class SemanticIndexService {
             this.progressTotal = total;
             onProgress?.(indexed, total);
 
+            // One-time cleanup of pre-existing stub vectors (ISSUE-E): stubs
+            // indexed before the body gate existed keep unchanged mtimes, so
+            // they never enter toIndex and would pollute search results until
+            // touched. Runs BEFORE the toIndex-empty early return on purpose:
+            // "nothing changed" is exactly the state old stubs are in. Full
+            // rebuilds apply the gate to every file anyway and set the flag
+            // at the end. No re-embedding happens here; cost is a few
+            // cachedReads on tiny files.
+            if (!isFullRebuild && !this.cancelled
+                && this.knowledgeDB.getCheckpointValue('bodyGateVersion') !== '1') {
+                await this.cleanupStubVectors();
+                this.knowledgeDB.setCheckpointValue('bodyGateVersion', '1');
+            }
+
             if (toIndex.length === 0) {
                 console.debug('[SemanticIndex] Index up to date — nothing to index.');
                 this.builtAt = new Date();
@@ -370,6 +471,12 @@ export class SemanticIndexService {
                         // Contextual Enrichment runs as Pass 2 in the background after build.
                         const vectors = await this.embedBatch(enrichedChunks);
                         this.vectorStore.insertChunks(file.path, enrichedChunks, vectors, file.stat?.mtime ?? 0, 0);
+                    } else {
+                        // File shrank to a gated stub (or emptied): drop its old
+                        // vectors. Side effect: gated files never store an mtime,
+                        // so each build re-reads and re-chunks them (cachedRead
+                        // plus one regex, no embedding call). Negligible.
+                        this.vectorStore.deleteByPath(file.path);
                     }
 
                     indexed++;
@@ -402,6 +509,12 @@ export class SemanticIndexService {
                         this.vectorStore.deleteByPath(p);
                     }
                 }
+            }
+
+            // A completed full rebuild applied the body gate to every file,
+            // so the one-time stub sweep is unnecessary afterwards.
+            if (isFullRebuild && !this.cancelled) {
+                this.knowledgeDB.setCheckpointValue('bodyGateVersion', '1');
             }
 
             // Final checkpoint + save
@@ -437,6 +550,40 @@ export class SemanticIndexService {
         } finally {
             this.isBuilding = false;
             this.abortController = null;
+        }
+    }
+
+    /**
+     * One-time sweep removing pre-existing stub vectors (ISSUE-E).
+     * Candidates are single-chunk entries whose stored text is short; each
+     * is re-read and re-chunked, and only entries the body gate now rejects
+     * are deleted. Legit short notes that slip into the candidate set are
+     * kept. Binary documents and images are skipped to avoid parser cost
+     * (binary stubs are rare and clean up on touch or full rebuild).
+     */
+    private async cleanupStubVectors(): Promise<void> {
+        const candidates = this.vectorStore.getStubCandidatePaths(STUB_SWEEP_MAX_TEXT_CHARS);
+        let removed = 0;
+        for (const p of candidates) {
+            // session:/episode: entries are not vault files; leave them alone.
+            if (p.startsWith('session:') || p.startsWith('episode:')) continue;
+            const ext = p.split('.').pop()?.toLowerCase() ?? '';
+            if (SemanticIndexService.BINARY_DOCUMENT_EXTENSIONS.has(ext)) continue;
+            if (SemanticIndexService.IMAGE_EXTENSIONS.has(ext)) continue;
+            const file = this.vault.getFileByPath(p);
+            if (!file) continue;
+            try {
+                const content = await this.vault.cachedRead(file);
+                if (this.splitIntoChunks(content, this.chunkSize).length === 0) {
+                    this.vectorStore.deleteByPath(p);
+                    removed++;
+                }
+            } catch (e) {
+                console.warn(`[SemanticIndex] Stub sweep failed for ${p}:`, e);
+            }
+        }
+        if (removed > 0) {
+            console.debug(`[SemanticIndex] Stub sweep removed ${removed} gated entries.`);
         }
     }
 
@@ -552,54 +699,43 @@ export class SemanticIndexService {
     }
 
     /**
-     * Tokenize text into stemmed words.
+     * Tokenize text into folded, stemmed words.
      * Splits on word boundaries (whitespace, hyphens, underscores, punctuation)
-     * to handle compound words like "Meeting-Notiz" → ["meeting", "notiz"].
-     * Filters tokens shorter than 3 characters.
+     * to handle compound words like "Meeting-Notiz" -> ["meeting", "notiz"].
+     * Each token is folded via foldToken() (umlauts, sharp s, German
+     * transliteration digraphs) BEFORE the length filter and stemming.
+     * Filters tokens shorter than 3 characters unless they are listed in
+     * ACRONYM_ALLOWLIST ("ki", "ai", "os", ...).
      */
     private static tokenize(text: string): string[] {
         return text
             .toLowerCase()
             .split(/[\s_/,.;:!?()[\]{}"'`|@#=+*<>~^-]+/)
-            .filter((t) => t.length >= 3)
+            .map((t) => foldToken(t))
+            .filter((t) => t.length >= 3 || ACRONYM_ALLOWLIST.has(t))
             .map((t) => SemanticIndexService.stemWord(t));
     }
 
     /**
-     * Keyword search over indexed chunks using TF-IDF scoring with stemming.
+     * Keyword search over indexed chunks using TF-IDF scoring with folding
+     * and stemming.
      *
      * Improvements over the previous substring-counting approach:
      * - Stemming: "meetings" matches "Meeting-Notiz" (both stem to "meeting")
      * - Word boundaries: "cat" does NOT match "category" (tokenized separately)
-     * - IDF weighting: rare terms score higher than common words (language-agnostic,
-     *   no hardcoded stop-word list needed)
-     * - Compound-word splitting: "Meeting-Notiz" → ["meeting", "notiz"]
+     * - IDF weighting: rare terms score higher than common words (language-agnostic)
+     * - Compound-word splitting: "Meeting-Notiz" -> ["meeting", "notiz"]
+     * - Unicode folding: "ueber" matches "über" (both fold to "uber")
      *
      * Used by hybrid search (RRF fusion) to catch exact names/tags the embedding misses.
      */
-    // Common stop words that add noise to TF-IDF (German + English).
-    // Kept minimal — IDF handles most stop words, but very common words
-    // like "ist", "wie", "the" appear in nearly every chunk and dilute scores.
-    private static readonly STOP_WORDS = new Set([
-        // German
-        'der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einer', 'eines',
-        'ist', 'sind', 'war', 'hat', 'haben', 'wird', 'werden', 'kann', 'koennen',
-        'wie', 'was', 'wer', 'wir', 'ich', 'sie', 'und', 'oder', 'aber', 'auch',
-        'mit', 'von', 'aus', 'fuer', 'bei', 'nach', 'ueber', 'unter', 'auf',
-        'nicht', 'noch', 'nur', 'sehr', 'schon', 'doch', 'dass', 'wenn', 'weil',
-        // English
-        'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her',
-        'was', 'one', 'our', 'out', 'has', 'had', 'this', 'that', 'with', 'from',
-        'have', 'been', 'will', 'they', 'were', 'which', 'their', 'what', 'about',
-    ]);
-
     // eslint-disable-next-line @typescript-eslint/require-await -- public API expects Promise for consistency
     async keywordSearch(query: string, topK = 8): Promise<SemanticResult[]> {
         if (!this.knowledgeDB.isOpen()) return [];
         try {
-            // 1. Tokenize + stem query terms, deduplicate, remove stop words
+            // 1. Tokenize + fold + stem query terms, deduplicate, remove stop words
             const queryTerms = [...new Set(SemanticIndexService.tokenize(query))]
-                .filter(t => !SemanticIndexService.STOP_WORDS.has(t));
+                .filter(t => !KEYWORD_STOP_WORDS.has(t));
             if (queryTerms.length === 0) return [];
 
             const allChunks = this.vectorStore.getAllChunks();
@@ -621,18 +757,22 @@ export class SemanticIndexService {
             }
 
             // 3. Score each chunk: sum(TF * IDF) per matching term, keep best chunk per file
-            const byPath = new Map<string, { excerpt: string; score: number }>();
+            const byPath = new Map<string, { excerpt: string; score: number; chunkIndex: number }>();
             for (let idx = 0; idx < allChunks.length; idx++) {
-                const { path: filePath, text: chunk } = allChunks[idx];
+                const { path: filePath, text: chunk, chunkIndex } = allChunks[idx];
                 if (!chunk || !filePath) continue;
 
                 const tokenSet = chunkTokensCache.get(idx);
                 if (!tokenSet) continue;
 
                 let score = 0;
+                // Tokenize the chunk at most once per chunk (not once per
+                // matching query term): the TF loop only needs the token
+                // list when at least one term is present in the token set.
+                let tokens: string[] | null = null;
                 for (const qt of queryTerms) {
                     if (!tokenSet.has(qt)) continue;
-                    const tokens = SemanticIndexService.tokenize(chunk);
+                    tokens ??= SemanticIndexService.tokenize(chunk);
                     const tf = tokens.filter((t) => t === qt).length;
                     const df = docFreq.get(qt) ?? 1;
                     const idf = Math.log((N + 1) / (df + 1));
@@ -642,7 +782,7 @@ export class SemanticIndexService {
 
                 const existing = byPath.get(filePath);
                 if (!existing || score > existing.score) {
-                    byPath.set(filePath, { excerpt: chunk, score });
+                    byPath.set(filePath, { excerpt: chunk, score, chunkIndex });
                 }
             }
 
@@ -665,7 +805,7 @@ export class SemanticIndexService {
             const entries = Array.from(byPath.entries());
             const maxScore = entries.reduce((m, [, v]) => Math.max(m, v.score), 1);
             return entries
-                .map(([filePath, v]) => ({ path: filePath, excerpt: v.excerpt, score: v.score / maxScore }))
+                .map(([filePath, v]) => ({ path: filePath, excerpt: v.excerpt, score: v.score / maxScore, chunkIndex: v.chunkIndex }))
                 .sort((a, b) => b.score - a.score)
                 .slice(0, topK);
         } catch {
@@ -690,7 +830,7 @@ export class SemanticIndexService {
         try {
             const queryTokens = new Set(
                 [...SemanticIndexService.tokenize(query)]
-                    .filter(t => !SemanticIndexService.STOP_WORDS.has(t)),
+                    .filter(t => !KEYWORD_STOP_WORDS.has(t)),
             );
             if (queryTokens.size === 0) return [];
 
@@ -724,7 +864,7 @@ export class SemanticIndexService {
             // Hydrate with excerpts -- first chunk of each file
             return ranked.map(({ path, score }) => {
                 const chunks = this.vectorStore.getChunkTextsByPath(path);
-                return { path, excerpt: chunks[0] ?? '', score };
+                return { path, excerpt: chunks[0] ?? '', score, chunkIndex: 0 };
             });
         } catch {
             return [];
@@ -778,6 +918,7 @@ export class SemanticIndexService {
                     path: r.path,
                     excerpt: r.text,
                     score: r.score,
+                    chunkIndex: r.chunkIndex,
                 }));
             }
 
@@ -787,6 +928,7 @@ export class SemanticIndexService {
                 path: r.path,
                 excerpt: r.text,
                 score: r.score,
+                chunkIndex: r.chunkIndex,
             }));
         } catch (e) {
             console.error('[SemanticIndex] Search failed:', e);
@@ -1477,9 +1619,22 @@ export class SemanticIndexService {
             return '';
         }).trim();
 
+        // Body gate (ISSUE-E): skip notes whose body is shorter than
+        // MIN_INDEXABLE_BODY_CHARS. Measured on bodyText only, NOT on the
+        // frontmatter-prepended string, so templated frontmatter bloat
+        // (uid/created/modified keys) cannot push a stub over the gate.
+        // Trade-offs: (a) gated notes vanish from the semantic AND keyword
+        // arms (keywordSearch reads the same vectors table); Obsidian native
+        // search still covers title lookup. (b) Frontmatter-only "property
+        // notes" lose semantic findability; the tag arm (separate tags table
+        // via GraphStore) and native search still cover them. (c) The gate
+        // also applies to indexSessionSummary/indexEpisode: sub-40-char
+        // summaries/episodes are dropped, which is harmless. The gate
+        // subsumes the previous empty-stripped check.
+        if (bodyText.length < MIN_INDEXABLE_BODY_CHARS) return [];
+
         // Prepend frontmatter (if any) to the body so IDs/tags appear in chunk 0
         const stripped = frontmatterContent ? `${frontmatterContent}\n\n${bodyText}` : bodyText;
-        if (!stripped) return [];
         if (stripped.length <= maxChars) return [stripped];
 
         // Split at heading boundaries (keep heading with its content)

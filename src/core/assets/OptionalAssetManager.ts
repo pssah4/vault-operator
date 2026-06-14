@@ -234,7 +234,10 @@ export class OptionalAssetManager {
         if (sha !== spec.expectedSha256) {
             throw new Error(
                 `Hash mismatch for ${spec.id}: expected ${spec.expectedSha256.slice(0, 16)}..., ` +
-                `got ${sha.slice(0, 16)}...`,
+                `got ${sha.slice(0, 16)}... ` +
+                `The downloaded asset from the ${this.plugin.manifest.version} release does not match ` +
+                `the hash compiled into this plugin build. If you run a locally built plugin, use ` +
+                `'Install from file' and select the ${spec.filename} produced by your own build (next to main.js).`,
             );
         }
 

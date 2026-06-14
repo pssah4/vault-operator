@@ -14,11 +14,25 @@ import { describe, it, expect } from 'vitest';
 import { isDeferredTool, DEFERRED_TOOL_NAMES } from '../toolMetadata';
 
 describe('isDeferredTool (FEATURE-1600)', () => {
-    it('flags office-format creators as deferred', () => {
-        expect(isDeferredTool('create_pptx')).toBe(true);
-        expect(isDeferredTool('create_docx')).toBe(true);
-        expect(isDeferredTool('create_xlsx')).toBe(true);
+    it('keeps office-format creators always loaded (v2.10.0 cost-reduction)', () => {
+        // v2.10.0 (commit 25e93bd4) removed create_pptx/create_docx/create_xlsx
+        // from DEFERRED_TOOL_NAMES: the find_tool round-trip they used to
+        // require invalidated the prompt cache on every Office call (40k+
+        // cache-write tokens, ~75 cents at Opus). The less-frequent
+        // plan_presentation stays deferred.
+        expect(isDeferredTool('create_pptx')).toBe(false);
+        expect(isDeferredTool('create_docx')).toBe(false);
+        expect(isDeferredTool('create_xlsx')).toBe(false);
         expect(isDeferredTool('plan_presentation')).toBe(true);
+    });
+
+    it('flags checkpoint browse/restore tools as deferred (IMP-01-07-01)', () => {
+        // Checkpoint recovery is rare; find_tool hits "checkpoint" strongly
+        // in all four names, so deferring saves four schemas per prompt.
+        expect(isDeferredTool('list_checkpoints')).toBe(true);
+        expect(isDeferredTool('read_checkpoint')).toBe(true);
+        expect(isDeferredTool('diff_checkpoint')).toBe(true);
+        expect(isDeferredTool('restore_checkpoint')).toBe(true);
     });
 
     it('flags specialised diagram tools as deferred', () => {
@@ -126,16 +140,16 @@ describe('FindToolTool matching semantics (FEATURE-1600 + BUG-021 Wave-4)', () =
         return scored.slice(0, 5).map((s) => s.name);
     }
 
-    it('"pptx" matches create_pptx and plan_presentation', async () => {
+    it('"pptx" does NOT surface create_pptx (always loaded since v2.10.0)', async () => {
+        // create_pptx left DEFERRED_TOOL_NAMES in v2.10.0; its schema is in
+        // every prompt, so find_tool must not need to surface it.
         const matches = await findMatches('pptx');
-        expect(matches).toContain('create_pptx');
-        // create_pptx gets the higher score because its name matches directly.
-        expect(matches[0]).toBe('create_pptx');
+        expect(matches).not.toContain('create_pptx');
     });
 
-    it('"docx" matches create_docx', async () => {
+    it('"docx" does NOT surface create_docx (always loaded since v2.10.0)', async () => {
         const matches = await findMatches('docx');
-        expect(matches[0]).toBe('create_docx');
+        expect(matches).not.toContain('create_docx');
     });
 
     it('"canvas" matches generate_canvas', async () => {
@@ -186,9 +200,22 @@ describe('FindToolTool matching semantics (FEATURE-1600 + BUG-021 Wave-4)', () =
         expect(matches).toContain('vault_health_check');
     });
 
-    it('"create pptx" picks create_pptx over plan_presentation', async () => {
+    it('"create pptx" does NOT surface create_pptx (always loaded since v2.10.0)', async () => {
         const matches = await findMatches('create pptx');
-        expect(matches[0]).toBe('create_pptx');
+        expect(matches).not.toContain('create_pptx');
+    });
+
+    it('"plan presentation" matches plan_presentation', async () => {
+        const matches = await findMatches('plan presentation');
+        expect(matches[0]).toBe('plan_presentation');
+    });
+
+    it('"checkpoint" matches all four checkpoint tools (IMP-01-07-01)', async () => {
+        const matches = await findMatches('checkpoint');
+        expect(matches).toContain('list_checkpoints');
+        expect(matches).toContain('read_checkpoint');
+        expect(matches).toContain('diff_checkpoint');
+        expect(matches).toContain('restore_checkpoint');
     });
 
     it('"ingest document" matches ingest_document', async () => {

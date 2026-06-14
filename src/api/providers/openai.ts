@@ -12,7 +12,7 @@ import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import type { IncomingMessage } from 'http';
-import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortLevels } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
 import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
 
@@ -265,10 +265,14 @@ export class OpenAiProvider implements ApiHandler {
         }
 
         // OpenRouter extended thinking: when enabled for Anthropic models via OpenRouter,
-        // force temperature to 1 and pass reasoning parameter
+        // force temperature to 1 and pass reasoning parameter. The guard must
+        // not override models that reject temperature outright (Opus 4.7+,
+        // Fable, Mythos via supportsTemperature) or pin it API-side (o-series),
+        // otherwise sending temperature: 1 re-introduces the 400 the
+        // supportsTemperature gate above just prevented.
         const openRouterThinking = this.config.type === 'openrouter'
             && (this.config.thinkingEnabled ?? false);
-        if (openRouterThinking) {
+        if (openRouterThinking && supportsTemperature && !isOSeries) {
             temperature = 1;
         }
         // Clamp the output budget to the model's real ceiling and (for thinking)
@@ -285,6 +289,28 @@ export class OpenAiProvider implements ApiHandler {
             },
         );
 
+        // Per-conversation reasoning effort. Only honoured for effort-capable
+        // (model, provider) pairs (gpt-5 / o-series on openai/copilot/openrouter,
+        // Claude-via-openrouter). 'auto'/undefined sends nothing, so the request
+        // stays byte-identical to today. The wire field differs by provider:
+        //   - OpenRouter normalizes to reasoning: { effort } (works for both its
+        //     Claude and non-Claude reasoning models, and merges with the
+        //     existing reasoning.max_tokens passthrough).
+        //   - openai / github-copilot use the chat-completions reasoning_effort.
+        // Defensive per-family validity: getModelEffortLevels returns the exact
+        // native set for this (model, provider) pair (OpenRouter Claude -> low..
+        // max, GPT -> minimal..high), so a cross-family level (a Claude-only
+        // xhigh/max accidentally set on a GPT model, or a GPT-only minimal on an
+        // OpenRouter Claude) is dropped, not sent.
+        const effort = this.config.reasoningEffort;
+        const effortLevels = getModelEffortLevels(this.config.model, this.config.type);
+        const effortValid = effort !== undefined && effortLevels.includes(effort);
+        // OpenRouter reasoning object: merge the existing extended-thinking
+        // max_tokens passthrough (if any) with the effort field (if any).
+        const openRouterReasoning: Record<string, unknown> = {};
+        if (openRouterThinking) openRouterReasoning.max_tokens = budgetTokens;
+        if (effortValid && this.config.type === 'openrouter') openRouterReasoning.effort = effort;
+
         // Build request body
         const requestBody: OpenAI.ChatCompletionCreateParamsStreaming = {
             model: this.config.type !== 'azure' ? this.config.model : this.config.model,
@@ -300,9 +326,14 @@ export class OpenAiProvider implements ApiHandler {
             stream_options: (this.config.type === 'openai' || this.config.type === 'openrouter')
                 ? { include_usage: true }
                 : undefined,
-            // OpenRouter reasoning passthrough for Anthropic models
-            ...(openRouterThinking
-                ? { reasoning: { max_tokens: budgetTokens } } as Record<string, unknown>
+            // OpenRouter reasoning object: extended-thinking max_tokens passthrough
+            // and/or the native effort field, whichever is active.
+            ...(Object.keys(openRouterReasoning).length > 0
+                ? { reasoning: openRouterReasoning } as Record<string, unknown>
+                : {}),
+            // openai / github-copilot reasoning effort (chat-completions field).
+            ...(effortValid && this.config.type !== 'openrouter'
+                ? { reasoning_effort: effort } as Record<string, unknown>
                 : {}),
             // OpenRouter: disable automatic model fallback to prevent silent model switches.
             // Without this, OpenRouter can route to a completely different model (e.g. Gemini)

@@ -126,13 +126,15 @@ const MODEL_SUGGESTIONS: Record<string, { group: string; id: string; label: stri
         { group: 'Amazon Nova',    id: 'us.amazon.nova-lite-v1:0',                    label: 'Nova Lite (US)' },
     ],
     'chatgpt-oauth': [
-        // `-mini` variants are not exposed on the ChatGPT subscription backend
-        // (Codex CLI lineup includes them, but chatgpt.com 400s "not supported
-        // when using Codex with a ChatGPT account"). API-only.
-        { group: 'GPT-5',  id: 'gpt-5.5',          label: 'GPT-5.5  (recommended for Pro)' },
-        { group: 'GPT-5',  id: 'gpt-5',            label: 'GPT-5' },
-        { group: 'Codex',  id: 'gpt-5-codex',      label: 'GPT-5 Codex' },
-        { group: 'Codex',  id: 'gpt-5.1-codex',    label: 'GPT-5.1 Codex' },
+        // Static fallback suggestions. The live "Fetch" path queries the real
+        // Codex /codex/models endpoint, which is account- and version-specific
+        // and authoritative. This list MUST stay a subset of KNOWN_MODELS in
+        // src/api/providers/chatgpt-oauth.ts (the static fallback lineup) so
+        // an offline pick is one the backend currently accepts. Guard:
+        // src/ui/settings/__tests__/chatgptOAuthSuggestions.test.ts.
+        { group: 'GPT-5',  id: 'gpt-5.5',              label: 'GPT-5.5' },
+        { group: 'GPT-5',  id: 'gpt-5.4',              label: 'GPT-5.4' },
+        { group: 'GPT-5',  id: 'gpt-5.4-mini',         label: 'GPT-5.4 mini' },
     ],
 };
 

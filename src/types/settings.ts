@@ -2,6 +2,8 @@
  * Plugin Settings
  */
 
+import type { EffortLevel } from './model-registry';
+
 // ---------------------------------------------------------------------------
 // CustomModel — single unified model entry (replaces per-provider LLMProvider)
 // Adapted from Obsidian Copilot's CustomModel pattern
@@ -39,6 +41,8 @@ export interface CustomModel {
     thinkingEnabled?: boolean;
     /** Thinking budget in tokens (used when thinkingEnabled is true, default 10000) */
     thinkingBudgetTokens?: number;
+    /** Native reasoning-effort level for effort-capable models; undefined sends no effort field. */
+    reasoningEffort?: EffortLevel;
     /** AWS region (Bedrock only), e.g. "eu-central-1", "us-east-1" */
     awsRegion?: string;
     /** Auth mode for Bedrock: 'api-key' uses a single bearer token (new AWS Bedrock API Keys),
@@ -246,6 +250,15 @@ export const BUILT_IN_MODELS: CustomModel[] = [
         enabled: false,
         isBuiltIn: true,
     },
+    // Cohere (custom provider, OpenAI compatibility endpoint -- needs a Cohere API key)
+    {
+        name: 'command-a-03-2025',
+        provider: 'custom',
+        displayName: 'Cohere Command A',
+        baseUrl: 'https://api.cohere.ai/compatibility/v1',
+        enabled: false,
+        isBuiltIn: true,
+    },
 ];
 
 // ---------------------------------------------------------------------------
@@ -268,6 +281,8 @@ export interface LLMProvider {
     thinkingEnabled?: boolean;
     /** Thinking budget in tokens */
     thinkingBudgetTokens?: number;
+    /** Native reasoning-effort level for effort-capable models; undefined sends no effort field. */
+    reasoningEffort?: EffortLevel;
     /** AWS region (Bedrock only) */
     awsRegion?: string;
     /** Bedrock auth mode */
@@ -298,6 +313,7 @@ export function modelToLLMProvider(model: CustomModel): LLMProvider {
         promptCachingEnabled: model.promptCachingEnabled !== false,
         thinkingEnabled: model.thinkingEnabled,
         thinkingBudgetTokens: model.thinkingBudgetTokens,
+        reasoningEffort: model.reasoningEffort,
         awsRegion: model.awsRegion,
         awsAuthMode: model.awsAuthMode,
         awsApiKey: model.awsApiKey,
@@ -788,6 +804,8 @@ export interface ObsidianAgentSettings {
     contextualModelKey: string;
     /** HyDE: generate a hypothetical document before embedding the query. Off by default (costs 1 extra LLM call per search). */
     hydeEnabled: boolean;
+    /** Weighted RRF fusion: downweight the tag arm (0.6) and blend dense cosine into the final ordering. Off reproduces plain RRF. */
+    weightedFusionEnabled: boolean;
     /** Auto-index vault files as they change (modify/create/delete/rename). Off by default — can slow down Obsidian if using a local embedding model. */
     semanticAutoIndexOnChange: boolean;
 
@@ -1046,6 +1064,15 @@ export interface ObsidianAgentSettings {
     autoTaskRouter: {
         enabled: boolean;
     };
+
+    /**
+     * Always use the compact system-prompt variants (EPIC-26 lean cost
+     * heuristics + lean plugin-skill catalogue) to save tokens. When false,
+     * the lean variants are chosen by routing heuristics only.
+     *
+     * Default: false (current behaviour preserved).
+     */
+    leanSystemPrompt: boolean;
 
     /** BA-25: Vault-Ingest-Pflege (Note-Summary, Frontmatter, Auto-Trigger, PDF). */
     vaultIngest: VaultIngestSettings;
@@ -1498,6 +1525,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     enableContextualRetrieval: true,
     contextualModelKey: '',
     hydeEnabled: false,
+    weightedFusionEnabled: true,
     semanticAutoIndexOnChange: false,
     enableGraphExpansion: true,
     graphExpansionHops: 1,
@@ -1646,12 +1674,13 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     chatgptOAuthEmail: '',
     chatgptOAuthPlanTier: '',
     chatgptOAuthExpiresAt: 0,
-    chatgptOAuthModel: 'gpt-5.5',
+    chatgptOAuthModel: 'gpt-5-codex',
     chatgptOAuthDisclaimerAcknowledgedAt: 0,
     debugMode: false,
     agentFolderPath: '.vault-operator',
     defaultOutputFolder: 'Inbox/',
     autoTaskRouter: { enabled: true },
+    leanSystemPrompt: false,
     vaultIngest: DEFAULT_VAULT_INGEST_SETTINGS,
 
     // EPIC-26 / ADR-122: provider-only setup. Pre-migration defaults

@@ -533,8 +533,10 @@ async function fetchProviderModels(
     // (network error) and discovery returns empty; the test-connection then
     // falls back to a placeholder model id and the Codex backend 400s.
     if (provider === 'chatgpt-oauth') {
-        const { listKnownChatGptOAuthModels } = await import('../../api/providers/chatgpt-oauth');
-        return listKnownChatGptOAuthModels();
+        // Live discovery from the Codex /codex/models endpoint (account- and
+        // client-version-specific), with a static fallback baked in.
+        const { fetchChatGptOAuthModels } = await import('../../api/providers/chatgpt-oauth');
+        return fetchChatGptOAuthModels();
     }
 
     // Kilo Gateway. dynamic model list via KiloMetadataService

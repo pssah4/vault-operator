@@ -1,7 +1,7 @@
 {
   "id": "vault-operator",
   "name": "Vault Operator",
-  "version": "2.13.7",
+  "version": "2.14.0",
   "minAppVersion": "1.13.0",
   "description": "Agentic AI operating layer for your vault. Discovers and uses installed plugins, maintains persistent unified memory, and adapts to your workflows, skills and tools with full safety controls.",
   "author": "Sebastian Hanke",

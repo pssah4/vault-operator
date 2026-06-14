@@ -80,6 +80,22 @@ const COMPLEX_SKILL_TRANSLATION_RE =
 const SHORT_PROMPT_CHARS = 80;
 const LONG_PROMPT_CHARS = 300;
 
+/**
+ * Gate for the auto-routing entry in AgentTask.run() (issue #44).
+ *
+ * The TaskRouter only ever runs for the top-level task (subtasks inherit
+ * the parent's api) AND only when no manual model override is active. A
+ * manual chat-header model pick is a hard override that wins over
+ * auto-routing for the whole conversation: VO manual override > TaskRouter.
+ * Without this gate, a short/simple prompt under a manual override was
+ * silently swapped onto the helper (budget) model, defeating the user's
+ * explicit choice. Mirrors the already-gated mode-model path and the
+ * consult_flagship suppression that also honour the override flag.
+ */
+export function shouldRunTaskRouter(depth: number, modelOverrideActive: boolean): boolean {
+    return depth === 0 && !modelOverrideActive;
+}
+
 export class TaskRouter {
     /**
      * Stage-1 regex classifier. Pure function over the prompt text. Returns

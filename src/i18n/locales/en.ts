@@ -408,6 +408,8 @@ export const en: Translations = {
     'settings.loop.sectionRoutingDesc': "Some prompts (create one XLSX, summarise a single note, rename a folder) do not need a flagship model. Vault Operator can detect those and route them to your cheaper budget-tier model automatically, falling back to the main model if the budget model struggles.",
     'settings.loop.autoTaskRouterName': 'Route simple tasks to the cheap tier',
     'settings.loop.autoTaskRouterDesc': 'Single-step prompts use the budget-tier model. Multi-step prompts stay on the main model. Default: on.',
+    'settings.loop.leanSystemPromptName': 'Lean system prompt',
+    'settings.loop.leanSystemPromptDesc': 'Always use the compact prompt variants to save tokens. May slightly reduce plugin-skill awareness until a skill is mentioned. Default: off.',
 
     // =========================================================================
     // Settings — Memory Tab
@@ -1574,6 +1576,8 @@ export const en: Translations = {
     'settings.providers.discovery': 'Discovered models',
     'settings.providers.discoveryDesc': '{{count}} models · last refresh: {{stamp}}',
     'settings.providers.discoveryEmpty': 'No models discovered yet. Add your credentials, then refresh.',
+    'settings.providers.discoveryCodex': 'Known Codex lineup ({{count}}). This backend has no model list, so newer ids can be entered manually in a tier slot.',
+    'settings.providers.discoveryCodexEmpty': 'Shows the known Codex lineup after refresh. This backend has no model list, so newer ids can be entered manually in a tier slot.',
     'settings.providers.refresh': 'Refresh',
     'settings.providers.refreshing': 'Refreshing…',
     'settings.providers.refreshDone': 'Models refreshed.',
@@ -1600,6 +1604,9 @@ export const en: Translations = {
     'settings.providers.tier.manuallySet': 'Manually set',
     'settings.providers.tier.empty': 'Not assigned',
     'settings.providers.tier.differentTier': 'Different tier',
+    'settings.providers.tier.manualOption': 'Enter model id manually...',
+    'settings.providers.tier.manualPlaceholder': 'e.g. gpt-5.3-codex',
+    'settings.providers.tier.manualBack': 'Use list',
     'settings.providers.modal.title': 'Configure {{name}}',
     'settings.providers.modal.titleNew': 'Add provider',
     'settings.providers.modal.section.identity': 'Identity',
@@ -1639,4 +1646,28 @@ export const en: Translations = {
     'ui.sidebar.modelPickerTitle': '{{provider}} models',
     'ui.sidebar.modelPickerSearch': 'Filter models…',
     'ui.sidebar.modelPickerNoModels': 'No discovered models yet; open settings, then providers, then refresh.',
+
+    // Issue #44 -- per-conversation extended-thinking override
+    'ui.sidebar.thinkingOverrideLabel': 'Thinking',
+    'ui.sidebar.thinkingOverrideFollow': 'Follow model',
+    'ui.sidebar.thinkingOverrideOn': 'On',
+    'ui.sidebar.thinkingOverrideOff': 'Off',
+    // Binary thinking switch state text
+    'ui.sidebar.thinkingOn': 'On',
+    'ui.sidebar.thinkingOff': 'Off',
+    'ui.sidebar.thinkingBadgeOn': 'thinking on',
+    'ui.sidebar.thinkingBadgeOff': 'thinking off',
+    'ui.sidebar.thinkingOverrideTitleOn': '{{label}} Extended thinking forced on for this conversation.',
+    'ui.sidebar.thinkingOverrideTitleOff': '{{label}} Extended thinking forced off for this conversation.',
+    // Per-conversation reasoning-effort override (shown when thinking is on)
+    'ui.sidebar.effortLabel': 'Reasoning effort',
+    'ui.sidebar.effortAuto': 'Auto',
+    'ui.sidebar.effortMinimal': 'Minimal',
+    'ui.sidebar.effortLow': 'Low',
+    'ui.sidebar.effortMedium': 'Medium',
+    'ui.sidebar.effortHigh': 'High',
+    // eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module -- effort level name matches the native 'xhigh' API level and the Claude Code label
+    'ui.sidebar.effortXhigh': 'XHigh',
+    'ui.sidebar.effortMax': 'Max',
+    'ui.sidebar.effortAutoHint': 'Effort is set automatically while routing is on. Pin a model to control it.',
 };
