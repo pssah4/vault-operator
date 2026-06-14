@@ -17,7 +17,7 @@ import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
-import { resolveOutputBudget, estimatePromptTokens } from '../../types/model-registry';
+import { resolveOutputBudget, estimatePromptTokens, modelUsesBudgetTokensThinking } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
 import { normalizeDeltaContent } from './utils/openAiContent';
 import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
@@ -135,6 +135,12 @@ export class GitHubCopilotProvider implements ApiHandler {
         // Extended thinking for Claude models via Copilot
         const isClaude = /^claude/i.test(this.config.model);
         const thinkingEnabled = isClaude && (this.config.thinkingEnabled ?? false);
+        // Adaptive lineup (Opus 4.7/4.8, Fable, Mythos) removed budget_tokens
+        // and 400s if it is sent -- it only accepts thinking: { type: 'adaptive' }.
+        // Older Claude (Opus 4.6, Sonnet 4.6 and earlier, 3.x) still takes the
+        // legacy { type: 'enabled', budget_tokens } shape.
+        const claudeUsesBudgetTokens = isClaude
+            && modelUsesBudgetTokensThinking(this.config.model);
         const { maxTokens: effectiveMaxTokens, thinkingBudgetTokens: budgetTokens } = resolveOutputBudget(
             this.config.model,
             this.config.maxTokens,
@@ -171,9 +177,17 @@ export class GitHubCopilotProvider implements ApiHandler {
             max_completion_tokens: effectiveMaxTokens,
             stream: true,
             stream_options: { include_usage: true },
-            // Extended thinking: passed as top-level body param for Claude-via-Copilot
+            // Extended thinking: passed as top-level body param for Claude-via-Copilot.
+            // The adaptive lineup (Opus 4.7+, Fable, Mythos) rejects budget_tokens
+            // with a 400; it only accepts { type: 'adaptive' }. The older
+            // budget-tokens lineup (Sonnet 4.6, Opus 4.6 and earlier, 3.x) keeps
+            // the legacy { type: 'enabled', budget_tokens } shape.
             ...(thinkingEnabled
-                ? { thinking: { type: 'enabled', budget_tokens: budgetTokens } }
+                ? {
+                    thinking: claudeUsesBudgetTokens
+                        ? { type: 'enabled', budget_tokens: budgetTokens }
+                        : { type: 'adaptive' },
+                }
                 : {}),
         };
 

@@ -273,27 +273,36 @@ export class BedrockProvider implements ApiHandler {
                 ? 1
                 : (this.config.temperature ?? 0.2);
 
-        // Reasoning passthrough for Claude on Bedrock (maintainer opt-in, NOT
-        // CI-tested live). Bedrock Converse exposes Anthropic extended thinking
-        // via `additionalModelRequestFields` -- a loose DocumentType the SDK does
-        // not type-check. Two mutually exclusive Claude shapes:
-        //   - effort-capable lineup (Opus 4.7/4.8, Fable/Mythos): an effort enum
-        //       { reasoning_config: { type: 'enabled', effort: <level> } }
+        // Reasoning passthrough for Claude on Bedrock. Bedrock Converse exposes
+        // Anthropic extended thinking via `additionalModelRequestFields` -- a
+        // loose DocumentType the SDK does not type-check. Two mutually exclusive
+        // Claude shapes:
+        //   - effort-capable adaptive lineup (Opus 4.7/4.8, Fable/Mythos):
+        //     mirror the direct Anthropic API surface --
+        //       { thinking: { type: 'adaptive' },
+        //         output_config: { effort: <level> } }
+        //     The earlier `reasoning_config: { type: 'enabled', effort }` shape
+        //     400s with `thinking.enabled.budget_tokens: Field required` because
+        //     Bedrock partially translates `type: enabled` into the legacy
+        //     thinking shape, then notices the missing budget_tokens (adaptive
+        //     models do not accept budget_tokens at all). Sending the
+        //     Anthropic-native pair via the passthrough sidesteps that
+        //     translation entirely.
         //   - budget-tokens lineup (Sonnet 4.6, Opus 4.6 and older): a token
-        //     budget (this is what the thinking toggle drives)
+        //     budget driven by the thinking toggle. The Bedrock translation
+        //     layer
         //       { reasoning_config: { type: 'enabled', budget_tokens: N } }
-        // The exact wire shape cannot be verified against a live endpoint here;
-        // Sebastian live-tests it. Fail-safe: with no effort and thinking off the
-        // field is omitted entirely (byte-identical to today), and if building it
-        // ever throws we proceed WITHOUT the field rather than break the request.
+        //     is preserved verbatim here (live-verified by Sebastian on Sonnet
+        //     4.6, see commit be611b4a).
+        // Fail-safe: with no effort and thinking off the field is omitted
+        // entirely (byte-identical to today), and if building it ever throws we
+        // proceed WITHOUT the field rather than break the request.
         let additionalModelRequestFields: DocumentType | undefined;
         try {
             if (this.config.reasoningEffort && getModelEffortSupport(this.config.model, this.config.type)) {
                 additionalModelRequestFields = {
-                    reasoning_config: {
-                        type: 'enabled',
-                        effort: this.config.reasoningEffort,
-                    },
+                    thinking: { type: 'adaptive' },
+                    output_config: { effort: this.config.reasoningEffort },
                 };
             } else if (sendBudgetThinking && typeof thinkingBudgetTokens === 'number' && thinkingBudgetTokens > 0) {
                 additionalModelRequestFields = {
@@ -304,8 +313,8 @@ export class BedrockProvider implements ApiHandler {
                 };
             }
         } catch (e) {
-            // Untested live path: never let a malformed field break the call.
-            console.debug('[Bedrock] reasoning_config construction failed, omitting field', e);
+            // Never let a malformed field break the call.
+            console.debug('[Bedrock] additionalModelRequestFields construction failed, omitting field', e);
             additionalModelRequestFields = undefined;
         }
 

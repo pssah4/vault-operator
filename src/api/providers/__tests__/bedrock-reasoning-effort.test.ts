@@ -67,38 +67,46 @@ function makeBedrock(config: Partial<LLMProvider>): BedrockHarness {
 }
 
 describe('BedrockProvider - reasoning effort passthrough', () => {
-    it('attaches additionalModelRequestFields with the effort level on a Claude model', async () => {
+    it('attaches additionalModelRequestFields with the Anthropic-native thinking+output_config pair on Opus 4.8', async () => {
         const { provider, lastInput } = makeBedrock({ reasoningEffort: 'high' });
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
         const input = lastInput();
         expect(input).not.toBeNull();
         const amrf = input?.additionalModelRequestFields as
-            | { reasoning_config?: { type?: string; effort?: string } }
+            | {
+                  thinking?: { type?: string; budget_tokens?: number };
+                  output_config?: { effort?: string };
+                  reasoning_config?: { effort?: string };
+              }
             | undefined;
         expect(amrf).toBeDefined();
-        expect(amrf?.reasoning_config?.type).toBe('enabled');
-        expect(amrf?.reasoning_config?.effort).toBe('high');
+        // Adaptive shape -- no budget_tokens, no legacy reasoning_config.effort
+        // (that shape returned "thinking.enabled.budget_tokens: Field required"
+        // on Bedrock for the adaptive lineup).
+        expect(amrf?.thinking).toEqual({ type: 'adaptive' });
+        expect(amrf?.output_config?.effort).toBe('high');
+        expect(amrf?.reasoning_config).toBeUndefined();
     });
 
-    it('maps low/medium/high through verbatim', async () => {
+    it('maps low/medium/high through verbatim as output_config.effort', async () => {
         for (const level of ['low', 'medium', 'high'] as const) {
             const { provider, lastInput } = makeBedrock({ reasoningEffort: level });
             await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
             const amrf = lastInput()?.additionalModelRequestFields as
-                | { reasoning_config?: { effort?: string } }
+                | { output_config?: { effort?: string } }
                 | undefined;
-            expect(amrf?.reasoning_config?.effort).toBe(level);
+            expect(amrf?.output_config?.effort).toBe(level);
         }
     });
 
-    it('maps the Claude-only xhigh and max levels through verbatim', async () => {
+    it('maps the Claude-only xhigh and max levels through verbatim as output_config.effort', async () => {
         for (const level of ['xhigh', 'max'] as const) {
             const { provider, lastInput } = makeBedrock({ reasoningEffort: level });
             await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
             const amrf = lastInput()?.additionalModelRequestFields as
-                | { reasoning_config?: { effort?: string } }
+                | { output_config?: { effort?: string } }
                 | undefined;
-            expect(amrf?.reasoning_config?.effort).toBe(level);
+            expect(amrf?.output_config?.effort).toBe(level);
         }
     });
 
@@ -175,5 +183,31 @@ describe('BedrockProvider - extended thinking (budget-tokens Claude)', () => {
         });
         await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
         expect('additionalModelRequestFields' in lastInput()!).toBe(false);
+    });
+
+    it('regression: Opus 4.8 + thinking on + effort=max sends the Anthropic-native pair, NOT reasoning_config.effort', async () => {
+        // The user-reported 400: with the prior reasoning_config.effort shape,
+        // Bedrock returned "thinking.enabled.budget_tokens: Field required" for
+        // Opus 4.8 (adaptive lineup). The fix mirrors the direct Anthropic
+        // shape via additionalModelRequestFields passthrough.
+        const { provider, lastInput } = makeBedrock({
+            model: 'eu.anthropic.claude-opus-4-8-v1:0',
+            thinkingEnabled: true,
+            reasoningEffort: 'max',
+        });
+        await drain(provider.createMessage('sys', [{ role: 'user', content: 'hi' }], []));
+        const amrf = lastInput()?.additionalModelRequestFields as
+            | {
+                  thinking?: { type?: string; budget_tokens?: number };
+                  output_config?: { effort?: string };
+                  reasoning_config?: unknown;
+              }
+            | undefined;
+        expect(amrf).toBeDefined();
+        expect(amrf?.thinking).toEqual({ type: 'adaptive' });
+        expect(amrf?.output_config?.effort).toBe('max');
+        // The legacy shape that produced the 400 must not be present.
+        expect(amrf?.reasoning_config).toBeUndefined();
+        expect(amrf?.thinking?.budget_tokens).toBeUndefined();
     });
 });

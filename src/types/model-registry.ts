@@ -368,12 +368,17 @@ export function getModelEffortLevels(modelId: string, providerType: string): Eff
     const normalized = normalizeModelId(modelId).toLowerCase();
 
     // Only the adaptive-thinking Claude lineup (Opus 4.7/4.8, Fable, Mythos)
-    // accepts output_config.effort / reasoning_config effort. The budget-tokens
-    // models (Sonnet 4.6, Opus 4.6 and earlier, Haiku, the 3.x snapshots) take a
-    // thinking budget instead and 400 on an effort enum (Bedrock:
-    // "thinking.enabled.budget_tokens: Field required"), so they are NOT
-    // effort-capable. modelUsesBudgetTokensThinking is the single source of truth
-    // for that split (false == adaptive == effort-capable).
+    // accepts output_config.effort. The budget-tokens models (Sonnet 4.6,
+    // Opus 4.6 and earlier, Haiku, the 3.x snapshots) take a thinking budget
+    // instead and 400 on an effort enum, so they are NOT effort-capable.
+    // modelUsesBudgetTokensThinking is the single source of truth for that
+    // split (false == adaptive == effort-capable). On Bedrock the adaptive
+    // surface is shipped via additionalModelRequestFields as the
+    // Anthropic-native `thinking` + `output_config` pair; the older
+    // `reasoning_config { type: 'enabled', effort }` shape returned
+    // "thinking.enabled.budget_tokens: Field required" because Bedrock
+    // partially translated type=enabled into the legacy thinking shape and
+    // then required budget_tokens.
     const isEffortCapableClaude = /^claude-/.test(normalized)
         && !modelUsesBudgetTokensThinking(modelId);
     // GPT-5 family and the reasoning o-series (o1..o9 plus o-mini variants).

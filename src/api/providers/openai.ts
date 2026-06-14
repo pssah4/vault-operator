@@ -12,7 +12,7 @@ import type { LLMProvider } from '../../types/settings';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } from '../types';
 import type { ToolDefinition } from '../../core/tools/types';
 import type { IncomingMessage } from 'http';
-import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortLevels } from '../../types/model-registry';
+import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortLevels, modelUsesBudgetTokensThinking } from '../../types/model-registry';
 import { logCacheStat } from '../logCacheStat';
 import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
 
@@ -307,8 +307,16 @@ export class OpenAiProvider implements ApiHandler {
         const effortValid = effort !== undefined && effortLevels.includes(effort);
         // OpenRouter reasoning object: merge the existing extended-thinking
         // max_tokens passthrough (if any) with the effort field (if any).
+        // The adaptive Claude lineup (Opus 4.7/4.8, Fable, Mythos) removed
+        // budget_tokens at the Anthropic layer and 400s if it is sent, so
+        // max_tokens is omitted for that family even if the user has thinking
+        // pinned on -- the effort field below carries the intent instead, and
+        // when no effort is set the model thinks at its own adaptive default.
         const openRouterReasoning: Record<string, unknown> = {};
-        if (openRouterThinking) openRouterReasoning.max_tokens = budgetTokens;
+        const skipReasoningMaxTokens = openRouterThinking
+            && /^(anthropic\/)?claude-/i.test(this.config.model)
+            && !modelUsesBudgetTokensThinking(this.config.model);
+        if (openRouterThinking && !skipReasoningMaxTokens) openRouterReasoning.max_tokens = budgetTokens;
         if (effortValid && this.config.type === 'openrouter') openRouterReasoning.effort = effort;
 
         // Build request body
