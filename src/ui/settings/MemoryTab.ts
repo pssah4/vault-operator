@@ -180,8 +180,15 @@ export class MemoryTab {
 
                 setupSetting.addButton((b) =>
                     b.setButtonText(isComplete ? t('settings.memory.restartSetup') : t('settings.memory.startSetup')).onClick(async () => {
+                        // Reset only the onboarding flags. Configured models and the memory
+                        // KnowledgeDB stay untouched -- the FirstRunWizardModal is add-only
+                        // and never writes to facts/edges/history.
                         await onboarding.reset();
-                        await this.plugin.startOnboarding();
+                        this.plugin.settings.onboarding.modalCompleted = false;
+                        await this.plugin.saveSettings();
+                        this.app.setting?.close();
+                        const { FirstRunWizardModal } = await import('../modals/FirstRunWizardModal');
+                        new FirstRunWizardModal(this.app, this.plugin).open();
                     }),
                 );
 

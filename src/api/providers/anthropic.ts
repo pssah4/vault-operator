@@ -18,6 +18,7 @@ import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, model
 import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
 import { stripThinkingBlocks } from '../../core/utils/stripThinkingBlocks';
+import { createNodeFetch } from './openai';
 
 /** The Claude-native reasoning-effort levels accepted by output_config.effort. */
 const CLAUDE_EFFORT_SET = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
@@ -67,10 +68,29 @@ export class AnthropicProvider implements ApiHandler {
 
     constructor(config: LLMProvider) {
         this.config = config;
+
+        // FEAT-26-07: enterprise gateway mode (e.g. Azure APIM in front of
+        // Anthropic) -- swap the SDK fetch for the Node-https fetch to
+        // bypass Electron's CORS check, and send the subscription key as
+        // a custom header instead of `x-api-key`. The toggle is opt-in via
+        // `useGateway` so default Anthropic setups stay untouched.
+        const headerName = config.gatewayHeaderName?.trim() || 'Ocp-Apim-Subscription-Key';
+        const headerValue = config.gatewayHeaderValue?.trim() || '';
+        const gatewayMode = config.useGateway === true && headerValue.length > 0;
+
+        const defaultHeaders: Record<string, string> = {};
+        if (gatewayMode) {
+            defaultHeaders[headerName] = headerValue;
+        }
+
         this.client = new Anthropic({
-            apiKey: config.apiKey ?? '',
+            // In gateway mode the SDK still requires a non-null apiKey, but
+            // the actual auth travels via the custom header above. Send the
+            // subscription key as a placeholder so the SDK does not throw.
+            apiKey: gatewayMode ? (headerValue || 'gateway') : (config.apiKey ?? ''),
             baseURL: config.baseUrl,
             dangerouslyAllowBrowser: true, // Required for Obsidian (Electron)
+            ...(gatewayMode ? { fetch: createNodeFetch(), defaultHeaders } : {}),
         });
     }
 

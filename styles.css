@@ -2063,14 +2063,40 @@
 
 .mcm-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 
-/* Label column auto-sizes so longer labels ("Discovered models",
-   "Test connection") plus their info-icon stay on a single line.
-   `minmax(110px, auto)` keeps short labels (API key, Base URL) at
-   the previous width for visual rhythm while letting long ones grow. */
-.mcm-row { display: grid; grid-template-columns: minmax(110px, auto) 1fr; align-items: center; gap: 8px; font-size: 12px; }
+/* Label column has a fixed max-width so the input column keeps a usable
+   amount of space. Long explanatory descriptions are moved into the (i)
+   info-popover next to the label (see wireMcmDescTooltips), so the label
+   column itself stays short.
+   Affects ModelConfigModal AND ProviderDetailModal (both use .mcm-row). */
+.mcm-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 200px) minmax(180px, 1fr);
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+}
 
-.mcm-label { color: var(--text-muted); display: flex; flex-direction: column; gap: 1px; }
-.mcm-desc { font-size: 10px; color: var(--text-faint); }
+.mcm-label {
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+/* Hidden by default: the .mcm-desc spans live in the DOM so the helper
+   can read their text and attach a tooltip-icon, but they no longer
+   render inline. Per-element opt-out via .mcm-desc.is-inline. */
+.mcm-desc {
+    display: none;
+    font-size: 10px;
+    color: var(--text-faint);
+    line-height: 1.35;
+}
+.mcm-desc.is-inline {
+    display: inline;
+}
 
 .mcm-input, .mcm-select {
     width: 100%;

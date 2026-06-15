@@ -9,6 +9,7 @@ import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthS
 import { KiloAuthService } from '../../core/security/KiloAuthService';
 import { ChatGptOAuthService } from '../../core/auth/ChatGptOAuthService';
 import { t } from '../../i18n';
+import { wireMcmDescTooltips } from './utils';
 
 /** Derive vendor group for a Copilot model ID (no slash-prefix like OpenRouter). */
 function copilotModelVendor(modelId: string): string {
@@ -94,15 +95,24 @@ export class ModelConfigModal extends Modal {
     private formThinkingEnabled: boolean;
     private formThinkingBudgetTokens: number;
     private formAwsRegion: string;
-    private formAwsAuthMode: 'api-key' | 'access-key';
+    private formAwsAuthMode: 'api-key' | 'access-key' | 'gateway';
     private formAwsApiKey: string;
     private formAwsAccessKey: string;
     private formAwsSecretKey: string;
     private formAwsSessionToken: string;
     private formAwsEndpoint: string;
+    /** FEAT-26-07: header carrying the subscription key for enterprise Bedrock-gateways. */
+    private formGatewayHeaderName: string;
+    private formGatewayHeaderValue: string;
+    /** FEAT-26-07: enterprise-gateway opt-in for non-AWS providers (Anthropic). */
+    private formUseGateway: boolean;
 
     private apiKeyRow: HTMLElement | null = null;
     private baseUrlRow: HTMLElement | null = null;
+    /** FEAT-26-07 anthropic-gateway rows -- visible only when provider=anthropic. */
+    private anthropicGatewayRow: HTMLElement | null = null;
+    private anthropicGatewayHeaderNameRow: HTMLElement | null = null;
+    private anthropicGatewayHeaderValueRow: HTMLElement | null = null;
     private baseUrlInputEl: HTMLInputElement | null = null;
     private apiVersionRow: HTMLElement | null = null;
     private suggestRow: HTMLElement | null = null;
@@ -175,6 +185,9 @@ export class ModelConfigModal extends Modal {
         this.formAwsSecretKey = this.model.awsSecretKey ?? '';
         this.formAwsSessionToken = this.model.awsSessionToken ?? '';
         this.formAwsEndpoint = this.model.provider === 'bedrock' ? (this.model.baseUrl ?? '') : '';
+        this.formGatewayHeaderName = this.model.gatewayHeaderName ?? 'Ocp-Apim-Subscription-Key';
+        this.formGatewayHeaderValue = this.model.gatewayHeaderValue ?? '';
+        this.formUseGateway = this.model.useGateway ?? false;
     }
 
     onOpen(): void {
@@ -189,6 +202,11 @@ export class ModelConfigModal extends Modal {
         });
         this.buildForm(contentEl);
         this.buildActions(contentEl);
+        // Convert every inline `.mcm-desc` span into a clickable (i)-icon
+        // next to its label, so long explanations no longer push the
+        // input column to a sliver. Picks up late-bound descriptions
+        // via MutationObserver. See utils.wireMcmDescTooltips.
+        wireMcmDescTooltips(contentEl);
     }
 
     onClose(): void {
@@ -399,6 +417,57 @@ export class ModelConfigModal extends Modal {
         this.baseUrlInputEl.value = this.formBaseUrl;
         this.baseUrlInputEl.addEventListener('input', () => (this.formBaseUrl = this.baseUrlInputEl!.value.trim()));
 
+        // ── Enterprise gateway (Anthropic via Azure APIM etc.) ───────────
+        // FEAT-26-07: optional opt-in toggle that swaps the SDK fetch for
+        // a Node-https fetch (CORS bypass) and adds a custom subscription
+        // header instead of `x-api-key`. Only shown for `anthropic` -- the
+        // Bedrock gateway path uses its own Auth-mode dropdown.
+        this.anthropicGatewayRow = form.createDiv('mcm-row mcm-anthropic-gateway');
+        const gwLabel = this.anthropicGatewayRow.createDiv('mcm-label');
+        gwLabel.createSpan({ text: 'Enterprise gateway' });
+        gwLabel.createSpan({
+            text: 'Enable when your base URL points to a corporate APIM (e.g. apimgmt-*.azure-api.net) instead of api.anthropic.com.',
+            cls: 'mcm-desc',
+        });
+        const gwToggleLabel = this.anthropicGatewayRow.createEl('label', { cls: 'mc-toggle' });
+        const gwToggleInput = gwToggleLabel.createEl('input', { attr: { type: 'checkbox' } });
+        gwToggleLabel.createSpan({ cls: 'mc-toggle-track' });
+        gwToggleInput.checked = this.formUseGateway;
+        gwToggleInput.addEventListener('change', () => {
+            this.formUseGateway = gwToggleInput.checked;
+            this.updateFieldVisibility();
+        });
+
+        // Subscription-header rows for the gateway mode.
+        this.anthropicGatewayHeaderNameRow = form.createDiv('mcm-row mcm-anthropic-gateway');
+        const hnLabel = this.anthropicGatewayHeaderNameRow.createDiv('mcm-label');
+        hnLabel.createSpan({ text: 'Gateway header name' });
+        hnLabel.createSpan({
+            text: 'Header carrying the subscription key. Most Azure APIM gateways use Ocp-Apim-Subscription-Key.',
+            cls: 'mcm-desc',
+        });
+        const hnInput = this.anthropicGatewayHeaderNameRow.createEl('input', {
+            cls: 'mcm-input',
+            // eslint-disable-next-line obsidianmd/ui/sentence-case -- HTTP header name is a literal identifier
+            attr: { type: 'text', placeholder: 'Ocp-Apim-Subscription-Key' },
+        });
+        hnInput.value = this.formGatewayHeaderName;
+        hnInput.addEventListener('input', () => (this.formGatewayHeaderName = hnInput.value.trim()));
+
+        this.anthropicGatewayHeaderValueRow = form.createDiv('mcm-row mcm-anthropic-gateway');
+        const hvLabel = this.anthropicGatewayHeaderValueRow.createDiv('mcm-label');
+        hvLabel.createSpan({ text: 'Subscription key' });
+        hvLabel.createSpan({
+            text: 'Pasted into the gateway header above. Saved encrypted at rest.',
+            cls: 'mcm-desc',
+        });
+        const hvInput = this.anthropicGatewayHeaderValueRow.createEl('input', {
+            cls: 'mcm-input',
+            attr: { type: 'password', placeholder: 'Paste your subscription key' },
+        });
+        hvInput.value = this.formGatewayHeaderValue;
+        hvInput.addEventListener('input', () => (this.formGatewayHeaderValue = hvInput.value.trim()));
+
         // ── API Version (Azure + some enterprise gateways) ───────────────
         this.apiVersionRow = form.createDiv('mcm-row');
         const avLabel = this.apiVersionRow.createDiv('mcm-label');
@@ -607,6 +676,11 @@ export class ModelConfigModal extends Modal {
         if (this.chatgptOAuthRow) this.chatgptOAuthRow.classList.toggle('agent-u-hidden', !isChatGpt);
         if (isBedrock) this.updateBedrockAuthVisibility();
         this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'gemini' || p === 'openrouter' || isCopilot || isKilo || isBedrock || isChatGpt);
+        // FEAT-26-07: Anthropic-gateway toggle + headers only visible for anthropic.
+        const isAnthropic = p === 'anthropic';
+        if (this.anthropicGatewayRow) this.anthropicGatewayRow.classList.toggle('agent-u-hidden', !isAnthropic);
+        if (this.anthropicGatewayHeaderNameRow) this.anthropicGatewayHeaderNameRow.classList.toggle('agent-u-hidden', !isAnthropic || !this.formUseGateway);
+        if (this.anthropicGatewayHeaderValueRow) this.anthropicGatewayHeaderValueRow.classList.toggle('agent-u-hidden', !isAnthropic || !this.formUseGateway);
         if (this.apiVersionRow) this.apiVersionRow.classList.toggle('agent-u-hidden', p !== 'azure');
         if (this.ollamaBrowserRow) this.ollamaBrowserRow.classList.toggle('agent-u-hidden', p !== 'ollama');
         if (this.customBrowserRow) this.customBrowserRow.classList.toggle('agent-u-hidden', p !== 'custom' && p !== 'lmstudio');
@@ -1393,6 +1467,8 @@ export class ModelConfigModal extends Modal {
     private bedrockAccessKeyRow: HTMLElement | null = null;
     private bedrockSecretKeyRow: HTMLElement | null = null;
     private bedrockSessionTokenRow: HTMLElement | null = null;
+    private bedrockGatewayHeaderNameRow: HTMLElement | null = null;
+    private bedrockGatewayHeaderValueRow: HTMLElement | null = null;
 
     private buildBedrockAuthSection(container: HTMLElement): void {
         const BEDROCK_REGIONS: { id: string; label: string }[] = [
@@ -1425,9 +1501,10 @@ export class ModelConfigModal extends Modal {
         const authSel = authRow.createEl('select', { cls: 'mcm-select' });
         authSel.createEl('option', { value: 'api-key',    text: 'Bedrock API key (bearer token, recommended)' });
         authSel.createEl('option', { value: 'access-key', text: 'Access key + secret key' });
+        authSel.createEl('option', { value: 'gateway',    text: 'API gateway (Bedrock-compatible)' });
         authSel.value = this.formAwsAuthMode;
         authSel.addEventListener('change', () => {
-            this.formAwsAuthMode = authSel.value as 'api-key' | 'access-key';
+            this.formAwsAuthMode = authSel.value as 'api-key' | 'access-key' | 'gateway';
             this.updateBedrockAuthVisibility();
         });
 
@@ -1502,16 +1579,45 @@ export class ModelConfigModal extends Modal {
         stInput.value = this.formAwsSessionToken;
         stInput.addEventListener('input', () => (this.formAwsSessionToken = stInput.value.trim()));
 
+        // ── Gateway header name (gateway mode, FEAT-26-07) ───────────────
+        this.bedrockGatewayHeaderNameRow = mkRow(
+            'Gateway header name',
+            'Header carrying the subscription key. Most Azure APIM gateways use Ocp-Apim-Subscription-Key.',
+        );
+        const hnInput = this.bedrockGatewayHeaderNameRow.createEl('input', {
+            cls: 'mcm-input',
+            // eslint-disable-next-line obsidianmd/ui/sentence-case -- HTTP header name is a literal identifier, not UI prose
+            attr: { type: 'text', placeholder: 'Ocp-Apim-Subscription-Key' },
+        });
+        hnInput.value = this.formGatewayHeaderName;
+        hnInput.addEventListener('input', () => (this.formGatewayHeaderName = hnInput.value.trim()));
+
+        // ── Gateway header value (gateway mode, FEAT-26-07) ──────────────
+        this.bedrockGatewayHeaderValueRow = mkRow(
+            'Subscription key',
+            'The subscription key for your enterprise Bedrock gateway. Sent as the value of the header above.',
+        );
+        const hvInput = this.bedrockGatewayHeaderValueRow.createEl('input', {
+            cls: 'mcm-input',
+            attr: { type: 'password', placeholder: 'Paste your subscription key' },
+        });
+        hvInput.value = this.formGatewayHeaderValue;
+        hvInput.addEventListener('input', () => (this.formGatewayHeaderValue = hvInput.value.trim()));
+
         // Apply initial visibility based on current auth mode
         this.updateBedrockAuthVisibility();
     }
 
     private updateBedrockAuthVisibility(): void {
         const isApiKey = this.formAwsAuthMode === 'api-key';
+        const isAccessKey = this.formAwsAuthMode === 'access-key';
+        const isGateway = this.formAwsAuthMode === 'gateway';
         this.bedrockApiKeyRow?.classList.toggle('agent-u-hidden', !isApiKey);
-        this.bedrockAccessKeyRow?.classList.toggle('agent-u-hidden', isApiKey);
-        this.bedrockSecretKeyRow?.classList.toggle('agent-u-hidden', isApiKey);
-        this.bedrockSessionTokenRow?.classList.toggle('agent-u-hidden', isApiKey);
+        this.bedrockAccessKeyRow?.classList.toggle('agent-u-hidden', !isAccessKey);
+        this.bedrockSecretKeyRow?.classList.toggle('agent-u-hidden', !isAccessKey);
+        this.bedrockSessionTokenRow?.classList.toggle('agent-u-hidden', !isAccessKey);
+        this.bedrockGatewayHeaderNameRow?.classList.toggle('agent-u-hidden', !isGateway);
+        this.bedrockGatewayHeaderValueRow?.classList.toggle('agent-u-hidden', !isGateway);
     }
 
     private save(): void {
@@ -1519,6 +1625,8 @@ export class ModelConfigModal extends Modal {
         if (!name) { new Notice(t('modal.modelConfig.modelIdRequired')); return; }
         const isBedrock = this.formProvider === 'bedrock';
         const bedrockIsApiKey = isBedrock && this.formAwsAuthMode === 'api-key';
+        const bedrockIsAccessKey = isBedrock && this.formAwsAuthMode === 'access-key';
+        const bedrockIsGateway = isBedrock && this.formAwsAuthMode === 'gateway';
         this.onSave({
             ...this.model,
             name,
@@ -1539,11 +1647,22 @@ export class ModelConfigModal extends Modal {
             awsRegion: isBedrock ? (this.formAwsRegion || undefined) : undefined,
             awsAuthMode: isBedrock ? this.formAwsAuthMode : undefined,
             // Only persist credentials matching the selected auth mode so we don't
-            // leak a secret access key when the user switched to the bearer path.
+            // leak the wrong secret when the user switched paths.
             awsApiKey: bedrockIsApiKey ? (this.formAwsApiKey || undefined) : undefined,
-            awsAccessKey: isBedrock && !bedrockIsApiKey ? (this.formAwsAccessKey || undefined) : undefined,
-            awsSecretKey: isBedrock && !bedrockIsApiKey ? (this.formAwsSecretKey || undefined) : undefined,
-            awsSessionToken: isBedrock && !bedrockIsApiKey ? (this.formAwsSessionToken || undefined) : undefined,
+            awsAccessKey: bedrockIsAccessKey ? (this.formAwsAccessKey || undefined) : undefined,
+            awsSecretKey: bedrockIsAccessKey ? (this.formAwsSecretKey || undefined) : undefined,
+            awsSessionToken: bedrockIsAccessKey ? (this.formAwsSessionToken || undefined) : undefined,
+            gatewayHeaderName: bedrockIsGateway
+                ? (this.formGatewayHeaderName || undefined)
+                : (this.formProvider === 'anthropic' && this.formUseGateway
+                    ? (this.formGatewayHeaderName || undefined)
+                    : undefined),
+            gatewayHeaderValue: bedrockIsGateway
+                ? (this.formGatewayHeaderValue || undefined)
+                : (this.formProvider === 'anthropic' && this.formUseGateway
+                    ? (this.formGatewayHeaderValue || undefined)
+                    : undefined),
+            useGateway: this.formProvider === 'anthropic' ? this.formUseGateway : undefined,
         });
         this.close();
     }

@@ -27,23 +27,27 @@ export interface SettingsCrypter {
     decrypt(value: string): string;
 }
 
-/** Credential fields on a ProviderConfig that must be encrypted at rest. */
+/** Credential fields on a ProviderConfig that must be encrypted at rest.
+ *  FEAT-26-07 adds `gatewayHeaderValue` (Bedrock-gateway subscription key). */
 const PROVIDER_CRED_KEYS: ReadonlyArray<keyof ProviderConfig> = [
     'apiKey',
     'awsApiKey',
     'awsAccessKey',
     'awsSecretKey',
     'awsSessionToken',
+    'gatewayHeaderValue',
     'oauthToken',
 ];
 
-/** Credential fields on a legacy CustomModel inside the backup array. */
+/** Credential fields on a legacy CustomModel inside the backup array.
+ *  FEAT-26-07 adds `gatewayHeaderValue`. */
 const LEGACY_MODEL_CRED_KEYS: ReadonlyArray<keyof CustomModel> = [
     'apiKey',
     'awsApiKey',
     'awsAccessKey',
     'awsSecretKey',
     'awsSessionToken',
+    'gatewayHeaderValue',
 ];
 
 /**

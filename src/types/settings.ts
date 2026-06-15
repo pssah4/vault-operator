@@ -46,8 +46,10 @@ export interface CustomModel {
     /** AWS region (Bedrock only), e.g. "eu-central-1", "us-east-1" */
     awsRegion?: string;
     /** Auth mode for Bedrock: 'api-key' uses a single bearer token (new AWS Bedrock API Keys),
-     * 'access-key' uses the classic IAM access key + secret key pair with SigV4 signing */
-    awsAuthMode?: 'api-key' | 'access-key';
+     * 'access-key' uses the classic IAM access key + secret key pair with SigV4 signing,
+     * 'gateway' (FEAT-26-07) routes through an enterprise API-Gateway that proxies the
+     * Bedrock ConverseStream API and replaces AWS-signing with a configurable header. */
+    awsAuthMode?: 'api-key' | 'access-key' | 'gateway';
     /** AWS Bedrock API key (bearer token). Used when awsAuthMode === 'api-key'. */
     awsApiKey?: string;
     /** AWS IAM access key ID. Used when awsAuthMode === 'access-key'. */
@@ -56,6 +58,17 @@ export interface CustomModel {
     awsSecretKey?: string;
     /** Optional AWS session token for temporary credentials from SSO/STS (access-key mode only) */
     awsSessionToken?: string;
+    /** FEAT-26-07: header name carrying the gateway subscription key (e.g. 'Ocp-Apim-Subscription-Key').
+     * Used when awsAuthMode === 'gateway' (Bedrock) or useGateway === true (Anthropic). */
+    gatewayHeaderName?: string;
+    /** FEAT-26-07: subscription-key value sent in `gatewayHeaderName`.
+     * Treated as a credential -- encrypted at rest like the AWS credentials. */
+    gatewayHeaderValue?: string;
+    /** FEAT-26-07 follow-up: opt into the enterprise-gateway code path for
+     * non-AWS providers (e.g. Anthropic via Azure APIM). When true, the
+     * provider switches to Node-fetch (CORS bypass) and sends the configured
+     * `gatewayHeaderName`/`gatewayHeaderValue` pair as the auth header. */
+    useGateway?: boolean;
 }
 
 /**
@@ -285,8 +298,8 @@ export interface LLMProvider {
     reasoningEffort?: EffortLevel;
     /** AWS region (Bedrock only) */
     awsRegion?: string;
-    /** Bedrock auth mode */
-    awsAuthMode?: 'api-key' | 'access-key';
+    /** Bedrock auth mode (FEAT-26-07 adds 'gateway') */
+    awsAuthMode?: 'api-key' | 'access-key' | 'gateway';
     /** Bedrock API key (bearer token) */
     awsApiKey?: string;
     /** AWS access key ID (Bedrock only) */
@@ -295,6 +308,12 @@ export interface LLMProvider {
     awsSecretKey?: string;
     /** AWS session token (Bedrock only, optional) */
     awsSessionToken?: string;
+    /** FEAT-26-07: header name for enterprise gateway auth */
+    gatewayHeaderName?: string;
+    /** FEAT-26-07: subscription-key value sent in `gatewayHeaderName` */
+    gatewayHeaderValue?: string;
+    /** FEAT-26-07: enterprise gateway opt-in for non-AWS providers. */
+    useGateway?: boolean;
 }
 
 /** Convert a CustomModel to LLMProvider for the API handler layer */
@@ -320,6 +339,9 @@ export function modelToLLMProvider(model: CustomModel): LLMProvider {
         awsAccessKey: model.awsAccessKey,
         awsSecretKey: model.awsSecretKey,
         awsSessionToken: model.awsSessionToken,
+        gatewayHeaderName: model.gatewayHeaderName,
+        gatewayHeaderValue: model.gatewayHeaderValue,
+        useGateway: model.useGateway,
     };
 }
 
@@ -670,13 +692,18 @@ export interface ProviderConfig {
     baseUrl?: string;
     /** Auth: Azure / enterprise gateway api-version. */
     apiVersion?: string;
-    /** Auth: AWS Bedrock auth mode + credentials. */
-    awsAuthMode?: 'api-key' | 'access-key';
+    /** Auth: AWS Bedrock auth mode + credentials. FEAT-26-07 adds 'gateway'. */
+    awsAuthMode?: 'api-key' | 'access-key' | 'gateway';
     awsRegion?: string;
     awsApiKey?: string;
     awsAccessKey?: string;
     awsSecretKey?: string;
     awsSessionToken?: string;
+    /** FEAT-26-07: enterprise gateway auth header (name + key value). */
+    gatewayHeaderName?: string;
+    gatewayHeaderValue?: string;
+    /** FEAT-26-07: enterprise gateway opt-in for non-AWS providers. */
+    useGateway?: boolean;
     /** Auth: OAuth bearer token (chatgpt-oauth, github-copilot). */
     oauthToken?: string;
 

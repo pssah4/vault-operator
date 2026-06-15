@@ -1272,8 +1272,20 @@ export class AgentSidebarView extends ItemView {
         // Phase 2.3: if the FirstRun wizard is still owed to the user
         // (not completed, not dismissed, not yet shown three times),
         // open the wizard instead of the legacy in-chat provider-picker.
+        //
+        // FIX (2026-06-15): when the user manually restarts the setup from
+        // Settings -> Interface / Memory and then cancels the wizard, the
+        // pure modalCompleted check would re-open the wizard on every
+        // reload even though the user already has a provider configured.
+        // `isActiveOnboardingFlow` resolves the ambiguity: any provider in
+        // providerConfigs[] OR any legacy entry in activeModels[] means the
+        // user is no longer in the first-time wizard.
         const shown = ob?.firstRunModalShownCount ?? 0;
-        const wizardPending = ob && !ob.modalCompleted && !ob.dontShowFirstRunAgain && shown < 3;
+        const wizardPending = ob
+            && !ob.modalCompleted
+            && !ob.dontShowFirstRunAgain
+            && shown < 3
+            && isActiveOnboardingFlow(this.plugin.settings);
         if (wizardPending) {
             void this.openFirstRunWizard();
             return;

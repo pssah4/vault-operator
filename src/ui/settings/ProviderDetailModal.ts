@@ -66,11 +66,15 @@ export class ProviderDetailModal extends Modal {
     private formBaseUrl: string;
     private formApiVersion: string;
     private formAwsRegion: string;
-    private formAwsAuthMode: 'api-key' | 'access-key';
+    private formAwsAuthMode: 'api-key' | 'access-key' | 'gateway';
     private formAwsApiKey: string;
     private formAwsAccessKey: string;
     private formAwsSecretKey: string;
     private formAwsSessionToken: string;
+    /** FEAT-26-07: enterprise gateway header (Bedrock + Anthropic). */
+    private formGatewayHeaderName: string;
+    private formGatewayHeaderValue: string;
+    private formUseGateway: boolean;
 
     private discoveredModels: DiscoveredModel[];
     private lastRefreshAt: number;
@@ -112,6 +116,9 @@ export class ProviderDetailModal extends Modal {
         this.formAwsAccessKey = seed.awsAccessKey ?? '';
         this.formAwsSecretKey = seed.awsSecretKey ?? '';
         this.formAwsSessionToken = seed.awsSessionToken ?? '';
+        this.formGatewayHeaderName = seed.gatewayHeaderName ?? 'Ocp-Apim-Subscription-Key';
+        this.formGatewayHeaderValue = seed.gatewayHeaderValue ?? '';
+        this.formUseGateway = seed.useGateway ?? false;
         this.discoveredModels = seed.discoveredModels ?? [];
         this.lastRefreshAt = seed.lastRefreshAt ?? 0;
         this.tierMapping = { ...(seed.tierMapping ?? {}) };
@@ -405,6 +412,13 @@ export class ProviderDetailModal extends Modal {
                 awsAccessKey: this.formAwsAccessKey.trim() || undefined,
                 awsSecretKey: this.formAwsSecretKey.trim() || undefined,
                 awsSessionToken: this.formAwsSessionToken.trim() || undefined,
+                gatewayHeaderName: this.formAwsAuthMode === 'gateway' || (this.formType === 'anthropic' && this.formUseGateway)
+                    ? (this.formGatewayHeaderName.trim() || undefined)
+                    : undefined,
+                gatewayHeaderValue: this.formAwsAuthMode === 'gateway' || (this.formType === 'anthropic' && this.formUseGateway)
+                    ? (this.formGatewayHeaderValue.trim() || undefined)
+                    : undefined,
+                useGateway: this.formType === 'anthropic' ? this.formUseGateway : undefined,
                 discoveredModels: [],
                 lastRefreshAt: 0,
                 tierMapping: {},
@@ -444,6 +458,13 @@ export class ProviderDetailModal extends Modal {
             awsAccessKey: this.formAwsAccessKey.trim() || undefined,
             awsSecretKey: this.formAwsSecretKey.trim() || undefined,
             awsSessionToken: this.formAwsSessionToken.trim() || undefined,
+            gatewayHeaderName: this.formAwsAuthMode === 'gateway' || (this.formType === 'anthropic' && this.formUseGateway)
+                ? (this.formGatewayHeaderName.trim() || undefined)
+                : undefined,
+            gatewayHeaderValue: this.formAwsAuthMode === 'gateway' || (this.formType === 'anthropic' && this.formUseGateway)
+                ? (this.formGatewayHeaderValue.trim() || undefined)
+                : undefined,
+            useGateway: this.formType === 'anthropic' ? this.formUseGateway : undefined,
             tierMapping: this.tierMapping,
             tierOverrides: this.tierOverrides,
         };
@@ -513,6 +534,13 @@ export class ProviderDetailModal extends Modal {
             awsAccessKey: this.formAwsAccessKey.trim() || undefined,
             awsSecretKey: this.formAwsSecretKey.trim() || undefined,
             awsSessionToken: this.formAwsSessionToken.trim() || undefined,
+            gatewayHeaderName: this.formAwsAuthMode === 'gateway' || (this.formType === 'anthropic' && this.formUseGateway)
+                ? (this.formGatewayHeaderName.trim() || undefined)
+                : undefined,
+            gatewayHeaderValue: this.formAwsAuthMode === 'gateway' || (this.formType === 'anthropic' && this.formUseGateway)
+                ? (this.formGatewayHeaderValue.trim() || undefined)
+                : undefined,
+            useGateway: this.formType === 'anthropic' ? this.formUseGateway : undefined,
         };
         btn.disabled = true;
         const originalLabel = btn.getText();
@@ -648,6 +676,39 @@ export class ProviderDetailModal extends Modal {
                     onInput: (v) => { this.formApiVersion = v; },
                 }),
             });
+        }
+
+        // FEAT-26-07: optional enterprise-gateway path for Anthropic via
+        // Azure APIM. Toggle + two header fields (mirrors ModelConfigModal).
+        if (this.formType === 'anthropic') {
+            this.compactRow(parent, {
+                label: 'Enterprise gateway',
+                desc: 'Enable when your base URL points to a corporate APIM (e.g. apimgmt-*.azure-api.net) instead of api.anthropic.com. Bypasses CORS and sends the subscription key as a custom header.',
+                build: (ctrl) => this.compactToggle(ctrl, {
+                    value: this.formUseGateway,
+                    onChange: (v) => { this.formUseGateway = v; this.render(); },
+                }),
+            });
+            if (this.formUseGateway) {
+                this.compactRow(parent, {
+                    label: 'Gateway header name',
+                    desc: 'Header carrying the subscription key. Most Azure APIM gateways use Ocp-Apim-Subscription-Key.',
+                    build: (ctrl) => this.compactInput(ctrl, {
+                        value: this.formGatewayHeaderName,
+                        placeholder: 'Ocp-Apim-Subscription-Key',
+                        onInput: (v) => { this.formGatewayHeaderName = v; },
+                    }),
+                });
+                this.compactRow(parent, {
+                    label: 'Subscription key',
+                    desc: 'Pasted into the gateway header above. Saved encrypted at rest.',
+                    build: (ctrl) => this.compactInput(ctrl, {
+                        type: 'password',
+                        value: this.formGatewayHeaderValue,
+                        onInput: (v) => { this.formGatewayHeaderValue = v; },
+                    }),
+                });
+            }
         }
 
         this.renderTestConnectionRow(parent);
@@ -799,9 +860,10 @@ export class ProviderDetailModal extends Modal {
                 options: [
                     { value: 'api-key', label: 'API key (bearer)' },
                     { value: 'access-key', label: 'Access key + secret' },
+                    { value: 'gateway', label: 'API gateway (Bedrock-compatible)' },
                 ],
                 onChange: (v) => {
-                    this.formAwsAuthMode = v as 'api-key' | 'access-key';
+                    this.formAwsAuthMode = v as 'api-key' | 'access-key' | 'gateway';
                     this.render();
                 },
             }),
@@ -816,7 +878,7 @@ export class ProviderDetailModal extends Modal {
                     onInput: (v) => { this.formAwsApiKey = v; },
                 }),
             });
-        } else {
+        } else if (this.formAwsAuthMode === 'access-key') {
             this.compactRow(parent, {
                 label: t('settings.providers.bedrockAccessKey'),
                 build: (ctrl) => this.compactInput(ctrl, {
@@ -831,6 +893,34 @@ export class ProviderDetailModal extends Modal {
                     type: 'password',
                     value: this.formAwsSecretKey,
                     onInput: (v) => { this.formAwsSecretKey = v; },
+                }),
+            });
+        } else {
+            // FEAT-26-07 gateway mode: header-based subscription key.
+            this.compactRow(parent, {
+                label: 'Gateway base URL',
+                desc: 'e.g. https://gateway.example.com/bedrock. The SDK appends /model/{id}/converse-stream.',
+                build: (ctrl) => this.compactInput(ctrl, {
+                    type: 'text',
+                    value: this.formBaseUrl,
+                    onInput: (v) => { this.formBaseUrl = v; },
+                }),
+            });
+            this.compactRow(parent, {
+                label: 'Gateway header name',
+                desc: 'Most Azure APIM gateways use Ocp-Apim-Subscription-Key.',
+                build: (ctrl) => this.compactInput(ctrl, {
+                    type: 'text',
+                    value: this.formGatewayHeaderName,
+                    onInput: (v) => { this.formGatewayHeaderName = v; },
+                }),
+            });
+            this.compactRow(parent, {
+                label: 'Subscription key',
+                build: (ctrl) => this.compactInput(ctrl, {
+                    type: 'password',
+                    value: this.formGatewayHeaderValue,
+                    onInput: (v) => { this.formGatewayHeaderValue = v; },
                 }),
             });
         }
@@ -908,7 +998,10 @@ export class ProviderDetailModal extends Modal {
             || (persisted.apiVersion ?? '') !== this.formApiVersion.trim()
             || (persisted.awsApiKey ?? '') !== this.formAwsApiKey.trim()
             || (persisted.awsAccessKey ?? '') !== this.formAwsAccessKey.trim()
-            || (persisted.awsSecretKey ?? '') !== this.formAwsSecretKey.trim();
+            || (persisted.awsSecretKey ?? '') !== this.formAwsSecretKey.trim()
+            || (persisted.gatewayHeaderName ?? '') !== this.formGatewayHeaderName.trim()
+            || (persisted.gatewayHeaderValue ?? '') !== this.formGatewayHeaderValue.trim()
+            || (persisted.useGateway ?? false) !== this.formUseGateway;
     }
 
     private hasAnyCredentials(): boolean {
@@ -916,9 +1009,11 @@ export class ProviderDetailModal extends Modal {
             return !!this.formBaseUrl.trim();
         }
         if (this.formType === 'bedrock') {
-            return this.formAwsAuthMode === 'api-key'
-                ? !!this.formAwsApiKey.trim()
-                : !!this.formAwsAccessKey.trim() && !!this.formAwsSecretKey.trim();
+            if (this.formAwsAuthMode === 'api-key') return !!this.formAwsApiKey.trim();
+            if (this.formAwsAuthMode === 'gateway') {
+                return !!this.formBaseUrl.trim() && !!this.formGatewayHeaderValue.trim();
+            }
+            return !!this.formAwsAccessKey.trim() && !!this.formAwsSecretKey.trim();
         }
         if (OAUTH_PROVIDER_TYPES.includes(this.formType)) {
             return (this.formType === 'github-copilot' && !!this.plugin.settings.githubCopilotAccessToken)
