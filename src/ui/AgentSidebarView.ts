@@ -1318,7 +1318,6 @@ export class AgentSidebarView extends ItemView {
     private getOnboardingCallbacks() {
         return {
             addAssistantMessage: (md: string) => this.addAssistantMessage(md),
-            addUserMessage: (text: string) => this.addUserMessage(text),
             updateModelButton: () => this.updateModelButton(),
             startOnboardingChat: () => this.startOnboardingChat(),
             openSettings: () => {
@@ -1455,14 +1454,6 @@ export class AgentSidebarView extends ItemView {
 
         const isHidden = this.nextMessageHidden;
         this.nextMessageHidden = false;
-
-        // Onboarding key interception: treat input as API key when waiting
-        if (this.onboarding?.isAwaitingKey) {
-            this.textarea.value = '';
-            this.autoResizeTextarea();
-            const consumed = await this.onboarding.handleKeyInput(text, this.getOnboardingCallbacks());
-            if (consumed) return;
-        }
 
         this.lastUserMessage = text;
 
