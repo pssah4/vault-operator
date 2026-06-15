@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * IframeSandboxExecutor
  *
@@ -85,17 +84,64 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
 
         return new Promise<unknown>((resolve, reject) => {
             const timeout = window.setTimeout(() => {
+                if (this.heapSampler !== null) {
+                    window.clearInterval(this.heapSampler);
+                    this.heapSampler = null;
+                }
                 this.pending.delete(id);
                 reject(new Error('Sandbox execution timeout (30s)'));
             }, 30000);
 
             this.pending.set(id, { resolve, reject, timeout });
 
+            // AUDIT-037 L-2: the desktop ProcessSandboxExecutor caps the worker
+            // heap at 128 MB via --max-old-space-size. The iframe path has no
+            // equivalent V8 lever, so we sample performance.memory every 500 ms
+            // and tear the iframe down once usedJSHeapSize crosses
+            // HEAP_LIMIT_BYTES. performance.memory is Chromium-only (which
+            // Obsidian uses on every platform that has the iframe path), so
+            // the sampler is gated on its presence.
+            this.startHeapSampler();
+
             const execMsg: PluginToSandboxMessage = { type: 'execute', id, code: compiledJs, input };
             // L-2 Known Limitation: targetOrigin '*' required for srcdoc iframes (no own origin).
             // Security: event.source check in handleMessage() prevents spoofing in receive direction.
             this.iframe?.contentWindow?.postMessage(execMsg, '*');
         });
+    }
+
+    /**
+     * AUDIT-037 L-2: heap sampling for the iframe sandbox. Stops itself when
+     * pending is empty (every execution finished). On limit breach destroys
+     * the iframe and rejects all pending executions so a memory bomb cannot
+     * starve the host renderer indefinitely.
+     */
+    private heapSampler: number | null = null;
+    private static readonly HEAP_SAMPLE_INTERVAL_MS = 500;
+    private static readonly HEAP_LIMIT_BYTES = 128 * 1024 * 1024;
+    private startHeapSampler(): void {
+        if (this.heapSampler !== null) return;
+        const perf = (window as unknown as { performance?: { memory?: { usedJSHeapSize?: number } } }).performance;
+        if (!perf?.memory || typeof perf.memory.usedJSHeapSize !== 'number') return;
+        this.heapSampler = window.setInterval(() => {
+            if (this.pending.size === 0) {
+                if (this.heapSampler !== null) window.clearInterval(this.heapSampler);
+                this.heapSampler = null;
+                return;
+            }
+            const used = perf.memory?.usedJSHeapSize ?? 0;
+            if (used > IframeSandboxExecutor.HEAP_LIMIT_BYTES) {
+                console.warn(`[IframeSandbox] heap cap exceeded (${used} > ${IframeSandboxExecutor.HEAP_LIMIT_BYTES}); terminating sandbox`);
+                for (const [, p] of this.pending) {
+                    window.clearTimeout(p.timeout);
+                    p.reject(new Error('Sandbox terminated: heap limit exceeded (128 MB)'));
+                }
+                this.pending.clear();
+                if (this.heapSampler !== null) window.clearInterval(this.heapSampler);
+                this.heapSampler = null;
+                this.destroy();
+            }
+        }, IframeSandboxExecutor.HEAP_SAMPLE_INTERVAL_MS);
     }
 
     /**
@@ -116,6 +162,12 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
             p.reject(new Error('Sandbox destroyed'));
         }
         this.pending.clear();
+        // AUDIT-037 L-2: clear the heap sampler if destroy() runs while a
+        // sandbox call is still in flight (host shutdown, manual teardown).
+        if (this.heapSampler !== null) {
+            window.clearInterval(this.heapSampler);
+            this.heapSampler = null;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -139,7 +191,8 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
             }, INIT_TIMEOUT_MS);
 
             const handler = (e: MessageEvent) => {
-                if (e.data?.type === 'sandbox-ready') {
+                const data = e.data as { type?: string } | undefined;
+                if (data?.type === 'sandbox-ready') {
                     window.clearTimeout(timeout);
                     window.removeEventListener('message', handler);
                     this.ready = true;
@@ -223,5 +276,3 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
         return 'sx_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     }
 }
-
-/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */

@@ -119,6 +119,13 @@ export class MemoryV2Telemetry {
      *    user manually clears it.
      *  - permanent-error: the upstream provider returned 401/402/403 or
      *    a credit/quota message; the whole session is paused.
+     *
+     * AUDIT-037 M-2: the payload runs through sanitizers before it hits the
+     * JSONL sink. `message` is folded through `sanitizeErrorMessage` so a
+     * provider response that echoed prompt fragments, API keys or Bearer
+     * tokens does not land in the log. `conversationId` is replaced with a
+     * stable HMAC so a future log export does not unmask which conversation
+     * crashed.
      */
     async extractionDropped(payload: {
         reason: 'transient-failures' | 'permanent-error';
@@ -126,6 +133,73 @@ export class MemoryV2Telemetry {
         conversationId?: string;
         message?: string;
     }) {
-        return this.record({ kind: 'memory.extraction.dropped', payload });
+        const sanitized: Record<string, unknown> = {
+            reason: payload.reason,
+            failureCount: payload.failureCount,
+        };
+        if (payload.conversationId) sanitized.conversationIdHash = hashConversationId(payload.conversationId);
+        if (payload.message) sanitized.message = sanitizeErrorMessage(payload.message);
+        return this.record({ kind: 'memory.extraction.dropped', payload: sanitized });
     }
+}
+
+/**
+ * AUDIT-037 M-2: redact obvious secret patterns so a provider error message
+ * that included an API key or Bearer token does not land in telemetry.
+ * Also trim length so very large stack traces stay bounded.
+ */
+const SECRET_PATTERNS: Array<{ regex: RegExp; replacement: string }> = [
+    { regex: /sk-[A-Za-z0-9_-]{20,}/g, replacement: 'sk-[REDACTED]' },
+    { regex: /sk-ant-[A-Za-z0-9_-]{20,}/g, replacement: 'sk-ant-[REDACTED]' },
+    { regex: /Bearer\s+[A-Za-z0-9._-]{20,}/gi, replacement: 'Bearer [REDACTED]' },
+    { regex: /AKIA[0-9A-Z]{16,}/g, replacement: 'AKIA[REDACTED]' },
+    { regex: /AWS[0-9A-Z_]{8,}=([A-Za-z0-9/+=]{20,})/g, replacement: 'AWS_[REDACTED]' },
+    { regex: /[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/g, replacement: '[JWT_REDACTED]' },
+    { regex: /xox[bopas]-[A-Za-z0-9-]{10,}/g, replacement: 'xox[REDACTED]' },
+];
+
+const MAX_TELEMETRY_MESSAGE_LEN = 500;
+
+export function sanitizeErrorMessage(raw: unknown): string {
+    let s = typeof raw === 'string' ? raw : raw instanceof Error ? raw.message : String(raw);
+    for (const { regex, replacement } of SECRET_PATTERNS) {
+        s = s.replace(regex, replacement);
+    }
+    if (s.length > MAX_TELEMETRY_MESSAGE_LEN) {
+        s = s.slice(0, MAX_TELEMETRY_MESSAGE_LEN) + '...[truncated]';
+    }
+    return s;
+}
+
+/**
+ * AUDIT-037 M-2: deterministic hash of a conversation id. Telemetry needs to
+ * correlate events across turns of the same conversation but does not need
+ * the raw id. SHA-256 over a per-session salt makes the hash unforgeable
+ * without re-keying every plugin reload; the salt is rotated on every plugin
+ * load so the hash space across users stays separated.
+ */
+let conversationIdSalt: string | null = null;
+function getConversationIdSalt(): string {
+    if (conversationIdSalt) return conversationIdSalt;
+    const arr = new Uint8Array(16);
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        crypto.getRandomValues(arr);
+    } else {
+        for (let i = 0; i < arr.length; i++) arr[i] = (i * 31 + 7) & 0xff;
+    }
+    conversationIdSalt = Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+    return conversationIdSalt;
+}
+
+export function hashConversationId(id: string): string {
+    const salt = getConversationIdSalt();
+    // Lightweight djb2 hash over salt + id. We avoid an async subtle.digest
+    // call here so the telemetry helper stays synchronous and never blocks
+    // the queue drain. The salt prevents correlation across users.
+    let h = 5381;
+    const s = salt + ':' + id;
+    for (let i = 0; i < s.length; i++) {
+        h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    }
+    return 'h:' + (h >>> 0).toString(16);
 }

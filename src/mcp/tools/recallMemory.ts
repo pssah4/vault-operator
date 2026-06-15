@@ -11,6 +11,7 @@
 
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
+import { wrapVaultContentForMcp } from '../McpBridge';
 import { FactStore } from '../../core/memory/FactStore';
 import { cosine } from '../../core/memory/cosine';
 import {
@@ -66,10 +67,15 @@ export async function handleRecallMemory(
             return { content: [{ type: 'text', text: `No facts matched: "${query}".` }] };
         }
 
+        // AUDIT-037 H-3: facts ingested from external chat surfaces are user
+        // (i.e. vault-controlled) untrusted text. Wrap the body in the same
+        // trust-tag searchVault and readNotes use so a downstream MCP client
+        // cannot be steered by a planted "Ignore previous instructions" hit.
         const lines: string[] = [`Recall results for "${query}" (${hits.length} hits):`, ''];
         for (const h of hits) {
             const tags = h.fact.topics.length > 0 ? ` [${h.fact.topics.join(', ')}]` : '';
-            lines.push(`- ${h.fact.text} _(${h.fact.kind})_${tags}`);
+            lines.push(`- _(${h.fact.kind})_${tags}`);
+            lines.push(wrapVaultContentForMcp(`fact:${h.fact.id}`, h.fact.text));
             lines.push(`  fact:${h.fact.id} -- score ${h.score.toFixed(2)} -- source: ${h.fact.sourceInterface}`);
         }
         return { content: [{ type: 'text', text: lines.join('\n') }] };

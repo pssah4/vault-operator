@@ -4663,3 +4663,95 @@ User-initiated `/release` oder `/dia-orchestrator` fuer Phase 7 (Release Closure
 
 Report: `_devprocess/analysis/AUDIT-036-epic32-stigmergy-hardening-2026-06-07.md`.
 
+
+---
+
+## 2026-06-15, AUDIT-037 v2.14.2 Delta-Audit + Fix-Loop
+
+### Overall Risk Verdict
+
+Initial: YELLOW (3 H, 5 M, 3 L, 2 I). Post-fix-loop (same day): GREEN. All
+13 findings plus the two Dependabot alerts (GHSA-gv7w-rqvm-qjhr,
+GHSA-g7r4-m6w7-qqqr) resolved in one wave on `feature/audit-2026-06-14`.
+
+### Unresolved P0 / P1
+
+None. Every High and Medium finding has a landed fix with regression
+coverage. The Low and Info findings are also addressed end-to-end.
+
+### What landed (file by file)
+
+- `src/api/providers/providerUrlGuard.ts` (new): SSRF guard with strict
+  allow-list for Bedrock, permissive HTTPS-only policy for OpenAI-compatible
+  cloud types, loopback / RFC 1918 only for ollama and lmstudio, and a
+  hard block on AWS / GCP metadata hosts and 0.0.0.0. 26 contract tests.
+- `src/api/providers/openai.ts` and `bedrock.ts`: validateProviderUrl
+  invoked at constructor time; the guard throws before the SDK client is
+  built.
+- `src/core/tools/agent/ConfigureModelTool.ts`: isWriteOperation set to
+  true plus a per-call validateProviderUrl gate on base_url updates so a
+  compromised turn cannot re-point a provider at an attacker host.
+- `src/mcp/tools/searchHistory.ts` and `recallMemory.ts`: every excerpt
+  passes through wrapVaultContentForMcp, matching searchVault and
+  readNotes; closes the indirect prompt-injection vector via
+  save_conversation from external chat surfaces.
+- `src/core/memory/ExtractionQueue.ts`:
+  - M-1: enqueue() auto-parks new items when sessionDisabledReason is set
+    and when items.length >= MAX_ACTIVE_ITEMS (200). Both emit one
+    extractionDropped event per parked item.
+  - M-3: retryTimerToken monotonic counter; the setTimeout callback
+    compares against the captured token and bails on mismatch.
+    cancelInFlight() now bumps the token first, sets cancelled, clears
+    the timer, then aborts.
+  - M-4: strict isValidExtraction schema validator in load(); malformed
+    items move into parkedItems with failureCount = PARK_THRESHOLD plus
+    one console.warn per drop.
+- `src/core/memory/MemoryV2Telemetry.ts`:
+  - M-2: sanitizeErrorMessage drops sk-..., Bearer, AWS access key, JWT
+    and Slack token patterns and trims to 500 chars. hashConversationId
+    salts the id with a per-session 16-byte salt and emits a djb2 hex
+    digest, so telemetry events still correlate without exposing the id.
+- `src/api/providers/bedrock.ts`:
+  - M-5: additionalModelRequestFields try-catch now only swallows
+    TypeError and RangeError; every other throw bubbles up. Logged at
+    console.warn with modelId and reasoningEffort so a real bug is no
+    longer silent.
+- `src/core/AgentTask.ts`:
+  - L-1: PER_TURN_THINKING_CAP=50_000 trims the assistant thinking block
+    inline with a "[thinking truncated]" marker so reasoning-heavy turns
+    do not accumulate RAM ahead of condensing.
+- `src/core/sandbox/IframeSandboxExecutor.ts`:
+  - L-2: performance.memory sampler at 500 ms intervals with
+    HEAP_LIMIT_BYTES = 128 MB. On breach: clears every pending execution,
+    destroys the iframe, logs a warning.
+- `src/core/sandbox/SandboxBridge.ts`:
+  - L-3: Notice surfaces the circuit-breaker trip ("Vault Operator
+    sandbox bridge paused after N errors. Auto-reset in 30s.").
+- `package.json`: esbuild bumped to ^0.28.1 with a self-referential
+  override; npm audit reports 0 vulnerabilities (was 6 High on the
+  esbuild dev chain).
+- `scripts/update-esbuild-integrity.sh` (new): downloads the live
+  esbuild-wasm artefacts from jsdelivr, compares against the
+  INTEGRITY_HASHES committed in EsbuildWasmManager.ts, exits non-zero on
+  drift so CI can fail loudly on a missed bump.
+
+### Architectural concerns for future cycles
+
+None. The provider URL guard, the queue cap and the telemetry sanitizer
+are additive defensive layers and do not change any architecture
+decision recorded in arc42 or the ADR set. The validateProviderUrl
+strict-vs-permissive split is documented inline.
+
+### Test Coverage
+
+2726 passing + 1 expected fail (+27 vs the pre-audit baseline). All 26
+URL guard contract tests added. Existing memory and MCP test suites
+remain green. Build clean (main.js 4.7 MB, deploy successful).
+
+### Release Recommendation
+
+GREEN for 2.14.3 (security patch). Recommended next step: bump
+manifest, append release notes, push through dev -> main -> public
+release per the established mechanic.
+
+Report: `_devprocess/analysis/AUDIT-037-v2.14.2-delta-2026-06-14.md`.

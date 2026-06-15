@@ -9,6 +9,7 @@
 
 import type ObsidianAgentPlugin from '../../main';
 import type { McpToolResult } from '../types';
+import { wrapVaultContentForMcp } from '../McpBridge';
 import {
     validateSourceInterface,
     type SourceInterface,
@@ -93,11 +94,17 @@ export async function handleSearchHistory(
             return { content: [{ type: 'text', text: `No matches after source filter "${sourceFilter ?? '*'}".` }] };
         }
 
+        // AUDIT-037 H-3: history snippets come from external chat surfaces
+        // (claude.ai, chatgpt, etc) via save_conversation. They are vault-
+        // controlled untrusted text and must ride inside the same trust-tag
+        // wrapper that searchVault and readNotes use, so a "Ignore previous
+        // instructions" payload cannot pivot a downstream MCP-client agent.
         const lines: string[] = [`History matches for "${query}" (${hits.length} hits):`, ''];
         for (const h of hits) {
             const link = `obsidian://vault-operator-chat?id=${encodeURIComponent(h.sessionId)}`;
+            const sourceUri = `history://${h.sessionId}#${h.role}`;
             lines.push(`- [${h.title}](<${link}>) -- ${h.role} (${h.source}, ${h.created.slice(0, 10)})`);
-            lines.push(`  > ${h.text.replace(/\n/g, ' ')}`);
+            lines.push(wrapVaultContentForMcp(sourceUri, h.text.replace(/\n/g, ' ')));
         }
         return { content: [{ type: 'text', text: lines.join('\n') }] };
     } catch (e) {

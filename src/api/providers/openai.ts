@@ -13,6 +13,7 @@ import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ModelInfo } f
 import type { ToolDefinition } from '../../core/tools/types';
 import type { IncomingMessage } from 'http';
 import { getModelContextWindow, resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortLevels, modelUsesBudgetTokensThinking } from '../../types/model-registry';
+import { validateProviderUrl } from './providerUrlGuard';
 import { logCacheStat } from '../logCacheStat';
 import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
 
@@ -186,6 +187,15 @@ export class OpenAiProvider implements ApiHandler {
 
     constructor(config: LLMProvider) {
         this.config = config;
+
+        // AUDIT-037 H-1: SSRF guard on config.baseUrl. validateProviderUrl
+        // throws when the URL is a public-cloud provider impersonator (e.g.
+        // openai pointed at an internal IP) or targets AWS / GCP metadata.
+        // For ollama / lmstudio loopback and RFC 1918 ranges are allowed; for
+        // "custom" any HTTPS host is allowed and HTTP is allowed only for
+        // loopback hosts. Undefined config.baseUrl falls back to the hardcoded
+        // DEFAULT_BASE_URLS entry below.
+        if (config.baseUrl) validateProviderUrl(config.type, config.baseUrl);
 
         let baseURL = config.baseUrl ?? DEFAULT_BASE_URLS[config.type] ?? DEFAULT_BASE_URLS.openai;
         if (config.type === 'ollama' && !baseURL.match(/\/v\d/)) {

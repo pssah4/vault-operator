@@ -44,6 +44,7 @@ import type {
 import type { ToolDefinition } from '../../core/tools/types';
 import { truncatedToolInputError } from '../types';
 import { resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature, getModelEffortSupport, modelUsesBudgetTokensThinking } from '../../types/model-registry';
+import { validateProviderUrl } from './providerUrlGuard';
 import { getCacheCapability } from '../capabilities';
 import { splitSystemPromptAtCacheBreakpoint } from '../../core/systemPrompt';
 import { logCacheStat } from '../logCacheStat';
@@ -118,6 +119,13 @@ export class BedrockProvider implements ApiHandler {
 
     constructor(config: LLMProvider) {
         this.config = config;
+
+        // AUDIT-037 H-2: SSRF guard on config.baseUrl. The Bedrock SDK forwards
+        // AWS credentials with every request, so a hostile endpoint walks off
+        // with the API key or IAM secret. validateProviderUrl pins the host
+        // to *.bedrock(-runtime).<region>.amazonaws.com and refuses metadata
+        // hosts, private IPs and unmatched HTTPS targets.
+        if (config.baseUrl?.trim()) validateProviderUrl('bedrock', config.baseUrl.trim());
 
         // Prefer the explicit region field, fall back to parsing it out of the
         // endpoint URL. That way the user can set just one of the two fields.
@@ -313,8 +321,20 @@ export class BedrockProvider implements ApiHandler {
                 };
             }
         } catch (e) {
-            // Never let a malformed field break the call.
-            console.debug('[Bedrock] additionalModelRequestFields construction failed, omitting field', e);
+            // AUDIT-037 M-5: only swallow construction errors that are
+            // structurally plausible for an object-literal builder
+            // (TypeError if a registry helper returns the wrong shape,
+            // RangeError if a numeric coercion overflows). Other thrown
+            // values bubble up so a real bug stays visible instead of
+            // silently degrading every Bedrock turn to no-thinking mode.
+            if (!(e instanceof TypeError) && !(e instanceof RangeError)) {
+                throw e;
+            }
+            console.warn('[Bedrock] additionalModelRequestFields construction failed, omitting field', {
+                modelId: this.config.model,
+                reasoningEffort: this.config.reasoningEffort,
+                error: e instanceof Error ? e.message : String(e),
+            });
             additionalModelRequestFields = undefined;
         }
 

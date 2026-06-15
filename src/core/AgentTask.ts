@@ -1373,9 +1373,22 @@ export class AgentTask {
                 // Build the assistant message content. Thinking first (mirrors
                 // the order the model produced: CoT before answer/tool), then
                 // visible text, then tool_use blocks.
+                //
+                // AUDIT-037 L-1: the wire-side MAX_REASONING_CONTENT_CHARS cap
+                // only trims what is RE-SENT to the API. Without a turn-side
+                // cap the assistant history grew linearly with reasoning depth
+                // until condensing kicked in at 70%. Cap each turn at
+                // PER_TURN_THINKING_CAP characters so a max-effort session
+                // does not stall on RAM long before condensing reacts.
                 const assistantContent: ContentBlock[] = [];
                 if (thinkingParts.length > 0) {
-                    assistantContent.push({ type: 'thinking', text: thinkingParts.join('') });
+                    const joined = thinkingParts.join('');
+                    const PER_TURN_THINKING_CAP = 50_000;
+                    const capped = joined.length > PER_TURN_THINKING_CAP
+                        ? joined.slice(0, PER_TURN_THINKING_CAP)
+                            + `\n[thinking truncated: ${joined.length - PER_TURN_THINKING_CAP} chars dropped to keep history bounded]`
+                        : joined;
+                    assistantContent.push({ type: 'thinking', text: capped });
                 }
                 if (textParts.length > 0) {
                     assistantContent.push({ type: 'text', text: textParts.join('') });

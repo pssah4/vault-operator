@@ -15,10 +15,16 @@ import type ObsidianAgentPlugin from '../../../main';
 import type { CustomModel, ProviderType } from '../../../types/settings';
 import { getModelKey, BUILT_IN_MODELS, getDefaultBaseUrlForProvider } from '../../../types/settings';
 import { buildApiHandlerForModel } from '../../../api/index';
+import { validateProviderUrl } from '../../../api/providers/providerUrlGuard';
 
 export class ConfigureModelTool extends BaseTool<'configure_model'> {
     readonly name = 'configure_model' as const;
-    readonly isWriteOperation = false; // Settings change, not vault write
+    // AUDIT-037 H-2: configure_model can rotate the API key and the baseUrl of
+    // an LLM provider, so a compromised turn could re-point Bedrock or OpenAI
+    // at an attacker host and the next createMessage() would walk the API key
+    // off. Treat it as a write operation so the approval surface fires before
+    // the settings mutation, in addition to the URL guard in handleAdd.
+    readonly isWriteOperation = true;
 
     constructor(plugin: ObsidianAgentPlugin) {
         super(plugin);
@@ -116,6 +122,19 @@ export class ConfigureModelTool extends BaseTool<'configure_model'> {
             return;
         }
 
+        // AUDIT-037 H-2: SSRF guard for the supplied base_url. Refuses public
+        // cloud impersonators, AWS / GCP metadata hosts and unmatched HTTPS
+        // targets before the entry lands in plugin.settings.activeModels.
+        const baseUrlInput = ((input.base_url as string) ?? '').trim();
+        if (baseUrlInput) {
+            try {
+                validateProviderUrl(resolvedProvider, baseUrlInput);
+            } catch (e) {
+                callbacks.pushToolResult(this.formatError(e));
+                return;
+            }
+        }
+
         // Build the model entry
         const model: CustomModel = {
             name: modelName,
@@ -139,7 +158,18 @@ export class ConfigureModelTool extends BaseTool<'configure_model'> {
             // Update existing entry (preserve other fields, update key + enabled)
             const existing = this.plugin.settings.activeModels[existingIdx];
             if (apiKey) existing.apiKey = apiKey;
-            if (input.base_url) existing.baseUrl = input.base_url as string;
+            // AUDIT-037 H-2: re-validate before overwriting the existing baseUrl
+            // since the existing entry may have come from a trusted UI flow but
+            // the agent-driven update is in scope of the LLM trust boundary.
+            if (input.base_url) {
+                try {
+                    validateProviderUrl(existing.provider, input.base_url as string);
+                } catch (e) {
+                    callbacks.pushToolResult(this.formatError(e));
+                    return;
+                }
+                existing.baseUrl = input.base_url as string;
+            }
             if (input.display_name) existing.displayName = input.display_name as string;
             existing.enabled = true;
         } else {

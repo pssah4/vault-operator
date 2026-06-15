@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * ExtractionQueue
  *
@@ -78,6 +78,14 @@ export interface QueueHealth {
 const PARK_THRESHOLD = 3;
 /** Linear backoff base for transient retries. */
 const BACKOFF_BASE_MS = 60_000;
+/**
+ * AUDIT-037 M-1: hard cap on the active queue so a session that hits a
+ * permanent provider error (sessionDisabledReason set) cannot accumulate
+ * pending items forever and exhaust plugin RAM. When the cap is reached new
+ * items are routed straight to parkedItems[] and a single dropped-telemetry
+ * event fires per overflow.
+ */
+const MAX_ACTIVE_ITEMS = 200;
 
 // ---------------------------------------------------------------------------
 // ExtractionQueue
@@ -133,6 +141,15 @@ export class ExtractionQueue {
     /** FIX-32-03-03: pending retry timer; cleared by cancelInFlight(). */
     private retryTimer: number | null = null;
     private retryTimerItemId: string | null = null;
+    /**
+     * AUDIT-037 M-3: monotonically-increasing token for the most recent
+     * scheduled retry. The setTimeout callback compares this against the
+     * value it captured at schedule time and bails out when the queue has
+     * been cancelled, restarted or rescheduled in the meantime, closing
+     * the cancelInFlight + setTimeout race the cancelled latch alone could
+     * not handle across multiple inter-macrotask hops.
+     */
+    private retryTimerToken = 0;
     /** FIX-32-03-03: most recent error visible to getQueueHealth(). */
     private lastError: QueueHealth['lastError'] | undefined;
     /** FIX-32-03-03: telemetry sink for park/drop events. Optional. */
@@ -190,6 +207,41 @@ export class ExtractionQueue {
                 );
                 return;
             }
+        }
+        // AUDIT-037 M-1 part A: while the session is disabled by a permanent
+        // provider error we know every item will fail immediately. Park new
+        // items so the active list cannot grow without bound and emit a
+        // single dropped-telemetry event for the visibility surface.
+        if (this.sessionDisabledReason) {
+            const parked: PendingExtraction = { ...item, failureCount: PARK_THRESHOLD };
+            this.parkedItems.push(parked);
+            await this.save();
+            await this.telemetry?.extractionDropped({
+                reason: 'permanent-error',
+                failureCount: parked.failureCount ?? PARK_THRESHOLD,
+                conversationId: parked.conversationId,
+                message: this.sessionDisabledReason,
+            });
+            return;
+        }
+        // AUDIT-037 M-1 part B: hard cap on the active list. If the cap is
+        // exhausted (e.g. processor is wedged) park the new item too so RAM
+        // cannot drift upward turn over turn. Pending items are processed
+        // FIFO so the active head is the oldest entry.
+        if (this.items.length >= MAX_ACTIVE_ITEMS) {
+            const parked: PendingExtraction = { ...item, failureCount: PARK_THRESHOLD };
+            this.parkedItems.push(parked);
+            console.warn(
+                `[ExtractionQueue] active queue at cap (${MAX_ACTIVE_ITEMS}), parking ${parked.conversationId}`,
+            );
+            await this.save();
+            await this.telemetry?.extractionDropped({
+                reason: 'transient-failures',
+                failureCount: parked.failureCount ?? PARK_THRESHOLD,
+                conversationId: parked.conversationId,
+                message: `active queue at cap (${MAX_ACTIVE_ITEMS})`,
+            });
+            return;
         }
         this.lastEnqueuedAt.set(item.conversationId, Date.now());
         // FIX-32-03-03: every newly enqueued item starts with failureCount=0.
@@ -253,16 +305,58 @@ export class ExtractionQueue {
             // v3 shape: { version: 3, items, parkedItems, lastEnqueuedAt }
             // v2 shape: { items, lastEnqueuedAt } -- no parkedItems
             // v1 shape: plain array of items (back-compat)
-            const migrate = (raws: unknown[]): PendingExtraction[] =>
-                raws.filter((x): x is PendingExtraction => !!x && typeof x === 'object')
-                    .map((x) => ({ ...x, failureCount: x.failureCount ?? 0 }));
+            //
+            // AUDIT-037 M-4: a corrupted or hand-edited pending-extractions.json
+            // file used to slip through the type-guard because we only checked
+            // `typeof x === 'object'`. Items missing conversationId, messages
+            // or title would land in the queue and crash downstream consumers.
+            // Strict per-field validation now routes malformed items into
+            // parkedItems with failureCount = PARK_THRESHOLD so they are not
+            // retried, and emits one console warning per drop for visibility.
+            const isValidExtraction = (x: unknown): x is PendingExtraction => {
+                if (!x || typeof x !== 'object') return false;
+                const o = x as Record<string, unknown>;
+                if (typeof o.conversationId !== 'string' || !o.conversationId) return false;
+                if (!Array.isArray(o.messages)) return false;
+                if (typeof o.title !== 'string') return false;
+                if (typeof o.queuedAt !== 'string') return false;
+                if (o.failureCount !== undefined && typeof o.failureCount !== 'number') return false;
+                if (o.nextRetryAt !== undefined && typeof o.nextRetryAt !== 'number') return false;
+                if (o.bypassThrottle !== undefined && typeof o.bypassThrottle !== 'boolean') return false;
+                return true;
+            };
+            const parkedOnLoad: PendingExtraction[] = [];
+            const migrate = (raws: unknown[]): PendingExtraction[] => {
+                const out: PendingExtraction[] = [];
+                for (const x of raws) {
+                    if (isValidExtraction(x)) {
+                        out.push({ ...x, failureCount: x.failureCount ?? 0 });
+                        continue;
+                    }
+                    // Best-effort: keep enough metadata to surface to the user.
+                    const o = (x ?? {}) as Record<string, unknown>;
+                    const id = typeof o.conversationId === 'string' && o.conversationId
+                        ? o.conversationId
+                        : 'unknown';
+                    console.warn(`[ExtractionQueue] dropping malformed pending item (${id}); routing to parkedItems.`);
+                    parkedOnLoad.push({
+                        conversationId: id,
+                        messages: Array.isArray(o.messages) ? (o.messages as PendingExtractionMessage[]) : [],
+                        title: typeof o.title === 'string' ? o.title : '(corrupt entry)',
+                        queuedAt: typeof o.queuedAt === 'string' ? o.queuedAt : new Date().toISOString(),
+                        failureCount: PARK_THRESHOLD,
+                    });
+                }
+                return out;
+            };
             if (Array.isArray(parsed)) {
                 this.items = migrate(parsed);
-                this.parkedItems = [];
+                this.parkedItems = [...parkedOnLoad];
                 this.lastEnqueuedAt.clear();
             } else if (parsed && typeof parsed === 'object') {
                 this.items = Array.isArray(parsed.items) ? migrate(parsed.items) : [];
                 this.parkedItems = Array.isArray(parsed.parkedItems) ? migrate(parsed.parkedItems) : [];
+                if (parkedOnLoad.length > 0) this.parkedItems.push(...parkedOnLoad);
                 this.lastEnqueuedAt.clear();
                 if (parsed.lastEnqueuedAt && typeof parsed.lastEnqueuedAt === 'object') {
                     for (const [id, ts] of Object.entries(parsed.lastEnqueuedAt as Record<string, unknown>)) {
@@ -402,13 +496,19 @@ export class ExtractionQueue {
                     if (this.retryTimer) window.clearTimeout(this.retryTimer);
                     const itemId = item.conversationId;
                     this.retryTimerItemId = itemId;
+                    // AUDIT-037 M-3: capture the token at schedule time so the
+                    // setTimeout callback can detect that cancelInFlight,
+                    // load(), or a later catch-block rescheduled in the
+                    // meantime. The cancelled latch alone races with the
+                    // load() reset; the token closes that window.
+                    const myToken = ++this.retryTimerToken;
                     this.retryTimer = window.setTimeout(() => {
+                        // Synchronous fast path so a stale timer never
+                        // re-enters processQueue, even if microtask
+                        // ordering reset this.cancelled in between.
+                        if (myToken !== this.retryTimerToken) return;
                         this.retryTimer = null;
                         this.retryTimerItemId = null;
-                        // FIX-32-03-02 race guard: respect cancellation set
-                        // between scheduling and firing -- this branch runs
-                        // after cancelInFlight has nulled the timer AND set
-                        // the cancelled flag.
                         if (this.cancelled) return;
                         void this.processQueue();
                     }, delay);
@@ -429,21 +529,28 @@ export class ExtractionQueue {
     }
 
     /**
-     * FIX-32-03-02: abort the in-flight processor call and clear any pending
-     * retry timer. Idempotent: safe to call when no run is active. Must run
-     * BEFORE memoryDB.close() in main.onunload so SingleCallProcessor's
-     * post-extract block sees the closed-DB and exits early without errors.
+     * FIX-32-03-02 / AUDIT-037 M-3: abort the in-flight processor call and
+     * clear any pending retry timer. Idempotent. Must run BEFORE
+     * memoryDB.close() in main.onunload so SingleCallProcessor's post-extract
+     * block sees the closed DB and exits early without errors.
+     *
+     * Ordering: bump the retry token first so any already-queued setTimeout
+     * callback bails on the token mismatch, then set the cancelled latch,
+     * then abort the in-flight call. The token bump is the synchronous gate;
+     * the latch is the asynchronous fallback for paths that do not check the
+     * token (the inter-iteration delay).
      */
     cancelInFlight(): void {
+        this.retryTimerToken++;
         this.cancelled = true;
-        if (this.abortController) {
-            try { this.abortController.abort(); } catch { /* noop */ }
-            this.abortController = null;
-        }
         if (this.retryTimer) {
             window.clearTimeout(this.retryTimer);
             this.retryTimer = null;
             this.retryTimerItemId = null;
+        }
+        if (this.abortController) {
+            try { this.abortController.abort(); } catch { /* noop */ }
+            this.abortController = null;
         }
     }
 
