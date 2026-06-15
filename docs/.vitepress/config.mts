@@ -150,6 +150,16 @@ export default withMermaid(
     // Served as a GitHub Pages project site at https://pssah4.github.io/vault-operator/.
     // If a custom domain is ever added back, set base to '/'.
     base: '/vault-operator/',
+
+    // esbuild 0.28 refuses to transform destructuring under the legacy
+    // browser-defaults target set vite uses (chrome87, firefox78, safari14,
+    // es2020). Bump the target to es2022 so the mermaid bundle compiles in
+    // the pages build. End users are on modern Chromium via Obsidian or
+    // current evergreen browsers via the public site, so es2022 is fine.
+    vite: {
+      build: { target: 'es2022' },
+      esbuild: { target: 'es2022' },
+    },
     head: [
       ['meta', { property: 'og:title', content: 'Vault Operator, an AI agent for your Obsidian vault' }],
       ['meta', { property: 'og:description', content: 'An autonomous AI agent for Obsidian with 60+ tools, block-level provenance, cross-surface MCP, semantic search, persistent memory, and full safety controls.' }],
