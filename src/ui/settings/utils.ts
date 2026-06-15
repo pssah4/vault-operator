@@ -32,6 +32,78 @@ export function openInfoPopover(title: string, body: string): void {
 }
 
 /**
+ * Convert every legacy `<span class="mcm-desc">…</span>` inside `root`
+ * into a clickable info-icon next to its sibling label.
+ *
+ * Background: ModelConfigModal was originally built with inline
+ * descriptions rendered below each label. When the explanatory text
+ * grew (e.g. EnBW Bedrock gateway, AWS credentials) the description
+ * pushed the input column down to a few pixels wide. ProviderDetailModal
+ * already uses the (i)-icon + popover pattern; this helper retrofits
+ * the same look onto the legacy modal without touching every single
+ * `createSpan({cls: 'mcm-desc'})` call site.
+ *
+ * Mechanics:
+ *  - `.mcm-desc` is hidden by default via CSS.
+ *  - For every `.mcm-label` that contains a `.mcm-desc` child, this
+ *    helper appends an `.agent-info-btn` (Lucide info-glyph) right
+ *    after the label span. Clicking it opens the existing popover
+ *    with the description text.
+ *  - Descriptions whose text is set lazily (apiKeyDescEl, baseUrlDescEl)
+ *    are picked up via a MutationObserver, so the icon appears once
+ *    the text shows up. The observer disconnects after the first wire.
+ *  - Each label is marked with `data-tooltip-wired` so repeated calls
+ *    are no-ops.
+ */
+export function wireMcmDescTooltips(root: HTMLElement): void {
+    const labels = root.querySelectorAll<HTMLElement>('.mcm-label');
+    labels.forEach((labelEl) => {
+        if (labelEl.dataset.tooltipWired === '1') return;
+        const desc = labelEl.querySelector<HTMLElement>(':scope > .mcm-desc');
+        if (!desc) return;
+        // The first non-desc child is treated as the label text. Most
+        // call sites use a single span for the label.
+        const labelChild = Array.from(labelEl.children).find(
+            (c): c is HTMLElement => c instanceof HTMLElement && !c.classList.contains('mcm-desc'),
+        );
+        if (!labelChild) return;
+        const labelText = (labelChild.textContent ?? '').trim();
+
+        const attachIcon = (descText: string): void => {
+            if (labelEl.querySelector(':scope > .agent-info-btn')) return;
+            const btn = labelEl.createEl('button', {
+                cls: 'agent-info-btn',
+                attr: { type: 'button', 'aria-label': `${labelText}: info` },
+            });
+            setIcon(btn, 'info');
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openInfoPopover(labelText, descText);
+            });
+            // Sit right after the label text, before the (now hidden) desc.
+            labelEl.insertBefore(btn, desc);
+            labelEl.dataset.tooltipWired = '1';
+        };
+
+        const initialText = (desc.textContent ?? '').trim();
+        if (initialText) {
+            attachIcon(initialText);
+            return;
+        }
+        // Late-binding: wait for the description text to land.
+        const observer = new MutationObserver(() => {
+            const text = (desc.textContent ?? '').trim();
+            if (text) {
+                observer.disconnect();
+                attachIcon(text);
+            }
+        });
+        observer.observe(desc, { childList: true, characterData: true, subtree: true });
+    });
+}
+
+/**
  * Append a small info-icon button to an Obsidian Setting's name cell.
  * Clicking the icon opens a lightweight popover (centered overlay,
  * dismiss on outside-click / Escape) with the explanatory body.

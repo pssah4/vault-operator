@@ -14,7 +14,8 @@ import { extractRegionFromBedrockUrl } from '../../api/providers/bedrock';
  */
 export interface BedrockFetchCredentials {
     region?: string;
-    authMode?: 'api-key' | 'access-key';
+    /** FEAT-26-07 adds 'gateway' (enterprise APIM proxy). */
+    authMode?: 'api-key' | 'access-key' | 'gateway';
     apiKey?: string;
     accessKey?: string;
     secretKey?: string;
@@ -128,12 +129,28 @@ async function testModelConnection(model: CustomModel): Promise<TestResult> {
                     detail: 'Paste the bearer token from the Bedrock console or from the AWS_BEARER_TOKEN_BEDROCK environment variable.',
                 };
             }
-        } else {
+        } else if (authMode === 'access-key') {
             if (!model.awsAccessKey || !model.awsSecretKey) {
                 return {
                     ok: false,
                     message: 'AWS credentials required',
                     detail: 'Fill both access key ID and secret access key, or switch to the Bedrock API key mode.',
+                };
+            }
+        } else {
+            // FEAT-26-07 gateway mode pre-flight
+            if (!model.baseUrl) {
+                return {
+                    ok: false,
+                    message: 'Gateway endpoint required',
+                    detail: 'Enter the full gateway base URL (e.g. https://gateway.example.com/bedrock).',
+                };
+            }
+            if (!model.gatewayHeaderValue) {
+                return {
+                    ok: false,
+                    message: 'Gateway subscription key required',
+                    detail: 'Paste the subscription key for the enterprise Bedrock gateway.',
                 };
             }
         }
@@ -604,6 +621,20 @@ async function fetchBedrockModels(
         throw new Error('AWS region required. pick a region or set an endpoint URL containing one.');
     }
     const authMode = creds.authMode ?? 'api-key';
+
+    // FEAT-26-07: gateway mode terminates the AWS trust boundary at an
+    // enterprise APIM that does NOT expose the Bedrock control plane
+    // (`ListFoundationModels` / `ListInferenceProfiles` live elsewhere).
+    // Return a curated list of EU cross-region inference profile IDs that
+    // typical gateway deployments support so the dropdown is still useful.
+    if (authMode === 'gateway') {
+        return [
+            { id: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0', label: 'Anthropic Claude Haiku 4.5 (EU profile)' },
+            { id: 'eu.anthropic.claude-sonnet-4-6',              label: 'Anthropic Claude Sonnet 4.6 (EU profile)' },
+            { id: 'eu.anthropic.claude-opus-4-7',                label: 'Anthropic Claude Opus 4.7 (EU profile)' },
+            { id: 'eu.anthropic.claude-opus-4-8',                label: 'Anthropic Claude Opus 4.8 (EU profile)' },
+        ];
+    }
 
     // Dynamic import keeps the control-plane SDK out of the hot path. it's
     // only needed when the user actually clicks Fetch Models.

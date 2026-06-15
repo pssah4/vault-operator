@@ -94,6 +94,51 @@ describe('validateProviderUrl', () => {
         });
     });
 
+    describe('bedrock gatewayMode (FEAT-26-07)', () => {
+        it('accepts an enterprise APIM host like enbw-az.cloud when gatewayMode is true', () => {
+            expect(() =>
+                validateProviderUrl(
+                    'bedrock',
+                    'https://gateway.integration-apihub.enbw-az.cloud/genai/cowork/bedrock',
+                    { gatewayMode: true },
+                ),
+            ).not.toThrow();
+        });
+        it('accepts a generic Azure APIM host when gatewayMode is true', () => {
+            expect(() =>
+                validateProviderUrl('bedrock', 'https://apimgmt-x-prd.azure-api.net/anthropic', { gatewayMode: true }),
+            ).not.toThrow();
+        });
+        it('still rejects plain HTTP in gatewayMode (no plaintext keys off-box)', () => {
+            expect(() =>
+                validateProviderUrl('bedrock', 'http://gateway.example.com/bedrock', { gatewayMode: true }),
+            ).toThrow(/HTTPS/);
+        });
+        it('still rejects AWS IMDS in gatewayMode', () => {
+            expect(() =>
+                validateProviderUrl('bedrock', 'https://169.254.169.254/bedrock', { gatewayMode: true }),
+            ).toThrow();
+        });
+        it('still rejects RFC1918 private IPs in gatewayMode', () => {
+            expect(() =>
+                validateProviderUrl('bedrock', 'https://10.0.0.5/bedrock', { gatewayMode: true }),
+            ).toThrow(/local or private/);
+        });
+        it('still rejects metadata.google.internal in gatewayMode', () => {
+            expect(() =>
+                validateProviderUrl('bedrock', 'https://metadata.google.internal/bedrock', { gatewayMode: true }),
+            ).toThrow(/metadata/);
+        });
+        it('regression: without gatewayMode, enbw-az.cloud still fails the strict bedrock allow-list', () => {
+            expect(() =>
+                validateProviderUrl(
+                    'bedrock',
+                    'https://gateway.integration-apihub.enbw-az.cloud/genai/cowork/bedrock',
+                ),
+            ).toThrow(/allow-list/);
+        });
+    });
+
     describe('malformed input', () => {
         it('throws on garbage URL', () => {
             expect(() => validateProviderUrl('openai', 'not a url')).toThrow(/not a valid URL/);

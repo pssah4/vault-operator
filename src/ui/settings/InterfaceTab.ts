@@ -40,8 +40,19 @@ export class InterfaceTab {
 
             setupSetting.addButton((b) =>
                 b.setButtonText(isComplete ? t('settings.interface.restartSetup') : t('settings.interface.startSetup')).onClick(async () => {
+                    // Reset only the onboarding flags (completed, currentStep, skippedSteps,
+                    // startedAt). Configured models and memory facts are NOT touched -- the
+                    // FirstRunWizardModal is add-only (push-into-array for models, set-if-empty
+                    // for templates and active-model keys).
                     await onboarding.reset();
-                    await this.plugin.startOnboarding();
+                    // Also clear the wizard-modal-completion flag so the wizard re-opens
+                    // cleanly. Without this, finishAndStartChat / finishWithoutChat may have
+                    // marked it true on a previous run.
+                    this.plugin.settings.onboarding.modalCompleted = false;
+                    await this.plugin.saveSettings();
+                    this.app.setting?.close();
+                    const { FirstRunWizardModal } = await import('../modals/FirstRunWizardModal');
+                    new FirstRunWizardModal(this.app, this.plugin).open();
                 }),
             );
 

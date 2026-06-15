@@ -31,6 +31,7 @@ import {
     type ToolResultContentBlock,
     type ConverseStreamCommandInput,
 } from '@aws-sdk/client-bedrock-runtime';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import type { DocumentType } from '@smithy/types';
 import type { LLMProvider } from '../../types/settings';
 import type {
@@ -113,6 +114,31 @@ export function extractRegionFromBedrockUrl(url: string | undefined): string | n
     return match ? match[1].toLowerCase() : null;
 }
 
+/** FEAT-26-07 default header name when the user did not override it. */
+const DEFAULT_GATEWAY_HEADER_NAME = 'Ocp-Apim-Subscription-Key';
+
+/**
+ * FEAT-26-07: pure helper. Strips AWS-signing headers (`Authorization`,
+ * `X-Amz-*`) from the outgoing request and injects the configured gateway
+ * subscription header. Case-insensitive against the request map.
+ *
+ * Exported so the contract is unit-testable without standing up the
+ * full SDK middleware stack.
+ */
+export function applyGatewayHeaderTransform(
+    request: { headers: Record<string, string> },
+    headerName: string,
+    headerValue: string,
+): void {
+    for (const key of Object.keys(request.headers)) {
+        const lower = key.toLowerCase();
+        if (lower === 'authorization' || lower.startsWith('x-amz-')) {
+            delete request.headers[key];
+        }
+    }
+    request.headers[headerName] = headerValue;
+}
+
 export class BedrockProvider implements ApiHandler {
     private client: BedrockRuntimeClient;
     private config: LLMProvider;
@@ -120,22 +146,32 @@ export class BedrockProvider implements ApiHandler {
     constructor(config: LLMProvider) {
         this.config = config;
 
+        // Default to bearer-token mode if not specified, since it's the recommended path.
+        const authMode = config.awsAuthMode ?? 'api-key';
+
         // AUDIT-037 H-2: SSRF guard on config.baseUrl. The Bedrock SDK forwards
         // AWS credentials with every request, so a hostile endpoint walks off
         // with the API key or IAM secret. validateProviderUrl pins the host
         // to *.bedrock(-runtime).<region>.amazonaws.com and refuses metadata
         // hosts, private IPs and unmatched HTTPS targets.
-        if (config.baseUrl?.trim()) validateProviderUrl('bedrock', config.baseUrl.trim());
+        //
+        // FEAT-26-07: in gateway mode the strict AWS allow-list is skipped so
+        // enterprise APIM hosts can proxy the ConverseStream API. The standard
+        // SSRF defenses (HTTPS-only, no metadata, no RFC1918) stay in force.
+        if (config.baseUrl?.trim()) {
+            validateProviderUrl('bedrock', config.baseUrl.trim(), {
+                gatewayMode: authMode === 'gateway',
+            });
+        }
 
-        // Prefer the explicit region field, fall back to parsing it out of the
-        // endpoint URL. That way the user can set just one of the two fields.
-        const region = config.awsRegion?.trim() || extractRegionFromBedrockUrl(config.baseUrl) || '';
+        // Gateway mode requires an explicit region -- the URL no longer
+        // contains one. AWS modes can still fall back to parsing the URL.
+        const region = authMode === 'gateway'
+            ? (config.awsRegion?.trim() || '')
+            : (config.awsRegion?.trim() || extractRegionFromBedrockUrl(config.baseUrl) || '');
         if (!region) {
             throw new Error('[Bedrock] awsRegion is required (e.g. eu-central-1) -- either pick a region or give an endpoint URL containing one');
         }
-
-        // Default to bearer-token mode if not specified, since it's the recommended path.
-        const authMode = config.awsAuthMode ?? 'api-key';
 
         const clientConfig: BedrockRuntimeClientConfig = {
             region,
@@ -143,6 +179,14 @@ export class BedrockProvider implements ApiHandler {
             // https://bedrock-runtime.eu-central-1.amazonaws.com explicitly.
             // Falls back to the default regional endpoint when empty.
             ...(config.baseUrl?.trim() ? { endpoint: config.baseUrl.trim() } : {}),
+            // FEAT-26-07: enterprise gateways typically do not set CORS
+            // headers, so Electron's window.fetch refuses the request with
+            // "Failed to fetch". NodeHttpHandler routes via node:https,
+            // which is not subject to CORS in the renderer. Same pattern
+            // the OpenAI/Custom provider uses via createNodeFetch(). The
+            // AWS auth modes keep the SDK default handler, which is fine
+            // for *.amazonaws.com (CORS-allowed by AWS).
+            ...(authMode === 'gateway' ? { requestHandler: new NodeHttpHandler() } : {}),
         };
 
         if (authMode === 'api-key') {
@@ -152,7 +196,7 @@ export class BedrockProvider implements ApiHandler {
             }
             clientConfig.token = { token: apiKey };
             clientConfig.authSchemePreference = ['httpBearerAuth'];
-        } else {
+        } else if (authMode === 'access-key') {
             const accessKeyId = config.awsAccessKey?.trim();
             const secretAccessKey = config.awsSecretKey?.trim();
             if (!accessKeyId || !secretAccessKey) {
@@ -163,9 +207,47 @@ export class BedrockProvider implements ApiHandler {
                 secretAccessKey,
                 ...(config.awsSessionToken ? { sessionToken: config.awsSessionToken.trim() } : {}),
             };
+        } else {
+            // FEAT-26-07: 'gateway' mode -- the gateway terminates the AWS
+            // trust boundary. Provide dummy credentials so the SDK does not
+            // walk the default credential-provider chain (which would fail
+            // hard in the Electron renderer), and overwrite the auth headers
+            // in a finalizeRequest middleware below.
+            const headerValue = config.gatewayHeaderValue?.trim();
+            if (!headerValue) {
+                throw new Error('[Bedrock] gatewayHeaderValue is required when authMode is gateway');
+            }
+            clientConfig.credentials = {
+                accessKeyId: 'vault-operator-gateway',
+                secretAccessKey: 'vault-operator-gateway',
+            };
         }
 
         this.client = new BedrockRuntimeClient(clientConfig);
+
+        if (authMode === 'gateway') {
+            const headerName = (config.gatewayHeaderName?.trim() || DEFAULT_GATEWAY_HEADER_NAME);
+            // Non-null assertion safe -- the guard above already threw on empty.
+            const headerValue = config.gatewayHeaderValue!.trim();
+            this.client.middlewareStack.add(
+                (next) => async (args) => {
+                    const request = (args as { request?: { headers?: Record<string, string> } }).request;
+                    if (request && request.headers) {
+                        applyGatewayHeaderTransform(
+                            request as { headers: Record<string, string> },
+                            headerName,
+                            headerValue,
+                        );
+                    }
+                    return next(args);
+                },
+                {
+                    step: 'finalizeRequest',
+                    name: 'vault-operator-gateway-auth',
+                    priority: 'low',
+                },
+            );
+        }
     }
 
     getModel(): { id: string; info: ModelInfo } {

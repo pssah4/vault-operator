@@ -18,6 +18,7 @@ import type { CustomModel } from '../../types/settings';
 import { getModelKey } from '../../types/settings';
 import { ModelConfigModal } from '../settings/ModelConfigModal';
 import { t } from '../../i18n';
+import { isActiveOnboardingFlow } from '../../core/onboarding-status';
 
 interface OnboardingCallbacks {
     addAssistantMessage: (markdown: string) => void;
@@ -60,6 +61,13 @@ export class OnboardingFlow {
     ): void {
         const ob = this.plugin.settings.onboarding;
         if (ob.completed || ob.startedAt || !this.plugin.memoryService) return;
+        // FIX (2026-06-15): the welcome message is the legacy in-chat
+        // first-run prompt. After Restart-Setup + Cancel from Settings the
+        // onboarding flags read like a fresh install (completed=false,
+        // startedAt=''), but the user already has a provider configured.
+        // `isActiveOnboardingFlow` returns false in that case and we skip
+        // the legacy welcome too.
+        if (!isActiveOnboardingFlow(this.plugin.settings)) return;
 
         const welcomeText = [
             `## ${t('onboarding.welcome.heading')}`,

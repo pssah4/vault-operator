@@ -3602,6 +3602,12 @@ export default class ObsidianAgentPlugin extends Plugin {
         if (ob.dontShowFirstRunAgain) return;
         const shown = ob.firstRunModalShownCount ?? 0;
         if (shown >= 3) return;
+        // FIX (2026-06-15): manual restart-from-Settings + cancel should
+        // not re-open the wizard on the next reload when a provider is
+        // already configured. Mirror the AgentSidebarView wizardPending
+        // gate so both auto-open paths agree.
+        const { isActiveOnboardingFlow } = await import('./core/onboarding-status');
+        if (!isActiveOnboardingFlow(this.settings)) return;
 
         ob.firstRunModalShownCount = shown + 1;
         await this.saveSettings();

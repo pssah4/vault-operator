@@ -71,6 +71,15 @@ const BLOCKED_HOSTNAMES = new Set([
 export interface ValidateUrlOptions {
     /** Explicit opt-in for the local-IP relaxation on a custom provider. */
     allowLocalhost?: boolean;
+    /**
+     * FEAT-26-07: opt-in for enterprise API-Gateway endpoints that proxy the
+     * Bedrock Runtime ConverseStream API (e.g. EnBW's `gateway.integration-
+     * apihub.enbw-az.cloud/genai/cowork/bedrock`). When set together with
+     * providerType='bedrock', the strict `*.amazonaws.com` allow-list is
+     * skipped but every other SSRF check (HTTPS-only, BLOCKED_HOSTNAMES,
+     * local/private IP) remains in force. No-op for other provider types.
+     */
+    gatewayMode?: boolean;
 }
 
 /**
@@ -132,6 +141,16 @@ export function validateProviderUrl(
 
     const allowlist = PROVIDER_HOST_ALLOWLIST[providerType] ?? [];
     if (allowlist.length > 0) {
+        // FEAT-26-07: Bedrock gateway mode skips the strict AWS allow-list so
+        // enterprise APIM hosts can proxy ConverseStream. HTTPS-only enforced
+        // explicitly below since the permissive HTTPS gate at the bottom only
+        // applies to PERMISSIVE_PROVIDERS.
+        if (opts.gatewayMode && providerType === 'bedrock') {
+            if (parsed.protocol === 'http:') {
+                throw new Error(`Provider URL must use HTTPS for bedrock gateway: "${trimmed}"`);
+            }
+            return parsed;
+        }
         if (!allowlist.some((re) => re.test(hostname))) {
             throw new Error(
                 `Provider URL "${parsed.host}" is not in the allow-list for "${providerType}". ` +

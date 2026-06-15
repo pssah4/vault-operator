@@ -168,14 +168,54 @@ describe('credential key set contract (AUDIT-027 H-1)', () => {
     it('PROVIDER_CRED_KEYS lists every secret-bearing field on ProviderConfig', () => {
         expect([...__TEST_PROVIDER_CRED_KEYS].sort()).toEqual([
             'apiKey', 'awsAccessKey', 'awsApiKey', 'awsSecretKey',
-            'awsSessionToken', 'oauthToken',
+            'awsSessionToken', 'gatewayHeaderValue', 'oauthToken',
         ].sort());
     });
 
     it('LEGACY_MODEL_CRED_KEYS lists every secret-bearing field on the legacy backup model', () => {
         expect([...__TEST_LEGACY_MODEL_CRED_KEYS].sort()).toEqual([
             'apiKey', 'awsAccessKey', 'awsApiKey', 'awsSecretKey',
-            'awsSessionToken',
+            'awsSessionToken', 'gatewayHeaderValue',
         ].sort());
+    });
+});
+
+describe('Bedrock gateway credential round-trip (FEAT-26-07)', () => {
+    it('encrypts gatewayHeaderValue on a ProviderConfig and decrypts it on load', () => {
+        const settings = makeSettings({
+            providerConfigs: [makeProvider({
+                type: 'bedrock',
+                apiKey: undefined,
+                awsAuthMode: 'gateway',
+                awsRegion: 'eu-central-1',
+                baseUrl: 'https://gateway.integration-apihub.enbw-az.cloud/genai/cowork/bedrock',
+                gatewayHeaderName: 'Ocp-Apim-Subscription-Key',
+                gatewayHeaderValue: 'sub-key-cleartext',
+            })],
+        });
+        encryptProviderCredentialsInPlace(settings, fakeCrypter);
+        expect(settings.providerConfigs[0].gatewayHeaderValue).toBe(ENC_PREFIX + 'sub-key-cleartext');
+        // Header NAME is not a credential -- must stay plaintext for the UI.
+        expect(settings.providerConfigs[0].gatewayHeaderName).toBe('Ocp-Apim-Subscription-Key');
+
+        decryptProviderCredentialsInPlace(settings, fakeCrypter);
+        expect(settings.providerConfigs[0].gatewayHeaderValue).toBe('sub-key-cleartext');
+    });
+
+    it('encrypts gatewayHeaderValue on a legacy backup CustomModel', () => {
+        const settings = makeSettings({
+            legacy_active_models_backup: [{
+                name: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0',
+                provider: 'bedrock',
+                enabled: true,
+                awsAuthMode: 'gateway',
+                awsRegion: 'eu-central-1',
+                gatewayHeaderName: 'Ocp-Apim-Subscription-Key',
+                gatewayHeaderValue: 'sub-key-cleartext',
+            } as CustomModel],
+        });
+        encryptProviderCredentialsInPlace(settings, fakeCrypter);
+        const m = (settings.legacy_active_models_backup ?? [])[0];
+        expect(m?.gatewayHeaderValue).toBe(ENC_PREFIX + 'sub-key-cleartext');
     });
 });
