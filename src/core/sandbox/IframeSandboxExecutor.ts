@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 /**
  * IframeSandboxExecutor
  *
@@ -192,7 +191,8 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
             }, INIT_TIMEOUT_MS);
 
             const handler = (e: MessageEvent) => {
-                if (e.data?.type === 'sandbox-ready') {
+                const data = e.data as { type?: string } | undefined;
+                if (data?.type === 'sandbox-ready') {
                     window.clearTimeout(timeout);
                     window.removeEventListener('message', handler);
                     this.ready = true;
@@ -276,5 +276,3 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
         return 'sx_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     }
 }
-
-/* eslint-enable -- end of file-level disable for boundary code (SDK/JSON/Obsidian internals) */
