@@ -258,7 +258,7 @@ describe('handleSearchVault Wave-1 alignment', () => {
     });
 
     it('uses getNeighborsWithImplicit and orders by confidence descending', async () => {
-        let calls = { withImplicit: 0, plain: 0 };
+        const calls = { withImplicit: 0, plain: 0 };
         const n = (path: string, confidence: number): GraphNeighbor => ({
             path, hopDistance: 1, viaPath: 'Notes/Meeting.md', linkType: 'body', propertyName: null, confidence,
         });

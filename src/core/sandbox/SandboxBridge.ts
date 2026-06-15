@@ -7,7 +7,7 @@
  * Part of Self-Development Phase 3: Sandbox + Dynamic Modules.
  */
 
-import { TFile, TFolder, requestUrl } from 'obsidian';
+import { TFile, TFolder, requestUrl, Notice } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 
 // ---------------------------------------------------------------------------
@@ -298,9 +298,19 @@ export class SandboxBridge {
     recordError(): void {
         this.consecutiveErrors++;
         this.lastErrorAt = Date.now();
-        if (this.consecutiveErrors >= SandboxBridge.MAX_CONSECUTIVE_ERRORS) {
+        if (this.consecutiveErrors >= SandboxBridge.MAX_CONSECUTIVE_ERRORS && !this.circuitOpen) {
             this.circuitOpen = true;
             console.warn(`[SandboxBridge] Circuit breaker tripped — bridge disabled after ${SandboxBridge.MAX_CONSECUTIVE_ERRORS} consecutive errors. Auto-reset in ${SandboxBridge.CIRCUIT_COOLDOWN_MS / 1000}s.`);
+            // AUDIT-037 L-3: surface the trip to the user instead of failing
+            // silently. A buggy or hostile sandbox script can repeatedly
+            // throw to disable the bridge; without a notice the user sees
+            // tools become inert with no explanation.
+            try {
+                new Notice(
+                    `Vault Operator sandbox bridge paused after ${SandboxBridge.MAX_CONSECUTIVE_ERRORS} errors. Auto-reset in ${SandboxBridge.CIRCUIT_COOLDOWN_MS / 1000}s. Reset manually from settings if needed.`,
+                    8000,
+                );
+            } catch { /* Notice may be unavailable in non-UI tests */ }
         }
     }
 
