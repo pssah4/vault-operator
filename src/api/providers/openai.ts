@@ -52,6 +52,19 @@ interface OpenAIMessage {
 const REASONING_PASSBACK_PROVIDER_TYPES = new Set<string>(['custom', 'ollama', 'lmstudio']);
 const MAX_REASONING_CONTENT_CHARS = 50_000;
 
+// FIX-04-03-10: per-conversation Thinking toggle for OpenAI-compatible local
+// backends. The OpenRouter path has its own `reasoning` wrapper, OpenAI/Azure
+// have no on/off toggle (effort-only), so this set is the local cluster only.
+// Mechanism (only when this.config.thinkingEnabled is EXPLICITLY set):
+//   1. `chat_template_kwargs: { enable_thinking: <bool> }` extra body field
+//      (vLLM + MLX-LM pass it through to the chat template; other servers
+//      ignore unknown fields).
+//   2. For Qwen-family model names: prefix the system prompt with `/no_think `
+//      or `/think `. Servers that drop chat_template_kwargs (Ollama today) still
+//      honour the inline token, which is Qwen's official documented mechanism.
+const THINKING_TOGGLE_PROVIDER_TYPES = new Set<string>(['custom', 'ollama', 'lmstudio']);
+const QWEN_THINKING_MODEL_REGEX = /qwen3?/i;
+
 interface OpenAIToolCall {
     id: string;
     type: 'function';
@@ -251,7 +264,12 @@ export class OpenAiProvider implements ApiHandler {
         tools: ToolDefinition[],
         abortSignal?: AbortSignal,
     ): ApiStream {
-        const openAiMessages = this.convertMessages(systemPrompt, messages);
+        // FIX-04-03-10: apply Qwen inline thinking token before convertMessages
+        // bakes the system prompt in. Only fires when the toggle is explicitly
+        // set AND the backend is in the local-cluster gate AND the model is a
+        // Qwen-family. Undefined stays byte-identical to today.
+        const effectiveSystemPrompt = this.maybePrefixQwenThinkingToken(systemPrompt);
+        const openAiMessages = this.convertMessages(effectiveSystemPrompt, messages);
         const openAiTools = tools.length > 0 ? this.convertTools(tools) : undefined;
 
         // Temperature handling — four cases:
@@ -359,6 +377,12 @@ export class OpenAiProvider implements ApiHandler {
             ...(this.config.type === 'openrouter'
                 ? { provider: { allow_fallbacks: false } } as Record<string, unknown>
                 : {}),
+            // FIX-04-03-10: per-conversation Thinking toggle for custom/ollama/
+            // lmstudio. vLLM and MLX-LM forward this to the model's chat template
+            // (Qwen3 enable_thinking, etc.). Other backends ignore unknown fields.
+            // Only emitted when the toggle is explicitly set; undefined keeps the
+            // request byte-identical to today.
+            ...(this.chatTemplateKwargsForThinking()),
         };
 
         // OpenAI and Azure use max_completion_tokens (newer models reject max_tokens with 400)
@@ -480,6 +504,24 @@ export class OpenAiProvider implements ApiHandler {
                 providerLabel: 'OpenAi',
             });
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // FIX-04-03-10: Thinking toggle helpers (OpenAI-compat local backends)
+    // ---------------------------------------------------------------------------
+
+    private chatTemplateKwargsForThinking(): Record<string, unknown> {
+        if (typeof this.config.thinkingEnabled !== 'boolean') return {};
+        if (!THINKING_TOGGLE_PROVIDER_TYPES.has(this.config.type)) return {};
+        return { chat_template_kwargs: { enable_thinking: this.config.thinkingEnabled } };
+    }
+
+    private maybePrefixQwenThinkingToken(systemPrompt: string): string {
+        if (typeof this.config.thinkingEnabled !== 'boolean') return systemPrompt;
+        if (!THINKING_TOGGLE_PROVIDER_TYPES.has(this.config.type)) return systemPrompt;
+        if (!QWEN_THINKING_MODEL_REGEX.test(this.config.model)) return systemPrompt;
+        const token = this.config.thinkingEnabled ? '/think ' : '/no_think ';
+        return `${token}${systemPrompt}`;
     }
 
     // ---------------------------------------------------------------------------

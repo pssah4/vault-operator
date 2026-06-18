@@ -4755,3 +4755,46 @@ manifest, append release notes, push through dev -> main -> public
 release per the established mechanic.
 
 Report: `_devprocess/analysis/AUDIT-037-v2.14.2-delta-2026-06-14.md`.
+
+---
+
+## 2026-06-18 -- FIX-04-03-10 Thinking-Toggle OpenAI-compat: Testing -> Security-Audit
+
+**Phase:** Testing abgeschlossen. Ready for security-audit.
+
+**Artefakte erzeugt:**
+
+- Tests: [src/api/providers/__tests__/thinking-toggle-openai-compat.test.ts](../../src/api/providers/__tests__/thinking-toggle-openai-compat.test.ts) -- 7 Tests, 6 AC aus Spec + 1 Coexistence-Gap-Filler `reasoningEffort`.
+- Backlog-Row FIX-04-03-10 auf Phase=Review geflippt.
+- FIX-Spec: [_devprocess/requirements/fixes/FIX-04-03-10-thinking-toggle-openai-compat.md](../requirements/fixes/FIX-04-03-10-thinking-toggle-openai-compat.md)
+
+**Test-Ergebnisse:**
+
+- 7/7 Thinking-Toggle-Tests gruen
+- 198/198 api/-Tests gruen (kein Regression)
+- tsc clean, esbuild clean, build 4.7 MB, deploy gruen
+- Manueller Branch-Check: 100% Coverage auf neuer Logik (`chatTemplateKwargsForThinking` + `maybePrefixQwenThinkingToken`, je 3 bzw. 4 Branches, alle getroffen)
+
+**Akzeptierte Coverage-Luecke:**
+
+- `@vitest/coverage-v8` ist projektweit NICHT installiert. Quantitative Line/Branch/Function-Coverage-Reports koennen damit nicht generiert werden. Begruendung der Akzeptanz: das fehlt seit Projektstart und ist nicht spezifisch fuer diesen Fix. Empfehlung als IMP-Item (out of scope dieses Fixes): `npm i -D @vitest/coverage-v8` plus `coverage.include`-Konfiguration in `vitest.config.ts`. Fuer FIX-04-03-10 reicht der manuelle Branch-Check, weil die neue Logik nur 7 Branches umfasst und alle in Tests namentlich getroffen werden.
+
+**Brittle Tests / Flaky Patterns:**
+
+Keine. Tests laufen deterministisch in <200ms, kein async-Waiting, kein Timer-Mocking, kein State-Sharing zwischen Tests.
+
+**Security-adjacent Concerns fuer /security-audit:**
+
+- **`chat_template_kwargs` als Extra-Body-Feld:** der OpenAI-Client serialisiert beliebige Top-Level-Felder ueber den Wire. Server-seitig wird das per Spec ignoriert oder pass-through-d. Es gibt **keinen** User-kontrollierten Pfad in dieses Feld -- der Wert ist `{ enable_thinking: <bool> }` aus Plugin-Code, nicht aus User-Input. Risikoflaeche: praktisch null.
+- **`/no_think` / `/think` System-Prompt-Prefix:** wird unkonditionell vor den vom Plugin gebauten System-Prompt gehaengt, wenn Gate erfuellt. User kann den Token-Inhalt nicht beeinflussen (literale Strings). Kein Prompt-Injection-Vektor.
+- **Gate-Logik:** zweimal `typeof === 'boolean'`-Check verhindert versehentliches Triggern bei `null` / `0` / `""` / etc. `Set.has`-Check kuerzt fuer fremde Provider-Typen sauber ab.
+- **Bestehende Pfade unberuehrt:** OpenRouter-Reasoning, OpenAI/Azure-Reasoning-Effort, Anthropic/Bedrock-Thinking -- alle unveraendert. Diff ist additiv: neue Konstanten + zwei neue Helper-Methoden + zwei Insert-Punkte in `createMessage`. Keine geloeschten Branches.
+- **Wire-Format-Surface:** nur fuer `custom` / `ollama` / `lmstudio`. Strikte Backends, die unknown Body-Fields mit 400 ablehnen, sind eine theoretische Restkategorie -- gewichtet niedriger als der User-Bug, in der Spec explizit out-of-scope.
+
+**Naechster Schritt:**
+
+`/security-audit` mit Scope=delta, Fokus auf den Diff in `src/api/providers/openai.ts` (zwei neue Helper + Insert-Punkte) und den neuen Tests. Erwartung: GREEN ohne Findings (additiver Patch, kein neuer Datenfluss).
+
+**Live-Verifikation ausstehend:**
+
+oMLX + Qwen3 + Toggle OFF gegen lokales Setup von User arkham000 -- erst nach Merge in dev und Release. Dieser Test laeuft nicht im Plugin-CI, sondern beim User.
