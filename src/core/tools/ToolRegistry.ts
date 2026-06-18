@@ -24,6 +24,7 @@ import { AppendToFileTool } from './vault/AppendToFileTool';
 import { CreateFolderTool } from './vault/CreateFolderTool';
 import { DeleteFileTool } from './vault/DeleteFileTool';
 import { MoveFileTool } from './vault/MoveFileTool';
+import { ExtractZipTool } from './vault/ExtractZipTool';
 // Import tools — vault: checkpoints (IMP-01-07-01)
 import { ListCheckpointsTool } from './vault/ListCheckpointsTool';
 import { ReadCheckpointTool } from './vault/ReadCheckpointTool';
@@ -182,6 +183,8 @@ export class ToolRegistry {
         this.register(new CreateFolderTool(this.plugin));
         this.register(new DeleteFileTool(this.plugin));
         this.register(new MoveFileTool(this.plugin));
+        // Vault: ZIP extraction (skill-translator + general bundle unpack)
+        this.register(new ExtractZipTool(this.plugin));
         // Vault: checkpoints (IMP-01-07-01) -- agent-facing browse + restore
         this.register(new ListCheckpointsTool(this.plugin));
         this.register(new ReadCheckpointTool(this.plugin));

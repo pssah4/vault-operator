@@ -4,7 +4,7 @@ description: Translate an Anthropic-style skill (with Python scripts) into a nat
 trigger: translate.*skill|convert.*python.*skill|port.*skill|uebersetze.*skill|konvertiere.*skill|import.*anthropic.*skill|hole.*anthropic.*skill
 source: bundled
 requiredTools: [read_file, write_file, run_skill_script]
-allowedTools: [read_file, write_file, edit_file, list_files, run_skill_script, ask_followup_question, invoke_skill, web_fetch, attempt_completion]
+allowedTools: [read_file, write_file, edit_file, list_files, extract_zip, run_skill_script, ask_followup_question, invoke_skill, web_fetch, attempt_completion]
 ---
 
 # /skill-translator -- Anthropic-Skill in Sandbox-JavaScript portieren
@@ -31,6 +31,18 @@ Wenn der User keine konkrete Quelle nennt: `ask_followup_question` stellen:
   1. `web_fetch` der GitHub-Contents-API um die Datei-Liste zu kriegen: `https://api.github.com/repos/{owner}/{repo}/contents/{path}`.
   2. Pro Datei in der Liste: `web_fetch` auf die `raw.githubusercontent.com`-URL, dann `write_file` nach `.vault-operator/cache/tmp/translator-input/{name}/{filename}`. Pflicht-Folder-Anteile: `SKILL.md`, `scripts/*.py`, `references/*.md`.
   3. Pruefe nach jedem write: war es erfolgreich? Bei Fehler stoppen und User informieren.
+- **ZIP-Datei im Vault** (z.B. `Inbox/skill.zip`):
+  1. Einmaliger Aufruf:
+     ```
+     extract_zip({
+       "zip_path": "<pfad/zur/datei.zip>",
+       "target_folder": ".vault-operator/cache/tmp/translator-input/<name>",
+       "strip_root_folder": true
+     })
+     ```
+     `strip_root_folder: true` entfernt den einzigen Top-Level-Folder (typisch fuer Anthropic-ZIPs `my-skill/SKILL.md`). Ergebnis enthaelt `writtenFiles[]` und ggf. `strippedRoot`.
+  2. Pruefe per `list_files` dass `SKILL.md` direkt unter dem `target_folder` liegt. Falls das ZIP keinen Top-Level-Folder hatte, ist `target_folder` der Skill-Root.
+  3. **NIE** `evaluate_expression` fuer ZIP-Entpacken benutzen: die Sandbox kann jszip nicht bundeln (CommonJS-bind-Fehler) und der binaere Roundtrip ueber `ctx.vault.readBinary` ist nicht verlustfrei. `extract_zip` ist der einzige zulaessige Pfad.
 - **Lokaler Ordner**: nimm den Pfad wie angegeben, kein Klonen noetig.
 
 Zielname ist standardmaessig der `name`-Eintrag der Quell-Frontmatter. Wenn ein Skill mit dem Namen schon im Vault existiert, frage nach: ueberschreiben oder umbenennen.
@@ -55,19 +67,21 @@ Resultat hat die Form `{ status: "full" | "partial" | "unmappable" | "no-source"
 
 **Wenn `status === "partial"` oder `status === "unmappable"`**: User-Modal zeigen. Das Plugin hat `PartialTranslationModal.ts`, das vom Agent NICHT direkt aufgerufen werden kann. Stattdessen die Entscheidung als `ask_followup_question` formulieren:
 
-> "Translation-Status: {status}. Mappable: {N}, Partial: {M} (mit Limitations: {liste}), Unmappable: {K} (Gruende: {liste}). Optionen: 1) Partial annehmen (Limitations werden in TRANSLATION.json dokumentiert), 2) Abbrechen und stattdessen skill-creator nutzen."
+> "Translation-Status: {status}. Mappable: {N}, Partial: {M} (mit Limitations: {liste}), Unmappable: {K} (Modul + Grund: {liste}). Optionen: 1) Partial annehmen (Limitations werden in TRANSLATION.json dokumentiert; bei `unmappable` musst du die betroffenen Module manuell im Schritt-4-Translate-Pass ersetzen), 2) Abbrechen und stattdessen skill-creator nutzen (baut den Skill von Grund auf neu, mit dem Python-Source als Vorlage)."
 
-Bei Antwort `1) Partial annehmen`: weiter mit Schritt 4.
+Bei Antwort `1) Partial annehmen`: weiter mit Schritt 4. Bei `unmappable`-Modulen: dokumentiere im Per-File-Translate-Pass (Schritt 4) explizit jede Stelle die manuell gepatcht werden muss, mit Kommentar `// TRANSLATOR: <modul> -- <grund>`. Diese Kommentare ueberleben den Sandbox-Validator und sind fuer den User direkt sichtbar.
 
-Bei Antwort `2) Abbrechen`: rufe `invoke_skill` mit `skill_name: "skill-creator"` auf, args:
+Bei Antwort `2) Abbrechen`: rufe `invoke_skill` mit `skill_name: "skill-creator"` auf. Der Hand-off MUSS dem Skill-Creator alles geben was er fuer einen Neu-Bau braucht -- ohne Python-Source-Pfad und unmappable-Liste laeuft der Skill-Creator blind:
+
 ```json
 {
   "skill_name": "<target-name>",
-  "description": "<from source frontmatter, plus 'translated from anthropic'>",
-  "context": "User wanted to translate an Anthropic skill but the translation was {status}. Build an equivalent skill from scratch."
+  "description": "<from source frontmatter, plus 'rebuilt from anthropic source after skill-translator could not produce a 1:1 port'>",
+  "context": "Der User wollte einen Anthropic-Skill uebersetzen, aber der Dry-Run war {status}.\n\nQuell-Skill liegt entpackt unter: <skillPath aus Schritt 1>/\n  - SKILL.md: Source-Body mit Goals/Workflow\n  - scripts/*.py: Original Python-Source\n  - references/*: zusaetzliche Materialien\n\nUnmappable Module (warum kein 1:1-Port moeglich): <liste mit modul + reason aus dem Dry-Run>\nPartial Module (Limitations zu respektieren): <liste mit modul + limitations>\n\nAuftrag fuer skill-creator: baue einen aequivalenten Skill von Grund auf neu. Lies SKILL.md aus der Quelle fuer die Ziele und nutze die Python-Scripts NUR als Algorithmus-Vorlage (Pseudocode), nicht als 1:1-Uebersetzungsbasis. Ersetze die unmappable Module durch sandbox-kompatible Aequivalente (z.B. statt scipy/sklearn lieber Frontier-Modell-Calls; statt threading lieber Promise.all; statt flask/fastapi gar nicht im Sandbox-Kontext)."
 }
 ```
-Danach `attempt_completion` mit der Info dass skill-creator uebernommen hat.
+
+Wichtig: der `context`-Block MUSS den konkreten `skillPath` und die echten unmappable/partial-Modulnamen enthalten -- sonst hat skill-creator nur eine leere Hand-off-Nachricht. Danach `attempt_completion` mit der Info dass skill-creator uebernommen hat plus dem Quell-Pfad als Hinweis, dass der Cleanup (Loeschen des tmp-Folders nach Build) optional ist.
 
 ### Schritt 4: Per-File Translation (Frontier-Modell)
 

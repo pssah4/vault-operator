@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "tableVersion": "2026-05-21",
-  "updated": "2026-05-21",
+  "tableVersion": "2026-06-17",
+  "updated": "2026-06-17",
   "description": "Python-to-JavaScript module mapping for skill-translator. Used by the Dry-Run-Pass to classify imports as mappable, partial (with caveats), or unmappable. The translator emits a user-facing modal when partial or unmappable imports are present.",
   "viaValues": {
     "npm": "Use an npm package via the sandbox esbuild bundler (script imports it as ES module).",
@@ -207,6 +207,308 @@
       "jsEquivalent": "execute(args) signature",
       "via": "stdlib",
       "notes": "Argparse defines a CLI shape; in Vault Operator scripts the `execute(args)` parameter object replaces it. The translator inlines a destructuring pattern at the top of execute()."
+    },
+    "click": {
+      "jsEquivalent": "execute(args) signature",
+      "via": "stdlib",
+      "notes": "Same as argparse: the click CLI shape collapses into the execute(args) destructuring pattern. Subcommands map to a top-level `if (args.command === ...)` switch."
+    },
+    "typer": {
+      "jsEquivalent": "execute(args) signature",
+      "via": "stdlib",
+      "notes": "Same handling as click/argparse: typed CLI definition becomes the args object destructured in execute()."
+    },
+    "dataclasses": {
+      "jsEquivalent": "plain object literal",
+      "via": "stdlib",
+      "notes": "@dataclass classes become plain JS objects. Field defaults map to a factory function. For TypeScript targets, emit an `interface` declaration alongside the factory."
+    },
+    "enum": {
+      "jsEquivalent": "const object map",
+      "via": "stdlib",
+      "notes": "`class Color(Enum): RED = 1` -> `const Color = Object.freeze({ RED: 1, BLUE: 2 });`. For TS targets prefer `as const` literal types."
+    },
+    "math": {
+      "jsEquivalent": "Math",
+      "via": "stdlib",
+      "notes": "math.sqrt -> Math.sqrt. math.pi -> Math.PI. math.inf -> Infinity. math.isnan -> Number.isNaN."
+    },
+    "random": {
+      "jsEquivalent": "Math.random + helpers",
+      "via": "stdlib",
+      "notes": "random.random -> Math.random. random.randint(a,b) -> Math.floor(Math.random()*(b-a+1))+a. random.choice -> arr[Math.floor(Math.random()*arr.length)]. For crypto-grade randomness use crypto.getRandomValues."
+    },
+    "time": {
+      "jsEquivalent": "Date.now / setTimeout",
+      "via": "partial",
+      "notes": "time.time() -> Date.now()/1000. time.sleep(s) -> await new Promise(r => setTimeout(r, s*1000)). time.monotonic() -> performance.now()/1000.",
+      "limitations": ["No synchronous sleep -- the sandbox is single-threaded; convert callers to async"]
+    },
+    "string": {
+      "jsEquivalent": "literal constants",
+      "via": "stdlib",
+      "notes": "string.ascii_letters -> 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'. string.digits -> '0123456789'. string.Template -> template literals or a tiny custom function."
+    },
+    "pprint": {
+      "jsEquivalent": "console.debug(JSON.stringify(x, null, 2))",
+      "via": "stdlib",
+      "notes": "pprint(obj) -> console.debug(JSON.stringify(obj, null, 2)). Skip if used purely for debugging; production code rarely needs it."
+    },
+    "importlib": {
+      "jsEquivalent": "static `import` statements + dispatch object",
+      "via": "partial",
+      "notes": "importlib.import_module('foo.bar') with a CONSTANT name -> rewrite as a top-level `import * as bar from './foo/bar.js'` plus a `MODULES = { bar }` dispatch object. importlib with a runtime-computed name (plugin discovery, dynamic registries) is unmappable because the sandbox blocks dynamic `import()`.",
+      "limitations": ["Runtime-computed module names cannot be resolved at bundle time", "No importlib.reload (modules are immutable in the sandbox)"]
+    },
+    "pkgutil": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Package introspection (iter_modules, walk_packages) requires a runtime module graph that the sandbox does not expose."
+    },
+    "glob": {
+      "jsEquivalent": "ctx.vault.list + regex filter",
+      "via": "partial",
+      "notes": "glob.glob('Inbox/*.md') -> (await ctx.vault.list('Inbox')).filter(p => /\\.md$/.test(p)). For recursive ** use a custom walker over ctx.vault.list.",
+      "limitations": ["No glob in hidden folders unless ctx.vault path explicitly targets them"]
+    },
+    "fnmatch": {
+      "jsEquivalent": "manual regex translation",
+      "via": "stdlib",
+      "notes": "fnmatch.fnmatch(name, pattern) -> compile the glob pattern to a RegExp (* -> .*, ? -> ., [seq] -> [seq]). For complex cases use the `minimatch` npm package."
+    },
+    "configparser": {
+      "jsEquivalent": "ini",
+      "via": "npm",
+      "notes": "ConfigParser().read(...) -> ini.parse(text). Section.set -> mutate the parsed object then ini.stringify. Use `ini` from npm."
+    },
+    "tomllib": {
+      "jsEquivalent": "smol-toml",
+      "via": "npm",
+      "notes": "tomllib.loads (Python 3.11+) -> smol-toml's parse. tomllib.dumps -> smol-toml's stringify."
+    },
+    "toml": {
+      "jsEquivalent": "smol-toml",
+      "via": "npm",
+      "notes": "Same as tomllib. The `toml` PyPI package and the stdlib `tomllib` both map to smol-toml."
+    },
+    "xml": {
+      "jsEquivalent": "fast-xml-parser",
+      "via": "npm",
+      "notes": "xml.etree.ElementTree.parse -> new XMLParser().parse(text). For round-trip XML emission use XMLBuilder.",
+      "limitations": ["Namespace handling and XPath features beyond simple element access need careful translation"]
+    },
+    "lxml": {
+      "jsEquivalent": "fast-xml-parser or cheerio",
+      "via": "npm",
+      "notes": "lxml.etree -> fast-xml-parser. lxml.html -> cheerio (jquery-like DOM traversal). XPath queries beyond simple paths need manual conversion."
+    },
+    "html": {
+      "jsEquivalent": "cheerio",
+      "via": "npm",
+      "notes": "html.parser.HTMLParser -> cheerio.load(html). html.escape -> simple replace chain or use the `entities` npm package."
+    },
+    "bs4": {
+      "jsEquivalent": "cheerio",
+      "via": "npm",
+      "notes": "BeautifulSoup(html, 'html.parser') -> cheerio.load(html). .find_all -> .find. .select -> .find (CSS selectors). .get_text -> .text()."
+    },
+    "beautifulsoup4": {
+      "jsEquivalent": "cheerio",
+      "via": "npm",
+      "notes": "Same as bs4 -- the PyPI distribution name."
+    },
+    "markdown": {
+      "jsEquivalent": "marked",
+      "via": "npm",
+      "notes": "markdown.markdown(text) -> marked.parse(text). Plugins/extensions map onto marked extensions or markdown-it when complex AST handling is needed."
+    },
+    "markdown_it": {
+      "jsEquivalent": "markdown-it",
+      "via": "npm",
+      "notes": "markdown-it has both Python and JS implementations; the API is essentially the same."
+    },
+    "pydantic": {
+      "jsEquivalent": "zod",
+      "via": "npm",
+      "notes": "BaseModel subclasses -> z.object({ ... }) schemas. .model_validate -> schema.parse. .model_dump -> just return the object. For advanced features (validators, root_validator) translate to zod refinements."
+    },
+    "jsonschema": {
+      "jsEquivalent": "ajv",
+      "via": "npm",
+      "notes": "jsonschema.validate(instance, schema) -> new Ajv().compile(schema)(instance). Error reporting shape differs slightly."
+    },
+    "asyncio": {
+      "jsEquivalent": "async/await (native)",
+      "via": "partial",
+      "notes": "async def -> async function. await -> await. asyncio.gather(*coros) -> Promise.all([...]). asyncio.run(main()) -> just `await main()` because execute() is already async. asyncio.sleep -> new Promise(r => setTimeout(r, ms)).",
+      "limitations": ["No event-loop primitives (loop.run_until_complete, loop.add_signal_handler)", "No asyncio.Queue (use a simple array + Promise)"]
+    },
+    "concurrent": {
+      "jsEquivalent": "Promise.all / Promise.allSettled",
+      "via": "partial",
+      "notes": "concurrent.futures.ThreadPoolExecutor.map -> Promise.all(items.map(fn)). ProcessPoolExecutor is unmappable -- the sandbox has no worker pool.",
+      "limitations": ["Only IO concurrency; no CPU-parallel workers"]
+    },
+    "threading": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Real OS threads are not exposed in the sandbox. Convert thread-based patterns to async/await with Promise.all.",
+      "limitations": ["Hard stop: Thread, Lock, RLock, Semaphore beyond simple Promise-chained patterns"]
+    },
+    "multiprocessing": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "No Process equivalent in the sandbox. Patterns relying on process isolation cannot be translated."
+    },
+    "queue": {
+      "jsEquivalent": "Array + Promise",
+      "via": "partial",
+      "notes": "queue.Queue -> use a plain array with shift/push when single-consumer; for producer/consumer use a simple Promise-based async iterator.",
+      "limitations": ["No thread-safe blocking semantics; the sandbox is single-threaded"]
+    },
+    "aiohttp": {
+      "jsEquivalent": "ctx.requestUrl",
+      "via": "built-in-tool",
+      "notes": "aiohttp.ClientSession().get(url) -> ctx.requestUrl({url, method:'GET'}). Server-side aiohttp.web is unmappable.",
+      "limitations": ["No long-lived sessions, no streaming responses"]
+    },
+    "httpx": {
+      "jsEquivalent": "ctx.requestUrl",
+      "via": "built-in-tool",
+      "notes": "httpx.get / httpx.AsyncClient.get -> ctx.requestUrl. Same constraints as requests/aiohttp.",
+      "limitations": ["No HTTP/2 streaming, no connection pooling"]
+    },
+    "flask": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Web servers do not run inside the sandbox. Skills that expose HTTP endpoints belong in a separate Plugin/MCP-server, not in the sandbox-script layer.",
+      "limitations": ["Hard stop: Flask app, route decorators, request/response objects"]
+    },
+    "fastapi": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Same as flask. FastAPI's dependency-injection and pydantic-based request schemas are server-side patterns that cannot run in the sandbox."
+    },
+    "starlette": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Same as fastapi. ASGI servers are not a sandbox concept."
+    },
+    "uvicorn": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "ASGI server. Not a sandbox concept."
+    },
+    "socket": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Raw sockets are not exposed in the sandbox by design (only ctx.requestUrl over HTTPS is available)."
+    },
+    "ssl": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "TLS is handled by ctx.requestUrl; the user-facing certificate API is not exposed."
+    },
+    "dotenv": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "process.env is not visible to the sandbox. Pass secrets explicitly via args or store them via update_settings; do not load .env files at runtime."
+    },
+    "PIL": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Image manipulation requires binary canvas operations that the sandbox does not expose. Route image generation through built-in tools (create_drawio for diagrams, create_pptx for slide images) or skill-creator for a custom plugin tool."
+    },
+    "Pillow": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Same as PIL (the PyPI distribution name)."
+    },
+    "cv2": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Computer vision (OpenCV) is not portable to the sandbox."
+    },
+    "scikit_learn": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Alias for sklearn -- ML inference may be possible via ONNX, training is unmappable."
+    },
+    "torch": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "PyTorch is unmappable. Pre-trained models can be exported to ONNX and called via the plugin's onnxruntime-web, but training and pytorch-specific APIs do not translate."
+    },
+    "tensorflow": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Same as torch -- runtime via ONNX export is possible, but tf APIs do not translate."
+    },
+    "transformers": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "Hugging Face transformers requires PyTorch/TensorFlow. Use ONNX exports + onnxruntime-web for inference, or route to ctx.requestUrl-based hosted inference (OpenRouter, Replicate, HF Inference Endpoints)."
+    },
+    "openai": {
+      "jsEquivalent": "ctx.requestUrl + OpenAI REST",
+      "via": "partial",
+      "notes": "Translate openai.chat.completions.create(...) into ctx.requestUrl POST against https://api.openai.com/v1/chat/completions with the appropriate Authorization header. The user must supply the API key via args.",
+      "limitations": ["No native client SDK; streaming responses need manual chunk parsing"]
+    },
+    "anthropic": {
+      "jsEquivalent": "ctx.requestUrl + Anthropic Messages REST",
+      "via": "partial",
+      "notes": "Translate anthropic.messages.create(...) into ctx.requestUrl POST against https://api.anthropic.com/v1/messages with x-api-key + anthropic-version headers.",
+      "limitations": ["No native client SDK; tool-use streaming needs manual chunk parsing"]
+    },
+    "google": {
+      "jsEquivalent": "ctx.requestUrl + Google REST",
+      "via": "partial",
+      "notes": "google.generativeai -> ctx.requestUrl against https://generativelanguage.googleapis.com. google-cloud-* SDKs (auth, storage, etc.) are unmappable inside the sandbox.",
+      "limitations": ["No google-cloud-* SDKs (auth helpers and per-service clients unavailable)", "No native streaming generate-content responses"]
+    },
+    "boto3": {
+      "jsEquivalent": null,
+      "via": "unmappable",
+      "notes": "AWS SDK relies on signed-request helpers + credential providers that the sandbox cannot host. Use a separate Plugin/MCP-server."
+    },
+    "rich": {
+      "jsEquivalent": "console.debug + plain strings",
+      "via": "stdlib",
+      "notes": "Rich console output is not rendered in the sandbox. Strip styles and emit plain console.debug for diagnostics."
+    },
+    "tqdm": {
+      "jsEquivalent": "callbacks.pushProgress (when available)",
+      "via": "partial",
+      "notes": "tqdm wraps iterables for progress bars. In Vault Operator scripts emit `console.debug('progress: i/n')` or call ctx.pushProgress when the host context exposes it.",
+      "limitations": ["No terminal control characters; progress is line-based"]
+    },
+    "tabulate": {
+      "jsEquivalent": "manual table builder",
+      "via": "stdlib",
+      "notes": "Render Markdown tables manually: header row + separator + cell rows. For grid output use the `cli-table3` npm package."
+    },
+    "humanize": {
+      "jsEquivalent": "manual or npm",
+      "via": "partial",
+      "notes": "Common humanize.naturaltime / humanize.naturalsize can be replicated with a few formatter functions. For full coverage use `humanize-duration` + `pretty-bytes` from npm.",
+      "limitations": ["No locale-data bundle inside the sandbox; English-only by default"]
+    },
+    "pytz": {
+      "jsEquivalent": "Intl.DateTimeFormat",
+      "via": "stdlib",
+      "notes": "Use Intl.DateTimeFormat with the IANA timezone string (`Europe/Berlin`). For complex DST arithmetic use the `luxon` npm package."
+    },
+    "dateutil": {
+      "jsEquivalent": "date-fns or luxon",
+      "via": "npm",
+      "notes": "dateutil.parser.parse -> date-fns parseISO or luxon DateTime.fromISO. relativedelta -> luxon.Duration."
+    },
+    "babel": {
+      "jsEquivalent": "Intl.NumberFormat + i18next",
+      "via": "partial",
+      "notes": "babel.numbers.format_currency -> Intl.NumberFormat with style:'currency'. i18n message catalogs map to i18next.",
+      "limitations": ["No locale-data files inside the sandbox"]
     }
   },
   "bashCommands": {
