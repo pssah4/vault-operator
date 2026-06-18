@@ -27,7 +27,7 @@ const MUST_BE_REACHABLE: ToolName[] = [
     'vault_health_check',
     // Edit
     'write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file',
-    'move_file', 'update_frontmatter', 'generate_canvas', 'create_excalidraw',
+    'move_file', 'extract_zip', 'update_frontmatter', 'generate_canvas', 'create_excalidraw',
     'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx',
     'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage',
     'restore_checkpoint',

@@ -9,10 +9,11 @@
  * FEATURE-0901: Extracted from AgentSidebarView.ts
  */
 
-import { TFile, setIcon } from 'obsidian';
+import { Notice, TFile, setIcon } from 'obsidian';
 import type { App } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { scheduleRecurring, type RecurringHandle } from '../../util/scheduleRecurring';
+import { t } from '../../i18n';
 
 export class SuggestionBanner {
     private bannerEl: HTMLElement | null = null;
@@ -80,12 +81,40 @@ export class SuggestionBanner {
         let collapsed = false;
         const header = banner.createDiv('agent-suggestions-header');
         header.createSpan({ text: `Connections (${suggestions.length})`, cls: 'agent-suggestions-title' });
-        const toggleIcon = header.createSpan('agent-suggestions-toggle');
+
+        const headerActions = header.createDiv('agent-suggestions-header-actions');
+        const toggleIcon = headerActions.createSpan('agent-suggestions-toggle');
         setIcon(toggleIcon, 'chevron-down');
+
+        // issue #45 quirk 3: permanent kill-switch directly in the header.
+        // The per-item X dismisses one pair; users read the X as "close
+        // the popup" and are confused when the polltimer rebuilds the
+        // banner with the next pair 30s later. The header-level close
+        // flips enableSuggestionBanner=false, removes the banner, stops
+        // the poll and shows a Notice that points to the setting.
+        const closeBtn = headerActions.createEl('button', {
+            cls: 'agent-suggestion-btn agent-suggestions-close',
+            attr: { 'aria-label': t('ui.suggestionBanner.hideAriaLabel') },
+        });
+        setIcon(closeBtn, 'x');
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.plugin.settings.enableSuggestionBanner = false;
+            void this.plugin.saveSettings();
+            banner.remove();
+            this.bannerEl = null;
+            if (this.pollTimer) {
+                this.pollTimer.stop();
+                this.pollTimer = null;
+            }
+            new Notice(t('ui.suggestionBanner.hiddenNotice'));
+        });
 
         const listEl = banner.createDiv('agent-suggestions-list');
 
-        header.addEventListener('click', () => {
+        header.addEventListener('click', (e) => {
+            // Don't toggle collapse when clicking the close button.
+            if ((e.target as HTMLElement | null)?.closest('.agent-suggestions-close')) return;
             collapsed = !collapsed;
             listEl.toggleClass('is-collapsed', collapsed);
             setIcon(toggleIcon, collapsed ? 'chevron-right' : 'chevron-down');

@@ -294,3 +294,88 @@ describe('execute (runtime entry, fake ctx)', () => {
         await expect(execute({ skillPath: 'tmp/foo' }, ctx)).rejects.toThrow(/mapping table/i);
     });
 });
+
+/**
+ * Coverage tests for the real references/mapping.json. The dry-run logic
+ * is generic, but skill-translator's value depends on the table actually
+ * carrying the modules that show up in real Anthropic skills. These tests
+ * pin the must-have entries so a future edit can't silently regress them.
+ */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const REAL_MAPPING = JSON.parse(
+    readFileSync(join(__dirname, '..', '..', 'references', 'mapping.json'), 'utf-8'),
+);
+
+describe('references/mapping.json coverage', () => {
+    const MUST_HAVE_STDLIB = [
+        'json', 'os', 'sys', 're', 'datetime', 'pathlib', 'io', 'hashlib',
+        'base64', 'uuid', 'collections', 'itertools', 'functools', 'typing',
+        'logging', 'argparse', 'dataclasses', 'enum', 'math', 'random',
+        'time', 'string', 'pprint', 'glob', 'fnmatch', 'importlib',
+    ];
+
+    const MUST_HAVE_NPM = [
+        'csv', 'yaml', 'tomllib', 'toml', 'configparser', 'pydantic',
+        'jsonschema', 'markdown', 'bs4', 'lxml', 'xml',
+    ];
+
+    const MUST_HAVE_BUILT_IN_TOOL = [
+        'requests', 'urllib', 'aiohttp', 'httpx',
+        'pdfplumber', 'PyPDF2', 'pypdf',
+        'python-pptx', 'python-docx', 'openpyxl',
+    ];
+
+    const MUST_HAVE_UNMAPPABLE = [
+        'subprocess', 'scipy', 'sklearn', 'matplotlib',
+        'flask', 'fastapi', 'socket', 'dotenv', 'PIL', 'Pillow',
+        'threading', 'multiprocessing',
+    ];
+
+    it.each(MUST_HAVE_STDLIB)('classifies %s as stdlib (or partial with limitations)', (mod) => {
+        const entry = REAL_MAPPING.modules[mod];
+        expect(entry, `mapping.json is missing module "${mod}"`).toBeDefined();
+        expect(['stdlib', 'partial']).toContain(entry.via);
+    });
+
+    it.each(MUST_HAVE_NPM)('classifies %s as npm', (mod) => {
+        const entry = REAL_MAPPING.modules[mod];
+        expect(entry, `mapping.json is missing module "${mod}"`).toBeDefined();
+        expect(entry.via).toBe('npm');
+    });
+
+    it.each(MUST_HAVE_BUILT_IN_TOOL)('classifies %s as built-in-tool', (mod) => {
+        const entry = REAL_MAPPING.modules[mod];
+        expect(entry, `mapping.json is missing module "${mod}"`).toBeDefined();
+        expect(entry.via).toBe('built-in-tool');
+    });
+
+    it.each(MUST_HAVE_UNMAPPABLE)('classifies %s as unmappable', (mod) => {
+        const entry = REAL_MAPPING.modules[mod];
+        expect(entry, `mapping.json is missing module "${mod}"`).toBeDefined();
+        expect(entry.via).toBe('unmappable');
+    });
+
+    it('every entry has a non-empty notes field (machine-readable + agent-readable)', () => {
+        const missing = Object.entries(REAL_MAPPING.modules)
+            .filter(([, e]) => !e.notes || typeof e.notes !== 'string' || e.notes.trim().length === 0)
+            .map(([name]) => name);
+        expect(missing, `entries without notes: ${missing.join(', ')}`).toEqual([]);
+    });
+
+    it('every partial entry carries a limitations array', () => {
+        const missingLimitations = Object.entries(REAL_MAPPING.modules)
+            .filter(([, e]) => e.via === 'partial' && (!Array.isArray(e.limitations) || e.limitations.length === 0))
+            .map(([name]) => name);
+        expect(missingLimitations, `partial entries without limitations: ${missingLimitations.join(', ')}`).toEqual([]);
+    });
+
+    it('every unmappable entry has jsEquivalent === null', () => {
+        const wrong = Object.entries(REAL_MAPPING.modules)
+            .filter(([, e]) => e.via === 'unmappable' && e.jsEquivalent !== null)
+            .map(([name]) => name);
+        expect(wrong, `unmappable entries with non-null jsEquivalent: ${wrong.join(', ')}`).toEqual([]);
+    });
+});
+

@@ -20,6 +20,7 @@ export type ToolName =
     | 'create_folder'
     | 'delete_file'
     | 'move_file'
+    | 'extract_zip'
     // Vault: checkpoints (IMP-01-07-01)
     | 'list_checkpoints'
     | 'read_checkpoint'

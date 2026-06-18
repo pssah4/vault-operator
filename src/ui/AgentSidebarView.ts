@@ -1038,7 +1038,11 @@ export class AgentSidebarView extends ItemView {
         if (next === null) return;
         const trimmed = next.trim();
         if (!trimmed || trimmed === currentTitle) return;
-        await store.updateMeta(id, { title: trimmed });
+        // issue #45 quirk 2: titleSource='user' lockt den Title gegen
+        // spaetere Auto-Writer (LLM-Titler in finalizeConversation,
+        // onComplete-Fallback, MCP-Sync). Der Guard sitzt zentral in
+        // ConversationStore.updateMeta.
+        await store.updateMeta(id, { title: trimmed, titleSource: 'user' });
     }
 
     /** Un-pin: deprecate all facts that came from this conversation. */

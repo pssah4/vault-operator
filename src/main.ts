@@ -2097,6 +2097,22 @@ export default class ObsidianAgentPlugin extends Plugin {
             },
         });
 
+        // issue #45 quirk 3: hotkey-friendly re-enable for the
+        // implicit-connection banner. The header-X kill-switch in
+        // SuggestionBanner sets enableSuggestionBanner=false; without
+        // a command, the only way back is Settings > Embeddings.
+        this.addCommand({
+            id: 'toggle-implicit-connection-banner',
+            name: t('ui.suggestionBanner.toggleCommand'),
+            callback: () => {
+                this.settings.enableSuggestionBanner = !this.settings.enableSuggestionBanner;
+                void this.saveSettings();
+                new Notice(this.settings.enableSuggestionBanner
+                    ? 'Suggestion banner enabled.'
+                    : 'Suggestion banner disabled.');
+            },
+        });
+
         // 5. Register settings tab
         this.settingsTab = new AgentSettingsTab(this.app, this);
         this.addSettingTab(this.settingsTab);

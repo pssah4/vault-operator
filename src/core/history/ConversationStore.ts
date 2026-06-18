@@ -50,6 +50,16 @@ export interface ConversationMeta {
      * Cross-Interface-Threads.
      */
     crossInterfaceThreadId?: string;
+    /**
+     * Provenance of `title`. 'user' bedeutet: manuell ueber den
+     * Rename-Button gesetzt; jeder automatische Title-Writer
+     * (onComplete-Fallback, LLM-Titler in finalizeConversation,
+     * MCP saveConversation/syncSession) muss den Title dann
+     * unangetastet lassen. Fehlt das Feld oder ist es 'auto',
+     * darf der Title ueberschrieben werden. Backward-compat:
+     * alte Konversationen ohne Feld verhalten sich wie 'auto'.
+     */
+    titleSource?: 'auto' | 'user';
 }
 
 export interface UiMessage {
@@ -266,7 +276,23 @@ export class ConversationStore {
     async updateMeta(id: string, patch: Partial<ConversationMeta>): Promise<void> {
         const meta = this.getMeta(id);
         if (!meta) return;
-        Object.assign(meta, patch, { updated: new Date().toISOString() });
+        // Title-Lock fuer issue #45 quirk 2: ein manueller Rename setzt
+        // `titleSource: 'user'`. Spaetere Patches automatischer Writer
+        // (LLM-Titler, onComplete-Fallback, MCP-Sync) schicken nur
+        // `{ title }`; der Lock entfernt das title-Feld aus dem Patch,
+        // andere Felder im selben Patch (z.B. crossInterfaceThreadId)
+        // bleiben unberuehrt. Ein erneuter expliziter Rename muss
+        // weiterhin `titleSource: 'user'` mitschicken und darf
+        // ueberschreiben.
+        const effective: Partial<ConversationMeta> = { ...patch };
+        if (
+            meta.titleSource === 'user'
+            && effective.title !== undefined
+            && effective.titleSource !== 'user'
+        ) {
+            delete effective.title;
+        }
+        Object.assign(meta, effective, { updated: new Date().toISOString() });
         await this.saveIndex();
     }
 

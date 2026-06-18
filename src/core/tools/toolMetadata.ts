@@ -276,6 +276,14 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         whenToUse: 'To reorganize vault structure. Obsidian automatically updates wikilinks.',
         commonMistakes: 'Moving to a non-existent folder — create it first with create_folder.',
     },
+    extract_zip: {
+        group: 'edit', label: 'Extract ZIP', icon: 'package',
+        signature: 'extract_zip(zip_path, target_folder, overwrite?, strip_root_folder?)',
+        description: 'Unpack a .zip / .skill archive from the vault into a target folder. Enforces path-traversal + zip-bomb guards. NEVER unpack ZIPs via evaluate_expression — the sandbox cannot bundle jszip.',
+        example: 'extract_zip("Inbox/skill.zip", ".vault-operator/cache/tmp/translator-input/skill", false, true)',
+        whenToUse: 'When you need to unpack a ZIP — e.g. Anthropic skill bundles for skill-translator, asset packs, exported skill archives. Use strip_root_folder=true when the archive wraps everything in a single top-level dir.',
+        commonMistakes: 'Trying jszip / fflate inside evaluate_expression — both fail (CJS bundle errors, lossy binary roundtrip). Always use this tool for ZIPs in the vault.',
+    },
     restore_checkpoint: {
         group: 'edit', label: 'Restore Checkpoint', icon: 'archive-restore',
         signature: 'restore_checkpoint(commitOid, path?, mode?)',

@@ -71,4 +71,63 @@ describe('ConversationStore (FIX-23-01-01: appendMessages + listByThread)', () =
             expect(store.listByThread('thread-nope')).toEqual([]);
         });
     });
+
+    describe('titleSource lock (issue #45 quirk 2)', () => {
+        it('persistiert titleSource=user wenn das Feld explizit gesetzt wird', async () => {
+            const id = await store.create('agent', 'opus-4-7');
+            await store.updateMeta(id, { title: 'My Rename', titleSource: 'user' });
+            const meta = store.list().find((c) => c.id === id);
+            expect(meta?.title).toBe('My Rename');
+            expect(meta?.titleSource).toBe('user');
+        });
+
+        it('skippt einen Auto-Title-Patch, wenn der User bereits umbenannt hat', async () => {
+            const id = await store.create('agent', 'opus-4-7');
+            await store.updateMeta(id, { title: 'My Rename', titleSource: 'user' });
+
+            // Automatic writer (onComplete fallback / finalizeConversation /
+            // MCP sync) sends just `{ title }` without titleSource.
+            await store.updateMeta(id, { title: 'AI-generated title' });
+
+            const meta = store.list().find((c) => c.id === id);
+            expect(meta?.title).toBe('My Rename');
+            expect(meta?.titleSource).toBe('user');
+        });
+
+        it('laesst Nicht-Title-Felder durch, auch wenn der Title geguardet ist', async () => {
+            const id = await store.create('agent', 'opus-4-7');
+            await store.updateMeta(id, { title: 'My Rename', titleSource: 'user' });
+
+            // saveConversation.ts:163 schreibt z.B. { title, crossInterfaceThreadId }
+            // -- title muss skippen, threadId trotzdem ankommen.
+            await store.updateMeta(id, {
+                title: 'auto-title',
+                crossInterfaceThreadId: 'thread-2026-06-16-deadbe',
+            });
+
+            const meta = store.list().find((c) => c.id === id);
+            expect(meta?.title).toBe('My Rename');
+            expect(meta?.crossInterfaceThreadId).toBe('thread-2026-06-16-deadbe');
+        });
+
+        it('erlaubt einen erneuten User-Rename, der den Lock haelt', async () => {
+            const id = await store.create('agent', 'opus-4-7');
+            await store.updateMeta(id, { title: 'First Rename', titleSource: 'user' });
+            await store.updateMeta(id, { title: 'Second Rename', titleSource: 'user' });
+
+            const meta = store.list().find((c) => c.id === id);
+            expect(meta?.title).toBe('Second Rename');
+            expect(meta?.titleSource).toBe('user');
+        });
+
+        it('Auto-Patches funktionieren unveraendert, wenn der Title nie user-gelockt wurde', async () => {
+            const id = await store.create('agent', 'opus-4-7');
+            await store.updateMeta(id, { title: 'fallback' });
+            await store.updateMeta(id, { title: 'semantic title' });
+
+            const meta = store.list().find((c) => c.id === id);
+            expect(meta?.title).toBe('semantic title');
+            expect(meta?.titleSource).toBeUndefined();
+        });
+    });
 });
