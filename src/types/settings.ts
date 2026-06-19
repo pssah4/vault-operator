@@ -729,6 +729,16 @@ export interface ProviderConfig {
         mid?: string;
         flagship?: string;
     };
+
+    /**
+     * IMP-20-06-01 W4-T2 / ADR-135: per-provider Zero-Data-Retention
+     * affirmation. Default undefined (treated as not-ZDR). When the
+     * user flips this on, they confirm with the provider that prompts
+     * and completions are NOT retained or used for training. Required
+     * before the freshness verifier can escalate to the frontier tier
+     * on this provider.
+     */
+    zdrCapable?: boolean;
 }
 
 // ---------------------------------------------------------------------------

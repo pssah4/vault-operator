@@ -321,4 +321,6 @@ ADR-106 | aging-knowledge-tab    | src/ui/modals/VaultHealthRepairModal.ts -- ne
 ADR-106 | aging-knowledge-reader | src/core/health/AgingKnowledgeReader.ts -- Read-Side fuer note_freshness + history mit Severity-Mapping outdated/widerspricht-high->critical (IMP-20-06-01 W3-T1)
 ADR-106 | resolve-conflict-modal | src/ui/modals/ResolveConflictModal.ts -- Single-Note MarkVerified/OpenInChat/Edit/Delete (IMP-20-06-01 W3-T2)
 ADR-106 | batch-resolve-modal    | src/ui/modals/BatchResolveModal.ts -- Bulk-Apply mit Severity+Confidence-Filter, Abort (IMP-20-06-01 W3-T3)
-ADR-95  | freshness-frontmatter-allowlist | src/core/health/__tests__/FrontmatterAllowlist.test.ts -- pinned Allowlist genau auf 'freshness' (IMP-20-06-01 Amendment)
+ADR-95  | freshness-frontmatter-allowlist | src/core/health/FreshnessFrontmatterPatcher.ts -- single-key 'freshness' allowlist filter ueber FrontmatterWriter (IMP-20-06-01 W4-T1)
+ADR-135 | zdr-capability         | src/core/health/ZdrCapabilityResolver.ts -- liest ProviderConfig.zdrCapable, Frontier-Eskalation nur unter ZDR+enabled+flagship-tier (IMP-20-06-01 W4-T2)
+ADR-135 | freshness-settings-ui  | src/ui/settings/VaultTab.ts -- Settings-Tab Sub-Section fuer alle freshness-Sub-Flags + Exclude-Paths (IMP-20-06-01 W4-T3); ProviderDetailModal traegt ZDR-Confirmation pro Provider

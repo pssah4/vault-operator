@@ -61,6 +61,7 @@ import { FreshnessWebSearch } from './core/health/FreshnessWebSearch';
 import { LlmVerifierProvider } from './core/health/LlmVerifierProvider';
 import { NoteFreshnessHistoryStore } from './core/health/NoteFreshnessHistoryStore';
 import { NoteSelector } from './core/health/NoteSelector';
+import { isFrontierZdrEnabled } from './core/health/ZdrCapabilityResolver';
 import { FrontmatterBackfillJob } from './core/ingest/FrontmatterBackfillJob';
 import { buildSummaryGenerator } from './core/ingest/SummaryGenerator';
 import { DEFAULT_VAULT_INGEST_SETTINGS } from './types/settings';
@@ -1461,7 +1462,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                     const verifierProvider = new LlmVerifierProvider({
                         midApi: this.apiHandler,
                         midModelId: this.apiHandler.getModel?.()?.id ?? 'mid-tier',
-                        hasZdr: () => false,
+                        hasZdr: () => isFrontierZdrEnabled(this.settings.providerConfigs),
                     });
                     const verifier = new FreshnessVerifier(verifierProvider, {
                         allowFrontierEscalation: freshnessSettings.allowFrontierEscalation,

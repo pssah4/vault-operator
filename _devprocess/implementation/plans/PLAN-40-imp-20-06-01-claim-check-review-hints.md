@@ -165,7 +165,20 @@ Total Wave 3 test delta: +10 cases. Full suite still green (no UI unit tests add
 
 Wayfinder rows added: `aging-knowledge-reader`. Existing rows for `aging-knowledge-tab`, `resolve-conflict-modal`, `batch-resolve-modal` get their final file references.
 
-Behavioural notes for Wave 4:
+### Wave 4 (2026-06-19)
+
+| Task | File(s) landed | Test(s) | Status |
+|---|---|---|---|
+| W4-T1 | `src/core/health/FreshnessFrontmatterPatcher.ts` (single-key `freshness` allowlist over FrontmatterWriter) | `src/core/health/__tests__/FreshnessFrontmatterPatcher.test.ts` (4 cases) | green |
+| W4-T2 | `src/types/settings.ts` (ProviderConfig.zdrCapable), `src/core/health/ZdrCapabilityResolver.ts` (resolver) and `src/main.ts` (wire into LlmVerifierProvider.hasZdr) | `src/core/health/__tests__/ZdrCapabilityResolver.test.ts` (6 cases) | green |
+| W4-T3 | `src/ui/settings/VaultTab.ts` (new "Note freshness verifier" section with 5 toggles + slider + path list) and `src/ui/settings/ProviderDetailModal.ts` (Privacy sub-section with ZDR confirmation per provider) | type-shape + manual smoke (UI) | green |
+| W4-T4 | `src/ARCHITECTURE.map` (3 wayfinder rows), this PLAN's Implementation Notes, BACKLOG row closures | covered by /consistency-check pass | green |
+
+Total Wave 4 test delta: +10 cases. Full suite 2900 passing plus 1 expected fail (no regression). Build clean (main.js 4.7 MB), deployed.
+
+Implementation closure: 5/5 ADRs operationalized (ADR-135 + ADR-95 + ADR-104 + ADR-105 + ADR-106), 12/12 AC mapped to landed code. PLAN-40 flips to Released; IMP-20-06-01 flips to Done.
+
+Behavioural notes for follow-up work:
 
 - The verifier wiring honours the `freshness.externalSources.enabled` toggle. With the toggle OFF the web pass returns an empty source list and the verifier resolves to `no_external_source`. The note still ends up in `note_freshness_history` so the Aging-knowledge tab in Wave 3 can show "no external evidence yet" rows.
 - `hasZdr` is hardwired to `() => false` in main.ts. Wave 4 replaces that with a model-registry lookup (`zdrCapable` flag on provider configs). Until then frontier escalation never fires regardless of the user setting.
@@ -180,3 +193,4 @@ Behavioural notes for Wave 4:
 - 2026-06-19: Wave 1 implemented. All six tasks shipped. Status flips to Active. Wave 2 next.
 - 2026-06-19: Wave 2 implemented. All five tasks shipped. Verifier wiring lives in main.ts inside the Stufe3 webUpdatePass block. Wave 3 (UI) next.
 - 2026-06-19: Wave 3 implemented. AgingKnowledgeReader maps verdict+confidence into critical/moderate/info/ok per ADR-106. VaultHealthRepairModal gains a top-level tab switch between Findings and Aging knowledge; the new tab lists severity-coloured rows with a Resolve button per row and a Batch resolve button on the toolbar. ResolveConflictModal does single-note MarkVerified/OpenInChat/Edit/Delete (FileManager.trashFile, no native dialog). BatchResolveModal filters by severity and minConfidence with mark-verified / delete actions and an Abort button. Mobile guard explicitly renders an informational text instead of the verifier list on Platform.isMobile. Wave 4 (Settings UI + ZDR capability + Allowlist + Wayfinder) next.
+- 2026-06-19: Wave 4 implemented. FreshnessFrontmatterPatcher pins the verifier-write path to the single key `freshness`. ProviderConfig grows a `zdrCapable?` field that users affirm in ProviderDetailModal under a new Privacy sub-section. ZdrCapabilityResolver scans providerConfigs and reports true only when an enabled provider has zdrCapable=true AND a flagship tier mapped; main.ts wires that into LlmVerifierProvider.hasZdr (replaces the hardcoded `() => false`). VaultTab gets a "Note freshness verifier" sub-section with the five sub-flags (externalSources.enabled, writeFrontmatter, allowFrontierEscalation, frontierConfidenceThreshold slider, excludePaths). All sub-toggles default OFF. ARCHITECTURE.map gets three new rows (`freshness-frontmatter-allowlist`, `zdr-capability`, `freshness-settings-ui`). Implementation closes IMP-20-06-01.

@@ -175,6 +175,81 @@ export class VaultTab {
 
         // ── BA-25 Karpathy-Wiki-Pattern (Vault-Ingest) ────────────────────
         this.buildVaultIngestSection(containerEl);
+
+        // ── IMP-20-06-01 Wave 4: Freshness verifier sub-flags ─────────────
+        this.buildFreshnessSection(containerEl);
+    }
+
+    /**
+     * Freshness verifier sub-flags.
+     *
+     * All sub-toggles default OFF. The note-level verifier runs only
+     * when the user explicitly enables external sources; the frontmatter
+     * mirror and frontier escalation are independent opt-ins on top.
+     */
+    private buildFreshnessSection(containerEl: HTMLElement): void {
+        addSectionHeading(containerEl, 'Note freshness verifier', {
+            body: 'Cross-check notes against external sources during the periodic update pass. All sub-toggles default off.',
+        });
+
+        const freshness = this.plugin.settings.freshness;
+
+        new Setting(containerEl)
+            .setName('Enable external sources')
+            .setDesc('Send up to one short query per candidate note to the configured web search provider. Default off (no external traffic).')
+            .addToggle((tg) =>
+                tg.setValue(freshness.externalSources.enabled).onChange(async (v) => {
+                    this.plugin.settings.freshness = {
+                        ...freshness,
+                        externalSources: { ...freshness.externalSources, enabled: v },
+                    };
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName('Write freshness hint to note frontmatter')
+            .setDesc('Mirror the latest verdict as a single `freshness` key in the note. Default off; the verdict already lives in the Aging-knowledge tab.')
+            .addToggle((tg) =>
+                tg.setValue(freshness.writeFrontmatter).onChange(async (v) => {
+                    this.plugin.settings.freshness = { ...freshness, writeFrontmatter: v };
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName('Allow frontier escalation under ZDR')
+            .setDesc('When the mid-tier model is unsure, re-ask the flagship model. Only fires if at least one flagship provider is marked Zero-Data-Retention.')
+            .addToggle((tg) =>
+                tg.setValue(freshness.allowFrontierEscalation).onChange(async (v) => {
+                    this.plugin.settings.freshness = { ...freshness, allowFrontierEscalation: v };
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        const thresholdSetting = new Setting(containerEl)
+            .setName('Frontier confidence threshold')
+            .setDesc('Escalate only when the mid-tier verdict confidence is below this number.');
+        addSliderInput(thresholdSetting, {
+            min: 0.0, max: 1.0, step: 0.05,
+            value: freshness.frontierConfidenceThreshold,
+            onChange: async (v) => {
+                this.plugin.settings.freshness = { ...freshness, frontierConfidenceThreshold: v };
+                await this.plugin.saveSettings();
+            },
+        });
+
+        new Setting(containerEl)
+            .setName('Exclude paths')
+            .setDesc('Path prefixes the verifier skips. Comma-separated. Default Private/, Personal/, Medical/, Clients/.')
+            .addText((text) => {
+                text.setValue(freshness.excludePaths.join(', '))
+                    .onChange(async (v) => {
+                        const paths = v.split(',').map((s) => s.trim()).filter(Boolean);
+                        this.plugin.settings.freshness = { ...freshness, excludePaths: paths };
+                        await this.plugin.saveSettings();
+                    });
+            });
     }
 
     /**
