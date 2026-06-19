@@ -40,6 +40,29 @@ const VERDICT_LABELS: Record<VerdictLiteral, string> = {
  */
 const KNOWLEDGE_REVIEW_CHECKS = new Set<HealthCheckType>(['cluster_freshness']);
 
+/**
+ * Map the verifier's `ReviewSeverity` (critical/moderate/info/ok)
+ * onto the `HealthFinding` severity scale (high/medium/low) so the
+ * Knowledge review tab shares the same severity-pill UI and CSS
+ * classes as the Findings tab.
+ */
+function reviewSeverityToFindingSeverity(
+    s: import('../../core/health/KnowledgeReviewReader').ReviewSeverity,
+): 'high' | 'medium' | 'low' {
+    switch (s) {
+        case 'critical':
+            return 'high';
+        case 'moderate':
+            return 'medium';
+        case 'info':
+            return 'low';
+        case 'ok':
+            return 'low';
+        default:
+            return 'low';
+    }
+}
+
 const REPAIRABLE_CHECKS = new Set<HealthCheckType>([
     'missing_backlinks', 'category_mismatch', 'inconsistent_tags',
 ]);
@@ -115,103 +138,334 @@ export class VaultHealthRepairModal extends Modal {
         contentEl.addClass('vault-health-modal');
         this.renderTopTabs(contentEl);
 
-        contentEl.createEl('h3', { text: 'Knowledge review' });
-
-        // IMP-20-06-01 W3-T4: mobile guard. Verifier read paths are
-        // desktop-only for now; on mobile show an explanatory note
-        // instead of an empty grid.
+        // IMP-20-06-01 W3-T4: mobile guard.
         if (Platform.isMobile) {
+            contentEl.createEl('h3', { text: 'Knowledge review' });
             contentEl.createEl('p', {
                 text: 'Knowledge review needs the desktop client. Open the same vault on desktop to resolve flagged notes.',
             });
             return;
         }
 
-        // Cluster-freshness findings (Karpathy-Lint score per cluster)
-        // land here, not in the Findings tab.
+        // Source 1: cluster_freshness HealthFindings live in this.findings.
         const clusterFindings = this.findings.filter((f) =>
             KNOWLEDGE_REVIEW_CHECKS.has(f.check),
         );
-        if (clusterFindings.length) {
-            this.renderClusterFreshnessSection(contentEl, clusterFindings);
-        }
 
+        // Source 2: per-note verdicts persisted by the verifier.
         const db = this.plugin.knowledgeDB?.getDB();
-        if (!db) {
-            contentEl.createEl('p', { text: 'Knowledge DB not ready yet.' });
-            return;
-        }
+        const noteRows: ReviewRow[] = db
+            ? new KnowledgeReviewReader(db).listAll(false)
+            : [];
 
-        const reader = new KnowledgeReviewReader(db);
-        const rows = reader.listAll(false);
+        // Mapped severity (critical/moderate/info -> high/medium/low) drives
+        // the same severity-pill UI the Findings tab uses; the underlying
+        // ReviewSeverity stays untouched in storage and data layer.
+        const noteRowsWithSev = noteRows.map((r) => ({
+            row: r,
+            severity: reviewSeverityToFindingSeverity(r.severity),
+        }));
+        const clusterFindingsWithSev = clusterFindings.map((f) => ({
+            finding: f,
+            severity: f.severity,
+        }));
 
-        const noteHeading = contentEl.createEl('h4', { text: 'Notes flagged by the verifier' });
-        noteHeading.addClass('vault-health-knowledge-review-subheading');
-
-        if (!rows.length) {
-            contentEl.createEl('p', {
-                text: 'No notes flagged yet. Notes appear here once the freshness verifier marks them as contradicted, outdated, or in need of extension.',
-            });
-            return;
-        }
-
-        const counts = {
-            critical: rows.filter((r) => r.severity === 'critical').length,
-            moderate: rows.filter((r) => r.severity === 'moderate').length,
-            info: rows.filter((r) => r.severity === 'info').length,
+        const totalCount = clusterFindings.length + noteRows.length;
+        const counts: Record<SeverityFilter, number> = {
+            all: totalCount,
+            high:
+                clusterFindingsWithSev.filter((c) => c.severity === 'high').length +
+                noteRowsWithSev.filter((n) => n.severity === 'high').length,
+            medium:
+                clusterFindingsWithSev.filter((c) => c.severity === 'medium').length +
+                noteRowsWithSev.filter((n) => n.severity === 'medium').length,
+            low:
+                clusterFindingsWithSev.filter((c) => c.severity === 'low').length +
+                noteRowsWithSev.filter((n) => n.severity === 'low').length,
         };
-        const summary = contentEl.createEl('p');
-        summary.appendText(`${rows.length} notes flagged: ${counts.critical} critical, ${counts.moderate} moderate, ${counts.info} info.`);
 
-        const batchRow = contentEl.createDiv('vault-health-knowledge-review-toolbar');
-        const batchBtn = batchRow.createEl('button', { text: 'Batch resolve' });
-        batchBtn.addEventListener('click', () => {
-            new BatchResolveModal(this.plugin, rows, { onChange: () => this.render() }).open();
-        });
+        contentEl.createEl('h3', { text: `Knowledge review (${totalCount} items)` });
 
-        const list = contentEl.createDiv('vault-health-knowledge-review-list');
-        for (const row of rows) {
-            const item = list.createDiv('vault-health-knowledge-review-item ' + `is-severity-${row.severity}`);
-            const head = item.createDiv('vault-health-knowledge-review-head');
-            head.createEl('strong', { text: row.path });
-            const label = VERDICT_LABELS[row.verdict] ?? row.verdict;
-            const verdictBadge = head.createEl('span', {
-                text: ` ${label} (${row.confidence.toFixed(2)})`,
-                cls: 'vault-health-knowledge-review-verdict',
+        const filterRow = contentEl.createDiv('vault-health-filter-row');
+        const tabs: Array<{ key: SeverityFilter; label: string }> = [
+            { key: 'all', label: `All (${counts.all})` },
+            { key: 'high', label: `High (${counts.high})` },
+            { key: 'medium', label: `Medium (${counts.medium})` },
+            { key: 'low', label: `Low (${counts.low})` },
+        ];
+        for (const tab of tabs) {
+            const btn = filterRow.createEl('button', {
+                text: tab.label,
+                cls: 'vault-health-filter-tab' + (this.severityFilter === tab.key ? ' is-active' : ''),
             });
-            verdictBadge.setAttr('data-severity', row.severity);
-
-            if (row.summary) {
-                item.createEl('p', { text: row.summary, cls: 'vault-health-knowledge-review-summary' });
-            }
-
-            const actions = item.createDiv('vault-health-knowledge-review-actions');
-            const resolveBtn = actions.createEl('button', { text: 'Resolve' });
-            resolveBtn.addEventListener('click', () => {
-                new ResolveConflictModal(this.plugin, row, { onChange: () => this.render() }).open();
+            btn.addEventListener('click', () => {
+                this.severityFilter = tab.key;
+                this.render();
             });
+        }
+
+        if (totalCount === 0) {
+            contentEl.createEl('p', {
+                text: 'No knowledge-review items right now. Cluster-freshness flags and per-note verdicts appear here once the freshness verifier and the periodic lint produce them.',
+            });
+            return;
+        }
+
+        // Top toolbar: Batch resolve action over the per-note verdicts.
+        if (noteRows.length) {
+            const batchRow = contentEl.createDiv('vault-health-knowledge-review-toolbar');
+            const batchBtn = batchRow.createEl('button', { text: 'Batch resolve' });
+            batchBtn.addEventListener('click', () => {
+                new BatchResolveModal(this.plugin, noteRows, { onChange: () => this.render() }).open();
+            });
+        }
+
+        const visibleCluster = this.severityFilter === 'all'
+            ? clusterFindingsWithSev
+            : clusterFindingsWithSev.filter((c) => c.severity === this.severityFilter);
+        const visibleNotes = this.severityFilter === 'all'
+            ? noteRowsWithSev
+            : noteRowsWithSev.filter((n) => n.severity === this.severityFilter);
+
+        // Cluster freshness section (single bucket, same shape as a
+        // Findings section).
+        if (visibleCluster.length) {
+            this.renderClusterFreshnessSection(contentEl, visibleCluster);
+        }
+
+        // Per-verdict sections. The order is the natural severity
+        // gradient so the most urgent verdict bucket sits at the top.
+        const verdictOrder: VerdictLiteral[] = [
+            'contradicts',
+            'outdated',
+            'extends',
+            'no_external_source',
+        ];
+        const groupedByVerdict = new Map<VerdictLiteral, Array<{ row: ReviewRow; severity: 'high' | 'medium' | 'low' }>>();
+        for (const v of visibleNotes) {
+            const entry = groupedByVerdict.get(v.row.verdict) ?? [];
+            entry.push(v);
+            groupedByVerdict.set(v.row.verdict, entry);
+        }
+        for (const verdict of verdictOrder) {
+            const rows = groupedByVerdict.get(verdict);
+            if (!rows?.length) continue;
+            this.renderVerdictSection(contentEl, verdict, rows);
+        }
+
+        // The `matches` bucket only appears if some row carried it
+        // (the reader hides matches by default; defensive render).
+        const matchesRows = groupedByVerdict.get('matches');
+        if (matchesRows?.length) {
+            this.renderVerdictSection(contentEl, 'matches', matchesRows);
         }
     }
 
-    private renderClusterFreshnessSection(parent: HTMLElement, findings: HealthFinding[]): void {
-        const heading = parent.createEl('h4', { text: 'Cluster freshness' });
-        heading.addClass('vault-health-knowledge-review-subheading');
-        const list = parent.createDiv('vault-health-knowledge-review-list');
-        for (const f of findings) {
-            const severity = f.severity === 'high' ? 'critical' : f.severity === 'medium' ? 'moderate' : 'info';
-            const item = list.createDiv('vault-health-knowledge-review-item ' + `is-severity-${severity}`);
-            const head = item.createDiv('vault-health-knowledge-review-head');
-            head.createEl('strong', { text: f.cluster ?? 'Cluster' });
-            if (f.description) {
-                item.createEl('p', { text: f.description, cls: 'vault-health-knowledge-review-summary' });
-            }
-            const actions = item.createDiv('vault-health-knowledge-review-actions');
-            const discussBtn = actions.createEl('button', { text: 'Discuss freshness update' });
-            discussBtn.addEventListener('click', () => {
-                const prompt = `Help me refresh the cluster "${f.cluster ?? ''}". ${f.description ?? ''}`;
+    private renderClusterFreshnessSection(
+        parent: HTMLElement,
+        entries: Array<{ finding: HealthFinding; severity: 'high' | 'medium' | 'low' }>,
+    ): void {
+        const sectionSeverity = entries[0].severity;
+        const details = parent.createEl('details', { cls: 'vault-health-section' });
+        details.setAttribute('open', '');
+
+        const summary = details.createEl('summary', { cls: 'vault-health-section-header' });
+        summary.createSpan({ cls: `vault-health-severity severity-${sectionSeverity}`, text: sectionSeverity });
+        summary.createSpan({
+            cls: 'vault-health-section-count',
+            text: ` Cluster freshness (${entries.length})`,
+        });
+        summary.createSpan({ cls: 'vault-health-tag-info', text: ' (review recommended)' });
+
+        const content = details.createDiv('vault-health-section-content');
+        for (const { finding, severity } of entries) {
+            const row = content.createDiv('vault-health-finding-row');
+
+            const label = row.createSpan({ cls: 'vault-health-note-link' });
+            label.setText(finding.cluster ?? 'Cluster');
+
+            const actions = row.createDiv('vault-health-finding-actions');
+            const discussBtn = actions.createEl('button', {
+                cls: 'vault-health-icon-btn',
+                attr: { 'aria-label': 'Discuss freshness update for this cluster' },
+            });
+            setIcon(discussBtn, 'refresh-cw');
+            discussBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const prompt = `Cluster "${finding.cluster ?? ''}" is past its half-life. Suggest a web-search update pass and the source notes that should go through deep-ingest. ${finding.description ?? ''}`.trim();
+                this.close();
                 this.onDiscuss?.(prompt);
             });
+
+            const dismissBtn = actions.createEl('button', {
+                cls: 'vault-health-icon-btn',
+                attr: { 'aria-label': 'Dismiss this cluster freshness flag' },
+            });
+            setIcon(dismissBtn, 'eye-off');
+            dismissBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                this.dismissClusterFreshness(finding, row, content, details, entries.length);
+            });
+
+            // severity passed through `cls` matches the row-side variation
+            // the Findings tab uses; no extra info text needed since the
+            // description already lives below.
+            void severity;
+
+            const preview = content.createDiv('vault-health-fix-preview');
+            preview.setText(finding.description ?? `Cluster "${finding.cluster ?? ''}"`);
         }
+    }
+
+    private renderVerdictSection(
+        parent: HTMLElement,
+        verdict: VerdictLiteral,
+        entries: Array<{ row: ReviewRow; severity: 'high' | 'medium' | 'low' }>,
+    ): void {
+        // Section severity = worst-wins over the rows in the bucket.
+        const sectionSeverity: 'high' | 'medium' | 'low' = entries.some((e) => e.severity === 'high')
+            ? 'high'
+            : entries.some((e) => e.severity === 'medium')
+                ? 'medium'
+                : 'low';
+        const label = VERDICT_LABELS[verdict] ?? verdict;
+
+        const details = parent.createEl('details', { cls: 'vault-health-section' });
+        details.setAttribute('open', '');
+
+        const summary = details.createEl('summary', { cls: 'vault-health-section-header' });
+        summary.createSpan({ cls: `vault-health-severity severity-${sectionSeverity}`, text: sectionSeverity });
+        summary.createSpan({
+            cls: 'vault-health-section-count',
+            text: ` ${label} (${entries.length})`,
+        });
+
+        const content = details.createDiv('vault-health-section-content');
+        for (const { row } of entries) {
+            const noteRow = content.createDiv('vault-health-finding-row');
+
+            const noteLink = noteRow.createSpan({ cls: 'vault-health-note-link' });
+            noteLink.setText(this.formatPath(row.path));
+            noteLink.addEventListener('click', () => {
+                this.close();
+                void this.app.workspace.openLinkText(row.path, '');
+            });
+
+            const meta = noteRow.createSpan({ cls: 'vault-health-path-count' });
+            meta.setText(` confidence ${row.confidence.toFixed(2)} · ${row.verifierTier} tier`);
+
+            const actions = noteRow.createDiv('vault-health-finding-actions');
+
+            const discussBtn = actions.createEl('button', {
+                cls: 'vault-health-icon-btn',
+                attr: { 'aria-label': 'Discuss with agent' },
+            });
+            setIcon(discussBtn, 'message-square');
+            discussBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const prompt = this.buildVerdictPrompt(row);
+                this.close();
+                this.onDiscuss?.(prompt);
+            });
+
+            const resolveBtn = actions.createEl('button', {
+                cls: 'vault-health-icon-btn',
+                attr: { 'aria-label': 'Open resolve dialog' },
+            });
+            setIcon(resolveBtn, 'check-circle');
+            resolveBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                new ResolveConflictModal(this.plugin, row, { onChange: () => this.render() }).open();
+            });
+
+            const dismissBtn = actions.createEl('button', {
+                cls: 'vault-health-icon-btn',
+                attr: { 'aria-label': 'Dismiss this verdict' },
+            });
+            setIcon(dismissBtn, 'eye-off');
+            dismissBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                this.dismissVerdict(row, noteRow, content, details, entries.length);
+            });
+
+            const preview = content.createDiv('vault-health-fix-preview');
+            preview.setText(row.summary || '(no summary returned by the verifier)');
+        }
+    }
+
+    private buildVerdictPrompt(row: ReviewRow): string {
+        const label = VERDICT_LABELS[row.verdict] ?? row.verdict;
+        const sources = row.sources.length ? `\n\nSources:\n${row.sources.map((s) => `- ${s}`).join('\n')}` : '';
+        return `Help me review the note **${row.path}**. The freshness verifier flagged it as **${label}** with confidence ${row.confidence.toFixed(2)}.\n\nSummary: ${row.summary || '(none)'}${sources}`;
+    }
+
+    private dismissVerdict(
+        row: ReviewRow,
+        rowEl: HTMLElement,
+        content: HTMLElement,
+        details: HTMLDetailsElement,
+        sectionCount: number,
+    ): void {
+        const db = this.plugin.knowledgeDB?.getDB();
+        if (db) {
+            db.run(
+                `INSERT OR REPLACE INTO dismissed_freshness (note_path, hint_type, dismissed_at)
+                 VALUES (?, 'verdict', ?)`,
+                [row.path, new Date().toISOString()],
+            );
+            this.plugin.knowledgeDB?.markDirty();
+        }
+        new Notice(`Dismissed ${row.path}`);
+        rowEl.remove();
+        // Strip the matching preview block that lives as the next sibling.
+        const nextPreview = rowEl.nextElementSibling;
+        if (nextPreview?.classList.contains('vault-health-fix-preview')) {
+            nextPreview.remove();
+        }
+        if (sectionCount === 1) {
+            details.remove();
+        } else {
+            const header = details.querySelector<HTMLElement>('.vault-health-section-count');
+            if (header) {
+                header.setText(header.getText().replace(/\((\d+)\)/, (_m, n: string) => `(${Math.max(0, parseInt(n, 10) - 1)})`));
+            }
+        }
+        void content;
+    }
+
+    private dismissClusterFreshness(
+        finding: HealthFinding,
+        rowEl: HTMLElement,
+        content: HTMLElement,
+        details: HTMLDetailsElement,
+        sectionCount: number,
+    ): void {
+        const db = this.plugin.knowledgeDB?.getDB();
+        if (db && finding.cluster) {
+            db.run(
+                `INSERT OR REPLACE INTO dismissed_health_findings (check_type, path, dismissed_at)
+                 VALUES (?, ?, ?)`,
+                ['cluster_freshness', finding.cluster, new Date().toISOString()],
+            );
+            this.plugin.knowledgeDB?.markDirty();
+        }
+        new Notice(`Dismissed cluster ${finding.cluster ?? ''}`);
+        rowEl.remove();
+        const nextPreview = rowEl.nextElementSibling;
+        if (nextPreview?.classList.contains('vault-health-fix-preview')) {
+            nextPreview.remove();
+        }
+        if (sectionCount === 1) {
+            details.remove();
+        } else {
+            const header = details.querySelector<HTMLElement>('.vault-health-section-count');
+            if (header) {
+                header.setText(header.getText().replace(/\((\d+)\)/, (_m, n: string) => `(${Math.max(0, parseInt(n, 10) - 1)})`));
+            }
+        }
+        void content;
     }
 
     onClose(): void {
