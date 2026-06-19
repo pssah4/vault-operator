@@ -1376,10 +1376,20 @@ export class AgentSidebarView extends ItemView {
         if (findings.length === 0) return;
         // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic import for modal
         const { VaultHealthRepairModal } = require('./modals/VaultHealthRepairModal') as typeof import('./modals/VaultHealthRepairModal');
-        new VaultHealthRepairModal(this.plugin, findings, (prompt) => {
+        const modal = new VaultHealthRepairModal(this.plugin, findings, (prompt) => {
             this.clearConversation();
             this.sendProgrammaticMessage(prompt, false);
-        }).open();
+        });
+        // IMP-19-01-01: opt-in auto-apply for deterministic rule
+        // findings (missing_backlinks, category_mismatch,
+        // inconsistent_tags). When the setting is on AND there is at
+        // least one repairable finding, the modal opens directly into
+        // the runRepair() path; the user lands on the same Undo/Done
+        // results screen as if they had clicked the Auto-fix banner.
+        if (this.plugin.settings.vaultHealth?.autoApplyRuleRepairs) {
+            modal.autoApplyOnOpen = true;
+        }
+        modal.open();
     }
 
     /** Update the health-pulse icon. Called from main.ts after health check. */

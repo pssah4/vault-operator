@@ -1117,6 +1117,9 @@ export interface ObsidianAgentSettings {
     /** IMP-20-06-01: FEAT-20-06 Stage 4+5 verifier settings. */
     freshness: FreshnessSettings;
 
+    /** IMP-19-01-01: FEAT-19-01 Vault Health auto-apply rule-based repairs. */
+    vaultHealth: VaultHealthSettings;
+
     // ----------------------------------------------------------------------
     // EPIC-26: Advisor-Pattern + Provider-only setup (ADR-120 .. ADR-123)
     // ----------------------------------------------------------------------
@@ -1427,6 +1430,26 @@ export const DEFAULT_FRESHNESS_SETTINGS: FreshnessSettings = {
     frontierConfidenceThreshold: 0.7,
     frontierSeverityFilter: ['contradicts', 'outdated'],
     excludePaths: ['Private/', 'Personal/', 'Medical/', 'Clients/'],
+};
+
+// ---------------------------------------------------------------------------
+// IMP-19-01-01: Vault Health auto-apply for deterministic rule-based repairs.
+// ---------------------------------------------------------------------------
+
+export interface VaultHealthSettings {
+    /**
+     * IMP-19-01-01 AC-05. When true, opening the Vault Health modal
+     * via the sidebar badge auto-runs `runRepair()` over the three
+     * deterministic rule checks (missing_backlinks, category_mismatch,
+     * inconsistent_tags) before the modal renders. Findings that need
+     * a real decision still surface in the modal as before. Default
+     * off so existing users see no behaviour change until they opt in.
+     */
+    autoApplyRuleRepairs: boolean;
+}
+
+export const DEFAULT_VAULT_HEALTH_SETTINGS: VaultHealthSettings = {
+    autoApplyRuleRepairs: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -1756,6 +1779,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     leanSystemPrompt: false,
     vaultIngest: DEFAULT_VAULT_INGEST_SETTINGS,
     freshness: DEFAULT_FRESHNESS_SETTINGS,
+    vaultHealth: DEFAULT_VAULT_HEALTH_SETTINGS,
 
     // EPIC-26 / ADR-122: provider-only setup. Pre-migration defaults
     // (PLAN-25 will fill providerConfigs + flip schemaVersion).

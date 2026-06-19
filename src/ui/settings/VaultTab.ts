@@ -178,6 +178,32 @@ export class VaultTab {
 
         // ── IMP-20-06-01 Wave 4: Freshness verifier sub-flags ─────────────
         this.buildFreshnessSection(containerEl);
+
+        // ── IMP-19-01-01: Vault Health auto-apply for rule-based repairs ──
+        this.buildVaultHealthSection(containerEl);
+    }
+
+    /**
+     * IMP-19-01-01: opt-in auto-apply for deterministic Vault Health
+     * repairs. Default off; the toggle lists the three rule checks
+     * covered so the user knows what gets auto-applied.
+     */
+    private buildVaultHealthSection(containerEl: HTMLElement): void {
+        addSectionHeading(containerEl, 'Vault health auto-fix', {
+            body: 'When the health check finds reciprocity or consistency rule violations, the modal can auto-apply the fix before showing you the list. You stay in control of the broader review.',
+        });
+
+        const vh = this.plugin.settings.vaultHealth;
+
+        new Setting(containerEl)
+            .setName('Auto-apply rule-based repairs on health check')
+            .setDesc('Auto-fix the three deterministic rule checks (missing backlinks, category mismatches, inconsistent tags) before the modal opens. Checkpoint runs first so you can undo from the post-repair screen. Default off.')
+            .addToggle((tg) =>
+                tg.setValue(vh.autoApplyRuleRepairs).onChange(async (v) => {
+                    this.plugin.settings.vaultHealth = { ...vh, autoApplyRuleRepairs: v };
+                    await this.plugin.saveSettings();
+                }),
+            );
     }
 
     /**

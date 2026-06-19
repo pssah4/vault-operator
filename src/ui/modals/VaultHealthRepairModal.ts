@@ -104,6 +104,19 @@ export class VaultHealthRepairModal extends Modal {
     }
 
     onOpen(): void {
+        // IMP-19-01-01 AC-06: when the sidebar set the auto-apply
+        // flag, skip the findings render and drive the existing
+        // runRepair() path over the REPAIRABLE subset. The results
+        // screen surfaces with the same Undo/Done shape as a manual
+        // run. Findings tab stays reachable via the Done button.
+        if (this.autoApplyOnOpen) {
+            this.autoApplyOnOpen = false;
+            this.selectAllRepairable();
+            if (this.selectedFindings.size > 0) {
+                void this.runRepair();
+                return;
+            }
+        }
         this.render();
     }
 
@@ -491,6 +504,16 @@ export class VaultHealthRepairModal extends Modal {
 
         contentEl.createEl('h3', { text: `Vault health (${totalCount} findings)` });
 
+        // IMP-19-01-01 AC-01..04: Auto-fix CTA banner for deterministic
+        // rule findings. Renders only when at least one repairable
+        // finding exists. The button selects every REPAIRABLE finding
+        // (across severities and sections) and routes through the
+        // existing runRepair() path so the safety net (Checkpoint,
+        // Undo, per-row error handling) is shared.
+        if (repairableCount > 0) {
+            this.renderAutoFixBanner(contentEl, repairableCount);
+        }
+
         // FEAT-19-18: Severity filter tabs.
         const counts = {
             high: findingsForView.filter(f => f.severity === 'high').length,
@@ -698,6 +721,62 @@ export class VaultHealthRepairModal extends Modal {
         if (!(btn instanceof HTMLButtonElement)) return;
         btn.setText(`Repair selected (${this.selectedFindings.size})`);
     }
+
+    /**
+     * IMP-19-01-01 AC-01..03: render the prominent Auto-fix CTA at
+     * the top of the Findings tab. The button selects every
+     * REPAIRABLE finding (across severity filters) and immediately
+     * invokes `runRepair()`. The existing "Repair selected (N)"
+     * button at the bottom of the list stays untouched for selective
+     * repairs.
+     */
+    private renderAutoFixBanner(parent: HTMLElement, repairableCount: number): void {
+        const banner = parent.createDiv('vault-health-autofix-banner');
+        const label = banner.createDiv('vault-health-autofix-label');
+        label.createSpan({
+            cls: 'vault-health-severity severity-low',
+            text: 'rule',
+        });
+        label.createSpan({
+            text: ` ${repairableCount} trivial ${repairableCount === 1 ? 'issue' : 'issues'} can be auto-fixed`,
+        });
+        const desc = banner.createDiv('vault-health-autofix-desc');
+        desc.setText('Missing backlinks, category mismatches, inconsistent tags. Checkpoint runs first; undo stays on the next screen.');
+
+        const btn = banner.createEl('button', {
+            text: `Auto-fix ${repairableCount} ${repairableCount === 1 ? 'issue' : 'issues'}`,
+            cls: 'mod-cta vault-health-autofix-btn',
+        });
+        btn.addEventListener('click', () => {
+            this.selectAllRepairable();
+            void this.runRepair();
+        });
+    }
+
+    /**
+     * IMP-19-01-01 AC-03: select every REPAIRABLE finding regardless
+     * of the active severity filter. Used by the Auto-fix banner and
+     * by the pre-modal auto-apply path in AgentSidebarView.
+     */
+    selectAllRepairable(): void {
+        this.selectedFindings.clear();
+        this.findings.forEach((f, idx) => {
+            if (REPAIRABLE_CHECKS.has(f.check)) {
+                this.selectedFindings.add(idx);
+            }
+        });
+    }
+
+    /**
+     * IMP-19-01-01 AC-06..09: convenience flag the AgentSidebarView
+     * sets before calling `open()`. When true, `onOpen()` skips the
+     * findings render and immediately drives `runRepair()` over the
+     * REPAIRABLE subset; the results screen surfaces as if the user
+     * had clicked the Auto-fix banner manually. `runRepair()` already
+     * handles the "no non-repairable findings left" case by showing
+     * a clean results summary with a Done button.
+     */
+    autoApplyOnOpen = false;
 
     // -----------------------------------------------------------------------
     // Dismiss a finding
