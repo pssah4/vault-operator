@@ -6,21 +6,17 @@
  * Adapted from Kilo Code's web search integration pattern.
  */
 
-import { requestUrl } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { searchBrave, searchTavily, type WebSearchResult } from './WebSearchProvider';
 
 interface WebSearchInput {
     query: string;
     numResults?: number;
 }
 
-interface SearchResult {
-    title: string;
-    url: string;
-    snippet: string;
-}
+type SearchResult = WebSearchResult;
 
 export class WebSearchTool extends BaseTool<'web_search'> {
     readonly name = 'web_search' as const;
@@ -126,105 +122,11 @@ export class WebSearchTool extends BaseTool<'web_search'> {
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // Brave Search API
-    // Docs: https://api.search.brave.com/
-    // ---------------------------------------------------------------------------
-
-    private async searchBrave(
-        query: string,
-        count: number,
-        apiKey: string
-    ): Promise<SearchResult[]> {
-        if (!apiKey) {
-            throw new Error(
-                'Brave API key missing. The user needs to add their Brave Search API key. Setup guide: https://obsilo.app/settings-reference#web-search-settings'
-            );
-        }
-
-        const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}`;
-
-        const TIMEOUT_MS = 15_000;
-        const response = await Promise.race([
-            requestUrl({
-                url,
-                method: 'GET',
-                headers: {
-                    'X-Subscription-Token': apiKey,
-                    Accept: 'application/json',
-                },
-                throw: false,
-            }),
-            new Promise<never>((_, reject) =>
-                window.setTimeout(() => reject(new Error(`Brave search timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
-            ),
-        ]);
-
-        if (response.status >= 400) {
-            throw new Error(`Brave API error: HTTP ${response.status}`);
-        }
-
-        const data = response.json as Record<string, unknown>;
-        const web = data?.web as Record<string, unknown> | undefined;
-        const webResults = (web?.results ?? []) as Array<Record<string, unknown>>;
-
-        return webResults.map((r) => ({
-            title: (r.title as string) ?? '',
-            url: (r.url as string) ?? '',
-            snippet: (r.description as string) ?? '',
-        }));
+    private async searchBrave(query: string, count: number, apiKey: string): Promise<SearchResult[]> {
+        return searchBrave(query, count, apiKey);
     }
 
-    // ---------------------------------------------------------------------------
-    // Tavily Search API
-    // Docs: https://docs.tavily.com/
-    // ---------------------------------------------------------------------------
-
-    private async searchTavily(
-        query: string,
-        count: number,
-        apiKey: string
-    ): Promise<SearchResult[]> {
-        if (!apiKey) {
-            throw new Error(
-                'Tavily API key missing. The user needs to add their Tavily API key. Setup guide: https://obsilo.app/settings-reference#web-search-settings'
-            );
-        }
-
-        const TIMEOUT_MS = 15_000;
-        const response = await Promise.race([
-            requestUrl({
-                url: 'https://api.tavily.com/search',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    api_key: apiKey,
-                    query,
-                    num_results: count,
-                    search_depth: 'basic',
-                    include_answer: false,
-                    include_raw_content: false,
-                }),
-                throw: false,
-            }),
-            new Promise<never>((_, reject) =>
-                window.setTimeout(() => reject(new Error(`Tavily search timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
-            ),
-        ]);
-
-        if (response.status >= 400) {
-            throw new Error(`Tavily API error: HTTP ${response.status}`);
-        }
-
-        const data = response.json as Record<string, unknown>;
-        const tavilyResults = (data?.results ?? []) as Array<Record<string, unknown>>;
-
-        return tavilyResults.map((r) => ({
-            title: (r.title as string) ?? '',
-            url: (r.url as string) ?? '',
-            snippet: (r.content as string) ?? '',
-        }));
+    private async searchTavily(query: string, count: number, apiKey: string): Promise<SearchResult[]> {
+        return searchTavily(query, count, apiKey);
     }
 }

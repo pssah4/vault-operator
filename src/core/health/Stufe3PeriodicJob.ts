@@ -28,6 +28,14 @@ export interface UpdateFinding {
     sources: string[]; // url-list
     detectedAt: string;
     strongSignal: boolean;
+    /**
+     * Optional per-note verdicts attached to this cluster finding.
+     * Populated by the FreshnessVerifier wiring from IMP-20-06-01.
+     * Existing notification sinks that only consume cluster-level
+     * fields ignore this; the Aging-knowledge tab reads it.
+     * Additive per ADR-105 amendment 2026-06-19.
+     */
+    notes?: import('./types').NoteVerdict[];
 }
 
 export interface WebUpdatePassResult {

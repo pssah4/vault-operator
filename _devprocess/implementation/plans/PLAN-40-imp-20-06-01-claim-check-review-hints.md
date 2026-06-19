@@ -138,8 +138,31 @@ Behavioural notes that matter for Waves 2 and beyond:
 - `NoteFreshnessHistoryStore` is independent of the verifier; the wiring in Wave 2 calls `recordRun` after `verifyNote` returns, inside the same `webUpdatePass` aggregation block.
 - The retention sweep is per-path and runs on every insert. It does NOT touch rows of other paths even if they are older than 90 days; that pathwise sweep was a deliberate choice from the test 'retains rows isolated per path'. A separate maintenance pass (deferred, no IMP yet) can do the global sweep later.
 
+### Wave 2 (2026-06-19)
+
+| Task | File(s) landed | Test(s) | Status |
+|---|---|---|---|
+| W2-T1 | `src/core/health/Stufe3PeriodicJob.ts` (UpdateFinding gets `notes?: NoteVerdict[]` additive) | existing Stufe3 suite stays green | green |
+| W2-T2 | `src/core/health/NoteSelector.ts` (freshness_class priority, last_checked_at cooldown, dismissed_freshness filter, excludePaths) | `src/core/health/__tests__/NoteSelector.test.ts` (6 cases) | green |
+| W2-T3 | `src/core/health/FreshnessQueryBuilder.ts` (400-char hard cap, word-boundary trim, entity drop on overflow) | `src/core/health/__tests__/FreshnessQueryBuilder.test.ts` (5 cases) | green |
+| W2-T4 | `src/core/health/FreshnessWebSearch.ts` (programmatic Brave/Tavily wrapper, externalSources-Privacy-Toggle, fail-closed) plus extract `src/core/tools/web/WebSearchProvider.ts` and refactor `WebSearchTool` to delegate | `src/core/health/__tests__/FreshnessWebSearch.test.ts` (5 cases) | green |
+| W2-T5 | `src/core/health/LlmVerifierProvider.ts` (classifyText-backed VerifierProvider, structured JSON parsing, fail-closed) plus `src/core/health/FreshnessOrchestrator.ts` (per-cluster pipeline with persistence), wired into `src/main.ts` `webUpdatePass` | `src/core/health/__tests__/LlmVerifierProvider.test.ts` (10 cases) + `src/core/health/__tests__/FreshnessOrchestrator.test.ts` (3 cases) | green |
+
+Total Wave 2 test delta: +29 cases. Full suite 2880 passing plus 1 expected fail (no regression). Build clean (main.js 4.7 MB), deployed.
+
+Wayfinder rows added: `freshness-web-search`, `freshness-llm-provider`, `freshness-orchestrator`.
+
+Behavioural notes for Waves 3 and 4:
+
+- The verifier wiring honours the `freshness.externalSources.enabled` toggle. With the toggle OFF the web pass returns an empty source list and the verifier resolves to `no_external_source`. The note still ends up in `note_freshness_history` so the Aging-knowledge tab in Wave 3 can show "no external evidence yet" rows.
+- `hasZdr` is hardwired to `() => false` in main.ts. Wave 4 replaces that with a model-registry lookup (`zdrCapable` flag on provider configs). Until then frontier escalation never fires regardless of the user setting.
+- `FreshnessOrchestrator.runForCluster` writes the verdict into `note_freshness` last_* columns and appends to `note_freshness_history`. The Aging-knowledge tab in Wave 3 reads both: history for the per-note timeline, mirror columns for fast list views.
+- `WebSearchTool` now delegates to `WebSearchProvider`; the provider lives as plain functions so the verifier can call it without going through the agent tool loop. Behavioural surface unchanged.
+- `UpdateFinding.notes` stays optional and only populates when the orchestrator returned verdicts. Existing `notificationSink` callers that only read cluster-level fields keep working unchanged.
+
 ## Change Log
 
 - 2026-06-19: PLAN-40 created. Status Draft.
 - 2026-06-19: Phase 2 critical review writeback. Three driften corrected in plan-context-imp-20-06-01.md and ADR-104 amendment: `WebSearchService` -> `WebSearchTool`+helper, Provider-Fallback -> User-Konfig, WriterLock-Pattern-Quelle ADR-95 -> ADR-79. ADR-95-amendment clarifies pattern provenance.
 - 2026-06-19: Wave 1 implemented. All six tasks shipped. Status flips to Active. Wave 2 next.
+- 2026-06-19: Wave 2 implemented. All five tasks shipped. Verifier wiring lives in main.ts inside the Stufe3 webUpdatePass block. Wave 3 (UI) next.

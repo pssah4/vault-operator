@@ -313,6 +313,9 @@ ADR-135 | freshness-verifier     | src/core/health/FreshnessVerifier.ts -- Stage
 ADR-135 | freshness-types        | src/core/health/types.ts -- NoteVerdict, VerdictLiteral, VerifierTier (IMP-20-06-01 W1-T4)
 ADR-135 | freshness-history      | src/core/health/NoteFreshnessHistoryStore.ts -- Append-only verifier-run history with 5-or-90-day retention (IMP-20-06-01 W1-T3)
 ADR-135 | freshness-query-builder| src/core/health/FreshnessQueryBuilder.ts -- verifierQuery mit 400-Char-Cap (Tavily/Brave-safe), Unit-Test pinnt
+ADR-104 | freshness-web-search   | src/core/health/FreshnessWebSearch.ts -- programmatischer Brave/Tavily-Wrapper mit externalSources-Privacy-Toggle (IMP-20-06-01 W2-T4)
+ADR-135 | freshness-llm-provider | src/core/health/LlmVerifierProvider.ts -- VerifierProvider-Implementierung auf apiHandler.classifyText (Mid+Frontier), Fail-Closed (IMP-20-06-01 W2-T5)
+ADR-105 | freshness-orchestrator | src/core/health/FreshnessOrchestrator.ts -- Per-Cluster-Pipeline Selector->WebSearch->Verifier->History+Mirror (IMP-20-06-01 W2-T5)
 ADR-105 | freshness-note-selector| src/core/health/NoteSelector.ts -- liest note_freshness.freshness_class als Scheduling-Heuristik, dismissed_freshness als User-Override-Filter (IMP-20-06-01 Amendment)
 ADR-106 | aging-knowledge-tab    | src/ui/modals/VaultHealthRepairModal.ts -- neuer Tab fuer Verdict-Liste mit Severity-Mapping (IMP-20-06-01 Amendment)
 ADR-106 | resolve-conflict-modal | src/ui/modals/ResolveConflictModal.ts -- Single-Note Apply/Edit/Delete/MarkVerified/OpenInChat (IMP-20-06-01)
