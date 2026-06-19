@@ -4912,3 +4912,44 @@ plan-context-imp-20-06-01.md ist konsistent mit ADR-135, ADR-95 (amended), ADR-1
 ### Naechster Schritt
 
 `/coding` mit Anker IMP-20-06-01. Erwartete Coding-Phase: Schema-Migration v10 nach v11, FreshnessVerifier, NoteSelector, FreshnessQueryBuilder, UI-Komponenten (`VaultHealthRepairModal`-Tab + Sub-Modale), Settings-UI, Allowlist-Test, Char-Cap-Test. PLAN-Item splittet die zehn Bauteile aus IMP-20-06-01 in Build-Wellen, voraussichtlich vier (Schema + Verifier-Core, NoteSelector + QueryBuilder, UI-Welle, Settings + Tests).
+
+---
+
+## 2026-06-19 -- Testing -> Security-Audit: IMP-20-06-01 Claim Check + Review Hints
+
+**Phase:** Testing abgeschlossen. Ready for /security-audit.
+
+**Artefakte erweitert:**
+
+- `src/core/health/__tests__/FreshnessOrchestrator.test.ts` (+2 cases: multi-row mirror + history persistence, frontier escalation under ZDR end-to-end)
+- `src/core/health/__tests__/NoteSelector.test.ts` (+2 cases: non-verdict hint_type isolation, per-class cooldown windows)
+
+**Verify-Gate:**
+
+- Suite 2904 passing + 1 expected fail (no regression)
+- 0 lint errors (tsc -noEmit clean)
+- Test-Delta gegenueber /coding-Ende: +4 cases
+
+**Coverage-Hinweise und akzeptierte Luecken:**
+
+- `extractUrlsFromText` in `src/main.ts` (file-private Regex + Set-Dedup) bleibt ohne Direkttest, da die Funktion file-private ist und ein Export-Refactor mehr Komplexitaet bringen wuerde als das Trivial-Code rechtfertigt. Strong-Signal-Pfad ist indirekt durch die orchestrator-Pipeline abgedeckt.
+- UI-Modale (`VaultHealthRepairModal`-Aging-Tab, `ResolveConflictModal`, `BatchResolveModal`, `VaultTab.buildFreshnessSection`, `ProviderDetailModal`-ZDR-Toggle) sind bewusst nicht unit-getestet. Das Projekt hat fuer Modal-Code keinen vorhandenen Test-Pattern; Verhalten ist durch manuelle Smoke-Tests gesichert. Datalayer (AgingKnowledgeReader, FreshnessFrontmatterPatcher, ZdrCapabilityResolver) ist unit-getestet.
+- Coverage-Tool laeuft im default vitest-Setup nicht; konkrete line/branch/function-Prozente daher nicht gemeldet. Anzahl Tests pro Komponente ist im Plan-40 Implementation-Notes-Block je Welle gelistet.
+
+**Sicherheits-relevante Beobachtungen fuer Security-Audit:**
+
+- LlmVerifierProvider buildet Prompt mit `cluster.sources` Liste. Web-Search-Results kommen aus Brave/Tavily; Tavily-Snippets koennen prompt-injection-Vektoren tragen. Verifier-Prompt sollte gegen "ignore previous instructions"-Pattern haerten (Mitigation moeglich via System-Prompt-Pflicht + Sources als ZITAT geklammert). Aktuell: Sources werden als Liste mit Nummerierung eingebettet, kein Quote-Escape.
+- ResolveConflictModal.openInChat schreibt Note-Pfad und Sources direkt in den Prompt. Sources kommen aus der DB (verifier-recorded). Pfade kommen aus der Vault. Kein Sanitize. Theoretischer Vector: bösartiger Note-Pfad mit Markdown-Injection.
+- BatchResolveModal.deleteRow trashFile ohne explizite Confirm-Schwelle. User-bewusst (Modal selbst ist die Confirm-Schwelle), aber bei sehr grossen Mengen sollte ein "are you sure"-Schritt vor dem Loop geprueft werden.
+- ProviderConfig.zdrCapable ist ein User-affirmation-Flag. Es gibt kein Provider-side-check; der User muss verantworten, dass die Affirmation stimmt. Das ist beabsichtigt (ADR-135) -- Security-Audit sollte aber bestaetigen, dass das Modell-Surface die Beschriftung "I have confirmed with this provider" klar als User-Verantwortung darstellt.
+- FreshnessFrontmatterPatcher filterToAllowlist droppt Keys ueber object-property-lookup. Sicher gegen prototype-pollution-Keys, da nur die literale `freshness`-Whitelist matcht und kein dynamischer Key durchgeschleift wird.
+
+### Naechster Schritt
+
+`/security-audit` mit Anker IMP-20-06-01. Erwartete Audit-Punkte:
+
+1. Prompt-Injection-Analyse fuer LlmVerifierProvider.buildPrompt (Source-Snippets)
+2. Note-Path-Sanitization im ResolveConflictModal.openInChat-Prompt
+3. dismissed_freshness-Race-Conditions wenn parallele Modal-Aktionen den gleichen Pfad treffen
+4. note_freshness_history retention-Sweep DoS-Risiko bei pathologisch vielen Eintraegen pro Pfad
+5. ProviderConfig.zdrCapable als User-Affirmation-Pattern: Klarheit + Persistenz + Rollback bei type-Wechsel

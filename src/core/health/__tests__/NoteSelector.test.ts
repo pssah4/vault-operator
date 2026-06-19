@@ -159,4 +159,32 @@ describe('NoteSelector (IMP-20-06-01 W2-T2)', () => {
 
         expect(picked).toEqual([]);
     });
+
+    it('does NOT filter notes whose dismissal is for a non-verdict hint_type', () => {
+        seedNote(db, 'Notes/keep.md', 'pricing', 'volatile');
+        // A dismissal of a different hint type (e.g. some other future hint kind)
+        // must not bleed into the verifier path.
+        db.run(
+            `INSERT INTO dismissed_freshness (note_path, hint_type, dismissed_at)
+             VALUES (?, 'other', '2026-06-19T00:00:00Z')`,
+            ['Notes/keep.md'],
+        );
+
+        const picked = selector.pickCandidates('pricing', new Date('2026-06-19T00:00:00Z'));
+
+        expect(picked.map((n) => n.path)).toEqual(['Notes/keep.md']);
+    });
+
+    it('respects evolving + stable per-class cooldown windows independently', () => {
+        // Evolving stays out at 20 days, comes back in at 31 days.
+        seedNote(db, 'Notes/e-recent.md', 'pricing', 'evolving', '2026-05-30T00:00:00Z'); // 20 days
+        seedNote(db, 'Notes/e-stale.md', 'pricing', 'evolving', '2026-05-15T00:00:00Z'); // 35 days
+        // Stable stays out at 60 days, comes back in at 95 days.
+        seedNote(db, 'Notes/s-recent.md', 'pricing', 'stable', '2026-04-20T00:00:00Z'); // 60 days
+        seedNote(db, 'Notes/s-stale.md', 'pricing', 'stable', '2026-03-01T00:00:00Z'); // 110 days
+
+        const picked = selector.pickCandidates('pricing', new Date('2026-06-19T00:00:00Z'));
+
+        expect(picked.map((n) => n.path)).toEqual(['Notes/e-stale.md', 'Notes/s-stale.md']);
+    });
 });
