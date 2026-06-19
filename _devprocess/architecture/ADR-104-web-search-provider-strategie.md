@@ -96,4 +96,6 @@ Erstens eine harte Query-Laenge-Schranke von 400 Zeichen, durchgesetzt im Query-
 
 Zweitens ein separater Settings-Toggle `freshness.externalSources.enabled`, default off. Der bestehende `webTools.enabled`-Toggle aktiviert agentengesteuerte Recherche-Tools im Chat. Der neue Toggle gilt ausschliesslich fuer die Verifier-Pipeline. Ohne den neuen Toggle laeuft die Verifier-Pipeline ohne externe Suche und liefert `severity: no_external_source`. User, die fuer Chat-Recherche einen API-Key hinterlegt haben, eskalieren damit nicht still in den Background-Verifier.
 
-Die Default-Provider-Reihenfolge aus ADR-104 (Tavily, dann Brave) bleibt. Model-native Web-Search wird in dieser Amendment ausdruecklich NICHT eingefuehrt; sie waere eine eigene Folge-ADR.
+Die Provider-Wahl folgt der existierenden User-Konfiguration (`webTools.provider` mit den Werten `brave`, `tavily` oder `none`). Es gibt heute keinen Provider-Fallback, und diese Amendment fuehrt auch keinen ein; der Verifier nutzt schlicht den vom User aktivierten Provider. Bei `provider === 'none'` faellt das Verdict auf `severity: no_external_source` zurueck. Model-native Web-Search wird in dieser Amendment ausdruecklich NICHT eingefuehrt; sie waere eine eigene Folge-ADR.
+
+Code-seitig nutzt der Verifier denselben Provider-Pfad wie das bestehende `WebSearchTool` (`src/core/tools/web/WebSearchTool.ts`). Wir bauen keinen zweiten Service-Layer, sondern einen schlanken `FreshnessWebSearch`-Helper, der die existierenden Provider-Calls wiederverwendet und den Query-Cap im Builder enforced.

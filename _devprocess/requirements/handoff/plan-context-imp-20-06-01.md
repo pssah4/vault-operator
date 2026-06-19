@@ -8,8 +8,8 @@ This document is the context bridge from Architecture into PLAN and Coding for I
 - **Database**: KnowledgeDB built on sql.js WASM. Atomic save per FIX-12. WriterLock-pflicht vor any `ALTER TABLE`.
 - **Mid-tier LLM**: default `claude-haiku-4-5` or `gemini-flash`, routed through the existing provider abstraction in `src/api/providers/`. Pro call ceiling 5000 input + 500 output tokens.
 - **Frontier LLM (optional)**: `claude-opus-4-7` or `claude-sonnet-4-6`, only behind `freshness.allowFrontierEscalation` AND the provider's ZDR capability flag.
-- **Web search**: Tavily and Brave via the existing `WebSearchService` (FEAT-04-02), driven by the new `verifierQuery(note, cluster)` aufruf-form with a 400-character hard cap on the query string.
-- **Frontmatter I/O**: existing zentralisierter `FrontmatterWriter` mit `WriterLock` pro Pfad. Allowlist-Filter ergaenzt, der genau die Schluessel `freshness` zulaesst.
+- **Web search**: existing `WebSearchTool` in `src/core/tools/web/WebSearchTool.ts` mit private `searchBrave`/`searchTavily` Methoden, getrieben durch das `webTools.provider`-Setting (`'brave' | 'tavily' | 'none'`). Der Verifier nutzt einen neuen schlanken `FreshnessWebSearch`-Helper, der die gleichen Provider-Pfade aufruft, ohne ein zweites Settings-Schema. Provider-Auswahl wie heute: User waehlt einen Provider, kein automatischer Fallback. Query-Builder mit 400-Zeichen-Cap.
+- **Frontmatter I/O**: existing zentralisierter `FrontmatterWriter` in `src/core/ingest/FrontmatterWriter.ts` mit `WriterLock`-Pattern aus ADR-79 und Conflict-Detection aus ADR-95. Allowlist-Filter im Caller-Closure, der genau den Schluessel `freshness` zulaesst.
 - **UI**: Obsidian Plugin Modal-Pattern. `VaultHealthRepairModal` bekommt einen weiteren Tab. Zwei neue Sub-Modal-Klassen (`ResolveConflictModal`, `BatchResolveModal`) erben das bestehende Modal-Pattern dieses Plugins.
 
 ## Architecture style and quality goals
@@ -34,7 +34,7 @@ This document is the context bridge from Architecture into PLAN and Coding for I
 
 - **`note_freshness`** (existierend, ALTER TABLE v10 nach v11): additive Spalten `last_verdict TEXT`, `last_confidence REAL`, `last_summary TEXT`, `last_sources_json TEXT`, `last_checked_at TEXT`, `last_verifier_tier TEXT`. WriterLock vor ALTER.
 - **`note_freshness_history`** (neu, 1:N zu `note_freshness.path`): `(id, path, run_at, verdict, confidence, summary?, sources_json?, verifier_tier, model_id, tokens_used)`. Retention 5 runs OR 90 Tage, default summary und sources_json off (opt-in via Settings).
-- **`dismissed_freshness`** (existierend, neuer Reader): bisher leerer Read-Pfad. Neuer Reader filtert User-Quittierungen mit `hint_type='verdict'` aus dem NoteSelector raus.
+- **`dismissed_freshness`** (existierend, neuer Reader): Tabelle traegt `(note_path, hint_type, dismissed_at, UNIQUE(note_path, hint_type))`. Neuer Reader filtert User-Quittierungen mit `hint_type='verdict'` aus dem NoteSelector raus. Schreibpfad: INSERT OR REPLACE bei `Mark verified` im ResolveConflictModal.
 - **`cluster_metadata.last_external_check`** (existierend, wiederverwendet): Verifier liest und schreibt diese Spalte als Cooldown-Marker. Kein neues Feld.
 - **`UpdateFinding`** (existierende TypeScript-Struktur in Stufe-3-Hook): optionales Feld `notes?: NoteVerdict[]`. `NoteVerdict` traegt `path`, `verdict`, `confidence`, `summary`, `sources`, `verifierTier`.
 
