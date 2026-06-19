@@ -117,9 +117,29 @@ All five ADRs operationalized.
 
 ## Implementation Notes
 
-(filled per wave during execution)
+### Wave 1 (2026-06-19)
+
+| Task | File(s) landed | Test(s) | Status |
+|---|---|---|---|
+| W1-T1 + T2 | `src/core/knowledge/KnowledgeDB.ts` (SCHEMA_VERSION 10 -> 11, SCHEMA_DDL extended with six verdict columns on `note_freshness` plus the new `note_freshness_history` table and its index, migrateSchema v10->v11 branch with explicit ALTER ADD COLUMN per column) | `src/core/knowledge/__tests__/KnowledgeDB.migration-v11.test.ts` (6 cases) | green |
+| W1-T3 | `src/core/health/NoteFreshnessHistoryStore.ts` (recordRun with 5-or-90-day retention, path-isolated) | `src/core/health/__tests__/NoteFreshnessHistoryStore.test.ts` (5 cases) | green |
+| W1-T4 | `src/core/health/types.ts` (VerdictLiteral, VerifierTier, NoteVerdict) | type-only, picked up by W1-T5 tests | n/a |
+| W1-T5 | `src/core/health/FreshnessVerifier.ts` (mid-default, escalation gate with three AND conditions per ADR-135, fail-closed on no-ZDR, token-aggregation across tiers) | `src/core/health/__tests__/FreshnessVerifier.test.ts` (5 cases) | green |
+| W1-T6 | `src/types/settings.ts` (FreshnessSettings interface, DEFAULT_FRESHNESS_SETTINGS, wired into DEFAULT_SETTINGS) | type-shape via tsc-clean | green |
+
+Total Wave 1 test delta: +24 cases. Full suite 2851 passing plus 1 expected fail (no regression).
+Build clean (main.js 4.7 MB), deployed.
+
+Wayfinder rows added: `freshness-types`, `freshness-history` (the others were pre-seeded in the ARCH commit and will get JSDoc headers once the matching code lands in Waves 2-4).
+
+Behavioural notes that matter for Waves 2 and beyond:
+
+- The verifier is provider-agnostic via `VerifierProvider`. Wave 2 wires the existing provider abstraction into a concrete adapter that satisfies `callMidTier`, `callFrontier` and `hasZdrCapability`. The `midModelId` / `frontierModelId` strings flow into NoteVerdict.modelId and are persisted into note_freshness_history for the audit trail.
+- `NoteFreshnessHistoryStore` is independent of the verifier; the wiring in Wave 2 calls `recordRun` after `verifyNote` returns, inside the same `webUpdatePass` aggregation block.
+- The retention sweep is per-path and runs on every insert. It does NOT touch rows of other paths even if they are older than 90 days; that pathwise sweep was a deliberate choice from the test 'retains rows isolated per path'. A separate maintenance pass (deferred, no IMP yet) can do the global sweep later.
 
 ## Change Log
 
 - 2026-06-19: PLAN-40 created. Status Draft.
 - 2026-06-19: Phase 2 critical review writeback. Three driften corrected in plan-context-imp-20-06-01.md and ADR-104 amendment: `WebSearchService` -> `WebSearchTool`+helper, Provider-Fallback -> User-Konfig, WriterLock-Pattern-Quelle ADR-95 -> ADR-79. ADR-95-amendment clarifies pattern provenance.
+- 2026-06-19: Wave 1 implemented. All six tasks shipped. Status flips to Active. Wave 2 next.

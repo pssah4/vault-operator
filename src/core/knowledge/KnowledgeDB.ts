@@ -49,7 +49,7 @@ type SqlJsStatement = {
 
 export type { SqlJsDatabase, SqlJsStatement };
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 // ---------------------------------------------------------------------------
 // Schema DDL
@@ -129,8 +129,32 @@ CREATE TABLE IF NOT EXISTS note_freshness (
     path TEXT PRIMARY KEY,
     freshness_class TEXT NOT NULL DEFAULT 'stable',
     temporal_marker_count INTEGER NOT NULL DEFAULT 0,
-    classified_at TEXT NOT NULL
+    classified_at TEXT NOT NULL,
+    last_verdict TEXT,
+    last_confidence REAL,
+    last_summary TEXT,
+    last_sources_json TEXT,
+    last_checked_at TEXT,
+    last_verifier_tier TEXT
 );
+
+-- v10 -> v11: note-level LLM-verifier history (IMP-20-06-01).
+-- 1:N to note_freshness.path. Retention is enforced in the
+-- NoteFreshnessHistoryStore wrapper, not the schema.
+CREATE TABLE IF NOT EXISTS note_freshness_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT NOT NULL,
+    run_at TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    summary TEXT,
+    sources_json TEXT,
+    verifier_tier TEXT NOT NULL,
+    model_id TEXT,
+    tokens_used INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_note_freshness_history_path_run
+    ON note_freshness_history(path, run_at DESC);
 
 CREATE TABLE IF NOT EXISTS dismissed_freshness (
     note_path TEXT NOT NULL,
@@ -500,6 +524,29 @@ export class KnowledgeDB {
             // cluster_source_stats, cluster_metadata, ingest_session,
             // ingest_triage_log. All created idempotently by the initSchema()
             // re-run below; no ALTER on existing tables needed.
+
+            // v10 -> v11: IMP-20-06-01 freshness verifier columns plus
+            // note_freshness_history table. ADD COLUMN runs explicitly
+            // (initSchema re-run below cannot mutate an existing table).
+            // WriterLock around ALTER is the FIX-12 lesson; the
+            // serializer is single-threaded inside this constructor so
+            // the ALTER cannot race against an ingest write.
+            if (currentVersion < 11) {
+                for (const col of [
+                    'last_verdict TEXT',
+                    'last_confidence REAL',
+                    'last_summary TEXT',
+                    'last_sources_json TEXT',
+                    'last_checked_at TEXT',
+                    'last_verifier_tier TEXT',
+                ]) {
+                    try {
+                        this.db.run(`ALTER TABLE note_freshness ADD COLUMN ${col}`);
+                    } catch {
+                        // Column may already exist if a previous migration attempt landed partial.
+                    }
+                }
+            }
 
             // Re-run DDL (CREATE IF NOT EXISTS is idempotent)
             this.initSchema();

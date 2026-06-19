@@ -1104,6 +1104,9 @@ export interface ObsidianAgentSettings {
     /** BA-25: Vault-Ingest-Pflege (Note-Summary, Frontmatter, Auto-Trigger, PDF). */
     vaultIngest: VaultIngestSettings;
 
+    /** IMP-20-06-01: FEAT-20-06 Stage 4+5 verifier settings. */
+    freshness: FreshnessSettings;
+
     // ----------------------------------------------------------------------
     // EPIC-26: Advisor-Pattern + Provider-only setup (ADR-120 .. ADR-123)
     // ----------------------------------------------------------------------
@@ -1382,6 +1385,39 @@ export interface BackupSettings {
     retentionCount: number;
     lastAutoBackupAt: number;
 }
+
+// ---------------------------------------------------------------------------
+// IMP-20-06-01: Note-Verifier settings (FEAT-20-06 Stage 4+5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Settings for the note-level claim-check pipeline. All defaults are
+ * privacy-conservative per ADR-135 and the IMP body:
+ * - `writeFrontmatter` is off so the vault stays clean by default
+ * - `externalSources.enabled` is off so no third-party search runs in the
+ *   background without explicit opt-in
+ * - `allowFrontierEscalation` is off so verdicts stay mid-tier-only
+ *   until the user actively turns it on AND the provider exposes ZDR
+ */
+export interface FreshnessSettings {
+    writeFrontmatter: boolean;
+    externalSources: {
+        enabled: boolean;
+    };
+    allowFrontierEscalation: boolean;
+    frontierConfidenceThreshold: number;
+    frontierSeverityFilter: ('deckt-sich' | 'ergaenzt' | 'widerspricht' | 'outdated' | 'no_external_source')[];
+    excludePaths: string[];
+}
+
+export const DEFAULT_FRESHNESS_SETTINGS: FreshnessSettings = {
+    writeFrontmatter: false,
+    externalSources: { enabled: false },
+    allowFrontierEscalation: false,
+    frontierConfidenceThreshold: 0.7,
+    frontierSeverityFilter: ['widerspricht', 'outdated'],
+    excludePaths: ['Private/', 'Personal/', 'Medical/', 'Clients/'],
+};
 
 // ---------------------------------------------------------------------------
 // Visual Intelligence Settings (FEATURE-1115)
@@ -1709,6 +1745,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     autoTaskRouter: { enabled: true },
     leanSystemPrompt: false,
     vaultIngest: DEFAULT_VAULT_INGEST_SETTINGS,
+    freshness: DEFAULT_FRESHNESS_SETTINGS,
 
     // EPIC-26 / ADR-122: provider-only setup. Pre-migration defaults
     // (PLAN-25 will fill providerConfigs + flip schemaVersion).
