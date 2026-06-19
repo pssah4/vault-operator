@@ -1486,6 +1486,14 @@ export default class ObsidianAgentPlugin extends Plugin {
                         verifier,
                         history: new NoteFreshnessHistoryStore(db),
                         db,
+                        // Audit M-3 mitigation (AUDIT-IMP-20-06-01-2026-06-19):
+                        // outer authorization gate. The orchestrator
+                        // stays a no-op until the user turns on at
+                        // least one freshness sub-flag.
+                        enabled: () => {
+                            const s = this.settings.freshness;
+                            return s.externalSources.enabled || s.writeFrontmatter;
+                        },
                         readNoteBody: async (path) => {
                             const file = this.app.vault.getAbstractFileByPath(path);
                             if (!(file instanceof TFile)) return null;

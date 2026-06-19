@@ -32,6 +32,7 @@ interface SqlDb {
 
 export type ReadNoteBodyFn = (path: string) => Promise<string | null>;
 export type GetTopEntitiesFn = (path: string) => string[];
+export type IsEnabledFn = () => boolean;
 
 export interface FreshnessOrchestratorDeps {
     selector: NoteSelector;
@@ -42,6 +43,15 @@ export interface FreshnessOrchestratorDeps {
     db: SqlDb;
     readNoteBody: ReadNoteBodyFn;
     getTopEntities?: GetTopEntitiesFn;
+    /**
+     * Audit M-3 mitigation (AUDIT-IMP-20-06-01-2026-06-19):
+     * outer authorization gate. The orchestrator MUST NOT touch
+     * note_freshness or note_freshness_history when no freshness
+     * sub-flag is enabled. main.ts wires this to the user setting
+     * so a fresh install does not write verifier rows the user
+     * never opted into.
+     */
+    enabled?: IsEnabledFn;
     now?: () => Date;
 }
 
@@ -54,6 +64,9 @@ export class FreshnessOrchestrator {
     constructor(private readonly deps: FreshnessOrchestratorDeps) {}
 
     async runForCluster(cluster: string): Promise<RunForClusterResult> {
+        if (this.deps.enabled && !this.deps.enabled()) {
+            return { verdicts: [], tokensUsed: 0 };
+        }
         const now = (this.deps.now ?? (() => new Date()))();
         const candidates = this.deps.selector.pickCandidates(cluster, now);
         if (!candidates.length) return { verdicts: [], tokensUsed: 0 };

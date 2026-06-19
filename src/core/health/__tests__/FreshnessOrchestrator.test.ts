@@ -138,6 +138,54 @@ describe('FreshnessOrchestrator (IMP-20-06-01 W2-T5)', () => {
         expect(history[0].values[0]).toEqual(['deckt-sich', 0.9]);
     });
 
+    it('audit M-3: returns empty result when enabled() returns false, never touches the DB', async () => {
+        const db = await makeDb();
+        db.run('INSERT INTO ontology (entity_path, cluster) VALUES (?, ?)', ['Notes/x.md', 'p']);
+        db.run(
+            'INSERT INTO note_freshness (path, freshness_class, classified_at) VALUES (?, ?, ?)',
+            ['Notes/x.md', 'volatile', '2026-06-19T00:00:00Z'],
+        );
+        const searchSpy = vi.fn();
+        const readSpy = vi.fn();
+
+        const orchestrator = new FreshnessOrchestrator({
+            selector: new NoteSelector(db, {
+                topN: 5,
+                excludePaths: [],
+                volatileRecheckDays: 7,
+                evolvingRecheckDays: 30,
+                stableRecheckDays: 90,
+            }),
+            queryBuilder: new FreshnessQueryBuilder(),
+            webSearch: new FreshnessWebSearch({
+                externalSourcesEnabled: true,
+                provider: 'brave',
+                apiKey: 'k',
+                search: searchSpy,
+            }),
+            verifier: new FreshnessVerifier(FAKE_VERDICT_PROVIDER, {
+                allowFrontierEscalation: false,
+                frontierConfidenceThreshold: 0.7,
+                frontierSeverityFilter: [],
+            }),
+            history: new NoteFreshnessHistoryStore(db),
+            db,
+            readNoteBody: readSpy,
+            enabled: () => false,
+            now: () => new Date('2026-06-19T10:00:00Z'),
+        });
+
+        const result = await orchestrator.runForCluster('p');
+        expect(result).toEqual({ verdicts: [], tokensUsed: 0 });
+        expect(searchSpy).not.toHaveBeenCalled();
+        expect(readSpy).not.toHaveBeenCalled();
+
+        const mirror = db.exec('SELECT last_verdict FROM note_freshness WHERE path = ?', ['Notes/x.md']);
+        expect(mirror[0].values[0][0]).toBeNull();
+        const history = db.exec('SELECT COUNT(*) FROM note_freshness_history');
+        expect(history[0].values[0][0]).toBe(0);
+    });
+
     it('returns empty result when the cluster has no candidates', async () => {
         const db = await makeDb();
         const orchestrator = new FreshnessOrchestrator({

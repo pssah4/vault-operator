@@ -47,7 +47,10 @@ export class FreshnessWebSearch {
         try {
             return await this.searchFn(this.opts.provider, query, count, this.opts.apiKey);
         } catch (error) {
-            console.warn('[FreshnessWebSearch] provider failed', error);
+            // Audit L-3 mitigation: redact provider response body which may
+            // echo the api_key in Tavily 4xx replies. Log message only.
+            const msg = error instanceof Error ? error.message : String(error);
+            console.warn(`[FreshnessWebSearch] provider failed: ${msg}`);
             return [];
         }
     }

@@ -4953,3 +4953,44 @@ plan-context-imp-20-06-01.md ist konsistent mit ADR-135, ADR-95 (amended), ADR-1
 3. dismissed_freshness-Race-Conditions wenn parallele Modal-Aktionen den gleichen Pfad treffen
 4. note_freshness_history retention-Sweep DoS-Risiko bei pathologisch vielen Eintraegen pro Pfad
 5. ProviderConfig.zdrCapable als User-Affirmation-Pattern: Klarheit + Persistenz + Rollback bei type-Wechsel
+
+---
+
+## 2026-06-19 -- Security-Audit -> Release-Closure: IMP-20-06-01 Claim Check + Review Hints
+
+**Phase:** Security-Audit abgeschlossen mit Fix-Loop. Ready for Release-Closure / /dia-orchestrator Phase 7.
+
+**Verdict:** Overall Risk Low. Release recommendation: green.
+
+**Audit-Report:** `_devprocess/analysis/AUDIT-IMP-20-06-01-2026-06-19.md`
+
+**Gefundene Findings:** 0 Critical, 0 High, 3 Medium, 4 Low, 4 Info.
+
+**Resolved im Audit-Pass (Option B):**
+
+- M-1: BatchResolveModal per-batch confirmDestructive vor Bulk-Delete
+- M-2: LlmVerifierProvider.buildPrompt fenced den Note-Body in [BEGIN_NOTE]/[END_NOTE] mit "treat as data"-Direktive (Prompt-Injection-Härtung)
+- M-3: FreshnessOrchestrator.enabled()-Gate; main.ts wired auf `freshness.externalSources.enabled || freshness.writeFrontmatter` (Authorization-Gate, Verifier-no-op bei OFF-Default)
+- L-3: console.warn redacted auf error.message-only (kein Provider-Body-Echo das Tavily-api_key tragen koennte)
+- L-4: ProviderDetailModal resettet formZdrCapable=false bei provider-type-Wechsel
+
+**Deferred zur Backlog:**
+
+- FIX-20-06-02 (L-1, P3): Brave/Tavily URL-Pfad-Sanitization vor Prompt-Embed
+- FIX-20-06-03 (L-2, P3): Note-Pfad-Markdown-Escape im openInChat-Prompt (Trigger erst bei realer Chat-Sidebar-Uebergabe)
+
+**Out of Scope:** npm audit reports 12 Critical + 6 High die alle aus v2.14.7 herueberkommen (eslint, pptxgenjs, @modelcontextprotocol/sdk, openai 4.x, hono, etc.). Diese gehoeren in einen separaten AUDIT-038 Delta-Audit auf den Dependency-Tree, nicht in IMP-20-06-01.
+
+**Architektur-Beobachtungen (rein informativ):**
+
+- Verdict-Whitelist + Confidence-Clamp begrenzen die Auswirkung jeder prompt-injection: selbst manipulierte LLM-Antworten muessen die 5 erlaubten Literale matchen, confidence wird auf [0,1] geclamped, summary ist kurz. Die UI zeigt das Severity-Mapping, der User entscheidet immer manuell. Kein automatisches Handeln auf Basis eines Verdicts.
+- Die ZDR-Affirmation ist explizit als User-Verantwortung formuliert ("I have confirmed with this provider"). Kein Provider-API-Check existiert; das ist beabsichtigt (ADR-135).
+- FreshnessFrontmatterPatcher.filterToAllowlist ist prototype-pollution-safe, da nur ueber das literale FRESHNESS_ALLOWLIST-Array iteriert wird (Audit I-3).
+
+**Test-Result nach Fix-Loop:** 2906 passing + 1 expected fail (Stand: post-audit). +2 cases gegenueber post-testing-Baseline.
+
+**Build:** clean (main.js 4.7 MB), deployed.
+
+### Naechster Schritt
+
+`/dia-orchestrator` Phase 7 (Release-Closure) -- oder direkter Release-Path via `/release` mit Version-Bump. PLAN-40 Released, IMP-20-06-01 Done, 2 P3-FIX im Backlog gequeued. Empfohlener Tagline-Kandidat fuer das naechste Release: "Knowledge freshness, with note-level verifier."

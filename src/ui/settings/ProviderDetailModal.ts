@@ -301,6 +301,13 @@ export class ProviderDetailModal extends Modal {
                             ? getDefaultBaseUrlForProvider(this.formType) ?? ''
                             : '';
                     }
+                    // Audit L-4 mitigation (AUDIT-IMP-20-06-01-2026-06-19):
+                    // the ZDR affirmation belongs to one specific
+                    // provider type. Changing the type invalidates it
+                    // and the user must re-confirm with the new vendor.
+                    if (previous !== this.formType) {
+                        this.formZdrCapable = false;
+                    }
                     this.render();
                 },
             }),

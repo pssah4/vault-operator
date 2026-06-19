@@ -76,13 +76,25 @@ export class BatchResolveModal extends Modal {
         abortBtn.disabled = true;
 
         runBtn.addEventListener('click', () => {
-            runBtn.disabled = true;
-            abortBtn.disabled = false;
-            void this.runBatch(this.filteredRows(), counterEl).finally(() => {
-                runBtn.disabled = false;
-                abortBtn.disabled = true;
-                update();
-            });
+            void (async () => {
+                const targets = this.filteredRows();
+                // Audit M-1 mitigation: per-batch confirm for the
+                // destructive action. Mark-verified stays one-click.
+                if (this.action === 'delete') {
+                    const ok = await this.confirmDestructive(
+                        'Delete batch',
+                        `Move ${targets.length} notes to the system trash?`,
+                    );
+                    if (!ok) return;
+                }
+                runBtn.disabled = true;
+                abortBtn.disabled = false;
+                await this.runBatch(targets, counterEl).finally(() => {
+                    runBtn.disabled = false;
+                    abortBtn.disabled = true;
+                    update();
+                });
+            })();
         });
         abortBtn.addEventListener('click', () => {
             this.aborted = true;
@@ -178,5 +190,26 @@ export class BatchResolveModal extends Modal {
         const file = this.plugin.app.vault.getAbstractFileByPath(row.path);
         if (!(file instanceof TFile)) return;
         await this.plugin.app.fileManager.trashFile(file);
+    }
+
+    private confirmDestructive(title: string, message: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            const modal = new (class extends Modal {
+                onOpen(): void {
+                    const { contentEl } = this;
+                    contentEl.createEl('h3', { text: title });
+                    contentEl.createEl('p', { text: message });
+                    const row = contentEl.createDiv('batch-resolve-confirm');
+                    const cancel = row.createEl('button', { text: 'Cancel' });
+                    const ok = row.createEl('button', { text: 'Delete', cls: 'mod-warning' });
+                    cancel.addEventListener('click', () => { this.close(); resolve(false); });
+                    ok.addEventListener('click', () => { this.close(); resolve(true); });
+                }
+                onClose(): void {
+                    resolve(false);
+                }
+            })(this.plugin.app);
+            modal.open();
+        });
     }
 }
