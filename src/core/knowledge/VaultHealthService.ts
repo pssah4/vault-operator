@@ -842,6 +842,16 @@ export class VaultHealthService {
         // reverse edges across the entire graph. Single source of
         // truth now: this method touches the same edges that
         // checkMissingBacklinks reports.
+        // FIX-19-01-09: also exclude targets that the user (or
+        // FIX-19-01-06's auto-dismiss) already marked as dismissed
+        // for missing_backlinks. Without this filter the repair loop
+        // re-iterates YAML-broken targets every run, processFrontMatter
+        // throws YAMLParseError every run, and the result modal
+        // re-renders the "X notes have broken YAML" section for the
+        // exact same notes again and again. checkMissingBacklinks's
+        // post-loop dismissed filter already hides them in the
+        // findings list, so the modal noise was the only remaining
+        // visible symptom of the missing repair-side filter.
         const result = db.exec(
             `SELECT e1.target_path, e1.source_path, e1.property_name
              FROM edges e1
@@ -855,6 +865,11 @@ export class VaultHealthService {
                      AND e2.target_path = e1.source_path
                      AND e2.link_type = 'frontmatter'
                      AND e2.property_name = ?
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM dismissed_health_findings d
+                   WHERE d.check_type = 'missing_backlinks'
+                     AND d.path = e1.target_path
                )
              ORDER BY e1.target_path`,
             [backlinksProperty, backlinksProperty],
@@ -1010,8 +1025,30 @@ export class VaultHealthService {
                 // nothing" reports trace back to user notes with
                 // broken frontmatter that processFrontMatter cannot
                 // touch.
+                //
+                // FIX-19-01-09: robust YAMLParseError detection.
+                // Previous predicate used case-sensitive substring
+                // matches that missed "Implicit map keys need to be
+                // followed by map values" (because 'Map keys' has
+                // capital M while the message is lowercase). Two
+                // user notes (Differenzierung..., Udemy Agent
+                // Course) leaked past the auto-dismiss every run.
+                // The constructor-name check is the canonical YAML
+                // lib signal; the lowercase substrings cover any
+                // future message variants without regressions.
+                const errName = (e as { constructor?: { name?: string } })?.constructor?.name ?? '';
                 const msg = e instanceof Error ? e.message : String(e);
-                if (msg.includes('YAMLParseError') || msg.includes('YAML') || msg.includes('Map keys') || msg.includes('seq-item-ind')) {
+                const lower = msg.toLowerCase();
+                const isYamlError = errName === 'YAMLParseError'
+                    || errName === 'YAMLWarning'
+                    || lower.includes('yaml')
+                    || lower.includes('map keys')
+                    || lower.includes('map values')
+                    || lower.includes('seq-item-ind')
+                    || lower.includes('flow-map-end')
+                    || lower.includes('unexpected scalar')
+                    || lower.includes('block scalar');
+                if (isYamlError) {
                     yamlErrorPaths.push(targetPath);
                 }
             }
@@ -1021,7 +1058,29 @@ export class VaultHealthService {
         // re-appear as auto-fixable missing_backlinks on every run.
         // The user must fix the YAML manually; until then we should
         // not propose a repair that we know will fail.
+        //
+        // FIX-19-01-09: only surface NEWLY dismissed paths to the
+        // modal. Otherwise the user sees the same "X notes have
+        // broken YAML" list every Apply click and reads it as
+        // "nothing happened, same notes still broken". Pre-existing
+        // dismissals stay silent in the modal but the SQL filter
+        // above already keeps them out of the iteration anyway.
+        let yamlErrorPathsForModal: string[] = [];
         if (yamlErrorPaths.length > 0) {
+            const alreadyDismissed = new Set<string>();
+            try {
+                const checkRows = db.exec(
+                    `SELECT path FROM dismissed_health_findings
+                     WHERE check_type = 'missing_backlinks'`,
+                );
+                if (checkRows.length > 0) {
+                    for (const r of checkRows[0].values) {
+                        alreadyDismissed.add(String(r[0]));
+                    }
+                }
+            } catch { /* non-fatal */ }
+            yamlErrorPathsForModal = yamlErrorPaths.filter(p => !alreadyDismissed.has(p));
+
             let dismissedCount = 0;
             try {
                 for (const p of yamlErrorPaths) {
@@ -1033,14 +1092,14 @@ export class VaultHealthService {
                     dismissedCount++;
                 }
                 this.knowledgeDB.markDirty();
-                console.warn(`[VaultHealth] FIX-19-01-06: auto-dismissed ${dismissedCount} missing_backlinks findings for YAML-broken notes:`, yamlErrorPaths);
+                console.warn(`[VaultHealth] FIX-19-01-06: auto-dismissed ${dismissedCount} missing_backlinks findings for YAML-broken notes (${yamlErrorPathsForModal.length} new this run):`, yamlErrorPaths);
             } catch (e) {
                 console.warn(`[VaultHealth] FIX-19-01-06: failed to auto-dismiss after ${dismissedCount}/${yamlErrorPaths.length} paths`, e);
             }
         }
 
-        console.warn(`[VaultHealth] fixMissingBacklinks summary: ${entitiesFixed} entities iterated, ${linksAdded} frontmatter links written, ${basesCreated} new bases, ${entitiesWithExistingBase} skipped (Base existed), ${yamlErrorPaths.length} skipped (YAML error)`);
-        return { entitiesFixed, linksAdded, basesCreated, entitiesWithExistingBase, yamlErrorPaths };
+        console.warn(`[VaultHealth] fixMissingBacklinks summary: ${entitiesFixed} entities iterated, ${linksAdded} frontmatter links written, ${basesCreated} new bases, ${entitiesWithExistingBase} skipped (Base existed), ${yamlErrorPaths.length} skipped (YAML error), ${yamlErrorPathsForModal.length} new YAML dismissals`);
+        return { entitiesFixed, linksAdded, basesCreated, entitiesWithExistingBase, yamlErrorPaths: yamlErrorPathsForModal };
     }
 
     /**
