@@ -973,6 +973,7 @@ export class VaultHealthService {
         // The user must fix the YAML manually; until then we should
         // not propose a repair that we know will fail.
         if (yamlErrorPaths.length > 0) {
+            let dismissedCount = 0;
             try {
                 for (const p of yamlErrorPaths) {
                     db.run(
@@ -980,14 +981,16 @@ export class VaultHealthService {
                          VALUES ('missing_backlinks', ?, ?)`,
                         [p, new Date().toISOString()],
                     );
+                    dismissedCount++;
                 }
                 this.knowledgeDB.markDirty();
+                console.warn(`[VaultHealth] FIX-19-01-06: auto-dismissed ${dismissedCount} missing_backlinks findings for YAML-broken notes:`, yamlErrorPaths);
             } catch (e) {
-                console.warn('[VaultHealth] failed to auto-dismiss YAML-error paths', e);
+                console.warn(`[VaultHealth] FIX-19-01-06: failed to auto-dismiss after ${dismissedCount}/${yamlErrorPaths.length} paths`, e);
             }
         }
 
-        console.debug(`[VaultHealth] fixMissingBacklinks: ${entitiesFixed} entities, ${linksAdded} frontmatter links, ${basesCreated} bases created, ${entitiesWithExistingBase} skipped (Base existed), ${yamlErrorPaths.length} skipped (YAML error)`);
+        console.warn(`[VaultHealth] fixMissingBacklinks summary: ${entitiesFixed} entities iterated, ${linksAdded} frontmatter links written, ${basesCreated} new bases, ${entitiesWithExistingBase} skipped (Base existed), ${yamlErrorPaths.length} skipped (YAML error)`);
         return { entitiesFixed, linksAdded, basesCreated, entitiesWithExistingBase, yamlErrorPaths };
     }
 

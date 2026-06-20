@@ -181,7 +181,12 @@ export class GitCheckpointService {
                     this.vault.adapter.read(vaultRelPath),
                     `Read ${vaultRelPath}`
                 );
-                console.debug(`[Checkpoints] ${vaultRelPath}: read ${content.length} chars from vault head=${JSON.stringify(contentSnippet(content))}`);
+                // FIX-19-01-07: per-file debug-spam was dominating the
+                // console log (one line per file × N files), masking
+                // the actually interesting [VaultHealth] / repair
+                // summary lines. Now logged at trace level (off by
+                // default); a single summary line is emitted at the
+                // end of snapshot() instead.
 
                 // Write into shadow repo at same relative path
                 const destPath = `${this.repoPath}/${repoRelative}`;
@@ -191,7 +196,6 @@ export class GitCheckpointService {
 
                 // Stage file
                 await git.add({ fs, dir: this.repoPath, filepath: repoRelative });
-                console.debug(`[Checkpoints] ${vaultRelPath}: staged in shadow repo`);
                 staged.push(vaultRelPath);
             } catch (e) {
                 // AUDIT-030 L-3: track per-file failures so callers can surface
