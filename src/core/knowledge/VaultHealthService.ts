@@ -830,20 +830,34 @@ export class VaultHealthService {
         const MAX_FRONTMATTER_BACKLINKS = 10;
         const BASE_CATEGORIES = new Set(['Thema', 'Konzept', 'Topic', 'Concept']);
 
-        // Find all one-directional frontmatter edges: A->B exists but B->A does not
+        // FIX-19-01-08: SQL aligned with checkMissingBacklinks. Both
+        // the outer edge and the searched-for reverse edge are pinned
+        // to backlinksProperty. The previous query iterated EVERY
+        // one-sided frontmatter edge regardless of property (incl.
+        // Themen / Konzepte / Personen / ...), which mutated ~130 hub
+        // notes per run even though checkMissingBacklinks only
+        // surfaces a handful of findings under the configured
+        // property. The useBase branch's `fm['Notizen'] = null` (now
+        // removed) was destructive, so the wider iteration corrupted
+        // reverse edges across the entire graph. Single source of
+        // truth now: this method touches the same edges that
+        // checkMissingBacklinks reports.
         const result = db.exec(
             `SELECT e1.target_path, e1.source_path, e1.property_name
              FROM edges e1
              WHERE e1.link_type = 'frontmatter'
                AND e1.target_path LIKE '%.md'
                AND e1.source_path LIKE '%.md'
+               AND e1.property_name = ?
                AND NOT EXISTS (
                    SELECT 1 FROM edges e2
                    WHERE e2.source_path = e1.target_path
                      AND e2.target_path = e1.source_path
                      AND e2.link_type = 'frontmatter'
+                     AND e2.property_name = ?
                )
              ORDER BY e1.target_path`,
+            [backlinksProperty, backlinksProperty],
         );
 
         if (result.length === 0 || result[0].values.length === 0) {
@@ -862,6 +876,42 @@ export class VaultHealthService {
             missingByTarget.set(target, existing);
         }
 
+        // FIX-19-01-08: Mirror checkMissingBacklinks's two pre-filters
+        // so the repair loop iterates the exact same target set the
+        // user sees in the findings. Without this, the repair walked
+        // structural + content notes alike and processed targets whose
+        // Base already exists, which created the "130 entities, 0
+        // links" result-screen confusion before.
+        //
+        // Filter 1: drop targets whose sibling Base file exists. The
+        // Base is dynamic and covers backlinks for free.
+        for (const [target] of missingByTarget) {
+            const targetBaseName = target.replace(/\.md$/, '').split('/').pop() ?? '';
+            const baseFileName = `${targetBaseName}-Backlinks.base`;
+            const targetDir = target.includes('/') ? target.split('/').slice(0, -1).join('/') : '';
+            const basePath = targetDir ? `${targetDir}/${baseFileName}` : baseFileName;
+            if (this.app.vault.getAbstractFileByPath(basePath)) {
+                missingByTarget.delete(target);
+            }
+        }
+
+        // Filter 2: only structural entities need backlinks
+        // (Thema/Konzept/Person/Projekt). Content notes (Quelle, Notiz,
+        // Zettel, ...) are sources, not hubs.
+        const structuralCategories = new Set([
+            'Thema', 'Konzept', 'Person', 'Projekt',
+            'Topic', 'Concept', 'Project',
+        ]);
+        for (const [target] of missingByTarget) {
+            const file = this.app.vault.getAbstractFileByPath(target);
+            if (!(file instanceof TFile)) { missingByTarget.delete(target); continue; }
+            const cache = this.app.metadataCache.getFileCache(file);
+            const category = this.getNoteCategory(cache, categoryProperty);
+            if (category && !structuralCategories.has(category)) {
+                missingByTarget.delete(target);
+            }
+        }
+
         for (const [targetPath, { sources, properties }] of missingByTarget) {
             if (this.cancelled) break;
 
@@ -875,26 +925,25 @@ export class VaultHealthService {
                 const useBase = BASE_CATEGORIES.has(category) || sources.length > MAX_FRONTMATTER_BACKLINKS;
 
                 if (useBase) {
-                    // Create/update an embedded Base for this entity
+                    // FIX-19-01-08: useBase branch is now NON-destructive.
+                    // Before: this branch wrote `fm[backlinksProperty] = null`
+                    // for every hub-note in the iteration, deleting the
+                    // user's manually-curated backlinks. Combined with the
+                    // missing property_name filter in the SQL, that
+                    // mutation also corrupted reverse-edges across ~130
+                    // hub notes per run. The Base is dynamic and reads
+                    // the graph live -- there is no reason to touch the
+                    // frontmatter property at all.
                     const created = await this.ensureBacklinksBase(file, properties);
                     if (created) {
                         basesCreated++;
                     } else {
-                        // FIX-19-01-06: the Base existed already.
-                        // checkMissingBacklinks's base-filter SHOULD drop
-                        // this target from future findings; if it does
-                        // not, we have a separate detection bug. Track
-                        // the count so the result screen is honest about
-                        // what really happened.
+                        // The Base existed already. checkMissingBacklinks's
+                        // base-filter drops the target from future findings,
+                        // so this is a true no-op (was a destructive op
+                        // before FIX-19-01-08).
                         entitiesWithExistingBase++;
                     }
-                    // Clear the frontmatter Notizen property -- the Base handles it now
-                    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-                        const existing = fm[backlinksProperty];
-                        if (Array.isArray(existing) && existing.length > 0) {
-                            fm[backlinksProperty] = null;
-                        }
-                    });
                 } else {
                     // Add to frontmatter property (small number of backlinks)
                     await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
