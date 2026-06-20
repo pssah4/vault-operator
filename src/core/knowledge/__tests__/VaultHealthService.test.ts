@@ -303,6 +303,58 @@ describe('VaultHealthService', () => {
             expect(orphanFinding?.paths).toContain('Notes/A.md');
         });
 
+        it('FIX-19-01-05: silenceWithContextOrphans drops the with_context orphan branch', async () => {
+            const { service, db } = await createHealthService(99);
+            db.run(
+                `INSERT INTO edges (source_path, target_path, link_type, property_name, confidence)
+                 VALUES ('Notes/WithContext.md', 'Notes/Hub.md', 'frontmatter', 'Themen', 1.0)`,
+            );
+            db.run(
+                `INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched)
+                 VALUES ('Notes/WithContext.md', 0, '', X'00', 1, 0)`,
+            );
+
+            (service as unknown as { app: { vault: { getMarkdownFiles(): unknown[]; getAbstractFileByPath(p: string): unknown }; metadataCache: { getFileCache(): unknown } } }).app = {
+                vault: {
+                    getMarkdownFiles: () => [],
+                    getAbstractFileByPath: () => null,
+                },
+                metadataCache: { getFileCache: () => null },
+            };
+
+            const findings = await service.runChecks(['orphans'], {
+                silenceWithContextOrphans: true,
+            });
+            // The with_context branch is silenced; no orphan finding emitted.
+            expect(findings.filter((f) => f.check === 'orphans')).toHaveLength(0);
+        });
+
+        it('FIX-19-01-05: orphanExcludePathPrefixes drops paths matching the prefixes', async () => {
+            const { service, db } = await createHealthService(99);
+            // One TaskNotes path that should be excluded, one regular path that should remain.
+            db.run(
+                `INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched) VALUES
+                  ('TaskNotes/Tasks/Reisepass-prüfen.md', 0, '', X'00', 1, 0),
+                  ('Notes/Truly Lonely.md', 0, '', X'00', 1, 0)`,
+            );
+
+            (service as unknown as { app: { vault: { getMarkdownFiles(): unknown[]; getAbstractFileByPath(p: string): unknown }; metadataCache: { getFileCache(): unknown } } }).app = {
+                vault: {
+                    getMarkdownFiles: () => [],
+                    getAbstractFileByPath: () => null,
+                },
+                metadataCache: { getFileCache: () => null },
+            };
+
+            const findings = await service.runChecks(['orphans'], {
+                orphanExcludePathPrefixes: ['TaskNotes/'],
+            });
+            const isolated = findings.find((f) => f.check === 'orphans' && f.metadata?.orphanKind === 'isolated');
+            expect(isolated).toBeDefined();
+            expect(isolated?.paths).toContain('Notes/Truly Lonely.md');
+            expect(isolated?.paths).not.toContain('TaskNotes/Tasks/Reisepass-prüfen.md');
+        });
+
         it('FIX-19-01-04: checkOrphans marks notes with NO outgoing edges as orphanKind=isolated', async () => {
             const { service, db } = await createHealthService(99);
             db.run(

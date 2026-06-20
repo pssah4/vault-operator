@@ -77,7 +77,13 @@ export class VaultHealthService {
      */
     async runChecks(
         checks?: HealthCheckType[],
-        options?: { backlinksProperty?: string },
+        options?: {
+            backlinksProperty?: string;
+            /** FIX-19-01-05: drop `with_context` orphan findings entirely. */
+            silenceWithContextOrphans?: boolean;
+            /** FIX-19-01-05: user-defined path-prefix excludes for the orphan check. */
+            orphanExcludePathPrefixes?: string[];
+        },
     ): Promise<HealthFinding[]> {
         if (this.running) return this.findings;
         if (!this.knowledgeDB.isOpen()) return [];
@@ -87,6 +93,8 @@ export class VaultHealthService {
         this.findings = [];
 
         const backlinksProperty = options?.backlinksProperty;
+        const silenceWithContextOrphans = options?.silenceWithContextOrphans ?? false;
+        const orphanExcludePathPrefixes = options?.orphanExcludePathPrefixes ?? [];
 
         try {
             const db = this.getDB();
@@ -106,7 +114,10 @@ export class VaultHealthService {
             for (const check of checksToRun) {
                 if (this.cancelled) break;
                 switch (check) {
-                    case 'orphans': this.checkOrphans(db); break;
+                    case 'orphans': this.checkOrphans(db, {
+                        silenceWithContext: silenceWithContextOrphans,
+                        excludePathPrefixes: orphanExcludePathPrefixes,
+                    }); break;
                     case 'missing_backlinks': this.checkMissingBacklinks(db, backlinksProperty); break;
                     case 'broken_links': this.checkBrokenLinks(db); break;
                     case 'weak_clusters': this.checkWeakClusters(db); break;
@@ -310,14 +321,32 @@ export class VaultHealthService {
     // Individual checks
     // -----------------------------------------------------------------------
 
-    private checkOrphans(db: SqlJsDatabase): void {
+    private checkOrphans(
+        db: SqlJsDatabase,
+        opts?: { silenceWithContext?: boolean; excludePathPrefixes?: string[] },
+    ): void {
+        // FIX-19-01-05: build the user-defined excludePathPrefixes
+        // into the SQL pre-filter. The hardcoded Templates / Daily
+        // Notes / Attachements stay as default excludes; the user
+        // setting adds further folder prefixes (e.g. TaskNotes/).
+        const userExcludes = opts?.excludePathPrefixes ?? [];
+        const userExcludeClauses = userExcludes
+            .filter((p) => p.length > 0)
+            .map(() => `AND v.path NOT LIKE ?`)
+            .join('\n               ');
+        const userExcludeParams = userExcludes
+            .filter((p) => p.length > 0)
+            .map((p) => `${p}%`);
+
         const result = db.exec(
             `SELECT DISTINCT v.path FROM vectors v
              WHERE v.chunk_index = 0
                AND v.path NOT IN (SELECT DISTINCT target_path FROM edges)
                AND v.path NOT LIKE '%Templates%'
                AND v.path NOT LIKE '%Daily Notes%'
-               AND v.path NOT LIKE '%Attachements%'`,
+               AND v.path NOT LIKE '%Attachements%'
+               ${userExcludeClauses}`,
+            userExcludeParams,
         );
         if (result.length === 0 || result[0].values.length === 0) return;
 
@@ -381,7 +410,12 @@ export class VaultHealthService {
         // would destroy that context. They surface as findings (so
         // the user can add the missing backlink) but they are not
         // auto-repairable.
-        if (withContext.length > 0) {
+        // FIX-19-01-05: respect the silenceWithContextOrphans setting.
+        // Users with embedded-Base hub notes get a visual backlink via
+        // the Base filter and do not need a Findings entry telling them
+        // to add a reciprocal wikilink. Default in the calling settings
+        // is silent; users who rely on property-reciprocity flip it off.
+        if (withContext.length > 0 && !opts?.silenceWithContext) {
             const details = withContext.slice(0, 20).map(p => {
                 const ctx = orphanContext.get(p);
                 const clusters = clusterInfo.get(p);

@@ -84,6 +84,8 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
 
                 const findings = await healthService.runChecks(undefined, {
                     backlinksProperty: this.plugin.settings.backlinksProperty ?? 'Notizen',
+                    silenceWithContextOrphans: this.plugin.settings.vaultHealth?.silenceWithContextOrphans ?? true,
+                    orphanExcludePathPrefixes: this.plugin.settings.vaultHealth?.orphanExcludePathPrefixes ?? [],
                 });
                 const formatted = healthService.formatFindings(findings);
                 callbacks.pushToolResult(formatted);

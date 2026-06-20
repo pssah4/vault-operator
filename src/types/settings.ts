@@ -1464,11 +1464,37 @@ export interface VaultHealthSettings {
      * (Inbox/Orphans/).
      */
     orphansTargetFolder: string;
+
+    /**
+     * FIX-19-01-05: silently drop the `with_context` orphan branch
+     * when true. A `with_context` orphan is a note that has outgoing
+     * MOC-property edges (Themen, Konzepte, ...) but no incoming
+     * wikilink. Users who use embedded Bases in the hub notes (which
+     * surface every note that points to the hub) do NOT need a
+     * Findings entry telling them to add a reciprocal backlink — the
+     * Base IS the backlink. Default true so the modal stays quiet
+     * for that workflow; users who rely on property-reciprocity can
+     * flip this off.
+     */
+    silenceWithContextOrphans: boolean;
+
+    /**
+     * FIX-19-01-05: extra path-prefix patterns to exclude from the
+     * orphan check. The hardcoded excludes are Templates, Daily
+     * Notes, Attachements (typo intentional, matches the user's
+     * existing folder). This setting layers user-specific
+     * exclusions on top — e.g. TaskNotes/ for the TaskNotes plugin,
+     * or any folder that holds notes which intentionally do not
+     * participate in the knowledge graph.
+     */
+    orphanExcludePathPrefixes: string[];
 }
 
 export const DEFAULT_VAULT_HEALTH_SETTINGS: VaultHealthSettings = {
     autoApplyRuleRepairs: false,
     orphansTargetFolder: 'Inbox/Orphans',
+    silenceWithContextOrphans: true,
+    orphanExcludePathPrefixes: ['TaskNotes/', 'Inbox/Orphans/'],
 };
 
 // ---------------------------------------------------------------------------

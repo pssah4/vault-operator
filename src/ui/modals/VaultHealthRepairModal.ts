@@ -1252,7 +1252,11 @@ export class VaultHealthRepairModal extends Modal {
             }
         }
 
-        const newFindings = await healthService.runChecks(undefined, { backlinksProperty });
+        const newFindings = await healthService.runChecks(undefined, {
+            backlinksProperty,
+            silenceWithContextOrphans: this.plugin.settings.vaultHealth?.silenceWithContextOrphans ?? true,
+            orphanExcludePathPrefixes: this.plugin.settings.vaultHealth?.orphanExcludePathPrefixes ?? [],
+        });
         this.showResult(edgesResult, backlinksResult, categoriesResult, cleanupResult, orphansResult, weakLinkResult, newFindings, checkpoint);
     }
 

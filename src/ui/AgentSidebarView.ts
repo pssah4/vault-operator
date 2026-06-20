@@ -3573,6 +3573,8 @@ export class AgentSidebarView extends ItemView {
                 new Notice('Running vault health check...');
                 await this.plugin.vaultHealthService.runChecks(undefined, {
                     backlinksProperty: this.plugin.settings.backlinksProperty ?? 'Notizen',
+                    silenceWithContextOrphans: this.plugin.settings.vaultHealth?.silenceWithContextOrphans ?? true,
+                    orphanExcludePathPrefixes: this.plugin.settings.vaultHealth?.orphanExcludePathPrefixes ?? [],
                 });
                 const findings = this.plugin.vaultHealthService.getFindings();
                 if (findings.length === 0) {

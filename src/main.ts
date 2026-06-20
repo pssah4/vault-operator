@@ -1683,6 +1683,8 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.app.workspace.onLayoutReady(() => {
                     void this.vaultHealthService?.runChecks(undefined, {
                         backlinksProperty: this.settings.backlinksProperty ?? 'Notizen',
+                        silenceWithContextOrphans: this.settings.vaultHealth?.silenceWithContextOrphans ?? true,
+                        orphanExcludePathPrefixes: this.settings.vaultHealth?.orphanExcludePathPrefixes ?? [],
                     }).then(() => {
                         // Update badge in sidebar view after health check completes
                         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
