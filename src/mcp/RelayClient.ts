@@ -71,6 +71,64 @@ export function redactToken(text: string, token: string): string {
     return out.replace(/Bearer\s+[A-Za-z0-9._\-+/=]+/gi, 'Bearer <redacted>');
 }
 
+/**
+ * FIX-23-09-03: shared JSON-RPC dispatch for the relay path.
+ *
+ * Routes the small set of MCP methods the relay needs to forward to the
+ * Vault Operator backend. Extracted so RelayClient.handleRequest stays a
+ * thin IO wrapper and the routing is unit-testable without spinning up
+ * the polling loop. Unknown methods return an empty object, matching the
+ * prior behaviour.
+ */
+export async function dispatchRelayMethod(
+    plugin: ObsidianAgentPlugin,
+    method: string,
+    params: Record<string, unknown> | undefined,
+): Promise<unknown> {
+    const bridge = plugin.mcpBridge as unknown as {
+        buildInitializeResponse?: (requested?: string) => unknown;
+        getToolsWithContext?: () => unknown[];
+        buildResourceList?: () => unknown[];
+        listPrompts?: () => unknown;
+        getPrompt?: (name: string | undefined) => unknown | Promise<unknown>;
+    } | undefined;
+
+    if (method === 'initialize') {
+        const requested = typeof (params as { protocolVersion?: unknown } | undefined)?.protocolVersion === 'string'
+            ? (params as { protocolVersion: string }).protocolVersion
+            : undefined;
+        return bridge?.buildInitializeResponse?.(requested) ?? {
+            protocolVersion: '2025-03-26',
+            capabilities: { tools: {}, prompts: {}, resources: {} },
+            serverInfo: { name: 'Vault Operator', version: '1.0.0' },
+        };
+    }
+    if (method === 'tools/list') {
+        return { tools: bridge?.getToolsWithContext?.() ?? [] };
+    }
+    if (method === 'tools/call') {
+        const p = params as { name?: unknown; arguments?: Record<string, unknown> } | undefined;
+        if (p && typeof p.name === 'string') {
+            const toolResult = await handleToolCall(plugin, p.name, p.arguments ?? {});
+            return { content: toolResult.content, isError: toolResult.isError };
+        }
+        return { content: [{ type: 'text', text: 'Missing tool name' }], isError: true };
+    }
+    if (method === 'resources/list') {
+        return { resources: bridge?.buildResourceList?.() ?? [] };
+    }
+    if (method === 'prompts/list') {
+        return bridge?.listPrompts?.() ?? {};
+    }
+    if (method === 'prompts/get') {
+        if (!bridge?.getPrompt) return {};
+        const rawName = (params as { name?: unknown } | undefined)?.name;
+        const name = typeof rawName === 'string' ? rawName : undefined;
+        return await bridge.getPrompt(name);
+    }
+    return {};
+}
+
 export class RelayClient {
     private polling = false;
     private _connected = false;
@@ -208,32 +266,11 @@ export class RelayClient {
             // M-7: Use correlation ID for internal routing, keep original ID for response
             const correlationId = request.__correlationId ?? String(request.id);
 
-            let result: unknown;
-
-            if (request.method === 'initialize') {
-                result = {
-                    protocolVersion: '2025-03-26',
-                    capabilities: { tools: {}, prompts: {}, resources: {} },
-                    serverInfo: { name: 'Vault Operator', version: '1.0.0' },
-                };
-            } else if (request.method === 'tools/list') {
-                const bridge = this.plugin.mcpBridge as unknown as { getToolsWithContext?: () => unknown[] };
-                result = { tools: bridge?.getToolsWithContext?.() ?? [] };
-            } else if (request.method === 'tools/call') {
-                const params = request.params as { name?: unknown; arguments?: Record<string, unknown> } | undefined;
-                // M-1: Validate tool name is a string
-                if (params && typeof params.name === 'string') {
-                    const toolResult = await handleToolCall(this.plugin, params.name, params.arguments ?? {});
-                    result = { content: toolResult.content, isError: toolResult.isError };
-                } else {
-                    result = { content: [{ type: 'text', text: 'Missing tool name' }], isError: true };
-                }
-            } else if (request.method === 'resources/list') {
-                const bridge = this.plugin.mcpBridge as unknown as { buildResourceList?: () => unknown[] };
-                result = { resources: bridge?.buildResourceList?.() ?? [] };
-            } else {
-                result = {};
-            }
+            const result: unknown = await dispatchRelayMethod(
+                this.plugin,
+                request.method,
+                request.params,
+            );
 
             // Send response back to relay using correlation ID
             const responseBody = { jsonrpc: '2.0', id: correlationId, result };

@@ -26,12 +26,22 @@ const DEFAULT_PORT = 27182;
 type TunnelUrlCallback = (url: string | null) => void;
 
 // Tool definitions exposed to Claude
-// Agent-internal tools that don't make sense for external MCP clients
+// Agent-internal tools that don't make sense for external MCP clients.
+// FIX-23-09-02: extended with polymorphic / arbitrary-code-execution tools
+// (execute_command, use_mcp_tool, invoke_mcp_server, invoke_skill,
+// run_skill_script, evaluate_expression) and identity-mutating tools
+// (update_soul) that GitHub issue #46 correctly flagged as too broad for
+// the catch-all execute_vault_op surface.
 export const AGENT_INTERNAL_TOOLS = new Set([
     'ask_followup_question', 'attempt_completion', 'switch_agent', 'new_task',
     'update_todo_list', 'execute_recipe', 'manage_mcp_server',
     'manage_source', 'resolve_capability_gap', 'configure_model', 'read_agent_logs',
     'update_settings', 'enable_plugin', 'call_plugin_api',
+    // FIX-23-09-02: polymorphic dispatch / arbitrary-code surfaces
+    'execute_command', 'use_mcp_tool', 'invoke_mcp_server', 'invoke_skill',
+    'run_skill_script', 'evaluate_expression',
+    // FIX-23-09-02: identity / soul mutation
+    'update_soul',
 ]);
 
 export const TOOLS: McpToolDefinition[] = [
@@ -596,23 +606,10 @@ export class McpBridge {
     private async handleJsonRpc(request: { method: string; params?: Record<string, unknown> }): Promise<unknown> {
         switch (request.method) {
             case 'initialize': {
-                // FIX-23-04-01 Pass 6: echo the client's protocolVersion when
-                // we recognise it, so spec-strict clients (Perplexity) accept
-                // the connection. Fallback to our highest known version.
-                const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
                 const requested = typeof request.params?.protocolVersion === 'string'
                     ? request.params.protocolVersion
-                    : '';
-                const negotiated = SUPPORTED_VERSIONS.includes(requested) ? requested : '2025-03-26';
-                return {
-                    protocolVersion: negotiated,
-                    capabilities: { tools: {}, prompts: {}, resources: {} },
-                    serverInfo: { name: 'Vault Operator', version: '1.0.0' },
-                    instructions: 'Vault Operator is an Obsidian plugin that exposes vault search, read, write, and memory tools over MCP. '
-                        + 'A descriptive context prompt is available via prompts/list as "vault-operator-context" and can be selected by the user. '
-                        + 'Typical flow: call get_context for vault stats, use search_vault / read_notes / write_vault as needed, '
-                        + 'and call sync_session at the end of a session to save the transcript to Obsidian.',
-                };
+                    : undefined;
+                return this.buildInitializeResponse(requested);
             }
 
             case 'tools/list':
@@ -628,27 +625,11 @@ export class McpBridge {
             }
 
             case 'prompts/list':
-                return {
-                    prompts: [{
-                        name: 'vault-operator-context',
-                        description: 'Recommended tool use, user rules, and available skills for this vault. Select to pin as conversation context.',
-                    }, {
-                        name: 'vault-operator-skills',
-                        description: 'Skill-based workflows for complex tasks (presentations, research, document creation).',
-                    }],
-                };
+                return this.listPrompts();
 
             case 'prompts/get': {
                 const promptName = (request.params as { name?: string })?.name;
-                const allPrompts = await buildPrompts(this.plugin);
-                if (promptName === 'vault-operator-skills') {
-                    // Return only the skills portion of the context prompt.
-                    const skillsText = allPrompts.find(p =>
-                        typeof p.content === 'object' && p.content.text?.includes('Available Skills')
-                    );
-                    return { messages: skillsText ? [skillsText] : allPrompts };
-                }
-                return { messages: allPrompts };
+                return this.getPrompt(promptName);
             }
 
             case 'resources/list':
@@ -730,6 +711,74 @@ export class McpBridge {
                 inputSchema: t.inputSchema,
             };
         });
+    }
+
+    // -----------------------------------------------------------------------
+    // Initialize -- protocol-version negotiation + serverInfo
+    // -----------------------------------------------------------------------
+
+    /**
+     * FIX-23-09-03: exposed as a public method so RelayClient delegates to
+     * the same negotiation logic the local HTTP path uses. Echoes the
+     * client's requested protocol version when we recognise it
+     * (Perplexity strict-checks this); otherwise returns our highest
+     * stable version.
+     */
+    buildInitializeResponse(requestedProtocolVersion?: string): {
+        protocolVersion: string;
+        capabilities: { tools: Record<string, never>; prompts: Record<string, never>; resources: Record<string, never> };
+        serverInfo: { name: string; version: string };
+        instructions: string;
+    } {
+        const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+        const negotiated = requestedProtocolVersion && SUPPORTED_VERSIONS.includes(requestedProtocolVersion)
+            ? requestedProtocolVersion
+            : '2025-03-26';
+        return {
+            protocolVersion: negotiated,
+            capabilities: { tools: {}, prompts: {}, resources: {} },
+            serverInfo: { name: 'Vault Operator', version: '1.0.0' },
+            instructions: 'Vault Operator is an Obsidian plugin that exposes vault search, read, write, and memory tools over MCP. '
+                + 'A descriptive context prompt is available via prompts/list as "vault-operator-context" and can be selected by the user. '
+                + 'Typical flow: call get_context for vault stats, use search_vault / read_notes / write_vault as needed, '
+                + 'and call sync_session at the end of a session to save the transcript to Obsidian.',
+        };
+    }
+
+    // -----------------------------------------------------------------------
+    // Prompts -- selectable system-context for MCP clients
+    // -----------------------------------------------------------------------
+
+    /**
+     * FIX-23-09-03: exposed as a public method so RelayClient (the remote
+     * connector path) can delegate prompts/list to the same implementation
+     * the local HTTP path uses, instead of re-implementing it.
+     */
+    listPrompts(): { prompts: Array<{ name: string; description: string }> } {
+        return {
+            prompts: [{
+                name: 'vault-operator-context',
+                description: 'Recommended tool use, user rules, and available skills for this vault. Select to pin as conversation context.',
+            }, {
+                name: 'vault-operator-skills',
+                description: 'Skill-based workflows for complex tasks (presentations, research, document creation).',
+            }],
+        };
+    }
+
+    /**
+     * FIX-23-09-03: exposed for the relay path. Mirrors the prompts/get
+     * dispatch from handleJsonRpc.
+     */
+    async getPrompt(promptName: string | undefined): Promise<{ messages: unknown[] }> {
+        const allPrompts = await buildPrompts(this.plugin);
+        if (promptName === 'vault-operator-skills') {
+            const skillsText = allPrompts.find(p =>
+                typeof p.content === 'object' && p.content.text?.includes('Available Skills')
+            );
+            return { messages: skillsText ? [skillsText] : allPrompts };
+        }
+        return { messages: allPrompts };
     }
 
     // -----------------------------------------------------------------------

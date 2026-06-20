@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { TOOLS } from '../McpBridge';
+import { TOOLS, AGENT_INTERNAL_TOOLS } from '../McpBridge';
 
 describe('MCP tool descriptions hygiene (FIX-23-09-01)', () => {
     it('exposes a non-empty TOOLS array', () => {
@@ -57,4 +57,27 @@ describe('MCP tool descriptions hygiene (FIX-23-09-01)', () => {
             expect(desc, label).not.toMatch(/\bFEAT-\d/);
         }
     });
+});
+
+describe('AGENT_INTERNAL_TOOLS deny-list (FIX-23-09-02)', () => {
+    // GitHub issue #46 flagged the execute_vault_op catch-all and named
+    // several operations as suspicious. These plus their close cousins
+    // are polymorphic / arbitrary-code surfaces that have no business
+    // being reachable through an external MCP client and must stay in
+    // the deny-list.
+    const REQUIRED_INTERNAL = [
+        'execute_command',
+        'use_mcp_tool',
+        'invoke_mcp_server',
+        'invoke_skill',
+        'run_skill_script',
+        'evaluate_expression',
+        'update_soul',
+    ];
+
+    for (const name of REQUIRED_INTERNAL) {
+        it(`denies "${name}" from external MCP via AGENT_INTERNAL_TOOLS`, () => {
+            expect(AGENT_INTERNAL_TOOLS.has(name)).toBe(true);
+        });
+    }
 });
