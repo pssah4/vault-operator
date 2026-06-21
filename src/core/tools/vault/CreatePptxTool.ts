@@ -62,6 +62,16 @@ interface SlideInput {
     image?: string;
     notes?: string;
     layout?: 'title' | 'section' | 'content' | 'two-column' | 'closing';
+    /**
+     * FIX-29-99-04 adapter: plan_presentation produces a DeckPlan whose
+     * slides carry `source_slide` + `content: { ShapeName: value }`, not the
+     * flat title/body/bullets shape. CreatePptxTool's renderer is adhoc-only
+     * today (template-based render path was removed alongside ingest_template);
+     * adaptDeckPlanSlide() folds the template-shape into the adhoc shape so
+     * the agent can copy the plan_presentation output without manual rewrite.
+     */
+    source_slide?: number;
+    content?: Record<string, unknown>;
 }
 
 interface ThemeInput {
@@ -102,7 +112,7 @@ export class CreatePptxTool extends BaseTool<'create_pptx'> {
                 'Create a PowerPoint presentation (.pptx) with slides containing text, bullets, tables, and images. ' +
                 'The file format is handled automatically -- never use write_file or evaluate_expression for .pptx files. ' +
                 'Supports themed presentations with auto-layout. ' +
-                'For corporate design: use theme colors/fonts from ingest_template.',
+                'For corporate styling, set theme colors and fonts via the `theme` argument (primary_color, font_family, background_color, text_color, accent_color).',
             input_schema: {
                 type: 'object',
                 properties: {
@@ -129,6 +139,9 @@ export class CreatePptxTool extends BaseTool<'create_pptx'> {
                                 image: { type: 'string', description: 'Vault path to image' },
                                 notes: { type: 'string', description: 'Speaker notes' },
                                 layout: { type: 'string', enum: ['title', 'section', 'content', 'closing'] },
+                                // FIX-29-99-04: documented compatibility with plan_presentation output.
+                                source_slide: { type: 'number', description: 'Optional: present in plan_presentation output. Adapter folds content keys into title/subtitle/body/bullets.' },
+                                content: { type: 'object', description: 'Optional: shape-name -> value map from plan_presentation. Title/Subtitle/Body and Bullet1..N are collapsed into the flat fields.' },
                             },
                         },
                         description: 'Array of slides (max 50)',
@@ -161,7 +174,10 @@ export class CreatePptxTool extends BaseTool<'create_pptx'> {
         if (!outputPath.endsWith('.pptx')) { callbacks.pushToolResult(this.formatError(new Error('output_path must end with .pptx'))); return; }
         if (rawSlides.length === 0) { callbacks.pushToolResult(this.formatError(new Error('At least one slide is required'))); return; }
 
-        const slides = rawSlides.slice(0, 50);
+        // FIX-29-99-04: normalise plan_presentation-style template slides
+        // (source_slide + content map) into the flat adhoc shape that the
+        // renderer below understands. Adhoc-shaped slides pass through.
+        const slides = rawSlides.slice(0, 50).map((s) => this.adaptDeckPlanSlide(s));
         const primary = toHex(theme.primary_color);
         const accent = toHex(theme.accent_color, primary);
         const textColor = toHex(theme.text_color, DEFAULT_TEXT);
@@ -217,6 +233,63 @@ export class CreatePptxTool extends BaseTool<'create_pptx'> {
     private inferLayout(si: SlideInput): string {
         if (si.subtitle && !si.body && !si.bullets && !si.table) return 'title';
         return 'content';
+    }
+
+    /**
+     * FIX-29-99-04 adapter: collapse a plan_presentation-shaped slide
+     * (source_slide + content: Record<shapeName, value>) into the flat
+     * adhoc shape (title/subtitle/body/bullets). Known shape-name
+     * heuristics:
+     *
+     *   title    <- Title | Headline | Heading | Slide_Title
+     *   subtitle <- Subtitle | Subheadline | Sub_Title
+     *   bullets  <- every key matching /^(Bullet|Bullet_|Bullet\d+)/i (sorted by name)
+     *   body     <- Body | Content | Description (or every remaining string value joined)
+     *
+     * Slides that already carry title/body/bullets pass through. The
+     * function is intentionally conservative -- it never overwrites a
+     * field the caller supplied explicitly.
+     */
+    private adaptDeckPlanSlide(si: SlideInput): SlideInput {
+        if (!si.source_slide && !si.content) return si;
+        const out: SlideInput = { ...si };
+        const content = si.content ?? {};
+        const get = (key: string): string | undefined => {
+            const v = content[key];
+            return typeof v === 'string' ? v : undefined;
+        };
+        if (!out.title) out.title = get('Title') ?? get('Headline') ?? get('Heading') ?? get('Slide_Title');
+        if (!out.subtitle) out.subtitle = get('Subtitle') ?? get('Subheadline') ?? get('Sub_Title');
+        if (!out.bullets) {
+            const bulletKeys = Object.keys(content)
+                .filter((k) => /^bullet/i.test(k))
+                .sort();
+            const bullets = bulletKeys
+                .map((k) => get(k))
+                .filter((v): v is string => typeof v === 'string' && v.length > 0);
+            if (bullets.length > 0) out.bullets = bullets;
+        }
+        if (!out.body) {
+            const explicitBody = get('Body') ?? get('Content') ?? get('Description');
+            if (explicitBody) {
+                out.body = explicitBody;
+            } else {
+                // Fall back to every remaining string value joined, so the
+                // renderer at least surfaces the planner's text instead of
+                // emitting an empty slide.
+                const consumed = new Set<string>([
+                    'Title', 'Headline', 'Heading', 'Slide_Title',
+                    'Subtitle', 'Subheadline', 'Sub_Title',
+                    'Body', 'Content', 'Description',
+                ]);
+                const fragments = Object.entries(content)
+                    .filter(([k]) => !consumed.has(k) && !/^bullet/i.test(k))
+                    .map(([, v]) => (typeof v === 'string' ? v : ''))
+                    .filter((s) => s.length > 0);
+                if (fragments.length > 0) out.body = fragments.join('\n\n');
+            }
+        }
+        return out;
     }
 
     /* -------------------------------------------------------------- */

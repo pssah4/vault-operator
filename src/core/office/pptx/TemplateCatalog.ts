@@ -60,7 +60,8 @@ export class TemplateCatalogLoader {
         throw new Error(
             `Template "${themeName}" not found. ` +
             `Available defaults: ${DEFAULT_THEMES.join(', ')}. ` +
-            `For corporate templates, run ingest_template first.`,
+            `Custom corporate-template ingestion is currently not supported -- ` +
+            `pick one of the default themes and customise via the theme.* color/font arguments.`,
         );
     }
 
@@ -98,7 +99,8 @@ export class TemplateCatalogLoader {
                 catalog.slide_types = [];
                 warnings.push(
                     'Catalog veraltet (vor ADR-046, kein slide_types). ' +
-                    'Bitte ingest_template mit force: true erneut ausführen.',
+                    'Switch zu einem Default-Theme; corporate-template ingestion ' +
+                    'wird vom Plugin aktuell nicht unterstuetzt.',
                 );
             }
 
@@ -109,7 +111,8 @@ export class TemplateCatalogLoader {
                 if (currentHash !== catalog.template_hash) {
                     warnings.push(
                         `Template file has changed since ingestion. ` +
-                        `Run ingest_template again to update the catalog.`,
+                        `Switch to a default theme or re-create the catalog manually -- ` +
+                        `the built-in re-ingest tool is currently not available.`,
                     );
                 }
             }
@@ -119,7 +122,7 @@ export class TemplateCatalogLoader {
                 if (ratio < 0.5) {
                     warnings.push(
                         `Only ${catalog.analyzed_slides} of ${catalog.total_slides} slides were analyzed. ` +
-                        `Run ingest_template again with more sample_slides for better coverage.`,
+                        `Coverage cannot be improved automatically -- the built-in re-ingest tool is not available.`,
                     );
                 }
             }
@@ -225,7 +228,7 @@ export class TemplateCatalogLoader {
     static formatSlideTypeGuide(catalog: TemplateCatalog): string {
         const types: SlideType[] = catalog.slide_types ?? [];
         if (types.length === 0) {
-            return '**Keine Slide-Typen gefunden.** Führe `ingest_template` mit `force: true` erneut aus.';
+            return '**Keine Slide-Typen gefunden.** Wechsle auf ein Default-Theme; die automatische Template-Ingestion ist aktuell nicht verfuegbar.';
         }
 
         const lines: string[] = [

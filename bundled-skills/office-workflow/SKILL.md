@@ -8,7 +8,7 @@ source: bundled
 
 # Office Document Workflow
 
-Follow these 6 steps IN ORDER for presentations. Do NOT skip steps.
+Follow these 5 steps IN ORDER for presentations. Do NOT skip steps.
 
 ## Step 1: CONTEXT (ASK and STOP)
 
@@ -20,60 +20,49 @@ Ask the user:
 
 STOP. Wait for answer.
 
-## Step 2: TEMPLATE
+## Step 2: THEME
 
-Ask: "Welches Design? **Executive** (dunkel), **Modern** (hell), **Minimal** (SW). Oder eigene Corporate-Vorlage?"
+Pick a built-in theme: **Executive** (dark), **Modern** (light), or **Minimal** (b/w).
+The plugin generates slides in adhoc mode (HTML 1280x720 canvas with data-object elements).
 
-- Default theme -> adhoc mode (HTML slides), skip to Step 3
-- Corporate .pptx -> check if theme exists:
-  - Theme exists: continue to Step 3
-  - Theme missing: run ingest_template (derive theme_name from filename, recommend render_previews: true)
+Corporate-template ingestion is currently not available -- if the user asks for a
+specific corporate look, stick to one of the three built-in themes plus theme colors
+adjusted in the `theme` argument of create_pptx.
 
-## Step 3: PLAN (THE KEY STEP)
+## Step 3: PLAN
 
-**For corporate templates: ALWAYS call plan_presentation.**
+Use the presentation-design skill to outline the slides:
+- One key message per slide
+- Slide-type sequence (title, section, content, kpi, closing) tuned to the deck mode
 
-```
-plan_presentation(
-  source: "path/to/source-note.md",
-  template: "enbw",
-  deck_mode: "reading",
-  goal: "from Step 1",
-  audience: "from Step 1"
-)
-```
-
-The tool reads the source material, loads the template catalog, and generates a complete deck plan
-with content for EVERY shape on EVERY slide via an internal LLM call.
-
-Show the resulting plan table to the user. Wait for feedback.
-On change requests: describe the adjustments and call plan_presentation again.
-
-**For default themes (adhoc mode):** Plan the slides yourself using the presentation-design skill.
+Show the outline to the user before generating. Wait for feedback.
 
 ## Step 4: GENERATE
 
-**Corporate template:** Copy the JSON block from the plan_presentation output directly into create_pptx.
-Do NOT modify the plan's content or choose different shapes -- the plan was generated and validated.
+Call create_pptx with adhoc slides. Each slide carries title, subtitle, body or
+bullets, plus optional table/image, and a layout hint (title/section/content/closing).
 
 ```
 create_pptx(
   output_path: "presentations/output.pptx",
-  template: "enbw",
-  slides: [... from plan ...]
+  title: "Q1 Review",
+  theme: { primary_color: "#0A4D8C" },
+  slides: [
+    { layout: "title",   title: "Q1 Review", subtitle: "March 2026" },
+    { layout: "section", title: "Highlights" },
+    { layout: "content", title: "Top three results", bullets: ["...", "...", "..."] },
+    { layout: "closing", title: "Thank you" }
+  ]
 )
 ```
 
-**Adhoc mode:** Write HTML slides on 1280x720 canvas with data-object elements.
-
 ## Step 5: DELIVER
 
-Present the result. Offer DOCX handout for reading decks. Ask if adjustments needed.
+Present the result. Offer a DOCX handout for reading decks. Ask if adjustments are needed.
 
 ## Anti-Patterns (NEVER)
 
-- Skipping plan_presentation and calling create_pptx directly with corporate templates
-- Modifying the plan's JSON before passing to create_pptx
-- Using adhoc HTML mode when a corporate template was requested
+- Skipping the outline and emitting create_pptx straight from raw source
 - Leaving placeholder text ("Your slide title", "42%") from examples
 - Same slide type twice in a row
+- Promising a corporate-template render -- the template-ingest path is not wired today

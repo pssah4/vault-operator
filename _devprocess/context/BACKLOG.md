@@ -301,6 +301,7 @@ Phase: Building | Status: Active
 | FEAT-11-16 | Feature | Schema-Constrained Slide Generation | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/233 |
 | FEAT-11-17 | Feature | plan_presentation Tool | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/234 |
 | FEAT-11-18 | Feature | Catalog-Enrichment (special_role, group_id, vollstaendige Beispiele) | Done | Released | EPIC-11 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/235 |
+| FIX-29-99-04 | Fix | 29-99-04: Office-Pipeline (ingest_template retire + plan_presentation -> create_pptx Adapter) | Active | Building | EPIC-11, FEAT-11-17, ADR-048 | BUG |  | sebastian-claude-opus-4-7 | 2026-06-21 | P0 Bundle aus stability audit. office-workflow SKILL.md auf 5-Step adhoc-only umgeschrieben. TemplateCatalog Error-Messages + CreatePptxTool-Description ohne ingest_template-Verweis. Neuer adaptDeckPlanSlide-Adapter folded DeckPlan source_slide+content in flat title/body/bullets, 8 neue Tests pinnen die Heuristik (Title/Headline/Heading, Subtitle/Subheadline, Bullet*-Sort, Body/Content/Description + join-fallback, no-overwrite, passthrough). |
 
 ### EPIC-12: GitHub Copilot LLM Provider Integration
 

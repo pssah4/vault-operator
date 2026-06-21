@@ -48,10 +48,13 @@ describe('TemplateCatalogLoader.formatSlideTypeGuide', () => {
 
     describe('empty slide_types', () => {
         it('returns fallback message when slide_types is empty', () => {
+            // FIX-29-99-04: pre-fix the message named the removed
+            // `ingest_template` tool; assertion updated to the new
+            // "feature deprecated, switch to default theme" guidance.
             const catalog = makeCatalog({ slide_types: [] });
             const result = TemplateCatalogLoader.formatSlideTypeGuide(catalog);
             expect(result).toContain('Keine Slide-Typen gefunden');
-            expect(result).toContain('ingest_template');
+            expect(result).toContain('Default-Theme');
         });
 
         it('returns fallback message when slide_types is undefined', () => {
