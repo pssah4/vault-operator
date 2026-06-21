@@ -37,6 +37,9 @@ type SandboxToPluginMessage =
     | { type: 'vault-read'; callId: string; path: string }
     | { type: 'vault-read-binary'; callId: string; path: string }
     | { type: 'vault-list'; callId: string; path: string }
+    // FIX-29-99-03: mkdir was missing from the iframe bridge but the
+    // SandboxBridge implementation existed since the desktop sandbox.
+    | { type: 'vault-mkdir'; callId: string; path: string }
     | { type: 'vault-write'; callId: string; path: string; content: string }
     | { type: 'vault-write-binary'; callId: string; path: string; content: ArrayBuffer }
     | { type: 'request-url'; callId: string; url: string; options?: { method?: string; body?: string } };
@@ -245,7 +248,21 @@ export class IframeSandboxExecutor implements ISandboxExecutor {
             } else if (bridgeMsg.type === 'vault-read-binary') {
                 result = await this.bridge.vaultReadBinary(bridgeMsg.path);
             } else if (bridgeMsg.type === 'vault-list') {
-                result = this.bridge.vaultList(bridgeMsg.path);
+                // FIX-29-99-03: pre-fix `result = this.bridge.vaultList(...)`
+                // left the un-resolved Promise as the message payload, which
+                // postMessage cannot structured-clone -- the iframe sandbox
+                // silently got an empty result back. SandboxBridge.vaultList
+                // is async (returns Promise<string[]>); awaiting it here
+                // mirrors the other bridge calls in this switch.
+                result = await this.bridge.vaultList(bridgeMsg.path);
+            } else if (bridgeMsg.type === 'vault-mkdir') {
+                // FIX-29-99-03: skill-creator on mobile needs to create
+                // folders. SandboxBridge.vaultMkdir was implemented but the
+                // iframe message router never reached it -- new branch here
+                // plus the corresponding `vault.mkdir(...)` proxy in
+                // sandboxHtml.ts.
+                await this.bridge.vaultMkdir(bridgeMsg.path);
+                result = true;
             } else if (bridgeMsg.type === 'vault-write') {
                 await this.bridge.vaultWrite(bridgeMsg.path, bridgeMsg.content);
                 result = true;

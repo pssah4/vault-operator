@@ -37,10 +37,18 @@ function bridgeCall(type, payload) {
 }
 
 // Vault-API (Bridge)
+//
+// FIX-29-99-03: mkdir added 2026-06-21. SandboxBridge.vaultMkdir was
+// already implemented (recursive folder creation, ignore-list check),
+// but the iframe sandbox had no proxy method for it -- so the
+// skill-creator skill "create folder" path threw "vault.mkdir is not
+// a function" on mobile. IframeSandboxExecutor now routes the new
+// vault-mkdir message type to bridge.vaultMkdir.
 var vault = {
     read: function(path) { return bridgeCall('vault-read', { path: path }); },
     readBinary: function(path) { return bridgeCall('vault-read-binary', { path: path }); },
     list: function(path) { return bridgeCall('vault-list', { path: path }); },
+    mkdir: function(path) { return bridgeCall('vault-mkdir', { path: path }); },
     write: function(path, content) { return bridgeCall('vault-write', { path: path, content: content }); },
     writeBinary: function(path, content) { return bridgeCall('vault-write-binary', { path: path, content: content }); }
 };

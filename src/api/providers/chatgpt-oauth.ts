@@ -177,7 +177,10 @@ type ResponsesInputItem = ResponsesInputMessage | ResponsesFunctionCallOutput | 
 
 type ResponsesContentBlock =
     | { type: 'input_text'; text: string }
-    | { type: 'output_text'; text: string };
+    | { type: 'output_text'; text: string }
+    // FIX-04-03-11: Responses API image input. detail defaults to 'auto' so
+    // the upload tokens stay bounded for OCR-style screenshots.
+    | { type: 'input_image'; image_url: string; detail?: 'auto' | 'low' | 'high' };
 
 interface ResponsesTool {
     type: 'function';
@@ -382,10 +385,24 @@ export class ChatGptOAuthProvider implements ApiHandler {
                     }
                 }
             } else {
+                // FIX-04-03-11: pre-fix this branch handled only text and
+                // tool_result blocks; image blocks were silently dropped, so
+                // GPT-5 / o-series vision through the Codex Responses path
+                // saw text only and answered "I don't see an image". Same
+                // class as FIX-04-03-09 (which fixed the openai / copilot /
+                // kilo OpenAI-Chat-Completions shape). The Responses API
+                // expects { type: 'input_image', image_url: data:... } on a
+                // user message content array.
                 const textParts: string[] = [];
+                const userContent: ResponsesContentBlock[] = [];
                 for (const block of blocks) {
                     if (block.type === 'text') {
                         textParts.push(block.text);
+                    } else if (block.type === 'image') {
+                        userContent.push({
+                            type: 'input_image',
+                            image_url: `data:${block.source.media_type};base64,${block.source.data}`,
+                        });
                     } else if (block.type === 'tool_result') {
                         const text = typeof block.content === 'string'
                             ? block.content
@@ -401,10 +418,13 @@ export class ChatGptOAuthProvider implements ApiHandler {
                     }
                 }
                 if (textParts.length > 0) {
+                    userContent.unshift({ type: 'input_text', text: textParts.join('\n') });
+                }
+                if (userContent.length > 0) {
                     result.push({
                         type: 'message',
                         role: 'user',
-                        content: [{ type: 'input_text', text: textParts.join('\n') }],
+                        content: userContent,
                     });
                 }
             }

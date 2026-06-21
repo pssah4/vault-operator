@@ -196,6 +196,22 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                 method: classify(f.contributions),
             }));
 
+            // ── AUDIT-013 / FIX-29-99-02 IgnoreService filter ────────────────
+            // The semantic arm reads embeddings from the KnowledgeDB. Paths
+            // that the user marked ignored via .obsidian-agentignore must
+            // not surface through this tool. Pre-fix, SemanticSearchTool
+            // only honoured the ignore list at BUILD time (via
+            // SemanticIndexOptions.isIgnored); rows already in the DB
+            // before the ignore entry was added were still returned. The
+            // post-fetch filter closes that read-time leak (defense in
+            // depth with searchVault, which has the same check).
+            {
+                const ignoreService = this.plugin.ignoreService;
+                if (ignoreService) {
+                    results = results.filter((r) => !ignoreService.isIgnored(r.path));
+                }
+            }
+
             // ── Metadata filters ─────────────────────────────────────────────
             if (folderFilter) {
                 const prefix = folderFilter.replace(/\/$/, '') + '/';
