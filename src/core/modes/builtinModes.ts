@@ -33,12 +33,22 @@ export const TOOL_GROUP_MAP: Readonly<Record<ToolGroup, readonly ToolName[]>> = 
     // shipped but were never wired into the default tool groups. The
     // coverage test (builtinModes.coverage.test.ts) guards against future
     // drift -- new user-facing tools must be added there as well.
-    vault: ['get_frontmatter', 'search_by_tag', 'get_vault_stats', 'get_linked_notes', 'get_daily_note', 'open_note', 'semantic_search', 'query_base', 'vault_health_check', 'recall_memory', 'mark_for_memory', 'update_soul', 'search_history', 'list_pinned_conversations'],
+    // FEAT-03-25 / ADR-109 memory-source tools (mark_note_as_memory_source,
+    // unmark_note_as_memory_source, list_memory_source_notes) added 2026-06-21
+    // after the v2.14.0 stability audit caught the same drift pattern.
+    vault: ['get_frontmatter', 'search_by_tag', 'get_vault_stats', 'get_linked_notes', 'get_daily_note', 'open_note', 'semantic_search', 'query_base', 'vault_health_check', 'recall_memory', 'mark_for_memory', 'update_soul', 'search_history', 'list_pinned_conversations', 'mark_note_as_memory_source', 'unmark_note_as_memory_source', 'list_memory_source_notes'],
     edit:  ['write_file', 'edit_file', 'append_to_file', 'create_folder', 'delete_file', 'move_file', 'extract_zip', 'update_frontmatter', 'generate_canvas', 'create_excalidraw', 'create_base', 'update_base', 'create_pptx', 'create_docx', 'create_xlsx', 'plan_presentation', 'ingest_document', 'ingest_deep', 'ingest_triage', 'restore_checkpoint'],
-    web:   ['web_fetch', 'web_search'],
-    agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'consult_flagship', 'switch_agent', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'evaluate_expression', 'manage_source', 'inspect_self', 'invoke_skill', 'invoke_mcp_server'],
+    // FEAT-19-14 anti_echo_search added 2026-06-21 after v2.14.0 audit found
+    // it registered but unreachable.
+    web:   ['web_fetch', 'web_search', 'anti_echo_search'],
+    // FEATURE-1600 find_tool (discovery), FEAT-24-09 read_skill (ADR-116
+    // always-available) added 2026-06-21 -- both meta-tools were sitting in
+    // INTENTIONALLY_NOT_REACHABLE but the audit demonstrated they only worked
+    // by hallucination instead of real schema visibility.
+    agent: ['ask_followup_question', 'attempt_completion', 'update_todo_list', 'new_task', 'consult_flagship', 'switch_agent', 'update_settings', 'configure_model', 'read_agent_logs', 'manage_mcp_server', 'evaluate_expression', 'manage_source', 'inspect_self', 'invoke_skill', 'invoke_mcp_server', 'find_tool', 'read_skill'],
     mcp:   ['use_mcp_tool', 'read_mcp_tool'],
-    skill: ['execute_command', 'execute_recipe', 'call_plugin_api', 'resolve_capability_gap', 'enable_plugin'],
+    // FEAT-29-03 probe_plugin, FEAT-29-06 run_skill_script added 2026-06-21.
+    skill: ['execute_command', 'execute_recipe', 'call_plugin_api', 'resolve_capability_gap', 'enable_plugin', 'probe_plugin', 'run_skill_script'],
 };
 
 // ---------------------------------------------------------------------------
