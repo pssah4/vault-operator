@@ -82,6 +82,13 @@ export class ProviderDetailModal extends Modal {
     private tierOverrides: ProviderConfig['tierOverrides'];
 
     /**
+     * IMP-20-06-01 W4-T2 / ADR-135. User-affirmed Zero-Data-Retention
+     * flag. Off by default. Only providers with this flag enabled can
+     * serve the freshness verifier's frontier-tier escalations.
+     */
+    private formZdrCapable: boolean;
+
+    /**
      * Per-tier flag: the user picked "enter id manually" for a slot whose
      * override is still empty. Keeps the free-text input visible across the
      * re-render so it does not snap back to the dropdown before anything is
@@ -123,6 +130,7 @@ export class ProviderDetailModal extends Modal {
         this.lastRefreshAt = seed.lastRefreshAt ?? 0;
         this.tierMapping = { ...(seed.tierMapping ?? {}) };
         this.tierOverrides = { ...(seed.tierOverrides ?? {}) };
+        this.formZdrCapable = seed.zdrCapable ?? false;
     }
 
     private defaultDraftProvider(): ProviderConfig {
@@ -293,6 +301,13 @@ export class ProviderDetailModal extends Modal {
                             ? getDefaultBaseUrlForProvider(this.formType) ?? ''
                             : '';
                     }
+                    // Audit L-4 mitigation (AUDIT-IMP-20-06-01-2026-06-19):
+                    // the ZDR affirmation belongs to one specific
+                    // provider type. Changing the type invalidates it
+                    // and the user must re-confirm with the new vendor.
+                    if (previous !== this.formType) {
+                        this.formZdrCapable = false;
+                    }
                     this.render();
                 },
             }),
@@ -344,6 +359,25 @@ export class ProviderDetailModal extends Modal {
                 setIcon(icon, 'alert-triangle');
                 warn.createSpan({ text: ' ' + t('settings.providers.advisorDisabled') });
             }
+
+            // IMP-20-06-01 W4-T2: ZDR affirmation. Single toggle inside
+            // a labelled sub-section. Frontier escalation for the
+            // freshness verifier needs at least one provider with this
+            // flag on.
+            this.mkSection(form, 'Privacy');
+            this.compactRow(form, {
+                label: 'Zero-Data-Retention (ZDR) confirmed',
+                desc: 'I have confirmed with this provider that prompts and completions are not retained or used for training. Required before the freshness verifier may escalate to the flagship tier on this provider.',
+                build: (ctrl) => {
+                    const label = ctrl.createEl('label', { cls: 'mc-toggle' });
+                    const input = label.createEl('input', { attr: { type: 'checkbox' } });
+                    label.createSpan({ cls: 'mc-toggle-track' });
+                    input.checked = this.formZdrCapable;
+                    input.addEventListener('change', () => {
+                        this.formZdrCapable = input.checked;
+                    });
+                },
+            });
 
             this.mkSection(form, t('settings.providers.modal.section.danger'));
             this.compactRow(form, {
@@ -467,6 +501,7 @@ export class ProviderDetailModal extends Modal {
             useGateway: this.formType === 'anthropic' ? this.formUseGateway : undefined,
             tierMapping: this.tierMapping,
             tierOverrides: this.tierOverrides,
+            zdrCapable: this.formZdrCapable || undefined,
         };
         this.plugin.settings.providerConfigs = list;
         await this.plugin.saveSettings();

@@ -1,6 +1,7 @@
 <script setup>
 import DefaultTheme from 'vitepress/theme'
 import LandingPage from './components/LandingPage.vue'
+import EditorDemo from './components/EditorDemo.vue'
 import { useData, withBase } from 'vitepress'
 
 const { Layout } = DefaultTheme
@@ -15,6 +16,10 @@ function toggleTheme() {
   <Layout>
     <template #home-hero-before>
       <LandingPage v-if="frontmatter.layout === 'home'" />
+    </template>
+
+    <template #home-features-before>
+      <EditorDemo v-if="frontmatter.layout === 'home'" />
     </template>
 
     <template #nav-bar-content-after>

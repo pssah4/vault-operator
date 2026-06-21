@@ -1,9 +1,14 @@
 /**
- * MCP Prompt Builder -- Generates the obsilo-system-context prompt
- * that replaces the System Prompt in Connector mode.
+ * MCP Prompt Builder -- returns the neutral "vault-operator-context"
+ * prompt that external MCP clients (Claude Desktop, Claude.ai connector
+ * mode) can opt into via prompts/list + prompts/get.
  *
- * Claude receives this prompt at connection time and uses it
- * as its operating context when working with the Vault Operator vault.
+ * FIX-23-09-01: this payload is deliberately neutral. It contains no
+ * persona (soul.md), no user memory dump, no imperative wording. Persona
+ * and memory remain reachable only through the explicit save_to_memory
+ * and recall_memory tools the user has opted into. The previous
+ * auto-injection into the first tool response was removed (see
+ * tools/index.ts).
  */
 
 import type ObsidianAgentPlugin from '../../main';
@@ -12,50 +17,24 @@ import type { McpPromptMessage } from '../types';
 export async function buildPrompts(plugin: ObsidianAgentPlugin): Promise<McpPromptMessage[]> {
     const sections: string[] = [];
 
-    // Role definition
     sections.push([
-        '# Vault Operator Vault Intelligence',
+        '# Vault Operator Context',
         '',
-        'You are working with Vault Operator, an intelligence backend for an Obsidian vault.',
-        'Your role: You think, plan, and decide. Vault Operator searches, reads, writes, and remembers.',
+        'Vault Operator is an Obsidian plugin that exposes vault search, read, write, and memory tools over MCP.',
         '',
-        '## Rules',
-        '- ALWAYS call `get_context` first to load user profile, memory, and vault context.',
-        '- Use `search_vault` for any vault research (it runs a full 4-stage pipeline internally).',
-        '- Use `read_notes` to read specific files when you know the path.',
+        '## Recommended Tool Use',
+        '- Start with `get_context` to load vault stats and, when authorized, user preferences.',
+        '- Use `search_vault` for vault research; it runs a hybrid retrieval pipeline internally.',
+        '- Use `read_notes` to read specific files when the path is known.',
         '- Use `write_vault` to create or modify files.',
-        '- When you learn something about the user, call `update_memory`.',
+        '- Use `save_to_memory` only when the user explicitly asks to remember something.',
         '',
-        '## CRITICAL: Conversation Sync',
-        'At the END of EVERY conversation where you used ANY Vault Operator tool, you MUST call `sync_session`.',
-        'This is NON-NEGOTIABLE. The user reviews conversations in Obsidian and needs the full history.',
-        'Include the COMPLETE transcript: every user message (verbatim), your responses, and tool calls.',
-        'Without sync_session, the conversation is LOST from the user\'s Obsidian history.',
-        'Do this as your FINAL action before ending the conversation, even if the user says goodbye.',
+        '## Conversation Sync',
+        'After a session that used Vault Operator tools, call `sync_session` so the transcript is saved to the user\'s Obsidian history.',
+        'Include this as the final step before ending the session.',
     ].join('\n'));
 
-    // Soul / Identity
-    if (plugin.memoryService) {
-        try {
-            const soul = await plugin.memoryService.readFile('soul.md');
-            if (soul.trim()) {
-                sections.push(`## Agent Identity\n${soul.trim()}`);
-            }
-        } catch { /* non-fatal */ }
-    }
-
-    // Memory context (profile, patterns)
-    if (plugin.memoryService) {
-        try {
-            const files = await plugin.memoryService.loadMemoryFiles();
-            const ctx = plugin.memoryService.buildMemoryContext(files);
-            if (ctx.trim()) {
-                sections.push(`## User Memory\n${ctx.trim()}`);
-            }
-        } catch { /* non-fatal */ }
-    }
-
-    // User rules
+    // User rules (project-level conventions, neutral by nature).
     if (plugin.rulesLoader) {
         try {
             const rules = await plugin.rulesLoader.discoverRules();
@@ -66,12 +45,14 @@ export async function buildPrompts(plugin: ObsidianAgentPlugin): Promise<McpProm
         } catch { /* non-fatal */ }
     }
 
-    // Skills overview
+    // Skills overview (workflow names + short descriptions only; no PII).
     if (plugin.skillsManager) {
         try {
             const skills = await plugin.skillsManager.discoverSkills();
             if (skills.length > 0) {
-                const skillTexts = skills.map((s: { name: string; description?: string }) => `- ${s.name}: ${s.description ?? ''}`).join('\n');
+                const skillTexts = skills
+                    .map((s: { name: string; description?: string }) => `- ${s.name}: ${s.description ?? ''}`)
+                    .join('\n');
                 sections.push(`## Available Skills\nUse these as workflow guides:\n${skillTexts}`);
             }
         } catch { /* non-fatal */ }

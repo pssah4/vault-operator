@@ -6,6 +6,8 @@
 > **Priority**: P1-High
 > **Effort Estimate**: M
 
+> **Implementation status (2026-06-19).** Stages 0 to 3 are released and active in code. Stages 4 and 5 are tracked in **IMP-20-06-01** (`../improvements/IMP-20-06-01-claim-check-review-hints.md`). That IMP also supersedes the Inbox-Note output model described below: the new surface is an Aging-knowledge tab inside the existing VaultHealthRepairModal plus an optional, opt-in single-key frontmatter label. The conceptual stages remain valid; only the output channel changed.
+
 ## Feature Description
 
 Proactively identifies knowledge areas in the vault that may be outdated, inconsistent, or incomplete. Unlike the existing vault health check (FEAT-19-01) which finds technical inconsistencies (broken links, missing backlinks), this feature analyzes the **content** of notes -- factual accuracy, internal consistency between notes, and temporal relevance.

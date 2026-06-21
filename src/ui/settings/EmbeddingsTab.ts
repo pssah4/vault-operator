@@ -523,6 +523,21 @@ export class EmbeddingsTab {
                 })(); });
             });
 
+        // FIX-19-01-01: backlinks property the Vault Health repair
+        // writes the reverse-edge wikilinks into. Must match the
+        // property name already used in user notes; default 'Notizen'.
+        new Setting(containerEl)
+            .setName('Backlinks property')
+            .setDesc('Frontmatter property name that holds reciprocal backlink wikilinks; vault health repairs write the reverse edge into this key. Match the property name your existing notes already use.')
+            .addText((text) => {
+                text.setValue(this.plugin.settings.backlinksProperty ?? 'Notizen');
+                text.setPlaceholder('Notizen');
+                text.inputEl.addEventListener('blur', () => { void (async () => {
+                    this.plugin.settings.backlinksProperty = text.getValue().trim() || 'Notizen';
+                    await this.plugin.saveSettings();
+                })(); });
+            });
+
         new Setting(containerEl)
             .setName(t('settings.embeddings.summaryProperty'))
             .setDesc(t('settings.embeddings.summaryPropertyDesc'))

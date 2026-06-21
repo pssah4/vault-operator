@@ -74,6 +74,84 @@
 .vault-health-modal {
     max-width: 600px;
 }
+.vault-health-top-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding-bottom: 8px;
+}
+.vault-health-top-tab {
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.vault-health-top-tab.is-active {
+    color: var(--text-normal);
+    border-bottom: 2px solid var(--interactive-accent);
+}
+.vault-health-knowledge-review-toolbar {
+    display: flex;
+    gap: 6px;
+    margin: 8px 0 12px 0;
+}
+/* IMP-19-01-01: Auto-fix CTA above the severity filter pills.
+   Plain text + button; no background, no border. */
+.vault-health-autofix-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 8px 0 12px 0;
+}
+.vault-health-autofix-label {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-weight: 600;
+}
+.vault-health-autofix-desc {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.vault-health-autofix-btn {
+    align-self: flex-start;
+    margin-top: 6px;
+}
+/* IMP-19-01-02: sticky apply-bar at the top of the Findings tab.
+   Stays visible while the user scrolls through long finding lists. */
+.vault-health-apply-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    margin: 8px 0 12px 0;
+    padding: 6px 0;
+    background: var(--background-primary);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.vault-health-apply-sticky-btn {
+    width: 100%;
+}
+.resolve-conflict-modal .resolve-conflict-actions,
+.resolve-conflict-modal .resolve-conflict-confirm,
+.batch-resolve-modal .batch-resolve-actions,
+.batch-resolve-modal .batch-resolve-filter-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+}
+.batch-resolve-modal .batch-resolve-filter-label {
+    margin-right: 12px;
+}
+.batch-resolve-modal .batch-resolve-counter,
+.batch-resolve-modal .batch-resolve-preview {
+    margin: 8px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+}
 .vault-health-severity {
     display: inline-block;
     min-width: 54px;

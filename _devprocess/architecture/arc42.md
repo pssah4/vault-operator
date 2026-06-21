@@ -1049,6 +1049,7 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-121](ADR-121-tier-classifier-strategy.md) | Tier-Klassifikator-Strategie (Pattern plus Capability plus OpenRouter-Pricing, EPIC-26) |
 | [ADR-122](ADR-122-provider-only-settings-schema.md) | Provider-only Settings-Schema (providers[]-Liste mit tierMapping, EPIC-26) |
 | [ADR-123](ADR-123-settings-schema-migration.md) | Settings-Schema-Migration und Recovery-Pfad (EPIC-26) |
+| [ADR-135](ADR-135-verdict-confidence-routing-and-zdr-gating.md) | Verdict-Confidence-Routing und ZDR-Pflicht für Note-Verifier (IMP-20-06-01) |
 
 ---
 
@@ -1063,6 +1064,9 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | Obsidian wird während Indexing geschlossen | Checkpoint (mtime-basiert) ermöglicht Resume beim nächsten Start |
 | MCP-Server nicht erreichbar | McpClient: Timeout, Fehler-Result, kein Plugin-Crash |
 | Kontext wird zu lang | Context Condensing: first + last 4 Messages behalten, Rest komprimiert |
+| Frontier-Verifier ohne ZDR-Endpoint konfiguriert | Eskalation fail-closed; Mid-tier-Verdict bleibt, UI zeigt "Mid-tier, low confidence" Hinweis (ADR-135) |
+| Verifier-Run versucht Frontmatter-Key außerhalb der Allowlist zu schreiben | Allowlist-Filter im FrontmatterWriter verwirft den Key, Unit-Test pinnt die Liste (ADR-95, IMP-20-06-01) |
+| Tavily-Query überschreitet 400-Zeichen-Cap | Query-Builder kürzt deterministisch auf Cap, Unit-Test pinnt (ADR-104, IMP-20-06-01) |
 
 ---
 

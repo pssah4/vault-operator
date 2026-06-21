@@ -98,3 +98,35 @@ Modal-Layout (UI):
 - Body: gruppiert nach Kategorie innerhalb Severity.
 - Pro Finding: Title, Cluster-/Note-Ref, kontext-spezifische Action-Buttons (siehe FEAT-19-18).
 - Footer: Bulk-Dismiss-Action plus Settings-Link.
+
+## Amendment 2026-06-19 (IMP-20-06-01)
+
+Das `VaultHealthRepairModal` aus diesem ADR bekommt einen weiteren Tab namens `Knowledge review`, der die Note-Verdicts aus IMP-20-06-01 visualisiert. Der Tab folgt der bestehenden Severity-Konvention dieses ADR; Verdict-Werte aus dem Verifier mappen auf die ADR-106-Severity-Stufen wie folgt:
+
+- `outdated` mappt auf Critical
+- `contradicts` mit hoher Confidence mappt auf Critical
+- `contradicts` mit niedriger Confidence mappt auf Warning
+- `extends` mappt auf Hint
+- `matches` wird nicht im Modal angezeigt, sondern nur ueber das `last_checked_at`-Feld dokumentiert.
+
+Cluster-freshness-Findings (Karpathy-Lint, `HealthCheckType = 'cluster_freshness'`) landen ebenfalls im Knowledge-review-Tab und nicht im Findings-Tab; sie rendern als eigene Sub-Sektion oberhalb der per-Note-Verdicts. Begruendung: der User-Mental-Model ist "knowledge that is no longer current"; sowohl Cluster-Score als auch Note-Verdicts beantworten dieselbe Frage.
+
+Severity-Filter und Tab-Logik aus ADR-106 gelten unveraendert; der neue Tab folgt denselben Sortier- und Cooldown-Regeln wie die anderen Tabs.
+
+Zwei neue sub-modale Komponenten gehoeren in die Surface dieses ADR und werden hier mit-verantwortet, nicht in einer neuen UI-ADR ausgelagert:
+
+`ResolveConflictModal` ist ein Single-Note-Aufloesungs-Modal, das aus dem Knowledge-review-Tab geoeffnet wird. Es zeigt einen Diff zwischen aktueller Note und dem vom Verifier vorgeschlagenen `suggestedPatch`, plus die Action-Buttons Apply, Edit, Mark verified, Delete (mit Bestaetigung), Open in chat. Apply geht durch das bestehende `EditFileTool`-Boundary mit Checkpoint; Delete geht durch `FileManager.trashFile` mit explizitem Bestaetigungs-Modal.
+
+`BatchResolveModal` ist ein Bulk-Modal mit Filter (Severity, Confidence-Schwelle), Auswahl mehrerer Notes, sequentiellem Anwenden, Abort waehrend Lauf und Resume nach Fehler. Resume-State persistiert in einer kleinen DB-Tabelle (Schluessel: Run-ID, Index der naechsten Note), damit der Plugin-Reload den Bulk-Run nicht killt.
+
+Mobile-Klausel: beide sub-modalen Komponenten sind read-only auf iOS und Android. Apply, Delete und Bulk-Run sind dort ausgeblendet; die UI zeigt einen `synced from desktop`-Hinweis.
+
+User-Quittierung via Mark verified schreibt einen Eintrag in die existierende `dismissed_freshness`-Tabelle mit `hint_type='verdict'`. Der bestehende Knowledge-review-Tab-Aufruf liest diese Tabelle und unterdrueckt quittierte Notes, bis sich `mtime` der Note aendert.
+
+User-faced Display-Labels (kanonische englische Verdict-Literals bleiben in Code und Storage, das UI mappt sie auf lesbare Phrasen):
+
+- `matches` -> "Matches sources"
+- `extends` -> "Could extend"
+- `contradicts` -> "Contradicted by sources"
+- `outdated` -> "Outdated"
+- `no_external_source` -> "No external evidence yet"

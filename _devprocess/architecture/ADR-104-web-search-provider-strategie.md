@@ -85,3 +85,17 @@ Begruendung:
 Web-Search-Calls in Lint laufen ueber existing `WebSearchService` (FEAT-04-02). Pre-Check vor Stufe-2/3-Aktion: `webSearchService.isConfigured()` -> wenn false, Action disabled mit Hint.
 
 Anti-Echo-Suche-Spezifika: Source-Filter via Provider-Query-Operator (`-site:dominante-domain.com`) wenn Provider unterstuetzt; sonst Post-Filter auf Result-URLs.
+
+## Amendment 2026-06-19 (IMP-20-06-01)
+
+Der Note-Verifier aus IMP-20-06-01 ergaenzt den `WebSearchService` um eine zweite Aufruf-Form: `verifierQuery(note, cluster)`. Im Unterschied zu freien Recherche-Calls, die der Agent im Chat als Tool-Use absetzt, ist diese Form Plugin-intern und nicht user-initiiert. Privacy-Implikation: dieselbe Note kann pro Verifier-Run einen Such-Call ausloesen, und ueber tausende Notes summiert ergibt das eine signifikante Datenmenge, die an den Suchanbieter geht.
+
+Aus dieser Asymmetrie ergeben sich zwei Konvention-Erweiterungen:
+
+Erstens eine harte Query-Laenge-Schranke von 400 Zeichen, durchgesetzt im Query-Builder, nicht im Provider-Adapter. Der Builder erzeugt die Query aus einer Keywords-Projektion des Note-Inhalts (Top-N Substantive, Cluster-Topic, maximal ein bis zwei zitierte Claim-Saetze) und nicht aus dem Volltext. Ein Unit-Test pinnt den Cap; ein Pull-Request der den Cap aufweicht, schlaegt fehl. Der Cap ist eine inhaltliche Aussage, kein Token-Sparen: was nicht ins 400er-Fenster passt, ist mit hoher Wahrscheinlichkeit kontextuell schon Volltext und gehoert nicht in eine externe Anfrage.
+
+Zweitens ein separater Settings-Toggle `freshness.externalSources.enabled`, default off. Der bestehende `webTools.enabled`-Toggle aktiviert agentengesteuerte Recherche-Tools im Chat. Der neue Toggle gilt ausschliesslich fuer die Verifier-Pipeline. Ohne den neuen Toggle laeuft die Verifier-Pipeline ohne externe Suche und liefert `severity: no_external_source`. User, die fuer Chat-Recherche einen API-Key hinterlegt haben, eskalieren damit nicht still in den Background-Verifier.
+
+Die Provider-Wahl folgt der existierenden User-Konfiguration (`webTools.provider` mit den Werten `brave`, `tavily` oder `none`). Es gibt heute keinen Provider-Fallback, und diese Amendment fuehrt auch keinen ein; der Verifier nutzt schlicht den vom User aktivierten Provider. Bei `provider === 'none'` faellt das Verdict auf `severity: no_external_source` zurueck. Model-native Web-Search wird in dieser Amendment ausdruecklich NICHT eingefuehrt; sie waere eine eigene Folge-ADR.
+
+Code-seitig nutzt der Verifier denselben Provider-Pfad wie das bestehende `WebSearchTool` (`src/core/tools/web/WebSearchTool.ts`). Wir bauen keinen zweiten Service-Layer, sondern einen schlanken `FreshnessWebSearch`-Helper, der die existierenden Provider-Calls wiederverwendet und den Query-Cap im Builder enforced.

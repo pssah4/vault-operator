@@ -729,6 +729,16 @@ export interface ProviderConfig {
         mid?: string;
         flagship?: string;
     };
+
+    /**
+     * IMP-20-06-01 W4-T2 / ADR-135: per-provider Zero-Data-Retention
+     * affirmation. Default undefined (treated as not-ZDR). When the
+     * user flips this on, they confirm with the provider that prompts
+     * and completions are NOT retained or used for training. Required
+     * before the freshness verifier can escalate to the frontier tier
+     * on this provider.
+     */
+    zdrCapable?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -855,6 +865,15 @@ export interface ObsidianAgentSettings {
     // Knowledge Maintenance (FEATURE-1903)
     /** Frontmatter property name that defines the note category (e.g. "Kategorie"). */
     categoryProperty: string;
+    /**
+     * Frontmatter property name that holds the reciprocal backlink
+     * wikilinks (e.g. "Notizen" or "Notes"). Used by the Vault Health
+     * repair pass to write the reverse edge into the right key.
+     * FIX-19-01-01: was hardcoded to 'Notizen' inside the repair path,
+     * causing repairs to land on a different property than the
+     * original edge and re-detection on the next health check.
+     */
+    backlinksProperty: string;
     /** Frontmatter property name for the short summary (e.g. "Zusammenfassung"). */
     summaryProperty: string;
     /** Naming convention for source files (e.g. "Autor-Jahr_Titel"). */
@@ -1103,6 +1122,12 @@ export interface ObsidianAgentSettings {
 
     /** BA-25: Vault-Ingest-Pflege (Note-Summary, Frontmatter, Auto-Trigger, PDF). */
     vaultIngest: VaultIngestSettings;
+
+    /** IMP-20-06-01: FEAT-20-06 Stage 4+5 verifier settings. */
+    freshness: FreshnessSettings;
+
+    /** IMP-19-01-01: FEAT-19-01 Vault Health auto-apply rule-based repairs. */
+    vaultHealth: VaultHealthSettings;
 
     // ----------------------------------------------------------------------
     // EPIC-26: Advisor-Pattern + Provider-only setup (ADR-120 .. ADR-123)
@@ -1384,6 +1409,95 @@ export interface BackupSettings {
 }
 
 // ---------------------------------------------------------------------------
+// IMP-20-06-01: Note-Verifier settings (FEAT-20-06 Stage 4+5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Settings for the note-level claim-check pipeline. All defaults are
+ * privacy-conservative per ADR-135 and the IMP body:
+ * - `writeFrontmatter` is off so the vault stays clean by default
+ * - `externalSources.enabled` is off so no third-party search runs in the
+ *   background without explicit opt-in
+ * - `allowFrontierEscalation` is off so verdicts stay mid-tier-only
+ *   until the user actively turns it on AND the provider exposes ZDR
+ */
+export interface FreshnessSettings {
+    writeFrontmatter: boolean;
+    externalSources: {
+        enabled: boolean;
+    };
+    allowFrontierEscalation: boolean;
+    frontierConfidenceThreshold: number;
+    frontierSeverityFilter: ('matches' | 'extends' | 'contradicts' | 'outdated' | 'no_external_source')[];
+    excludePaths: string[];
+}
+
+export const DEFAULT_FRESHNESS_SETTINGS: FreshnessSettings = {
+    writeFrontmatter: false,
+    externalSources: { enabled: false },
+    allowFrontierEscalation: false,
+    frontierConfidenceThreshold: 0.7,
+    frontierSeverityFilter: ['contradicts', 'outdated'],
+    excludePaths: ['Private/', 'Personal/', 'Medical/', 'Clients/'],
+};
+
+// ---------------------------------------------------------------------------
+// IMP-19-01-01: Vault Health auto-apply for deterministic rule-based repairs.
+// ---------------------------------------------------------------------------
+
+export interface VaultHealthSettings {
+    /**
+     * IMP-19-01-01 AC-05. When true, opening the Vault Health modal
+     * via the sidebar badge auto-runs `runRepair()` over the three
+     * deterministic rule checks (missing_backlinks, category_mismatch,
+     * inconsistent_tags) before the modal renders. Findings that need
+     * a real decision still surface in the modal as before. Default
+     * off so existing users see no behaviour change until they opt in.
+     */
+    autoApplyRuleRepairs: boolean;
+
+    /**
+     * IMP-19-01-02: target folder for orphan-note auto-fix. When the
+     * user selects an `orphans` finding and applies repairs, the note
+     * is moved here via `app.fileManager.renameFile()`. Folder is
+     * auto-created. Default keeps the existing flat-vault convention
+     * (Inbox/Orphans/).
+     */
+    orphansTargetFolder: string;
+
+    /**
+     * FIX-19-01-05: silently drop the `with_context` orphan branch
+     * when true. A `with_context` orphan is a note that has outgoing
+     * MOC-property edges (Themen, Konzepte, ...) but no incoming
+     * wikilink. Users who use embedded Bases in the hub notes (which
+     * surface every note that points to the hub) do NOT need a
+     * Findings entry telling them to add a reciprocal backlink — the
+     * Base IS the backlink. Default true so the modal stays quiet
+     * for that workflow; users who rely on property-reciprocity can
+     * flip this off.
+     */
+    silenceWithContextOrphans: boolean;
+
+    /**
+     * FIX-19-01-05: extra path-prefix patterns to exclude from the
+     * orphan check. The hardcoded excludes are Templates, Daily
+     * Notes, Attachements (typo intentional, matches the user's
+     * existing folder). This setting layers user-specific
+     * exclusions on top — e.g. TaskNotes/ for the TaskNotes plugin,
+     * or any folder that holds notes which intentionally do not
+     * participate in the knowledge graph.
+     */
+    orphanExcludePathPrefixes: string[];
+}
+
+export const DEFAULT_VAULT_HEALTH_SETTINGS: VaultHealthSettings = {
+    autoApplyRuleRepairs: false,
+    orphansTargetFolder: 'Inbox/Orphans',
+    silenceWithContextOrphans: true,
+    orphanExcludePathPrefixes: ['TaskNotes/', 'Inbox/Orphans/'],
+};
+
+// ---------------------------------------------------------------------------
 // Visual Intelligence Settings (FEATURE-1115)
 // ---------------------------------------------------------------------------
 
@@ -1561,6 +1675,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     implicitThreshold: 0.7,
     enableSuggestionBanner: true,
     categoryProperty: 'Kategorie',
+    backlinksProperty: 'Notizen',
     summaryProperty: 'Zusammenfassung',
     sourceNamingConvention: 'Autor-Jahr_Titel',
     enableSynthesisButton: true,
@@ -1709,6 +1824,8 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     autoTaskRouter: { enabled: true },
     leanSystemPrompt: false,
     vaultIngest: DEFAULT_VAULT_INGEST_SETTINGS,
+    freshness: DEFAULT_FRESHNESS_SETTINGS,
+    vaultHealth: DEFAULT_VAULT_HEALTH_SETTINGS,
 
     // EPIC-26 / ADR-122: provider-only setup. Pre-migration defaults
     // (PLAN-25 will fill providerConfigs + flip schemaVersion).

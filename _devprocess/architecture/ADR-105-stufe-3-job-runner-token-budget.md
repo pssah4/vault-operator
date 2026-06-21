@@ -105,3 +105,15 @@ Budget-Counter:
 - Pro LLM-Call wird tokens_used in `currentWeekTokensSpent` aufaddiert.
 - Bei `currentWeekTokensSpent / weeklyBudgetUsd > 0.8`: Notification feuern (einmalig pro Woche).
 - Bei `currentWeekTokensSpent >= weeklyBudgetUsd`: Job-Iteration abbrechen, Notification "Budget exhausted".
+
+## Amendment 2026-06-19 (IMP-20-06-01)
+
+Der Note-Verifier aus IMP-20-06-01 laeuft INNERHALB des bestehenden `webUpdatePass`-Hooks, nicht als zweite parallele Pipeline. Damit erbt er das Token-Budget, die Pause-Detection und die Cooldown-Logik aus ADR-105 ohne Sondercode. Aggregierung folgt der bestehenden Konvention: `tokensUsed` aus `webUpdatePass` summiert alle pro-Note-Calls innerhalb des Clusters; das Stufe-3-Budget wird hart enforced wie bisher.
+
+Hook-Schema-Erweiterung: `UpdateFinding` bekommt ein optionales Feld `notes: NoteVerdict[]`. Das Feld ist abwaertskompatibel: bestehende Cluster-Level-Findings ohne Note-Liste funktionieren unveraendert; die `notificationSink`-Implementierung in main.ts ignoriert das Feld, wenn es leer ist. `NoteVerdict` traegt `path`, `verdict`, `confidence`, `summary`, `sources` und `verifierTier`. Die UI im Aging-knowledge-Tab konsumiert das Feld; legacy-Tests, die nur Cluster-Findings pruefen, bleiben gruen.
+
+Note-Auswahl pro Cluster ist Aufgabe eines neuen `NoteSelector`, der innerhalb `webUpdatePass` aufgerufen wird. Auswahl-Heuristik: `freshness_class` aus dem bestehenden `note_freshness`-Eintrag bestimmt die Frequenz (volatile zuerst, evolving spaeter, stable nur on-demand), `last_checked_at` filtert kuerzlich geprueftes raus, `dismissed_freshness` mit `hint_type='verdict'` filtert User-Quittierungen raus. Der Selector liefert eine geordnete, bound-cappte Liste; default Top 5 pro Cluster.
+
+Die `last_external_check`-Spalte aus `ClusterMetadataStore` wird vom Verifier gelesen und geschrieben (kein neues Feld). Sie entscheidet, ob ein Cluster ueberhaupt fuer einen Verifier-Run qualifiziert ist; der Stufe-3-Cooldown auf Cluster-Ebene bleibt das harte Gate.
+
+Mobile-Klausel aus ADR-105 (Stufe-3 nur Desktop) bleibt unveraendert. Der Aging-knowledge-Tab auf Mobile zeigt persistierte Verdicts read-only, ohne Run-Trigger.

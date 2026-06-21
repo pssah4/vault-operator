@@ -22,7 +22,6 @@ import { handleSaveConversation } from './saveConversation';
 import { handleCloseConversation } from './closeConversation';
 import { handleRecallMemory } from './recallMemory';
 import { handleSearchHistory } from './searchHistory';
-import { buildPrompts } from '../prompts/systemContext';
 
 type McpHandler = (plugin: ObsidianAgentPlugin, args: Record<string, unknown>) => Promise<McpToolResult>;
 
@@ -51,7 +50,6 @@ const handlers = new Map<string, McpHandler>([
 let currentSessionId: string | null = null;
 let sessionToolCalls: string[] = [];
 let sessionLastActivity = 0;
-let systemContextInjected = false;
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min inactivity = new session
 
 /**
@@ -71,7 +69,6 @@ async function ensureSession(plugin: ObsidianAgentPlugin): Promise<void> {
         sessionToolCalls = [];
         sessionMessages = [];
         sessionUiMessages = [];
-        systemContextInjected = false;
         currentSessionId = null;  // lazy: wird beim ersten Log-Call erzeugt
     }
 
@@ -281,22 +278,13 @@ export async function handleToolCall(
         });
     }
 
-    // Inject system context into the first tool response of each session
-    // (sent to Claude but NOT logged to history)
-    if (!systemContextInjected && tool !== 'sync_session') {
-        systemContextInjected = true;
-        try {
-            const prompts = await buildPrompts(plugin);
-            const contextText = prompts.map(p => typeof p.content === 'object' ? p.content.text : '').join('\n');
-            if (contextText.trim()) {
-                const originalText = result.content.map(c => c.text).join('\n');
-                result.content = [{
-                    type: 'text',
-                    text: `${contextText}\n\n---\n\n${originalText}`,
-                }];
-            }
-        } catch { /* non-fatal */ }
-    }
+    // FIX-23-09-01: the previous auto-injection of buildPrompts() output
+    // into the first tool response was removed. Tool results are now
+    // returned verbatim. The neutral vault-operator-context prompt is
+    // reachable only via the explicit MCP prompts/list + prompts/get
+    // endpoints, which the user selects deliberately in their client UI.
+    // This closes the indirect-prompt-injection vector that external
+    // MCP clients (Claude Desktop, Claude.ai) correctly flagged.
 
     // Log to history only for tools that don't write their own full
     // transcript. Pass 8 (FIX-23-01-03): EPIC-23 Cross-Surface tools

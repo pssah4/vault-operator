@@ -89,3 +89,11 @@ Frontmatter-Helper-Funktion:
 - Im Helper: detectStorageMode() -> wenn obsidian-sync, acquire WriterLock. Dann `app.fileManager.processFrontMatter(file, fm => transformerFn(fm))`. Release Lock.
 - Bei Conflict (processFrontMatter throws oder Lock-Acquire failt): skip plus log.warn.
 - Konflikt-Counter pro Backfill-Run, am Ende Notification "X notes skipped due to conflicts".
+
+## Amendment 2026-06-19 (IMP-20-06-01)
+
+Der Note-Verifier aus IMP-20-06-01 nutzt denselben Frontmatter-Helper und damit dieselbe WriterLock-Konvention wie Auto-Summary und Backfill. Konkret: jeder Verifier-Run, der den optionalen `freshness:`-Property-Block in eine Note schreibt, geht durch genau diesen Helper, mit derselben Storage-Mode-Detection und derselben Conflict-Skip-Logik. Es gibt keinen zweiten Writer.
+
+Neu hinzu kommt nur ein Allowlist-Filter im Helper-Aufruf des Verifiers: die transformerFn akzeptiert ausschliesslich Keys aus einer hart kodierten Liste (genau `freshness`). Andere Keys, die im transformerFn-Closure landen, werden vor dem Schreiben verworfen. Ein Unit-Test pinnt die Liste; ein zukuenftiger Pull-Request, der eine Verdict-Summary oder einen Source-Link auch ins Frontmatter pumpen will, schlaegt im Test fehl.
+
+Die Begruendung dieses Allowlist-Gates steht im Adversarial Review zur IMP-20-06-01: Verdict-Summaries gehoeren in die DB, nicht in vault-synchronisierte Dateien. Die Allowlist ist die Code-seitige Garantie fuer dieses Versprechen.

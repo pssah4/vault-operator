@@ -4798,3 +4798,229 @@ Keine. Tests laufen deterministisch in <200ms, kein async-Waiting, kein Timer-Mo
 **Live-Verifikation ausstehend:**
 
 oMLX + Qwen3 + Toggle OFF gegen lokales Setup von User arkham000 -- erst nach Merge in dev und Release. Dieser Test laeuft nicht im Plugin-CI, sondern beim User.
+
+---
+
+## 2026-06-19 -- RE -> Architecture: IMP-20-06-01 Claim Check + Review Hints
+
+**Phase:** Requirements Engineering (RE) complete.
+**Item:** IMP-20-06-01 (`_devprocess/requirements/improvements/IMP-20-06-01-claim-check-review-hints.md`)
+**Parent feature:** FEAT-20-06 (Knowledge Freshness, released; Stages 0-3 active in code, Stages 4-5 implementiert in diesem IMP).
+**Epic:** EPIC-20 Graph Intelligence.
+
+### Was wurde uebergeben
+
+10 Bauteile, 12 Akzeptanzkriterien, 12 binding Constraints (C-01 bis C-12) aus zwei voraufgehenden Audits. Volle Spec im IMP-File.
+
+### Quantifizierte NFRs
+
+- **Performance**: Stage-4-Cost pro Run unter 0.10 USD (1000-Note-Vault, alignt mit FEAT-20-06 Section "Cost Per Scan"). Hard cap im bestehenden `Stufe3PeriodicJob.spendTokens`-Mechanismus, kein paralleler Budget-Pot.
+- **Throughput**: Mid-Tier-Call pro Note 5000 Input + 500 Output Token als Ceiling. NoteSelector limitiert auf Top-N pro Cluster, default N = 5.
+- **Scheduling**: volatile Notes werden bevorzugt selektiert. `freshness_class` ist Scheduling-Signal, Default-Frequenzen: volatile woechentlich, evolving monatlich, stable quartalsweise.
+- **Retention**: `note_freshness_history` haelt maximal 5 Runs ODER 90 Tage pro Note, was zuerst eintritt.
+- **Availability**: Knowledge-review-Tab muss innerhalb des bestehenden VaultHealthRepairModal in weniger als 250 ms laden, auch bei 200 geflaggten Notes. Virtual scroll oder Cluster-Grouping als Pflicht.
+
+### Kritische ASRs (jede braucht eine ADR)
+
+1. **Hook-Schema-Erweiterung**: `UpdateFinding.notes?: NoteVerdict[]` als additive Erweiterung von [Stufe3PeriodicJob.ts:24-30](../../src/core/health/Stufe3PeriodicJob.ts#L24-L30). Trade-off zwischen additive Erweiterung und Breaking-Schema-Change. Mehrere Caller, einschliesslich [main.ts:1481-1491](../../src/main.ts#L1481-L1491) `notificationSink`. ADR notwendig.
+2. **Verifier-Pipeline-Platzierung**: Stage 4+5 laufen innerhalb `webUpdatePass`, nicht parallel. Bedeutet Token-Aggregation pro Cluster, nicht pro Note. ADR pin-pointed das Pattern und die Test-Implikation an [Stufe3Plan14.test.ts:109-117](../../src/core/health/__tests__/Stufe3Plan14.test.ts#L109-L117).
+3. **Frontmatter-Write-Pattern**: zentraler `FrontmatterWriter` mit `WriterLock` pro Pfad, geteilt mit ingest-deep, mark_as_memory_source, update_frontmatter. ADR pinned die WriterLock-API und das Conflict-Resolution-Verhalten.
+4. **External-Source-Adapter-Pattern**: WebSearchProvider-Interface aus ADR-104 erweitern um eine `verifierQuery(note): Promise<SearchResult[]>`-Methode mit harter Query-Cap (400 Zeichen, builder-side enforced). ADR begruendet die Cap und die Sanitizer-Pflicht.
+5. **Frontier-Eskalation-Gating**: ZDR / no-logging Pflicht beim Frontier-Provider. ADR definiert die Fail-closed-Semantik und das Provider-Capability-Schema.
+
+### Offene Architektur-Fragen fuer /architecture
+
+- Wie genau wird `dismissed_freshness` aktiviert? Neuer Read-Pfad allein in `NoteSelector`, oder zentraler `DismissedHintsRepository` der von mehreren Hooks gelesen wird?
+- ResolveConflictModal: erbt vom existierenden Modal-Pattern oder eigenes Pattern (das aktuelle Modal hat Tabs, neues Modal ist Diff-zentriert)?
+- BatchResolveModal Abort+Resume: Resume-State in der DB (eigene Tabelle) oder in-memory bis Plugin-Reload? Trade-off zwischen Robustheit und Komplexitaet.
+- `freshness.excludePaths` Default-Liste: vorgeschlagen `Private/`, `Personal/`, `Medical/`, `Clients/`. Ob diese Defaults aktiviert oder nur dokumentiert werden, ist UX-Entscheidung mit Privacy-Implikation.
+
+### Constraints
+
+- Budget: Stage-4-Pipeline darf das bestehende 2-USD-pro-Woche-Cluster-Budget nicht um Faktor 10 ueberschreiten. NoteSelector ist die Cost-Stellschraube.
+- Compliance: BA-25 Anti-Definition (line 386): "Kein automatischer Vault-Modus, der ohne User-Zustimmung Frontmatter aendert." Heisst: Frontmatter-Write default OFF.
+- Mobile: Knowledge-review-Tab muss auf iOS und Android read-only laden. Stage-4-Run nur Desktop, Sync bringt Verdicts auf Mobile.
+- Schema-Migration: additive (CREATE IF NOT EXISTS, ALTER ADD COLUMN nullable). WriterLock vor ALTER (Lesson aus FIX-12).
+
+### Forbidden-terms check
+
+Akzeptanzkriterien (AC-01 bis AC-12) sind tech-agnostisch formuliert mit Ausnahme der ID-Referenzen auf konkrete Files. Tech-Details (sql.js, Mid-Tier-Modell-IDs, Provider-Spezifika) sind im Tech-Stack-Block und im Konsolidierungs-Constraints-Block lokalisiert, also in den Sektionen, die explizit Tech zulassen.
+
+### Naechster Schritt
+
+`/architecture` mit Anker IMP-20-06-01.
+Erwarteter Output: ADRs zu den fuenf ASRs oben, plus arc42-Updates fuer Stage-4-Pipeline und Modal-Surface.
+Danach: PLAN-Item, das die zehn Bauteile in Build-Wellen aufteilt.
+
+---
+
+## 2026-06-19 -- Architecture -> Coding: IMP-20-06-01 ADRs + Amendments
+
+**Phase:** Architecture complete.
+**Item:** IMP-20-06-01.
+**Branch:** feature/imp-20-06-01-claim-check-review-hints (unchanged from RE phase).
+
+### Tech-stack justification
+
+Note-Verifier-Pipeline laeuft INNERHALB der bestehenden Stufe-3-Pipeline (`webUpdatePass` Hook). Token-Budget, Pause-Detection und Cooldown-Logik werden uebernommen aus ADR-105 ohne Sondercode. Mid-tier-Default plus optionale Frontier-Eskalation halten die Per-Run-Kosten innerhalb der existierenden 2-USD-pro-Woche-Decke.
+
+Frontmatter-Write geht durch den existierenden zentralen Writer aus ADR-95 mit einer harten Allowlist genau auf den Schluessel `freshness`. Verdict-Summaries, Source-Links und Konfidenz-Werte leben in der DB, nicht im Vault. Diese Trennung schuetzt Vault-Sync-Surfaces (iCloud, Obsidian Sync, Git-Mirrors) vor LLM-erzeugtem Inhalt.
+
+Externe Suche nutzt den existierenden `WebSearchService` aus ADR-104, ergaenzt um eine neue `verifierQuery`-Form mit harter 400-Zeichen-Schranke. Ein separater Toggle `freshness.externalSources.enabled` (default off) entkoppelt die Verifier-Pipeline von der Chat-Recherche; User, die im Chat einen API-Key hinterlegt haben, eskalieren nicht still in Background-Search.
+
+Frontier-Eskalation erfordert eine ZDR-Capability, die der Provider melden muss. Fail-closed: wenn ZDR nicht aktiv setzbar ist, bleibt es beim Mid-tier-Verdict mit `confidence_low`-Marker in der UI.
+
+### ADR-Konsolidierung
+
+**Eine neue ADR plus vier Amendments**, statt fuenf neuer ADRs. Begruendung: die ASRs aus IMP-20-06-01 erweitern Patterns, die in bestehenden ADRs schon dokumentiert sind. Inflation vermeiden.
+
+- ADR-135 (neu, Proposed): Verdict-Confidence-Routing und ZDR-Pflicht.
+- ADR-95 (amended): Allowlist-Filter im FrontmatterWriter.
+- ADR-104 (amended): `verifierQuery`-Form mit 400-Char-Cap.
+- ADR-105 (amended): `UpdateFinding.notes?[]` additive Hook-Erweiterung, Verifier inside `webUpdatePass`, `NoteSelector` liest `freshness_class`.
+- ADR-106 (amended): Knowledge-review-Tab plus `ResolveConflictModal` und `BatchResolveModal`, Verdict-zu-Severity-Mapping.
+
+### Rejected alternatives
+
+- Immer-Frontier-Modell: Kosten sprengen das Budget um Faktor 30 (ADR-135 Option 1).
+- Immer-Mid-tier ohne Eskalation: schwierige Faelle bekommen schlechtere Verdicts und der User-Trust leidet (ADR-135 Option 2).
+- Confidence-basierte Eskalation ohne ZDR-Pflicht: Privacy-Versprechen ist schwammig; sensible Notes wandern still in den nicht-ZDR-Pfad (ADR-135 Option 3).
+- Neue note-scoped Hook neben den existierenden Cluster-Hooks: bricht das Token-Budget-Modell aus ADR-105 und verdoppelt die Wartungsoberflaeche.
+- Separate Tabelle `note_freshness_verdict` neben dem existierenden `note_freshness`: bricht die `VaultRenameHandler.PATH_TABLES`-Konvention und ist unnoetiger Schema-Wildwuchs.
+- Inbox-Note-Output gemaess urspruenglicher FEAT-20-06-Spec: ersetzt durch Modal-UI per User-Entscheidung 2026-06-19, im FEAT-20-06-Body als superseded markiert.
+- Model-native Web Search: out-of-scope dieses ADR. Wenn relevant, eigene ADR-Erweiterung von ADR-104.
+
+### Known risks
+
+- Provider aendert seine ZDR-Garantie still in der Praxis. Mitigation: Plugin-Update kann die Capability-Default-Liste anpassen.
+- sql.js-Memory-Cap durch `note_freshness_history` bei sehr grossen Vaults. Mitigation: harte Retention 5 runs ODER 90 Tage, summary und sources_json opt-in.
+- Verdict-Reads im NoteSelector koennen mit gleichzeitigen Writes aus Stage 0 (`storeFreshnessClass`) konkurrieren. Mitigation: WriterLock-Pflicht aus FIX-12 gilt fuer den ALTER, und Reads sind tolerant gegen leere Spalten.
+- BatchResolveModal Resume-State kann beim Plugin-Crash verloren gehen, wenn er nur in-memory ist. Mitigation: DB-persistierter Resume-State (Architektur-Vorschlag), Coding kann auf in-memory mit Onunload-Save reduzieren wenn intra-session Resume reicht.
+
+### Open items handed to Coding
+
+- Provider-Capability-Schema fuer ZDR pro Provider: Architektur-Vorschlag steht (Anthropic ZDR, Bedrock no-logging, OpenAI no-training). Coding pruefe gegen den aktuellen Provider-Klassen-Layer.
+- Schema-Migration v10 nach v11: konkrete WriterLock-Sequenz fuer ALTER nach FIX-12-Pattern. Coding entscheidet die genaue Reihenfolge in `KnowledgeDB.applyMigration`.
+- Settings-UI fuer die vier neuen Toggles: Defaults stehen, Tooltips und Capability-Status-Indicator sind Coding-Entscheidung.
+- `dismissed_freshness`-Reader: zentral oder direkt im NoteSelector. Architektur-Vorschlag ist zentral, Coding pruefe Aufwand-Nutzen.
+- BatchResolveModal Resume-State Persistenz-Strategie: DB-Tabelle vs in-memory mit Onunload-Save. Coding entscheidet basierend auf konkretem UI-Verhalten.
+
+### Consistency check
+
+plan-context-imp-20-06-01.md ist konsistent mit ADR-135, ADR-95 (amended), ADR-104 (amended), ADR-105 (amended), ADR-106 (amended). Tech-Stack im plan-context matcht die Decision in ADR-135 und die Amendments. arc42 Section 9 hat ADR-135 in der Tabelle. arc42 Section 10 hat drei neue Qualitaetsszenarien fuer ZDR-fail-closed, Frontmatter-Allowlist-Filter und Query-Cap. `src/ARCHITECTURE.map` hat sieben neue Wayfinder-Rows, je ein Eintrag pro ADR-relevante Komponente.
+
+### Naechster Schritt
+
+`/coding` mit Anker IMP-20-06-01. Erwartete Coding-Phase: Schema-Migration v10 nach v11, FreshnessVerifier, NoteSelector, FreshnessQueryBuilder, UI-Komponenten (`VaultHealthRepairModal`-Tab + Sub-Modale), Settings-UI, Allowlist-Test, Char-Cap-Test. PLAN-Item splittet die zehn Bauteile aus IMP-20-06-01 in Build-Wellen, voraussichtlich vier (Schema + Verifier-Core, NoteSelector + QueryBuilder, UI-Welle, Settings + Tests).
+
+---
+
+## 2026-06-19 -- Testing -> Security-Audit: IMP-20-06-01 Claim Check + Review Hints
+
+**Phase:** Testing abgeschlossen. Ready for /security-audit.
+
+**Artefakte erweitert:**
+
+- `src/core/health/__tests__/FreshnessOrchestrator.test.ts` (+2 cases: multi-row mirror + history persistence, frontier escalation under ZDR end-to-end)
+- `src/core/health/__tests__/NoteSelector.test.ts` (+2 cases: non-verdict hint_type isolation, per-class cooldown windows)
+
+**Verify-Gate:**
+
+- Suite 2904 passing + 1 expected fail (no regression)
+- 0 lint errors (tsc -noEmit clean)
+- Test-Delta gegenueber /coding-Ende: +4 cases
+
+**Coverage-Hinweise und akzeptierte Luecken:**
+
+- `extractUrlsFromText` in `src/main.ts` (file-private Regex + Set-Dedup) bleibt ohne Direkttest, da die Funktion file-private ist und ein Export-Refactor mehr Komplexitaet bringen wuerde als das Trivial-Code rechtfertigt. Strong-Signal-Pfad ist indirekt durch die orchestrator-Pipeline abgedeckt.
+- UI-Modale (`VaultHealthRepairModal`-Knowledge-review-Tab, `ResolveConflictModal`, `BatchResolveModal`, `VaultTab.buildFreshnessSection`, `ProviderDetailModal`-ZDR-Toggle) sind bewusst nicht unit-getestet. Das Projekt hat fuer Modal-Code keinen vorhandenen Test-Pattern; Verhalten ist durch manuelle Smoke-Tests gesichert. Datalayer (KnowledgeReviewReader, FreshnessFrontmatterPatcher, ZdrCapabilityResolver) ist unit-getestet.
+- Coverage-Tool laeuft im default vitest-Setup nicht; konkrete line/branch/function-Prozente daher nicht gemeldet. Anzahl Tests pro Komponente ist im Plan-40 Implementation-Notes-Block je Welle gelistet.
+
+**Sicherheits-relevante Beobachtungen fuer Security-Audit:**
+
+- LlmVerifierProvider buildet Prompt mit `cluster.sources` Liste. Web-Search-Results kommen aus Brave/Tavily; Tavily-Snippets koennen prompt-injection-Vektoren tragen. Verifier-Prompt sollte gegen "ignore previous instructions"-Pattern haerten (Mitigation moeglich via System-Prompt-Pflicht + Sources als ZITAT geklammert). Aktuell: Sources werden als Liste mit Nummerierung eingebettet, kein Quote-Escape.
+- ResolveConflictModal.openInChat schreibt Note-Pfad und Sources direkt in den Prompt. Sources kommen aus der DB (verifier-recorded). Pfade kommen aus der Vault. Kein Sanitize. Theoretischer Vector: bösartiger Note-Pfad mit Markdown-Injection.
+- BatchResolveModal.deleteRow trashFile ohne explizite Confirm-Schwelle. User-bewusst (Modal selbst ist die Confirm-Schwelle), aber bei sehr grossen Mengen sollte ein "are you sure"-Schritt vor dem Loop geprueft werden.
+- ProviderConfig.zdrCapable ist ein User-affirmation-Flag. Es gibt kein Provider-side-check; der User muss verantworten, dass die Affirmation stimmt. Das ist beabsichtigt (ADR-135) -- Security-Audit sollte aber bestaetigen, dass das Modell-Surface die Beschriftung "I have confirmed with this provider" klar als User-Verantwortung darstellt.
+- FreshnessFrontmatterPatcher filterToAllowlist droppt Keys ueber object-property-lookup. Sicher gegen prototype-pollution-Keys, da nur die literale `freshness`-Whitelist matcht und kein dynamischer Key durchgeschleift wird.
+
+### Naechster Schritt
+
+`/security-audit` mit Anker IMP-20-06-01. Erwartete Audit-Punkte:
+
+1. Prompt-Injection-Analyse fuer LlmVerifierProvider.buildPrompt (Source-Snippets)
+2. Note-Path-Sanitization im ResolveConflictModal.openInChat-Prompt
+3. dismissed_freshness-Race-Conditions wenn parallele Modal-Aktionen den gleichen Pfad treffen
+4. note_freshness_history retention-Sweep DoS-Risiko bei pathologisch vielen Eintraegen pro Pfad
+5. ProviderConfig.zdrCapable als User-Affirmation-Pattern: Klarheit + Persistenz + Rollback bei type-Wechsel
+
+---
+
+## 2026-06-19 -- Security-Audit -> Release-Closure: IMP-20-06-01 Claim Check + Review Hints
+
+**Phase:** Security-Audit abgeschlossen mit Fix-Loop. Ready for Release-Closure / /dia-orchestrator Phase 7.
+
+**Verdict:** Overall Risk Low. Release recommendation: green.
+
+**Audit-Report:** `_devprocess/analysis/AUDIT-IMP-20-06-01-2026-06-19.md`
+
+**Gefundene Findings:** 0 Critical, 0 High, 3 Medium, 4 Low, 4 Info.
+
+**Resolved im Audit-Pass (Option B):**
+
+- M-1: BatchResolveModal per-batch confirmDestructive vor Bulk-Delete
+- M-2: LlmVerifierProvider.buildPrompt fenced den Note-Body in [BEGIN_NOTE]/[END_NOTE] mit "treat as data"-Direktive (Prompt-Injection-Härtung)
+- M-3: FreshnessOrchestrator.enabled()-Gate; main.ts wired auf `freshness.externalSources.enabled || freshness.writeFrontmatter` (Authorization-Gate, Verifier-no-op bei OFF-Default)
+- L-3: console.warn redacted auf error.message-only (kein Provider-Body-Echo das Tavily-api_key tragen koennte)
+- L-4: ProviderDetailModal resettet formZdrCapable=false bei provider-type-Wechsel
+
+**Deferred zur Backlog:**
+
+- FIX-20-06-02 (L-1, P3): Brave/Tavily URL-Pfad-Sanitization vor Prompt-Embed
+- FIX-20-06-03 (L-2, P3): Note-Pfad-Markdown-Escape im openInChat-Prompt (Trigger erst bei realer Chat-Sidebar-Uebergabe)
+
+**Out of Scope:** npm audit reports 12 Critical + 6 High die alle aus v2.14.7 herueberkommen (eslint, pptxgenjs, @modelcontextprotocol/sdk, openai 4.x, hono, etc.). Diese gehoeren in einen separaten AUDIT-038 Delta-Audit auf den Dependency-Tree, nicht in IMP-20-06-01.
+
+**Architektur-Beobachtungen (rein informativ):**
+
+- Verdict-Whitelist + Confidence-Clamp begrenzen die Auswirkung jeder prompt-injection: selbst manipulierte LLM-Antworten muessen die 5 erlaubten Literale matchen, confidence wird auf [0,1] geclamped, summary ist kurz. Die UI zeigt das Severity-Mapping, der User entscheidet immer manuell. Kein automatisches Handeln auf Basis eines Verdicts.
+- Die ZDR-Affirmation ist explizit als User-Verantwortung formuliert ("I have confirmed with this provider"). Kein Provider-API-Check existiert; das ist beabsichtigt (ADR-135).
+- FreshnessFrontmatterPatcher.filterToAllowlist ist prototype-pollution-safe, da nur ueber das literale FRESHNESS_ALLOWLIST-Array iteriert wird (Audit I-3).
+
+**Test-Result nach Fix-Loop:** 2906 passing + 1 expected fail (Stand: post-audit). +2 cases gegenueber post-testing-Baseline.
+
+**Build:** clean (main.js 4.7 MB), deployed.
+
+### Naechster Schritt
+
+`/dia-orchestrator` Phase 7 (Release-Closure) -- oder direkter Release-Path via `/release` mit Version-Bump. PLAN-40 Released, IMP-20-06-01 Done, 2 P3-FIX im Backlog gequeued. Empfohlener Tagline-Kandidat fuer das naechste Release: "Knowledge freshness, with note-level verifier."
+
+---
+
+## 2026-06-19 -- Live-Test-Feedback: Vocabulary + Tab-Rename IMP-20-06-01
+
+**Phase:** Post-live-test follow-up auf das IMP-20-06-01-Coding. Manuelles Smoke-Testing nach Wave 4 hat drei Probleme aufgedeckt, die in dieser Rename-Pass adressiert wurden.
+
+**Befunde aus dem Live-Test:**
+
+1. Der "Aging knowledge"-Tab zeigte deutsche Verdict-Tokens (widerspricht, ergaenzt) in der UI. Das Plugin-UI ist Englisch-only per [[feedback-ui-language-and-naming]]; die deutschen TriageCard-Tokens haben sich von FEAT-19-12 in IMP-20-06-01 weitervererbt.
+2. "Cluster freshness (Karpathy-Lint)" wurde unter "Findings" gerendert, semantisch gehoert es aber in den selben Topf wie die Note-Level-Verdicts.
+3. Der Tab-Name "Aging knowledge" trifft den Inhalt nicht: er enthaelt nicht nur Aging-Faelle sondern auch Contradictions und Outdated-Markierungen.
+
+**Behoben in diesem Pass:**
+
+- **Verdict-Vokabular von Deutsch auf Englisch:** `deckt-sich` -> `matches`, `ergaenzt` -> `extends`, `widerspricht` -> `contradicts`. `outdated` und `no_external_source` waren von Anfang an englisch und bleiben unveraendert. Quellen-Files: types.ts, LlmVerifierProvider (Prompt + Whitelist), KnowledgeReviewReader (mapSeverity), settings.ts (DEFAULT_FRESHNESS_SETTINGS.frontierSeverityFilter), alle Health-Test-Files.
+- **DB-Schema-Migration v11 -> v12:** rewrite-in-place der drei deutschen Verdict-Werte in `note_freshness.last_verdict` und `note_freshness_history.verdict`. Idempotent (English-canon + outdated + no_external_source + NULL passieren unveraendert). Extrahiert als pure Helper `migrateVerdictVocabularyV11ToV12` mit eigenem Migration-Test (4 cases, alle gruen).
+- **Tab-Rename Aging knowledge -> Knowledge review:** TopTab `'aging'` -> `'review'`. Klassennamen `.vault-health-aging-*` -> `.vault-health-knowledge-review-*` (10 Klassen). Methoden `showAgingKnowledge` -> `showKnowledgeReview`. Reader umbenannt: `AgingKnowledgeReader` -> `KnowledgeReviewReader`, ebenso `AgingRow` -> `ReviewRow`, `AgingSeverity` -> `ReviewSeverity`. Datei-Rename via `git mv` (history bleibt erhalten).
+- **Cluster-Freshness in den Knowledge-review-Tab verschoben:** neuer Filter `KNOWLEDGE_REVIEW_CHECKS = {'cluster_freshness'}` filtert die Finding aus `showFindings` raus und `renderClusterFreshnessSection` rendert sie im Knowledge-review-Tab als eigene Sektion (oben, ueber den per-note-Verdicts). Bisheriger "Discuss freshness update"-Button bleibt erhalten und gibt jetzt einen vorbereiteten Chat-Prompt an `onDiscuss` weiter.
+- **User-faced Display-Labels:** Verdict-Literals bleiben in Storage und Code in der englischen Kurzform (matches/extends/contradicts/outdated/no_external_source); die UI mappt das ueber eine `VERDICT_LABELS`-Konstante auf lesbare Phrasen: `matches` -> "Matches sources", `extends` -> "Could extend", `contradicts` -> "Contradicted by sources", `outdated` -> "Outdated", `no_external_source` -> "No external evidence yet". Same Mapping doppelt im VaultHealthRepairModal und ResolveConflictModal (Inline, kein zentraler Helper notwendig).
+
+**ARCHITECTURE.map:** zwei Zeilen umbenannt (`aging-knowledge-tab` + `aging-knowledge-reader`), eine neue Zeile `verdict-vocab-migration` ergaenzt.
+
+**Doku-Sync:** PLAN-40, IMP-20-06-01, ADR-135, ADR-106-Amendments, plan-context, AUDIT-Report alle auf das neue Vokabular gezogen. BACKLOG-Rows PLAN-40 / ADR-135 / IMP-20-06-01 auf "Knowledge-review-Tab" und English-Verdicts angepasst.
+
+**Risiko fuer existierende Installs:** Self-Build-User, die vor dem Migration-Bump eine DB mit deutschen Verdict-Werten geschrieben haben, kriegen die Werte beim naechsten Plugin-Load automatisch uebersetzt. KEINE manuelle Aktion noetig. Test deckt drei Faelle ab: deutsche Verdicts werden gemappt, englische bleiben unveraendert, NULL bleibt NULL, doppelte Anwendung ist no-op.
+
+### Naechster Schritt
+
+Adversarial Verify-Workflow + Full-Suite-Lauf. Wenn clean: commit der Rename-Wellen unter `chore: IMP-20-06-01 vocabulary + tab rename + cluster freshness move`.

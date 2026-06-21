@@ -1,6 +1,7 @@
 /**
- * get_context -- Returns user profile, memory, vault stats, skills, and rules.
- * ALWAYS called first by Claude to understand the user and vault context.
+ * get_context -- Returns vault stats and, when authorized, user profile,
+ * memory, skills, and rules. Recommended as the first call of a session
+ * so the assistant understands the vault and any user-supplied rules.
  */
 
 import type ObsidianAgentPlugin from '../../main';
@@ -14,11 +15,11 @@ export async function handleGetContext(
 ): Promise<McpToolResult> {
     const sections: string[] = [];
 
-    // AUDIT-016 M-3: strictSourceIsolation gating fuer Memory + Soul +
-    // Skills + Rules. Wenn Setting an UND source_interface != obsilo
-    // (also externer Connector), liefern wir NUR Vault-Stats statt
-    // Memory-Inhalt. Vermeidet, dass ChatGPT-Connector (familien-shared)
-    // Sebastians persoenlichen Memory-Kontext einholt.
+    // AUDIT-016 M-3: strictSourceIsolation gates memory, soul, skills,
+    // and rules. When the setting is ON and source_interface != 'obsilo'
+    // (i.e. an external connector), we return only vault stats instead
+    // of memory content. This prevents shared-account connectors (e.g.
+    // ChatGPT, Perplexity) from pulling personal memory context.
     const crossSurface = plugin.settings?.memory?.crossSurface;
     const sourceInterface = args.source_interface !== undefined
         ? validateSourceInterface(args.source_interface)
@@ -69,9 +70,9 @@ export async function handleGetContext(
     ].join('\n'));
 
     // Available skills + Rules: skipped under strictSourceIsolation.
-    // Sebastians lokale Skills + Rules sind keine direkten Memory-Inhalte,
-    // koennen aber Personalisierungs-Hints (Tonfall, Sprach-Praeferenzen)
-    // enthalten. Konservativ behandeln.
+    // Local skills and rules are not direct memory content, but they may
+    // carry personalization hints (tone, language preferences). Treat
+    // conservatively.
     if (!strictMode) {
         if (plugin.skillsManager) {
             try {

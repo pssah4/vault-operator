@@ -54,6 +54,14 @@ import { AutoTriggerObserver } from './core/ingest/AutoTriggerObserver';
 import { TopHubBlockGenerator, type TopHubBlockState } from './core/memory/TopHubBlockGenerator';
 import { Stufe3PeriodicJob, ClusterMetadataStatePersistence } from './core/health/Stufe3PeriodicJob';
 import { Stufe2ActivityTrigger } from './core/health/Stufe2ActivityTrigger';
+import { FreshnessOrchestrator } from './core/health/FreshnessOrchestrator';
+import { FreshnessQueryBuilder } from './core/health/FreshnessQueryBuilder';
+import { FreshnessVerifier } from './core/health/FreshnessVerifier';
+import { FreshnessWebSearch } from './core/health/FreshnessWebSearch';
+import { LlmVerifierProvider } from './core/health/LlmVerifierProvider';
+import { NoteFreshnessHistoryStore } from './core/health/NoteFreshnessHistoryStore';
+import { NoteSelector } from './core/health/NoteSelector';
+import { isFrontierZdrEnabled } from './core/health/ZdrCapabilityResolver';
 import { FrontmatterBackfillJob } from './core/ingest/FrontmatterBackfillJob';
 import { buildSummaryGenerator } from './core/ingest/SummaryGenerator';
 import { DEFAULT_VAULT_INGEST_SETTINGS } from './types/settings';
@@ -176,6 +184,16 @@ export default class ObsidianAgentPlugin extends Plugin {
     frontmatterIndexer: FrontmatterIndexer | null = null;
     autoTriggerObserver: AutoTriggerObserver | null = null;
     topHubBlockGenerator: TopHubBlockGenerator | null = null;
+    /**
+     * FIX-19-01-03: set true while the Vault Health repair pass is
+     * mutating frontmatter. The global vault.on('modify') listener
+     * skips its synchronous `graphExtractor.extractFile(file)` call
+     * during the window so it cannot read the STALE metadataCache
+     * and overwrite the freshly-inserted reverse edges. The repair
+     * orchestrator owns its own extractAll/extractFile sequence
+     * once the cache has settled.
+     */
+    vaultHealthRepairInProgress = false;
     stufe3PeriodicJob: Stufe3PeriodicJob | null = null;
     private stufe3IntervalHandle: import('./util/scheduleRecurring').RecurringHandle | null = null;
     /** FEAT-19-19: Stufe-2 Activity-Trigger fuer Light-Web-Search-Update-Hints. */
@@ -1438,6 +1456,67 @@ export default class ObsidianAgentPlugin extends Plugin {
             // auf no-op zurueck damit Tokenverbrauch null bleibt.
             if (this.knowledgeDB && this.clusterMetadataStore) {
                 const persistence = new ClusterMetadataStatePersistence(this.knowledgeDB);
+
+                // IMP-20-06-01 W2-T5: note-level FreshnessVerifier wiring.
+                // All freshness sub-flags default OFF; the orchestrator is
+                // instantiated unconditionally so settings-toggles take
+                // effect without a plugin reload.
+                const freshnessSettings = this.settings.freshness;
+                const webSettings = this.settings.webTools;
+                const webProvider: 'brave' | 'tavily' = webSettings?.provider === 'tavily' ? 'tavily' : 'brave';
+                const webApiKey = (webProvider === 'brave' ? webSettings?.braveApiKey : webSettings?.tavilyApiKey) ?? '';
+
+                const freshnessOrchestrator: FreshnessOrchestrator | null = (() => {
+                    if (!this.knowledgeDB || !this.apiHandler) return null;
+                    const db = this.knowledgeDB.getDB();
+                    const verifierProvider = new LlmVerifierProvider({
+                        midApi: this.apiHandler,
+                        midModelId: this.apiHandler.getModel?.()?.id ?? 'mid-tier',
+                        hasZdr: () => isFrontierZdrEnabled(this.settings.providerConfigs),
+                    });
+                    const verifier = new FreshnessVerifier(verifierProvider, {
+                        allowFrontierEscalation: freshnessSettings.allowFrontierEscalation,
+                        frontierConfidenceThreshold: freshnessSettings.frontierConfidenceThreshold,
+                        frontierSeverityFilter: freshnessSettings.frontierSeverityFilter,
+                    });
+                    return new FreshnessOrchestrator({
+                        selector: new NoteSelector(db, {
+                            topN: 5,
+                            excludePaths: freshnessSettings.excludePaths,
+                            volatileRecheckDays: 7,
+                            evolvingRecheckDays: 30,
+                            stableRecheckDays: 90,
+                        }),
+                        queryBuilder: new FreshnessQueryBuilder(),
+                        webSearch: new FreshnessWebSearch({
+                            externalSourcesEnabled: freshnessSettings.externalSources.enabled,
+                            provider: webProvider,
+                            apiKey: webApiKey,
+                        }),
+                        verifier,
+                        history: new NoteFreshnessHistoryStore(db),
+                        db,
+                        // Audit M-3 mitigation (AUDIT-IMP-20-06-01-2026-06-19):
+                        // outer authorization gate. The orchestrator
+                        // stays a no-op until the user turns on at
+                        // least one freshness sub-flag.
+                        enabled: () => {
+                            const s = this.settings.freshness;
+                            return s.externalSources.enabled || s.writeFrontmatter;
+                        },
+                        readNoteBody: async (path) => {
+                            const file = this.app.vault.getAbstractFileByPath(path);
+                            if (!(file instanceof TFile)) return null;
+                            try {
+                                return await this.app.vault.read(file);
+                            } catch (e) {
+                                console.debug('[FreshnessOrchestrator] read failed', path, e);
+                                return null;
+                            }
+                        },
+                    });
+                })();
+
                 const preFilter = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
                     if (!this.apiHandler?.classifyText) return { decision: 'no' as const, tokensUsed: 0 };
                     const prompt = `Cluster "${cluster.cluster}" wurde zuletzt am ${cluster.lastExternalCheck ?? 'nie'} extern verifiziert. `
@@ -1478,6 +1557,23 @@ export default class ObsidianAgentPlugin extends Plugin {
                     }
                     const text = captured.join('\n');
                     if (!text.trim()) return { findings: [], tokensUsed: 0 };
+
+                    // IMP-20-06-01 W2-T5: run the note-level verifier on
+                    // top of the cluster-level web pass. Orchestrator
+                    // does its own selection; if it returns no verdicts
+                    // (no candidates, externalSources OFF, classifier
+                    // missing), the cluster finding still ships without
+                    // a notes array.
+                    let noteVerdicts: import('./core/health/types').NoteVerdict[] = [];
+                    let verifierTokens = 0;
+                    try {
+                        const orchestrated = await freshnessOrchestrator?.runForCluster(cluster.cluster);
+                        noteVerdicts = orchestrated?.verdicts ?? [];
+                        verifierTokens = orchestrated?.tokensUsed ?? 0;
+                    } catch (e) {
+                        console.debug('[Stufe3] verifier-pass failed:', e);
+                    }
+
                     return {
                         findings: [{
                             cluster: cluster.cluster,
@@ -1486,8 +1582,9 @@ export default class ObsidianAgentPlugin extends Plugin {
                             sources: extractUrlsFromText(text).slice(0, 5),
                             detectedAt: new Date().toISOString(),
                             strongSignal: extractUrlsFromText(text).length >= 2,
+                            ...(noteVerdicts.length ? { notes: noteVerdicts } : {}),
                         }],
-                        tokensUsed: text.length / 4,
+                        tokensUsed: text.length / 4 + verifierTokens,
                     };
                 };
                 const notificationSink = (findings: import('./core/health/Stufe3PeriodicJob').UpdateFinding[]) => {
@@ -1584,7 +1681,11 @@ export default class ObsidianAgentPlugin extends Plugin {
             if ((this.settings.enableVaultHealthCheck ?? true) && this.knowledgeDB) {
                 this.vaultHealthService = new VaultHealthService(this.app, this.knowledgeDB);
                 this.app.workspace.onLayoutReady(() => {
-                    void this.vaultHealthService?.runChecks().then(() => {
+                    void this.vaultHealthService?.runChecks(undefined, {
+                        backlinksProperty: this.settings.backlinksProperty ?? 'Notizen',
+                        silenceWithContextOrphans: this.settings.vaultHealth?.silenceWithContextOrphans ?? true,
+                        orphanExcludePathPrefixes: this.settings.vaultHealth?.orphanExcludePathPrefixes ?? [],
+                    }).then(() => {
                         // Update badge in sidebar view after health check completes
                         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
                         if (leaves.length > 0 && this.vaultHealthService) {
@@ -1671,7 +1772,16 @@ export default class ObsidianAgentPlugin extends Plugin {
                 if (!autoIndex || !(file instanceof TFile) || !isIndexable(file)) return;
                 this.scheduleFileIndex(file.path);
                 if (file.extension === 'md') {
-                    this.graphExtractor?.extractFile(file);
+                    // FIX-19-01-03: during a Vault Health repair pass
+                    // the modify event fires before Obsidian's
+                    // metadataCache reparse settles, so a synchronous
+                    // extractFile here would read STALE frontmatter
+                    // and overwrite the freshly inserted reverse edge
+                    // that the repair just produced. The repair's
+                    // post-write extractAll handles the graph refresh.
+                    if (!this.vaultHealthRepairInProgress) {
+                        this.graphExtractor?.extractFile(file);
+                    }
                     this.implicitConnectionService?.recomputeForPath(file.path, this.settings.implicitThreshold);
                     this.ontologyStore?.updateForPath(file.path, this.settings.mocPropertyNames ?? []);
                     this.scheduleTopHubBlockRegen();

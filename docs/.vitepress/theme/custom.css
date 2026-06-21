@@ -3,6 +3,12 @@
    Extends VitePress default theme with brand identity and polish.
    ================================================================= */
 
+/* Home page: the landing hero + EditorDemo provide their own spacing,
+   so drop VitePress' large bottom margin under the home content. */
+.VPHome {
+  margin-bottom: 0;
+}
+
 /* ── Brand Colors & Design Tokens ─────────────────────────────── */
 
 :root {

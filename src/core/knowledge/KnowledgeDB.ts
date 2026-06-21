@@ -49,7 +49,7 @@ type SqlJsStatement = {
 
 export type { SqlJsDatabase, SqlJsStatement };
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 12;
 
 // ---------------------------------------------------------------------------
 // Schema DDL
@@ -129,8 +129,32 @@ CREATE TABLE IF NOT EXISTS note_freshness (
     path TEXT PRIMARY KEY,
     freshness_class TEXT NOT NULL DEFAULT 'stable',
     temporal_marker_count INTEGER NOT NULL DEFAULT 0,
-    classified_at TEXT NOT NULL
+    classified_at TEXT NOT NULL,
+    last_verdict TEXT,
+    last_confidence REAL,
+    last_summary TEXT,
+    last_sources_json TEXT,
+    last_checked_at TEXT,
+    last_verifier_tier TEXT
 );
+
+-- v10 -> v11: note-level LLM-verifier history (IMP-20-06-01).
+-- 1:N to note_freshness.path. Retention is enforced in the
+-- NoteFreshnessHistoryStore wrapper, not the schema.
+CREATE TABLE IF NOT EXISTS note_freshness_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT NOT NULL,
+    run_at TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    summary TEXT,
+    sources_json TEXT,
+    verifier_tier TEXT NOT NULL,
+    model_id TEXT,
+    tokens_used INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_note_freshness_history_path_run
+    ON note_freshness_history(path, run_at DESC);
 
 CREATE TABLE IF NOT EXISTS dismissed_freshness (
     note_path TEXT NOT NULL,
@@ -501,6 +525,43 @@ export class KnowledgeDB {
             // ingest_triage_log. All created idempotently by the initSchema()
             // re-run below; no ALTER on existing tables needed.
 
+            // v10 -> v11: IMP-20-06-01 freshness verifier columns plus
+            // note_freshness_history table. ADD COLUMN runs explicitly
+            // (initSchema re-run below cannot mutate an existing table).
+            // WriterLock around ALTER is the FIX-12 lesson; the
+            // serializer is single-threaded inside this constructor so
+            // the ALTER cannot race against an ingest write.
+            if (currentVersion < 11) {
+                for (const col of [
+                    'last_verdict TEXT',
+                    'last_confidence REAL',
+                    'last_summary TEXT',
+                    'last_sources_json TEXT',
+                    'last_checked_at TEXT',
+                    'last_verifier_tier TEXT',
+                ]) {
+                    try {
+                        this.db.run(`ALTER TABLE note_freshness ADD COLUMN ${col}`);
+                    } catch {
+                        // Column may already exist if a previous migration attempt landed partial.
+                    }
+                }
+            }
+
+            // v11 -> v12: IMP-20-06-01 verdict literal vocabulary
+            // migration. Self-builds that ran the freshness verifier
+            // before this change persisted German verdict literals
+            // (deckt-sich, ergaenzt, widerspricht) into note_freshness
+            // and note_freshness_history. Rewrite them to the English
+            // canonical values (matches, extends, contradicts). The
+            // CASE expression is idempotent: rows that already carry
+            // the English value or any non-matching value pass through
+            // unchanged. outdated and no_external_source were English
+            // from the start and stay untouched.
+            if (currentVersion < 12) {
+                migrateVerdictVocabularyV11ToV12(this.db);
+            }
+
             // Re-run DDL (CREATE IF NOT EXISTS is idempotent)
             this.initSchema();
             this.db.run('UPDATE schema_meta SET version = ?', [SCHEMA_VERSION]);
@@ -705,5 +766,40 @@ export class KnowledgeDB {
             this.saveTimer = null;
             void this.save();
         }, 2000); // 2s debounce
+    }
+}
+
+/**
+ * IMP-20-06-01 v11 -> v12 migration step. Pure helper so the unit
+ * tests can exercise it without instantiating KnowledgeDB.
+ *
+ * Rewrites the German verdict literals stored in v11
+ * (`deckt-sich`, `ergaenzt`, `widerspricht`) to the English canon
+ * (`matches`, `extends`, `contradicts`) in both
+ * `note_freshness.last_verdict` and `note_freshness_history.verdict`.
+ * The CASE expression is idempotent: rows already in the English
+ * canon, or in any other state (outdated, no_external_source, NULL),
+ * pass through unchanged.
+ */
+export function migrateVerdictVocabularyV11ToV12(db: SqlJsDatabase): void {
+    const verdictRewrite = (col: string) => `CASE ${col}
+        WHEN 'deckt-sich' THEN 'matches'
+        WHEN 'ergaenzt' THEN 'extends'
+        WHEN 'widerspricht' THEN 'contradicts'
+        ELSE ${col}
+    END`;
+    try {
+        db.run(
+            `UPDATE note_freshness SET last_verdict = ${verdictRewrite('last_verdict')} WHERE last_verdict IS NOT NULL`,
+        );
+    } catch {
+        // note_freshness might be empty or absent on a partial v11 install.
+    }
+    try {
+        db.run(
+            `UPDATE note_freshness_history SET verdict = ${verdictRewrite('verdict')}`,
+        );
+    } catch {
+        // history table might not exist on a partial v11 install.
     }
 }
