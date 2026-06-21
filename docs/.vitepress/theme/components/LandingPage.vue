@@ -1,175 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
 import { withBase } from 'vitepress'
-
-const typewriterText = ref<HTMLSpanElement>()
-const mentionDropdown = ref<HTMLDivElement>()
-const mentionItem = ref<HTMLDivElement>()
-
-interface MentionSegment { type: 'mention'; typed: string; full: string; file: string }
-interface TextSegment { type: 'text'; value: string }
-interface SlashSegment { type: 'slash'; typed: string; full: string; label: string }
-type Segment = TextSegment | MentionSegment | SlashSegment
-interface ComplexPrompt { segments: Segment[] }
-type Prompt = string | ComplexPrompt
-
-const prompts: Prompt[] = [
-  {
-    segments: [
-      { type: 'text', value: 'Find all Notes related to ' },
-      { type: 'mention', typed: 'Agenti', full: 'AgenticAI', file: 'AgenticAI.md' },
-      { type: 'text', value: ' and create a Base.' },
-    ],
-  },
-  'Create a Canvas based on this Base that shows the relationships between the Notes.',
-  'Describe the connections between these Notes in the created Canvas and label the arrows.',
-  'Show me all meeting notes from January for meetings with John Doe.',
-  {
-    segments: [
-      { type: 'text', value: 'Create a summary of this meeting ' },
-      { type: 'mention', typed: 'proce', full: 'process-analysis-sales-dpt', file: 'process-analysis-sales-dpt.md' },
-      { type: 'text', value: ' as a new Meeting Note.' },
-    ],
-  },
-  'Create a draw.io diagram that visualizes the process from this meeting as a flowchart.',
-  {
-    segments: [
-      { type: 'text', value: 'Summarize this brainstorming in ' },
-      { type: 'mention', typed: 'produ', full: 'product-launch-ideas', file: 'product-launch-ideas.md' },
-      { type: 'text', value: ' and visualize the ideas in an Excalidraw graphic.' },
-    ],
-  },
-  'Change the tags in the metadata of all Notes from "agenticai" to "Agentic-AI".',
-  'Search the internet for the latest Python release and create a summary note.',
-]
-
-
-function escHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-function isSimple(p: Prompt): p is string { return typeof p === 'string' }
-function getPlainText(p: Prompt): string {
-  if (isSimple(p)) return p
-  let t = ''
-  for (const s of (p as ComplexPrompt).segments) {
-    if (s.type === 'text') t += s.value
-    else if (s.type === 'mention') t += '@' + s.full
-    else if (s.type === 'slash') t += '/' + s.full
-  }
-  return t
-}
-
-onMounted(() => {
-  const el = typewriterText.value
-  const dropdown = mentionDropdown.value
-  const dropdownItemEl = mentionItem.value
-  if (!el || !dropdown || !dropdownItemEl) return
-
-  let promptIdx = 0
-  const activePrompts = prompts
-
-  function animateSimple(text: string, onDone: () => void) {
-    let ci = 0
-    function typeChar() {
-      ci++
-      el!.textContent = text.slice(0, ci)
-      if (ci >= text.length) { setTimeout(() => deleteFrom(text, text.length, onDone), 2000); return }
-      setTimeout(typeChar, 50)
-    }
-    typeChar()
-  }
-
-  function deleteFrom(plain: string, ci: number, onDone: () => void) {
-    function del() {
-      ci--
-      el!.textContent = plain.slice(0, ci)
-      if (ci <= 0) { setTimeout(onDone, 400); return }
-      setTimeout(del, 25)
-    }
-    del()
-  }
-
-  function animateComplex(prompt: ComplexPrompt, onDone: () => void) {
-    const segments = prompt.segments
-    const completed: { html: string; plain: string }[] = []
-    let segIdx = 0
-
-    function renderCompleted(partial?: string) {
-      let html = ''
-      for (const c of completed) html += c.html
-      if (partial) html += escHtml(partial)
-      el!.innerHTML = html
-    }
-
-    function nextSegment() {
-      if (segIdx >= segments.length) {
-        const plain = getPlainText(prompt)
-        setTimeout(() => deleteFrom(plain, plain.length, onDone), 2000)
-        return
-      }
-      const seg = segments[segIdx]; segIdx++
-      if (seg.type === 'text') typeTextSeg(seg.value, nextSegment)
-      else if (seg.type === 'mention') typeMentionSeg(seg as MentionSegment, nextSegment)
-      else if (seg.type === 'slash') typeSlashSeg(seg as SlashSegment, nextSegment)
-    }
-
-    function typeTextSeg(value: string, cb: () => void) {
-      let ci = 0
-      function t() {
-        ci++; renderCompleted(value.slice(0, ci))
-        if (ci >= value.length) { completed.push({ html: escHtml(value), plain: value }); cb(); return }
-        setTimeout(t, 50)
-      }
-      t()
-    }
-
-    function typeMentionSeg(seg: MentionSegment, cb: () => void) {
-      const typed = '@' + seg.typed; let ci = 0; let shown = false
-      function t() {
-        ci++; renderCompleted(typed.slice(0, ci))
-        if (ci >= 4 && !shown) { shown = true; dropdownItemEl!.textContent = seg.file; dropdown!.classList.add('visible') }
-        if (ci >= typed.length) {
-          setTimeout(() => {
-            dropdown!.classList.remove('visible')
-            completed.push({ html: '<span class="mention-pill">@' + escHtml(seg.full) + '</span>', plain: '@' + seg.full })
-            renderCompleted(''); setTimeout(cb, 100)
-          }, 600)
-          return
-        }
-        setTimeout(t, 50)
-      }
-      t()
-    }
-
-    function typeSlashSeg(seg: SlashSegment, cb: () => void) {
-      const typed = '/' + seg.typed; const full = '/' + seg.full; let ci = 0; let shown = false
-      function t() {
-        ci++; renderCompleted(typed.slice(0, ci))
-        if (ci >= 3 && !shown) { shown = true; dropdownItemEl!.textContent = seg.label; dropdown!.classList.add('visible') }
-        if (ci >= typed.length) {
-          setTimeout(() => {
-            dropdown!.classList.remove('visible')
-            completed.push({ html: '<span class="slash-pill">' + escHtml(full) + '</span>', plain: full })
-            renderCompleted(''); setTimeout(cb, 100)
-          }, 600)
-          return
-        }
-        setTimeout(t, 50)
-      }
-      t()
-    }
-
-    nextSegment()
-  }
-
-  function next() {
-    const p = activePrompts[promptIdx]
-    promptIdx = (promptIdx + 1) % activePrompts.length
-    if (isSimple(p)) animateSimple(p, next)
-    else animateComplex(p as ComplexPrompt, next)
-  }
-  next()
-})
 </script>
 
 <template>
@@ -179,21 +9,7 @@ onMounted(() => {
       <span>Skill-translator + thinking-toggle reliability pass.</span>
     </a>
 
-    <h1 class="landing-title">Your Obsidian vault,<br>with a real AI Agent.</h1>
-
-    <div class="landing-chat">
-      <div class="landing-chat-header">
-        <div class="landing-dots"><span /><span /><span /></div>
-        Vault Operator
-      </div>
-      <div class="landing-chat-body">
-        <span class="landing-prompt">&gt;</span>
-        <span ref="typewriterText" class="landing-text" /><span class="landing-cursor" />
-        <div ref="mentionDropdown" class="landing-dropdown">
-          <div ref="mentionItem" class="landing-dropdown-item" />
-        </div>
-      </div>
-    </div>
+    <h1 class="landing-title">Your Obsidian vault,<br>with a real AI agent.</h1>
 
     <p class="landing-sub">Learns your vault and your workflows.</p>
     <p class="landing-detail">
@@ -205,7 +21,7 @@ onMounted(() => {
     <div class="landing-cta">
       <a :href="withBase('/tutorials/getting-started')" class="landing-btn-primary">Get Started</a>
       <a :href="withBase('/guides/capabilities')" class="landing-btn-secondary">
-What Vault Operator Can Do
+        What Vault Operator Can Do
       </a>
     </div>
   </section>
@@ -218,10 +34,9 @@ What Vault Operator Can Do
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 5rem 1.5rem 3rem;
+  padding: 4.5rem 1.5rem 0;
   gap: 0;
   background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124, 58, 237, 0.25), transparent);
-  min-height: calc(100vh - 64px);
 }
 
 /* ── Badge ── */
@@ -260,119 +75,6 @@ What Vault Operator Can Do
   background-clip: text;
   line-height: 1.15;
   text-wrap: balance;
-}
-
-/* ── Chat Mockup ── */
-.landing-chat {
-  max-width: 560px;
-  width: 100%;
-  margin: 1.25rem auto 1.75rem;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 0 40px rgba(124, 58, 237, 0.08);
-}
-.landing-chat-header {
-  background: var(--vp-c-bg-soft);
-  border-bottom: 1px solid var(--vp-c-divider);
-  padding: 0.45rem 0.85rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--vp-c-text-2);
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-.landing-dots {
-  display: flex;
-  gap: 5px;
-}
-.landing-dots span {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  opacity: 0.7;
-}
-.landing-dots span:nth-child(1) { background: #ef4444; }
-.landing-dots span:nth-child(2) { background: #f59e0b; }
-.landing-dots span:nth-child(3) { background: #10b981; }
-.landing-chat-body {
-  background: var(--vp-c-bg-alt);
-  padding: 0.7rem 1rem;
-  min-height: 46px;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  position: relative;
-}
-.landing-prompt {
-  color: var(--vp-c-brand-1);
-  font-family: var(--vp-font-family-mono);
-  font-size: 0.82rem;
-  font-weight: 600;
-  flex-shrink: 0;
-  user-select: none;
-  line-height: 1.6;
-}
-.landing-text {
-  font-family: var(--vp-font-family-mono);
-  font-size: 0.82rem;
-  color: var(--vp-c-text-1);
-  line-height: 1.6;
-  min-height: 1.6em;
-}
-.landing-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 1.15em;
-  background: var(--vp-c-brand-1);
-  vertical-align: text-bottom;
-  margin-left: 1px;
-  animation: cursorBlink 0.8s step-end infinite;
-}
-@keyframes cursorBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-/* ── Mention Dropdown ── */
-.landing-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 2rem;
-  background: var(--vp-c-bg);
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 6px;
-  padding: 0.2rem;
-  min-width: 180px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  display: none;
-  z-index: 10;
-}
-.landing-dropdown.visible { display: block; }
-.landing-dropdown-item {
-  padding: 0.3rem 0.6rem;
-  font-size: 0.78rem;
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-brand-soft);
-  border-radius: 4px;
-  font-family: var(--vp-font-family-mono);
-  white-space: nowrap;
-}
-
-/* Pills injected via innerHTML */
-:deep(.mention-pill) {
-  background: var(--vp-c-brand-soft);
-  color: var(--vp-c-brand-1);
-  padding: 0.1rem 0.3rem;
-  border-radius: 4px;
-  font-size: inherit;
-  font-family: inherit;
-}
-:deep(.slash-pill) {
-  color: var(--vp-c-brand-1);
-  font-size: inherit;
-  font-family: inherit;
-  font-weight: 600;
 }
 
 /* ── Sub text ── */
@@ -439,12 +141,8 @@ What Vault Operator Can Do
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .landing-hero {
-    padding: 3rem 1rem 2rem;
+    padding: 3rem 1rem 0;
   }
   .landing-detail br { display: none; }
-  .landing-chat { margin: 1rem auto 0; }
-  .landing-chat-body { padding: 0.7rem 0.75rem; }
-  .landing-text { font-size: 0.78rem; }
-  .landing-dropdown { left: 1rem; min-width: 150px; }
 }
 </style>

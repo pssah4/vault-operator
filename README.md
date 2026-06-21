@@ -8,6 +8,10 @@ Free. Open source. Local-first. Works with cloud models, with your existing Chat
 
 [Documentation](https://pssah4.github.io/vault-operator) | [Install from Obsidian](obsidian://show-plugin?id=vault-operator) | [Community page](https://community.obsidian.md/plugins/vault-operator)
 
+<p align="center">
+  <img src="docs/public/vault-operator-demo.gif" alt="Vault Operator builds a Base and a Canvas from a vault query, inside Obsidian" width="820">
+</p>
+
 ---
 
 ## Why this is more than a sidebar AI chat
