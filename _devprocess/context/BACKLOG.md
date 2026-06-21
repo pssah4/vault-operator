@@ -474,7 +474,7 @@ Phase: Building | Status: Active
 | FEAT-19-19 | Feature | Stufe-2 Activity-Trigger plus Web-Search-Update-Pass | Done | Released | EPIC-19 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/31  Issue: https://github.com/pssah4/vault-operator-dev/issues/67 |
 | FEAT-19-20 | Feature | Stufe-3 Periodischer Job plus Token-Budget-Cap plus Notifications | Done | Released | EPIC-19 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/32 |
 | FEAT-19-21 | Feature | Hot-Cluster-Konfiguration in Settings | Done | Released | EPIC-19 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/33 |
-| FEAT-19-22 | Feature | Aktiver Dialog-Ingest-Modus (Modus A) | Done | Released | EPIC-19 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/34 |
+| FEAT-19-22 | Feature | Aktiver Dialog-Ingest-Modus (Modus A) | Partial | Active | EPIC-19 | BA |  |  | 2026-06-21 | REF-02: Status-Wahrheit korrigiert. Audit 2026-06-21 fand Implementation als naiver 5-Absaetze-Picker, kein echter Multi-Turn-Dialog. Released-Status irrefuehrend; jetzt Partial/Active. Echter Multi-Turn-Modus braucht eigene Welle.  Issue: https://github.com/pssah4/vault-operator-dev/issues/34 |
 | FEAT-19-23 | Feature | Auto-Ingest-Modus (Modus B) | Done | Released | EPIC-19 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/35 |
 | FEAT-19-24 | Feature | Output-Modus-Auswahl | Done | Released | EPIC-19 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/36 |
 | FEAT-19-25 | Feature | Source-Folder vs Wissens-Folder Konfiguration | Done | Released | EPIC-19 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/37 |
