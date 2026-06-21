@@ -34,8 +34,8 @@ const NOT_INSTALLED_PARSE_RESULT: ParseResult = {
  * structured "not installed" ParseResult when the asset is missing -- callers
  * see a normal ParseResult, never a thrown error.
  */
-export async function parsePdf(data: ArrayBuffer, plugin?: ObsidianAgentPlugin): Promise<ParseResult> {
-    if (!plugin?.bundleLoader) {
+export async function parsePdf(data: ArrayBuffer, plugin: ObsidianAgentPlugin): Promise<ParseResult> {
+    if (!plugin.bundleLoader) {
         return NOT_INSTALLED_PARSE_RESULT;
     }
     const bundle = await plugin.bundleLoader.loadPdfjsBundle();

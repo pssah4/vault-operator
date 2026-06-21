@@ -67,7 +67,7 @@ export class AttachmentHandler {
     constructor(
         private vault: Vault,
         private chipBar: HTMLElement,
-        private plugin?: ObsidianAgentPlugin,
+        private plugin: ObsidianAgentPlugin,
     ) {}
 
     openFilePicker(): void {

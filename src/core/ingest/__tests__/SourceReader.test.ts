@@ -9,6 +9,10 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { TFile } from 'obsidian';
+import type ObsidianAgentPlugin from '../../../main';
+
+// parseDocument is mocked below; the plugin is just passed through.
+const stubPlugin = {} as ObsidianAgentPlugin;
 
 // Wir mocken parseDocument, damit der Test unabhaengig von pdfjs laeuft.
 vi.mock('../../document-parsers/parseDocument', () => ({
@@ -70,7 +74,7 @@ describe('SourceReader', () => {
         const app = makeApp({ 'Notes/Source.md': '# Title\n\nMarkdown content.' });
         const file = makeFile('Source.md', 'md');
         Object.defineProperty(file, 'path', { value: 'Notes/Source.md' });
-        const text = await readSourceAsMarkdown(app, file);
+        const text = await readSourceAsMarkdown(app, file, stubPlugin);
         expect(text).toBe('# Title\n\nMarkdown content.');
     });
 
@@ -78,7 +82,7 @@ describe('SourceReader', () => {
         const app = makeApp({}, { 'Sources/Test.pdf': new ArrayBuffer(8) });
         const file = makeFile('Test.pdf', 'pdf');
         Object.defineProperty(file, 'path', { value: 'Sources/Test.pdf' });
-        const text = await readSourceAsMarkdown(app, file);
+        const text = await readSourceAsMarkdown(app, file, stubPlugin);
         expect(text).toContain('## Page 1');
         expect(text).toContain('## Page 2');
         expect(text).toContain('Page one body.');
@@ -88,7 +92,7 @@ describe('SourceReader', () => {
         const app = makeApp({}, { 'Sources/Test.docx': new ArrayBuffer(8) });
         const file = makeFile('Test.docx', 'docx');
         Object.defineProperty(file, 'path', { value: 'Sources/Test.docx' });
-        const text = await readSourceAsMarkdown(app, file);
+        const text = await readSourceAsMarkdown(app, file, stubPlugin);
         expect(text).toContain('Docx body.');
     });
 
@@ -96,14 +100,14 @@ describe('SourceReader', () => {
         const app = makeApp({}, { 'Sources/Test.zzz': new ArrayBuffer(8) });
         const file = makeFile('Test.zzz', 'zzz');
         Object.defineProperty(file, 'path', { value: 'Sources/Test.zzz' });
-        await expect(readSourceAsMarkdown(app, file)).rejects.toThrow(/Unsupported document format/);
+        await expect(readSourceAsMarkdown(app, file, stubPlugin)).rejects.toThrow(/Unsupported document format/);
     });
 
     it('handles uppercase extensions case-insensitively', async () => {
         const app = makeApp({ 'Notes/UPPER.MD': 'upper content' });
         const file = makeFile('UPPER.MD', 'MD');
         Object.defineProperty(file, 'path', { value: 'Notes/UPPER.MD' });
-        const text = await readSourceAsMarkdown(app, file);
+        const text = await readSourceAsMarkdown(app, file, stubPlugin);
         expect(text).toBe('upper content');
     });
 });

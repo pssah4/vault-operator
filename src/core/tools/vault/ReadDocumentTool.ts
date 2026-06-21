@@ -191,7 +191,7 @@ export class ReadDocumentTool extends BaseTool<'read_document'> {
             data = new TextEncoder().encode(text).buffer;
         }
 
-        const result = await parseDocument(data, ext);
+        const result = await parseDocument(data, ext, this.plugin);
         return { text: result.text, format: ext, pageCount: result.metadata.pageCount };
     }
 

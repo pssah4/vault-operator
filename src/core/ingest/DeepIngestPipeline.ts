@@ -21,6 +21,7 @@
  */
 
 import { TFile, type App } from 'obsidian';
+import type ObsidianAgentPlugin from '../../main';
 import {
     OutputModeGenerator,
     type OutputMode,
@@ -118,6 +119,7 @@ export class DeepIngestPipeline {
     constructor(
         private readonly app: App,
         private readonly opts: DeepIngestPipelineOpts,
+        private readonly plugin: ObsidianAgentPlugin,
     ) {}
 
     async run(input: DeepIngestInput): Promise<DeepIngestResult> {
@@ -131,7 +133,7 @@ export class DeepIngestPipeline {
         //    BlockIdSetter keine Anchors).
         let sourceMarkdown = '';
         try {
-            sourceMarkdown = await readSourceAsMarkdown(this.app, input.sourceFile);
+            sourceMarkdown = await readSourceAsMarkdown(this.app, input.sourceFile, this.plugin);
         } catch (err) {
             console.warn('[DeepIngest] readSourceAsMarkdown failed, falling back to empty body:', err);
         }

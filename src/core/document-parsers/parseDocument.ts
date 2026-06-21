@@ -18,11 +18,17 @@ import { parseCsv } from './parsers/CsvParser';
  *
  * @param data      - Raw file content as ArrayBuffer
  * @param extension - File extension without dot (e.g. "pptx", "pdf")
- * @param plugin    - Plugin instance; required only for PDF parsing (loads
- *                    pdfjs-dist via the Optional-Asset BundleLoader). Other
- *                    formats use pure ooxml/jszip helpers and do not need it.
+ * @param plugin    - Plugin instance. Required so callers cannot
+ *                    accidentally drop it; PDF parsing needs
+ *                    `plugin.bundleLoader` to load pdfjs-dist, other
+ *                    formats use pure ooxml/jszip helpers and ignore it.
+ *                    Five call-sites historically passed no plugin and
+ *                    the placeholder leaked into the Vector index and
+ *                    PDF Markdown mirror (FIX-06-01-01). Keep this
+ *                    parameter required, not optional, to prevent the
+ *                    drift from coming back.
  */
-export async function parseDocument(data: ArrayBuffer, extension: string, plugin?: ObsidianAgentPlugin): Promise<ParseResult> {
+export async function parseDocument(data: ArrayBuffer, extension: string, plugin: ObsidianAgentPlugin): Promise<ParseResult> {
     switch (extension.toLowerCase()) {
         case 'pptx':
         case 'potx': return parsePptx(data);

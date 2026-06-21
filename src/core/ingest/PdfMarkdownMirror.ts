@@ -11,6 +11,7 @@
 
 import { TFile, TFolder, type App } from 'obsidian';
 import { parseDocument } from '../document-parsers/parseDocument';
+import type ObsidianAgentPlugin from '../../main';
 
 export interface MirrorResult {
     mirrorFile: TFile;
@@ -30,7 +31,11 @@ export interface PdfMarkdownMirrorOpts {
 export class PdfMarkdownMirror {
     private readonly mirrorFolder: string | undefined;
 
-    constructor(private readonly app: App, opts: PdfMarkdownMirrorOpts = {}) {
+    constructor(
+        private readonly app: App,
+        opts: PdfMarkdownMirrorOpts = {},
+        private readonly plugin: ObsidianAgentPlugin,
+    ) {
         this.mirrorFolder = opts.mirrorFolder?.replace(/\/+$/, '') || undefined;
     }
 
@@ -69,7 +74,7 @@ export class PdfMarkdownMirror {
 
         try {
             const arrayBuf = await this.app.vault.readBinary(pdfFile);
-            const parsed = await parseDocument(arrayBuf, 'pdf');
+            const parsed = await parseDocument(arrayBuf, 'pdf', this.plugin);
             const text = parsed.text;
             const fm = `---\nsource_pdf: "[[${pdfFile.basename}.pdf]]"\nmirror_generated_at: "${new Date().toISOString()}"\nbar25_pdf_strategy: markdown-mirror\n---\n\n`;
             const body = `# ${pdfFile.basename} (Markdown-Mirror)\n\n_Wikilink zur Source: [[${pdfFile.basename}.pdf]]_\n\n${text}\n`;

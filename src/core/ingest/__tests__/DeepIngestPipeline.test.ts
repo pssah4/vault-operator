@@ -3,6 +3,11 @@ import { DeepIngestPipeline, type DeepIngestPlan } from '../DeepIngestPipeline';
 import { TensionDetector } from '../TensionDetector';
 import { TFile } from 'obsidian';
 import type { App } from 'obsidian';
+import type ObsidianAgentPlugin from '../../../main';
+
+// Tests use only markdown sources; parseDocument is never reached, so an
+// empty stub satisfies the required-plugin contract (FIX-06-01-01).
+const stubPlugin = {} as ObsidianAgentPlugin;
 
 /**
  * DeepIngestPipeline-Tests: orchestriert OutputModeGenerator,
@@ -55,7 +60,7 @@ describe('DeepIngestPipeline', () => {
         const pipeline = new DeepIngestPipeline(m.app, {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
-        });
+        }, stubPlugin);
         const sourceFile = makeFile('Inbox/x.md');
         const result = await pipeline.run({
             sourceFile,
@@ -82,7 +87,7 @@ describe('DeepIngestPipeline', () => {
         const pipeline = new DeepIngestPipeline(m.app, {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
-        });
+        }, stubPlugin);
         const sourceFile = makeFile('Inbox/x.md');
         const result = await pipeline.run({
             sourceFile,
@@ -116,7 +121,7 @@ describe('DeepIngestPipeline', () => {
             folderConfig: { notesFolder: 'Inbox' },
             tensionDetector: detector,
             planGenerator,
-        });
+        }, stubPlugin);
         await pipeline.run({
             sourceFile: makeFile('Inbox/y.md'),
             mode: 'dialog',
@@ -145,7 +150,7 @@ describe('DeepIngestPipeline', () => {
         const pipeline = new DeepIngestPipeline(m.app, {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
-        });
+        }, stubPlugin);
         const result = await pipeline.run({
             sourceFile: makeFile('Inbox/z.md'),
             mode: 'dialog',
@@ -168,7 +173,7 @@ describe('DeepIngestPipeline', () => {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator: async () => ({ takeAways: [] }),
             onMOCPageUpdated: mocHook,
-        });
+        }, stubPlugin);
         await pipeline.run({
             sourceFile: makeFile('Inbox/q.md'),
             mode: 'auto',
@@ -195,7 +200,7 @@ describe('DeepIngestPipeline', () => {
         const pipeline = new DeepIngestPipeline(m.app, {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
-        });
+        }, stubPlugin);
         await pipeline.run({
             sourceFile: makeFile('Inbox/test.md'),
             mode: 'dialog',
@@ -221,7 +226,7 @@ describe('DeepIngestPipeline', () => {
         const pipeline = new DeepIngestPipeline(m.app, {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
-        });
+        }, stubPlugin);
         await pipeline.run({
             sourceFile: makeFile('Inbox/source.md'),
             mode: 'dialog',
@@ -247,7 +252,7 @@ describe('DeepIngestPipeline', () => {
         const pipeline = new DeepIngestPipeline(m.app, {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator,
-        });
+        }, stubPlugin);
         await pipeline.run({
             sourceFile: makeFile('Inbox/x.md'),
             mode: 'dialog',
@@ -268,7 +273,7 @@ describe('DeepIngestPipeline', () => {
             folderConfig: { notesFolder: 'Inbox' },
             planGenerator: async () => ({ takeAways: [] }),
             sourceStats: stats,
-        });
+        }, stubPlugin);
         await pipeline.run({
             sourceFile: makeFile('Inbox/r.md'),
             mode: 'auto',

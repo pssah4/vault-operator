@@ -227,6 +227,7 @@ Phase: Building | Status: Active
 | FEAT-06-03 | Feature | Token-Budget-Management | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/210 |
 | FEAT-06-04 | Feature | On-Demand Bild-Extraktion | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/211 |
 | FEAT-06-05 | Feature | Modell-Kompatibilitäts-Check | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/212 |
+| FIX-06-01-01 | Fix | 06-01-01: parseDocument plugin-ref-drift -- PDF parsing globally broken (5 call-sites pass no plugin -> placeholder leaks into SemanticIndex, PdfMarkdownMirror, Ingest, Agent read) | Active | Building | FEAT-06-01, EPIC-06 | BUG |  | sebastian-claude-opus-4-7 | 2026-06-21 | P0 from stability audit 2026-06-21. parseDocument + parsePdf required plugin arg, 5 call-sites compiler-enforced. Reindex-UI as follow-up IMP-06-01-01.  Issue: https://github.com/pssah4/vault-operator/issues/36 |
 
 ### EPIC-07: Chat-Linking (Provenienz & Nachvollziehbarkeit)
 

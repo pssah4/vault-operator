@@ -1306,6 +1306,10 @@ export default class ObsidianAgentPlugin extends Plugin {
                 enableContextualRetrieval: this.settings.enableContextualRetrieval,
                 // AUDIT-013 follow-up: skip ignored notes at index build.
                 isIgnored: (path: string) => this.ignoreService.isIgnored(path),
+                // FIX-06-01-01: required so SemanticIndex can parse PDFs/DOCX via
+                // parseDocument; without it the "not installed" placeholder would
+                // land in the vector index.
+                plugin: this,
             });
             const embeddingModel = this.getActiveEmbeddingModel();
             if (embeddingModel) this.semanticIndex.setEmbeddingModel(embeddingModel);

@@ -21,21 +21,27 @@
 
 import { TFile, type App } from 'obsidian';
 import { parseDocument } from '../document-parsers/parseDocument';
+import type ObsidianAgentPlugin from '../../main';
 
 /**
  * Liefert den Source-Inhalt als Markdown-Text.
  *
- * @param app  Obsidian App-Handle (fuer vault.cachedRead bzw. readBinary).
- * @param file Source-File im Vault.
+ * @param app    Obsidian App-Handle (fuer vault.cachedRead bzw. readBinary).
+ * @param file   Source-File im Vault.
+ * @param plugin Plugin-Instanz; wird an parseDocument durchgereicht und
+ *               von parsePdf gebraucht, um pdfjs-dist ueber den
+ *               Optional-Asset-BundleLoader zu laden. Required, damit
+ *               Caller das Argument nicht versehentlich droppen
+ *               (FIX-06-01-01).
  * @returns Der Inhalt als Markdown-Text.
  * @throws Error bei Unsupported-Extension oder Read-Fehler.
  */
-export async function readSourceAsMarkdown(app: App, file: TFile): Promise<string> {
+export async function readSourceAsMarkdown(app: App, file: TFile, plugin: ObsidianAgentPlugin): Promise<string> {
     const ext = file.extension.toLowerCase();
     if (ext === 'md') {
         return await app.vault.cachedRead(file);
     }
     const buf = await app.vault.readBinary(file);
-    const parsed = await parseDocument(buf, ext);
+    const parsed = await parseDocument(buf, ext, plugin);
     return parsed.text;
 }

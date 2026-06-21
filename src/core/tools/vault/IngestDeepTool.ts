@@ -137,7 +137,7 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
         let actualSource: TFile = file;
         if (file.extension === 'pdf'
             && this.plugin.settings.vaultIngest?.pdfStrategy === 'markdown-mirror') {
-            const mirror = new PdfMarkdownMirror(this.plugin.app, { mirrorFolder: notesFolder });
+            const mirror = new PdfMarkdownMirror(this.plugin.app, { mirrorFolder: notesFolder }, this.plugin);
             const result = await mirror.createMirror(file);
             if (result) {
                 actualSource = result.mirrorFile;
@@ -174,7 +174,7 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
         const planGenerator = async (f: TFile, _m: IngestMode, om: OutputMode): Promise<DeepIngestPlan> => {
             let sourceMd = '';
             try {
-                sourceMd = await readSourceAsMarkdown(this.plugin.app, f);
+                sourceMd = await readSourceAsMarkdown(this.plugin.app, f, this.plugin);
             } catch (err) {
                 console.warn(`[IngestDeepTool] readSourceAsMarkdown failed for ${f.path}:`, err);
             }
@@ -248,7 +248,7 @@ export class IngestDeepTool extends BaseTool<'ingest_deep'> {
             sourceStats: this.plugin.clusterSourceStatsStore ?? undefined,
             planGenerator,
             onMOCPageUpdated,
-        });
+        }, this.plugin);
 
         try {
             const result = await pipeline.run({

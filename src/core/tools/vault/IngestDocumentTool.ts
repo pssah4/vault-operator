@@ -246,7 +246,7 @@ export class IngestDocumentTool extends BaseTool<'ingest_document'> {
             data = new TextEncoder().encode(text).buffer;
         }
 
-        const result = await parseDocument(data, ext);
+        const result = await parseDocument(data, ext, this.plugin);
         return result.text;
     }
 

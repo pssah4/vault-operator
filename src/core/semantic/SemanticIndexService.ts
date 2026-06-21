@@ -21,6 +21,7 @@ import type { CustomModel } from '../../types/settings';
 import type { KnowledgeDB } from '../knowledge/KnowledgeDB';
 import type { VectorStore } from '../knowledge/VectorStore';
 import type { ApiHandler } from '../../api/types';
+import type ObsidianAgentPlugin from '../../main';
 import * as path from 'path';
 import * as fs from '../security/safeFs';
 
@@ -73,6 +74,15 @@ export interface SemanticIndexOptions {
      * build); excludedFolders still works.
      */
     isIgnored?: (path: string) => boolean;
+    /**
+     * Plugin instance. Required for PDF parsing (parsePdf loads
+     * pdfjs-dist via the Optional-Asset BundleLoader). When undefined,
+     * PDF chunks fall back to the "not installed" placeholder, which
+     * historically leaked into the vector index (FIX-06-01-01). main.ts
+     * always wires this; tests can leave it undefined as long as they
+     * don't index PDFs.
+     */
+    plugin?: ObsidianAgentPlugin;
 }
 
 const DEFAULT_CHUNK_SIZE = 2000;   // chars — larger chunks → fewer API calls
@@ -182,6 +192,7 @@ export class SemanticIndexService {
     private indexPdfs: boolean;
     private chunkSize: number;
     private enableContextualRetrieval: boolean;
+    private plugin?: ObsidianAgentPlugin;
     private contextualApiHandler: ApiHandler | null = null;
     /** BUG-016: once the configured context model fails permanently (auth / credit / quota), stop trying for the rest of the session. */
     private contextualApiDisabledReason: string | null = null;
@@ -221,6 +232,7 @@ export class SemanticIndexService {
         this.indexPdfs = options.indexPdfs ?? false;
         this.chunkSize = options.chunkSize ?? DEFAULT_CHUNK_SIZE;
         this.enableContextualRetrieval = options.enableContextualRetrieval ?? true;
+        this.plugin = options.plugin;
     }
 
     /** Set the API handler for contextual prefix generation (FEATURE-1501). */
@@ -1558,8 +1570,17 @@ export class SemanticIndexService {
             const absPath = path.join(basePath, filePath);
             const buffer = await fs.promises.readFile(absPath);
 
+            if (!this.plugin) {
+                // FIX-06-01-01 guard: indexing a binary (PDF/DOCX/etc.)
+                // without a plugin would silently embed the
+                // "not installed" placeholder. main.ts always provides
+                // the plugin; tests that hit this branch should pass
+                // one via options.plugin.
+                console.warn(`[SemanticIndex] cannot parse ${extension} for ${filePath}: plugin not wired (FIX-06-01-01)`);
+                return '';
+            }
             const { parseDocument } = await import('../document-parsers/parseDocument');
-            const result = await parseDocument(buffer.buffer, extension);
+            const result = await parseDocument(buffer.buffer, extension, this.plugin);
 
             // OCR fallback for scanned PDFs (FEATURE-1905):
             // If pdfjs-dist found no text, try text-extractor plugin (Tesseract OCR)

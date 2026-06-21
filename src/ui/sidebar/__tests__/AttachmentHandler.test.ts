@@ -7,11 +7,15 @@
 import { describe, it, expect } from 'vitest';
 import { Vault, TFile } from 'obsidian';
 import { AttachmentHandler } from '../AttachmentHandler';
+import type ObsidianAgentPlugin from '../../../main';
+
+// Tests use no PDF attachments; an empty stub satisfies the type contract.
+const stubPlugin = {} as ObsidianAgentPlugin;
 
 function makeHandler(): AttachmentHandler {
     const vault = new Vault();
     const chipBar = { empty: () => undefined } as unknown as HTMLElement;
-    return new AttachmentHandler(vault, chipBar);
+    return new AttachmentHandler(vault, chipBar, stubPlugin);
 }
 
 /**
@@ -56,7 +60,7 @@ function makeCollisionHandler(): {
         },
     });
     const chipBar = { empty: () => undefined } as unknown as HTMLElement;
-    const handler = new AttachmentHandler(vault, chipBar);
+    const handler = new AttachmentHandler(vault, chipBar, stubPlugin);
     return { handler, files, creates };
 }
 
