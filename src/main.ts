@@ -1411,6 +1411,16 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.app.workspace.onLayoutReady(() => {
                     this.graphExtractor?.extractAll(this.app.vault);
                 });
+
+                // IMP-06-01-01 hint: PDF embeddings created before v2.14.10
+                // carry a placeholder string. Show the hint exactly once
+                // when (a) the user has PDFs in the vault, (b) the index is
+                // enabled with PDFs included, and (c) neither the hint has
+                // been dismissed nor a reindex has completed. The two
+                // settings flags ensure the modal never re-fires.
+                this.app.workspace.onLayoutReady(() => {
+                    void this.maybeShowPdfReindexHint();
+                });
             }
 
             // Ontology Bootstrap (FEATURE-1902): build cluster mappings from MOC edges
@@ -3796,6 +3806,25 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Now constrained to the TabId union; the compiler refuses any
      * caller that passes an invalid id.
      */
+    /**
+     * IMP-06-01-01: surface the one-shot PDF-reindex hint exactly once
+     * for users who indexed PDFs before v2.14.10. Quietly returns when
+     * the precondition does not hold (hint already shown, reindex
+     * already done, semantic index off, indexPdfs off, or no PDFs in
+     * the vault).
+     */
+    private async maybeShowPdfReindexHint(): Promise<void> {
+        const s = this.settings;
+        if (s._pdfReindexHintShown) return;
+        if (s._pdfReindexCompleted) return;
+        if (!s.enableSemanticIndex) return;
+        if (!s.semanticIndexPdfs) return;
+        const hasPdfs = this.app.vault.getFiles().some((f) => f.extension.toLowerCase() === 'pdf');
+        if (!hasPdfs) return;
+        const { PdfReindexHintModal } = await import('./ui/modals/PdfReindexHintModal');
+        new PdfReindexHintModal(this.app, this).open();
+    }
+
     openSettingsAt(tab: TabId, subTab?: string): void {
         // Open the Obsidian settings modal
         const setting = this.app.setting;

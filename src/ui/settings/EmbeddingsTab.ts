@@ -153,6 +153,47 @@ export class EmbeddingsTab {
                 }),
             );
 
+        // IMP-06-01-01: one-shot reindex of all PDFs. Hidden once the user
+        // has completed a reindex pass (semanticIndexPdfs must also be on,
+        // otherwise the PDFs have nothing to point at). Pre-FIX-06-01-01
+        // PDF embeddings carry the "PDF Parser is not installed" placeholder;
+        // this CTA replaces them with the freshly-parsed text.
+        if (this.plugin.settings.semanticIndexPdfs && !this.plugin.settings._pdfReindexCompleted) {
+            const reindexSetting = new Setting(containerEl)
+                .setName('Reindex PDFs only')
+                .setDesc(
+                    'One-time cleanup after the v2.14.10 PDF parsing fix. ' +
+                    'Drops every PDF vector and re-embeds against the freshly-parsed text. ' +
+                    'Other file types stay untouched.',
+                );
+            const progressEl = reindexSetting.descEl.createDiv('agent-pdf-reindex-progress');
+            reindexSetting.addButton((btn) => {
+                btn.setButtonText('Reindex now').setCta();
+                btn.onClick(async () => {
+                    const idx = getIdx();
+                    if (!idx) return;
+                    btn.setDisabled(true);
+                    progressEl.setText('Starting...');
+                    try {
+                        const result = await idx.reindexPdfsOnly((indexed, total, current) => {
+                            const label = current ? current.split('/').pop() : '';
+                            progressEl.setText(`${indexed} of ${total} -- ${label}`);
+                        });
+                        this.plugin.settings._pdfReindexCompleted = true;
+                        await this.plugin.saveSettings();
+                        progressEl.setText(
+                            `Done: ${result.indexed} of ${result.total} reindexed` +
+                            (result.skipped > 0 ? `, ${result.skipped} skipped` : '') +
+                            '. The setting is now hidden.',
+                        );
+                    } catch (e) {
+                        progressEl.setText(`Reindex failed: ${e instanceof Error ? e.message : String(e)}`);
+                        btn.setDisabled(false);
+                    }
+                });
+            });
+        }
+
         new Setting(containerEl)
             .setName(t('settings.embeddings.contextualRetrieval'))
             .setDesc(t('settings.embeddings.contextualRetrievalDesc'))

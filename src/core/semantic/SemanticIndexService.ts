@@ -676,6 +676,48 @@ export class SemanticIndexService {
         }
     }
 
+    /**
+     * IMP-06-01-01: one-shot reindex of all PDF files. Drops every PDF
+     * vector that was embedded BEFORE FIX-06-01-01 (which silently embedded
+     * the "PDF Parser is not installed..." placeholder due to the
+     * parseDocument plugin-ref drift) and re-embeds the freshly-parsed
+     * text. Used by the EmbeddingsTab "Reindex PDFs only" button + the
+     * post-fix hint modal.
+     *
+     * Sequential processing with a macro-yield between files keeps the UI
+     * responsive on large vaults. Returns the indexed and skipped counts so
+     * the caller can show a result toast.
+     */
+    async reindexPdfsOnly(
+        onProgress?: (indexed: number, total: number, currentPath?: string) => void,
+    ): Promise<{ indexed: number; skipped: number; total: number }> {
+        if (!this.knowledgeDB.isOpen()) return { indexed: 0, skipped: 0, total: 0 };
+        const pdfs = this.vault.getFiles().filter((f) => f.extension.toLowerCase() === 'pdf');
+        const total = pdfs.length;
+        if (total === 0) return { indexed: 0, skipped: 0, total: 0 };
+
+        let indexed = 0;
+        let skipped = 0;
+        for (const file of pdfs) {
+            onProgress?.(indexed + skipped, total, file.path);
+            try {
+                // Drop the stale vectors first so the new chunks replace cleanly.
+                if (this.vectorStore.hasFile(file.path)) {
+                    this.vectorStore.deleteByPath(file.path);
+                }
+                await this.updateFile(file.path);
+                indexed++;
+            } catch (e) {
+                console.warn(`[SemanticIndex] reindexPdfsOnly skipped ${file.path}:`, e);
+                skipped++;
+            }
+            // Macro-yield to keep the UI thread responsive.
+            await new Promise<void>((r) => window.setTimeout(r, 0));
+        }
+        onProgress?.(indexed + skipped, total);
+        return { indexed, skipped, total };
+    }
+
     // -----------------------------------------------------------------------
     // Keyword search helpers: stemming + tokenization
     // -----------------------------------------------------------------------

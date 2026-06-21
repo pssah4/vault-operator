@@ -833,6 +833,17 @@ export interface ObsidianAgentSettings {
     semanticExcludedFolders: string[];
     semanticStorageLocation: 'obsidian-sync' | 'local' | 'global';
     semanticIndexPdfs: boolean;
+    /**
+     * IMP-06-01-01: post-fix flags so the EmbeddingsTab "Reindex PDFs
+     * only" CTA + the post-fix hint modal know whether they need to be
+     * shown. Both default false; flipped to true by the corresponding
+     * user action (modal dismiss vs. reindex complete) and persisted
+     * thereafter. Two flags because "modal dismissed" does NOT mean
+     * "reindex done" -- the user may have closed the modal and never
+     * actually run the cleanup.
+     */
+    _pdfReindexHintShown: boolean;
+    _pdfReindexCompleted: boolean;
     /** Chunk size in characters. Changing this invalidates and rebuilds the index. */
     semanticChunkSize: number;
     /** Contextual Retrieval: prepend LLM-generated context prefix to each chunk before embedding (ADR-051 Stufe 0). */
@@ -1699,6 +1710,8 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     semanticExcludedFolders: [],
     semanticStorageLocation: 'global',
     semanticIndexPdfs: false,
+    _pdfReindexHintShown: false,
+    _pdfReindexCompleted: false,
     semanticChunkSize: 2000,
     enableContextualRetrieval: true,
     contextualModelKey: '',
