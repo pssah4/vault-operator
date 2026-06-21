@@ -260,7 +260,18 @@ export class UpdateSettingsTool extends BaseTool<'update_settings'> {
             return;
         }
 
-        this.plugin.openSettingsAt(tab, subTab);
+        // FIX-26-99-01: validate against the AgentSettingsTab TabId union.
+        // Pre-fix, an unknown name like 'agent' would be silently cast and
+        // open the default tab with the user expecting something else.
+        const VALID_TABS = new Set(['providers', 'agent-behaviour', 'customize', 'advanced', 'help']);
+        if (!VALID_TABS.has(tab)) {
+            callbacks.pushToolResult(this.formatError(new Error(
+                `Unknown settings tab "${tab}". Valid: ${Array.from(VALID_TABS).join(', ')}.`,
+            )));
+            return;
+        }
+
+        this.plugin.openSettingsAt(tab as import('../../../ui/AgentSettingsTab').TabId, subTab);
         const desc = subTab ? `${tab}/${subTab}` : tab;
         callbacks.pushToolResult(this.formatSuccess(`Opened settings tab: ${desc}`));
         callbacks.log(`update_settings: opened tab ${desc}`);

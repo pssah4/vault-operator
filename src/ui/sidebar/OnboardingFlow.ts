@@ -88,7 +88,14 @@ export class OnboardingFlow {
         });
         setupBtn.addEventListener('click', () => {
             this.disableButtons(btnRow);
-            this.openAddModelModal(callbacks);
+            // FIX-26-99-02: pre-fix this routed to openAddModelModal() which
+            // wrote to settings.activeModels[]. After the EPIC-26 migration
+            // the canonical store is settings.providerConfigs[]; legacy
+            // writes were either migrated away on next reload (user-visible
+            // disappearance of their config) or never reflected in the
+            // provider-only UI. Sending the user directly to the providers
+            // tab keeps everything on one canonical path.
+            callbacks.openSettings();
         });
 
         const settingsBtn = btnRow.createEl('button', {
@@ -130,7 +137,14 @@ export class OnboardingFlow {
         });
         setupBtn.addEventListener('click', () => {
             this.disableButtons(btnRow);
-            this.openAddModelModal(callbacks);
+            // FIX-26-99-02: pre-fix this routed to openAddModelModal() which
+            // wrote to settings.activeModels[]. After the EPIC-26 migration
+            // the canonical store is settings.providerConfigs[]; legacy
+            // writes were either migrated away on next reload (user-visible
+            // disappearance of their config) or never reflected in the
+            // provider-only UI. Sending the user directly to the providers
+            // tab keeps everything on one canonical path.
+            callbacks.openSettings();
         });
 
         const settingsBtn = btnRow.createEl('button', {

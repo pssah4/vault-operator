@@ -162,6 +162,16 @@ export class AgentSidebarView extends ItemView {
         this.plugin = plugin;
         this.modeService = new ModeService(plugin);
         this.toolPicker = new ToolPickerPopover(plugin, this.modeService);
+
+        // FIX-26-99-03 hook: settings ModesTab + NewModeModal need access to
+        // the same ModeService instance the sidebar uses, otherwise they
+        // edit a fresh detached copy whose state never reaches the agent
+        // loop. AgentSettingsTab.findActiveModeService() looks for this
+        // method on the open sidebar leaf.
+        // (Declared inline to avoid a class field ordering hazard with
+        // the property initializer ordering of the file's eslint-disable
+        // file header.)
+        (this as unknown as { getModeServiceOrNull(): ModeService | null }).getModeServiceOrNull = () => this.modeService ?? null;
         this.mcpPicker = new McpServerPopover(plugin);
         this.vaultFilePicker = new VaultFilePicker(
             this.app,
@@ -1337,8 +1347,11 @@ export class AgentSidebarView extends ItemView {
             updateModelButton: () => this.updateModelButton(),
             startOnboardingChat: () => this.startOnboardingChat(),
             openSettings: () => {
-                this.app.setting?.open?.();
-                window.setTimeout(() => this.app.setting?.openTabById?.(this.plugin.manifest.id), 200);
+                // FIX-26-99-02: route the onboarding "Setup" button straight
+                // to the providers tab so the user lands on the
+                // providerConfigs[] surface (post-EPIC-26 canonical store),
+                // not on whichever tab was last open.
+                this.plugin.openSettingsAt('providers');
             },
         };
     }
