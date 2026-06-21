@@ -119,7 +119,52 @@ const TOOL_GROUPS: Record<string, ApprovalGroup> = {
     generate_canvas: 'vault-change',
     create_base: 'vault-change',
     update_base: 'vault-change',
+    // FIX-29-99-05: pre-fix, the four Office-creation tools and several
+    // meta-tools landed on the `note-edit` default. Office creates binary
+    // files (pptx/docx/xlsx/drawio/excalidraw) -- semantically vault-change.
+    // The agent/read meta-tools belong in the agent/read groups so
+    // auto-approval respects their actual side-effect class.
+    create_pptx: 'vault-change',
+    create_docx: 'vault-change',
+    create_xlsx: 'vault-change',
+    create_excalidraw: 'vault-change',
+    create_drawio: 'vault-change',
+    plan_presentation: 'agent',
+    extract_zip: 'vault-change',
+    ingest_document: 'note-edit',
+    // Checkpoint-restore touches every tracked file at once -- treated as
+    // a structural change rather than a single note edit.
+    restore_checkpoint: 'vault-change',
+    // vault_health_check mutating actions are gated by a multi-file
+    // snapshot inside the tool (FIX-19-99-04); classification stays at
+    // vault-change so auto-approval picks up the right group.
+    vault_health_check: 'vault-change',
+    read_document: 'read',
+    list_checkpoints: 'read',
+    read_checkpoint: 'read',
+    diff_checkpoint: 'read',
+    // Meta-tools: discovery + skill-body fetch are read-only relative to
+    // the vault. invoke_skill/invoke_mcp_server route to the same gate
+    // their targets use -- treated as skill for now.
+    find_tool: 'agent',
+    read_skill: 'read',
+    read_mcp_tool: 'read',
+    invoke_skill: 'skill',
+    invoke_mcp_server: 'skill',
+    probe_plugin: 'skill',
+    run_skill_script: 'skill',
+    // EPIC-26 flagship escalation: still an LLM call but no vault edit.
+    consult_flagship: 'agent',
+    // Memory-v2 surfaces. recall is read-only; mark/update mutate the
+    // memory store (not the vault) -- 'agent' keeps them auto-approvable
+    // because the user opted into the memory system already.
+    recall_memory: 'read',
+    mark_for_memory: 'agent',
+    update_soul: 'self-modify',
+    inspect_self: 'read',
+    search_history: 'read',
     // Web
+
     web_fetch: 'web',
     web_search: 'web',
     // Agent control (always auto-approved)
