@@ -26,9 +26,39 @@ interface AdapterLike {
     mkdir(p: string): Promise<void>;
     read(p: string): Promise<string>;
     write(p: string, content: string): Promise<void>;
+    /**
+     * REF-09: binary file IO. Optional so existing mocks (and the
+     * legacy Obsidian DataAdapter shape) continue to work; the
+     * service falls back to read()/write() when these are missing.
+     * Real binary fidelity requires both methods.
+     */
+    readBinary?(p: string): Promise<ArrayBuffer>;
+    writeBinary?(p: string, data: ArrayBuffer): Promise<void>;
     remove(p: string): Promise<void>;
     rmdir(p: string, recursive: boolean): Promise<void>;
     list(p: string): Promise<{ files: string[]; folders: string[] }>;
+}
+
+/**
+ * REF-09: extensions whose content is byte-addressed (images, archives,
+ * Office binaries). UTF-8 round-trips corrupt these; the snapshot path
+ * routes them through readBinary/writeBinary when the adapter supports
+ * the optional methods.
+ */
+const BINARY_EXTENSIONS = new Set<string>([
+    'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'tif', 'tiff',
+    'pdf', 'docx', 'pptx', 'xlsx',
+    'zip', '7z', 'tar', 'gz', 'rar',
+    'wasm', 'bin',
+    'mp3', 'mp4', 'wav', 'flac', 'ogg', 'webm', 'mov',
+    'woff', 'woff2', 'ttf', 'otf', 'eot',
+]);
+
+function isBinaryAssetPath(p: string): boolean {
+    const dot = p.lastIndexOf('.');
+    if (dot < 0) return false;
+    const ext = p.slice(dot + 1).toLowerCase();
+    return BINARY_EXTENSIONS.has(ext);
 }
 
 export interface SnapshotMetadata {
@@ -87,14 +117,24 @@ export class SkillSnapshotService {
         const collected = await this.walkSkillFiles(skillFolder);
         let totalBytes = 0;
         for (const { absPath, relPath } of collected) {
-            const content = await this.adapter.read(absPath);
-            totalBytes += content.length;
             const destPath = `${snapFolder}/${relPath}`;
             const destParent = destPath.slice(0, destPath.lastIndexOf('/'));
             if (destParent && destParent !== snapFolder) {
                 await this.ensureDir(destParent);
             }
-            await this.adapter.write(destPath, content);
+            // REF-09: route binary extensions through readBinary/writeBinary
+            // when the adapter supports it. Pre-fix, the UTF-8 read+write
+            // corrupted images, PDFs, archives and Office files inside the
+            // skill folder on every snapshot.
+            if (isBinaryAssetPath(relPath) && this.adapter.readBinary && this.adapter.writeBinary) {
+                const buf = await this.adapter.readBinary(absPath);
+                totalBytes += buf.byteLength;
+                await this.adapter.writeBinary(destPath, buf);
+            } else {
+                const content = await this.adapter.read(absPath);
+                totalBytes += content.length;
+                await this.adapter.write(destPath, content);
+            }
         }
 
         const meta: SnapshotMetadata = {
@@ -155,13 +195,19 @@ export class SkillSnapshotService {
 
         // Apply: write every snapshot file to the skill folder
         for (const { absPath, relPath } of snapshotFiles) {
-            const content = await this.adapter.read(absPath);
             const dest = `${this.skillFolder(skillName)}/${relPath}`;
             const destParent = dest.slice(0, dest.lastIndexOf('/'));
             if (destParent && destParent !== this.skillFolder(skillName)) {
                 await this.ensureDir(destParent);
             }
-            await this.adapter.write(dest, content);
+            // REF-09: see snapshot() for the binary routing rationale.
+            if (isBinaryAssetPath(relPath) && this.adapter.readBinary && this.adapter.writeBinary) {
+                const buf = await this.adapter.readBinary(absPath);
+                await this.adapter.writeBinary(dest, buf);
+            } else {
+                const content = await this.adapter.read(absPath);
+                await this.adapter.write(dest, content);
+            }
         }
 
         // Remove files that existed in the skill but not in the snapshot
