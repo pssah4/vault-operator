@@ -7,23 +7,17 @@
  * Haiku); complex tasks (research, multi-step synthesis) stay on the
  * main model.
  *
- * Two-stage design:
+ * Single-stage design (post-REF-03, 2026-06-21):
  *
- *   1. classifyByRegex(prompt): cheap regex scan that handles obvious
- *      cases. Returns 'simple' | 'complex' | 'unknown'.
+ *   classifyByRegex(prompt): cheap regex scan that handles obvious
+ *   cases. Returns 'simple' | 'complex' | 'unknown'.
  *
- *   2. classifyWithFallback(prompt): runs stage 1 first. When stage 1
- *      returns 'unknown', issues a one-shot LLM call to the helper
- *      model ("simple" vs "complex" -- one token answer). The fallback
- *      is opt-in via the second parameter so callers that cannot afford
- *      the latency (or have no helper model) stay regex-only.
- *
- * Out-of-scope: deciding WHICH helper model to use. The caller already
- * has a helperApi via getHelperApi(); TaskRouter only answers "should we
- * route this onto it or not".
+ * Note: a stage-2 LLM-backed `classifyWithFallback()` lived here from
+ * v2.10.x onwards but was never wired into production -- the agent loop
+ * called classifyByRegex directly. The stability audit on v2.14.0 flagged
+ * it as dead code; removed here so the file matches the actual call path
+ * and so a future caller does not assume the fallback is doing anything.
  */
-
-import type { ApiHandler } from '../../api/types';
 
 export type TaskClassification = 'simple' | 'complex' | 'unknown';
 
@@ -136,46 +130,4 @@ export class TaskRouter {
         return 'unknown';
     }
 
-    /**
-     * Stage-2 LLM fallback. Issues a tiny classification request against
-     * the supplied helper handler and parses the response.
-     *
-     * Returns 'simple' or 'complex' (never 'unknown'). On any error the
-     * fallback defaults to 'complex' so the main model handles the task,
-     * which is the safer side to fail toward.
-     */
-    async classifyWithFallback(prompt: string, helperApi: ApiHandler | null): Promise<'simple' | 'complex'> {
-        const stage1 = this.classifyByRegex(prompt);
-        if (stage1 === 'simple' || stage1 === 'complex') return stage1;
-
-        if (!helperApi) {
-            // No fallback available -- default to safe side.
-            return 'complex';
-        }
-
-        try {
-            const systemPrompt =
-                'You are a task complexity classifier. Reply with exactly one word: ' +
-                '"simple" for tasks that fit in 1-3 tool calls (single file create or read, ' +
-                'short note write, format conversion), or "complex" for tasks that require ' +
-                'research, multi-step reasoning, comparing several sources, or generating long ' +
-                'structured output. Reply only with simple or complex.';
-            const stream = helperApi.createMessage(
-                systemPrompt,
-                [{ role: 'user', content: prompt.slice(0, 1000) }],
-                [],
-            );
-            let answer = '';
-            for await (const chunk of stream) {
-                if (chunk.type === 'text') answer += chunk.text;
-                if (answer.length > 50) break;
-            }
-            const normalised = answer.toLowerCase().trim();
-            if (normalised.startsWith('simple')) return 'simple';
-            return 'complex';
-        } catch (e) {
-            console.warn('[TaskRouter] classifyWithFallback failed, defaulting to complex:', e);
-            return 'complex';
-        }
-    }
 }

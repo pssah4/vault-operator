@@ -124,23 +124,7 @@ describe('TaskRouter.classifyByRegex', () => {
     });
 });
 
-describe('TaskRouter.classifyWithFallback', () => {
-    const router = new TaskRouter();
-
-    it('returns simple/complex from stage-1 without calling helper', async () => {
-        const helperCalled = { count: 0 };
-        const fakeHelper = {
-            createMessage: () => { helperCalled.count++; throw new Error('should not be called'); },
-            getModel: () => ({ id: 'fake', info: {} as never }),
-        } as unknown as Parameters<typeof router.classifyWithFallback>[1];
-
-        expect(await router.classifyWithFallback('erstelle mir eine xlsx', fakeHelper)).toBe('simple');
-        expect(await router.classifyWithFallback('analysiere die vault', fakeHelper)).toBe('complex');
-        expect(helperCalled.count).toBe(0);
-    });
-
-    it('defaults to complex when no helper is provided and stage-1 is unknown', async () => {
-        const neutral = 'Das ist ein recht neutraler Text der weder klar einfach noch komplex ist und keine Tool-Verben enthaelt sondern allgemein bleibt was passieren soll.';
-        expect(await router.classifyWithFallback(neutral, null)).toBe('complex');
-    });
-});
+// REF-03 (2026-06-21): the `classifyWithFallback` test block lived here for
+// the LLM-backed stage-2 classifier that was never wired into the agent
+// loop. The method was removed alongside this block; the regex-only
+// classifier above is still authoritative.

@@ -131,43 +131,11 @@ import { PluginReloader } from './core/self-development/PluginReloader';
  * - Semantic Index: Local vector search
  */
 
-/** Extract HTTP(S) URLs from a free-form text. Used by Stufe-3 web-pass to count distinct sources. */
-function extractUrlsFromText(text: string): string[] {
-    const matches = text.match(/https?:\/\/[^\s)\]<>"']+/g) ?? [];
-    return Array.from(new Set(matches));
-}
-
-/**
- * Group URLs by effective top-level domain (eTLD+1 surrogate) and return
- * the count of independent domain origins. Used by Stufe-3 to decide
- * whether a finding is a "strong signal" (multiple independent sources)
- * vs. multiple URLs on the same domain that may just be one news outlet
- * republishing itself.
- *
- * FIX-19-20-02 from stability audit 2026-06-21: the old check counted
- * raw URLs (`length >= 2`), so two links to the same domain (e.g. two
- * pages on techcrunch.com) triggered a strongSignal. The new check
- * groups by host suffix and demands at least three distinct domains.
- *
- * Pure surrogate -- no PSL parse, just the last two path segments of
- * the hostname (so "blog.foo.co.uk" -> "co.uk" is a known limitation
- * and would over-collapse; but no Stufe-3 source list lives in that
- * shape today).
- */
-function countIndependentDomains(urls: string[]): number {
-    const domains = new Set<string>();
-    for (const u of urls) {
-        try {
-            const host = new URL(u).hostname;
-            const parts = host.toLowerCase().split('.');
-            const eTld1 = parts.length >= 2 ? parts.slice(-2).join('.') : host.toLowerCase();
-            domains.add(eTld1);
-        } catch {
-            // unparseable URLs do not contribute to the signal
-        }
-    }
-    return domains.size;
-}
+// REF-12: extractUrlsFromText + countIndependentDomains moved into
+// src/core/health/Stufe3Hooks.ts alongside the only call site (Stufe-3
+// web update pass). Re-exported here for backwards compatibility with any
+// test that may have imported them from main.
+export { extractUrlsFromText, countIndependentDomains } from './core/health/Stufe3Hooks';
 
 export default class ObsidianAgentPlugin extends Plugin {
     // obsidian 1.13.0 declared `settings` on the base Plugin class; we
@@ -1411,6 +1379,16 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.app.workspace.onLayoutReady(() => {
                     this.graphExtractor?.extractAll(this.app.vault);
                 });
+
+                // IMP-06-01-01 hint: PDF embeddings created before v2.14.10
+                // carry a placeholder string. Show the hint exactly once
+                // when (a) the user has PDFs in the vault, (b) the index is
+                // enabled with PDFs included, and (c) neither the hint has
+                // been dismissed nor a reindex has completed. The two
+                // settings flags ensure the modal never re-fires.
+                this.app.workspace.onLayoutReady(() => {
+                    void this.maybeShowPdfReindexHint();
+                });
             }
 
             // Ontology Bootstrap (FEATURE-1902): build cluster mappings from MOC edges
@@ -1578,87 +1556,19 @@ export default class ObsidianAgentPlugin extends Plugin {
                     });
                 })();
 
-                const preFilter = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
-                    if (!this.apiHandler?.classifyText) return { decision: 'no' as const, tokensUsed: 0 };
-                    const prompt = `Cluster "${cluster.cluster}" wurde zuletzt am ${cluster.lastExternalCheck ?? 'nie'} extern verifiziert. `
-                        + `Halbwertszeit: ${cluster.halfLifeDays} Tage. Lohnt sich JETZT eine Web-Suche `
-                        + `nach Updates? Antworte ausschliesslich mit "yes", "no" oder "unsure".`;
-                    try {
-                        const reply = (await this.apiHandler.classifyText(prompt)).toLowerCase().trim();
-                        const decision: 'yes' | 'no' | 'unsure' = reply.startsWith('yes') ? 'yes'
-                            : reply.startsWith('unsure') ? 'unsure' : 'no';
-                        return { decision, tokensUsed: prompt.length / 4 + 5 };
-                    } catch (e) {
-                        console.debug('[Stufe3] preFilter classify failed:', e);
-                        return { decision: 'no' as const, tokensUsed: 0 };
-                    }
-                };
-                const webUpdatePass = async (cluster: import('./core/knowledge/ClusterMetadataStore').ClusterMetadataRecord) => {
-                    const tool = this.toolRegistry?.getTool('web_search');
-                    if (!tool) return { findings: [], tokensUsed: 0 };
-                    const captured: string[] = [];
-                    const ctx = {
+                // REF-12: 4 hooks (preFilter / webUpdatePass / notificationSink /
+                // budgetExceededSink) extracted into src/core/health/Stufe3Hooks.ts
+                // so the wiring stays inline-readable here and unit-testable in
+                // isolation. The host shim keeps the surface narrow.
+                const { buildStufe3Hooks } = await import('./core/health/Stufe3Hooks');
+                const { preFilter, webUpdatePass, notificationSink, budgetExceededSink } = buildStufe3Hooks(
+                    {
+                        apiHandler: this.apiHandler,
+                        getWebSearchTool: () => this.toolRegistry?.getTool('web_search') ?? null,
                         plugin: this,
-                        callbacks: {
-                            pushToolResult: (r: string) => { captured.push(r); },
-                            say: () => Promise.resolve(),
-                            ask: () => Promise.resolve({ response: 'noButtonClicked' as const }),
-                            isParallelExecution: false,
-                            shouldUseImmediateApproval: () => false,
-                        } as unknown as import('./core/tools/types').ToolCallbacks,
-                    } as unknown as import('./core/tools/types').ToolExecutionContext;
-                    try {
-                        await tool.execute({
-                            query: `${cluster.cluster} latest update news`,
-                            max_results: 5,
-                        }, ctx);
-                    } catch (e) {
-                        console.debug('[Stufe3] webUpdatePass failed:', e);
-                        return { findings: [], tokensUsed: 0 };
-                    }
-                    const text = captured.join('\n');
-                    if (!text.trim()) return { findings: [], tokensUsed: 0 };
-
-                    // IMP-20-06-01 W2-T5: run the note-level verifier on
-                    // top of the cluster-level web pass. Orchestrator
-                    // does its own selection; if it returns no verdicts
-                    // (no candidates, externalSources OFF, classifier
-                    // missing), the cluster finding still ships without
-                    // a notes array.
-                    let noteVerdicts: import('./core/health/types').NoteVerdict[] = [];
-                    let verifierTokens = 0;
-                    try {
-                        const orchestrated = await freshnessOrchestrator?.runForCluster(cluster.cluster);
-                        noteVerdicts = orchestrated?.verdicts ?? [];
-                        verifierTokens = orchestrated?.tokensUsed ?? 0;
-                    } catch (e) {
-                        console.debug('[Stufe3] verifier-pass failed:', e);
-                    }
-
-                    return {
-                        findings: [{
-                            cluster: cluster.cluster,
-                            title: `Updates fuer ${cluster.cluster}`,
-                            summary: text.slice(0, 600),
-                            sources: extractUrlsFromText(text).slice(0, 5),
-                            detectedAt: new Date().toISOString(),
-                            // FIX-19-20-02: domain-grouping over raw URL count.
-                            // Three independent domains required to flag a
-                            // finding as a strong signal.
-                            strongSignal: countIndependentDomains(extractUrlsFromText(text)) >= 3,
-                            ...(noteVerdicts.length ? { notes: noteVerdicts } : {}),
-                        }],
-                        tokensUsed: text.length / 4 + verifierTokens,
-                    };
-                };
-                const notificationSink = (findings: import('./core/health/Stufe3PeriodicJob').UpdateFinding[]) => {
-                    if (!findings.length) return;
-                    new Notice(`Stufe-3: ${findings.length} Update-Hinweise gefunden (siehe Console).`, 6_000);
-                    for (const f of findings) console.debug(`[Stufe3] ${f.cluster}: ${f.title}`);
-                };
-                const budgetExceededSink = (info: { spentUsd: number; budgetUsd: number }) => {
-                    new Notice(`Stufe-3 Budget bei ${(info.spentUsd / info.budgetUsd * 100).toFixed(0)}%.`, 5_000);
-                };
+                    },
+                    freshnessOrchestrator,
+                );
                 this.stufe3PeriodicJob = new Stufe3PeriodicJob(
                     this.clusterMetadataStore,
                     preFilter,
@@ -1737,17 +1647,23 @@ export default class ObsidianAgentPlugin extends Plugin {
                                 + `Klick fuer Anti-Echo-Suche.`,
                             10_000,
                         );
-                        // Klick-Handler fuer dezenten Trigger; nur wenn Notice-API verfuegbar.
+                        // IMP-19-19-01: pre-fix the click only opened a
+                        // second Tipp-Notice with a string the user was
+                        // supposed to paste manually. Now the click opens
+                        // the sidebar and programmatically launches an
+                        // anti_echo_search task -- the Stufe-2 trigger
+                        // finally drives the ToolExecutionPipeline, which
+                        // is what the audit asked for.
                         const el = notice.messageEl;
                         if (el) {
                             el.classList.add('agent-u-cursor-pointer');
                             el.addEventListener('click', () => {
                                 notice.hide();
-                                new Notice(
-                                    `Tipp: "@anti_echo_search cluster:${info.cluster}" im Agent ausfuehren, `
-                                        + `um Gegenpositionen zu suchen.`,
-                                    8_000,
-                                );
+                                const prompt =
+                                    `Run @anti_echo_search for cluster "${info.cluster}" ` +
+                                    `to surface counter-positions. Use a focused query, ` +
+                                    `then summarise the most surprising finding back to me.`;
+                                void this.sendMessageToAgent(prompt);
                             });
                         }
                     },
@@ -3796,6 +3712,25 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Now constrained to the TabId union; the compiler refuses any
      * caller that passes an invalid id.
      */
+    /**
+     * IMP-06-01-01: surface the one-shot PDF-reindex hint exactly once
+     * for users who indexed PDFs before v2.14.10. Quietly returns when
+     * the precondition does not hold (hint already shown, reindex
+     * already done, semantic index off, indexPdfs off, or no PDFs in
+     * the vault).
+     */
+    private async maybeShowPdfReindexHint(): Promise<void> {
+        const s = this.settings;
+        if (s._pdfReindexHintShown) return;
+        if (s._pdfReindexCompleted) return;
+        if (!s.enableSemanticIndex) return;
+        if (!s.semanticIndexPdfs) return;
+        const hasPdfs = this.app.vault.getFiles().some((f) => f.extension.toLowerCase() === 'pdf');
+        if (!hasPdfs) return;
+        const { PdfReindexHintModal } = await import('./ui/modals/PdfReindexHintModal');
+        new PdfReindexHintModal(this.app, this).open();
+    }
+
     openSettingsAt(tab: TabId, subTab?: string): void {
         // Open the Obsidian settings modal
         const setting = this.app.setting;

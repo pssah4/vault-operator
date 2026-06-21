@@ -1075,6 +1075,28 @@ export class AgentTask {
                 }
             }
 
+            // REF-04 (2026-06-21): always-on meta-tools. find_tool (FEATURE-1600
+            // discovery) and read_skill (FEAT-24-09 / ADR-116 "always-available")
+            // were historically marked INTENTIONALLY_NOT_REACHABLE -- they only
+            // hit by hallucination. FIX-29-99-01 added them to TOOL_GROUP_MAP.agent
+            // so they ride through baseTools automatically when the active agent
+            // includes the `agent` group. The injection below pulls them in even
+            // for custom agents whose group list excludes 'agent' (or for subagent
+            // profiles that restrict the surface): without this safety net,
+            // disabling the meta-tools would silently disable progressive
+            // disclosure for the whole task.
+            const allFromRegistry = this.toolRegistry.getToolDefinitions();
+            for (const name of ['find_tool', 'read_skill'] as const) {
+                if (cachedTools.some((t) => t.name === name)) continue;
+                const def = allFromRegistry.find((t) => t.name === name);
+                if (!def) continue;
+                // Respect subagent profile allowlists explicitly: if the profile
+                // chose to exclude a meta-tool, do not override.
+                if (subagentAllowedTools && subagentAllowedTools.length > 0
+                    && !subagentAllowedTools.includes(name)) continue;
+                cachedTools.push(def);
+            }
+
             // BUG-018 Wave 2: hard tool-filter for plugin-shadowed built-ins.
             // If e.g. the Excalidraw community plugin is active, create_excalidraw
             // disappears from the schema entirely — the LLM cannot accidentally

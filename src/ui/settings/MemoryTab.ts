@@ -12,7 +12,9 @@
 import { App, Notice, Setting, setIcon } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { getModelKey } from '../../types/settings';
+import type { CustomModel } from '../../types/settings';
 import { OnboardingService } from '../../core/memory/OnboardingService';
+import { expandProviderConfigsToCustomModels } from '../../core/settings/expandProviderConfigs';
 import { t } from '../../i18n';
 import { addSectionHeading, addSliderInput } from './utils';
 import { confirmModal } from '../modals/PromptModal';
@@ -397,7 +399,12 @@ export class MemoryTab {
         // quota-limited tier (e.g. Copilot 402). The atomiser step is the
         // only LLM-heavy part of the cascade; let the user pick a model
         // that is known to have quota.
-        const activeModels = this.plugin.settings.activeModels.filter(m => m.enabled);
+        // REF-08: providerConfigs[] is the post-EPIC-26 canonical store;
+        // expandProviderConfigsToCustomModels bridges the two shapes so
+        // this dropdown is no longer empty on migrated installs.
+        const fromProviders = expandProviderConfigsToCustomModels(this.plugin.settings.providerConfigs ?? []);
+        const legacy = this.plugin.settings.activeModels.filter(m => m.enabled);
+        const activeModels: CustomModel[] = fromProviders.length > 0 ? fromProviders : legacy;
         new Setting(containerEl)
             .setName('Atomiser model')
             .setDesc(

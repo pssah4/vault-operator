@@ -7,6 +7,7 @@
 import { App, Modal, setIcon } from 'obsidian';
 import type { ChatHistoryService, HistoryMessage, SavedConversation } from '../core/ChatHistoryService';
 import { t } from '../i18n';
+import { confirmModal } from './modals/PromptModal';
 
 export class ChatHistoryModal extends Modal {
     private conversations: SavedConversation[] = [];
@@ -62,7 +63,17 @@ export class ChatHistoryModal extends Modal {
         const deleteBtn = actions.createEl('button', { cls: 'chat-history-delete-btn' });
         setIcon(deleteBtn, 'trash-2');
         deleteBtn.setAttribute('aria-label', t('modal.chatHistory.delete'));
+        // REF-01: conversations are not undo-able; the previous click-once
+        // delete was easy to trigger by accident next to the open-button.
         deleteBtn.addEventListener('click', () => { void (async () => {
+            const ok = await confirmModal(this.app, {
+                title: 'Delete conversation',
+                message: `Delete this conversation? This cannot be undone.\n\nMemory and skill mastery state derived from this conversation will be kept.`,
+                confirmLabel: 'Delete',
+                cancelLabel: 'Cancel',
+                destructive: true,
+            });
+            if (!ok) return;
             await this.service.delete(conv.id);
             row.remove();
             const remaining = this.contentEl.querySelectorAll('.chat-history-row');

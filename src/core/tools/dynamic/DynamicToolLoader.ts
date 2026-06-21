@@ -16,8 +16,8 @@
 
 import { TFile, TFolder } from 'obsidian';
 import type ObsidianAgentPlugin from '../../../main';
-import type { ToolRegistry } from '../ToolRegistry';
-import type { ISandboxExecutor } from '../../sandbox/ISandboxExecutor';
+// REF-10: ToolRegistry + ISandboxExecutor imports dropped along with
+// loadAll(); the migration path no longer needs them.
 import { DynamicToolFactory } from './DynamicToolFactory';
 import type { DynamicToolRecord } from './types';
 import type { SelfAuthoredSkillLoader } from '../../skills/SelfAuthoredSkillLoader';
@@ -34,43 +34,12 @@ export class DynamicToolLoader {
     }
 
     /**
-     * Load all persisted dynamic tools and register them.
-     * This is kept as a fallback during migration. Once all tools are
-     * migrated to skills, this method is no longer needed.
-     */
-    async loadAll(
-        registry: ToolRegistry,
-        sandboxExecutor: ISandboxExecutor,
-    ): Promise<number> {
-        const folder = this.plugin.app.vault.getAbstractFileByPath(this.toolsDir);
-        if (!(folder instanceof TFolder)) return 0;
-
-        let loaded = 0;
-        for (const child of folder.children) {
-            if (child instanceof TFile && child.extension === 'json') {
-                try {
-                    const content = await this.plugin.app.vault.read(child);
-                    const record = JSON.parse(content) as DynamicToolRecord;
-
-                    const tool = DynamicToolFactory.create(
-                        record.definition,
-                        record.compiledJs,
-                        sandboxExecutor,
-                        this.plugin,
-                    );
-                    registry.register(tool);
-                    loaded++;
-                } catch (e) {
-                    console.warn(`[DynamicToolLoader] Failed to load ${child.path}:`, e);
-                }
-            }
-        }
-
-        if (loaded > 0) {
-            console.debug(`[DynamicToolLoader] Loaded ${loaded} dynamic tool(s)`);
-        }
-        return loaded;
-    }
+     * REF-10 (2026-06-21): loadAll() removed. It was a fallback path for
+     * pre-FEAT-29-06 dynamic tools loaded straight from JSON records;
+     * the audit flagged it as keeping the SC-02/SC-03 "removed" claim
+     * partially false. New skills go through SelfAuthoredSkillLoader;
+     * legacy JSON records are migrated once via migrateToSkills() and
+     * then deleted, so a runtime loader is no longer required.
 
     /**
      * Migrate all dynamic tool JSON records to unified skill folders.

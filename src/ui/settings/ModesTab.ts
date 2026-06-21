@@ -8,6 +8,7 @@ import { SystemPromptPreviewModal } from './SystemPromptPreviewModal';
 import { NewModeModal } from './NewModeModal';
 import { t } from '../../i18n';
 import type { ModeService } from '../../core/modes/ModeService';
+import { confirmModal } from '../modals/PromptModal';
 
 export class ModesTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void, private modeService?: ModeService) {}
@@ -315,7 +316,19 @@ export class ModesTab {
                 deleteBtn.setAttribute('aria-disabled', 'true');
                 deleteBtn.setAttribute('title', t('settings.modes.deleteBuiltInTooltip'));
             } else {
+                // REF-01: custom modes can carry tuned tool-group selections
+                // + system-prompt rewrites that the user spent time on; a
+                // single misclick should not nuke them silently.
                 deleteBtn.addEventListener('click', () => { void (async () => {
+                    const scopeLabel = isGlobal ? 'global agent' : 'vault agent';
+                    const ok = await confirmModal(this.app, {
+                        title: `Delete ${scopeLabel}`,
+                        message: `Delete the ${scopeLabel} "${mode.name}"?\n\nThis removes the agent definition (tool groups, system prompt, when-to-use hint) and cannot be undone.`,
+                        confirmLabel: 'Delete',
+                        cancelLabel: 'Cancel',
+                        destructive: true,
+                    });
+                    if (!ok) return;
                     if (isGlobal) {
                         await GlobalModeStore.removeMode(slug);
                         await this.modeService?.reloadGlobalModes?.();

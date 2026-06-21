@@ -187,6 +187,15 @@ export class FirstRunWizardModal extends Modal {
      * when no model is configured yet.
      */
     private resolveActiveProviderName(): string {
+        // REF-08: prefer providerConfigs[] (post-EPIC-26 canonical store).
+        // Fall back to legacy activeModels[] for pre-migration installs.
+        for (const p of this.plugin.settings.providerConfigs ?? []) {
+            if (!p.enabled) continue;
+            const dm = (p.discoveredModels ?? [])[0];
+            if (!dm) continue;
+            const name = dm.displayName ?? dm.id;
+            return `${p.type} / ${name}`;
+        }
         const active = this.plugin.settings.activeModels.find((m) => m.enabled !== false);
         if (!active) return 'your active LLM provider (none configured yet)';
         const provider = (active as { provider?: string; type?: string }).provider
@@ -375,7 +384,14 @@ export class FirstRunWizardModal extends Modal {
 
         this.addSection(this.bodyEl, 'Current status');
         const renderStatus = (parent: HTMLElement): HTMLElement => {
-            const count = this.plugin.settings.activeModels.filter(m => m.enabled).length;
+            // REF-08: count enabled provider models from providerConfigs[]
+            // (post-EPIC-26 canonical store); fall back to activeModels[]
+            // for pre-migration installs.
+            const providerCount = (this.plugin.settings.providerConfigs ?? [])
+                .filter((p) => p.enabled)
+                .reduce((sum, p) => sum + (p.discoveredModels?.length ?? 0), 0);
+            const legacyCount = this.plugin.settings.activeModels.filter(m => m.enabled).length;
+            const count = providerCount > 0 ? providerCount : legacyCount;
             return this.addStatusLine(parent, count, 'LLM model');
         };
         const statusWrap = this.bodyEl.createDiv();

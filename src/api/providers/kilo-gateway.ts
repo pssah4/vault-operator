@@ -20,6 +20,7 @@ import { resolveOutputBudget, estimatePromptTokens, modelSupportsTemperature } f
 import { logCacheStat } from '../logCacheStat';
 import { normalizeDeltaContent } from './utils/openAiContent';
 import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/toolCallFlush';
+import { appendOpenAiChatUserMessage, type OpenAiChatMessage } from '../openaiShapeUserBlocks';
 
 // ---------------------------------------------------------------------------
 // OpenAI REST API types (subset — mirrors github-copilot.ts)
@@ -288,43 +289,8 @@ export class KiloGatewayProvider implements ApiHandler {
                     result.push({ role: 'assistant', content: textParts });
                 }
             } else {
-                // FIX-04-03-09: image blocks used to be silently dropped.
-                // See openai.ts for the same fix; kept symmetric so the
-                // three OpenAI-shape providers behave identically.
-                const hasImage = blocks.some((b) => b.type === 'image');
-                if (hasImage) {
-                    const contentArr: OpenAIContentPart[] = [];
-                    for (const block of blocks) {
-                        if (block.type === 'text') {
-                            contentArr.push({ type: 'text', text: block.text });
-                        } else if (block.type === 'image') {
-                            contentArr.push({
-                                type: 'image_url',
-                                image_url: { url: `data:${block.source.media_type};base64,${block.source.data}` },
-                            });
-                        }
-                    }
-                    if (contentArr.length > 0) {
-                        result.push({ role: 'user', content: contentArr });
-                    }
-                }
-                for (const block of blocks) {
-                    if (!hasImage && block.type === 'text') {
-                        result.push({ role: 'user', content: block.text });
-                    } else if (block.type === 'tool_result') {
-                        const textContent = typeof block.content === 'string'
-                            ? block.content
-                            : block.content
-                                .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-                                .map((b) => b.text)
-                                .join('\n');
-                        result.push({
-                            role: 'tool',
-                            tool_call_id: block.tool_use_id,
-                            content: textContent,
-                        });
-                    }
-                }
+                // REF-06: shared user-message helper. See openai.ts.
+                appendOpenAiChatUserMessage(result as OpenAiChatMessage[], msg);
             }
         }
 

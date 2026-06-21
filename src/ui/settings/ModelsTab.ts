@@ -7,6 +7,7 @@ import { getModelKey, getFirstEnabledModelKey } from '../../types/settings';
 import { PROVIDER_LABELS, PROVIDER_COLORS } from './constants';
 import { renderSkipHintIfSkipped } from './skipHints';
 import { t } from '../../i18n';
+import { confirmModal } from '../modals/PromptModal';
 
 export class ModelsTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -180,7 +181,19 @@ export class ModelsTab {
 
         const delBtn = actionsEl.createEl('button', { cls: 'mc-action-btn mc-action-del', attr: { title: t('settings.models.remove') } });
         setIcon(delBtn, 'trash');
+        // REF-01: Sebastian-Regel "destructive actions need confirmation". The
+        // direct delete path here would silently strip a saved provider that
+        // the user might still be using from another agent profile.
         delBtn.addEventListener('click', () => { void (async () => {
+            const modelLabel = model.displayName ?? model.name ?? key;
+            const ok = await confirmModal(this.app, {
+                title: 'Remove model',
+                message: `Remove "${modelLabel}" from saved models?\n\nThis only removes the configuration entry. API credentials stay in the provider section.`,
+                confirmLabel: 'Remove',
+                cancelLabel: 'Cancel',
+                destructive: true,
+            });
+            if (!ok) return;
             this.plugin.settings.activeModels = this.plugin.settings.activeModels.filter(
                 (m) => getModelKey(m) !== key,
             );

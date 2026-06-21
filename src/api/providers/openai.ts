@@ -23,6 +23,8 @@ import { flushToolCallAccumulators, type ToolCallAccumulator } from './utils/too
 
 // FIX-04-03-09: content may be a content-part array on user messages to
 // carry multimodal input ({type:'image_url'|'text'}).
+import { appendOpenAiChatUserMessage, type OpenAiChatMessage } from '../openaiShapeUserBlocks';
+
 type OpenAIContentPart =
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string } };
@@ -614,52 +616,12 @@ export class OpenAiProvider implements ApiHandler {
                     result.push({ role: 'assistant', content: textParts });
                 }
             } else {
-                // User messages may contain text + image + tool_result blocks.
-                // Thinking blocks cannot legally appear on user role; ignored
-                // if they do. FIX-04-03-09: image blocks used to be silently
-                // dropped (text/tool_result-only branches) so gpt-4o /
-                // Gemini-via-OpenAI / OpenRouter vision models received text
-                // only and answered "I don't see an image". They are now
-                // emitted in the canonical content-array format.
-                const hasImage = blocks.some((b) => b.type === 'image');
-                if (hasImage) {
-                    const contentArr: Array<
-                        | { type: 'text'; text: string }
-                        | { type: 'image_url'; image_url: { url: string } }
-                    > = [];
-                    for (const block of blocks) {
-                        if (block.type === 'text') {
-                            contentArr.push({ type: 'text', text: block.text });
-                        } else if (block.type === 'image') {
-                            contentArr.push({
-                                type: 'image_url',
-                                image_url: { url: `data:${block.source.media_type};base64,${block.source.data}` },
-                            });
-                        }
-                    }
-                    if (contentArr.length > 0) {
-                        result.push({ role: 'user', content: contentArr });
-                    }
-                }
-                for (const block of blocks) {
-                    if (!hasImage && block.type === 'text') {
-                        result.push({ role: 'user', content: block.text });
-                    } else if (block.type === 'tool_result') {
-                        // Tool results become separate 'tool' role messages in OpenAI format.
-                        // OpenAI only supports string content — extract text from multimodal arrays.
-                        const textContent = typeof block.content === 'string'
-                            ? block.content
-                            : block.content
-                                .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-                                .map((b) => b.text)
-                                .join('\n');
-                        result.push({
-                            role: 'tool',
-                            tool_call_id: block.tool_use_id,
-                            content: textContent,
-                        });
-                    }
-                }
+                // REF-06: user-message conversion (text + image + tool_result)
+                // now lives in the shared appendOpenAiChatUserMessage helper.
+                // Three near-identical copies of this branch used to live in
+                // openai/copilot/kilo; FIX-04-03-09 had to update all three
+                // and we want to avoid the same future-bug pattern.
+                appendOpenAiChatUserMessage(result as OpenAiChatMessage[], msg);
             }
         }
 
