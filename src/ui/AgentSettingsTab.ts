@@ -49,6 +49,24 @@ export class AgentSettingsTab extends PluginSettingTab {
     }
 
     /**
+     * FIX-26-99-03: locate the ModeService that the open AgentSidebarView
+     * leaf already owns, so the settings ModesTab + NewModeModal can read
+     * and write through it instead of receiving `undefined`. Returns null
+     * when no sidebar leaf is open -- ModesTab degrades gracefully (the
+     * tab still renders but enumerates only built-in modes). The
+     * AgentSidebarView contract is `getModeServiceOrNull(): ModeService | null`.
+     */
+    private findActiveModeService(): import('../core/modes/ModeService').ModeService | undefined {
+        const leaves = this.app.workspace.getLeavesOfType('obsidian-agent-sidebar');
+        for (const leaf of leaves) {
+            const view = leaf.view as unknown as { getModeServiceOrNull?: () => import('../core/modes/ModeService').ModeService | null };
+            const ms = view.getModeServiceOrNull?.() ?? null;
+            if (ms) return ms;
+        }
+        return undefined;
+    }
+
+    /**
      * Programmatically navigate to a specific tab/subtab and re-render.
      * Used by deep-links (obsidian://obsilo-settings) and plugin methods.
      */
@@ -233,7 +251,13 @@ export class AgentSettingsTab extends PluginSettingTab {
             (id) => { this.activeAgentSubTab = id; this.redraw(); });
         const content = container.createDiv({ cls: 'agent-settings-subcontent' });
         const rerender = () => this.redraw();
-        const ms = undefined; // ModeService is instantiated in AgentSidebarView; settings tabs work without it
+        // FIX-26-99-03: pre-fix the ModeService was private to
+        // AgentSidebarView, so the ModesTab + NewModeModal received
+        // `undefined` and silently failed to enumerate or save custom
+        // modes. AgentSidebarView now exposes the service via
+        // `getModeServiceOrNull()` so the settings tab works whether
+        // or not the sidebar leaf is currently open.
+        const ms = this.findActiveModeService();
         if (this.activeAgentSubTab === 'modes')       new ModesTab(this.plugin, this.app, rerender, ms).build(content);
         if (this.activeAgentSubTab === 'permissions') new PermissionsTab(this.plugin, this.app, rerender).build(content);
         if (this.activeAgentSubTab === 'memory')      new MemoryTab(this.plugin, this.app, rerender).build(content);

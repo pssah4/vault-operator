@@ -2307,10 +2307,21 @@ export default class ObsidianAgentPlugin extends Plugin {
         // 6. Register deep-link protocol handlers:
         //    obsidian://vault-operator-settings?tab=advanced&sub=backup (new canonical)
         //    obsidian://obsilo-settings?...                              (legacy alias)
+        const VALID_SETTINGS_TABS: ReadonlySet<TabId> = new Set<TabId>([
+            'providers', 'agent-behaviour', 'customize', 'advanced', 'help',
+        ]);
         const openSettingsFromParams = (params: Record<string, string>) => {
-            const tab = params.tab;
+            const tabParam = params.tab;
             const sub = params.sub;
-            if (tab) this.openSettingsAt(tab, sub);
+            if (!tabParam) return;
+            // FIX-26-99-01 follow-up: external deep-links can send arbitrary
+            // strings; reject anything that is not a known TabId so we never
+            // land on the default tab with the user expecting something else.
+            if (!(VALID_SETTINGS_TABS as Set<string>).has(tabParam)) {
+                console.warn(`[deeplink] Unknown settings tab: ${tabParam}`);
+                return;
+            }
+            this.openSettingsAt(tabParam as TabId, sub);
         };
         this.registerObsidianProtocolHandler('vault-operator-settings', openSettingsFromParams);
         this.registerObsidianProtocolHandler('obsilo-settings', openSettingsFromParams);
@@ -2404,7 +2415,13 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.pendingMigrationSummary = null;
         const { MigrationNotificationModal } = await import('./ui/settings/MigrationNotificationModal');
         new MigrationNotificationModal(this.app, summary, {
-            onOpenSettings: () => this.openSettingsAt('agent', 'providers'),
+            // FIX-26-99-01: pre-fix this used 'agent' as TabId, which is not
+            // in the TabId union ('providers' | 'agent-behaviour' | 'customize'
+            // | 'advanced' | 'help'), so the cast at openSettingsAt() landed on
+            // the default tab and the migration prompt opened a blank settings
+            // page. The migration is about provider config, so direct the user
+            // straight to the providers tab.
+            onOpenSettings: () => this.openSettingsAt('providers'),
             onDismiss: () => { /* nothing to do */ },
         }).open();
     }
@@ -3726,7 +3743,9 @@ export default class ObsidianAgentPlugin extends Plugin {
         const { memoryV2UpgradeModal } = await import('./ui/modals/MemoryV2UpgradeModal');
         const choice = await memoryV2UpgradeModal(this.app, { reason: 'auto-on-load' });
         if (choice === 'migrate') {
-            this.openSettingsAt('agent', 'memory');
+            // FIX-26-99-01: was 'agent' (tot-String) -- memory lives under
+            // agent-behaviour > memory.
+            this.openSettingsAt('agent-behaviour', 'memory');
         } else {
             mem.v2MigrationStatus = 'skipped';
             await this.saveSettings();
@@ -3761,7 +3780,14 @@ export default class ObsidianAgentPlugin extends Plugin {
         }
     }
 
-    openSettingsAt(tab: string, subTab?: string): void {
+    /**
+     * FIX-26-99-01: was accepting arbitrary `string` and casting to TabId
+     * at the call to settingsTab.openAt(). That swallowed tot-Strings
+     * like `'agent'` silently and left the user on the default tab.
+     * Now constrained to the TabId union; the compiler refuses any
+     * caller that passes an invalid id.
+     */
+    openSettingsAt(tab: TabId, subTab?: string): void {
         // Open the Obsidian settings modal
         const setting = this.app.setting;
         if (setting) {
@@ -3771,7 +3797,7 @@ export default class ObsidianAgentPlugin extends Plugin {
             // Then navigate to the specific tab/subtab within our settings
             window.setTimeout(() => {
                 if (this.settingsTab) {
-                    this.settingsTab.openAt(tab as TabId, subTab);
+                    this.settingsTab.openAt(tab, subTab);
                 }
             }, 50);
         }
