@@ -55,6 +55,14 @@ export interface DiscoveryHost {
 }
 
 export class ModelDiscoveryService {
+    /**
+     * Rate-limit the "service down" debug log to once per provider per
+     * plugin session. Without this the same line lands on every refresh
+     * cycle (startup + every 24h tick + every Settings-tab open) which
+     * adds noise to anyone running with DevTools verbose level on.
+     */
+    private serviceDownLogged = new Set<string>();
+
     constructor(
         private readonly host: DiscoveryHost,
         private readonly fetcher: ModelFetcher,
@@ -100,10 +108,17 @@ export class ModelDiscoveryService {
             const isLocalServiceDown =
                 /ERR_CONNECTION_REFUSED|ECONNREFUSED|ENOTFOUND|ERR_NAME_NOT_RESOLVED|fetch failed/i.test(msg);
             if (isLocalServiceDown) {
-                console.debug(
-                    `[ModelDiscoveryService] ${providerId} unreachable (skipping refresh): ${msg}`,
-                );
+                if (!this.serviceDownLogged.has(providerId)) {
+                    this.serviceDownLogged.add(providerId);
+                    console.debug(
+                        `[ModelDiscoveryService] ${providerId} unreachable (skipping refresh): ${msg}`,
+                    );
+                }
             } else {
+                // Reset the rate-limit on a non-network error: the next
+                // time the service is unreachable, we want the debug line
+                // again because the user touched the config in between.
+                this.serviceDownLogged.delete(providerId);
                 console.warn(
                     `[ModelDiscoveryService] refresh failed for ${providerId}:`,
                     msg,

@@ -5,8 +5,8 @@ import { withBase } from 'vitepress'
 <template>
   <section class="landing-hero">
     <a href="https://github.com/pssah4/vault-operator/releases" class="landing-badge" target="_blank" rel="noopener">
-      <span class="landing-badge-version">v2.14.14</span>
-      <span>Audit refactoring sweep -- the v2.14 line is stable.</span>
+      <span class="landing-badge-version">v2.14.15</span>
+      <span>Quieter discovery logs for unconfigured local providers.</span>
     </a>
 
     <h1 class="landing-title">Your Obsidian vault,<br>with a real AI agent.</h1>
