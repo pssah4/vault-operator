@@ -230,6 +230,7 @@ Phase: Building | Status: Active
 | FEAT-06-04 | Feature | On-Demand Bild-Extraktion | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/211 |
 | FEAT-06-05 | Feature | Modell-Kompatibilitäts-Check | Done | Released | EPIC-06 | BA |  |  |  |   Issue: https://github.com/pssah4/vault-operator-dev/issues/212 |
 | FIX-06-01-01 | Fix | 06-01-01: parseDocument plugin-ref-drift -- PDF parsing globally broken (5 call-sites pass no plugin -> placeholder leaks into SemanticIndex, PdfMarkdownMirror, Ingest, Agent read) | Done | Released | FEAT-06-01, EPIC-06 | BUG |  | sebastian-claude-opus-4-7 | 2026-06-21 | P0 Released 2.14.10. parseDocument + parsePdf required plugin arg, 5 call-sites compiler-enforced. Reindex-UI as follow-up IMP-06-01-01.  Issue: https://github.com/pssah4/vault-operator/issues/36 |
+| FIX-19-19-01 | Fix | 19-19-01: Stufe2ActivityTrigger SQL crash + missing error guard (AVG(MAX()) invalid + unhandled rejection through maybeHint) | Active | Building | FEAT-19-19, EPIC-19 | BUG |  | sebastian-claude-opus-4-7 | 2026-06-21 | P0 from stability audit 2026-06-21. AVG(MAX(mtime)) crashes in sql.js ("misuse of aggregate function MAX()"). Fix: AVG(mtime) on the subquery + top-level try/catch in maybeHint. |
 
 ### EPIC-07: Chat-Linking (Provenienz & Nachvollziehbarkeit)
 

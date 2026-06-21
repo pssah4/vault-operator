@@ -221,13 +221,52 @@ Empfehlung als Gesamtbewertung: v2.14.0 darf in der aktuellen Form NICHT als sta
 
 ---
 
+## Live-Verifikation 2026-06-21 (nach v2.14.9 + v2.14.10)
+
+Console-Reload nach Deploy von v2.14.10 zeigt:
+
+### Bestaetigte Hotfixes
+
+| Hotfix | Live-Befund | Status |
+|---|---|---|
+| FIX-23-09-01..03 (MCP-Bridge) | `[McpBridge] MCP Server listening on http://127.0.0.1:27182` + `[RelayClient] Connected to relay`. Kein systemContext-Auto-Inject-Log. | bestaetigt |
+| FIX-06-01-01 (PDF-Pipeline) | `[SemanticIndex] 39 documents (indexPdfs=true)` + `Build complete: 808/808 files, 0 skipped`. Kein Placeholder-Embed mehr. | bestaetigt |
+| YAML-Frontmatter-Fix (11 Notes) | Kein YAMLParseError-Spam mehr in `[TaskNotes][taskmanager-parse-frontmatter-fallback]`. Nur ein einzelner unverwandter DependencyCache-Warning. | bestaetigt |
+| Reranker ONNX-Device-Fix (v2.14.0) | `[Reranker] Loaded ONNX WASM from vault asset (12 MB)` + `Model loaded in 577ms`. | live verifiziert |
+| ImplicitConnections isOpen-Guard | `[ImplicitConnections] DB closed during computation, aborting gracefully`. | live verifiziert |
+| Stigmergy-Daemon (EPIC-32) | `connected to daemon ... registered 74 tools, 0 skills, 0 mcp, 2 subagents`. | live verifiziert |
+| VaultDNA-Plugin-Scan | `Scanned 51 plugins (49 with skills)`, 108 Methods aus tasknotes, 30 aus dataview, 6 aus omnisearch. | live verifiziert |
+| Memory-Aging | `Aging sweep: 115/695 facts updated (identity=5, fact=96, event=4, preference=10)`. | live verifiziert |
+| KnowledgeDB / Vector / Graph | `Loaded 15164 vectors into cache`, `Extracted 3144 edges, 2460 unique tags from 811 files`. | live verifiziert |
+
+### Neue Live-Findings (Audit-Erweiterung)
+
+| Prio | Bereich | Titel | Beleg | Empfehlung |
+|---|---|---|---|---|
+| P3 | Vault-Daten | `Attachements/Ressourcenübersicht.xlsx` ist korrupt | `[SemanticIndex] Skipping corrupted document Attachements/Ressourcenübersicht.xlsx: Can't find end of central directory` | User: File neu exportieren. Optional: VaultHealth-Check fuer corrupted-Office-Files anbieten. |
+| P2 | Init-Lifecycle | Doppelte API-Handler-Initialisierung beim Plugin-Start | Zwei `[Plugin] API handler initialized: ... (bedrock)`-Zeilen in einem Reload, getrennt durch `[SnapshotJob]`-Lauf | Init-Order in `main.ts` so refactorieren, dass API-Handler nur einmal initialisiert wird. Risiko bei Bedrock-Auth-Refresh. |
+| P3 | Cosmetic | `net::ERR_CONNECTION_REFUSED`-Logs fuer ollama/custom ohne konfigurierten Endpoint | `[ModelDiscoveryService] ollama-main unreachable ... custom-main unreachable` | Bei `enabled=false` oder leerer URL: `console.debug` statt `console.warn`. |
+| ? | Vault-Health | 1 high finding nach Reload | `[VaultHealth] 20 findings (1 high, 8 medium, 11 low)` | Aufklaeren welches Finding das ist; eventuell weitere broken YAMLs jenseits der 11 gefixten. |
+| FYI | TaskNotes | DependencyCache-Race in fremdem Plugin | `[TaskNotes] DependencyCache: isFileUsedAsProject called before indexes built, building now...` | Fremdes Plugin, nicht unsere Verantwortung. Reporten ggf. an pivanov/tasknotes. |
+
+### Audit-Empfehlungen, die sich durch Live-Daten relativieren
+
+| Audit-P0/P1 | Live-Status | Konsequenz |
+|---|---|---|
+| FEAT-19-19 Stufe-2 SQL `AVG(MAX())`-Crash | Beim Plugin-Reload **nicht ausgeloest** (Stufe2 triggert auf Activity, nicht onload). Audit-Befund bleibt valide, aber Bug ist latent und nur unter Activity-Trigger reproduzierbar. | Reproduktion nach laenger laufender Activity-Session noetig, dann gezielt fixen. |
+| FEAT-19-29 PDF Markdown-Mirror | Audit-Empfehlung Reindex-IMP gilt: bestehende PDF-Embeddings im SemanticIndex sind potenziell mit Placeholder kontaminiert, neue PDF-Inserts ab v2.14.10 sind sauber. | IMP-06-01-01 anlegen (Reindex-UI + Hint-Modal). |
+| FEAT-19-22 Aktiver Dialog-Ingest naiver Picker | Live nicht beobachtet (kein Dialog-Ingest im Reload-Log). | Tiefere Sub-Audit-Welle noetig. |
+
+---
+
 ## Anhang: Audit-Metriken
 
 - **Domains gepruft:** 14
 - **Bugs gesamt:** 73
-- **P0 bestaetigt:** 5
+- **P0 bestaetigt:** 5 (davon 2 in Hotfix v2.14.9+10 geschlossen)
 - **P1 bestaetigt:** 20
 - **Bugs widerlegt:** 0
 - **Refactoring-Empfehlungen:** 61
 - **Claim-vs-Realitaet-Gaps:** 75
+- **Live-Verifikation:** 9 Komponenten bestaetigt, 3-5 neue Findings (zwei P2/P3, drei FYI)
 - **Audit-Methode:** Workflow `stability-audit`, 40 Agenten parallel + adversariale Verifikation (Run-ID wf_52072472-70c)
