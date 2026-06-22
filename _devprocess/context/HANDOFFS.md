@@ -5,6 +5,77 @@ was uebergeben wurde und was der naechste Schritt ist.
 
 ---
 
+## business-analysis-to-requirements-engineering 2026-06-22
+
+triage: EPIC-33
+triage_kind: epic
+epic: EPIC-33
+feature: n/a (EPIC-Level, FEAT-Aufspaltung in RE)
+
+**Phase:** Business Analysis (MVP-Scope) abgeschlossen. Ready for RE.
+
+**Artefakte erzeugt:**
+
+- BA: [BA-EPIC-33-inline-editor-ai-actions.md](../analysis/BA-EPIC-33-inline-editor-ai-actions.md) (Item-BA fuer EPIC-33)
+- BACKLOG-Sektion fuer EPIC-33 reserviert mit Status: BA-in-progress, Phase: BA
+- Branch: `feature/inline-editor-ai-actions` (von `dev` abgezweigt 2026-06-22)
+
+**Scope:** MVP. GA-Feature, eine homogene Persona P1 (Vault Operator-User / Power-User-Wissensarbeiter).
+
+**HMW:**
+> How might we Vault Operator-User den Wechsel vom Schreibmodus in den Chat-Modus eliminieren lassen, sodass markierter Text in einer Note der Trigger fuer die naechstpassende AI-Aktion wird, despite der bestehenden Trennung zwischen Editor-Surface und Chat-Sidebar samt deren getrennten Konfigurationen?
+
+**Value Proposition:**
+Markierter Text wird zur direkten Eingangstuer fuer vier kuratierte AI-Aktionen (Lookup, Rewrite, Inline-Chat, Send-to-Main-Chat). Jede Aktion uebernimmt die im Main-Chat aktiven Settings (Modell, Skills, Prompts, Provider). Editor wird zur zweiten gleichwertigen AI-Surface neben dem Sidebar.
+
+**Trigger-UX (entschieden):**
+- Default: Floating-Menu auf Selection
+- Settings-Toggle: Hotkey-Alternative (user-konfigurierbar) fuer User die Floating als stoerend empfinden oder Cursor/Cmd+K-Pattern gewohnt sind
+- Command-Palette-Konsistenz folgt natuerlich aus Obsidian-Plugin-Convention
+
+**Rewrite-Output (entschieden):**
+- Direct-Replace + Undo-Stack (Cursor-Pattern)
+- Bewusst kein Diff-Preview als Default (Risiko-Tradeoff: H-02 testet Akzeptanz)
+- Optional Checkpoint-Snapshot vor Rewrite als Mitigation (Architektur-Entscheidung)
+
+**Critical Hypotheses fuer RE und Architektur:**
+
+- H-01 (Problem-Solution Fit): Floating-Menu auf Selection stoert das normale Markieren-zum-Kopieren nicht. **Test:** 14d Beta. **Success:** <15% Hotkey-Opt-Out, keine Format-Toolbar-Kollisions-Bugs.
+- H-02 (Problem-Solution Fit): Direct-Replace + Undo ist die akzeptable UX fuer Rewrite. **Test:** 14d Beta mit Telemetry. **Success:** Undo-Rate nach Rewrite <30%.
+- H-03 (Problem-Solution Fit): Settings-Reuse aus Main-Chat ist die richtige Granularitaet. **Test:** 30d Beta + Issue-Tracking. **Success:** <2 Issues mit "ich will andere Settings fuer Inline".
+- H-04 (Market): Die 4 gewaehlten Actions decken den Hauptbedarf. **Test:** 30d Beta + Issue-Backlog. **Success:** <3 Issues mit "fehlt Action X".
+- H-05 (Tech Feasibility): CodeMirror-Selection-API + Obsidian-Editor-API tragen alle 4 Output-Modi ohne Editor-State-Korruption. **Test:** Spike in Architektur-Phase. **Success:** alle 4 Actions in Source-Mode + Live-Preview, Lookup/Send zusaetzlich in Reading-Mode.
+
+**Assumptions (zu verifizieren in Architektur):**
+
+- CodeMirror-6-Selection-Events sind in der Obsidian-Plugin-API stabil zugaenglich
+- Modell/Skills-Snapshot zum Action-Zeitpunkt ist akzeptabel (vs Live-Bind)
+- Inline-Chat-Conversation-Block kann als Sub-Conversation in der existierenden History-Pipeline gespeichert werden (oder ephemer bleiben - Architektur-Entscheidung)
+
+**Geplante Feature-Aufspaltung (vorgeschlagen fuer RE):**
+
+- FEAT-33-01 (P0): Trigger-Layer (Floating-Menu + Hotkey + Command-Palette + Settings-Surface)
+- FEAT-33-02 (P0): Lookup-Action (Tooltip oder Side-Panel)
+- FEAT-33-03 (P0): Rewrite-Action (Direct-Replace + Undo + optional Checkpoint)
+- FEAT-33-04 (P0): Send-to-Main-Chat-Action (Sidebar oeffnen mit Selection als Vor-Kontext)
+- FEAT-33-05 (P1): Inline-Chat-Action (Conversation-Block, anspruchsvollster Output-Modus, deshalb getrennt)
+
+**Open Questions fuer RE/Architektur:**
+
+- Inline-Chat-Conversation-Block: ephemer im Editor oder persistiert in Note-Frontmatter / separater Sub-Conversation in History-Pipeline?
+- Settings-Snapshot Lifecycle: pro Action-Trigger oder Cache bis Settings-Aenderung?
+- Reading-Mode-Behandlung: nur Lookup/Send aktiv oder auch Rewrite (Editor-Switch im Hintergrund)?
+- Mobile-Tap-and-hold-Menu vs System-Selection-Menu: Konflikt-Strategie?
+- Telemetry-Infrastruktur fuer H-01/H-02/H-04 (Undo-Rate, Action-Mix, Hotkey-Opt-Out) - existiert ein Hook oder muss er gebaut werden?
+
+**Project-BA-Status (Hinweis fuer RE):**
+
+Keine kanonische `BA-{PROJECT}.md` im Repo. Legacy-Per-Epic-BAs (BA-01..BA-10) sind nicht aequivalent. EPIC-33-BA setzt `project-ba-ref: null` und definiert Persona P1 lokal. Mittelfristige Empfehlung: `/reverse-engineering` fuer Projekt-BA-Rekonstruktion (separates Initiative, nicht blockierend fuer EPIC-33).
+
+**Naechster Schritt:** `/requirements-engineering` zur EPIC-33-Spec + FEAT-33-01..05.
+
+---
+
 ## 2026-04-23 -- EPIC-023 Mobile Support: Business Analysis -> Requirements Engineering
 
 **Phase:** Business Analysis (MVP-Scope) abgeschlossen. Ready for RE.
