@@ -47,7 +47,9 @@ Markierter Text wird zur direkten Eingangstür für vier kuratierte AI-Aktionen 
 
 ### 2.1 Background
 
-Vault Operator hat heute eine starke Chat-Sidebar mit voller Tool/Skill/Provider-Konfiguration und einen klassischen Obsidian-Editor ohne native AI-Hooks. Cursor, Continue, Notion AI und Anthropic-Projects haben das Inline-Edit-Muster etabliert und es wird zunehmend als Standard erwartet. Vault Operator hat dieses Muster bisher nicht, obwohl die Backend-Infrastruktur (Modell-Router, Skill-System, Memory) vollständig vorhanden ist.
+Vault Operator hat heute eine starke Chat-Sidebar mit voller Tool/Skill/Provider-Konfiguration und einen klassischen Obsidian-Editor ohne native AI-Hooks. Cursor (Cmd+K Inline-Edit mit Inline-Diff), Continue (Cmd+I Inline-Edit mit Diff-Streaming), GitHub Copilot (Cmd+I Inline-Chat mit Keep/Undo-Diff), Notion AI (Floating-Menu mit Preview-Block) und ChatGPT Canvas (Selection-Floating-Toolbar) haben das Inline-Edit-Muster etabliert. Der SOTA-Output-Modus für Rewrite ist über alle ernsthaften Wettbewerber hinweg **Inline-Diff mit Accept/Reject** (6 von 8 untersuchten Tools, siehe RESEARCH-EPIC-33-inline-ai-competitors-2026-06-22.md). Direct-Replace ohne Diff ist Minderheitsposition. Vault Operator hat das Inline-Muster bisher nicht, obwohl die Backend-Infrastruktur (Modell-Router, Skill-System, Memory, Knowledge-Layer mit 10.783 Vektoren) vollständig vorhanden ist.
+
+Die Markt-Lücke ist nicht "noch eine Inline-Edit-UX". 5 Obsidian-Plugins decken Inline-AI teilweise ab (Obsidian Copilot mit Quick-Ask + Modal-Inline-Edit, InlineAI mit echter Cursor-Style-Diff-UX, Smart Composer mit Apply-Edit, AI Revisionist mit Modal-Review, Text Generator mit Template-Append). Die echte Lücke: kein Plugin kombiniert Settings-Reuse aus aktivem Chat plus tiefe Vault-Knowledge-Integration im Lookup plus Skills-System-Integration im Rewrite plus persistenten Inline-Chat-Conversation-Block. Genau das ist Vault Operators Differenzierungskorridor.
 
 ### 2.2 Current State (As-Is)
 
@@ -59,23 +61,31 @@ User-Pfad heute, wenn sie zu markiertem Text eine AI-Aktion wollen:
 4. Aktion in den Prompt schreiben (kein vordefiniertes Verb)
 5. Antwort lesen, ggf. Block für Block zurück in die Note kopieren
 
-Mindestens 4 Context-Switches pro Inline-Bedürfnis. Bei Rewrite zusätzlich manuelles Diff im Kopf, weil Original-Selection aus dem Sichtfeld ist.
+Mindestens 4 Context-Switches pro Inline-Bedürfnis. Bei Rewrite zusätzlich manuelles Diff im Kopf, weil Original-Selection aus dem Sichtfeld ist. Wenn die Sidebar aktuell geschlossen ist (typisch wenn der User lesend oder schreibend in der Note arbeitet und die Sidebar bewusst zugemacht hat um Platz zu haben), kostet die Sidebar-Reaktivierung einen weiteren Layout-Sprung.
 
 ### 2.3 Desired State (To-Be)
 
 1. Selection im Editor
 2. Floating-Menu erscheint automatisch über der Selection (Default) ODER User drückt seinen konfigurierten Hotkey
-3. Action wählen (Lookup, Rewrite, Inline-Chat, Send-to-Main-Chat)
-4. Ergebnis landet im action-typischen Ziel: Tooltip/Side-Panel (Lookup), Direct-Replace (Rewrite), Inline-Conversation-Block (Inline-Chat), Sidebar mit Selection als Vor-Kontext (Send-to-Main-Chat)
+3. Action wählen (Lookup, Rewrite, Inline-Chat, Send-to-Main-Chat, Translate, Summarize, Skill-Action, Find-Action-Items)
+4. Ergebnis landet im action-typischen Ziel:
+   - Lookup: Preview-Block unter Selection mit Vault-Quellen-Verlinkung (Notion-Pattern plus Vault-Knowledge-Augmentation)
+   - Rewrite: Inline-Diff im Editor mit Accept/Reject und Per-Hunk-Granularität (Cursor/Continue/Copilot-SOTA)
+   - Inline-Chat: persistenter Conversation-Block in der Note, durch Memory + History-Search indexiert
+   - Send-to-Main-Chat: Sidebar öffnet sich automatisch (auch wenn vorher geschlossen) mit Selection als Vor-Kontext
 
-Settings (Modell, Skills, Prompts, Provider) werden aus der aktiven Main-Chat-Konfiguration übernommen.
+Settings (Modell, Skills, Prompts, Provider) werden per Snapshot zum Action-Trigger-Zeitpunkt aus der aktiven Main-Chat-Konfiguration übernommen. Optional kann der User pro Action einen Modell-Override pinnen (Foldback für Power-User, default off).
+
+**Sidebar-Independence:** alle Inline-Actions funktionieren unabhängig davon ob die Chat-Sidebar offen oder geschlossen ist. Der Settings-Snapshot, der Modell-Provider, das Skills-System und das Streaming-Rendering müssen sidebar-unabhängig leben. Send-to-Main-Chat öffnet die Sidebar bei Bedarf automatisch.
 
 ### 2.4 Gap Analysis
 
 - Kein Floating-Menu auf Selection im Editor (Obsidian liefert nur Format-Toolbar)
 - Keine vordefinierten AI-Verben für Selection-Aktionen
 - Kein Settings-Sharing zwischen Editor und Chat (Chat hat alles, Editor nichts)
-- Keine action-spezifischen Output-Modi (Inline-Replace, Tooltip, Conversation-Block existieren nicht)
+- Keine action-spezifischen Output-Modi (Inline-Diff, Preview-Block, Conversation-Block, Tooltip mit Vault-Quellen existieren nicht)
+- Keine sidebar-unabhängige AI-Infrastruktur (Modell-Aufrufe sind heute an die Sidebar-View gekoppelt)
+- Vault-Knowledge-Layer (Semantic-Index, Memory) ist nicht in Editor-Aktionen integriert, obwohl 10.783 Vektoren bereitstehen
 
 ---
 
@@ -115,19 +125,23 @@ GA-Annahme: alle User-Segmente von Vault Operator (Casual bis Power-User) sind p
 
 | Need ID | Need | Type | Priority | Persona |
 |---|---|---|---|---|
-| N-01 | Begriff im markierten Text erklärt bekommen, ohne Editor zu verlassen | Functional | H | P1 |
-| N-02 | Markierten Absatz vom Agenten überarbeiten lassen, Original im Blick | Functional | H | P1 |
-| N-03 | Über markierten Inhalt eine Konversation führen, ohne Sidebar-Switch | Functional | M | P1 |
-| N-04 | Markierte Selection als Vor-Kontext in den Main-Chat senden | Functional | M | P1 |
-| N-05 | Vertrauen, dass Inline-Aktion dieselben Settings nutzt wie der Main-Chat | Emotional | H | P1 |
-| N-06 | Inline-Aktion nicht stört, wenn ich nur kopieren will (Selection-Marker-Konflikt) | Emotional | M | P1 |
+| N-01 | Begriff im markierten Text erklärt bekommen, mit Verlinkung auf Vault-Quellen wenn vorhanden | Functional | H | P1 |
+| N-02 | Markierten Absatz vom Agenten überarbeiten lassen, Original im Blick, Diff sehen vor Accept | Functional | H | P1 |
+| N-03 | Über markierten Inhalt eine Konversation führen, persistent als Block in der Note | Functional | M | P1 |
+| N-04 | Markierte Selection als Vor-Kontext in den Main-Chat senden, Sidebar öffnet bei Bedarf | Functional | M | P1 |
+| N-05 | Vertrauen, dass Inline-Aktion dieselben Settings nutzt wie der Main-Chat (Modell, Skills, Prompts) | Emotional | H | P1 |
+| N-06 | Inline-Aktion stört nicht beim normalen Markieren-zum-Kopieren | Emotional | M | P1 |
+| N-07 | Inline-Action funktioniert auch wenn die Chat-Sidebar geschlossen ist | Functional | H | P1 |
+| N-08 | Eigene Skills (User Skills, Plugin Skills) im Floating-Menu nutzen können | Functional | M | P1 |
+| N-09 | Markierten Text in andere Sprache übersetzen lassen, inline | Functional | M | P1 |
+| N-10 | Lange Selection in Kurzfassung zusammenfassen lassen | Functional | M | P1 |
 
 ### 4.3 Insights
 
-**Functional:** User behelfen sich heute mit Sidebar + @-Mention + Copy-Paste. Workaround funktioniert, aber kostet 4+ Context-Switches pro Aktion.
-**Emotional:** Frust entsteht weniger durch die Antwort-Qualität als durch die Vorbereitung des Aufrufs. "Cursor kann das doch auch" wird im Plugin-Community-Diskurs sichtbar.
-**Social:** Inline-Edit ist 2026 ein Standard-Pattern in AI-Writing-Tools (Cursor, Continue, Notion AI, Anthropic-Projects). Tool-Parity reduziert Wechsel-Reibung von User die aus anderen Tools kommen.
-**Analogien:** "Markdown-Note ist meine IDE für Wissen, Inline-Edit ist meine Quick-Action wie Cmd+K in Cursor."
+**Functional:** User behelfen sich heute mit Sidebar + @-Mention + Copy-Paste. Workaround funktioniert, kostet aber 4+ Context-Switches pro Aktion. Wenn die Sidebar geschlossen ist, kommt der Sidebar-Reaktivierungs-Layout-Sprung hinzu.
+**Emotional:** Frust entsteht weniger durch die Antwort-Qualität als durch die Vorbereitung des Aufrufs. "Cursor kann das doch auch" wird im Plugin-Community-Diskurs sichtbar - präzise gemeint ist hier das Inline-Diff-Pattern mit Accept/Reject (Cmd+K floating Bar plus inline Diff), nicht Direct-Replace.
+**Social:** Inline-Edit ist 2026 ein Standard-Pattern in AI-Writing-Tools. Marktrecherche 2026-06-22 zeigt: Floating-Menu auf Selection ist Standard (Notion, Obsidian Copilot, InlineAI), Hotkey-Default ist Standard (Cursor Cmd+K, Continue Cmd+I, Copilot Cmd+I). Output-SOTA für Rewrite ist Inline-Diff mit Accept/Reject (6/8 Tools). Tool-Parity reduziert Wechsel-Reibung.
+**Analogien:** "Markdown-Note ist meine IDE für Wissen, Cmd+K im Editor ist meine Quick-Action wie in Cursor." "Notion AI hat 17 Operationen im Selection-Menu, davon nutze ich täglich 5-6 - das gleiche Set will ich in Obsidian."
 
 ### 4.4 User Journey (High-Level)
 
@@ -195,14 +209,16 @@ Der Editor in Obsidian ist heute eine reine Text-Surface ohne native AI-Aktionen
 
 ### 6.3 Success Metrics (KPIs)
 
-| KPI | Baseline | Target | Timeframe |
+| KPI | Baseline | Lernziel / Target | Timeframe |
 |---|---|---|---|
-| Inline-Adoption (% weekly-active-user mit ≥1 Inline-Action/Woche) | 0% (Feature existiert nicht) | ≥40% | 90 Tage post-release |
-| Action-Mix-Balance (kein einzelne Action <5% oder >70% des Mix) | n/a | alle 4 Actions zwischen 5%-70% | 90 Tage post-release |
-| Time-to-AI-Response (Median: Selection bis erstes Output-Token) | Sidebar-Pfad: ~8-12s inkl. Switching | ≤3s | sofort nach Release |
-| Floating-Menu-Opt-Out (% User die in Settings auf Hotkey-only umstellen) | n/a | ≤15% | 90 Tage post-release |
+| Inline-Adoption (% weekly-active-user mit ≥1 Inline-Action/Woche) | 0% (Feature existiert nicht) | Lernziel: empirisch erheben, da kein Markt-Benchmark öffentlich verfügbar (Cursor/Notion publizieren keine Inline-Adoption-Raten). Erwartung qualitativ: signifikanter Zuwachs gegenüber 0%. | 90 Tage post-release |
+| Action-Mix-Balance (Verteilung über alle implementierten Actions) | n/a | Lernziel: keine einzelne Action <3% des Mix (sonst Indikator dass Action-Wahl nicht trifft), kein Mix >70% (sonst Hinweis dass andere Actions überflüssig wirken) | 90 Tage post-release |
+| Time-to-AI-Response (Median: Selection bis erstes Output-Token) | Sidebar-Pfad: ~8-12s inkl. Switching | ≤3s (Tech-Feasibility, durch Streaming + Cost-aware-Tier-Routing erreichbar) | sofort nach Release |
+| Floating-Menu-Opt-Out (% User die in Settings auf Hotkey-only umstellen) | n/a | Lernziel: empirisch, Indikator wie stark der Floating-Default User stört | 90 Tage post-release |
+| Sidebar-Independence-Coverage (% Inline-Actions die mit geschlossener Sidebar erfolgreich laufen) | n/a (Feature existiert nicht) | 100% (alle Actions außer Send-to-Main-Chat müssen ohne Sidebar funktionieren; Send-to-Main-Chat öffnet sie automatisch) | sofort nach Release, Tech-Akzeptanzkriterium |
+| Diff-Accept-Rate für Rewrite (% Rewrite-Outputs die User akzeptiert statt verwirft) | n/a | Lernziel: ≥60% (Indikator für Rewrite-Qualität); Disaccept-Rate >50% triggert Modell-Tier-Review | 90 Tage post-release |
 
-Baselines werden im PoC/Spike der Architektur-Phase verfeinert.
+Baselines werden im PoC/Spike der Architektur-Phase verfeinert. Telemetrie-Infrastruktur ist offene Architektur-Frage (siehe Section 7.4).
 
 ---
 
@@ -224,35 +240,73 @@ Baselines werden im PoC/Spike der Architektur-Phase verfeinert.
 
 | ID | Hypothesis | Type | Test Method | Success Criterion |
 |---|---|---|---|---|
-| H-01 | Floating-Menu auf Selection stört das normale Markieren-zum-Kopieren nicht, wenn Default-Trigger sinnvoll debounced ist | Problem-Solution Fit | 14 Tage BRAT-Beta mit Telemetry auf Opt-Out und Bug-Reports | <15% User schalten in Settings auf Hotkey-only, keine "Menu erscheint immer"-Bugs |
-| H-02 | Direct-Replace + Undo ist die akzeptable UX für Rewrite. User vertraut auf Undo-Stack statt Diff-Preview zu erwarten | Problem-Solution Fit | 14 Tage Beta mit Telemetry auf Undo-Frequenz nach Rewrite | Undo-Rate nach Rewrite-Action <30% (Indikator dass meiste Outputs akzeptiert werden) |
-| H-03 | Settings-Reuse aus Main-Chat ist die richtige Granularität. Kein User-Bedarf für separate Inline-Settings | Problem-Solution Fit | 30 Tage Beta + Issue-Tracking | <2 Issues mit "ich will andere Settings für Inline" |
-| H-04 | Die 4 gewählten Actions (Lookup, Rewrite, Inline-Chat, Send-to-Main-Chat) decken den Hauptbedarf. Kein häufiger Use-Case fehlt | Market | 30 Tage Beta + Issue-Backlog | <3 Issues mit "fehlt Action X" wo X eine klar einzelne neue Action ist |
-| H-05 | CodeMirror-Selection-API + Obsidian-Editor-API tragen alle 4 Output-Modi (Floating-Menu, Tooltip, Direct-Replace, Conversation-Block, Sidebar-Open-with-Context) ohne Editor-State zu korrumpieren | Tech Feasibility | Spike in Architektur-Phase | Alle 4 Actions funktionieren in Source-Mode + Live-Preview; Lookup/Send zusätzlich in Reading-Mode |
+| H-01 | Floating-Menu auf Selection stört das normale Markieren-zum-Kopieren nicht, wenn Default-Trigger sinnvoll debounced ist und Obsidian-Format-Toolbar nicht kollidiert | Problem-Solution Fit | 14 Tage BRAT-Beta mit Telemetry auf Opt-Out-Rate und Bug-Reports zu Menu-Kollision. Cursor und Continue setzen bewusst nur auf Hotkey (kein Floating), Notion und Obsidian Copilot machen Floating. Test der Annahme dass Vault-Wissensarbeiter wie Notion-User auf Floating reagieren, nicht wie Code-Entwickler auf reinen Hotkey-Workflow. | <15% User schalten in Settings auf Hotkey-only, keine "Menu erscheint immer"-Bugs, Time-to-Action steigt nicht im Vergleich zu Hotkey-Default |
+| H-02 | Inline-Diff mit Accept/Reject auf CodeMirror lässt sich mit akzeptabler Latenz und ohne Editor-State-Korruption rendern. Per-Hunk-Accept (Continue Cmd+Opt+Y/N-Pattern) ist Tech-Feasible. | Tech Feasibility | Spike in Architektur-Phase auf CodeMirror-6 Diff-Renderer. Vorbild-Code: FIX-01-07-03 `refreshOpenMarkdownViewsFor` für Editor-State-Mutation. Vergleich mit InlineAI-Plugin-Source als Best-Practice-Referenz. | Diff streamt mit <100ms zwischen Token und Render; Per-Hunk-Accept funktioniert ohne Cursor-Position-Verlust; Multi-Selection (Edge-Case) crasht nicht |
+| H-03 | Settings-Snapshot aus Main-Chat zum Action-Trigger-Zeitpunkt ist der richtige Default. Power-User wollen optional einen Per-Action-Modell-Pin als Override (Continue role-basierter Modell-Setup als Markt-Inspiration). | Problem-Solution Fit | 30 Tage Beta plus Issue-Tracking plus Telemetrie auf Pin-Nutzung (wie viele User pinnen mindestens 1 Action). | Default-Settings-Reuse wird von >80% akzeptiert. Pin-Funktion (FEAT-33-10) wird von 10-30% genutzt (Indikator dass Optionalität gerechtfertigt war). |
+| H-04 | Die 11 Actions decken den Hauptbedarf. Falls dennoch eine häufig gewünschte Action fehlt, ist die TOP-5-Watchlist (Continue-Writing, Fix-Grammar-as-Preset, Make-Shorter/Longer-Buttons, Change-Tone, Reading-Level) der erste Kandidat. | Market | 30 Tage Beta plus Issue-Backlog. TOP-5-Watchlist wird gegen Issue-Density gewichtet. | Keine Action außerhalb der Watchlist sammelt ≥3 Issues. Watchlist-Actions werden nach Issue-Density priorisiert (statt blind 3-Issues-Schwelle). |
+| H-05 | CodeMirror-Selection-API + Obsidian-Editor-API tragen alle Output-Modi (Floating-Menu, Inline-Diff, Preview-Block, Conversation-Block, Sidebar-Open-with-Context) ohne Editor-State zu korrumpieren | Tech Feasibility | Spike in Architektur-Phase | Alle Actions funktionieren in Source-Mode + Live-Preview; Lookup/Send/Translate zusätzlich in Reading-Mode (Read-only-Editor) |
+| H-06 | **Sidebar-Independence:** Alle Inline-Actions funktionieren ohne offene Chat-Sidebar. Modell-Provider, Settings-Snapshot, TaskRouter, Skills-System und Streaming-Rendering sind sidebar-unabhängig. Send-to-Main-Chat öffnet die Sidebar automatisch bei Bedarf. | Tech Feasibility + Problem-Solution Fit | Spike + Akzeptanzkriterium in jeder FEAT-DoD ("funktioniert mit geschlossener Sidebar, verifiziert"). Live-Verifikation in Beta: alle Actions ausführen während Sidebar zu, beobachten ob Bugs/Errors auftreten. | 100% der Actions außer Send-to-Main-Chat laufen mit geschlossener Sidebar fehlerfrei. Send-to-Main-Chat öffnet Sidebar automatisch und pflegt Selection als Vor-Kontext ein. Keine "Sidebar must be open"-Errors in Beta. |
+| H-07 | **Vault-Knowledge-Differenzierung:** Lookup-Action mit Vault-RAG (Semantic-Search der 10.783 Vektoren + LLM-Augmentation + Quellen-Verlinkung im Tooltip) ist messbar wertvoller als ein reiner LLM-Lookup ohne Vault-Kontext. | Problem-Solution Fit | A/B-Test: 50% User bekommen Vault-RAG-Lookup, 50% bekommen LLM-only-Lookup. Akzeptanz-Rate vergleichen (Insert-into-Note-Rate, User-Folge-Aktion-Rate). | Vault-RAG-Variante hat ≥20% höhere Akzeptanz-Rate. Wenn Differenz <10%, ist Vault-Knowledge-Integration nicht der Differenzierungs-Hebel und FEAT-33-09 muss neu gedacht werden. |
 
 ### 7.4 Solution Idea and Object Model
 
-Vier Actions auf einer geteilten Trigger-Schicht:
+Elf Actions auf einer geteilten Trigger-Schicht, sidebar-unabhängig:
 
 ```
-Selection-Event (CodeMirror)
+Selection-Event (CodeMirror 6)
    |
    v
-Trigger-Resolver (Floating-Menu | Hotkey | Command-Palette)
+Trigger-Resolver (Floating-Menu Default | Hotkey | Command-Palette | Right-Click)
    |
    v
-Action-Dispatcher
+Settings-Snapshot (Modell, Skills, Prompts, Provider aus aktivem Main-Chat-State)
+   |  ^
+   |  +-- Optional Per-Action-Pin (FEAT-33-10): überschreibt Modell pro Action
    |
-   +-- Lookup           --> SemanticIndex/LLM, Tooltip oder Side-Panel
-   +-- Rewrite          --> AgentTask, Direct-Replace via Editor-API + Undo-Stack
-   +-- Inline-Chat      --> AgentTask, Conversation-Block über/unter Selection
-   +-- Send-to-Main-Chat --> Sidebar öffnen, Selection als Vor-Kontext einfügen
+   v
+Action-Dispatcher (sidebar-unabhängig)
+   |
+   +-- Lookup (FEAT-33-02)            --> Vault-RAG (FEAT-33-09) + LLM, Preview-Block unter Selection mit Quellen-Tooltip
+   +-- Rewrite (FEAT-33-03)           --> AgentTask, Inline-Diff im Editor (Cursor-Pattern) mit Per-Hunk Accept/Reject
+   +-- Inline-Chat (FEAT-33-05)       --> AgentTask, persistenter Conversation-Block in Note, indexiert via Memory + History
+   +-- Send-to-Main-Chat (FEAT-33-04) --> Sidebar öffnen falls geschlossen, Selection als Vor-Kontext einfügen
+   +-- Translate (FEAT-33-06)         --> AgentTask, Diff-Preview oder Direct-Replace je nach Settings, Sub-Menu für Zielsprache
+   +-- Summarize (FEAT-33-07)         --> AgentTask, Preview-Block unter Selection mit Insert-below
+   +-- Skill-Action (FEAT-33-08)      --> Skills-System konsumiert Selection als Input, action-typischer Output je Skill-Capability
+   +-- Find-Action-Items (FEAT-33-11) --> entweder built-in oder via Skill (FEAT-33-08), extrahiert Checklist
+   +-- Trigger-Layer (FEAT-33-01) ist das gemeinsame Substrat aller obigen
 
-Alle Actions konsumieren Settings aus dem aktiven Main-Chat-Provider-Setup
-(Modell, Skills, Prompts, Tools). Kein eigener Settings-Tree fuer Inline.
+Sidebar-Status-Detector
+   |
+   +-- closed -> Send-to-Main-Chat öffnet sie automatisch
+   +-- open   -> Send-to-Main-Chat fügt Selection in laufenden Chat ein
+
+Cost-aware Tier-Routing (TaskRouter Phase D)
+   |
+   +-- Lookup        -> Haiku-Tier (cheap, schnell)
+   +-- Rewrite       -> Mid-Tier (Default Main-Chat-Modell)
+   +-- Inline-Chat   -> Mid-Tier mit Memory-Augmentation
+   +-- Translate     -> Haiku-Tier
+   +-- Summarize     -> Haiku-Tier
+   +-- Skill-Action  -> Skill-Capability bestimmt Tier
 ```
 
-Granularere Architektur-Entscheidungen (Settings-Snapshot vs Live-Bind, Streaming-Pfad pro Action, Conversation-Block-Speicherung) sind ASRs für die Architektur-Phase.
+**Sidebar-Independence-Anker (kritisch für H-06):**
+
+- Settings-Snapshot ist Plugin-State, nicht Sidebar-DOM
+- Modell-Provider und Streaming-Pipeline sind im AgentTask-Modul, nicht in Sidebar-View
+- Skills-System läuft im Hintergrund, View-unabhängig
+- Inline-Output-Rendering geschieht im Editor (CodeMirror-Decorations + Inline-Widgets), nicht im Sidebar
+- Telemetrie-Hooks (Cost, Token-Counts, Diff-Accept-Rate) leben im AgentTask-Layer
+
+**Granularere Architektur-Entscheidungen (ASR-Kandidaten für die Architektur-Phase):**
+
+- Settings-Snapshot Lifecycle: pro Trigger oder gecached bis Settings-Änderung
+- Conversation-Block-Speicherung: ephemer (nur im Memory) oder persistiert in Note-Frontmatter / separate `.inline-chats.md` / Sub-Conversation in History-Pipeline
+- Telemetrie-Infrastruktur: existiert ein Hook im AgentTask-Layer oder muss gebaut werden
+- CodeMirror-Diff-Renderer: Eigenbau vs. Library (InlineAI als Vorbild prüfen)
+- Sidebar-Status-Detection: View-API oder Workspace-Layout-Observer
+- Skills-im-Floating-Menu: welche Skill-Capability triggert Listung im Menu
 
 ---
 
@@ -261,32 +315,45 @@ Granularere Architektur-Entscheidungen (Settings-Snapshot vs Live-Bind, Streamin
 ### 8.1 In Scope
 
 - Floating-Menu auf Selection im Editor (Default), umschaltbar auf Hotkey-Trigger via Settings
-- Vier Actions: Lookup, Rewrite (Direct-Replace + Undo), Inline-Chat, Send-to-Main-Chat
-- Settings-Reuse aus aktivem Main-Chat-Provider-Setup (Modell, Skills, Prompts, Provider)
+- Empfohlene Hotkey-Defaults (Markt-Konsens): Cmd/Ctrl+K für Inline-Edit-Actions, Cmd/Ctrl+L für Send-to-Main-Chat
+- Elf Actions:
+  - **P0:** FEAT-33-01 Trigger-Layer, FEAT-33-02 Lookup (Preview-Block), FEAT-33-03 Rewrite (Inline-Diff mit Per-Hunk Accept/Reject), FEAT-33-04 Send-to-Main-Chat, FEAT-33-08 Skills-im-Floating-Menu, FEAT-33-09 Vault-Knowledge-Integration im Lookup
+  - **P1:** FEAT-33-05 Inline-Chat (Conversation-Block), FEAT-33-06 Translate (mit Sub-Menu für Zielsprache), FEAT-33-07 Summarize
+  - **P2:** FEAT-33-10 Optional Per-Action-Model-Pin, FEAT-33-11 Find-Action-Items
+- Settings-Snapshot aus aktivem Main-Chat-Provider-Setup (Modell, Skills, Prompts, Provider) zum Action-Trigger-Zeitpunkt
+- **Sidebar-Independence:** alle Actions laufen ohne offene Chat-Sidebar (H-06). Send-to-Main-Chat öffnet die Sidebar automatisch falls geschlossen
 - Source-Mode + Live-Preview (Edit-Modi)
-- Reading-Mode für Lookup und Send-to-Main-Chat (kein Rewrite/Inline-Chat in read-only)
+- Reading-Mode für Lookup, Send-to-Main-Chat und Translate (kein Rewrite/Inline-Chat in read-only)
+- Cost-aware Tier-Routing per Action (Lookup/Translate/Summarize -> Haiku; Rewrite/Chat -> Default-Tier)
 
 ### 8.2 Out of Scope
 
-- Eigene Inline-Settings (Modell, Skills) - explizit verworfen via H-03
-- Diff-Preview für Rewrite - verworfen via Rewrite-Output-Entscheidung
-- Translate, Summarize, Explain-Like-I-Am-5 als separate Actions - kann nach H-04-Validierung als FEAT-33-05+ nachgezogen werden
+- Diff-Preview-Default OFF (Direct-Replace ohne Diff) - explizit verworfen nach Markt-Recherche; Direct-Replace ist Markt-Minderheit
+- Eigene Inline-Settings-Surface (kompletter Settings-Tree separat) - verworfen via H-03; nur optional Per-Action-Model-Pin als Foldback
+- Continue-Writing auf leerer Zeile (Notion-Space-Pattern, Cursor-Tab) - Selection-driven scope, Autocomplete ist eigene Kategorie. Separate EPIC-Kandidat
+- Change-Tone-Sub-Menu, Make-Shorter/Longer-Buttons als dedizierte Aktionen - können über Skills (FEAT-33-08) realisiert werden, kein eigenes FEAT
+- Reading-Level-Slider, Suggest-Edits-Comment-Bubbles, Code-Review-Action - im Vault-Kontext nische, Watchlist nach Beta
 - Inline-Actions auf Canvas-Selection oder Base-Cell-Selection - eigene EPIC, falls Surface-Parity ausgebaut wird
 - Workflow-/Recipe-Trigger aus Inline-Action - EPIC-30 (Workflow-Builder) ist separater Hebel
 - Mobile-spezifische Optimierungen jenseits Tap-and-hold-Menu - mit Welle-1-Mobile (FEAT-27-01) abstimmen
 
 ### 8.3 Assumptions
 
-- CodeMirror-6-Selection-Events sind in der Obsidian-Plugin-API stabil zugänglich (zu verifizieren in Spike)
+- CodeMirror-6-Selection-Events sind in der Obsidian-Plugin-API stabil zugänglich (zu verifizieren in Spike, H-05)
+- CodeMirror-6 Diff-Decorations sind tragfähig für Inline-Diff-Rendering (zu verifizieren in Spike, H-02). InlineAI-Plugin-Source ist Best-Practice-Referenz
 - Modell/Skills-Snapshot zum Action-Zeitpunkt ist akzeptabel (vs Live-Bind), weil User Settings selten mid-Session ändert
+- AgentTask-Layer ist sidebar-unabhängig instanziierbar (zu verifizieren, H-06). Plugin-State (nicht View-State) ist Single-Source-of-Truth
+- Vault-Knowledge-Layer (Semantic-Index, 10.783 Vektoren) liefert für 80%+ Lookup-Anfragen relevante Treffer (H-07-Vorannahme)
 - Inline-Chat-Conversation-Block kann als Sub-Conversation in der existierenden History-Pipeline gespeichert werden (oder ephemer bleiben - Architektur-Entscheidung)
 
 ### 8.4 Constraints
 
-- Obsidian-Plugin-API (Editor-Hooks, Floating-Toolbar-Slots)
+- Obsidian-Plugin-API (Editor-Hooks, Floating-Toolbar-Slots, Workspace-Sidebar-State)
 - Performance: Selection-Event-Frequenz hoch, Trigger-Resolver muss debounce-effizient sein (keine LLM-Latenz beim Selection-Event selbst)
+- Inline-Diff-Rendering-Latenz: <100ms zwischen Token und Render damit Streaming flüssig wirkt
 - Mobile: Touch-Selection-Pattern ist anders als Desktop (Tap-and-hold-Menu)
 - Bot-Compliance (Obsidian Community Plugin Review): keine fetch, kein innerHTML, keine direkten Stil-Mutations, FileManager.trashFile etc.
+- Sidebar-Independence: alle AI-Aufruf-Pfade müssen ohne offene Sidebar-View funktionieren (Architektur-Refactoring wenn aktueller Code daran gebunden ist)
 
 ---
 
@@ -295,11 +362,15 @@ Granularere Architektur-Entscheidungen (Settings-Snapshot vs Live-Bind, Streamin
 | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
 | Floating-Menu kollidiert mit Obsidian-eigener Format-Toolbar | M | M | Render-Position koordinieren oder Format-Toolbar in Editor-Modus erkennen und ausweichen. Hotkey-Fallback via Settings |
-| Direct-Replace überschreibt Inhalt, Undo-Stack reicht nicht zurück | L | H | Checkpoint-Snapshot vor Rewrite (analog zu edit_file-Pattern). Optional Settings-Toggle für Diff-Preview-Fallback bei langen Selections |
-| Settings-Snapshot wird stale, User ändert Modell und Inline nutzt altes | M | L | Snapshot pro Action zum Trigger-Zeitpunkt (nicht beim Plugin-Load). Optional Indikator im Floating-Menu welches Modell verwendet wird |
-| Inline-Chat-Conversation-Blocks blähen die Note auf | M | M | Begrenzung pro Block oder Auto-Collapse. Architektur-Entscheidung in Spike-Phase |
+| CodeMirror-6 Diff-Renderer komplexer als erwartet, Latenz oder Editor-State-Korruption | M | H | Spike in Architektur-Phase mit Vorbild InlineAI-Plugin. Fallback-Plan: Modal-Preview wie Obsidian Copilot (Insert/Replace/Copy) falls Inline-Diff nicht trägt. Vorbild für Editor-State-Pflege: FIX-01-07-03 `refreshOpenMarkdownViewsFor` |
+| Settings-Snapshot wird stale, User ändert Modell und Inline nutzt altes | M | L | Snapshot pro Action zum Trigger-Zeitpunkt (nicht beim Plugin-Load). Indikator im Floating-Menu welches Modell verwendet wird |
+| Inline-Chat-Conversation-Blocks blähen die Note auf | M | M | Begrenzung pro Block, Auto-Collapse, oder Speicherung in `.inline-chats.md`-Sub-File mit Note-Anker. Architektur-Entscheidung in Spike-Phase |
+| Vault-Knowledge-RAG liefert irrelevante Treffer bei Lookup, User-Vertrauen sinkt | M | M | H-07 A/B-Test gegen LLM-only-Variante. Confidence-Threshold für Quellen-Anzeige im Tooltip (nur Treffer >X% Similarity anzeigen). Fallback auf LLM-only wenn Knowledge-Layer keine relevanten Treffer hat |
+| Sidebar-Independence-Refactoring größer als erwartet (aktueller AI-Code ist sidebar-gekoppelt) | M | H | Architektur-Spike in Phase 1: inventarisiere alle AI-Aufruf-Pfade und ihre View-Abhängigkeiten. Wenn Refactoring >2 Wochen, Welle aufteilen (FEAT-33-01 + Sidebar-Independence-Refactor als Welle 1, Rest als Welle 2) |
+| Skills-im-Floating-Menu überflutet das Menu wenn User viele Skills hat | M | M | Skill-Capability-Flag "inline-action-eligible" (nur passende Skills tauchen auf). Settings-Toggle pro Skill ob im Inline-Menu sichtbar. Limitierung auf TOP-N nach Häufigkeit |
 | Bot-Review-Findings durch neue Editor-DOM-Manipulationen | M | M | review-bot-Skill vor Push, Pattern aus existierenden Modals/Tooltips wiederverwenden |
 | Mobile-Tap-and-hold-Menu kollidiert mit System-Selection-Menu | M | M | Plattform-Detection, Fallback auf Command-Palette wenn Mobile-Floating nicht trägt |
+| Per-Action-Model-Pin (FEAT-33-10) untergräbt Settings-Reuse-Vereinfachung wenn User es überall nutzt | L | M | Pin ist explizit opt-in. UI macht klar dass Pin existiert ("dieser Action nutzt Pin-Modell statt Default"). H-03-Telemetrie misst Pin-Nutzung |
 
 ---
 
@@ -315,22 +386,35 @@ Granularere Architektur-Entscheidungen (Settings-Snapshot vs Live-Bind, Streamin
 
 ### 10.2 Non-Functional Requirements (Summary)
 
-- **Performance:** Trigger-Resolver-Overhead pro Selection-Event <5ms (kein User-spürbarer Lag); Time-to-First-Token-Output ≤3s
-- **Security:** Selection-Inhalt wird wie Chat-Input behandelt (gleiche Prompt-Injection-Hardening wie Main-Chat). Keine zusätzliche PII-Exposure
-- **Scalability:** Skaliert mit Note-Grösse und Selection-Länge (Selection-Cap ggf. analog zu CONTEXT_DOCUMENT_CHAR_LIMIT)
-- **Bot-Compliance:** Obsidian Community Plugin Review-Bot Rules
+- **Performance:** Trigger-Resolver-Overhead pro Selection-Event <5ms (kein User-spürbarer Lag); Time-to-First-Token-Output ≤3s; Inline-Diff-Render-Latenz <100ms zwischen Token und Render
+- **Security:** Selection-Inhalt wird wie Chat-Input behandelt (gleiche Prompt-Injection-Hardening wie Main-Chat). Keine zusätzliche PII-Exposure. Settings-Snapshot kapselt Provider-Credentials nicht neu (gleiches Schlüssel-Material wie Main-Chat)
+- **Scalability:** Skaliert mit Note-Grösse und Selection-Länge (Selection-Cap ggf. analog zu CONTEXT_DOCUMENT_CHAR_LIMIT). Skills-im-Menu skaliert mit User-Skill-Anzahl (TOP-N-Cap im Menu)
+- **Availability / Architecture:** **Sidebar-Independence: alle Inline-Actions außer Send-to-Main-Chat MÜSSEN ohne offene Chat-Sidebar funktionieren.** Modell-Provider, Settings-Snapshot, TaskRouter, Skills-System und Streaming-Rendering laufen sidebar-unabhängig. Send-to-Main-Chat öffnet die Sidebar automatisch bei Bedarf
+- **Compatibility:** Source-Mode + Live-Preview tragen alle Actions; Reading-Mode trägt Lookup, Send-to-Main-Chat und Translate (read-only-Actions). Rewrite/Inline-Chat in Reading-Mode sind no-op mit User-Hinweis
+- **Bot-Compliance:** Obsidian Community Plugin Review-Bot Rules (keine fetch, kein innerHTML, kein direkter Style-Mutation, FileManager.trashFile, kein require außer Allowlist)
+- **Mobile:** Tap-and-hold-Menu als Trigger-UX-Variante; Fallback auf Command-Palette wenn System-Selection-Menu nicht ausweichbar
 
 ### 10.3 Key Features (für RE)
 
-| Priority | Feature | Description |
-|---|---|---|
-| P0 | FEAT-33-01 (geplant) | Trigger-Layer: Floating-Menu + Hotkey + Command-Palette + Settings-Surface |
-| P0 | FEAT-33-02 (geplant) | Lookup-Action: Tooltip oder Side-Panel mit Begriffs-Erklärung |
-| P0 | FEAT-33-03 (geplant) | Rewrite-Action: Direct-Replace + Undo-Stack + optional Checkpoint |
-| P0 | FEAT-33-04 (geplant) | Send-to-Main-Chat-Action: Sidebar öffnen, Selection als Vor-Kontext |
-| P1 | FEAT-33-05 (geplant) | Inline-Chat-Action: Conversation-Block über/unter Selection (anspruchsvollster Output-Modus) |
+> Konkurrenz-Spalte: SOTA-Position aus der Marktrecherche (RESEARCH-EPIC-33-inline-ai-competitors-2026-06-22.md). "Tool-Parity" heisst die Mehrheit der Wettbewerber hat es; "Innovation" heisst Vault Operator führt es ein; "Differenzierung" heisst Vault Operator macht es anders als der Markt.
 
-Priorisierung: Trigger-Layer und drei einfachere Actions (Lookup, Rewrite, Send-to-Main-Chat) bilden P0-Welle. Inline-Chat ist P1 weil Conversation-Block-Storage und Multi-Turn-UX zusätzliche Spike-Tiefe braucht.
+| Priority | Feature | Description | Konkurrenz-Position |
+|---|---|---|---|
+| P0 | FEAT-33-01 | Trigger-Layer: Floating-Menu Default + Hotkey-Settings-Toggle (Cmd+K-Konsens) + Command-Palette + Settings-Surface | Tool-Parity: Floating-Menu (Notion, Obsidian Copilot), Hotkey (Cursor, Continue, GitHub Copilot) |
+| P0 | FEAT-33-02 | Lookup-Action: Preview-Block unter Selection mit Begriffs-Erklärung und Vault-Quellen-Tooltip (Notion-Pattern als Basis) | Tool-Parity (Notion "Explain this", Cursor Opt+Return-Question), aber Vault-Quellen ist Differenzierung |
+| P0 | FEAT-33-03 | Rewrite-Action: Inline-Diff im CodeMirror mit Per-Hunk Accept/Reject (Cursor + Continue + Copilot SOTA), Streaming-Diff während Token reinkommen | Tool-Parity SOTA (6/8 Tools machen Inline-Diff) |
+| P0 | FEAT-33-04 | Send-to-Main-Chat-Action: Sidebar öffnen falls geschlossen (Sidebar-Independence-Verhalten), Selection als Vor-Kontext einfügen, Cmd+L als empfohlener Hotkey-Default | Tool-Parity (Cursor Cmd+L, Continue Cmd+L, Obsidian Copilot Cmd+L) |
+| P0 | FEAT-33-08 | Skills-im-Floating-Menu: User Skills + Plugin Skills mit "inline-action-eligible"-Capability tauchen als Action im Menu auf. Per-Skill-Settings-Toggle ob im Inline-Menu sichtbar | Differenzierung (Notion Custom Skills seit März 2026 als Vorbild, aber Vault Operator hat tieferes Skills-System mit Mastery + Capabilities) |
+| P0 | FEAT-33-09 | Vault-Knowledge-Integration im Lookup: Semantic-Search der 10.783 Vektoren plus LLM-Augmentation plus Quellen-Verlinkung im Tooltip. RAG-Pipeline mit Confidence-Threshold | Differenzierung (kein Wettbewerber kombiniert AI-Lookup + Vault-RAG) |
+| P1 | FEAT-33-05 | Inline-Chat-Action: persistenter Conversation-Block in Note, indexiert via Memory + History-Search. Speicher-Strategie (Note-Frontmatter vs `.inline-chats.md` vs Sub-Conversation) ist Architektur-Entscheidung | Innovation (kein Wettbewerber macht persistenten Inline-Chat-Block) |
+| P1 | FEAT-33-06 | Translate-Action: Floating-Menu-Eintrag mit Sub-Menu für Zielsprache (Notion-Pattern). Output-Modus folgt Settings (Inline-Diff Default, optional Direct-Replace) | Tool-Parity (Notion AI, ChatGPT Canvas Code, Continue via custom) |
+| P1 | FEAT-33-07 | Summarize-Action: Preview-Block unter Selection mit Insert-below. Sub-Menu für Länge (kurz, mittel, lang) | Tool-Parity (Notion, Obsidian Copilot built-in, Smart Composer) |
+| P2 | FEAT-33-10 | Optional Per-Action-Model-Pin: User kann pro Action einen Modell-Override pinnen. UI macht Pin sichtbar im Floating-Menu | Differenzierung gegen H-03-Default (Continue role-basiertes Setup als Inspiration) |
+| P2 | FEAT-33-11 | Find-Action-Items-Action: extrahiert Tasks aus Selection als Checklist (Notion-Pattern). Realisierung primär über FEAT-33-08 Skills, eigenes FEAT nur wenn Skills-Pfad nicht trägt | Tool-Parity-Spezial (Notion-exklusiv, aber stark gemerkt) |
+
+**Wellen-Strategie:** P0-Welle (6 FEATs) liefert MVP-Surface mit Differenzierungs-Ankern (Skills + Vault-Knowledge). P1-Welle (3 FEATs) füllt Tool-Parity-Gap auf (Translate, Summarize) plus Inline-Chat-Innovation. P2-Welle (2 FEATs) nach Beta-Lernen.
+
+**Cross-FEAT-Constraint (Sidebar-Independence):** Jedes FEAT in seiner Definition of Done belegt explizit dass es mit geschlossener Chat-Sidebar funktioniert. Send-to-Main-Chat ist die einzige Ausnahme - es öffnet die Sidebar als Teil seiner Funktion.
 
 ---
 
@@ -373,9 +457,13 @@ n/a. Vault Operator ist kostenloses Community-Plugin.
 
 ### 11.5 Unfair Advantage
 
-- Vault Operator hat bereits Modell-Router, Skills, Memory, Provider-Setup. Inline ist Surface-Wiring auf existierender Backend-Tiefe, nicht eine Greenfield-Implementierung
-- Settings-Reuse als Architektur-Prinzip differenziert von Plugins die Inline und Chat als parallele Silos behandeln
-- Community-Vertrauen + BRAT-Beta-Kanal für schnelle Iteration
+- **Vault-Knowledge-Layer-Integration im Lookup (first-class differenzierend):** kein Wettbewerber kombiniert AI-Erklärung mit Vault-RAG. Smart Connections macht Vault-Lookup ohne AI, Notion "Explain this" ist LLM-only ohne Vault-Bezug. Vault Operator verheiratet Semantic-Search der 10.783 Vektoren mit LLM-Augmentation und Quellen-Tooltip. Architektur-Hebel auf existierender Knowledge-Infrastruktur (EPIC-15/19), nicht Greenfield
+- **Skills-System als Inline-Action-Quelle:** Notion hat seit März 2026 Custom Skills, Obsidian Copilot hat Custom Commands - Vault Operator hat das tieferste Skills-System (User Skills + Plugin Skills + Skill-Mastery + Capabilities). Skills mit "inline-action-eligible"-Capability bekommen Floating-Menu-Eintrag. Bestehende Skill-Bibliothek wird sofort nutzbar
+- **Memory + History-Integration im Inline-Chat-Block (FEAT-33-05):** wenn der Conversation-Block persistent in der Note bleibt, wird er via Phase D-Recall + Phase F-Chat-Linking indexiert. Cross-Vault-discoverable. Andere Vault-Operator-Tools (search_history, search_vault, recall_memory) finden ihn. Vault wird zum AI-Knowledge-Graph, nicht nur zur AI-Surface
+- **Cost-aware Tier-Routing per Action (TaskRouter Phase D):** Lookup auf Haiku, Rewrite auf Default-Tier, Inline-Chat auf Mid-Tier mit Memory-Augmentation. Cursor "Auto" ist konzeptuell nah aber nicht pro Action granular
+- **Backend-Wiederverwendung statt Greenfield:** Modell-Router, Skills, Memory, Provider-Setup, Knowledge-Layer, History-Pipeline stehen alle. Inline ist Surface-Wiring auf existierender Tiefe
+- **Settings-Reuse als Architektur-Prinzip** differenziert von Plugins die Inline und Chat als parallele Silos behandeln (Obsidian Copilot mit per-Command-Modell ist Gegenposition). Optional Per-Action-Pin (FEAT-33-10) als Foldback
+- **Community-Vertrauen + BRAT-Beta-Kanal** für schnelle Iteration und H-01/H-02/H-04/H-06/H-07-Validierung
 
 ### 11.6 Revenue Stream
 
@@ -416,13 +504,26 @@ Kein separates EXPLORE-Dokument erstellt; EXPLORE-Inhalte sind direkt in Sektion
 
 ### C. Interview Notes
 
-Sebastian (2026-06-22, Sitzung mit /dia-guide + /business-analysis):
+Sebastian (2026-06-22, Sitzung mit /dia-guide + /business-analysis + Marktrecherche):
 
 - Primärer Anker: Mischung aller vier Trigger-Anker (Friction + Tool-Parity + Wissens-Anreicherung + Kontext-Präzision)
 - Persona: GA-Feature, kein Persona-Split, eine homogene Vault Operator-User-Persona P1
 - HMW: Friction-Reduktion als Outcome-Anker
 - Trigger-UX: Floating-Menu Default + Settings-Toggle auf Hotkey
-- Rewrite-Output: Direct-Replace + Undo (Cursor-Pattern), kein Diff-Preview
+- Rewrite-Output (initial Sitzung): Direct-Replace + Undo, mit Referenz "Cursor-Pattern"
+- **Rewrite-Output (revidiert 2026-06-22 nach Marktrecherche):** Inline-Diff mit Per-Hunk Accept/Reject. Begründung: die initial Referenz "Cursor-Pattern" war faktisch unzutreffend - Cursor macht selbst Inline-Diff mit Accept/Reject (Cmd+K Floating Bar plus Diff rot/grün, Cmd+Return akzeptieren, Cmd+Backspace verwerfen), nicht Direct-Replace. 6/8 untersuchte Tools (Cursor, GitHub Copilot, Continue, InlineAI, Smart Composer, ChatGPT Canvas mit Show-Changes-Toggle) machen Inline-Diff. Direct-Replace ohne Diff wäre Markt-Minderheit gewesen
+- **Feature-Scope erweitert (2026-06-22 nach Marktrecherche):** von 4 auf 11 FEATs. Translate, Summarize aus Out-of-Scope in In-Scope gezogen weil 6-8/8 Tools sie als first-class haben. Skills-im-Floating-Menu (FEAT-33-08) und Vault-Knowledge-Integration im Lookup (FEAT-33-09) als P0-Differenzierungs-Anker hinzugefügt. Per-Action-Model-Pin (FEAT-33-10) und Find-Action-Items (FEAT-33-11) als P2-Folgewelle
+- **Sidebar-Independence (User-Anforderung 2026-06-22):** alle Inline-Actions müssen ohne offene Chat-Sidebar funktionieren. Als kritische ASR + H-06 in BA aufgenommen, als NFR in Section 10.2 und als Cross-FEAT-Constraint in der Definition of Done jedes FEAT. Send-to-Main-Chat öffnet die Sidebar automatisch bei Bedarf
+
+### C.1 Marktrecherche-Referenz
+
+Vollständige Recherche: `_devprocess/analysis/RESEARCH-EPIC-33-inline-ai-competitors-2026-06-22.md` (8 Tools, Multi-Agent-Workflow, adversarial verifiziert). Wichtigste Befunde die in diese BA geflossen sind:
+
+- Output-SOTA Rewrite: Inline-Diff mit Accept/Reject (6/8 Tools)
+- Trigger-Standard: Floating-Menu + Hotkey (Konsens), Cmd+K für Edit, Cmd+L für Send-to-Chat
+- Settings-Modell-Lager: Notion/ChatGPT/Claude erben global, Cursor/Continue/Obsidian Copilot/Smart Composer haben per-Operation-Override
+- Notion AI hat 17 Operationen im Floating-Menu, davon Translate + Summarize universell verbreitet
+- Obsidian-Ecosystem-Lücke: kein Plugin kombiniert Settings-Reuse + Vault-Knowledge + Skills-System + Memory-Integration
 
 ### D. References
 
