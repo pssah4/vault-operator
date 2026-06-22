@@ -84,6 +84,7 @@ export class LookupEdgeAggregator {
         this.probe = options.probe;
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- async preserved for future probe-async support
     async collect(args: CollectArgs): Promise<InlineEdgeHit[]> {
         const maxPerType = args.maxPerType ?? 3;
         const maxTotal = args.maxTotal ?? 8;

@@ -60,9 +60,9 @@ export class EmbeddingCache {
         if (this.map.has(key)) this.map.delete(key);
         this.map.set(key, { text: trimmed, embedding });
         while (this.map.size > this.capacity) {
-            const oldestKey = this.map.keys().next().value;
-            if (oldestKey === undefined) break;
-            this.map.delete(oldestKey);
+            const next = this.map.keys().next();
+            if (next.done === true) break;
+            this.map.delete(next.value);
         }
     }
 

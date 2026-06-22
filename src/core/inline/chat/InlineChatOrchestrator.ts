@@ -58,7 +58,7 @@ export interface InlineChatOrchestratorOptions {
     /** Build per-panel surface (pickers + chip bar wiring). */
     buildSurface?: (panelRoot: HTMLElement, chipBar: HTMLElement) => unknown;
     /** Set the active surface for the menu callbacks. */
-    setActiveSurface?: (surface: unknown | null) => void;
+    setActiveSurface?: (surface: unknown) => void;
     /** Bridge to Obsidian's MarkdownRenderer.render (+ link wiring). */
     renderMarkdown?: RenderMarkdownHook;
     showMoreMenu?: (
@@ -121,8 +121,8 @@ export class InlineChatOrchestrator {
     private readonly getInitialModelLabel?: () => { label: string; tooltip: string };
     private readonly autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => import('./InlineChatPanel').AutocompleteLike;
     private readonly buildSurface?: (panelRoot: HTMLElement, chipBar: HTMLElement) => unknown;
-    private readonly setActiveSurface?: (surface: unknown | null) => void;
-    private activeSurface: unknown | null = null;
+    private readonly setActiveSurface?: (surface: unknown) => void;
+    private activeSurface: unknown = null;
 
     private activePanel: InlineChatPanel | null = null;
     private activeController: PanelChatController | null = null;
@@ -453,7 +453,7 @@ export class InlineChatOrchestrator {
                 detail,
                 onShowDiff: () => {
                     if (result.checkpoint === undefined) return;
-                    void this.showCheckpointDiff(ctx.notePath, result.checkpoint, ctx.selectionText, result.finalContent ?? '');
+                    this.showCheckpointDiff(ctx.notePath, result.checkpoint, ctx.selectionText, result.finalContent ?? '');
                 },
                 onRestore: () => {
                     if (result.checkpoint === undefined) return;
@@ -467,12 +467,12 @@ export class InlineChatOrchestrator {
         }
     }
 
-    private async showCheckpointDiff(
+    private showCheckpointDiff(
         notePath: string,
         checkpoint: import('../../checkpoints/GitCheckpointService').CheckpointInfo,
         oldContent: string,
         newContent: string,
-    ): Promise<void> {
+    ): void {
         showCheckpointReviewModal({
             app: this.plugin.app,
             entries: [{ path: notePath, before: oldContent, after: newContent }],

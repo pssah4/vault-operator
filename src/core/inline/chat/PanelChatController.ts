@@ -333,8 +333,8 @@ export class PanelChatController {
         // Mirror into MessageParam[] so the LLM history is consistent
         // when the user follows up via the sidebar. Simple text-only
         // blocks -- no tool_use round-trips for quick-actions.
-        this.history.push({ role: 'user', content: userBody } as MessageParam);
-        this.history.push({ role: 'assistant', content: args.assistantText } as MessageParam);
+        this.history.push({ role: 'user', content: userBody });
+        this.history.push({ role: 'assistant', content: args.assistantText });
         await this.persistConversation(convStore);
         try {
             const evt = new CustomEvent('vault-operator:conversation-list-changed', {

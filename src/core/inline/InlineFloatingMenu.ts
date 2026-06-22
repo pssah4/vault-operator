@@ -94,9 +94,10 @@ export class InlineFloatingMenu {
         root.classList.add('agent-inline-menu');
         root.setAttribute('role', 'menu');
         root.setAttribute('aria-label', 'Inline AI menu');
-        root.style.setProperty('position', 'absolute');
-        root.style.setProperty('min-width', `${this.minWidth}px`);
-        root.style.setProperty('z-index', '1000');
+        // Bot-compliance: use setCssProps for dynamic values that cannot live
+        // in styles.css (per-instance minWidth). Static rules (position/z-index)
+        // live in styles.css under `.agent-inline-menu`.
+        root.setCssStyles({ minWidth: `${this.minWidth}px` });
 
         for (const action of actions) {
             const item = this.containerEl.ownerDocument.createElement('button');
@@ -120,8 +121,7 @@ export class InlineFloatingMenu {
 
         // Clamp to viewport so menus near the edge are still fully visible.
         const clamped = this.clampToViewport(position, root);
-        root.style.setProperty('left', `${clamped.x}px`);
-        root.style.setProperty('top', `${clamped.y}px`);
+        root.setCssStyles({ left: `${clamped.x}px`, top: `${clamped.y}px` });
 
         this.rootEl = root;
         this.attachDismissHandlers();

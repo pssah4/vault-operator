@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/require-await, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-expressions -- File-level disable: this module wires Obsidian-API probes, plugin-internal services and conditional require()s where the surface contracts are intentionally untyped. Inputs are validated via type guards at use-sites (instanceof TFile, instanceof MarkdownView, null-checks in adapters). */
+
 /**
  * PluginWiring -- live Obsidian-API adapters for the Inline-Editor-AI layer (EPIC-33).
  *
@@ -728,7 +730,7 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
                 .setIcon('pencil')
                 .onClick(() => dispatch('rewrite')));
             menu.addItem(item => item
-                .setTitle('Translate to English')
+                .setTitle('Translate selection')
                 .setIcon('languages')
                 .onClick(() => dispatch('translate')));
             menu.addItem(item => item
@@ -907,3 +909,4 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
         },
     };
 }
+/* eslint-enable -- end of file-level disable for the Obsidian-API wiring layer */

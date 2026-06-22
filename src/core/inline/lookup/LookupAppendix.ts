@@ -101,7 +101,7 @@ function wikilinkDisplay(notePath: string): string {
         // own note-path validator already forbids `<>:"\\|?*`, but the
         // index can hold stale entries from external tooling -- defang
         // them so the rendered Markdown stays safe.
-        .replace(/[\[\]|<>"']/g, '')
+        .replace(/[[\]|<>"']/g, '')
         .replace(/[\r\n]+/g, ' ')
         .trim();
 }
@@ -117,7 +117,7 @@ function escapeInline(text: string): string {
 
 /** Markdown link label `[X]`: strip closing brackets and newlines. */
 function escapeMarkdownLinkLabel(text: string): string {
-    return text.replace(/[\[\]]/g, '').replace(/[\r\n]+/g, ' ').trim();
+    return text.replace(/[[\]]/g, '').replace(/[\r\n]+/g, ' ').trim();
 }
 
 /**

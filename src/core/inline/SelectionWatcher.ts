@@ -63,14 +63,14 @@ export class SelectionWatcher {
                 this.schedule();
             }
         };
-        this.target.addEventListener('mouseup', this.mouseHandler as EventListener);
-        this.target.addEventListener('keyup', this.keyHandler as EventListener);
+        this.target.addEventListener('mouseup', this.mouseHandler);
+        this.target.addEventListener('keyup', this.keyHandler);
     }
 
     stop(): void {
         this.active = false;
-        if (this.mouseHandler !== null) this.target.removeEventListener('mouseup', this.mouseHandler as EventListener);
-        if (this.keyHandler !== null) this.target.removeEventListener('keyup', this.keyHandler as EventListener);
+        if (this.mouseHandler !== null) this.target.removeEventListener('mouseup', this.mouseHandler);
+        if (this.keyHandler !== null) this.target.removeEventListener('keyup', this.keyHandler);
         this.mouseHandler = null;
         this.keyHandler = null;
         if (this.timer !== null) {

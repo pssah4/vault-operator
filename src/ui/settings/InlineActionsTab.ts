@@ -32,16 +32,16 @@ export class InlineActionsTab {
 
     build(containerEl: HTMLElement): void {
         const intro = containerEl.createDiv('vault-op-box vault-op-box--intro');
-        intro.createEl('strong', { text: 'Inline Editor AI Actions (EPIC-33)' });
+        intro.createEl('strong', { text: 'Inline editor AI actions' });
         intro.createDiv({
-            text: 'Run AI actions on a marked selection directly in the editor. Open via the "Open inline AI menu" command (bind a hotkey in Settings → Hotkeys, e.g. Cmd+K).',
+            text: 'Run AI actions on a marked selection directly in the editor. Open via the inline-AI command (bind a hotkey in settings, e.g. Cmd+K).',
         });
 
         const settings = this.getSettings();
         const resolved = resolveInlineActionsSettings(settings);
 
         new Setting(containerEl)
-            .setName('Inline Editor AI Actions enabled')
+            .setName('Inline editor AI actions enabled')
             .setDesc('Master toggle for the inline-menu, hotkey and command-palette entry.')
             .addToggle(t => t
                 .setValue(resolved.enabled)
@@ -50,23 +50,23 @@ export class InlineActionsTab {
 
         new Setting(containerEl)
             .setName('Auto-open floating menu on selection')
-            .setDesc('When on, the menu pops up automatically after you finish selecting text. When off, only the hotkey / command-palette opens it.')
+            .setDesc('When on, the menu pops up automatically after you finish selecting text. When off, only the hotkey or command-palette opens it.')
             .addToggle(t => t
                 .setValue(resolved.floatingMenuEnabled)
                 .onChange(async (v) => { settings.floatingMenuEnabled = v; await this.save(); }),
             );
 
         new Setting(containerEl)
-            .setName('Use Vault knowledge in Lookup')
-            .setDesc('Augment the Lookup action with semantic-search hits from your vault (FEAT-33-09).')
+            .setName('Use vault knowledge in lookup')
+            .setDesc('Augment the lookup action with semantic-search hits from your vault.')
             .addToggle(t => t
                 .setValue(resolved.vaultRagInLookup)
                 .onChange(async (v) => { settings.vaultRagInLookup = v; await this.save(); }),
             );
 
         new Setting(containerEl)
-            .setName('Vault-RAG confidence threshold')
-            .setDesc('Cosine similarity 0..1. Lookup falls back to LLM-only when no vault hit meets this threshold.')
+            .setName('Vault knowledge confidence threshold')
+            .setDesc('Cosine similarity 0 to 1. Lookup falls back to LLM-only when no vault hit meets this threshold.')
             .addSlider(s => s
                 .setLimits(0, 1, 0.05)
                 .setValue(resolved.vaultRagConfidenceThreshold)
@@ -75,15 +75,15 @@ export class InlineActionsTab {
             );
 
         new Setting(containerEl)
-            .setName('Show vault source links in Lookup tooltip')
-            .setDesc('When on, the Lookup preview block lists the wiki-links of the vault notes used.')
+            .setName('Show vault source links in lookup tooltip')
+            .setDesc('When on, the lookup preview block lists the wiki-links of the vault notes used.')
             .addToggle(t => t
                 .setValue(resolved.showVaultSourcesInTooltip)
                 .onChange(async (v) => { settings.showVaultSourcesInTooltip = v; await this.save(); }),
             );
 
         new Setting(containerEl)
-            .setName('Skills in floating menu (TOP N)')
+            .setName('Skills in floating menu (top N)')
             .setDesc('Maximum number of inline-eligible skills to list. Set to 0 to hide all skills.')
             .addText(t => t
                 .setPlaceholder('10')
@@ -100,7 +100,7 @@ export class InlineActionsTab {
         // FEAT-33-10: Per-Action-Pin section.
         containerEl.createEl('h4', { text: 'Per-action model pin' });
         const pinIntro = containerEl.createDiv({ cls: 'setting-item-description' });
-        pinIntro.setText('Pin a specific model per action (overrides the main-chat default for inline-actions). Leave empty to use the main-chat default. Model IDs come from your configured providers.');
+        pinIntro.setText('Pin a specific model per action; overrides the main-chat default for inline actions. Leave empty to use the main-chat default. Model ids come from your configured providers.');
 
         const knownActions: Array<{ id: string; label: string }> = [
             { id: 'lookup', label: 'Lookup' },

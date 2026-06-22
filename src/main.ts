@@ -2219,13 +2219,10 @@ export default class ObsidianAgentPlugin extends Plugin {
         this.addCommand({
             id: 'open-inline-ai-menu',
             name: 'Open inline AI chat',
-            // EPIC-33: Mod+Shift+I als cross-platform Default-Hotkey.
-            // 'Mod' resolves to Cmd on macOS, Ctrl on Windows/Linux.
-            // Note: Ctrl+Shift+I is the DevTools shortcut in Electron
-            // apps including Obsidian on Win/Linux. The first plugin
-            // that registers wins, but the user can rebind via Settings
-            // -> Hotkeys if there's a collision.
-            hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'i' }],
+            // EPIC-33: no default hotkey -- Obsidian community-plugin guidance
+            // forbids defaults so we do not collide with user hotkeys or the
+            // DevTools shortcut (Ctrl+Shift+I on Win/Linux). Users bind the
+            // command via Settings -> Hotkeys.
             callback: () => {
                 this.inlineActions?.orchestrator.triggerPanel();
             },

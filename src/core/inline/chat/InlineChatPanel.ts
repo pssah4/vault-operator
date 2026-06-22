@@ -219,9 +219,9 @@ export class InlineChatPanel {
         root.classList.add('agent-inline-panel');
         root.setAttribute('role', 'dialog');
         root.setAttribute('aria-label', 'Inline AI chat');
-        root.style.setProperty('position', 'absolute');
-        root.style.setProperty('width', `${DEFAULT_WIDTH}px`);
-        root.style.setProperty('z-index', '1000');
+        // Bot-compliance: static rules (position/z-index) live in styles.css
+        // under `.agent-inline-panel`. Per-instance width via setCssProps.
+        root.setCssStyles({ width: `${DEFAULT_WIDTH}px` });
 
         // Selection preview (collapsible, 3 lines visible by default).
         this.buildSelectionPreview(root, doc);
@@ -230,7 +230,7 @@ export class InlineChatPanel {
         const closeBtn = doc.createElement('button');
         closeBtn.classList.add('agent-inline-panel__close');
         closeBtn.setAttribute('type', 'button');
-        closeBtn.setAttribute('title', 'Close (Esc)');
+        closeBtn.setAttribute('title', 'Close (esc)');
         closeBtn.textContent = '×';
         closeBtn.addEventListener('click', (ev) => { ev.preventDefault(); this.close(); });
         root.appendChild(closeBtn);
@@ -375,8 +375,7 @@ export class InlineChatPanel {
 
         // Position + clamp to viewport.
         const clamped = this.clampToViewport(this.position, root);
-        root.style.setProperty('left', `${clamped.x}px`);
-        root.style.setProperty('top', `${clamped.y}px`);
+        root.setCssStyles({ left: `${clamped.x}px`, top: `${clamped.y}px` });
 
         // Esc closes; outside-click does NOT close.
         this.boundKeyDown = (ev: KeyboardEvent) => {

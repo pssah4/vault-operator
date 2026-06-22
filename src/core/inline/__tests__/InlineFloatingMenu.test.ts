@@ -14,6 +14,7 @@ interface FakeNode {
     tagName?: string;
     classList: { classes: Set<string>; add: (c: string) => void; contains: (c: string) => boolean };
     style: { setProperty: (k: string, v: string) => void; get position(): string; get left(): string; get top(): string };
+    setCssStyles: (styles: Record<string, string>) => void;
     children: FakeNode[];
     listeners: Map<string, ((ev: unknown) => void)[]>;
     parent: FakeNode | null;
@@ -109,6 +110,13 @@ function makeNode(doc: FakeDocument, tag: string): FakeNode {
             cur = cur.parent;
         }
         return false;
+    };
+    // Mirror Obsidian's HTMLElement.setCssStyles by writing through to
+    // the same style-property store the test reads back.
+    node.setCssStyles = (styles: Record<string, string>) => {
+        for (const [k, v] of Object.entries(styles)) {
+            node.style.setProperty(k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`), v);
+        }
     };
     node.getBoundingClientRect = () => ({ width: 200, height: 100 });
     node.click = () => node.dispatch('click', { preventDefault: () => {}, stopPropagation: () => {} });
@@ -330,7 +338,10 @@ describe('InlineFloatingMenu (DOM-stub)', () => {
         menu.open(makeCtx(), { x: 120, y: 240 });
 
         const root = container.children[0];
-        expect(root.style.position).toBe('absolute');
+        // Position is now handled via the .agent-inline-menu CSS rule
+        // (position: absolute) so the test asserts left/top via the
+        // setCssStyles call instead of the inline `position` literal.
+        expect(root.classList.contains('agent-inline-menu')).toBe(true);
         expect(root.style.left).toBeTruthy();
         expect(root.style.top).toBeTruthy();
     });

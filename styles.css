@@ -7500,6 +7500,8 @@
 
 /* ── Inline-Editor-AI-Actions (EPIC-33) ───────────────────────────── */
 .agent-inline-menu {
+    position: absolute;
+    z-index: 1000;
     background: var(--background-secondary);
     color: var(--text-normal);
     border: 1px solid var(--background-modifier-border);
@@ -7579,6 +7581,8 @@
 
 /* ── Inline Chat Panel (EPIC-33 UX-refresh) ───────────────────────── */
 .agent-inline-panel {
+    position: absolute;
+    z-index: 1000;
     display: flex;
     flex-direction: column;
     background: var(--background-primary);

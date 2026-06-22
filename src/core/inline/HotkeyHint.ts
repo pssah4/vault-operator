@@ -40,15 +40,17 @@ export function formatHotkeyHint(platform: PlatformLike): string {
 
 /** Convenience wrapper that reads from Obsidian's Platform singleton. */
 export function formatInlineAiHotkeyHint(): string {
-    // Lazy import so unit tests can run without Obsidian.
+    // Lazy require so unit tests can run without Obsidian. Wrap into a
+    // small probe so the unsafe-any boundary stays in this function.
+    /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access -- runtime probe for Obsidian Platform singleton; surface is intentionally untyped */
     const obsidianModule: { Platform?: PlatformLike } = (() => {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports -- runtime probe for Obsidian Platform singleton
             return require('obsidian');
         } catch {
-            return {} as { Platform?: PlatformLike };
+            return {};
         }
     })();
+    /* eslint-enable -- end of Obsidian Platform probe */
     const platform: PlatformLike = obsidianModule.Platform ?? { isMacOS: false, isWin: false, isLinux: true };
     return formatHotkeyHint(platform);
 }

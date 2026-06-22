@@ -99,7 +99,7 @@ class EditReviewModal extends Modal {
             mode: this.opts.mode,
             title: this.opts.title,
             sourceLabel: this.opts.source,
-            setIcon: (el, name) => setIcon(el as HTMLElement, name),
+            setIcon: (el, name) => setIcon(el, name),
             onApply: (decisions) => {
                 try { this.opts.onApply?.(decisions); } finally { this.close(); }
             },

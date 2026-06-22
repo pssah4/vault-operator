@@ -250,7 +250,7 @@ export class EditReviewPanel {
             const skip = doc.createElement('button');
             skip.classList.add('agent-edit-review__skip-btn');
             skip.setAttribute('type', 'button');
-            skip.textContent = 'Diese Datei skippen';
+            skip.textContent = 'Skip this file';
             skip.addEventListener('click', (ev) => {
                 ev.preventDefault();
                 this.toggleSkipCurrent();
@@ -477,7 +477,7 @@ export class EditReviewPanel {
             else if (l.type === 'removed') removed += 1;
         }
         if (added === 0 && removed === 0) {
-            this.afterStatsEl.textContent = 'unverändert';
+            this.afterStatsEl.textContent = 'Unchanged';
             this.afterStatsEl.classList.remove('is-changed');
         } else {
             const parts: string[] = [];

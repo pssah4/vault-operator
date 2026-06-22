@@ -309,7 +309,7 @@ export { buildDiffState } from './InlineDiffEngine';
  * StateField identity export so external callers (e.g. PluginWiring
  * tests) can read the current session.
  */
-export const _internalInlineDiffField: StateField<DiffSession | null> = inlineDiffField as unknown as StateField<DiffSession | null>;
+export const _internalInlineDiffField: StateField<DiffSession | null> = inlineDiffField;
 
 /**
  * Suppress 'unused' on _t signature; ensures Transaction import keeps

@@ -6,6 +6,7 @@ interface FakeNode {
     tagName: string;
     classList: { classes: Set<string>; add: (c: string) => void; remove: (c: string) => void; contains: (c: string) => boolean; toggle: (c: string, force?: boolean) => void };
     style: { setProperty: (k: string, v: string) => void; get left(): string; get top(): string };
+    setCssStyles: (styles: Record<string, string>) => void;
     children: FakeNode[];
     listeners: Map<string, ((ev: unknown) => void)[]>;
     parent: FakeNode | null;
@@ -73,6 +74,14 @@ function makeNode(doc: FakeDocument, tag: string): FakeNode {
         scrollHeight: 100,
     } as Partial<FakeNode> as FakeNode;
 
+    // Bot-compliance test mock: setCssStyles is the Obsidian augment,
+    // not part of jsdom. Wire it through to the same styleMap so test
+    // assertions on style.left/top still observe the writes.
+    node.setCssStyles = (styles: Record<string, string>) => {
+        for (const [k, v] of Object.entries(styles)) {
+            styleMap.set(k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`), v);
+        }
+    };
     node.appendChild = (child: FakeNode) => { child.parent = node; node.children.push(child); return child; };
     node.append = (...children: FakeNode[]) => { for (const c of children) node.appendChild(c); };
     node.remove = () => {

@@ -100,7 +100,10 @@ export class InlineWebLookup {
     private withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             const t = setTimeout(() => reject(new Error(`InlineWebLookup timeout after ${ms}ms`)), ms);
-            p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+            p.then(
+                v => { clearTimeout(t); resolve(v); },
+                e => { clearTimeout(t); reject(e instanceof Error ? e : new Error(String(e))); },
+            );
         });
     }
 }
