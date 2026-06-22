@@ -15,7 +15,7 @@
  * wiring step.
  */
 
-import { MarkdownView, Menu, setIcon, type App, type WorkspaceLeaf } from 'obsidian';
+import { Component, MarkdownRenderer, MarkdownView, Menu, setIcon, type App, type WorkspaceLeaf } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { InlineActionRegistry } from './InlineActionRegistry';
 import { InlineTriggerResolver } from './InlineTriggerResolver';
@@ -213,6 +213,42 @@ function buildSemanticIndexProbe(plugin: ObsidianAgentPlugin): SemanticIndexProb
             }
         },
     };
+}
+
+/**
+ * Wire internal-link click handlers on a freshly-rendered markdown
+ * container so wikilinks navigate via workspace.openLinkText instead
+ * of falling through as inert anchors. Mirrors the Sidebar pattern
+ * (AgentSidebarView.wireInternalLinks).
+ *
+ * Special-case obsidian://vault-operator-chat?id=X URLs (chat-deep-
+ * links from recall_memory / search_history) so the click routes
+ * through plugin.openChatById -- otherwise the ":" in the protocol
+ * scheme triggers a createFolder error in openLinkText.
+ */
+function wireInternalLinks(plugin: ObsidianAgentPlugin, containerEl: HTMLElement): void {
+    containerEl.querySelectorAll('a').forEach((anchor) => {
+        const href = anchor.getAttribute('href') ?? '';
+        if (href.startsWith('obsidian://vault-operator-chat') || href.startsWith('obsidian://obsilo-chat')) {
+            anchor.addEventListener('click', (e) => {
+                e.preventDefault();
+                const match = /[?&]id=([^&]+)/.exec(href);
+                if (match) {
+                    const id = decodeURIComponent(match[1]);
+                    const opener = (plugin as unknown as { openChatById?: (id: string) => Promise<void> }).openChatById;
+                    if (typeof opener === 'function') void opener.call(plugin, id);
+                }
+            });
+            return;
+        }
+        if (href.length === 0) return;
+        if (href.startsWith('http') === true || href.startsWith('mailto') === true) return;
+        anchor.addEventListener('click', (e) => {
+            e.preventDefault();
+            const linkText = anchor.getAttribute('data-href') ?? href;
+            void plugin.app.workspace.openLinkText(linkText, '', false);
+        });
+    });
 }
 
 /**
@@ -512,6 +548,21 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
         resolver,
         isEnabled: () => resolveInlineActionsSettings(plugin.settings.inlineActions).enabled,
         setIcon: (el, name) => setIcon(el, name),
+        // Markdown rendering bridge: replaces the plain-text bubble with
+        // rendered Obsidian markdown once the stream completes. Wikilinks
+        // are wired through app.workspace.openLinkText so they navigate
+        // to the target note in the active leaf instead of falling through
+        // as inert anchors. Same pattern as AgentSidebarView.wireInternalLinks.
+        renderMarkdown: async (containerEl, markdown) => {
+            const sourcePath = plugin.app.workspace.getActiveFile()?.path ?? '';
+            const component = new Component();
+            try {
+                await MarkdownRenderer.render(plugin.app, markdown, containerEl, sourcePath, component);
+                wireInternalLinks(plugin, containerEl);
+            } finally {
+                component.unload();
+            }
+        },
         showMoreMenu: (anchor, _ctx, _handle, dispatch) => {
             // Obsidian Menu with the secondary actions. Lookup is on
             // the toolbar (magnifier) so it does NOT appear here again.

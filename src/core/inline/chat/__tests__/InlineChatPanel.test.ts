@@ -336,6 +336,42 @@ describe('InlineChatPanel (Sidebar-Composer-Layout)', () => {
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
+    it('finalizeBubble: invokes renderMarkdown hook with accumulated markdown after streaming', async () => {
+        const renderMarkdown = vi.fn(async (el: { textContent: string }, md: string) => { el.textContent = `RENDERED:${md}`; });
+        const panel = newPanel({ renderMarkdown: renderMarkdown as never });
+        const handle = panel.open();
+        const id = handle.appendMessage({ role: 'assistant', text: '' });
+        handle.appendStreamChunk(id, 'Hello ');
+        handle.appendStreamChunk(id, '[[note]]');
+        await handle.finalizeBubble(id);
+        expect(renderMarkdown).toHaveBeenCalledTimes(1);
+        const callArgs = renderMarkdown.mock.calls[0];
+        expect(callArgs[1]).toBe('Hello [[note]]');
+        const body = findByClass(container.children[0], 'agent-inline-panel__body');
+        expect(body!.children[0].textContent).toBe('RENDERED:Hello [[note]]');
+    });
+
+    it('finalizeBubble: no-op when renderMarkdown hook is undefined (bubble keeps plain text)', async () => {
+        const panel = newPanel();
+        const handle = panel.open();
+        const id = handle.appendMessage({ role: 'assistant', text: '' });
+        handle.appendStreamChunk(id, 'plain text');
+        await handle.finalizeBubble(id);
+        const body = findByClass(container.children[0], 'agent-inline-panel__body');
+        expect(body!.children[0].textContent).toBe('plain text');
+    });
+
+    it('finalizeBubble: hook error falls back to plain text', async () => {
+        const renderMarkdown = vi.fn(async () => { throw new Error('boom'); });
+        const panel = newPanel({ renderMarkdown: renderMarkdown as never });
+        const handle = panel.open();
+        const id = handle.appendMessage({ role: 'assistant', text: '' });
+        handle.appendStreamChunk(id, 'fallback content');
+        await handle.finalizeBubble(id);
+        const body = findByClass(container.children[0], 'agent-inline-panel__body');
+        expect(body!.children[0].textContent).toBe('fallback content');
+    });
+
     it('custom setIcon hook is invoked for every icon button', () => {
         const setIcon = vi.fn();
         const panel = newPanel({ setIcon });

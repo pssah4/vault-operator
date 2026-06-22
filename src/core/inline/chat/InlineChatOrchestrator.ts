@@ -29,6 +29,7 @@ import {
     type InlinePanelDispatchArgs,
     type InlinePanelHandle,
     type SetIconHook,
+    type RenderMarkdownHook,
 } from './InlineChatPanel';
 import { PanelChatController } from './PanelChatController';
 
@@ -45,6 +46,8 @@ export interface InlineChatOrchestratorOptions {
     resolver: InlineTriggerResolver;
     isEnabled?: () => boolean;
     setIcon?: SetIconHook;
+    /** Bridge to Obsidian's MarkdownRenderer.render (+ link wiring). */
+    renderMarkdown?: RenderMarkdownHook;
     showMoreMenu?: (
         anchor: HTMLElement,
         ctx: InlineTriggerContext,
@@ -87,6 +90,7 @@ export class InlineChatOrchestrator {
     private readonly resolver: InlineTriggerResolver;
     private readonly isEnabled: () => boolean;
     private readonly setIconHook?: SetIconHook;
+    private readonly renderMarkdownHook?: RenderMarkdownHook;
     private readonly showMoreMenu?: (
         anchor: HTMLElement,
         ctx: InlineTriggerContext,
@@ -105,6 +109,7 @@ export class InlineChatOrchestrator {
         this.resolver = options.resolver;
         this.isEnabled = options.isEnabled ?? (() => true);
         this.setIconHook = options.setIcon;
+        this.renderMarkdownHook = options.renderMarkdown;
         this.showMoreMenu = options.showMoreMenu;
         this.showPlusMenu = options.showPlusMenu;
     }
@@ -144,6 +149,7 @@ export class InlineChatOrchestrator {
                 this.activePanel = null;
             },
             setIcon: this.setIconHook,
+            renderMarkdown: this.renderMarkdownHook,
         });
         panel.open();
         this.activePanel = panel;
@@ -177,6 +183,8 @@ export class InlineChatOrchestrator {
                 handle,
                 assistantBubbleId: assistantId,
             });
+            // Render markdown + wire links once the controller signals completion.
+            await handle.finalizeBubble(assistantId);
             return;
         }
 
@@ -206,6 +214,9 @@ export class InlineChatOrchestrator {
             const err = e instanceof Error ? e : new Error(String(e));
             handle.setStatus(`Error: ${err.message}`, 'error');
         }
+        // Render markdown + wire links once the action's stream has
+        // completed (and the appendix chunk -- if any -- has landed).
+        await handle.finalizeBubble(assistantId);
     }
 
     private buildPanelCallbacks(handle: InlinePanelHandle, assistantBubbleId: string): AgentTaskCallbacks {

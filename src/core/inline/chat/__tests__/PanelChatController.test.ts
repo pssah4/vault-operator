@@ -46,6 +46,7 @@ function makeHandle(): InlinePanelHandle & { _stream: string[]; _status: string[
     return {
         appendMessage: () => 'bubble-id',
         appendStreamChunk: (_id, chunk) => { stream.push(chunk); },
+        finalizeBubble: async () => {},
         setStatus: (text) => { status.push(text); },
         close: () => {},
         _stream: stream,

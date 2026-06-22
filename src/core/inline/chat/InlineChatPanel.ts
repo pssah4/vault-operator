@@ -50,6 +50,13 @@ export interface InlinePanelDispatchArgs {
 export interface InlinePanelHandle {
     appendMessage(message: InlinePanelMessage): string;
     appendStreamChunk(bubbleId: string, chunk: string): void;
+    /**
+     * Replace the bubble's plain-text streaming content with rendered
+     * markdown (via the panel's renderMarkdown hook). Called once the
+     * stream + appendix have completed. No-op when no renderMarkdown
+     * hook is configured -- the bubble stays as plain text.
+     */
+    finalizeBubble(bubbleId: string): Promise<void>;
     setStatus(text: string, level?: 'info' | 'error'): void;
     close(): void;
 }
@@ -59,6 +66,15 @@ export interface InlinePanelHandle {
  * Unit-tests pass undefined and fall back to a plain text glyph.
  */
 export type SetIconHook = (el: HTMLElement, name: string) => void;
+
+/**
+ * Optional hook so Obsidian's MarkdownRenderer.render() can render
+ * the assistant bubble with full Obsidian markdown (wikilinks,
+ * embeds, code fences, callouts, etc.) and the panel can wire
+ * internal-link click handlers afterwards. Unit-tests pass
+ * undefined and the bubble keeps the plain textContent.
+ */
+export type RenderMarkdownHook = (containerEl: HTMLElement, markdown: string) => Promise<void> | void;
 
 export interface InlineChatPanelOptions {
     containerEl: HTMLElement;
@@ -72,6 +88,14 @@ export interface InlineChatPanelOptions {
     onClose?: () => void;
     /** Bridge to Obsidian's setIcon() for Lucide rendering. */
     setIcon?: SetIconHook;
+    /**
+     * Bridge to Obsidian's MarkdownRenderer.render() + link-wiring.
+     * When set, finalizeBubble() runs the hook on the bubble element
+     * with the accumulated markdown text so wikilinks, code fences,
+     * and embeds render natively. When unset the bubble keeps the
+     * plain textContent from streaming -- unit-tests run that way.
+     */
+    renderMarkdown?: RenderMarkdownHook;
 }
 
 const DEFAULT_WIDTH = 520;
@@ -96,6 +120,9 @@ export class InlineChatPanel {
     private previewExpanded = false;
     private bubbleCounter = 0;
     private bubbleNodes = new Map<string, HTMLElement>();
+    /** Raw markdown accumulator per bubble id (for finalizeBubble). */
+    private bubbleMarkdown = new Map<string, string>();
+    private readonly renderMarkdownHook?: RenderMarkdownHook;
 
     private boundKeyDown: ((ev: KeyboardEvent) => void) | null = null;
 
@@ -108,6 +135,7 @@ export class InlineChatPanel {
         this.onShowPlusMenu = options.onShowPlusMenu;
         this.onClose = options.onClose;
         this.setIcon = options.setIcon ?? ((el, name) => { el.textContent = iconFallback(name); });
+        this.renderMarkdownHook = options.renderMarkdown;
     }
 
     get isOpen(): boolean { return this.rootEl !== null; }
@@ -261,6 +289,7 @@ export class InlineChatPanel {
         this.previewToggleEl = null;
         this.previewExpanded = false;
         this.bubbleNodes.clear();
+        this.bubbleMarkdown.clear();
         this.bubbleCounter = 0;
         if (this.boundKeyDown !== null) {
             this.containerEl.ownerDocument.removeEventListener('keydown', this.boundKeyDown);
@@ -394,6 +423,7 @@ export class InlineChatPanel {
         return {
             appendMessage: (m) => this.appendMessage(m),
             appendStreamChunk: (id, c) => this.appendStreamChunk(id, c),
+            finalizeBubble: (id) => this.finalizeBubble(id),
             setStatus: (t, l) => this.setStatus(t, l),
             close: () => this.close(),
         };
@@ -410,6 +440,7 @@ export class InlineChatPanel {
         this.bubbleCounter += 1;
         const id = `b${this.bubbleCounter}`;
         this.bubbleNodes.set(id, bubble);
+        this.bubbleMarkdown.set(id, message.text);
         this.scrollToBottom();
         return id;
     }
@@ -417,7 +448,36 @@ export class InlineChatPanel {
     private appendStreamChunk(bubbleId: string, chunk: string): void {
         const bubble = this.bubbleNodes.get(bubbleId);
         if (bubble === undefined) return;
+        // Plain-text accumulation during streaming (cheap, no layout
+        // thrash). The raw markdown buffer is what finalizeBubble later
+        // feeds into the MarkdownRenderer.
         bubble.textContent = (bubble.textContent ?? '') + chunk;
+        this.bubbleMarkdown.set(bubbleId, (this.bubbleMarkdown.get(bubbleId) ?? '') + chunk);
+        this.scrollToBottom();
+    }
+
+    /**
+     * Replace the bubble's plain-text streaming content with rendered
+     * markdown via the renderMarkdown hook. Idempotent: subsequent
+     * calls with the same id re-render (useful if the appendix arrives
+     * after the LLM stream and the action calls finalize twice).
+     */
+    private async finalizeBubble(bubbleId: string): Promise<void> {
+        if (this.renderMarkdownHook === undefined) return;
+        const bubble = this.bubbleNodes.get(bubbleId);
+        const markdown = this.bubbleMarkdown.get(bubbleId);
+        if (bubble === undefined || markdown === undefined || markdown.length === 0) return;
+        // Clear plain-text content; the hook will populate it.
+        while (bubble.firstChild !== null) {
+            bubble.removeChild(bubble.firstChild);
+        }
+        try {
+            await this.renderMarkdownHook(bubble, markdown);
+        } catch (e) {
+            // Fallback: restore plain text so the user still sees the answer.
+            bubble.textContent = markdown;
+            console.debug('[InlineChatPanel] renderMarkdown failed (fallback to plain text):', e);
+        }
         this.scrollToBottom();
     }
 
