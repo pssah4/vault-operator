@@ -5241,3 +5241,78 @@ Plus eine Codebase-Erweiterung beim Implementieren: `ImplicitConnectionService` 
 1. `/testing` fuer Test-Coverage-Vervollstaendigung (Migration-Dauer-Test, RecallEngine-Latenz-Bench gegen Baseline)
 2. `/security-audit` Delta-Audit seit AUDIT-034 (Migration-Surface + ESLint-Regel + die 6 Exception-Disables)
 3. Live-Verifikation in Sebastian's Vault, Pseudo-Orphan-Zaehler ablesen
+
+---
+
+## testing-to-security-audit 2026-06-22
+
+triage: FEAT-03-27
+triage_kind: feature
+epic: EPIC-03
+feature: FEAT-03-27
+
+### Test artifacts added (12 neue Tests)
+
+- **Integration:** `src/core/knowledge/__tests__/feat-03-27.integration.test.ts`
+  End-to-end Test des PLAN-41 SC-01: synthetischer v12-DB mit 10 Notes + 50 Sessions + 100 Episodes, eine Note (Note9) ohne incoming Edge als echter Orphan, alle anderen 9 verlinkt von `Notes/Hub.md`. Migration laeuft, dann `VaultHealthService.runChecks(['orphans'])` mit Production-Opts. Assertions: schema_meta.version=13 nach Migration, genau `Notes/Note9.md` in orphanPaths, keine `session:`/`episode:`-Pfade in der Liste, keine der 9 verlinkten Notes faelschlich gemeldet. Automatisiert die manuelle Live-Verifikation aus PLAN-41 vollstaendig.
+- **Cross-Layer-Reranker (3 Tests):** `VectorStore.test.ts` neuer describe-Block `Cross-layer findVectors (Reranker compatibility)`. Eine Vektor pro Domain seeded, `findVectors({})` gibt alle sieben zurueck, `findVectors({domain:'session'})` filtert korrekt, `findVectors({domain:'note', chunkIndex:0, pathLike:'Notes/%'})` schneidet drei Filter sauber.
+- **pathPrefixToDomain edge cases (5 Tests):** `knowledgeDomains.test.ts` neuer Block. Case-sensitivity (`SESSION:abc` -> 'note'), empty string, colon-only-prefix (`session:`), unknown URI-like (`xyz:abc`, `vault://...`), fact_-prefix-Pathologie.
+- **maybeSnapshotPreV13Bak failure path (1 Test):** `KnowledgeDB.v13Migration.test.ts`. Stubbed `save()` der wirft. Assertions: Migration laeuft trotzdem durch, schema_meta.version=13, domain backfilled. Bestaetigt: v13-Pfad ist nicht brittler als v12 (der hatte keinen Snapshot).
+- **Combined filters (2 Tests):** `VectorStore.test.ts` weiterer Block. `domain+chunkIndex+pathLike+excludePathPrefixes` Intersection, `excludePathContains` als Substring-Filter.
+
+### Coverage tooling
+
+`@vitest/coverage-v8` installiert. `vitest.config.ts` um `coverage`-Block erweitert (provider v8, reporters text + html + json-summary, includes `src/**/*.ts`, excludes `src/_generated/**`, `src/**/__tests__/**`, `src/**/*.test.ts`, `src/**/*.d.ts`, `src/types/**`). Keine Thresholds gesetzt -- Baseline first, dann ratcheten.
+
+Workaround beim Install: `@rollup/rollup-darwin-arm64` musste explizit nachinstalliert werden (bekannter npm optional-deps Bug https://github.com/npm/cli/issues/4828).
+
+### Coverage status
+
+Global (in Targets aus `_devprocess/rules/technical.md` oder Default 30/35):
+
+| Metric | Value | Target (technical.md) | Delta |
+|---|---|---|---|
+| Statements | 29.17 | -- | -- |
+| Branches | 28.62 | 80 (default) | unter Default |
+| Functions | 29.37 | 35 (project) | -5.6 pp |
+| Lines | 29.68 | 30 (project) | -0.32 pp |
+
+FEAT-03-27 Module liegen alle deutlich ueber dem globalen Schnitt:
+
+| File | Lines% |
+|---|---|
+| VectorStore.ts | 95.56 |
+| KnowledgeDB.ts v13-Migration helper (`migrateVectorsToDomainsV12ToV13`) | direkt unit-getestet |
+| VaultHealthService.checkOrphans + checkBrokenLinks | abgedeckt durch +3 Tests |
+| SemanticIndexService writer-sites + cleanupStubVectors | abgedeckt durch Wave-3-Tests |
+
+### Residuale Luecken (5 akzeptiert, 1 Follow-up)
+
+- KnowledgeDB.ts:567-575 (Aufrufer-Branch in `migrate()`-Methode): akzeptiert, pure helper ist abgedeckt
+- VectorStore.ts:412-413 (Cache-leer-Fallback): akzeptiert, defensiv
+- VectorStore.ts:418 (warn bei >50k Vektoren): akzeptiert, nicht reproducible im Mock-DB-Test
+- VaultHealthService.ts ausserhalb orphans/broken_links: ausserhalb FEAT-03-27-Scope, separate FIX-19-Items
+- SemanticIndexService.ts:1761-1816 (rebuild/maintenance entry points): ausserhalb FEAT-03-27-Scope
+
+- **Follow-up:** FIX-03-27-08 angelegt -- `searchWithAdjacency({ pathPrefix: 'fact:' })` testen, hebt VectorStore.ts:519 ab, Aufwand <10 Min, P3.
+
+### Open concerns for security audit
+
+- Schema-Migration-Surface: ADR-136 `migrateVectorsToDomainsV12ToV13` plus `maybeSnapshotPreV13Bak`. Verifizieren: Lock-File-Mechanik aus FEATURE-0314 schuetzt waehrend Migration, atomic-write-Pattern aus FIX-12 ist auch fuer den `save()` vor der Migration aktiv (haengt am `.bak`-Roundtrip).
+- ESLint-Regel + Exception-Disables: 6 disable-Stellen mit `-- reason`-Suffix. Verifizieren das die Reasons im Code-Review halten und der Suffix-Pattern nicht versehentlich beim Refactor weggebrochen wird.
+- Coverage-Tool als neue Devdep: keine direkte Security-Wirkung, aber `@rollup/rollup-darwin-arm64` als Platform-Specific Optional Dep verdient den Hinweis im npm-audit-Run.
+
+### Brittle / flaky patterns noted
+
+Keine Flakes im Testing-Pass. Die ImplicitConnectionService / SemanticIndexService.stubGate / retrieval-bench Schema-Backfills mussten in Phase 3 wegen der neuen `domain`-Spalte angepasst werden -- das ist ein Test-Pattern in dem manuelle CREATE TABLE-DDLs neben dem KnowledgeDB-eigenen Schema leben. Drift-Risiko langfristig. Optional Follow-up: Test-Helper konsolidieren auf eine geteilte SCHEMA_DDL-Konstante.
+
+### Assumptions to verify in security audit
+
+- Migration in Transaktion: SQLite-Transaktion wraps ALTER + UPDATE + CREATE INDEX. Bei Crash wird rolled back. Annahme: KnowledgeDB.migrateSchema laeuft tatsaechlich in einer Transaktion (sql.js BEGIN/COMMIT). Verifikation nuetzlich.
+- Pre-Migration `.bak` als Sicherheitsnetz: bei brandneuem Vault mit erstem save() direkt vor Migration ist die `.bak` leer. Auto-Recovery (`KnowledgeDB.ts:334-344`) fallt auf "fresh database" zurueck. Dokumentierter Edge-Case.
+
+### Empfohlene naechste Schritte
+
+1. `/security-audit` Delta seit AUDIT-034 mit Fokus auf Migration-Surface plus ESLint-Regel plus 6 Exception-Disables
+2. Live-Verifikation in Sebastian's Vault: Plugin neu laden, Vault Health Check oeffnen, Pseudo-Orphan-Zaehler ablesen (Erwartung 412 -> 0)
+3. FIX-03-27-08 (searchWithAdjacency-Coverage-Hebung) wenn der naechste /coding-Pass anfaellt

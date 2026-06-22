@@ -406,6 +406,45 @@ describe('VectorStore', () => {
             expect(paths).toEqual(['Notes/A.md', 'episode:ep-1', 'fact:fact-1', 'session:sess-1']);
         });
 
+        it('intersects domain + chunkIndex + pathLike + excludePathPrefixes correctly', async () => {
+            const { store } = await createVectorStore();
+            // Seed: Notes/A.md (zwei Chunks), Notes/B.md (ein Chunk),
+            // Inbox/C.md (ein Chunk, soll uber excludePathPrefixes rausfallen),
+            // session:s1 (eigener Domain, soll uber domain='note' rausfallen).
+            store.insertNoteVector('Notes/A.md', ['a0', 'a1'], [vec(4), vec(4)], 1000);
+            store.insertNoteVector('Notes/B.md', ['b0'], [vec(4)], 1000);
+            store.insertNoteVector('Inbox/C.md', ['c0'], [vec(4)], 1000);
+            store.insertSessionVector('s1', ['s0'], [vec(4)], 1000);
+
+            const found = store.findVectors({
+                domain: 'note',
+                chunkIndex: 0,
+                pathLike: 'Notes/%',
+                excludePathPrefixes: ['Inbox/'],
+            });
+
+            const paths = found.map(e => e.path).sort();
+            expect(paths).toEqual(['Notes/A.md', 'Notes/B.md']);
+            expect(found.every(e => e.chunkIndex === 0)).toBe(true);
+        });
+
+        it('intersects excludePathContains as a substring filter', async () => {
+            const { store } = await createVectorStore();
+            // Notes/Template-Note.md und Notes/Templates/Daily.md sollen rausfallen
+            // (beide enthalten "Template" im Pfad). Notes/Real.md bleibt.
+            store.insertNoteVector('Notes/Template-Note.md', ['t0'], [vec(4)], 1000);
+            store.insertNoteVector('Notes/Real.md', ['r0'], [vec(4)], 1000);
+            store.insertNoteVector('Notes/Templates/Daily.md', ['d0'], [vec(4)], 1000);
+
+            const found = store.findVectors({
+                domain: 'note',
+                excludePathContains: ['Template'],
+            });
+
+            const paths = found.map(e => e.path).sort();
+            expect(paths).toEqual(['Notes/Real.md']);
+        });
+
         it('getStubCandidatePaths excludes session: and episode: paths via domain filter', async () => {
             const { store } = await createVectorStore();
             // Stub-Note (one chunk, short text)
@@ -418,6 +457,74 @@ describe('VectorStore', () => {
 
             const stubs = store.getStubCandidatePaths(40);
             expect(stubs.sort()).toEqual(['Notes/Stub.md']);
+        });
+    });
+
+    describe('Cross-layer findVectors (Reranker compatibility)', () => {
+        it('returns vectors across all seven domains when no domain filter is set', async () => {
+            const { store } = await createVectorStore();
+            // Je ein Vektor pro Domäne über die typisierten Insert-Helfer.
+            store.insertNoteVector('Notes/A.md', ['note chunk'], [vec(4, 1)], 1000);
+            store.insertSessionVector('sess-1', ['session chunk'], [vec(4, 2)], 1000);
+            store.insertEpisodeVector('ep-1', ['episode chunk'], [vec(4, 3)], 1000);
+            store.insertFactVector('fact-1', ['fact chunk'], [vec(4, 4)], 1000);
+            store.insertMentionVector('men-1', ['mention chunk'], [vec(4, 5)], 1000);
+            store.insertThreadVector('thr-1', ['thread chunk'], [vec(4, 6)], 1000);
+            store.insertEntityVector('ent-1', ['entity chunk'], [vec(4, 7)], 1000);
+
+            const all = store.findVectors({});
+            expect(all.length).toBe(7);
+
+            // Alle sieben Domänen-Präfixe müssen im Ergebnis vertreten sein.
+            const paths = all.map(e => e.path).sort();
+            const hasPrefix = (prefix: string) => paths.some(p => p.startsWith(prefix));
+            expect(hasPrefix('Notes/')).toBe(true);
+            expect(hasPrefix('session:')).toBe(true);
+            expect(hasPrefix('episode:')).toBe(true);
+            expect(hasPrefix('fact:')).toBe(true);
+            expect(hasPrefix('mention:')).toBe(true);
+            expect(hasPrefix('thread:')).toBe(true);
+            expect(hasPrefix('entity:')).toBe(true);
+        });
+
+        it('still filters when an explicit domain is passed', async () => {
+            const { store } = await createVectorStore();
+            // Gleicher Seed wie oben, damit das Filter-Verhalten gegen ein
+            // mehrlagiges Korpus geprüft wird.
+            store.insertNoteVector('Notes/A.md', ['note chunk'], [vec(4, 1)], 1000);
+            store.insertSessionVector('sess-1', ['session chunk'], [vec(4, 2)], 1000);
+            store.insertEpisodeVector('ep-1', ['episode chunk'], [vec(4, 3)], 1000);
+            store.insertFactVector('fact-1', ['fact chunk'], [vec(4, 4)], 1000);
+            store.insertMentionVector('men-1', ['mention chunk'], [vec(4, 5)], 1000);
+            store.insertThreadVector('thr-1', ['thread chunk'], [vec(4, 6)], 1000);
+            store.insertEntityVector('ent-1', ['entity chunk'], [vec(4, 7)], 1000);
+
+            const sessionOnly = store.findVectors({ domain: 'session' });
+            expect(sessionOnly.length).toBe(1);
+            expect(sessionOnly[0].path).toBe('session:sess-1');
+            expect(sessionOnly[0].path.startsWith('session:')).toBe(true);
+        });
+
+        it('combines domain + chunkIndex + pathLike filters', async () => {
+            const { store } = await createVectorStore();
+            // Zwei Notizen mit je zwei Chunks und eine Session als Negativ-Probe.
+            store.insertNoteVector('Notes/A.md', ['a0', 'a1'], [vec(4, 1), vec(4, 2)], 1000);
+            store.insertNoteVector('Notes/B.md', ['b0', 'b1'], [vec(4, 3), vec(4, 4)], 1000);
+            store.insertNoteVector('Other/C.md', ['c0', 'c1'], [vec(4, 5), vec(4, 6)], 1000);
+            store.insertSessionVector('sess-1', ['s0'], [vec(4, 7)], 1000);
+
+            const found = store.findVectors({
+                domain: 'note',
+                chunkIndex: 0,
+                pathLike: 'Notes/%',
+            });
+
+            // Erwartet: Notes/A.md (chunk 0) und Notes/B.md (chunk 0).
+            // Other/C.md fällt durch pathLike raus, Session durch domain,
+            // Chunk 1 jeweils durch chunkIndex.
+            const paths = found.map(e => e.path).sort();
+            expect(paths).toEqual(['Notes/A.md', 'Notes/B.md']);
+            expect(found.every(e => e.chunkIndex === 0)).toBe(true);
         });
     });
 

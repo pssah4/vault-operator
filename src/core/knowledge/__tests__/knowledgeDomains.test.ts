@@ -61,4 +61,31 @@ describe('knowledgeDomains', () => {
 			expect(domainToUriScheme(domain)).toBe(`${domain}://`);
 		}
 	});
+
+	describe('pathPrefixToDomain edge cases', () => {
+		it('is case-sensitive: SESSION:abc maps to note, not session', () => {
+			expect(pathPrefixToDomain('SESSION:abc')).toBe('note');
+			expect(pathPrefixToDomain('Episode:xyz')).toBe('note');
+		});
+
+		it('treats an empty string as note', () => {
+			expect(pathPrefixToDomain('')).toBe('note');
+		});
+
+		it('treats a colon-only path "session:" as session (the colon-prefix matches)', () => {
+			expect(pathPrefixToDomain('session:')).toBe('session');
+			expect(pathPrefixToDomain('episode:')).toBe('episode');
+		});
+
+		it('returns note for unknown URI-like prefixes', () => {
+			expect(pathPrefixToDomain('xyz:abc')).toBe('note');
+			expect(pathPrefixToDomain('vault://Notes/Foo.md')).toBe('note');
+			// Note: 'vault://' is the external URI scheme, but vault paths in vectors are stored without the prefix
+		});
+
+		it('strict-prefix-match: does not LIKE-pattern on underscore-suffix paths', () => {
+			// already covered by the existing test, but add a sibling for fact:
+			expect(pathPrefixToDomain('fact_intro.md')).toBe('note');
+		});
+	});
 });
