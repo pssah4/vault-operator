@@ -376,7 +376,7 @@ describe('InlineChatPanel (Sidebar-Composer-Layout)', () => {
         const setIcon = vi.fn();
         const panel = newPanel({ setIcon });
         panel.open();
-        // 4 icon buttons: plus, lookup, ellipsis, send.
-        expect(setIcon.mock.calls.map(c => c[1])).toEqual(['plus', 'search', 'ellipsis', 'send-horizontal']);
+        // 5 icon buttons: plus, lookup, ellipsis, stop, send.
+        expect(setIcon.mock.calls.map(c => c[1])).toEqual(['plus', 'search', 'ellipsis', 'square', 'send-horizontal']);
     });
 });

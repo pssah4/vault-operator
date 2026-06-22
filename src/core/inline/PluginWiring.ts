@@ -696,6 +696,21 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
             }
             return { label: 'Auto', tooltip: 'No model selected -- click to pick' };
         },
+        // EPIC-33: sidebar AutocompleteHandler instantiated per panel
+        // -- powers '/' (skills), '#' (prompts), '§' (workflows), '@'
+        // (vault-file mentions). addVaultFile is a no-op in the panel:
+        // attachments are sidebar-only, but '@'-mentions still render
+        // as inline text references which the agent resolves via tools.
+        autocompleteFactory: (textarea, inputArea) => {
+            const { AutocompleteHandler } = require('../../ui/sidebar/AutocompleteHandler') as typeof import('../../ui/sidebar/AutocompleteHandler');
+            return new AutocompleteHandler(
+                plugin,
+                plugin.app,
+                () => textarea,
+                () => inputArea,
+                async (_file) => { /* panel has no attachment handler; mentions stay inline */ },
+            );
+        },
     });
 
     // Auto-Open-on-Selection per User-Feedback abgeschafft: nimmt die

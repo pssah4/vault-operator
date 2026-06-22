@@ -68,6 +68,8 @@ export interface InlineChatOrchestratorOptions {
     showModelMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
     /** Initial model-button label (resolved once at panel-open). */
     getInitialModelLabel?: () => { label: string; tooltip: string };
+    /** Factory for the textarea autocomplete handler (mirrors sidebar). */
+    autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => import('./InlineChatPanel').AutocompleteLike;
 }
 
 /** Quick-actions map onto registered InlineAction ids. */
@@ -113,6 +115,7 @@ export class InlineChatOrchestrator {
     private readonly showPlusMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
     private readonly showModelMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
     private readonly getInitialModelLabel?: () => { label: string; tooltip: string };
+    private readonly autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => import('./InlineChatPanel').AutocompleteLike;
 
     private activePanel: InlineChatPanel | null = null;
     private activeController: PanelChatController | null = null;
@@ -129,6 +132,7 @@ export class InlineChatOrchestrator {
         this.showPlusMenu = options.showPlusMenu;
         this.showModelMenu = options.showModelMenu;
         this.getInitialModelLabel = options.getInitialModelLabel;
+        this.autocompleteFactory = options.autocompleteFactory;
     }
 
     triggerPanel(): void {
@@ -162,6 +166,11 @@ export class InlineChatOrchestrator {
                 : undefined,
             onShowPlusMenu: this.showPlusMenu,
             onShowModelMenu: this.showModelMenu,
+            onStop: () => {
+                if (this.activeController !== null) {
+                    this.activeController.abort();
+                }
+            },
             onClose: () => {
                 if (this.activeController !== null) {
                     this.activeController.dispose();
@@ -171,6 +180,7 @@ export class InlineChatOrchestrator {
             },
             setIcon: this.setIconHook,
             renderMarkdown: this.renderMarkdownHook,
+            autocompleteFactory: this.autocompleteFactory,
         });
         panel.open();
         this.activePanel = panel;
@@ -230,15 +240,32 @@ export class InlineChatOrchestrator {
                 handle.setStatus('Panel not initialised.', 'error');
                 return;
             }
+            // Mid-run typing -> queue as a steering message. The
+            // user bubble still renders so the typist sees what they
+            // pushed; the agent receives it at the next iteration.
+            if (this.activeController.isRunning === true) {
+                const queued = this.activeController.pushSteering(args.userInput);
+                if (queued === true) {
+                    handle.appendMessage({ role: 'user', text: args.userInput });
+                    handle.setStatus('Steering message queued for next iteration.');
+                } else {
+                    handle.setStatus('Steering message ignored (empty or no run).', 'error');
+                }
+                return;
+            }
             handle.appendMessage({ role: 'user', text: args.userInput });
             const assistantId = handle.appendMessage({ role: 'assistant', text: '' });
             handle.setStatus('Thinking…');
-            await this.activeController.sendTurn({
-                userInput: args.userInput,
-                handle,
-                assistantBubbleId: assistantId,
-            });
-            // Render markdown + wire links once the controller signals completion.
+            handle.setRunning(true);
+            try {
+                await this.activeController.sendTurn({
+                    userInput: args.userInput,
+                    handle,
+                    assistantBubbleId: assistantId,
+                });
+            } finally {
+                handle.setRunning(false);
+            }
             await handle.finalizeBubble(assistantId);
             return;
         }

@@ -70,6 +70,12 @@ export interface InlinePanelHandle {
     /** Replace the model-button label (after model picker selection). */
     setModelLabel(label: string, tooltip?: string): void;
     /**
+     * Flip the composer between Send (idle) and Stop (running). When
+     * `running` is true the Send button hides and the Stop button
+     * shows; vice versa on false.
+     */
+    setRunning(running: boolean): void;
+    /**
      * Replace the bubble's plain-text streaming content with rendered
      * markdown (via the panel's renderMarkdown hook). Called once the
      * stream + appendix have completed. No-op when no renderMarkdown
@@ -102,6 +108,13 @@ export type SetIconHook = (el: HTMLElement, name: string) => void;
  */
 export type RenderMarkdownHook = (containerEl: HTMLElement, markdown: string) => Promise<void> | void;
 
+/** Minimal interface shared with the sidebar's AutocompleteHandler. */
+export interface AutocompleteLike {
+    handleInput(): Promise<void> | void;
+    handleKeyDown(ev: KeyboardEvent): boolean;
+    hide(): void;
+}
+
 export interface InlineChatPanelOptions {
     containerEl: HTMLElement;
     ctx: InlineTriggerContext;
@@ -116,6 +129,15 @@ export interface InlineChatPanelOptions {
     /** Initial label for the model button (e.g. "Auto" or model id). */
     initialModelLabel?: string;
     initialModelTooltip?: string;
+    /** Called when the Stop button is clicked (during a running turn). */
+    onStop?: () => void;
+    /**
+     * Factory that builds an AutocompleteHandler-like object on
+     * panel-open. Called once with the textarea + input-area refs.
+     * The handler must expose handleInput() + handleKeyDown(ev) +
+     * hide(). When undefined the panel skips autocomplete entirely.
+     */
+    autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => AutocompleteLike;
     onClose?: () => void;
     /** Bridge to Obsidian's setIcon() for Lucide rendering. */
     setIcon?: SetIconHook;
@@ -142,7 +164,12 @@ export class InlineChatPanel {
     private readonly onShowModelMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
     private readonly initialModelLabel: string;
     private readonly initialModelTooltip: string;
+    private readonly onStop?: () => void;
+    private readonly autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => AutocompleteLike;
     private modelButtonEl: HTMLElement | null = null;
+    private sendButtonEl: HTMLElement | null = null;
+    private stopButtonEl: HTMLElement | null = null;
+    private autocomplete: AutocompleteLike | null = null;
     private readonly onClose?: () => void;
     private readonly setIcon: SetIconHook;
 
@@ -171,6 +198,8 @@ export class InlineChatPanel {
         this.onShowModelMenu = options.onShowModelMenu;
         this.initialModelLabel = options.initialModelLabel ?? 'Auto';
         this.initialModelTooltip = options.initialModelTooltip ?? 'Model (inherited from main chat)';
+        this.onStop = options.onStop;
+        this.autocompleteFactory = options.autocompleteFactory;
         this.onClose = options.onClose;
         this.setIcon = options.setIcon ?? ((el, name) => { el.textContent = iconFallback(name); });
         this.renderMarkdownHook = options.renderMarkdown;
@@ -227,13 +256,29 @@ export class InlineChatPanel {
         textarea.setAttribute('rows', '3');
         textarea.setAttribute('placeholder', 'Type your message here…');
         textarea.addEventListener('keydown', (ev) => {
+            // Autocomplete first: lets the dropdown handle Up/Down/Enter/Esc.
+            if (this.autocomplete !== null && this.autocomplete.handleKeyDown(ev) === true) return;
             if (ev.key === 'Enter' && ev.shiftKey === false && ev.ctrlKey === false && ev.metaKey === false && ev.isComposing === false) {
                 ev.preventDefault();
                 this.sendFromInput();
             }
         });
+        textarea.addEventListener('input', () => {
+            if (this.autocomplete !== null) {
+                void this.autocomplete.handleInput();
+            }
+        });
         wrapper.appendChild(textarea);
         this.inputEl = textarea;
+
+        // Build the autocomplete handler now that the textarea + wrapper exist.
+        if (this.autocompleteFactory !== undefined) {
+            try {
+                this.autocomplete = this.autocompleteFactory(textarea, wrapper);
+            } catch (e) {
+                console.debug('[InlineChatPanel] autocompleteFactory failed:', e);
+            }
+        }
 
         const toolbar = doc.createElement('div');
         toolbar.classList.add('chat-toolbar');
@@ -289,11 +334,24 @@ export class InlineChatPanel {
         });
         left.appendChild(ellipsisBtn);
 
+        // Stop button (right side, hidden by default; the orchestrator
+        // toggles visibility via handle.setRunning()).
+        const stopBtn = this.makeIconButton(doc, 'square', 'Stop');
+        stopBtn.classList.add('stop-button');
+        stopBtn.classList.add('agent-u-hidden');
+        stopBtn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            if (this.onStop !== undefined) this.onStop();
+        });
+        right.appendChild(stopBtn);
+        this.stopButtonEl = stopBtn;
+
         // Send button (right side).
         const sendBtn = this.makeIconButton(doc, 'send-horizontal', 'Send');
         sendBtn.classList.add('send-button');
         sendBtn.addEventListener('click', (ev) => { ev.preventDefault(); this.sendFromInput(); });
         right.appendChild(sendBtn);
+        this.sendButtonEl = sendBtn;
 
         toolbar.appendChild(left);
         toolbar.appendChild(right);
@@ -337,6 +395,10 @@ export class InlineChatPanel {
         this.bubbleNodes.clear();
         this.bubbleMarkdown.clear();
         this.bubbleCounter = 0;
+        if (this.autocomplete !== null) {
+            try { this.autocomplete.hide(); } catch { /* swallow */ }
+            this.autocomplete = null;
+        }
         if (this.boundKeyDown !== null) {
             this.containerEl.ownerDocument.removeEventListener('keydown', this.boundKeyDown);
             this.boundKeyDown = null;
@@ -477,9 +539,19 @@ export class InlineChatPanel {
             appendCheckpointMarker: (m) => this.appendCheckpointMarker(m),
             insertIntoComposer: (text, mode) => this.insertIntoComposer(text, mode),
             setModelLabel: (label, tooltip) => this.setModelLabel(label, tooltip),
+            setRunning: (running) => this.setRunning(running),
             setStatus: (t, l) => this.setStatus(t, l),
             close: () => this.close(),
         };
+    }
+
+    private setRunning(running: boolean): void {
+        if (this.sendButtonEl !== null) {
+            this.sendButtonEl.classList.toggle('agent-u-hidden', running === true);
+        }
+        if (this.stopButtonEl !== null) {
+            this.stopButtonEl.classList.toggle('agent-u-hidden', running !== true);
+        }
     }
 
     private insertIntoComposer(text: string, mode: 'replace' | 'prepend' | 'append' = 'prepend'): void {
