@@ -50,9 +50,11 @@ CREATE TABLE IF NOT EXISTS vectors (
     vector BLOB NOT NULL,
     mtime INTEGER NOT NULL,
     enriched INTEGER NOT NULL DEFAULT 0,
+    domain TEXT NOT NULL DEFAULT 'note',
     UNIQUE(path, chunk_index)
 );
 CREATE INDEX IF NOT EXISTS idx_vectors_path ON vectors(path);
+CREATE INDEX IF NOT EXISTS idx_vectors_domain_path ON vectors(domain, path);
 CREATE TABLE IF NOT EXISTS tags (
     path TEXT NOT NULL,
     tag TEXT NOT NULL,

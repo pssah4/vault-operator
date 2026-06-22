@@ -49,7 +49,7 @@ type SqlJsStatement = {
 
 export type { SqlJsDatabase, SqlJsStatement };
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 // ---------------------------------------------------------------------------
 // Schema DDL
@@ -67,10 +67,12 @@ CREATE TABLE IF NOT EXISTS vectors (
     mtime INTEGER NOT NULL,
     enriched INTEGER NOT NULL DEFAULT 0,
     embedding_model TEXT NOT NULL DEFAULT 'unknown',
+    domain TEXT NOT NULL DEFAULT 'note',
     UNIQUE(path, chunk_index)
 );
 CREATE INDEX IF NOT EXISTS idx_vectors_path ON vectors(path);
 CREATE INDEX IF NOT EXISTS idx_vectors_model ON vectors(embedding_model);
+CREATE INDEX IF NOT EXISTS idx_vectors_domain_path ON vectors(domain, path);
 
 CREATE TABLE IF NOT EXISTS checkpoint (
     key TEXT PRIMARY KEY,
@@ -329,12 +331,12 @@ export class KnowledgeDB {
         // Try to load existing DB with integrity check + auto-recovery
         const data = await this.readDB();
         if (data) {
-            if (this.tryLoadWithIntegrityCheck(data)) return;
+            if (await this.tryLoadWithIntegrityCheck(data)) return;
 
             // Primary DB corrupt -- try backup recovery
             console.warn('[KnowledgeDB] Primary DB corrupt, attempting backup recovery...');
             const backupData = await this.readBackup();
-            if (backupData && this.tryLoadWithIntegrityCheck(backupData)) {
+            if (backupData && await this.tryLoadWithIntegrityCheck(backupData)) {
                 console.warn('[KnowledgeDB] Recovered from backup');
                 this.markDirty(); // save recovered state as new primary
                 return;
@@ -562,6 +564,16 @@ export class KnowledgeDB {
                 migrateVerdictVocabularyV11ToV12(this.db);
             }
 
+            // v12 -> v13: FEAT-03-27 / ADR-136 Tracing-Layer-Trennung.
+            // Additive domain discriminator on vectors mit Prefix-Backfill.
+            // Strict 'prefix:%' Pattern, damit Notizen wie 'session_intro.md'
+            // nicht falsch als Session klassifiziert werden. Bumpt schema_meta
+            // selbst auf 13. Der nachfolgende SCHEMA_VERSION-Bump unten
+            // ueberschreibt den gleichen Wert idempotent.
+            if (currentVersion < 13) {
+                migrateVectorsToDomainsV12ToV13(this.db);
+            }
+
             // Re-run DDL (CREATE IF NOT EXISTS is idempotent)
             this.initSchema();
             this.db.run('UPDATE schema_meta SET version = ?', [SCHEMA_VERSION]);
@@ -587,7 +599,7 @@ export class KnowledgeDB {
      *      Catches corruption that the lightweight queries miss (orphan
      *      pages, broken indexes, freelist mismatches).
      */
-    private tryLoadWithIntegrityCheck(data: Uint8Array): boolean {
+    private async tryLoadWithIntegrityCheck(data: Uint8Array): Promise<boolean> {
         if (!this.SQL) return false;
         let candidate: SqlJsDatabase | null = null;
         try {
@@ -604,6 +616,14 @@ export class KnowledgeDB {
             }
             // DB is healthy -- assign and migrate
             this.db = candidate;
+
+            // ADR-136 Codebase-Reconciliation: bevor die v13-Migration die
+            // vectors-Tabelle additiv mutiert, schreiben wir den unmutierten
+            // On-Disk-Stand erneut, damit der atomare Writer den bisherigen
+            // Stand in die .bak rotiert. Damit existiert ein expliziter
+            // Pre-Migration-Backup ohne separate Snapshot-Logik.
+            await this.maybeSnapshotPreV13Bak();
+
             this.migrateSchema();
             return true;
         } catch {
@@ -611,6 +631,29 @@ export class KnowledgeDB {
             try { candidate?.close(); } catch { /* ignore */ }
             this.db = null;
             return false;
+        }
+    }
+
+    /**
+     * If the loaded DB is on a pre-v13 schema, force a save() of the
+     * unmodified bytes so the atomic writer rotates the previous live file
+     * into the .bak slot. The in-memory DB still holds the pre-migration
+     * state at this point, so the rotated .bak captures it cleanly.
+     */
+    private async maybeSnapshotPreV13Bak(): Promise<void> {
+        if (!this.db) return;
+        try {
+            const r = this.db.exec('SELECT version FROM schema_meta');
+            const v = (r.length > 0 && r[0].values.length > 0)
+                ? r[0].values[0][0] as number
+                : 0;
+            if (v < 13) {
+                this.markDirty();
+                await this.save();
+            }
+        } catch {
+            // schema_meta might be missing on very old DBs; the regular
+            // migrate path handles that. Snapshotting is best-effort.
         }
     }
 
@@ -802,4 +845,49 @@ export function migrateVerdictVocabularyV11ToV12(db: SqlJsDatabase): void {
     } catch {
         // history table might not exist on a partial v11 install.
     }
+}
+
+/**
+ * FEAT-03-27 / ADR-136 v12 -> v13 vectors.domain backfill.
+ *
+ * Adds a domain discriminator column (default 'note') and backfills it from
+ * the colon-prefix of the path column. Strict 'prefix:%' Pattern, damit
+ * Notizen wie 'session_intro.md' nicht falsch als Session klassifiziert
+ * werden (siehe ADR-136 Risk). Erstellt zusaetzlich den composite Index
+ * idx_vectors_domain_path fuer die domain-gefilterten Reader.
+ *
+ * Idempotent:
+ *   - ADD COLUMN ist in try/catch, weil eine angebrochene Migration die
+ *     Spalte schon angelegt haben kann.
+ *   - Die UPDATEs filtern auf 'AND domain = ''note''', sodass bereits
+ *     klassifizierte Eintraege nicht erneut beruehrt werden.
+ *   - CREATE INDEX IF NOT EXISTS deckt den partial-replay Fall ab.
+ *   - schema_meta wird hier auf 13 gesetzt; der Re-Run der DDL im
+ *     migrateSchema-Aufrufer ueberschreibt den gleichen Wert idempotent.
+ */
+export function migrateVectorsToDomainsV12ToV13(db: SqlJsDatabase): void {
+    try {
+        db.run("ALTER TABLE vectors ADD COLUMN domain TEXT NOT NULL DEFAULT 'note'");
+    } catch {
+        // Column may already exist if a previous migration attempt landed partial.
+    }
+
+    const layers: ReadonlyArray<readonly [string, string]> = [
+        ['session', 'session:%'],
+        ['episode', 'episode:%'],
+        ['fact', 'fact:%'],
+        ['mention', 'mention:%'],
+        ['thread', 'thread:%'],
+        ['entity', 'entity:%'],
+    ];
+
+    for (const [domain, likePattern] of layers) {
+        db.run(
+            "UPDATE vectors SET domain = ? WHERE path LIKE ? AND domain = 'note'",
+            [domain, likePattern],
+        );
+    }
+
+    db.run('CREATE INDEX IF NOT EXISTS idx_vectors_domain_path ON vectors(domain, path)');
+    db.run('UPDATE schema_meta SET version = 13');
 }

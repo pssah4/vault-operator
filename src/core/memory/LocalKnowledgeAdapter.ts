@@ -71,10 +71,12 @@ export class LocalKnowledgeAdapter implements KnowledgeGraphAdapter {
             'SELECT tag FROM tags WHERE path = ? ORDER BY tag',
             [notePath],
         );
+        /* eslint-disable no-restricted-syntax -- reason: ADR-137 exception, mtime lookup pre-dates VectorStore, refactor tracked separately */
         const mtimeResult = db.exec(
             'SELECT MAX(mtime) FROM vectors WHERE path = ?',
             [notePath],
         );
+        /* eslint-enable no-restricted-syntax */
         const tags = tagsResult.length > 0
             ? tagsResult[0].values.map(r => r[0] as string)
             : [];

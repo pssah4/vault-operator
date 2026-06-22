@@ -34,7 +34,7 @@ checkpoint                | src/core/checkpoints/GitCheckpointService.ts        
 
 # MEMORY V2 STACK (src/core/memory/, src/core/knowledge/)
 knowledge-db              | src/core/knowledge/KnowledgeDB.ts                     | ADR-79, ADR-136 | new table: add migration in ensureSchema(), add typed methods. vectors.domain Diskriminator (ADR-136), Layer-Access via Helper (ADR-137)
-knowledge-vector-store    | src/core/knowledge/KnowledgeVectorStore.ts            | ADR-137         | new domain: add to KNOWLEDGE_DOMAINS, add typed find/insert methods, ESLint guards direct vectors-table access
+knowledge-vector-store    | src/core/knowledge/VectorStore.ts                     | ADR-137         | new domain: add to KNOWLEDGE_DOMAINS in knowledgeDomains.ts, add typed find/insert methods on VectorStore, ESLint guards direct vectors-table access
 memory-db                 | src/core/knowledge/MemoryDB.ts                        | ADR-77          | new collection: add migration plus typed methods
 fact-store                | src/core/memory/FactStore.ts                          | ADR-77, ADR-80 | new fact source: implement Persistence pattern
 edge-store                | src/core/memory/EdgeStore.ts                          | ADR-77, ADR-80 | new edge type: extend EdgeKind union plus types

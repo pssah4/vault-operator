@@ -123,12 +123,26 @@ Die ESLint-Regel ist ein lokaler Plugin-Eintrag, der direkten Zugriff auf `vecto
 > Dieser Anhang darf nach Refactoring veralten. Der Wayfinder
 > (`src/ARCHITECTURE.map`) bleibt die Quelle für aktuelle Pfade.
 
-Voraussichtliche Code-Standorte (Stand 2026-06-22):
+**Codebase-Reconciliation 2026-06-22 (durch /coding Phase 2a):**
 
-- Helper-Klasse: vermutlich `src/core/knowledge/KnowledgeVectorStore.ts` oder als Modul-Erweiterung in `src/core/knowledge/KnowledgeDB.ts`. /coding entscheidet je nach Codebase-Stand.
-- ESLint-Plugin: vermutlich `eslint-plugin-vault-operator-local/` mit einer Regel `no-direct-vectors-table-access`. Eintrag in `eslint.config.mjs`.
-- Reader-Sites zum Umstellen: VaultHealthService.checkOrphans (plus weitere Check-Methoden), RecallEngine, MemoryRetriever, SemanticSearchTool, SearchHistoryTool, Stigmergy-Episode-Reader.
-- Writer-Sites zum Umstellen: SemanticIndexService.insertChunks, HistoryIndexer.writeChunks, Stigmergy-Episode-Writer, FactStore.commit* (falls vorhanden).
-- Drift-Trigger: `SemanticIndexService.ts:596` (heute `if (p.startsWith('session:') || p.startsWith('episode:')) continue;`) wird durch den Helper-Aufruf `kvs.findNoteVectors(...)` obsolet.
+Die ARCH-Annahme einer NEUEN Klasse `KnowledgeVectorStore` ist gegen die echte Codebase verworfen. `src/core/knowledge/VectorStore.ts` existiert bereits als zentrale Helper-Klasse mit allen direkten SQL-Zugriffen auf die `vectors`-Tabelle. Die Entscheidung wandelt sich von "Neue Klasse anlegen" zu "VectorStore um Domain-Awareness erweitern". Die übrigen ADR-137-Aussagen (Helper plus Lint-Regel, typisierte Methoden pro Domain, Cross-Layer-API, Lint-Regel-Disable mit `-- reason` Suffix) gelten unverändert.
 
-PLAN-{nn} aus dem nächsten /coding-Pass enthaelt die aktuell gültige Task-Liste mit echten Pfaden.
+Reale Code-Standorte (Stand 2026-06-22):
+
+- Helper-Klasse: `src/core/knowledge/VectorStore.ts` wird erweitert (nicht neu angelegt). Neue Methoden: `findNoteVectors`, `findSessionVectors`, `findEpisodeVectors`, `findFactVectors`, `findMentionVectors`, `findThreadVectors`, `findEntityVectors` plus `findVectors({domain?})` für Cross-Layer. Insert-Pendants pro Domain.
+- ESLint-Regel: Inline-Eintrag in `eslint.config.mjs` über `no-restricted-syntax` mit Pattern, das SQL-String-Literale mit `vectors` als FROM-Target außerhalb von `VectorStore.ts` verbietet. Kein separates Plugin nötig. Disable-bar mit `-- reason` Suffix.
+- Direkte SQL-Reader auf `vectors` außerhalb VectorStore (drei Stellen, die migrieren):
+  - `VaultHealthService.ts:366` in `checkOrphans` (der konkrete Anlass des Features)
+  - `VaultHealthService.ts:596-602` in `checkWeakClusters` (`SELECT DISTINCT path FROM vectors WHERE chunk_index = 0`)
+  - `SemanticIndexService.ts:596` in `cleanupStubVectors` (Drift-Filter, wird durch Domain-Awareness obsolet)
+  - `KnowledgeDB.ts:597` ist ein `SELECT count(*) FROM vectors` für den Integritäts-Check und bleibt als interne KnowledgeDB-Operation. Die Lint-Regel ignoriert KnowledgeDB.ts plus VectorStore.ts als Helper-Heimat.
+- Writer-Sites auf `vectors` (vier Stellen in SemanticIndexService):
+  - `SemanticIndexService.ts:500` und `:636` (Note-Pfade, vault-resident)
+  - `SemanticIndexService.ts:1020` (`session:${id}`)
+  - `SemanticIndexService.ts:1059` (`episode:${id}`)
+- Nicht betroffen (entgegen ARCH-Annahme):
+  - `HistoryIndexer.writeChunks` schreibt in die `history_chunks`-Tabelle in der separaten `history.db`, NICHT in `vectors`
+  - `FactStore.create/update` schreibt in die `facts`-Tabelle in `memory.db`, NICHT in `vectors`
+  - Es gibt keinen separaten Stigmergy-Episode-Writer. Episodes werden über `SemanticIndexService.insertChunks(\`episode:${id}\`, ...)` geschrieben.
+
+PLAN-{nn} aus dem aktuellen /coding-Pass enthält die endgültige Task-Liste.

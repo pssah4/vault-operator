@@ -151,6 +151,32 @@ export default tseslint.config(
         },
     },
     {
+        // PLAN-41 Wave 4 / ADR-137: Layer-Guard auf der `vectors`-Tabelle.
+        // Direkte SQL-Zugriffe auf `vectors` sind nur in der Helfer-Heimat
+        // (VectorStore, KnowledgeDB, knowledgeDomains) erlaubt. Tests duerfen
+        // ebenfalls roh queryen, weil sie Fixtures setzen und State verifizieren.
+        // Alle anderen Aufrufer muessen die VectorStore-API benutzen.
+        files: ['src/**/*.ts'],
+        ignores: [
+            'src/core/knowledge/VectorStore.ts',
+            'src/core/knowledge/KnowledgeDB.ts',
+            'src/core/knowledge/knowledgeDomains.ts',
+            'src/**/__tests__/**/*.ts',
+        ],
+        rules: {
+            'no-restricted-syntax': ['error',
+                {
+                    selector: "Literal[value=/\\b(FROM|INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+vectors\\b/i]",
+                    message: "Direct access to the `vectors` table is forbidden outside src/core/knowledge/VectorStore.ts. Use VectorStore.findNoteVectors / findSessionVectors / ... or findVectors({domain?}) for cross-layer queries. See ADR-137. If truly needed, disable with '// eslint-disable-next-line no-restricted-syntax -- reason: <why>'.",
+                },
+                {
+                    selector: "TemplateElement[value.raw=/\\b(FROM|INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+vectors\\b/i]",
+                    message: "Direct access to the `vectors` table is forbidden outside src/core/knowledge/VectorStore.ts. See ADR-137.",
+                },
+            ],
+        },
+    },
+    {
         ignores: ['node_modules/', 'main.js', 'forked-kilocode/', '_devprocess/', 'docs/'],
     }
 );

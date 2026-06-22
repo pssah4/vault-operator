@@ -120,37 +120,46 @@ Die folgende Reihenfolge ist ein Vorschlag für das PLAN-Dokument im nächsten /
 7. **Drift-Trigger-Entfernung.** Der bestehende lokale Filter in `SemanticIndexService.ts:596` wird entfernt; ein Test pinnt dieses Entfernen (Test sucht das alte Muster im Code und fordert 0 Treffer).
 8. **Integration-Test.** Pre-Post-Migration-Vergleich auf einem Snapshot-Vault: Vault Health Pseudo-Orphan-Zähler, RecallEngine-Top-10-Diff auf 30 Test-Queries, Plugin-Start-Zeit.
 
-## 8. Reader/Writer-Sites Inventory (Stand 2026-06-22)
+## 8. Reader/Writer-Sites Inventory (Stand 2026-06-22, Codebase-Reconciliation durch /coding)
 
-### Writer (direkt auf `vectors`)
+**Wichtige Korrektur gegenüber RE/ARCH-Annahme:** Nicht alle Schreib-Sites schreiben in die `vectors`-Tabelle der `knowledge.db`. Die echte Codebase trennt drei separate DBs (`knowledge.db`, `memory.db`, `history.db`) bereits physikalisch. FEAT-03-27 betrifft nur die `vectors`-Tabelle in `knowledge.db`.
 
-| Site | Aktuelle Operation | Migration-Ziel |
-|---|---|---|
-| SemanticIndexService.insertChunks | Insert mit `path = vault-pfad` | `kvs.insertNoteVector` |
-| SemanticIndexService.insertChunks (Session-Pfad) | Insert mit `path = session:${id}` | `kvs.insertSessionVector` |
-| HistoryIndexer.writeChunks | Insert mit `path = session:${id}` | `kvs.insertSessionVector` (Konsolidierung mit Punkt 2) |
-| Stigmergy-Episode-Writer | Insert mit `path = episode:${id}` | `kvs.insertEpisodeVector` |
-| FactStore.commit* (falls FEAT-03-15 existiert) | Insert mit `path = fact:${id}` | `kvs.insertFactVector` |
-
-### Reader (direkt auf `vectors`)
+### Writer auf `vectors` (vier Stellen in einer Datei)
 
 | Site | Aktuelle Operation | Migration-Ziel |
 |---|---|---|
-| VaultHealthService.checkOrphans | `SELECT FROM vectors WHERE chunk_index = 0` | `kvs.findNoteVectors({chunkIndex: 0})` |
-| VaultHealthService.checkWeakClusters | analoge SQL-Query (verifizieren) | `kvs.findNoteVectors(...)` |
-| VaultHealthService.checkHubBlocks | analoge SQL-Query (verifizieren) | `kvs.findNoteVectors(...)` |
-| RecallEngine | Mixed-Layer-Query | `kvs.findVectors({...})` ohne Layer-Filter |
-| MemoryRetriever | Layer-spezifisch (verifizieren) | `kvs.findNoteVectors(...)` oder Cross-Layer |
-| SemanticSearchTool | Layer-spezifisch (Note-Default) | `kvs.findNoteVectors(...)` |
-| SearchHistoryTool | Session-Layer | `kvs.findSessionVectors(...)` |
-| Stigmergy-Episode-Reader | Episode-Layer | `kvs.findEpisodeVectors(...)` |
-| Reranker (`src/core/semantic/`) | Cross-Layer | `kvs.findVectors({...})` ohne Layer-Filter |
+| `SemanticIndexService.ts:500` | `insertChunks(file.path, ...)` Note-Pfad | `vectorStore.insertNoteVector(file.path, ...)` |
+| `SemanticIndexService.ts:636` | `insertChunks(filePath, ...)` Note-Pfad | `vectorStore.insertNoteVector(filePath, ...)` |
+| `SemanticIndexService.ts:1020` | `insertChunks(\`session:${sessionId}\`, ...)` | `vectorStore.insertSessionVector(sessionId, ...)` |
+| `SemanticIndexService.ts:1059` | `insertChunks(\`episode:${episodeId}\`, ...)` | `vectorStore.insertEpisodeVector(episodeId, ...)` |
 
-### Drift-Trigger (entfernen)
+Direkte SQL-Writer leben ausschließlich in `src/core/knowledge/VectorStore.ts` (zentrale Helper-Klasse, existiert bereits). Diese Datei wird erweitert, nicht ersetzt.
 
-| Site | Heutige Logik | Nach Migration |
+### Reader auf `vectors` (drei direkte SQL-Stellen plus VectorStore-API-Konsumenten)
+
+| Site | Aktuelle Operation | Migration-Ziel |
 |---|---|---|
-| `SemanticIndexService.ts:596` | `if (p.startsWith('session:') || p.startsWith('episode:')) continue;` | Entfernen, Test pinnt das Fehlen |
+| `VaultHealthService.ts:366` (`checkOrphans`) | `SELECT DISTINCT v.path FROM vectors v WHERE v.chunk_index = 0 ...` | `vectorStore.findNoteVectors({chunkIndex: 0, excludePathPrefixes, excludePathContains})` |
+| `VaultHealthService.ts:596-602` (`checkWeakClusters`) | `... SELECT DISTINCT path FROM vectors WHERE chunk_index = 0 ...` als Subquery | gleicher Helper-Aufruf inline oder eigene Methode |
+| `SemanticIndexService.ts:596` (`cleanupStubVectors`) | `if (p.startsWith('session:') || p.startsWith('episode:')) continue;` Drift-Filter | Aufruf `vectorStore.getStubCandidatePaths()` filtert intern auf `domain = 'note'`, der Filter im Aufrufer wird entfernt |
+
+Indirekte Reader gehen über die VectorStore-API:
+
+| Site | Aktuelle API-Nutzung | Migration-Ziel |
+|---|---|---|
+| `MemoryRetriever.ts` | über `VectorStore`-Methoden | gegebenenfalls auf domain-spezifische Methode umstellen, je nach Aufruf-Pattern |
+| `SemanticSearchTool.ts` | über `VectorStore`-Methoden | Note-Default, sonst Cross-Layer mit `findVectors({domain?})` |
+| `RerankerService.ts` (`src/core/knowledge/`) | über `VectorStore`-Methoden | Cross-Layer, bleibt auf `findVectors` ohne Domain-Filter |
+
+### Nicht betroffen (entgegen RE/ARCH-Annahme)
+
+| Site | Real-Operation | Begründung |
+|---|---|---|
+| `HistoryIndexer.writeChunks` | `INSERT INTO history_chunks ...` in `history.db` | Separate DB, separate Tabelle. Sessions im History-Layer sind hier; die `session:${id}`-Vectoren in `knowledge.db.vectors` sind ein Embedding-Pendant für semantische Suche, eine andere Welt. |
+| `FactStore.create/update` | `INSERT INTO facts ...` in `memory.db` | Separate DB, separate Tabelle. |
+| `SearchHistoryTool` | `FROM history_chunks` in `history.db` | Read-Pfad gegen die History-DB, nicht `vectors`. |
+| Stigmergy-Episode-Writer als separate Datei | existiert nicht | Episodes werden über `SemanticIndexService.insertChunks(\`episode:${id}\`, ...)` geschrieben (siehe Writer-Tabelle oben). |
+| `KnowledgeDB.ts:597` (`SELECT count(*) FROM vectors`) | interner Integritäts-Check | Bleibt als interne Operation in der Helper-Heimat (`KnowledgeDB.ts` plus `VectorStore.ts` ignoriert die Lint-Regel). |
 
 ## 9. Test plan
 

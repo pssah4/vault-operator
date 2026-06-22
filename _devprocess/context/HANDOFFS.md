@@ -5182,3 +5182,62 @@ plan-context-feat-03-27.md matched die ADRs:
 - Tool-API-Mapping in plan-context (Tabelle in Section 4) entspricht ADR-136 Tool-API-Mapping-Klausel.
 - Reader/Writer-Sites Inventory (plan-context Section 8) entspricht FEAT-03-27 Code Pointer.
 - 0 Em-Dashes, 0 AI-Vokabular, deutsche Umlaute durchgaengig korrekt.
+
+---
+
+## coding-to-testing 2026-06-22
+
+triage: FEAT-03-27
+triage_kind: feature
+epic: EPIC-03
+feature: FEAT-03-27
+
+### Implemented
+
+PLAN-41 in 5 Wellen, TDD-first, alle Wellen GREEN.
+
+- **Wave 1 Foundation:** `src/core/knowledge/knowledgeDomains.ts` (KNOWLEDGE_DOMAINS Konstante, KnowledgeDomain-Typ, pathPrefixToDomain, domainToUriScheme), `KnowledgeDB.SCHEMA_VERSION = 13` plus v13-Migration-Block (ALTER TABLE ADD COLUMN domain, sechs Pfad-Prefix-Inferenz-UPDATEs, CREATE INDEX idx_vectors_domain_path) plus maybeSnapshotPreV13Bak (force-save vor Migration), `VectorStore` um 14 Domain-Methoden plus generische `findVectors({domain?})` erweitert (insertChunks-SQL nimmt jetzt domain mit, getStubCandidatePaths filtert intern auf `domain = 'note'`).
+- **Wave 2 Reader-Migration:** `VaultHealthService.checkOrphans:366` und `checkBrokenLinks`-Subquery um `AND v.domain = 'note'` erweitert (das ist die Wurzel der 412-Pseudo-Orphans), `SemanticIndexService.cleanupStubVectors:596` Drift-Filter entfernt, Drift-Pin-Test pinnt das Fehlen.
+- **Wave 3 Writer-Migration:** SemanticIndexService.ts:500/636/1020/1059 auf `insertNoteVector` / `insertSessionVector` / `insertEpisodeVector` umgestellt, Source-grep auf `vectorStore.insertChunks(` returns 0, Writer-Domain-Pin-Test.
+- **Wave 4 Drift-Schutz:** `eslint.config.mjs` um `no-restricted-syntax`-Regel erweitert (Literal + TemplateElement Pattern auf `FROM/INSERT/UPDATE/DELETE vectors`), Helper-Heimat (VectorStore.ts, KnowledgeDB.ts, knowledgeDomains.ts) und alle `__tests__/`-Pfade ausgenommen. 6 legitime Exception-Disables eingefuegt mit `-- reason: ADR-137 exception, layer guard via domain filter, edges-join needs raw SQL` Suffix (VaultHealthService 4 Stellen, LocalKnowledgeAdapter 1, Stufe2ActivityTrigger 1). Drift-Pin-Test auf eslint.config.mjs.
+- **Wave 5 Wayfinder + MEMORY.md:** ARCHITECTURE.map `knowledge-vector-store`-Row korrigiert auf `src/core/knowledge/VectorStore.ts`, VectorStore.ts JSDoc-Header um ADR-137-Referenz + Domain-Awareness-Hinweis, MEMORY.md Schema-Bump-Sentence.
+
+### Codebase-Reconciliation in Phase 2a
+
+Vier Korrekturen an den ARCH-Annahmen vor Implementation:
+
+1. ARCH-Annahme "neue Klasse KnowledgeVectorStore" verworfen. Reale Codebase hat bereits `VectorStore.ts` als zentralen Helper. Erweitert statt neu angelegt.
+2. ARCH-Annahme "HistoryIndexer ist Writer in vectors" verworfen. HistoryIndexer schreibt in `history_chunks`-Tabelle in separater `history.db`. Nicht betroffen.
+3. ARCH-Annahme "FactStore ist Writer in vectors" verworfen. FactStore schreibt in `facts`-Tabelle in separater `memory.db`. Nicht betroffen.
+4. ARCH-Annahme "Stigmergy-Episode-Writer als separater Code" verworfen. Episodes werden via `SemanticIndexService.insertChunks(\`episode:${id}\`, ...)` geschrieben. Eine einzige Datei mit allen 4 Writer-Sites.
+
+Plus eine Codebase-Erweiterung beim Implementieren: `ImplicitConnectionService` ist ein bisher uebersehener Reader auf `vectors` (uebernutzt `VectorStore.getNoteVectors`-API, deshalb war Wave 1 ausreichend). Drei Test-Files (`ImplicitConnectionService.test.ts`, `SemanticIndexService.stubGate.test.ts`, `retrieval-bench.test.ts`) hatten manuelle `CREATE TABLE vectors`-DDLs ohne `domain`-Spalte und mussten nach Wave 1 angepasst werden. Plus zwei legitime Exception-Sites entdeckt (`LocalKnowledgeAdapter.ts:75` mtime-lookup, `Stufe2ActivityTrigger.ts:16` AVG(MAX(mtime))) jenseits der drei dokumentierten Reader-Sites, beide mit Disable-Kommentar markiert.
+
+### Deviations from plan
+
+- PLAN-41 Wave 2 Task 2.2 betrifft technisch `checkBrokenLinks` statt `checkWeakClusters` (die Subquery `SELECT DISTINCT path FROM vectors WHERE chunk_index = 0` an Zeile 596-602 sitzt in `checkBrokenLinks`, nicht in `checkWeakClusters`). Die Edit-Agent hat das richtig erkannt und an der korrekten Stelle gefixt. PLAN-41 hat das gleiche Outcome, nur in der falschen Methode benannt.
+- Pre-Migration-Snapshot ist NICHT ein expliziter Daily-Snapshot-Trigger sondern ein `maybeSnapshotPreV13Bak()`-Aufruf vor der Migration, der `KnowledgeDB.save()` einmal force-aufruft, damit die `.bak` den Pre-Migration-Stand haelt (Codebase-Reconciliation). Diese Praezisierung ist in ADR-136 Decision-Block vermerkt.
+
+### Verification
+
+- Suite: 3187/3188 passing + 1 expected fail by design
+- Build: tsc clean + esbuild clean, main.js 4.8 MB
+- ESLint: 1353 problems (225 errors, 1128 warnings) -- identische Baseline wie vor Wave 4, keine neuen Errors durch die neue Regel
+- Live-Verifikation in Sebastian's Vault ausstehend: Erwartung 412 Pseudo-Orphans im Vault Health Check -> 0 echte Orphans
+
+### Open concerns for testing or security phase
+
+- Testing-Phase: Integrations-Test mit echtem Vault-Snapshot (RecallEngine-Latenz-Bench, Migration-Dauer-Messung) ist im PLAN-41 vorgesehen, aber nicht im Coding-Pass implementiert. Sebastian fuehrt es manuell durch Plugin-Reload aus.
+- Security-Phase: AUDIT-034 Re-Audit fuer das geaenderte Schema-Migration-Surface plus die neue ESLint-Regel. Erwartet als Delta-Audit klein.
+- Memory v2 Phase 1+ vorbereitet: Wertebereich `mention`, `thread`, `entity` ist bereits im Enum und in den VectorStore-Methoden, auch wenn noch keine Writer existieren. Keine spaetere Migration noetig fuer Phase 1+.
+
+### Assumptions to verify
+
+- Pre-Migration-Snapshot via `.bak`: Annahme ist, dass das atomic-write-Pattern aus FIX-12 fuer jeden `KnowledgeDB.save()`-Call eine `.bak`-Datei mit dem vorherigen Stand schreibt. Bei einem User mit einem brandneuen Plugin-Install und einem ersten Save direkt vor Migration ist die `.bak` leer. Auto-Recovery in `KnowledgeDB.ts:334-344` fallt dann auf "fresh database" zurueck, was bei einem brandneuen Vault korrekt ist. Edge-Case dokumentiert.
+- ESLint-Regel-Heuristik: das Pattern matcht `FROM|INSERT INTO|UPDATE|DELETE FROM` plus `vectors`. False-Positive-Trefferquote in der Praxis 6 (alle legitim), keine Fehlentscheidungen. False-Negative-Risiko: ein raw SQL-String, der nicht eines dieser Verben verwendet (z.B. ein dynamisch zusammengebauter Query) wuerde durchrutschen. Mitigation: in Code-Review.
+
+### Empfohlene naechste Schritte
+
+1. `/testing` fuer Test-Coverage-Vervollstaendigung (Migration-Dauer-Test, RecallEngine-Latenz-Bench gegen Baseline)
+2. `/security-audit` Delta-Audit seit AUDIT-034 (Migration-Surface + ESLint-Regel + die 6 Exception-Disables)
+3. Live-Verifikation in Sebastian's Vault, Pseudo-Orphan-Zaehler ablesen
