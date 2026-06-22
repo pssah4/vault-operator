@@ -30,6 +30,8 @@ import type { AgentTaskCallbacks } from '../../AgentTask';
 import { AgentTaskRunner } from '../../agent/AgentTaskRunner';
 import { ModeService } from '../../modes/ModeService';
 import { buildAgentRuntimeContext } from '../../agent/AgentRuntimeContext';
+import type { UiMessage } from '../../history/ConversationStore';
+import { getModelKey } from '../../../types/settings';
 import type ObsidianAgentPlugin from '../../../main';
 import type { InlineTriggerContext } from '../InlineTriggerContext';
 import type { InlinePanelHandle } from './InlineChatPanel';
@@ -37,17 +39,28 @@ import type { InlinePanelHandle } from './InlineChatPanel';
 export interface PanelChatControllerOptions {
     plugin: ObsidianAgentPlugin;
     ctx: InlineTriggerContext;
+    /**
+     * Optional access to the panel's AttachmentHandler -- when set, the
+     * controller pulls pending attachments at send time and clears them
+     * after dispatch (sidebar pattern).
+     */
+    getAttachments?: () => { pending: Array<{ block: ContentBlock }>; clear: () => void } | null;
 }
 
 export class PanelChatController {
     private readonly plugin: ObsidianAgentPlugin;
     private readonly ctx: InlineTriggerContext;
     private readonly modeService: ModeService;
+    private readonly getAttachments?: () => { pending: Array<{ block: ContentBlock }>; clear: () => void } | null;
     /**
      * In-memory chat history reused across turns (AgentTask mutates
      * in place). Mirrors AgentSidebarView.conversationHistory.
      */
     private readonly history: MessageParam[] = [];
+    /** UI-message log (mirrors AgentSidebarView.uiMessages). */
+    private readonly uiMessages: UiMessage[] = [];
+    /** ConversationStore id assigned on first turn -- panel chats appear in main history. */
+    private activeConversationId: string | null = null;
     /** Mid-run user-typed messages, drained at the next iteration. */
     private readonly steeringQueue: string[] = [];
     private abortController: AbortController | null = null;
@@ -62,6 +75,7 @@ export class PanelChatController {
         // plugin-stateless (lazy toolRegistry access) so a fresh
         // instance is safe and the sidebar's instance stays unchanged.
         this.modeService = new ModeService(options.plugin);
+        this.getAttachments = options.getAttachments;
     }
 
     get isRunning(): boolean { return this.running; }
@@ -123,11 +137,29 @@ export class PanelChatController {
         // Build runtime context (shared engine -- identical to sidebar).
         const mode = this.modeService.getActiveMode();
         const isFirstMessage = this.history.length === 0;
+        // EPIC-33 history-parity: create a ConversationStore entry on the
+        // first turn so the inline panel chat appears in Vault Operator's
+        // main history list alongside sidebar chats. The conversation id
+        // is reused across all subsequent turns of this panel session.
+        const convStore = (this.plugin as unknown as { conversationStore?: { create: (mode: string, model: string) => Promise<string>; save: (id: string, history: MessageParam[], ui: UiMessage[]) => Promise<void> } }).conversationStore;
+        if (this.activeConversationId === null && convStore !== undefined) {
+            try {
+                const modelKey = this.plugin.settings.activeModelKey;
+                const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
+                const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
+                this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
+            } catch (e) {
+                console.debug('[PanelChatController] conversationStore.create failed:', e);
+            }
+        }
+        // Track UI message (parallel to history so the store can rehydrate).
+        this.uiMessages.push({ role: 'user', text: args.userInput, ts: new Date().toISOString() });
+
         const runtime = await buildAgentRuntimeContext(this.plugin, {
             userText: args.userInput,
             mode,
             isFirstMessage,
-            activeConversationId: undefined,
+            activeConversationId: this.activeConversationId ?? undefined,
         });
 
         try {
@@ -164,7 +196,19 @@ export class PanelChatController {
                 recipesSection: runtime.recipesSection,
                 recipeMatches: runtime.recipeMatches,
                 configDir: this.plugin.app.vault.configDir,
+                conversationId: this.activeConversationId ?? undefined,
             });
+            // Persist the turn (assistant message taken from history tail).
+            const tail = this.history[this.history.length - 1];
+            if (tail !== undefined && tail.role === 'assistant') {
+                const tailText = typeof tail.content === 'string'
+                    ? tail.content
+                    : Array.isArray(tail.content)
+                        ? tail.content.map(c => (c as { type?: string; text?: string }).type === 'text' ? (c as { text?: string }).text ?? '' : '').join('')
+                        : '';
+                this.uiMessages.push({ role: 'assistant', text: tailText, ts: new Date().toISOString() });
+            }
+            await this.persistConversation(convStore);
         } catch (e) {
             const err = e instanceof Error ? e : new Error(String(e));
             args.handle.setStatus(`Error: ${err.message}`, 'error');
@@ -186,14 +230,44 @@ export class PanelChatController {
 
     dispose(): void { this.abort(); }
 
+    private async persistConversation(
+        convStore: { save: (id: string, h: MessageParam[], ui: UiMessage[]) => Promise<void> } | undefined,
+    ): Promise<void> {
+        if (convStore === undefined) return;
+        if (this.activeConversationId === null) return;
+        if (this.uiMessages.length === 0) return;
+        try {
+            const snapshot = [...this.uiMessages];
+            await convStore.save(this.activeConversationId, this.history, this.uiMessages);
+            const indexer = (this.plugin as unknown as { historyIndexer?: { onConversationSaved: (id: string, msgs: UiMessage[]) => Promise<void> | void } }).historyIndexer;
+            if (indexer !== undefined && this.activeConversationId !== null) {
+                void indexer.onConversationSaved(this.activeConversationId, snapshot);
+            }
+        } catch (e) {
+            console.debug('[PanelChatController] persistConversation failed:', e);
+        }
+    }
+
     private buildUserMessage(userInput: string): string | ContentBlock[] {
         const isFirstTurn = this.history.length === 0;
         const sel = this.ctx.selectionText.trim();
-        if (isFirstTurn === false || sel.length === 0) {
-            return userInput;
-        }
         const noteRef = this.ctx.notePath !== '' ? ` (from note: ${this.ctx.notePath})` : '';
-        return `<context>Selected text${noteRef}:\n${sel}</context>\n\n${userInput}`;
+        const baseText = (isFirstTurn === true && sel.length > 0)
+            ? `<context>Selected text${noteRef}:\n${sel}</context>\n\n${userInput}`
+            : userInput;
+
+        const attHandler = this.getAttachments?.();
+        const pending = attHandler?.pending ?? [];
+        if (pending.length === 0) return baseText;
+
+        // Sidebar pattern: images first, text + then text-file attachments.
+        const blocks: ContentBlock[] = [];
+        for (const a of pending) { if (a.block.type === 'image') blocks.push(a.block); }
+        blocks.push({ type: 'text', text: baseText });
+        for (const a of pending) { if (a.block.type === 'text') blocks.push(a.block); }
+        // Clear pending so the next turn starts fresh.
+        try { attHandler!.clear(); } catch { /* swallow */ }
+        return blocks;
     }
 
     private buildCallbacks(handle: InlinePanelHandle, assistantBubbleId: string): AgentTaskCallbacks {

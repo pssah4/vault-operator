@@ -15,8 +15,16 @@
  * wiring step.
  */
 
-import { Component, MarkdownRenderer, MarkdownView, Menu, setIcon, type App, type WorkspaceLeaf } from 'obsidian';
+import { Component, MarkdownRenderer, MarkdownView, Menu, TFile, setIcon, type App, type WorkspaceLeaf } from 'obsidian';
+import { refreshOpenMarkdownViewsFor } from '../utils/refreshMarkdownView';
 import { getModelKey } from '../../types/settings';
+import { resolveActiveProvider } from '../routing/tierResolution';
+import { AutocompleteHandler } from '../../ui/sidebar/AutocompleteHandler';
+import { CommandPicker, type CommandPickerItem } from '../../ui/sidebar/CommandPicker';
+import { VaultFilePicker } from '../../ui/sidebar/VaultFilePicker';
+import { AttachmentHandler } from '../../ui/sidebar/AttachmentHandler';
+import { ChatModelPickerPopover } from '../../ui/sidebar/ChatModelPickerPopover';
+import { McpServerPopover } from '../../ui/sidebar/McpServerPopover';
 import type ObsidianAgentPlugin from '../../main';
 import { InlineActionRegistry } from './InlineActionRegistry';
 import { InlineTriggerResolver } from './InlineTriggerResolver';
@@ -260,6 +268,133 @@ function wireInternalLinks(plugin: ObsidianAgentPlugin, containerEl: HTMLElement
             void plugin.app.workspace.openLinkText(linkText, '', false);
         });
     });
+}
+
+/**
+ * Per-panel surface: holds Sidebar-style picker instances + per-turn
+ * override state so the inline panel can reuse the same pickers the
+ * sidebar does. activePanelSurface is set by the orchestrator on
+ * panel-open via setActivePanelSurface() (exported below).
+ */
+interface PanelSurface {
+    panelRoot: HTMLElement;
+    attachments: AttachmentHandler;
+    vaultFilePicker: VaultFilePicker;
+    mcpPicker: McpServerPopover;
+    modelPicker: ChatModelPickerPopover;
+    /** Per-turn chat model pin (mirrors AgentSidebarView.chatModelOverride). */
+    chatModelOverride: string | null;
+    chatThinkingOverride: import('../../ui/sidebar/thinkingOverride').ThinkingOverride;
+    chatEffortOverride: import('../../ui/sidebar/effortOverride').EffortOverride;
+}
+
+let activePanelSurface: PanelSurface | null = null;
+
+/** Called from the orchestrator on panel-open / close to scope the picker instances. */
+export function setActivePanelSurface(surface: PanelSurface | null): void {
+    activePanelSurface = surface;
+}
+
+/** Build a per-panel surface bundle. */
+export function buildPanelSurface(plugin: ObsidianAgentPlugin, panelRoot: HTMLElement, chipBar: HTMLElement): PanelSurface {
+    const attachments = new AttachmentHandler(plugin.app.vault, chipBar, plugin);
+    const vaultFilePicker = new VaultFilePicker(
+        plugin.app,
+        async (files) => { for (const f of files) await attachments.addVaultFile(f); },
+    );
+    const mcpPicker = new McpServerPopover(plugin);
+    const modelPicker = new ChatModelPickerPopover();
+    return {
+        panelRoot,
+        attachments,
+        vaultFilePicker,
+        mcpPicker,
+        modelPicker,
+        chatModelOverride: null,
+        chatThinkingOverride: 'follow',
+        chatEffortOverride: 'auto',
+    };
+}
+
+/**
+ * Build CommandPicker items for the inline panel's plus-menu. Mirrors
+ * AgentSidebarView.collectCommandItems (sidebar:686-732).
+ */
+async function buildCommandItems(
+    plugin: ObsidianAgentPlugin,
+    category: 'skills' | 'prompts' | 'workflows',
+    handle: import('./chat/InlineChatPanel').InlinePanelHandle,
+): Promise<CommandPickerItem[]> {
+    if (category === 'skills') {
+        const skills = (plugin as unknown as { selfAuthoredSkillLoader?: { getAllSkills: () => Array<{ name: string; description: string }> } }).selfAuthoredSkillLoader?.getAllSkills() ?? [];
+        return skills.map((skill) => {
+            const slug = AutocompleteHandler.slugifySkillName(skill.name);
+            return {
+                label: skill.name,
+                sub: `/${slug}`,
+                tag: 'Skill',
+                icon: 'sparkles',
+                searchable: skill.description,
+                onSelect: () => handle.insertIntoComposer(`/${slug}`, 'prepend'),
+            };
+        });
+    }
+    if (category === 'prompts') {
+        const activeMode = plugin.settings.currentMode;
+        const prompts = (plugin.settings.customPrompts ?? []).filter(
+            (p) => p.enabled !== false && (p.mode === undefined || p.mode === '' || p.mode === activeMode),
+        );
+        return prompts.map((prompt) => ({
+            label: prompt.name,
+            sub: `#${prompt.slug}`,
+            tag: 'Prompt',
+            icon: 'message-square-quote',
+            searchable: prompt.content,
+            onSelect: () => handle.insertIntoComposer(`#${prompt.slug}`, 'prepend'),
+        }));
+    }
+    // Workflows.
+    const workflowLoader = (plugin as unknown as { workflowLoader?: { discoverWorkflows: () => Promise<Array<{ path: string; slug: string; displayName: string }>> } }).workflowLoader;
+    if (workflowLoader === undefined) return [];
+    const workflows = await workflowLoader.discoverWorkflows();
+    const toggles = (plugin.settings as { workflowToggles?: Record<string, boolean> }).workflowToggles ?? {};
+    return workflows
+        .filter((w) => toggles[w.path] !== false)
+        .map((wf) => ({
+            label: wf.displayName,
+            sub: `§${wf.slug}`,
+            tag: 'Workflow',
+            icon: 'workflow',
+            onSelect: () => handle.insertIntoComposer(`§${wf.slug}`, 'prepend'),
+        }));
+}
+
+async function openCommandPicker(
+    plugin: ObsidianAgentPlugin,
+    category: 'skills' | 'prompts' | 'workflows',
+    anchor: HTMLElement,
+    panelRoot: HTMLElement,
+    handle: import('./chat/InlineChatPanel').InlinePanelHandle,
+): Promise<void> {
+    const items = await buildCommandItems(plugin, category, handle);
+    const title = category === 'skills' ? 'Search skills...'
+        : category === 'prompts' ? 'Search prompts...'
+        : 'Search workflows...';
+    const empty = category === 'skills' ? 'No skills installed.'
+        : category === 'prompts' ? 'No custom prompts configured.'
+        : 'No workflows available.';
+    const picker = new CommandPicker(items, title, empty);
+    picker.show(anchor, panelRoot);
+}
+
+/** Short-label helper for the model button (mirrors sidebar:933-940). */
+function shortenModelId(id: string): string {
+    let s = id;
+    if (s.includes('/')) s = s.split('/').pop() ?? s;
+    const m = s.match(/(?:^|\.)(?:anthropic|amazon|meta|mistral|cohere|ai21|stability|deepseek|writer|qwen)\.(.+)$/i);
+    if (m !== null) s = m[1];
+    s = s.replace(/-v\d+(?::\d+)?$/i, '').replace(/:\d+$/, '');
+    return s;
 }
 
 /**
@@ -524,15 +659,36 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
         getPanelContainer: () => editorProbe.getMenuContainer(),
         getPanelPosition: () => editorProbe.getMenuPosition(),
         writeBackToSelection: async ({ notePath, from, to, content }) => {
-            const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-            if (view === null) return false;
-            if (view.file?.path !== notePath) return false;
-            const editor = view.editor;
+            // EPIC-33 Diff-UX-refresh (2026-06-23): the apply path used to
+            // call getActiveViewOfType(MarkdownView) which returns null
+            // while the EditReviewModal owns focus -- the edit silently
+            // dropped and the note only updated after a vault reload. Now
+            // we (1) search ALL open MarkdownView leaves for one showing
+            // this note path, (2) fall back to vault.modify + the
+            // refreshOpenMarkdownViewsFor helper so the CodeMirror buffer
+            // is updated even when no MarkdownView is currently mounted.
             try {
-                const fromPos = editor.offsetToPos(from);
-                const toPos = editor.offsetToPos(to);
-                editor.replaceRange(content, fromPos, toPos);
-                return true;
+                const leaves = plugin.app.workspace.getLeavesOfType('markdown');
+                for (const leaf of leaves) {
+                    const view = leaf.view;
+                    if (view instanceof MarkdownView && view.file?.path === notePath) {
+                        const editor = view.editor;
+                        const fromPos = editor.offsetToPos(from);
+                        const toPos = editor.offsetToPos(to);
+                        editor.replaceRange(content, fromPos, toPos);
+                        return true;
+                    }
+                }
+                // Fallback: no open view -- patch the file on disk.
+                const file = plugin.app.vault.getAbstractFileByPath(notePath);
+                if (file instanceof TFile) {
+                    const raw = await plugin.app.vault.read(file);
+                    const patched = raw.slice(0, from) + content + raw.slice(to);
+                    await plugin.app.vault.modify(file, patched);
+                    await refreshOpenMarkdownViewsFor(plugin.app, file, patched);
+                    return true;
+                }
+                return false;
             } catch (e) {
                 console.warn('[inline-wiring] writeBackToSelection failed:', e);
                 return false;
@@ -546,6 +702,8 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
         resolver,
         isEnabled: () => resolveInlineActionsSettings(plugin.settings.inlineActions).enabled,
         setIcon: (el, name) => setIcon(el, name),
+        buildSurface: (panelRoot, chipBar) => buildPanelSurface(plugin, panelRoot, chipBar),
+        setActiveSurface: (s) => setActivePanelSurface(s as never),
         // Markdown rendering bridge: replaces the plain-text bubble with
         // rendered Obsidian markdown once the stream completes. Wikilinks
         // are wired through app.workspace.openLinkText so they navigate
@@ -591,73 +749,83 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
                 clientY: anchor.getBoundingClientRect().bottom,
             } as MouseEvent);
         },
+        // Plus menu mirrors the sidebar: attach file, add vault file,
+        // insert skill/prompt/workflow via the searchable CommandPicker,
+        // MCP server picker. Per-panel state lives in
+        // panelSurface (built at panel-open and threaded through the
+        // dispatch callbacks).
         showPlusMenu: (anchor, _ctx, handle) => {
-            // Mirrors AgentSidebarView.showPlusMenu (sidebar:636-664):
-            // attach file, add vault file (@-link), insert skill /slug,
-            // insert prompt #slug, insert workflow §slug. Picker
-            // pop-ups are skipped here -- on-click prepends the prefix
-            // form to the composer so the AgentTask slash-expansion
-            // logic picks it up at send time (PanelChatController.sendTurn).
+            const surface = activePanelSurface;
+            if (surface === null) return;
             const menu = new Menu();
             menu.addItem(item => item
-                .setTitle('Attach file (Sidebar)')
+                .setTitle('Attach file')
                 .setIcon('paperclip')
-                .setDisabled(true)
-                .onClick(() => { /* placeholder -- attachments live in sidebar surface for now */ }));
-            menu.addSeparator();
-            // Insert skill: list all enabled self-authored skills.
-            const skills = (plugin as unknown as { selfAuthoredSkillLoader?: { getAllSkills: () => Array<{ name: string; description: string }> } }).selfAuthoredSkillLoader?.getAllSkills() ?? [];
-            if (skills.length > 0) {
-                const skillSub = new Menu();
-                skills.forEach((s: { name: string; description: string }) => {
-                    const slug = s.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-                    skillSub.addItem(item => item
-                        .setTitle(s.name)
-                        .setIcon('sparkles')
-                        .onClick(() => handle.insertIntoComposer(`/${slug}`, 'prepend')));
-                });
-                menu.addItem(item => item
-                    .setTitle('Insert skill...')
-                    .setIcon('sparkles')
-                    .onClick((evt) => skillSub.showAtMouseEvent(evt as unknown as MouseEvent)));
-            } else {
-                menu.addItem(item => item.setTitle('No skills installed').setIcon('sparkles').setDisabled(true));
-            }
-            // Insert prompt: list custom prompts for the active mode.
-            const activeMode = plugin.settings.currentMode;
-            const prompts = (plugin.settings.customPrompts ?? []).filter((p: { enabled?: boolean; mode?: string }) =>
-                p.enabled !== false && (p.mode === undefined || p.mode === activeMode || p.mode === '')
-            );
-            if (prompts.length > 0) {
-                const promptSub = new Menu();
-                prompts.forEach((p: { name: string; slug: string }) => {
-                    promptSub.addItem(item => item
-                        .setTitle(p.name)
-                        .setIcon('message-square-quote')
-                        .onClick(() => handle.insertIntoComposer(`#${p.slug}`, 'prepend')));
-                });
-                menu.addItem(item => item
-                    .setTitle('Insert prompt...')
-                    .setIcon('message-square-quote')
-                    .onClick((evt) => promptSub.showAtMouseEvent(evt as unknown as MouseEvent)));
-            } else {
-                menu.addItem(item => item.setTitle('No prompts configured').setIcon('message-square-quote').setDisabled(true));
-            }
-            // Insert workflow: synchronously not available (loader is async); show stub.
+                .onClick(() => surface.attachments.openFilePicker()));
             menu.addItem(item => item
-                .setTitle('Insert workflow... (Sidebar)')
+                .setTitle('Add vault file')
+                .setIcon('at-sign')
+                .onClick(() => surface.vaultFilePicker.show(anchor, surface.panelRoot)));
+            menu.addSeparator();
+            menu.addItem(item => item
+                .setTitle('Insert skill...')
+                .setIcon('sparkles')
+                .onClick(() => void openCommandPicker(plugin, 'skills', anchor, surface.panelRoot, handle)));
+            menu.addItem(item => item
+                .setTitle('Insert prompt...')
+                .setIcon('message-square-quote')
+                .onClick(() => void openCommandPicker(plugin, 'prompts', anchor, surface.panelRoot, handle)));
+            menu.addItem(item => item
+                .setTitle('Insert workflow...')
                 .setIcon('workflow')
-                .setDisabled(true));
+                .onClick(() => void openCommandPicker(plugin, 'workflows', anchor, surface.panelRoot, handle)));
+            menu.addSeparator();
+            menu.addItem(item => item
+                .setTitle('Select MCP servers')
+                .setIcon('plug-2')
+                .onClick((evt) => surface.mcpPicker.show(evt as unknown as MouseEvent, anchor, surface.panelRoot)));
             menu.showAtMouseEvent({
                 clientX: anchor.getBoundingClientRect().left,
                 clientY: anchor.getBoundingClientRect().bottom,
             } as MouseEvent);
         },
         showModelMenu: (anchor, _ctx, handle) => {
-            // Mirrors AgentSidebarView.showModelMenu (sidebar:862-924):
-            // list enabled activeModels, mark the current pick with a
-            // check, write through to plugin.settings.activeModelKey,
-            // refresh the model-button label.
+            // Mirrors AgentSidebarView.showModelMenu (sidebar:862-924).
+            // EPIC-26 provider-architecture: when an active provider is
+            // resolved, open the searchable ChatModelPickerPopover.
+            // Legacy activeModels[] is the fallback for pre-migration users.
+            const surface = activePanelSurface;
+            if (surface === null) return;
+            const activeProvider = resolveActiveProvider(plugin.settings);
+            if (activeProvider !== null) {
+                const popover = surface.modelPicker;
+                if (popover.isOpen()) { popover.close(); return; }
+                popover.show(
+                    { clientX: anchor.getBoundingClientRect().left, clientY: anchor.getBoundingClientRect().bottom } as MouseEvent,
+                    anchor,
+                    surface.panelRoot,
+                    activeProvider,
+                    {
+                        getCurrent: () => surface.chatModelOverride,
+                        onSelect: (overrideId: string | null) => {
+                            surface.chatModelOverride = overrideId;
+                            const label = overrideId === null ? 'Auto' : shortenModelId(overrideId);
+                            handle.setModelLabel(label, overrideId ?? 'Auto (provider tier router)');
+                        },
+                        getThinking: () => surface.chatThinkingOverride,
+                        onThinkingChange: (override) => {
+                            surface.chatThinkingOverride = override;
+                        },
+                        getEffort: () => surface.chatEffortOverride,
+                        onEffortChange: (override) => {
+                            surface.chatEffortOverride = override;
+                        },
+                        getEffortLevels: () => [],
+                    },
+                );
+                return;
+            }
+            // Legacy fallback.
             const enabled = plugin.settings.activeModels.filter(m => m.enabled !== false);
             const menu = new Menu();
             if (enabled.length === 0) {
@@ -688,6 +856,13 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
             } as MouseEvent);
         },
         getInitialModelLabel: () => {
+            // EPIC-26: when a provider is active, the panel mirrors the
+            // sidebar pattern "Auto" (default) or the user's pinned
+            // override id.
+            const activeProvider = resolveActiveProvider(plugin.settings);
+            if (activeProvider !== null) {
+                return { label: 'Auto', tooltip: 'Auto (provider tier router). Click to pick a specific model.' };
+            }
             const key = plugin.settings.activeModelKey;
             const model = plugin.settings.activeModels.find(m => getModelKey(m) === key);
             if (model !== undefined) {
@@ -696,19 +871,20 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
             }
             return { label: 'Auto', tooltip: 'No model selected -- click to pick' };
         },
-        // EPIC-33: sidebar AutocompleteHandler instantiated per panel
-        // -- powers '/' (skills), '#' (prompts), '§' (workflows), '@'
-        // (vault-file mentions). addVaultFile is a no-op in the panel:
-        // attachments are sidebar-only, but '@'-mentions still render
-        // as inline text references which the agent resolves via tools.
+        // EPIC-33: per-panel AutocompleteHandler. addVaultFile resolves
+        // the active panel surface so '@'-mention picks land in the
+        // panel's attachment chip bar (real attachments, not stubs).
         autocompleteFactory: (textarea, inputArea) => {
-            const { AutocompleteHandler } = require('../../ui/sidebar/AutocompleteHandler') as typeof import('../../ui/sidebar/AutocompleteHandler');
             return new AutocompleteHandler(
                 plugin,
                 plugin.app,
                 () => textarea,
                 () => inputArea,
-                async (_file) => { /* panel has no attachment handler; mentions stay inline */ },
+                async (file) => {
+                    if (activePanelSurface !== null) {
+                        await activePanelSurface.attachments.addVaultFile(file);
+                    }
+                },
             );
         },
     });

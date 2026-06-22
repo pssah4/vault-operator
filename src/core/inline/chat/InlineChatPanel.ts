@@ -169,6 +169,7 @@ export class InlineChatPanel {
     private modelButtonEl: HTMLElement | null = null;
     private sendButtonEl: HTMLElement | null = null;
     private stopButtonEl: HTMLElement | null = null;
+    private chipBarEl: HTMLElement | null = null;
     private autocomplete: AutocompleteLike | null = null;
     private readonly onClose?: () => void;
     private readonly setIcon: SetIconHook;
@@ -206,6 +207,10 @@ export class InlineChatPanel {
     }
 
     get isOpen(): boolean { return this.rootEl !== null; }
+    /** Root container (used by callers to anchor popovers). */
+    get root(): HTMLElement | null { return this.rootEl; }
+    /** Attachment chip bar element (caller passes to AttachmentHandler). */
+    get chipBar(): HTMLElement | null { return this.chipBarEl; }
 
     open(): InlinePanelHandle {
         this.close();
@@ -250,6 +255,13 @@ export class InlineChatPanel {
         const wrapper = doc.createElement('div');
         wrapper.classList.add('chat-input-wrapper');
         composerContainer.appendChild(wrapper);
+
+        // Attachment chip bar (sidebar-style: above textarea). Empty by
+        // default; AttachmentHandler renders chips into this element.
+        const chipBar = doc.createElement('div');
+        chipBar.classList.add('chat-attachment-chips');
+        wrapper.appendChild(chipBar);
+        this.chipBarEl = chipBar;
 
         const textarea = doc.createElement('textarea');
         textarea.classList.add('chat-textarea');

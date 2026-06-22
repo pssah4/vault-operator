@@ -55,6 +55,10 @@ export interface InlineChatOrchestratorOptions {
     resolver: InlineTriggerResolver;
     isEnabled?: () => boolean;
     setIcon?: SetIconHook;
+    /** Build per-panel surface (pickers + chip bar wiring). */
+    buildSurface?: (panelRoot: HTMLElement, chipBar: HTMLElement) => unknown;
+    /** Set the active surface for the menu callbacks. */
+    setActiveSurface?: (surface: unknown | null) => void;
     /** Bridge to Obsidian's MarkdownRenderer.render (+ link wiring). */
     renderMarkdown?: RenderMarkdownHook;
     showMoreMenu?: (
@@ -116,6 +120,9 @@ export class InlineChatOrchestrator {
     private readonly showModelMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
     private readonly getInitialModelLabel?: () => { label: string; tooltip: string };
     private readonly autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => import('./InlineChatPanel').AutocompleteLike;
+    private readonly buildSurface?: (panelRoot: HTMLElement, chipBar: HTMLElement) => unknown;
+    private readonly setActiveSurface?: (surface: unknown | null) => void;
+    private activeSurface: unknown | null = null;
 
     private activePanel: InlineChatPanel | null = null;
     private activeController: PanelChatController | null = null;
@@ -133,6 +140,8 @@ export class InlineChatOrchestrator {
         this.showModelMenu = options.showModelMenu;
         this.getInitialModelLabel = options.getInitialModelLabel;
         this.autocompleteFactory = options.autocompleteFactory;
+        this.buildSurface = options.buildSurface;
+        this.setActiveSurface = options.setActiveSurface;
     }
 
     triggerPanel(): void {
@@ -147,7 +156,17 @@ export class InlineChatOrchestrator {
 
         // Fresh controller per panel -- in-memory history scoped to
         // the panel lifetime. Closing the panel disposes the controller.
-        this.activeController = new PanelChatController({ plugin: this.plugin, ctx });
+        // The controller pulls the AttachmentHandler from the active
+        // panel surface so '@'-mention picks + the Plus -> Attach file
+        // popover both feed the multimodal content-block builder.
+        this.activeController = new PanelChatController({
+            plugin: this.plugin,
+            ctx,
+            getAttachments: () => {
+                const s = this.activeSurface as { attachments?: { pending: unknown[]; clear: () => void } } | null;
+                return s?.attachments as never ?? null;
+            },
+        });
 
         const initialModel = this.getInitialModelLabel?.() ?? { label: 'Auto', tooltip: 'Model' };
         const panel = new InlineChatPanel({
@@ -176,6 +195,10 @@ export class InlineChatOrchestrator {
                     this.activeController.dispose();
                     this.activeController = null;
                 }
+                if (this.setActiveSurface !== undefined) {
+                    try { this.setActiveSurface(null); } catch { /* swallow */ }
+                }
+                this.activeSurface = null;
                 this.activePanel = null;
             },
             setIcon: this.setIconHook,
@@ -184,6 +207,21 @@ export class InlineChatOrchestrator {
         });
         panel.open();
         this.activePanel = panel;
+        // Build per-panel surface (pickers + chip bar) AFTER open() so the
+        // chip-bar element exists. Register it via setActiveSurface so the
+        // menu callbacks can find the right AttachmentHandler / pickers.
+        if (this.buildSurface !== undefined && this.setActiveSurface !== undefined) {
+            const root = panel.root;
+            const chipBar = panel.chipBar;
+            if (root !== null && chipBar !== null) {
+                try {
+                    this.activeSurface = this.buildSurface(root, chipBar);
+                    this.setActiveSurface(this.activeSurface);
+                } catch (e) {
+                    console.debug('[InlineChatOrchestrator] buildSurface failed:', e);
+                }
+            }
+        }
         void this.hydrateInlineCheckpoints(panel.getHandle(), ctx);
     }
 
