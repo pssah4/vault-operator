@@ -336,10 +336,14 @@ export class InlineChatOrchestrator {
         // in the note, not only render in the chat. Promoted to edit-action
         // so the review-and-apply path runs after the stream.
         const isEditAction = args.actionId === 'rewrite' || args.actionId === 'translate';
+        // BUGFIX 2026-06-23: every quick-action's stream is collected so
+        // the assistant text reaches the history persistence path. Without
+        // this only free-chat turns were saved -- inline panels that
+        // ONLY used quick-actions never appeared in the history list.
         let collected = '';
         const callbacks: AgentTaskCallbacks = {
             onText: (chunk) => {
-                if (isEditAction === true) collected += chunk;
+                collected += chunk;
                 handle.appendStreamChunk(assistantId, chunk);
             },
             onToolStart: () => {},
@@ -360,6 +364,22 @@ export class InlineChatOrchestrator {
 
         if (isEditAction === true && collected.length > 0) {
             await this.openReviewAndApply(args.ctx, collected, label, handle);
+        }
+
+        // Persist this quick-action turn to the ConversationStore so
+        // it appears in the history list alongside free-chat turns
+        // (and so a later free-chat turn in the same panel extends
+        // the same conversation file, not a new one).
+        if (this.activeController !== null && collected.length > 0) {
+            try {
+                await this.activeController.recordQuickAction({
+                    actionLabel: label,
+                    userText: args.userInput,
+                    assistantText: collected,
+                });
+            } catch (e) {
+                console.debug('[InlineChatOrchestrator] recordQuickAction failed:', e);
+            }
         }
     }
 

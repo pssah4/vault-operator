@@ -255,6 +255,67 @@ export class PanelChatController {
 
     dispose(): void { this.abort(); }
 
+    /**
+     * Persist a quick-action turn (Lookup / Translate / Summarize /
+     * Rewrite / Find-Action-Items) to the same ConversationStore the
+     * free-chat path uses. Quick-actions bypass the AgentTaskRunner
+     * loop (they run via a single InlineLLMCaller stream in the
+     * orchestrator), so they would otherwise never reach the history
+     * list. This entry-point gives them parity: same store entry,
+     * same history index, same conversation-id continuity across
+     * subsequent free-chat turns within the panel session.
+     */
+    async recordQuickAction(args: {
+        actionLabel: string;
+        userText: string;
+        assistantText: string;
+    }): Promise<void> {
+        const convStore: ConversationStore | null = (this.plugin as { conversationStore?: ConversationStore | null }).conversationStore ?? null;
+        if (convStore === null) {
+            console.warn('[PanelChatController] recordQuickAction: no conversationStore');
+            return;
+        }
+        const mode = this.modeService.getActiveMode();
+        if (this.activeConversationId === null) {
+            try {
+                const modelKey = this.plugin.settings.activeModelKey;
+                const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
+                const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
+                this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
+                console.debug(`[PanelChatController] quick-action conversation created: ${this.activeConversationId}`);
+            } catch (e) {
+                console.error('[PanelChatController] recordQuickAction create FAILED:', e);
+                new Notice(`Inline chat: history create failed -- ${e instanceof Error ? e.message : String(e)}`);
+                return;
+            }
+        }
+        // Append-only: each quick-action becomes one user + one
+        // assistant message pair in the same conversation. The user
+        // bubble carries the action label + the selection so the
+        // history reader sees WHAT was asked, not just the answer.
+        const sel = this.ctx.selectionText.trim();
+        const userBody = sel.length > 0
+            ? `[${args.actionLabel}] ${args.userText.trim().length > 0 ? args.userText + '\n\n' : ''}Selection:\n${sel}`
+            : `[${args.actionLabel}] ${args.userText}`;
+        const ts = new Date().toISOString();
+        this.uiMessages.push({ role: 'user', text: userBody, ts });
+        this.uiMessages.push({ role: 'assistant', text: args.assistantText, ts });
+        // Mirror into MessageParam[] so the LLM history is consistent
+        // when the user follows up via the sidebar. Simple text-only
+        // blocks -- no tool_use round-trips for quick-actions.
+        this.history.push({ role: 'user', content: userBody } as MessageParam);
+        this.history.push({ role: 'assistant', content: args.assistantText } as MessageParam);
+        await this.persistConversation(convStore);
+        try {
+            const evt = new CustomEvent('vault-operator:conversation-list-changed', {
+                detail: { id: this.activeConversationId, source: 'inline-panel-quick' },
+            });
+            this.plugin.app.workspace.containerEl.dispatchEvent(evt);
+        } catch (e) {
+            console.debug('[PanelChatController] dispatch quick-action refresh event failed:', e);
+        }
+    }
+
     private async persistConversation(
         convStore: ConversationStore | null,
     ): Promise<void> {
