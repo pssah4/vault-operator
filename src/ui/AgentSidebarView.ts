@@ -281,6 +281,23 @@ export class AgentSidebarView extends ItemView {
             })
         );
 
+        // EPIC-33: refresh the history panel when the inline panel
+        // saves a new conversation, so the entry appears immediately
+        // (otherwise the user has to close+reopen the sidebar).
+        const onInlineSaved = (): void => {
+            this.historyPanel?.refresh();
+        };
+        this.app.workspace.containerEl.addEventListener(
+            'vault-operator:conversation-list-changed',
+            onInlineSaved,
+        );
+        this.register(() => {
+            this.app.workspace.containerEl.removeEventListener(
+                'vault-operator:conversation-list-changed',
+                onInlineSaved,
+            );
+        });
+
         this.showWelcomeMessage();
     }
 
@@ -4687,8 +4704,10 @@ export class AgentSidebarView extends ItemView {
     }
 
     /**
-     * Open DiffReviewModal in checkpoint mode for a single checkpoint.
-     * Shows the diff between snapshot (pre-write) and current vault state.
+     * Open the EditReviewModal in checkpoint-mode for a single checkpoint
+     * (read-only side-by-side + Restore button). EPIC-33 Diff-UX-refresh
+     * (2026-06-22) replaced the section-accordion DiffReviewModal here so
+     * inline + sidebar use one consistent surface.
      */
     private async showCheckpointDiff(
         checkpoint: import('../core/checkpoints/GitCheckpointService').CheckpointInfo,
@@ -4696,8 +4715,8 @@ export class AgentSidebarView extends ItemView {
         const service = this.plugin.checkpointService;
         if (!service) return;
 
-        const { DiffReviewModal } = await import('./DiffReviewModal');
-        const entries: import('./DiffReviewModal').FileDiffEntry[] = [];
+        const { showCheckpointReviewModal } = await import('./edit-review/EditReviewModal');
+        const entries: import('./edit-review/EditReviewPanel').EditReviewEntry[] = [];
 
         for (const filePath of checkpoint.filesChanged) {
             const before = await service.getSnapshotContent(checkpoint, filePath);
@@ -4709,32 +4728,30 @@ export class AgentSidebarView extends ItemView {
                 if (file) after = await this.app.vault.read(file);
             } catch { /* file deleted */ }
 
-            entries.push({ filePath, oldContent: before, newContent: after });
+            entries.push({ path: filePath, before, after });
         }
 
         if (entries.length === 0) return;
 
-        new DiffReviewModal(
-            this.app,
+        showCheckpointReviewModal({
+            app: this.app,
             entries,
-            {
-                mode: 'checkpoint',
-                checkpointInfo: checkpoint,
-                onRestore: async () => {
-                    const result = await service.restore(checkpoint);
-                    if (result && result.restored.length > 0) {
-                        const restoredFiles = result.restored.join(', ');
-                        const deletedNote = checkpoint.newFiles?.length
-                            ? ` Deleted: ${checkpoint.newFiles.join(', ')}.`
-                            : '';
-                        this.conversationHistory.push({
-                            role: 'user',
-                            content: `[System] Checkpoint restored. Files: ${restoredFiles}.${deletedNote} Vault state changed.`,
-                        });
-                    }
-                },
+            source: `Checkpoint ${new Date(checkpoint.timestamp).toLocaleString()}`,
+            title: 'Checkpoint anzeigen',
+            onRestore: async () => {
+                const result = await service.restore(checkpoint);
+                if (result && result.restored.length > 0) {
+                    const restoredFiles = result.restored.join(', ');
+                    const deletedNote = checkpoint.newFiles?.length
+                        ? ` Deleted: ${checkpoint.newFiles.join(', ')}.`
+                        : '';
+                    this.conversationHistory.push({
+                        role: 'user',
+                        content: `[System] Checkpoint restored. Files: ${restoredFiles}.${deletedNote} Vault state changed.`,
+                    });
+                }
             },
-        ).open();
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -4817,24 +4834,24 @@ export class AgentSidebarView extends ItemView {
             }
         }
 
-        // Build entries: old = earliest checkpoint, new = current vault
-        const { DiffReviewModal } = await import('./DiffReviewModal');
-        const entries: import('./DiffReviewModal').FileDiffEntry[] = [];
+        // Build entries: before = earliest checkpoint, after = current vault.
+        // EPIC-33 Diff-UX-refresh (2026-06-22) replaced the section-accordion
+        // DiffReviewModal with the unified EditReviewModal so inline + sidebar
+        // share a single review surface.
+        const { showEditReviewModal } = await import('./edit-review/EditReviewModal');
+        const entries: import('./edit-review/EditReviewPanel').EditReviewEntry[] = [];
 
-        for (const [filePath, oldContent] of fileOldContent) {
-            let newContent = '';
+        for (const [filePath, before] of fileOldContent) {
+            let after = '';
             try {
                 const file = this.app.vault.getFileByPath(filePath);
-                if (file) newContent = await this.app.vault.read(file);
+                if (file) after = await this.app.vault.read(file);
             } catch { /* file may have been deleted */ }
 
-            // Skip files that haven't actually changed
-            if (oldContent === newContent) continue;
-
-            entries.push({ filePath, oldContent, newContent });
+            if (before === after) continue;
+            entries.push({ path: filePath, before, after });
         }
 
-        // Also handle newly created files (no checkpoint snapshot — oldContent is empty)
         const newFiles = new Set<string>();
         for (const cp of checkpoints) {
             if (cp.newFiles) {
@@ -4842,48 +4859,51 @@ export class AgentSidebarView extends ItemView {
             }
         }
         for (const filePath of newFiles) {
-            let newContent = '';
+            let after = '';
             try {
                 const file = this.app.vault.getFileByPath(filePath);
-                if (file) newContent = await this.app.vault.read(file);
+                if (file) after = await this.app.vault.read(file);
             } catch { continue; }
-            if (newContent) {
-                entries.push({ filePath, oldContent: '', newContent });
+            if (after) {
+                entries.push({ path: filePath, before: '', after, isNew: true });
             }
         }
 
         if (entries.length === 0) return;
 
-        new DiffReviewModal(
-            this.app,
+        const result = await showEditReviewModal({
+            app: this.app,
             entries,
-            { mode: 'review' },
-            (decisions) => {
-                void (async () => {
-                    // Apply user decisions: write back reverted/edited content
-                    for (const d of decisions) {
-                        if (!d.hasChanges) continue;
-                        try {
-                            const file = this.app.vault.getFileByPath(d.filePath);
-                            if (file instanceof TFile) {
-                                await this.app.vault.modify(file, d.finalContent);
-                            } else {
-                                await this.app.vault.adapter.write(d.filePath, d.finalContent);
-                            }
-                        } catch (e) {
-                            console.error(`[PostTaskReview] Failed to apply decision for ${d.filePath}:`, e);
-                        }
-                    }
-                    if (decisions.length > 0) {
-                        const files = decisions.map((d) => d.filePath).join(', ');
-                        this.conversationHistory.push({
-                            role: 'user',
-                            content: `[System] Post-task review: User reverted changes in ${decisions.length} file(s): ${files}. Vault state changed.`,
-                        });
-                    }
-                })();
-            },
-        ).open();
+            title: 'Änderungen prüfen',
+            source: `Aufgabe ${taskId}`,
+        });
+        if (result.decisions === null) return;
+
+        for (const d of result.decisions) {
+            if (d.skipped === true) continue;
+            try {
+                const file = this.app.vault.getFileByPath(d.path);
+                if (file instanceof TFile) {
+                    await this.app.vault.modify(file, d.finalContent);
+                    // Beat the CodeMirror stale-buffer cache that overwrites
+                    // vault.modify after the modal closes (FIX-01-07-03).
+                    const { refreshOpenMarkdownViewsFor } = await import('../core/utils/refreshMarkdownView');
+                    await refreshOpenMarkdownViewsFor(this.app, file, d.finalContent);
+                } else {
+                    await this.app.vault.adapter.write(d.path, d.finalContent);
+                }
+            } catch (e) {
+                console.error(`[PostTaskReview] Failed to apply decision for ${d.path}:`, e);
+            }
+        }
+        const applied = result.decisions.filter(d => d.skipped !== true);
+        if (applied.length > 0) {
+            const files = applied.map(d => d.path).join(', ');
+            this.conversationHistory.push({
+                role: 'user',
+                content: `[System] Post-task review: User edited ${applied.length} file(s): ${files}.`,
+            });
+        }
     }
 
     // -------------------------------------------------------------------------

@@ -30,8 +30,9 @@ import type { AgentTaskCallbacks } from '../../AgentTask';
 import { AgentTaskRunner } from '../../agent/AgentTaskRunner';
 import { ModeService } from '../../modes/ModeService';
 import { buildAgentRuntimeContext } from '../../agent/AgentRuntimeContext';
-import type { UiMessage } from '../../history/ConversationStore';
+import type { ConversationStore, UiMessage } from '../../history/ConversationStore';
 import { getModelKey } from '../../../types/settings';
+import { Notice } from 'obsidian';
 import type ObsidianAgentPlugin from '../../../main';
 import type { InlineTriggerContext } from '../InlineTriggerContext';
 import type { InlinePanelHandle } from './InlineChatPanel';
@@ -145,20 +146,24 @@ export class PanelChatController {
         // undefined) on the plugin -- the earlier undefined-only check
         // dispatched into the null path and create() crashed silently,
         // so the activeConversationId stayed null and save() bailed.
-        const convStoreRaw = (this.plugin as unknown as { conversationStore?: { create: (mode: string, model: string) => Promise<string>; save: (id: string, history: MessageParam[], ui: UiMessage[]) => Promise<void> } | null }).conversationStore;
-        const convStore = (convStoreRaw === null || convStoreRaw === undefined) ? undefined : convStoreRaw;
-        if (this.activeConversationId === null && convStore !== undefined) {
-            try {
-                const modelKey = this.plugin.settings.activeModelKey;
-                const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
-                const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
-                this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
-                console.debug(`[PanelChatController] conversation created: ${this.activeConversationId}`);
-            } catch (e) {
-                console.warn('[PanelChatController] conversationStore.create failed:', e);
+        // EPIC-33 history-parity: direct typed access (no cast).
+        const convStore: ConversationStore | null = (this.plugin as { conversationStore?: ConversationStore | null }).conversationStore ?? null;
+        if (this.activeConversationId === null) {
+            if (convStore === null) {
+                console.warn('[PanelChatController] plugin.conversationStore is null -- chat will NOT persist. Likely plugin not fully loaded.');
+                new Notice('Inline chat: history store not ready, this chat will not be saved.');
+            } else {
+                try {
+                    const modelKey = this.plugin.settings.activeModelKey;
+                    const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
+                    const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
+                    this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
+                    console.debug(`[PanelChatController] conversation created: ${this.activeConversationId} (mode=${mode.slug}, model=${modelDisplay})`);
+                } catch (e) {
+                    console.error('[PanelChatController] conversationStore.create FAILED:', e);
+                    new Notice(`Inline chat: history create failed -- ${e instanceof Error ? e.message : String(e)}`);
+                }
             }
-        } else if (convStore === undefined) {
-            console.debug('[PanelChatController] conversationStore not available -- chat will not persist to history');
         }
         // Track UI message (parallel to history so the store can rehydrate).
         this.uiMessages.push({ role: 'user', text: args.userInput, ts: new Date().toISOString() });
@@ -217,6 +222,18 @@ export class PanelChatController {
                 this.uiMessages.push({ role: 'assistant', text: tailText, ts: new Date().toISOString() });
             }
             await this.persistConversation(convStore);
+            // Fire a workspace event so an open Sidebar / HistoryPanel
+            // refreshes its conversation list immediately (the user
+            // would otherwise have to close + reopen to see the new
+            // inline-chat entry).
+            try {
+                const evt = new CustomEvent('vault-operator:conversation-list-changed', {
+                    detail: { id: this.activeConversationId, source: 'inline-panel' },
+                });
+                this.plugin.app.workspace.containerEl.dispatchEvent(evt);
+            } catch (e) {
+                console.debug('[PanelChatController] dispatch refresh event failed:', e);
+            }
         } catch (e) {
             const err = e instanceof Error ? e : new Error(String(e));
             args.handle.setStatus(`Error: ${err.message}`, 'error');
@@ -239,20 +256,31 @@ export class PanelChatController {
     dispose(): void { this.abort(); }
 
     private async persistConversation(
-        convStore: { save: (id: string, h: MessageParam[], ui: UiMessage[]) => Promise<void> } | undefined,
+        convStore: ConversationStore | null,
     ): Promise<void> {
-        if (convStore === undefined) return;
-        if (this.activeConversationId === null) return;
-        if (this.uiMessages.length === 0) return;
+        if (convStore === null) {
+            console.warn('[PanelChatController] persistConversation: no store');
+            return;
+        }
+        if (this.activeConversationId === null) {
+            console.warn('[PanelChatController] persistConversation: no activeConversationId');
+            return;
+        }
+        if (this.uiMessages.length === 0) {
+            console.warn('[PanelChatController] persistConversation: no uiMessages');
+            return;
+        }
         try {
             const snapshot = [...this.uiMessages];
             await convStore.save(this.activeConversationId, this.history, this.uiMessages);
+            console.debug(`[PanelChatController] saved conversation ${this.activeConversationId} (${this.uiMessages.length} ui-msgs, ${this.history.length} history)`);
             const indexer = (this.plugin as unknown as { historyIndexer?: { onConversationSaved: (id: string, msgs: UiMessage[]) => Promise<void> | void } }).historyIndexer;
-            if (indexer !== undefined && this.activeConversationId !== null) {
+            if (indexer !== undefined) {
                 void indexer.onConversationSaved(this.activeConversationId, snapshot);
             }
         } catch (e) {
-            console.debug('[PanelChatController] persistConversation failed:', e);
+            console.error('[PanelChatController] persistConversation FAILED:', e);
+            new Notice(`Inline chat save failed: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
 
