@@ -5,6 +5,93 @@ was uebergeben wurde und was der naechste Schritt ist.
 
 ---
 
+## coding-to-testing 2026-06-22
+
+triage: EPIC-33
+triage_kind: epic
+epic: EPIC-33
+feature: alle 11 FEATs (FEAT-33-01..11)
+
+**Phase:** Coding komplett. Ready for Testing.
+
+**Artefakte erzeugt (Code):**
+
+- `src/core/agent/AgentTaskRunner.ts` (Pre-Welle PR-1.1, ADR-138 Tier 1) + Tests
+- `src/core/inline/InlineTriggerContext.ts` (Types + Type-Guard)
+- `src/core/inline/InlineTriggerResolver.ts` (Selection-Event -> TriggerContext)
+- `src/core/inline/InlineActionRegistry.ts` (pluggable Action-Layer)
+- `src/core/inline/InlineFloatingMenu.ts` (DOM-Overlay-Render)
+- `src/core/inline/InlineActionService.ts` (Orchestrator)
+- `src/core/inline/InlineLLMCaller.ts` (Single-Turn-Provider-Probe)
+- `src/core/inline/inlineSettings.ts` (Defaults + Resolver)
+- `src/core/inline/PluginWiring.ts` (Obsidian-Adapter-Wiring)
+- `src/core/inline/actions/`: SendToMainChatAction, LookupAction, RewriteAction, TranslateAction, SummarizeAction, FindActionItemsAction
+- `src/core/inline/chat/`: InlineChatBlock + InlineChatAction
+- `src/core/inline/diff/InlineDiffEngine.ts` (jsdiff + Hunk-State-Machine)
+- `src/core/inline/lookup/VaultRagPipeline.ts` (DefaultVaultRagPipeline)
+- `src/core/inline/skills/`: inlineActionCapability + InlineSkillFilter + InlineSkillAction
+- `src/core/inline/settings/PerActionPin.ts`
+- `src/main.ts`: neues Feld `inlineActions`, wireInlineActions im onload, addCommand 'open-inline-ai-menu', dispose im onunload
+- `src/types/settings.ts`: `inlineActions?: InlineActionsSettings` (additiv, keine Migration)
+
+**Tests-Status:**
+- 150 neue Inline-Tests in 15 Test-Files
+- Full suite: 3353 passing + 1 expected fail (von vor EPIC-33), tsc clean
+- TDD-first ueber alle Module
+
+**Build + Deploy:**
+- esbuild production: clean
+- main.js 4.9 MB (von 4.8 MB vor EPIC-33)
+- Live-Deployment im Test-Vault erfolgt
+
+**Verfuegbare Inline-Actions (per Cmd+P "Open inline AI menu" oder via custom Hotkey-Binding):**
+
+| Action | FEAT | Eligible | LLM-Tier |
+|---|---|---|---|
+| Send to chat | FEAT-33-04 | alle Modi | n/a (oeffnet Sidebar) |
+| Lookup | FEAT-33-02 | alle Modi mit Selection | Haiku (LLM-only baseline) |
+| Rewrite | FEAT-33-03 | source/live-preview | Default-Tier |
+| Translate to English | FEAT-33-06 | alle Modi | Haiku |
+| Translate to German | FEAT-33-06 | alle Modi | Haiku |
+| Summarize (short) | FEAT-33-07 | alle Modi | Haiku |
+| Summarize (medium) | FEAT-33-07 | alle Modi | Haiku |
+| Find action items | FEAT-33-11 | alle Modi mit Selection | Haiku |
+| Chat about this | FEAT-33-05 | source/live-preview | Default-Tier |
+
+**Deferred Follow-ups (fuer separate Sessions, nicht Test-Blocker):**
+
+- PR-1.2 Sidebar-Migration (1-2 Wochen Refactor, Sidebar laeuft unmodifiziert)
+- CodeMirror-6 Diff-Decoration-Adapter fuer FEAT-33-03 Rewrite (aktuell streamt Text ohne Inline-Diff, Engine pure-logic ready)
+- SemanticIndexProbe live-wiring fuer FEAT-33-09 Vault-RAG (LookupAction faellt aktuell auf LLM-only zurueck; Pipeline-Modul probe-ready)
+- SkillCapabilityProbe live-wiring fuer FEAT-33-08 (Filter + Action ready, kein Skill-Wiring im Default-Set)
+- InlineActionsTab Settings-Modal-Sub-Section (Default-Settings reichen fuer Funktion)
+- CSS-Theme fuer `.agent-inline-menu` (Vanilla-DOM ohne Styling)
+- FEAT-33-10 Per-Action-Pin Settings-UI (PerActionPin-Reader ready, UI fehlt)
+
+**Test-Phase-Empfehlungen:**
+
+- Unit-Test-Coverage ist bereits hoch (150 Tests). /testing kann Gaps schliessen:
+  - Integration-Test fuer wireInlineActions (mock plugin object)
+  - Live-Smoke in Sebastian's Vault (Cmd+P "Open inline AI menu" -> Action triggern, Output sehen)
+  - Sidebar-Independence-Verifikation: alle Actions ausser Send-to-Main mit geschlossener Sidebar (H-06)
+  - Bot-Compliance-Check (review-bot oder manueller Scan)
+  - Edge-Cases: empty selection, very large selection, multi-line selection, ASCII vs Unicode
+- Coverage-Gap-Felder: PluginWiring.ts (Obsidian-API-Adapter sind nicht unit-getestet, brauchen Plugin-Mock oder Live-Test)
+
+**Hypothesen-Status (H-01..H-07):**
+
+- H-01 (Floating-Menu stoert nicht): UNGEPRUEFT, braucht Beta-Telemetrie
+- H-02 (CodeMirror-Diff Tech-Feasible): teilweise -- Engine pure-logic ready, Adapter fehlt
+- H-03 (Settings-Reuse + Pin): PerActionPin ready, Telemetrie deferred
+- H-04 (4..11 Actions decken Bedarf): UNGEPRUEFT, braucht Beta-Issue-Tracking
+- H-05 (CodeMirror/Obsidian-API trifft alle Output-Modi): Live-Verifikation steht aus
+- H-06 (Sidebar-Independence): durch AgentTaskRunner + Adapter-Probe-Pattern strukturell erfuellt, braucht Live-Verifikation
+- H-07 (Vault-RAG schlaegt LLM-only): UNGEPRUEFT, braucht erst Vault-RAG-Wiring + A/B-Test
+
+**Naechster Schritt:** `/testing` Welle. Empfohlener Fokus: (1) Live-Smoke-Test im Plugin um die Plugin-Wiring-Pfade zu verifizieren (LLM-Roundtrip, Sidebar-Open-Demand, Conversation-Block-Persistierung), (2) Sidebar-Independence-Check pro Action mit explizit geschlossener Sidebar, (3) Edge-Cases (empty/giant selection, Unicode, Mode-Wechsel). Dann `/security-audit` mit Fokus auf: kein Selection-Inhalt in Telemetrie, Prompt-Injection-Hardening identisch zum Chat-Pfad, Path-Traversal-Schutz bei InlineChat-NoteWriter.
+
+---
+
 ## architecture-to-coding 2026-06-22
 
 triage: EPIC-33
