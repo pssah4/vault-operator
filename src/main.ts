@@ -2242,7 +2242,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                 const hint = formatHotkeyHint(Platform);
                 menu.addItem(item => item
                     .setTitle(`Inline AI chat  (${hint})`)
-                    .setIcon('slash')
+                    .setIcon('square-slash')
                     .onClick(() => {
                         this.inlineActions?.orchestrator.triggerPanel();
                     }));
