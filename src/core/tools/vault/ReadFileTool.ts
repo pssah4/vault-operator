@@ -146,8 +146,11 @@ export class ReadFileTool extends BaseTool<'read_file'> {
                 content = content.slice(0, MAX_CONTENT_CHARS);
             }
 
-            // Return formatted content
-            const result = this.formatContent(content, {
+            // Return formatted content. AUDIT-034 L-15: vault file content is
+            // externally-sourced data, so wrap it in the untrusted-content
+            // boundary tag that the system prompt's SECURITY BOUNDARY section
+            // tells the model to treat as user data, not instructions.
+            const result = this.formatUntrustedContent('vault', content, {
                 path: filePath,
                 basename,
                 extension,

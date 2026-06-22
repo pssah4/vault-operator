@@ -48,6 +48,25 @@ import {
 export const HARD_TOOL_OUTPUT_CAP_CHARS = 60_000;
 
 /**
+ * AUDIT-034 L-17 cross-module gate. Mirrors `TRUSTED_SKILL_SOURCES` in
+ * `src/core/tools/agent/InvokeSkillTool.ts`. Duplicated here (instead of
+ * imported) because InvokeSkillTool pulls heavy subtask-spawning + mode
+ * registry deps that the Pipeline does not need; we keep the trust set
+ * local and pin both sites with a comment so a future change has to update
+ * both places. Sources NOT in this set are treated as imported content and
+ * the autoApproval.skills flag is ignored for them -- the per-skill prompt
+ * in InvokeSkillTool (sessionApprovedImportedSkills + askImportedSkillApproval)
+ * remains the user-facing approval surface.
+ *
+ * Keep this set tight. Adding `agent`/`learned`/etc here would silently
+ * widen the trust boundary for every `invoke_skill` auto-approval path.
+ */
+const PIPELINE_TRUSTED_SKILL_SOURCES: ReadonlySet<string> = new Set([
+    'builtin',
+    'bundled',
+]);
+
+/**
  * Cap an oversized tool-result string at {@link HARD_TOOL_OUTPUT_CAP_CHARS},
  * cutting on a line boundary when one is reasonably close, and append a notice
  * telling the agent how to fetch the rest. Returns the input unchanged when it
@@ -831,7 +850,39 @@ export class ToolExecutionPipeline {
             if (group === 'web' && cfg.web) return { decision: 'auto' };
             if (group === 'mcp' && cfg.mcp) return { decision: 'auto' };
             if (group === 'subtask' && cfg.subtasks) return { decision: 'auto' };
-            if (group === 'skill' && cfg.skills) return { decision: 'auto' };
+            if (group === 'skill' && cfg.skills) {
+                // AUDIT-034 L-17 cross-module gate. The general
+                // `autoApproval.skills` flag covers builtin/bundled skills
+                // and the dispatcher tools that invoke them. Imported
+                // skills (source != builtin/bundled) MUST still go through
+                // the per-skill prompt in InvokeSkillTool even when the
+                // user has the general skills auto-approval on, otherwise
+                // a malicious imported skill body could ride the trust
+                // boundary of the auto-approve toggle. Tools other than
+                // `invoke_skill` (execute_command, resolve_capability_gap,
+                // enable_plugin, probe_plugin, run_skill_script,
+                // invoke_mcp_server) keep the existing auto-approve.
+                if (toolCall.name !== 'invoke_skill') {
+                    return { decision: 'auto' };
+                }
+                const rawName: unknown = toolCall.input?.skill_name;
+                const targetName = typeof rawName === 'string' ? rawName.trim() : '';
+                if (targetName.length === 0) {
+                    // Malformed call -- let the tool itself reject it.
+                    return { decision: 'auto' };
+                }
+                const targetSkill = this.plugin.selfAuthoredSkillLoader?.getSkill(targetName);
+                const source = targetSkill?.source ?? 'user';
+                if (PIPELINE_TRUSTED_SKILL_SOURCES.has(source)) {
+                    return { decision: 'auto' };
+                }
+                // Untrusted source -- do not auto-approve. Fall through
+                // to the standard onApprovalRequired modal below. The tool
+                // layer (InvokeSkillTool.askImportedSkillApproval) caches
+                // the per-skill decision in sessionApprovedImportedSkills,
+                // so the user sees at most one prompt per skill per
+                // session even though two gates fire.
+            }
             if (group === 'plugin-api') {
                 // Differentiate read vs write for plugin API calls
                 const isWriteCall = this.isPluginApiWriteCall(toolCall);

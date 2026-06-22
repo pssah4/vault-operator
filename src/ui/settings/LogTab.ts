@@ -16,8 +16,45 @@ export class LogTab {
         infoText.createDiv({ text: t('settings.log.introDesc') });
     }
 
+    /**
+     * L-12: Surface OperationLogger write failures as a persistent banner.
+     * The logger increments a counter and stashes the last error when it fails
+     * to persist an entry. The banner stays visible until the user dismisses it
+     * via the Clear button, which resets the logger's failure state.
+     */
+    private buildFailureBanner(containerEl: HTMLElement): void {
+        const logger: OperationLogger | undefined = this.plugin.operationLogger;
+        if (!logger) return;
+        const failedCount = logger.getFailedWriteCount();
+        if (failedCount <= 0) return;
+
+        const banner = containerEl.createDiv('vault-op-box vault-op-box--warning');
+        const icon = banner.createSpan({ cls: 'vault-op-box__icon' });
+        setIcon(icon, 'alert-triangle');
+        const text = banner.createDiv({ cls: 'vault-op-box__text' });
+        text.createEl('strong', { text: 'Audit log write failures' });
+        text.createDiv({
+            text: `${failedCount} log write${failedCount === 1 ? '' : 's'} failed since plugin start. Operations continued, but the audit trail has a gap.`,
+        });
+        const lastMsg = logger.getLastFailureMessage();
+        if (lastMsg) {
+            const detail = text.createDiv({ cls: 'agent-settings-desc' });
+            detail.setText(`Last error: ${this.truncate(lastMsg, 200)}`);
+        }
+        const actions = text.createDiv({ cls: 'agent-log-controls' });
+        const clearBtn = actions.createEl('button', {
+            text: 'Clear notice',
+            cls: 'agent-log-clear-btn',
+        });
+        clearBtn.addEventListener('click', () => {
+            logger.clearFailureState();
+            this.rerender();
+        });
+    }
+
     build(containerEl: HTMLElement): void {
         this.buildIntroSection(containerEl);
+        this.buildFailureBanner(containerEl);
         containerEl.createEl('p', {
             cls: 'agent-settings-desc',
             text: t('settings.log.desc'),

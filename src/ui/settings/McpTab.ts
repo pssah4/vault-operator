@@ -7,6 +7,11 @@ import * as safeFs from '../../core/security/safeFs';
 import { spawnAllowedSync } from '../../core/security/spawnAllowlist';
 import { ENV_APPDATA, readEnv } from '../../util/envKeys';
 import { addSectionHeading } from './utils';
+import {
+    isLocalHostname,
+    isPrivateIpHostname,
+    validateProviderUrl,
+} from '../../api/providers/providerUrlGuard';
 
 export class McpTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -378,6 +383,18 @@ export class McpTab {
             const urlInput = contentEl.createEl('input', { type: 'text', placeholder: t('settings.mcp.urlPlaceholder'), cls: 'agent-mcp-modal-input' });
             urlInput.value = editConfig?.url ?? '';
 
+            // AUDIT-034 M-14: per-server opt-in for the SSRF guard. When off
+            // (default), saveBtn rejects loopback / RFC 1918 URLs with a Notice.
+            let allowLocalUrls = editConfig?.allowLocalUrls === true;
+            new Setting(contentEl)
+                .setName('Allow local network addresses')
+                .setDesc('Permit this server to connect to localhost or private network addresses. Leave off for cloud-hosted MCP servers.')
+                .addToggle((toggle) =>
+                    toggle.setValue(allowLocalUrls).onChange((v) => {
+                        allowLocalUrls = v;
+                    }),
+                );
+
             contentEl.createEl('label', { text: t('settings.mcp.labelHeaders') });
             const headersInput = contentEl.createEl('textarea', { cls: 'agent-mcp-modal-input' });
             headersInput.rows = 3;
@@ -392,12 +409,48 @@ export class McpTab {
                 const serverName = (editName ?? nameInput.value.trim());
                 if (!serverName) return;
                 const type = typeSelect.value as 'sse' | 'streamable-http';
+                const trimmedUrl = urlInput.value.trim();
+
+                // AUDIT-034 M-14: validate the URL against the SSRF guard
+                // before persisting. The per-server allowLocalUrls toggle opts
+                // out for loopback / RFC 1918 hosts; everything else stays
+                // protected by validateProviderUrl + the explicit local check.
+                if (trimmedUrl) {
+                    try {
+                        const parsed = validateProviderUrl('custom', trimmedUrl, {
+                            allowLocalhost: allowLocalUrls,
+                        });
+                        if (parsed && !allowLocalUrls) {
+                            const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+                            if (isLocalHostname(host) || isPrivateIpHostname(host)) {
+                                new Notice(
+                                    `URL "${parsed.host}" targets a local or private network. `
+                                    + 'Enable "Allow local URLs" to permit loopback or RFC 1918 hosts.',
+                                );
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        const msg = e instanceof Error ? e.message : String(e);
+                        new Notice(`Invalid MCP URL: ${msg}`);
+                        return;
+                    }
+                }
+
                 const parseKV = (text: string): Record<string, string> => {
                     const result: Record<string, string> = {};
                     for (const line of text.split('\n')) { const eqIdx = line.indexOf('='); if (eqIdx > 0) result[line.slice(0, eqIdx).trim()] = line.slice(eqIdx + 1).trim(); }
                     return result;
                 };
-                const newConfig: import('../../types/settings').McpServerConfig = { type, url: urlInput.value.trim(), headers: parseKV(headersInput.value), timeout: parseInt(timeoutInput.value) || 60, disabled: false, ...(editConfig?.isBuiltIn ? { isBuiltIn: true } : {}) };
+                const newConfig: import('../../types/settings').McpServerConfig = {
+                    type,
+                    url: trimmedUrl,
+                    headers: parseKV(headersInput.value),
+                    timeout: parseInt(timeoutInput.value) || 60,
+                    disabled: false,
+                    ...(allowLocalUrls ? { allowLocalUrls: true } : {}),
+                    ...(editConfig?.isBuiltIn ? { isBuiltIn: true } : {}),
+                };
                 this.plugin.settings.mcpServers ??= {};
                 this.plugin.settings.mcpServers[serverName] = newConfig;
                 await this.plugin.saveSettings();

@@ -154,24 +154,28 @@ export class McpClient {
             }
 
             // AUDIT-034 M-14: SSRF guard.
+            // Per-server opt-in wins over the instance-level default so that
+            // one local dev server can be allowed without lowering the guard
+            // for any other configured MCP server.
+            const allowLocal = config.allowLocalUrls === true || this.allowLocalUrls;
             // Step 1: providerUrlGuard handles protocol (http/https only) and
             // the BLOCKED_HOSTNAMES set (AWS / GCP metadata, 0.0.0.0). We use
             // providerType='custom' because an MCP URL is user-elected.
             const parsedUrl = validateProviderUrl('custom', config.url, {
-                allowLocalhost: this.allowLocalUrls,
+                allowLocalhost: allowLocal,
             });
             // Step 2: providerUrlGuard's "custom" branch returns local IPs by
             // design (community OpenAI-compatible gateways). For MCP the
             // policy is stricter -- local / RFC 1918 hosts are rejected
-            // unless the user explicitly enabled "allow local MCP URLs" in
-            // settings.
+            // unless the user explicitly enabled "allow local MCP URLs" for
+            // this server.
             if (parsedUrl) {
                 const host = parsedUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
                 const isLocal = isLocalHostname(host) || isPrivateIpHostname(host);
-                if (isLocal && !this.allowLocalUrls) {
+                if (isLocal && !allowLocal) {
                     throw new Error(
                         `MCP server "${name}" URL targets a local or private network host "${parsedUrl.host}". `
-                        + 'Enable "allow local MCP URLs" in MCP settings to permit loopback or RFC 1918 hosts.',
+                        + 'Enable "Allow local URLs" on this server to permit loopback or RFC 1918 hosts.',
                     );
                 }
             }
@@ -183,7 +187,7 @@ export class McpClient {
             // for users who enabled the toggle. The header is stripped before
             // the wire request, so it never reaches the remote server.
             const baseHeaders: Record<string, string> = { ...(config.headers ?? {}) };
-            if (this.allowLocalUrls) {
+            if (allowLocal) {
                 baseHeaders[MCP_ALLOW_LOCAL_HEADER] = '1';
             }
             const hasExplicitHeaders = Object.keys(baseHeaders).length > 0;

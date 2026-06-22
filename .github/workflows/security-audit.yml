@@ -32,6 +32,9 @@ jobs:
       - name: Audit production dependencies (fail on high+)
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Verify esbuild integrity hashes
+        run: npm run verify:esbuild-hashes
+
       - name: Audit full tree (informational, never fails)
         if: always()
         run: npm audit --json > npm-audit-full.json || true

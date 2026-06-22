@@ -419,7 +419,15 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                 }
             }
 
-            callbacks.pushToolResult(lines.join('\n'));
+            // AUDIT-034 L-15: vault excerpts are externally-sourced text and
+            // must be presented as user data, not as instructions. Wrap the
+            // assembled result (which already embeds excerpts, graph context,
+            // and ontology snippets) in the untrusted-content boundary tag.
+            const wrappedResult = this.formatUntrustedContent('vault-search', lines.join('\n'), {
+                query,
+                results: String(results.length),
+            });
+            callbacks.pushToolResult(wrappedResult);
             callbacks.log(`Hybrid search: "${query}" → ${results.length} results (${kwCount} keyword), ${graphLinkedCount} graph, ${ontologyCount} ontology, ${implicitCount} implicit`);
         } catch (error) {
             callbacks.pushToolResult(this.formatError(error));

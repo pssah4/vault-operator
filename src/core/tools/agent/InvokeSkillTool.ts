@@ -361,8 +361,8 @@ export class InvokeSkillTool extends BaseTool<'invoke_skill'> {
         // the conservative default), fall back to attempt_completion only
         // so the sub-skill can still exit cleanly instead of hanging.
         if (intersected.length === 0) {
-            return modeTools.has('attempt_completion' as ToolName)
-                ? ['attempt_completion' as ToolName]
+            return modeTools.has('attempt_completion')
+                ? ['attempt_completion']
                 : [...declared];
         }
         return intersected;

@@ -30,7 +30,7 @@ export function expandProviderConfigsToCustomModels(providerConfigs: readonly Pr
                 enabled: true,
                 apiKey: p.apiKey,
                 baseUrl: p.baseUrl,
-            } as unknown as CustomModel);
+            });
         }
     }
     return out;

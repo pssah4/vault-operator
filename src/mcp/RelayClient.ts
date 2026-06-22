@@ -90,7 +90,7 @@ export async function dispatchRelayMethod(
         getToolsWithContext?: () => unknown[];
         buildResourceList?: () => unknown[];
         listPrompts?: () => unknown;
-        getPrompt?: (name: string | undefined) => unknown | Promise<unknown>;
+        getPrompt?: (name: string | undefined) => unknown;
     } | undefined;
 
     if (method === 'initialize') {

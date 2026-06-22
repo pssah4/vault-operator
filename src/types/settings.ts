@@ -381,6 +381,8 @@ export interface McpServerConfig {
     alwaysAllow?: string[];
     /** True for servers shipped with the plugin (cannot be deleted, only disabled) */
     isBuiltIn?: boolean;
+    /** AUDIT-034 M-14: opt out of the SSRF guard for this server (allow loopback / RFC 1918). */
+    allowLocalUrls?: boolean;
 }
 
 /** Built-in MCP servers shipped with the plugin.
@@ -994,6 +996,15 @@ export interface ObsidianAgentSettings {
     sandboxMode: 'auto' | 'process' | 'iframe';
     /** Whether API keys in data.json are encrypted via Electron safeStorage (ADR-019) */
     _encrypted?: boolean;
+    /**
+     * AUDIT-034 M-5 / M-15: persistent ack flag for the plaintext-fallback
+     * warning. Set to true when the user dismisses the warning banner in
+     * ProvidersTab. Suppresses the one-time toast Notice on subsequent
+     * plugin loads so the user is not nagged after acknowledging. The
+     * persistent banner stays visible regardless so the degraded state is
+     * never hidden.
+     */
+    safeStoragePlaintextFallbackAcknowledged?: boolean;
     /** Whether data has been migrated to global storage (~/.obsidian-agent/) — ADR-020 */
     _globalStorageMigrated?: boolean;
     /** Whether sync data has been migrated from plugin-dir to .obsilo-sync/ */
@@ -1844,6 +1855,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
         selfDevelopmentSource: {},
     },
     sandboxMode: 'auto',
+    safeStoragePlaintextFallbackAcknowledged: false,
     taskExtraction: {
         enabled: true,
         taskFolder: 'Tasks',

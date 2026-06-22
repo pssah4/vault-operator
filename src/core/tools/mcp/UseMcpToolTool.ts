@@ -96,7 +96,14 @@ export class UseMcpToolTool extends BaseTool<'use_mcp_tool'> {
 
         try {
             const result = await this.mcpClient.callTool(server_name, tool_name, args);
-            callbacks.pushToolResult(result);
+            // AUDIT-034 L-15: MCP responses are externally-sourced text.
+            // Wrap them so the model treats the payload as user data, mirroring
+            // the wrapVaultContentForMcp pattern at McpBridge.ts:866.
+            const wrapped = this.formatUntrustedContent('mcp', result, {
+                server: server_name,
+                tool: tool_name,
+            });
+            callbacks.pushToolResult(wrapped);
             callbacks.log(`MCP tool ${server_name}/${tool_name} returned ${result.length} chars`);
             await emitStigmergyReturned(stigmergyTurn, capId, !result.startsWith('Error'), dispatchSource);
         } catch (error) {

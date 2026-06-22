@@ -308,10 +308,19 @@ export class KiloAuthService {
 
     async disconnect(): Promise<void> {
         // AUDIT-034 L-10: server-side revocation is deferred until Kilo
-        // publishes a documented token-revocation endpoint. Until then
+        // publishes a documented token-revocation endpoint. Survey on
+        // 2026-06-22 (audit cut): api.kilo.ai has no /oauth/revoke, no
+        // /auth/revoke, no /logout, no DELETE /tokens; the forked KiloCode
+        // reference client (forked-kilocode/src/core/webview/ClineProvider.ts
+        // logout branch) also clears the local token only. Until then
         // disconnect() clears local credentials only; a previously exfiltrated
         // token remains valid against the Kilo API until provider-side
         // rotation catches up. Local state is always cleared.
+        //
+        // TODO(L-10): revisit when Kilo publishes a revoke endpoint. Mirror the
+        // ChatGptOAuthService.logout best-effort pattern (try/catch around
+        // requestUrl, console.debug on failure, never throw, clear local state
+        // afterwards). Tracking note: _devprocess/handoffs/2026-06-22 (L-10).
         this.token = '';
         this.session = {
             authMode: '',

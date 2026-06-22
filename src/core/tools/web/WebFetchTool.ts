@@ -239,12 +239,17 @@ export class WebFetchTool extends BaseTool<'web_fetch'> {
             const slice = content.slice(startIndex, startIndex + maxLength);
             const truncated = startIndex + maxLength < totalLength;
 
-            let result = `<web_fetch url="${url}" status="${statusCode}" chars="${totalLength}">\n`;
-            result += slice;
+            // AUDIT-034 L-15: wrap web body in the untrusted-content boundary
+            // tag so the model treats fetched markup as data, not instructions.
+            let body = slice;
             if (truncated) {
-                result += `\n\n[Content truncated. Use startIndex=${startIndex + maxLength} to read more.]`;
+                body += `\n\n[Content truncated. Use startIndex=${startIndex + maxLength} to read more.]`;
             }
-            result += '\n</web_fetch>';
+            const result = this.formatUntrustedContent('web', body, {
+                url,
+                status: String(statusCode),
+                chars: String(totalLength),
+            });
 
             callbacks.pushToolResult(result);
             callbacks.log(

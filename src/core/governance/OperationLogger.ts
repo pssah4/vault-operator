@@ -53,9 +53,9 @@ const BLOCK_REDACTION_KEYS = new Set([
  * shapes that cannot be confused with normal text.
  */
 const VALUE_TOKEN_PATTERNS: RegExp[] = [
-    /\bBearer\s+[A-Za-z0-9._\-]+/gi,
-    /\bsk-[A-Za-z0-9_\-]{16,}/g,
-    /\bxox[bpoasr]-[A-Za-z0-9\-]{8,}/g,
+    /\bBearer\s+[A-Za-z0-9._-]+/gi,
+    /\bsk-[A-Za-z0-9_-]{16,}/g,
+    /\bxox[bpoasr]-[A-Za-z0-9-]{8,}/g,
     /\bgh[pousr]_[A-Za-z0-9]{20,}/g,
     /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
     /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,
@@ -179,7 +179,10 @@ export class OperationLogger {
         }
 
         // Unknown primitive (bigint, symbol, function) -> coerce to string.
-        return String(value);
+        if (typeof value === 'bigint') return value.toString();
+        if (typeof value === 'symbol') return value.toString();
+        if (typeof value === 'function') return '[function]';
+        return '[unknown]';
     }
 
     private shouldRedactKey(lowerKey: string): boolean {
@@ -256,7 +259,7 @@ export class OperationLogger {
             this.failureNoticeShown = true;
             try {
                 new Notice(
-                    'Vault Operator: audit log write failed. Operations continue, but the audit trail has a gap. Check the Log tab.',
+                    'Vault Operator: audit log write failed. Operations continue, but the audit trail has a gap. Check the log tab.',
                     8000
                 );
             } catch {

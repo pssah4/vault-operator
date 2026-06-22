@@ -494,6 +494,17 @@ export default class ObsidianAgentPlugin extends Plugin {
             await this.saveSettings();
         }
 
+        // 1a-bis. AUDIT-034 M-5 / M-15 -- surface the plaintext-fallback
+        //         state via a one-time toast Notice when the OS keychain
+        //         is unavailable. The persistent banner in ProvidersTab
+        //         carries the long-form explanation; this toast only fires
+        //         once per session and is suppressed entirely once the user
+        //         dismissed the banner (acknowledged flag in settings).
+        this.safeStorage.notifyPlaintextFallbackOnce(
+            Notice,
+            this.settings.safeStoragePlaintextFallbackAcknowledged === true,
+        );
+
         // 1b. EPIC-26 / FEAT-26-04 / ADR-123 -- one-shot migration from
         //     legacy activeModels[] to providerConfigs[]. Idempotent (no-op
         //     when schemaVersion is already set or providerConfigs is non-empty).
@@ -1028,7 +1039,11 @@ export default class ObsidianAgentPlugin extends Plugin {
             );
         }
 
-        // MCP Client — connect to all configured servers
+        // MCP Client — connect to all configured servers.
+        // AUDIT-034 M-14: the SSRF guard runs inside McpClient.connect() and
+        // reads the per-server `allowLocalUrls` flag off each McpServerConfig.
+        // No global opt-in is needed here; the McpTab modal manages the flag
+        // per server.
         this.mcpClient = new McpClient();
         if (Object.keys(this.settings.mcpServers ?? {}).length > 0) {
             this.mcpClient.connectAll(this.settings.mcpServers).catch((e) =>

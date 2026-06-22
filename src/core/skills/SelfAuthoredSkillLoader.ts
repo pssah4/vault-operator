@@ -174,6 +174,11 @@ export class SelfAuthoredSkillLoader {
                     const content = await adapter.read(skillPath);
                     const parsed = this.parseSkillMd(content, skillPath);
                     if (!parsed) continue;
+                    // AUDIT-034 L-17: resolve the source field. Explicit
+                    // frontmatter wins; otherwise inspect the folder layout
+                    // to tell skill-creator output (-> 'agent') from a
+                    // hand-written or imported file (-> 'user').
+                    parsed.source = await this.resolveSkillSource(parsed.source, subfolderPath);
                     // FEATURE-2201: populate inventory from scripts/, references/,
                     // assets/, and sub-role *.skill.md files next to SKILL.md.
                     parsed.inventory = await this.loadSkillInventory(subfolderPath, parsed.isCoordinator);
@@ -183,6 +188,40 @@ export class SelfAuthoredSkillLoader {
         } catch (e) {
             console.warn(`[SelfAuthoredSkillLoader] Failed to scan ${dir}:`, e);
         }
+    }
+
+    /**
+     * AUDIT-034 L-17 source resolver. Called after parseSkillMd so the
+     * SKILL.md frontmatter is authoritative when it sets `source:`. When
+     * the field is missing, we check for the skill-creator scaffolding
+     * (`init_skill` always creates `scripts/`, `references/`, `assets/`
+     * next to SKILL.md) and normalize to `agent`. Hand-written and
+     * imported skills miss at least one of those folders, so they fall
+     * back to the conservative `user` default. The result is used by the
+     * SkillsTab badge AND by the InvokeSkillTool / ToolExecutionPipeline
+     * trust gates, so getting the marker right matters.
+     */
+    private async resolveSkillSource(parsedSource: string, skillFolder: string): Promise<string> {
+        if (parsedSource.length > 0) {
+            return parsedSource;
+        }
+        const adapter = this.plugin.app.vault.adapter;
+        const probe = async (sub: string): Promise<boolean> => {
+            try {
+                return await adapter.exists(`${skillFolder}/${sub}`);
+            } catch {
+                return false;
+            }
+        };
+        const [hasScripts, hasReferences, hasAssets] = await Promise.all([
+            probe('scripts'),
+            probe('references'),
+            probe('assets'),
+        ]);
+        if (hasScripts && hasReferences && hasAssets) {
+            return 'agent';
+        }
+        return 'user';
     }
 
     /**
@@ -666,6 +705,12 @@ export class SelfAuthoredSkillLoader {
             const parsed = this.parseSkillMd(content, file.path);
             if (parsed) {
                 const skillFolder = file.path.replace(/\/SKILL\.md$/, '');
+                // AUDIT-034 L-17: keep the hot-reload path aligned with the
+                // initial scan so a SKILL.md saved without an explicit
+                // `source:` field gets the same structural-detection
+                // treatment instead of silently flipping to the parser
+                // default.
+                parsed.source = await this.resolveSkillSource(parsed.source, skillFolder);
                 parsed.inventory = await this.loadSkillInventory(skillFolder, parsed.isCoordinator);
                 this.skills.set(parsed.name, parsed);
             }
@@ -911,7 +956,15 @@ export class SelfAuthoredSkillLoader {
             description: fm.description,
             trigger,
             triggerSource,
-            source: fm.source ?? 'user',
+            // AUDIT-034 L-17: leave a sentinel when the SKILL.md does not
+            // carry an explicit `source:` frontmatter so the caller (scan
+            // or hot-reload) can run the folder-structure check before
+            // falling back to the conservative `user` default. Setting it
+            // here unconditionally to `user` would also tag agent-authored
+            // skills that predate the FEAT-29-13 stamp, which makes the
+            // cross-module trust gate in ToolExecutionPipeline harder to
+            // reason about (Agent skills look like manual imports).
+            source: fm.source ?? '',
             requiredTools: fm.requiredTools ? this.parseArray(fm.requiredTools) : [],
             // FEAT-29-10 follow-up: support both camelCase and snake_case
             // so authors using Anthropic-style frontmatter (`allowed_tools`)

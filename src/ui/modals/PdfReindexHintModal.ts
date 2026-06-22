@@ -47,7 +47,7 @@ export class PdfReindexHintModal extends Modal {
                 .setButtonText('Dismiss')
                 .onClick(() => { void this.dismiss(); }))
             .addButton((btn) => btn
-                .setButtonText('Open Embeddings tab')
+                .setButtonText('Open embeddings tab')
                 .setCta()
                 .onClick(() => { void this.openEmbeddings(); }));
     }
