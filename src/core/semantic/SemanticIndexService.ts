@@ -497,7 +497,7 @@ export class SemanticIndexService {
                         // Pass 1: embed chunks with title prefix (fast, no LLM call).
                         // Contextual Enrichment runs as Pass 2 in the background after build.
                         const vectors = await this.embedBatch(enrichedChunks);
-                        this.vectorStore.insertChunks(file.path, enrichedChunks, vectors, file.stat?.mtime ?? 0, 0);
+                        this.vectorStore.insertNoteVector(file.path, enrichedChunks, vectors, file.stat?.mtime ?? 0, 0);
                     } else {
                         // File shrank to a gated stub (or emptied): drop its old
                         // vectors. Side effect: gated files never store an mtime,
@@ -592,8 +592,8 @@ export class SemanticIndexService {
         const candidates = this.vectorStore.getStubCandidatePaths(STUB_SWEEP_MAX_TEXT_CHARS);
         let removed = 0;
         for (const p of candidates) {
-            // session:/episode: entries are not vault files; leave them alone.
-            if (p.startsWith('session:') || p.startsWith('episode:')) continue;
+            // session:/episode:-Eintraege werden bereits in getStubCandidatePaths
+            // ueber domain='note' herausgefiltert (Wave 1 Task 1.3, ADR-137).
             const ext = p.split('.').pop()?.toLowerCase() ?? '';
             if (SemanticIndexService.BINARY_DOCUMENT_EXTENSIONS.has(ext)) continue;
             if (SemanticIndexService.IMAGE_EXTENSIONS.has(ext)) continue;
@@ -633,7 +633,7 @@ export class SemanticIndexService {
                     ? [title + '\n\n' + chunks[0], ...chunks.slice(1)]
                     : chunks;
                 const vectors = await this.embedBatch(enrichedChunks);
-                this.vectorStore.insertChunks(filePath, enrichedChunks, vectors, file.stat?.mtime ?? 0, 0);
+                this.vectorStore.insertNoteVector(filePath, enrichedChunks, vectors, file.stat?.mtime ?? 0, 0);
             } else {
                 this.vectorStore.deleteByPath(filePath);
             }
@@ -1017,7 +1017,7 @@ export class SemanticIndexService {
             if (chunks.length === 0) return;
 
             const vectors = await this.embedBatch(chunks);
-            this.vectorStore.insertChunks(`session:${sessionId}`, chunks, vectors, Date.now());
+            this.vectorStore.insertSessionVector(sessionId, chunks, vectors, Date.now());
             this.knowledgeDB.markDirty();
             console.debug(`[SemanticIndex] Indexed session summary: ${sessionId} (${chunks.length} chunks)`);
         } catch (e) {
@@ -1056,7 +1056,7 @@ export class SemanticIndexService {
             if (chunks.length === 0) return;
 
             const vectors = await this.embedBatch(chunks);
-            this.vectorStore.insertChunks(`episode:${episodeId}`, chunks, vectors, Date.now());
+            this.vectorStore.insertEpisodeVector(episodeId, chunks, vectors, Date.now());
             this.knowledgeDB.markDirty();
         } catch (e) {
             console.warn(`[SemanticIndex] Failed to index episode ${episodeId}:`, e);

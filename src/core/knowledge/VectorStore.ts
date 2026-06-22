@@ -7,9 +7,36 @@
  *
  * ADR-050: SQLite Knowledge DB
  * FEATURE-1500: SQLite Knowledge DB
+ * ADR-137: Domain-aware layered access. Direkter Zugriff auf die vectors-Tabelle ist nur über diesen Store erlaubt; Aufrufer wählen die Domäne (siehe KNOWLEDGE_DOMAINS in knowledgeDomains.ts), nicht die Tabelle.
  */
 
 import type { KnowledgeDB, SqlJsDatabase } from './KnowledgeDB';
+import { KNOWLEDGE_DOMAINS, type KnowledgeDomain, pathPrefixToDomain } from './knowledgeDomains';
+
+// Re-export so callers can use `import { KnowledgeDomain } from '.../VectorStore'`
+// without a separate import of the domain module.
+export { KNOWLEDGE_DOMAINS, pathPrefixToDomain };
+export type { KnowledgeDomain };
+
+// ---------------------------------------------------------------------------
+// Domain-aware find filter
+// ---------------------------------------------------------------------------
+
+/**
+ * Filter for {@link VectorStore.findVectors} and the per-domain wrappers.
+ *
+ * `pathLike` is forwarded as the right-hand side of a SQLite `LIKE` clause
+ * (caller-supplied wildcards like `%` are respected). `excludePathPrefixes`
+ * and `excludePathContains` are translated to chained `path NOT LIKE` clauses
+ * and are matched literally (no wildcard escaping on the caller side).
+ */
+export interface FindVectorsFilter {
+    domain?: KnowledgeDomain;
+    chunkIndex?: number;
+    pathLike?: string;
+    excludePathPrefixes?: string[];
+    excludePathContains?: string[];
+}
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -62,24 +89,87 @@ export class VectorStore {
     /**
      * Insert chunks for a file. Replaces any existing chunks for that path.
      * Vectors are stored as Float32Array BLOBs.
+     *
+     * The `domain` column (FEAT-03-27 / ADR-136) is inferred from the path
+     * prefix when not provided, so legacy callers that still pass a
+     * `session:`/`episode:`/`fact:` path land in the correct layer. New
+     * callers should use the per-domain helpers (`insertNoteVector`,
+     * `insertSessionVector`, ...) which set the discriminator explicitly.
+     *
      * @param enriched - 0 = raw chunks (Pass 1), 1 = enriched with context prefix (Pass 2)
+     * @param domain - Override the auto-inferred domain. Defaults to `pathPrefixToDomain(filePath)`.
      */
-    insertChunks(filePath: string, chunks: string[], vectors: Float32Array[], mtime: number, enriched = 0): void {
+    insertChunks(
+        filePath: string,
+        chunks: string[],
+        vectors: Float32Array[],
+        mtime: number,
+        enriched = 0,
+        domain?: KnowledgeDomain,
+    ): void {
         const db = this.getDB();
+        const resolvedDomain: KnowledgeDomain = domain ?? pathPrefixToDomain(filePath);
 
         // Delete existing chunks for this path
         db.run('DELETE FROM vectors WHERE path = ?', [filePath]);
 
         // Insert new chunks
-        const stmt = db.prepare('INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched) VALUES (?, ?, ?, ?, ?, ?)');
+        const stmt = db.prepare(
+            'INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched, domain) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        );
         for (let i = 0; i < chunks.length; i++) {
             const vecBytes = new Uint8Array(vectors[i].buffer, vectors[i].byteOffset, vectors[i].byteLength);
-            stmt.run([filePath, i, chunks[i], vecBytes, mtime, enriched]);
+            stmt.run([filePath, i, chunks[i], vecBytes, mtime, enriched, resolvedDomain]);
         }
         stmt.free();
 
         this.invalidateCache();
         this.knowledgeDB.markDirty();
+    }
+
+    // -----------------------------------------------------------------------
+    // Domain-typed insert helpers (FEAT-03-27 / ADR-136)
+    // -----------------------------------------------------------------------
+
+    /** Insert vault-note chunks (domain = 'note'). */
+    insertNoteVector(
+        filePath: string,
+        chunks: string[],
+        vectors: Float32Array[],
+        mtime: number,
+        enriched = 0,
+    ): void {
+        this.insertChunks(filePath, chunks, vectors, mtime, enriched, 'note');
+    }
+
+    /** Insert session-transcript chunks (domain = 'session'). Path is forced to `session:<id>`. */
+    insertSessionVector(sessionId: string, chunks: string[], vectors: Float32Array[], mtime: number): void {
+        this.insertChunks(`session:${sessionId}`, chunks, vectors, mtime, 0, 'session');
+    }
+
+    /** Insert episode chunks (domain = 'episode'). Path is forced to `episode:<id>`. */
+    insertEpisodeVector(episodeId: string, chunks: string[], vectors: Float32Array[], mtime: number): void {
+        this.insertChunks(`episode:${episodeId}`, chunks, vectors, mtime, 0, 'episode');
+    }
+
+    /** Insert fact chunks (domain = 'fact'). Path is forced to `fact:<id>`. */
+    insertFactVector(factId: string, chunks: string[], vectors: Float32Array[], mtime: number): void {
+        this.insertChunks(`fact:${factId}`, chunks, vectors, mtime, 0, 'fact');
+    }
+
+    /** Insert mention chunks (domain = 'mention'). Path is forced to `mention:<id>`. */
+    insertMentionVector(mentionId: string, chunks: string[], vectors: Float32Array[], mtime: number): void {
+        this.insertChunks(`mention:${mentionId}`, chunks, vectors, mtime, 0, 'mention');
+    }
+
+    /** Insert thread chunks (domain = 'thread'). Path is forced to `thread:<id>`. */
+    insertThreadVector(threadId: string, chunks: string[], vectors: Float32Array[], mtime: number): void {
+        this.insertChunks(`thread:${threadId}`, chunks, vectors, mtime, 0, 'thread');
+    }
+
+    /** Insert entity chunks (domain = 'entity'). Path is forced to `entity:<id>`. */
+    insertEntityVector(entityId: string, chunks: string[], vectors: Float32Array[], mtime: number): void {
+        this.insertChunks(`entity:${entityId}`, chunks, vectors, mtime, 0, 'entity');
     }
 
     /** Delete all chunks for a file path. */
@@ -124,11 +214,106 @@ export class VectorStore {
     getStubCandidatePaths(maxLen: number): string[] {
         const db = this.getDB();
         const result = db.exec(
-            'SELECT path FROM vectors GROUP BY path HAVING COUNT(*) = 1 AND MAX(LENGTH(text)) < ?',
+            "SELECT path FROM vectors WHERE domain = 'note' GROUP BY path HAVING COUNT(*) = 1 AND MAX(LENGTH(text)) < ?",
             [maxLen],
         );
         if (result.length === 0) return [];
         return result[0].values.map((row) => row[0] as string);
+    }
+
+    // -----------------------------------------------------------------------
+    // Domain-typed find helpers (FEAT-03-27 / ADR-136)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Cross-layer reader. Returns VectorEntry rows that match the filter.
+     *
+     * Pass `domain` to scope to a single layer; omit it to read across all
+     * layers (used by the cross-layer Reranker). `pathLike`, `excludePathPrefixes`
+     * and `excludePathContains` are AND-combined with the domain clause.
+     */
+    findVectors(filter: FindVectorsFilter = {}): VectorEntry[] {
+        const db = this.getDB();
+
+        const where: string[] = [];
+        const params: Array<string | number> = [];
+
+        if (filter.domain !== undefined) {
+            where.push('domain = ?');
+            params.push(filter.domain);
+        }
+        if (filter.chunkIndex !== undefined) {
+            where.push('chunk_index = ?');
+            params.push(filter.chunkIndex);
+        }
+        if (filter.pathLike !== undefined) {
+            where.push('path LIKE ?');
+            params.push(filter.pathLike);
+        }
+        if (filter.excludePathPrefixes && filter.excludePathPrefixes.length > 0) {
+            for (const prefix of filter.excludePathPrefixes) {
+                where.push('path NOT LIKE ?');
+                params.push(`${prefix}%`);
+            }
+        }
+        if (filter.excludePathContains && filter.excludePathContains.length > 0) {
+            for (const needle of filter.excludePathContains) {
+                where.push('path NOT LIKE ?');
+                params.push(`%${needle}%`);
+            }
+        }
+
+        const whereClause = where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '';
+        const sql = `SELECT id, path, chunk_index, text, vector, mtime FROM vectors${whereClause}`;
+        const result = db.exec(sql, params);
+        if (result.length === 0) return [];
+
+        return result[0].values.map((row) => {
+            const vecBlob = row[4] as Uint8Array;
+            return {
+                id: row[0] as number,
+                path: row[1] as string,
+                chunkIndex: row[2] as number,
+                text: row[3] as string,
+                vector: new Float32Array(vecBlob.buffer, vecBlob.byteOffset, vecBlob.byteLength / 4),
+                mtime: row[5] as number,
+            };
+        });
+    }
+
+    /** Note-layer find. Forces `domain = 'note'` regardless of caller input. */
+    findNoteVectors(filter: Omit<FindVectorsFilter, 'domain'> = {}): VectorEntry[] {
+        return this.findVectors({ ...filter, domain: 'note' });
+    }
+
+    /** Session-layer find. */
+    findSessionVectors(filter: Omit<FindVectorsFilter, 'domain'> = {}): VectorEntry[] {
+        return this.findVectors({ ...filter, domain: 'session' });
+    }
+
+    /** Episode-layer find. */
+    findEpisodeVectors(filter: Omit<FindVectorsFilter, 'domain'> = {}): VectorEntry[] {
+        return this.findVectors({ ...filter, domain: 'episode' });
+    }
+
+    /** Fact-layer find. */
+    findFactVectors(filter: Omit<FindVectorsFilter, 'domain'> = {}): VectorEntry[] {
+        return this.findVectors({ ...filter, domain: 'fact' });
+    }
+
+    /** Mention-layer find. */
+    findMentionVectors(filter: Omit<FindVectorsFilter, 'domain'> = {}): VectorEntry[] {
+        return this.findVectors({ ...filter, domain: 'mention' });
+    }
+
+    /** Thread-layer find. */
+    findThreadVectors(filter: Omit<FindVectorsFilter, 'domain'> = {}): VectorEntry[] {
+        return this.findVectors({ ...filter, domain: 'thread' });
+    }
+
+    /** Entity-layer find. */
+    findEntityVectors(filter: Omit<FindVectorsFilter, 'domain'> = {}): VectorEntry[] {
+        return this.findVectors({ ...filter, domain: 'entity' });
     }
 
     /** Get total number of unique indexed files. */

@@ -160,6 +160,7 @@ export class Stufe2ActivityTrigger {
         // that sql.js rejects with "misuse of aggregate function MAX()". The
         // inner subquery already collapses to one max-mtime row per path via
         // GROUP BY path, so the outer aggregate just averages those.
+        // eslint-disable-next-line no-restricted-syntax -- reason: ADR-137 exception, nested aggregate AVG(MAX(mtime)) needs raw SQL, refactor tracked separately
         const r = db.exec(`SELECT AVG(mtime) FROM (SELECT path, MAX(mtime) AS mtime FROM vectors WHERE path IN (${placeholders}) GROUP BY path)`,
             paths);
         const avgMtime = r[0]?.values?.[0]?.[0] as number | null;

@@ -1050,6 +1050,8 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-122](ADR-122-provider-only-settings-schema.md) | Provider-only Settings-Schema (providers[]-Liste mit tierMapping, EPIC-26) |
 | [ADR-123](ADR-123-settings-schema-migration.md) | Settings-Schema-Migration und Recovery-Pfad (EPIC-26) |
 | [ADR-135](ADR-135-verdict-confidence-routing-and-zdr-gating.md) | Verdict-Confidence-Routing und ZDR-Pflicht für Note-Verifier (IMP-20-06-01) |
+| [ADR-136](ADR-136-knowledgedb-domain-discriminator-and-migration.md) | KnowledgeDB Domain-Diskriminator und Migration v12 zu v13 (FEAT-03-27, Memory v2 Phase 7) |
+| [ADR-137](ADR-137-knowledgedb-domain-access-pattern.md) | KnowledgeDB Domain-Access-Pattern: Helper plus Lint-Regel (FEAT-03-27) |
 
 ---
 

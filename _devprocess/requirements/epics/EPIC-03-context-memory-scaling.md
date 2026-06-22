@@ -49,8 +49,9 @@ Semantic Index (vectra HNSW), Context Management, 3-Tier Memory, Multi-Agent Orc
 | FEAT-03-23 | Memory-UX, Onboarding & Settings-Migration (v2.6.x -> v2-Mapping, Coach-Marks, Agent-als-Fehler-UI) | P1 | Planned | 1 Wo |
 | FEAT-03-24 | Inference-Pass fuer Derives (Pattern-basierte Memory-Evolution, Supermemory-Differenzierung) | P1 | Planned | 1 Wo |
 | FEAT-03-25 | Vault-Note-zu-Fact-Extraction (Documents-Pipeline, einzigartiger Vault-Bridge-Selling-Point) | P1 | Planned | 1.5 Wo |
+| FEAT-03-27 | Tracing-Layer-Trennung in der KnowledgeDB (Schema v12 -> v13, Diskriminator-Trennung User-Vault vs Sessions/Episodes/Facts/Mentions/Threads/Entities, Phase 7 Haertung) | P1 | Planned | 1 Wo |
 
-**Gesamt-Effort Memory v2:** 15.5 Wochen plus Phase 0 (1.5 Wo Spikes + ADRs) = 17 Wochen brutto. (12 Features inkl. Querschnitts-Features 0322/0323 + Supermemory-Differenzierungs-Features 0324/0325 aus A/B/C/E-Beschluessen 2026-04-26.)
+**Gesamt-Effort Memory v2:** 15.5 Wochen plus Phase 0 (1.5 Wo Spikes + ADRs) = 17 Wochen brutto. (12 Features inkl. Querschnitts-Features 0322/0323 + Supermemory-Differenzierungs-Features 0324/0325 aus A/B/C/E-Beschluessen 2026-04-26.) Plus 1 Wo Phase 7 Haertung in FEAT-03-27 (2026-06-22 ergaenzt aus User-Dialog Vault Health Pseudo-Orphans).
 
 ## E1-E10 Empfehlungen aus Supermemory-Differenzierungs-Diskussion (2026-04-26)
 

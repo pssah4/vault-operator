@@ -15,6 +15,18 @@ export default defineConfig({
         ],
         globals: false,
         setupFiles: [path.resolve(__dirname, 'tests/stubs/safeFsSetup.ts')],
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'html', 'json-summary'],
+            include: ['src/**/*.ts'],
+            exclude: [
+                'src/_generated/**',
+                'src/**/__tests__/**',
+                'src/**/*.test.ts',
+                'src/**/*.d.ts',
+                'src/types/**',
+            ],
+        },
     },
     resolve: {
         alias: {

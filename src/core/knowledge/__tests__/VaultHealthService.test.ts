@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS vectors (
     path TEXT NOT NULL, chunk_index INTEGER NOT NULL,
     text TEXT NOT NULL, vector BLOB NOT NULL,
     mtime INTEGER NOT NULL, enriched INTEGER NOT NULL DEFAULT 0,
+    domain TEXT NOT NULL DEFAULT 'note',
     UNIQUE(path, chunk_index)
 );
 CREATE INDEX IF NOT EXISTS idx_vectors_path ON vectors(path);
@@ -399,6 +400,137 @@ describe('VaultHealthService', () => {
             expect(findings.length).toBe(1);
             expect(findings[0].check).toBe('broken_links');
             expect(findings[0].paths).toContain('GHOST.md');
+        });
+
+        it('PLAN-41 Wave 2: checkOrphans ignoriert session-/episode-Zeilen und meldet nur echte Note-Orphans', async () => {
+            const { service, db } = await createHealthService(99);
+
+            // 10 echte Notizen, davon 9 mit eingehender Edge, 1 als echter Orphan.
+            for (let i = 0; i < 10; i++) {
+                db.run(
+                    `INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched, domain)
+                     VALUES (?, 0, '', X'00', 1, 0, 'note')`,
+                    [`Notes/Note${i}.md`],
+                );
+            }
+            // 9 von 10 Notes bekommen eine eingehende Edge.
+            for (let i = 0; i < 9; i++) {
+                insertEdge(db, `Notes/Hub.md`, `Notes/Note${i}.md`);
+            }
+            // Notes/Note9.md bleibt ohne eingehende Edge -> echter Orphan.
+
+            // 50 Session-Zeilen ohne eingehende Edges. Pfade folgen dem URI-Schema.
+            for (let i = 0; i < 50; i++) {
+                db.run(
+                    `INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched, domain)
+                     VALUES (?, 0, '', X'00', 1, 0, 'session')`,
+                    [`session:s${i}`],
+                );
+            }
+
+            // 100 Episode-Zeilen ohne eingehende Edges.
+            for (let i = 0; i < 100; i++) {
+                db.run(
+                    `INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched, domain)
+                     VALUES (?, 0, '', X'00', 1, 0, 'episode')`,
+                    [`episode:e${i}`],
+                );
+            }
+
+            (service as unknown as { app: { vault: { getMarkdownFiles(): unknown[]; getAbstractFileByPath(p: string): unknown }; metadataCache: { getFileCache(): unknown } } }).app = {
+                vault: {
+                    getMarkdownFiles: () => [],
+                    getAbstractFileByPath: () => null,
+                },
+                metadataCache: { getFileCache: () => null },
+            };
+
+            const findings = await service.runChecks(['orphans']);
+            const orphanFinding = findings.find((f) => f.check === 'orphans');
+
+            // Session- und Episode-Pfade duerfen NICHT als Orphans gemeldet werden.
+            expect(orphanFinding?.paths ?? []).not.toContain('session:s0');
+            expect(orphanFinding?.paths ?? []).not.toContain('episode:e0');
+
+            // Der echte Note-Orphan muss weiterhin gemeldet werden.
+            expect(orphanFinding).toBeDefined();
+            expect(orphanFinding?.paths).toContain('Notes/Note9.md');
+
+            // Keine der 9 verlinkten Notes ist Orphan.
+            for (let i = 0; i < 9; i++) {
+                expect(orphanFinding?.paths).not.toContain(`Notes/Note${i}.md`);
+            }
+        });
+
+        it('PLAN-41 Wave 2: cluster-membership ignores tracing-domain vectors (session/episode)', async () => {
+            // Szenario: Eine Edge SOURCE.md -> TARGET.md zeigt auf einen Pfad,
+            // der nur als Tracing-Eintrag (domain='session') im Vektor-Index liegt --
+            // z.B. weil ein Session-Recorder den Pfad versehentlich als .md
+            // gespeichert hat. Ohne den domain-Filter würde der Pfad als "im
+            // Vault vorhanden" gewertet und der broken_link-Befund unterdrückt.
+            // Mit dem Filter zählt nur domain='note' als gültige Cluster-
+            // Mitgliedschaft, sodass die Datei korrekt gegen das Vault-FS
+            // geprüft wird.
+            const { service, db } = await createHealthService(99);
+            db.run(
+                `INSERT OR IGNORE INTO edges
+                  (source_path, target_path, link_type, property_name, confidence)
+                 VALUES ('SOURCE.md', 'TARGET.md', 'body', NULL, 1.0)`,
+            );
+            // TARGET.md liegt als Tracing-Eintrag im Vektor-Index, nicht als Note.
+            db.run(
+                `INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched, domain)
+                 VALUES ('TARGET.md', 0, '', X'00', 1, 0, 'session')`,
+            );
+
+            (service as unknown as { app: { vault: { getAbstractFileByPath(p: string): unknown; getMarkdownFiles(): unknown[] }; metadataCache: { getFileCache(): unknown; getFirstLinkpathDest(): unknown } } }).app = {
+                vault: {
+                    // Datei existiert weder im Vault noch via Linkpath-Resolver.
+                    getAbstractFileByPath: () => null,
+                    getMarkdownFiles: () => [],
+                },
+                metadataCache: {
+                    getFileCache: () => null,
+                    getFirstLinkpathDest: () => null,
+                },
+            };
+
+            const findings = await service.runChecks(['broken_links']);
+            // Der Tracing-Eintrag darf den broken_link-Befund nicht maskieren.
+            expect(findings.length).toBe(1);
+            expect(findings[0].check).toBe('broken_links');
+            expect(findings[0].paths).toContain('TARGET.md');
+        });
+
+        it('PLAN-41 Wave 2: cluster-membership erkennt echte Notes (domain=note) als vorhanden', async () => {
+            // Gegenprobe: Wenn TARGET.md als echte Note (domain='note') im
+            // Vektor-Index liegt, bleibt das Verhalten unverändert -- die Edge
+            // gilt als gecovert, der broken_link-Pre-Filter schließt sie aus.
+            const { service, db } = await createHealthService(99);
+            db.run(
+                `INSERT OR IGNORE INTO edges
+                  (source_path, target_path, link_type, property_name, confidence)
+                 VALUES ('SOURCE.md', 'TARGET.md', 'body', NULL, 1.0)`,
+            );
+            db.run(
+                `INSERT INTO vectors (path, chunk_index, text, vector, mtime, enriched, domain)
+                 VALUES ('TARGET.md', 0, 'echter Note-Inhalt', X'00', 1, 0, 'note')`,
+            );
+
+            (service as unknown as { app: { vault: { getAbstractFileByPath(p: string): unknown; getMarkdownFiles(): unknown[] }; metadataCache: { getFileCache(): unknown; getFirstLinkpathDest(): unknown } } }).app = {
+                vault: {
+                    getAbstractFileByPath: () => null,
+                    getMarkdownFiles: () => [],
+                },
+                metadataCache: {
+                    getFileCache: () => null,
+                    getFirstLinkpathDest: () => null,
+                },
+            };
+
+            const findings = await service.runChecks(['broken_links']);
+            // domain='note' deckt die Edge ab -> keine Findings.
+            expect(findings.length).toBe(0);
         });
 
         it('with backlinksProperty="Notizen", edges under "Notes" are not flagged at all', async () => {

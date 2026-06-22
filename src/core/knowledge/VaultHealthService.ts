@@ -362,9 +362,15 @@ export class VaultHealthService {
             .filter((p) => p.length > 0)
             .map((p) => `${p}%`);
 
+        // PLAN-41 Wave 2 / ADR-137: orphan-Check arbeitet ausschließlich auf der
+        // note-Layer. Ohne den domain-Filter wuerden session-/episode-/fact-Zeilen
+        // (URI-Pfade wie session:..., episode:...) als Pseudo-Orphans gemeldet,
+        // weil sie nie Ziel einer edges-Zeile sind.
+        /* eslint-disable no-restricted-syntax -- reason: ADR-137 exception, layer guard via domain filter, edges-join needs raw SQL */
         const result = db.exec(
             `SELECT DISTINCT v.path FROM vectors v
              WHERE v.chunk_index = 0
+               AND v.domain = 'note'
                AND v.path NOT IN (SELECT DISTINCT target_path FROM edges)
                AND v.path NOT LIKE '%Templates%'
                AND v.path NOT LIKE '%Daily Notes%'
@@ -372,6 +378,7 @@ export class VaultHealthService {
                ${userExcludeClauses}`,
             userExcludeParams,
         );
+        /* eslint-enable no-restricted-syntax */
         if (result.length === 0 || result[0].values.length === 0) return;
 
         const paths = result[0].values.map(row => row[0] as string);
@@ -592,14 +599,22 @@ export class VaultHealthService {
         // candidate set small), but every candidate is now verified
         // against the vault filesystem and Obsidian's linkpath
         // resolver before it becomes a finding.
+        // PLAN-41 Wave 2: Der Vektor-Index enthält auch Tracing-Einträge
+        // (domain in 'session'/'episode'/'fact'/...). Für die Cluster-
+        // Mitgliedschaft -- also "existiert der Pfad als echte Note?" --
+        // zählen nur Zeilen mit domain='note'. Ohne diesen Filter würden
+        // Tracing-Einträge fälschlich als "im Vault vorhanden" gewertet
+        // und broken_link-Befunde maskieren.
+        /* eslint-disable no-restricted-syntax -- reason: ADR-137 exception, layer guard via domain filter, edges-join needs raw SQL */
         const result = db.exec(
             `SELECT DISTINCT source_path, target_path FROM edges
              WHERE target_path LIKE '%.md'
                AND target_path NOT IN (
-                   SELECT DISTINCT path FROM vectors WHERE chunk_index = 0
+                   SELECT DISTINCT path FROM vectors WHERE chunk_index = 0 AND domain = 'note'
                )
              LIMIT 200`,
         );
+        /* eslint-enable no-restricted-syntax */
         if (result.length === 0 || result[0].values.length === 0) return;
 
         const pairs = result[0].values.map(row => ({
@@ -1592,6 +1607,7 @@ export class VaultHealthService {
 
         // Get all paths that have vectors (= exist in vault)
         const vectorPaths = new Set<string>();
+        // eslint-disable-next-line no-restricted-syntax -- reason: ADR-137 exception, layer guard via domain filter, edges-join needs raw SQL
         const vResult = db.exec('SELECT DISTINCT path FROM vectors WHERE chunk_index = 0');
         if (vResult.length > 0) {
             for (const row of vResult[0].values) {
@@ -1691,10 +1707,12 @@ export class VaultHealthService {
 
                 // mtime aus vectors (latest pro path)
                 const placeholders = paths.map(() => '?').join(',');
+                /* eslint-disable no-restricted-syntax -- reason: ADR-137 exception, layer guard via domain filter, edges-join needs raw SQL */
                 const mtimeRaw = db.exec(
                     `SELECT path, MAX(mtime) FROM vectors WHERE path IN (${placeholders}) GROUP BY path`,
                     paths,
                 );
+                /* eslint-enable no-restricted-syntax */
                 if (mtimeRaw.length === 0 || mtimeRaw[0].values.length === 0) continue;
 
                 let totalAgeDays = 0;
