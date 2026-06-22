@@ -144,6 +144,12 @@ export default class ObsidianAgentPlugin extends Plugin {
     toolRegistry: ToolRegistry;
     apiHandler: ApiHandler | null = null;
     /**
+     * EPIC-33: Inline-Editor-AI-Actions service. Instantiated by
+     * wireInlineActions() once the apiHandler and tool registry are
+     * ready. Disposed in onunload.
+     */
+    inlineActions: import('./core/inline/PluginWiring').InlineWiringResult | null = null;
+    /**
      * EPIC-26 / FEAT-26-04: when a one-shot migration ran during onload
      * its summary lives here until the sidebar consumes it for the
      * notification modal. Cleared after first display.
@@ -2198,6 +2204,25 @@ export default class ObsidianAgentPlugin extends Plugin {
             callback: () => this.activateView()
         });
 
+        // EPIC-33: Inline-Editor-AI-Actions wiring. Builds the action
+        // registry + floating-menu over the live editor and the active
+        // provider. No default hotkey -- user binds in Settings.
+        try {
+            const wiring = await import('./core/inline/PluginWiring');
+            this.inlineActions = wiring.wireInlineActions(this);
+        } catch (e) {
+            console.warn('[main] inline-actions wiring failed (non-fatal):', e);
+            this.inlineActions = null;
+        }
+
+        this.addCommand({
+            id: 'open-inline-ai-menu',
+            name: 'Open inline AI menu',
+            callback: () => {
+                this.inlineActions?.service.triggerMenu();
+            },
+        });
+
         // FEATURE-0319 Phase 5: Save active conversation to memory.
         // No default hotkey -- user assigns via Settings -> Hotkeys.
         this.addCommand({
@@ -2410,6 +2435,14 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     onunload(): void {
         console.debug('Unloading Vault Operator plugin');
+        // EPIC-33: dispose inline-actions before async cleanup so the
+        // floating-menu listeners detach immediately.
+        try {
+            this.inlineActions?.dispose();
+        } catch (e) {
+            console.debug('[main] inline-actions dispose error (non-fatal):', e);
+        }
+        this.inlineActions = null;
         // Fire-and-forget async cleanup (Plugin API expects synchronous return)
         void (async () => {
             // Flush any pending chat-links before shutdown

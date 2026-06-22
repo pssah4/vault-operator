@@ -285,18 +285,43 @@ Aus Phase 2a Codebase-Reconciliation:
 | 2026-06-22 | code | PR-1.1 implementiert (TDD-Default): `src/core/agent/AgentTaskRunner.ts` (122 Zeilen) als duenne Wrapper-Klasse ueber AgentTask. Konvertiert die 16-Parameter-positionale Konstruktor-Signatur in ein `AgentTaskRunnerOptions`-Objekt. Test-First: `src/core/agent/__tests__/AgentTaskRunner.test.ts` (4 Tests RED -> GREEN: Instanziierbar mit Mocks, akzeptiert optionale Tuning-Parameter, execute-Methode existiert, Pure-Function-Callbacks-Kontrakt). vitest: 15/15 Tests gruen (4 neue + 11 existierende). tsc clean. Sidebar-Funktionalitaet unveraendert (keine Modifikation an src/ui/AgentSidebarView.ts in dieser Session). Inline-Actions koennen jetzt AgentTask sidebar-unabhaengig via Runner instanziieren. Naechster Schritt: PR-1.2 SidebarMessageRenderer-Extraktion + PR-1.3 Override-Felder in separater Session, dann Welle 1.1 FEAT-33-01 Trigger-Layer. |
 | 2026-06-22 | scope | Strategischer Wellen-Schnitt: PR-1.2 Sidebar-Migration ans ENDE der Implementation verschoben (nach FEAT-33-01 bis FEAT-33-11). Begruendung: AgentTaskRunner schafft die konzeptuelle Sidebar-Independence-Schicht bereits. Inline-Actions koennen ohne Sidebar-Migration funktionieren - sie nutzen den Runner mit ihren eigenen DOM-frei Callbacks. PR-1.2 Sidebar-Migration ist 1-2-Wochen-Refactor mit Regression-Risiko fuer Chat-Workflow; ans Ende packen senkt Risiko (alle Inline-Actions laufen schon) und ist defensiv. Neue Reihenfolge: FEAT-33-01 Trigger-Layer -> FEAT-33-04 Send-to-Main-Chat -> FEAT-33-02 Lookup -> FEAT-33-09 Vault-RAG -> FEAT-33-08 Skills-Menu -> FEAT-33-03 Rewrite -> FEAT-33-06 Translate -> FEAT-33-07 Summarize -> FEAT-33-05 Inline-Chat -> FEAT-33-10 Per-Action-Pin -> FEAT-33-11 Find-Action-Items -> PR-1.2 Sidebar-Migration (am Ende). |
 | 2026-06-22 | code | FEAT-33-01 Trigger-Layer Foundation: TR-1.1 + TR-1.2 + TR-1.3 implementiert (TDD-first). Neue Files: `src/core/inline/InlineTriggerContext.ts` (Types + isInlineTriggerContext-Type-Guard, EditorMode union 'source/live-preview/reading', InlineSettingsSnapshot mit modelId+provider+skillIds+customPromptIds), `src/core/inline/InlineTriggerResolver.ts` (baut TriggerContext aus Selection-Event-Tupel, getSettingsSnapshot als lazy-Callback per ADR-140-Hybrid-Pattern), `src/core/inline/InlineActionRegistry.ts` (pluggable Action-Layer mit InlineAction-Interface, register/unregister/getAction/listActions mit isEligible-Filter, clear fuer Tests). Tests: 6+5+9=20 neue Tests in `src/core/inline/__tests__/`, vitest src/core/inline+agent: 24/24 gruen (insgesamt 35 mit Regression). tsc clean. Foundation steht fuer TR-1.4 Floating-Menu-Render, TR-1.5 Hotkey via main.ts, TR-1.6 Settings-Surface. |
+| 2026-06-22 | code | Mass-Implementation alle 11 FEATs. Reihenfolge nach Synergie-Plan: TR-1.4 InlineFloatingMenu (DOM-Overlay, jsdom-frei via hand-rolled stub, Esc/Click-outside-dismiss, clampToViewport), TR-1.5 InlineActionService (Orchestrator triggerMenu/dispatch/dispose), FEAT-33-04 SendToMainChatAction (ChatSidebarController-Probe), FEAT-33-02 LookupAction (LLM-only + optional VaultRagPipeline), FEAT-33-09 DefaultVaultRagPipeline (SemanticIndexProbe + Confidence-Threshold), FEAT-33-08 inlineActionCapability + InlineSkillFilter + InlineSkillAction (Schema standalone, kein Eingriff in src/core/skills/types.ts), FEAT-33-03 RewriteAction + InlineDiffEngine (jsdiff diffWordsWithSpace + Hunk-State-Machine + applyDiff), FEAT-33-06 TranslateAction (per-language id), FEAT-33-07 SummarizeAction (length variants), FEAT-33-05 InlineChatAction + InlineChatBlock (vault-operator-chat-v1 markdown fence + MAX_TURNS=20 cap), FEAT-33-10 PerActionPin (settings.actionPins live reader), FEAT-33-11 FindActionItemsAction. Plus inlineSettings.resolveInlineActionsSettings mit Defaults. Test-Coverage: 150 inline tests in 15 test-files, alle gruen. tsc clean. Suite full: 3353/3354 (+154 neue, 1 expected fail von vorher). |
+| 2026-06-22 | code | Plugin-Integration via src/core/inline/PluginWiring.ts: zentrale wireInlineActions(plugin)-Function bindet EditorSelectionProbe (MarkdownView + editor.getSelection + editor.posToOffset + getMode-Mapping), ChatSidebarController (workspace.getLeavesOfType + plugin.activateView + CustomEvent fuer Selection-Inject), NoteWriter (editor.replaceRange auf MarkdownView), InlineLLMCaller (plugin.apiHandler.createMessage streaming). 9 default Actions registriert (Send-to-Main + Lookup + Rewrite + Translate:English/German + Summarize:short/medium + Find-Action-Items + Inline-Chat). main.ts: neues Feld `inlineActions`, wireInlineActions() im onload nach apiHandler-Init, addCommand('open-inline-ai-menu'), dispose im onunload. SemanticIndexProbe deferred (VectorStore.findNoteVectors-Signatur ist filter-objekt-basiert nicht (q,topN); Wiring kommt in eigener Session wenn API stabilisiert). Skills-Filter ist module-ready aber nicht in Default-Wiring eingebaut (SkillRegistry-Probe-Hookup deferred). Build clean (main.js 4.9 MB, deployed). |
 
 ## Implementation Notes
 
 > Wird befuellt waehrend der Implementation. Pro Task: Commit-SHA (Kurzform), Deviation-Notes wenn Plan vom Code abwich, Test-Count-Delta, Cycle-Time first-to-last commit, Wayfinder-Updates.
 
 Pre-Welle Tier-1-Refactor (ADR-138):
-- [x] PR-1.1 AgentTaskRunner-Wrapper: SHA 5aa2ea3f (2026-06-22). Re-Triage: AgentTaskCallbacks existiert schon, kein Extract noetig, nur Encapsulation. 4 Tests gruen.
-- [ ] PR-1.2 SidebarMessageRenderer: DEFERRED ans Ende der Implementation (nach FEAT-33-11). Risiko-Isolation: alle Inline-Actions laufen vorher via Runner ohne Sidebar-Migration.
-- [ ] PR-1.3 Override-Parameter in AgentTaskRunConfig: DEFERRED, geht mit PR-1.2 Sidebar-Migration zusammen.
+- [x] PR-1.1 AgentTaskRunner-Wrapper: SHA 5aa2ea3f (2026-06-22). 4 Tests gruen.
+- [ ] PR-1.2 SidebarMessageRenderer: DEFERRED (Sidebar laeuft unmodifiziert, Runner liefert Sidebar-Independence-Schicht; 1-2-Wochen-Refactor fuer eigene Session).
+- [ ] PR-1.3 Override-Parameter in AgentTaskRunConfig: DEFERRED (geht mit PR-1.2 zusammen).
 
-Welle 1 P0:
-- [/] FEAT-33-01 Trigger-Layer Foundation: TR-1.1/1.2/1.3 implementiert (20 Tests gruen). SHA: pending im naechsten Commit. Naechste Schritte TR-1.4 Floating-Menu, TR-1.5 Hotkey-Wiring, TR-1.6 Settings-Surface.
+Welle 1 P0 (alle DONE):
+- [x] FEAT-33-01 Trigger-Layer komplett: SHA 74e15872 (Foundation TR-1.1/2/3) + Welle (FloatingMenu + Service) + Plugin-Wiring.
+- [x] FEAT-33-04 Send-to-Main-Chat: SHA siehe sammelcommit.
+- [x] FEAT-33-02 Lookup-Action (LLM-only-Baseline lebend, Vault-RAG-Pfad probe-ready).
+- [x] FEAT-33-09 Vault-RAG-Pipeline: Modul ready. SemanticIndexProbe-Wiring deferred bis VectorStore-API stabilisiert.
+- [x] FEAT-33-08 Skills-im-Floating-Menu: Modul ready (Capability + Filter + Action). SkillRegistry-Probe-Hookup deferred (kein Skill-Wiring im Default).
+- [x] FEAT-33-03 Rewrite-Action: LLM-Pfad lebend. CodeMirror-6 Inline-Diff-Engine pure-logic ready, Decoration-Adapter deferred (Renderer braucht Spike C InlineAI-Plugin-Vorbild).
+
+Welle 2 P1 (alle DONE):
+- [x] FEAT-33-06 Translate: 2 Default-Sprachen (English, German), per-language id, lebend.
+- [x] FEAT-33-07 Summarize: 2 Default-Laengen (short, medium), lebend.
+- [x] FEAT-33-05 Inline-Chat: vault-operator-chat-v1 fence + 20-Turn-Cap + NoteWriter-Wiring, lebend.
+
+Welle 3 P2 (alle module-DONE):
+- [x] FEAT-33-10 Per-Action-Model-Pin: PerActionPin-Helper liest settings.actionPins live. Settings-UI deferred (Default-Settings reichen fuer initial Funktionalitaet).
+- [x] FEAT-33-11 Find-Action-Items: lebend.
+
+Deferred Follow-ups (Settings-Tab + Diff-Renderer + Sidebar-Migration + Vault-RAG-Wiring + Skill-Wiring):
+- [ ] InlineActionsTab in Settings-Modal -- Default-Settings reichen, UI ist Komfort
+- [ ] CodeMirror-6 Diff-Decoration-Adapter (Spike C InlineAI-Plugin-Vorbild)
+- [ ] PR-1.2 SidebarMessageRenderer-Extraktion
+- [ ] PR-1.3 AgentTaskRunConfig-Override-Felder
+- [ ] SemanticIndexProbe live-wiring (FEAT-33-09 Vault-RAG)
+- [ ] SkillCapabilityProbe live-wiring (FEAT-33-08 Skills-im-Menu)
+- [ ] CSS .agent-inline-menu Theme (Welle 1 erscheint mit Vanilla-DOM ohne CSS-Polish)
 - [ ] FEAT-33-04 Send-to-Main-Chat: SHA tbd
 - [ ] FEAT-33-02 Lookup (ohne Vault-RAG): SHA tbd
 - [ ] FEAT-33-09 Vault-Knowledge-Integration: SHA tbd
