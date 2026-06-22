@@ -328,11 +328,14 @@ export class InlineChatOrchestrator {
         const assistantId = handle.appendMessage({ role: 'assistant', text: '' });
         handle.setStatus(`${label}…`);
 
-        // Edit-actions (Rewrite) collect the stream so we can hand the
-        // collected text to the EditReviewModal once the LLM is done.
-        // Display-only actions (Lookup, Find-Items, Translate, Summarize)
+        // Edit-actions (Rewrite, Translate) collect the stream so we
+        // can hand the result to the EditReviewModal once the LLM is
+        // done. Display-only actions (Lookup, Find-Items, Summarize)
         // just stream into the bubble.
-        const isEditAction = args.actionId === 'rewrite';
+        // BUGFIX 2026-06-23: Translate is meant to REPLACE the selection
+        // in the note, not only render in the chat. Promoted to edit-action
+        // so the review-and-apply path runs after the stream.
+        const isEditAction = args.actionId === 'rewrite' || args.actionId === 'translate';
         let collected = '';
         const callbacks: AgentTaskCallbacks = {
             onText: (chunk) => {
