@@ -238,45 +238,36 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: auto;
 }
 
 .vp-doc th {
   font-weight: 600;
   text-align: left;
-  white-space: nowrap;
 }
 
 .vp-doc td,
 .vp-doc th {
   padding: var(--agent-space-3) var(--agent-space-4);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+/* Inline code inside tables wraps instead of forcing horizontal scroll. */
+.vp-doc td code,
+.vp-doc th code {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .vp-doc tr:hover {
   background-color: var(--agent-brand-tint-weak);
 }
 
-/* Mobile tables: at <720px, the table's parent block becomes a horizontal
-   scroller so wide tables don't overflow the body width. */
+/* Tighten cell padding on small screens. */
 @media (max-width: 720px) {
-  /* The table's parent (usually the section block) becomes the scroller. */
-  .vp-doc > table,
-  .vp-doc div:has(> table),
-  .vp-doc .table-wrapper {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius: var(--agent-radius-md);
-  }
-
-  /* The table itself stops shrinking and starts scrolling. */
-  .vp-doc table {
-    width: auto;
-    min-width: 100%;
-  }
-
-  /* Tighten cell padding on small screens. */
   .vp-doc td,
   .vp-doc th {
     padding: var(--agent-space-2) var(--agent-space-3);

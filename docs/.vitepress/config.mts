@@ -154,7 +154,6 @@ export default withMermaid(
         { text: 'Guides', link: '/guides/capabilities', activeMatch: '/guides/' },
         { text: 'Concepts', link: '/concepts/', activeMatch: '/concepts/' },
         { text: 'Reference', link: '/reference/tools', activeMatch: '/reference/' },
-        { text: 'Releases', link: '/releases/v2.14', activeMatch: '/releases/' },
         { text: 'About', link: '/about' },
       ],
       sidebar: {

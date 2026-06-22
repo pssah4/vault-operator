@@ -38,6 +38,7 @@ const PLUGIN_VERSION = '2.14.15'
       </a>
     </div>
   </section>
+
 </template>
 
 <style scoped>

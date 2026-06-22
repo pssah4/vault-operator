@@ -14,6 +14,28 @@ Free. Open source. Local-first. Works with cloud models, with your existing Chat
 
 ---
 
+## What people are saying
+
+> "Vault Operator might be the best Obsidian agentic AI plugin out there."
+> *Nick, Buy Me a Coffee*
+
+> "I've just discovered your wonderful plugin, which to me is way more than a simple plugin. It is a real harness inside Obsidian. That's awesome!"
+> *arkham000, GitHub*
+
+> "Vault Operator is one of the most interesting and powerful Obsidian plugins I've tried so far. The combination of agent functionality, vault access and document processing is particularly impressive."
+> *Stapledon-de, GitHub*
+
+> "Love your work with Vault Operator."
+> *mikaljrue, Buy Me a Coffee*
+
+> "Vault Operator plugin is exactly what I was looking for. The ability to plug in MCP, the support for various models and providers, the skills, and workflows. I am really looking forward to get my hands dirty. I am hoping I won't need to use VS Code + GitHub Copilot to help me manage my vault anymore."
+> *Buy Me a Coffee supporter*
+
+> "I have only just started, but this is real motivation to get back into Obsidian again."
+> *hkocam, Buy Me a Coffee (translated from German)*
+
+---
+
 ## What you get
 
 A chatbot reads your prompt and answers. Vault Operator runs a loop: it picks an action, executes it against your vault, feeds the result back to the model, and continues until the task is done.
