@@ -246,3 +246,9 @@ Da Standard-sql.js kein JSON1 hat:
 - ATTACH+CTE-Performance auf Sebastian's realen DBs (Spike Phase 0)
 - FTS5-WASM-Bundle-Size-Auswirkung auf Plugin-Bundle-Limit (Spike Phase 0)
 - Konflikt-Handling wenn `from_fact_id` deprecated wird, was passiert mit ausgehenden Edges? (Cascade vs. Soft-Drop)
+
+## Amendment 2026-06-22 (FEAT-03-27 / ADR-136)
+
+Memory v2 Phase 7 ergaenzt das hier beschriebene Schema additiv um eine Domain-Diskriminator-Spalte auf der `vectors`-Tabelle (`vectors.domain TEXT NOT NULL DEFAULT 'note'`). Der Wertebereich ist `'note'`, `'session'`, `'episode'`, `'fact'`, `'mention'`, `'thread'`, `'entity'`. Migration v12 nach v13 leitet den Diskriminator-Wert fuer bestehende Zeilen aus dem Pfad-Prefix ab. Details und Begruendung in ADR-136. Reader/Writer-Coverage-Mechanik in ADR-137.
+
+Die hier in ADR-77 beschriebenen Tabellen (`facts`, `fact_edges`, `fact_embeddings`, `styles`, `audit`, `known_topics`, `conversation_threads`) sind von ADR-136 nicht beruehrt und brauchen keine Migration. Sie liegen in `memory.db`, waehrend `vectors` in `knowledge.db` lebt. ADR-136 betrifft ausschliesslich `knowledge.db`.

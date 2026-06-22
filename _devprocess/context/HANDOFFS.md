@@ -59,7 +59,7 @@ P2:
 
 **Offene Fragen fuer RE:**
 - Epic-Nummer: EPIC-023-mobile-support (bestaetigt ungenutzt)
-- Mindestens ein Spike (H-02, H-03) vor Feature-Breakdown sinnvoll? Oder RE jetzt, Spike-Ergebnisse spaeter in Features einarbeiten?
+- Mindestens ein Spike (H-02, H-03) vor Feature-Breakdown sinnvoll? Oder RE jetzt, Spike-Ergebnisse später in Features einarbeiten?
 - Zweite Persona: bleibt Hypothese oder werden Community-Interviews (Method: Explorative interviews, 5-8 User) jetzt parallel angestossen?
 
 **Naechster Schritt:**
@@ -367,7 +367,7 @@ Output erwartet:
 **Nicht getan in dieser Session:**
 
 - Spikes nicht ausgefuehrt (User-Entscheidung erforderlich)
-- ADRs nicht zu Accepted promoted (haengen an Spike-Ergebnissen ab)
+- ADRs nicht zu Accepted promoted (hängen an Spike-Ergebnissen ab)
 - Phase-0.5-Implementation noch nicht gestartet (FEAT-03-14)
 - Plan Coverage Gate auf PLAN-002 noch nicht final gerunnt (kein Feature-Spec referenziert, ADR-Coverage in Tabelle)
 
@@ -438,7 +438,7 @@ PLAN-003 anlegen (FEAT-03-14 implementation plan):
 - Custom-sql.js-WASM-Build mit FTS5+JSON1 (Spike-2-Final-Verifikation)
 - PRAGMA integrity_check beim Open
 
-Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
+Effort: 1 Wo. Code-Änderungen primaer in src/core/knowledge/.
 ```
 
 ---
@@ -474,7 +474,7 @@ Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
 
 **Constraints:**
 
-- Inoffizielle Endpoints (`chatgpt.com/backend-api/codex/responses`), kein SLA, Schema kann sich aendern. Disclaimer-Pflicht im UI.
+- Inoffizielle Endpoints (`chatgpt.com/backend-api/codex/responses`), kein SLA, Schema kann sich ändern. Disclaimer-Pflicht im UI.
 - Codex-CLI-Client-ID als Default. Kein Custom-Feld in MVP. OpenAI-Sperrrisiko ueber Endpoint-Drift-Indikator monitoren.
 - Mobile (iOS/Android) ausgeschlossen, weil `safeStorage` und Loopback-Server fehlen.
 - Plugin-Review-Risiko: Loopback-HTTP-Server koennte Aufmerksamkeit ziehen. PR-Begruendung vorbereiten.
@@ -521,7 +521,7 @@ Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
 
 **Bekannte Risiken (Monitoring waehrend /coding noetig):**
 
-- **Endpoint-Drift Codex-Schema** (hoch, intrinsisch): Mapper-Datei hat Schema-Annahmen mit Datums-Kommentar. Bei unerwarteten Events `console.warn` plus Drift-Indikator. Bei strukturellen Aenderungen klare Fehlermeldung statt stiller Fehlinterpretation.
+- **Endpoint-Drift Codex-Schema** (hoch, intrinsisch): Mapper-Datei hat Schema-Annahmen mit Datums-Kommentar. Bei unerwarteten Events `console.warn` plus Drift-Indikator. Bei strukturellen Änderungen klare Fehlermeldung statt stiller Fehlinterpretation.
 - **OpenAI sperrt Codex-Client-ID fuer Drittanbieter** (mittel, hoch): Disclaimer im Settings-UI, klare BYOK-Fallback-Empfehlung in der Doku.
 - **Plugin-Review-Bot beanstandet `require('http')`** (mittel): Praezedenzfaelle (`require('https')` in `openai.ts`, `require('electron')` in SafeStorageService). PR-Begruendung vorbereiten.
 - **Modell-Liste veraltet bei OpenAI-Updates** (hoch): Plugin-Update-Pfad, optional Probe-Request als Folge-Feature.
@@ -553,7 +553,7 @@ Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
    - Ist `src/api/providers/openai.ts:75` Node-`https`-Pattern noch aktuell?
    - Ist die `LLMProvider`-Union an allen exhaustive Switch-Statements gepflegt?
    - Existiert `SafeStorageService.SafeStorageEnvelope` exakt im erwarteten Schema?
-2. PLAN-Erstellung mit fester Plan-Struktur (Kontext, Aenderungen, Dateien-Zusammenfassung, Nicht betroffen, Verifikation).
+2. PLAN-Erstellung mit fester Plan-Struktur (Kontext, Änderungen, Dateien-Zusammenfassung, Nicht betroffen, Verifikation).
 3. Implementierungs-Reihenfolge: FEATURE-021-001 -> FEATURE-021-002 -> FEATURE-021-003.
 4. Build und Deploy nach jedem Implementierungsschritt.
 5. Nach Implementierung: /testing und /security-audit vorschlagen (V-Model-Checklist).
@@ -637,7 +637,7 @@ Effort: 1 Wo. Code-Aenderungen primaer in src/core/knowledge/.
 - `src/ui/settings/ModelConfigModal.ts` (`shell.openExternal` statt `window.open`)
 - `src/ui/settings/constants.ts` (Modell-Liste auf `gpt-5.5`/`gpt-5`/Codex-Varianten)
 - `src/types/settings.ts` (Default `chatgptOAuthModel: 'gpt-5.5'`)
-- `_devprocess/implementation/plans/PLAN-09-feature-021-chatgpt-oauth.md` (Status Implemented, Change Log mit fuenf Bug-Eintraegen)
+- `_devprocess/implementation/plans/PLAN-09-feature-021-chatgpt-oauth.md` (Status Implemented, Change Log mit fuenf Bug-Einträgen)
 
 **Open Items (technisch geklaert):**
 
@@ -679,8 +679,8 @@ V-Model-Checklist: nach /coding kommt /testing plus /security-audit. Beides empf
 - IgnoreService-Build-Semantik ist aufgeloest. SemanticIndex bekommt `isIgnored`-Predicate in den Optionen; ignorierte Files landen nicht mehr im Embedding-Store. Read-time-Filter bleibt als Defense-in-Depth.
 
 **Deferred (P3, Low):**
-- L-1, L-2, L-3: false positive oder bereits mitigated -- keine Backlog-Eintraege noetig
-- L-4: 4 moderate npm-Advisories in uuid via exceljs/mermaid -- unsere Code-Pfade nicht betroffen, deferred zur naechsten Dependency-Bump-Welle
+- L-1, L-2, L-3: false positive oder bereits mitigated -- keine Backlog-Einträge noetig
+- L-4: 4 moderate npm-Advisories in uuid via exceljs/mermaid -- unsere Code-Pfade nicht betroffen, deferred zur nächsten Dependency-Bump-Welle
 
 **Tests:** 1023 / 1023 gruen nach Fixes, keine Regressions.
 
@@ -703,7 +703,7 @@ V-Model-Checklist: nach /coding kommt /testing plus /security-audit. Beides empf
 
 **Phase 7 (Consistency Check Mode A):** 0 Findings. `_devprocess/context/.git/consistency-check.last-run.json` schreibt leeres `findings`-Array.
 
-**Konsequenz:** Keine Aenderungen am Repo. Branch `dia-migration` enthaelt nur diesen Handoff-Eintrag und kann gemerged oder verworfen werden. Kuenftige `/dia-migration`-Laeufe bleiben dank Idempotenz still, solange das Repo v2-konform bleibt.
+**Konsequenz:** Keine Änderungen am Repo. Branch `dia-migration` enthaelt nur diesen Handoff-Eintrag und kann gemerged oder verworfen werden. Kuenftige `/dia-migration`-Laeufe bleiben dank Idempotenz still, solange das Repo v2-konform bleibt.
 
 ---
 
@@ -806,12 +806,12 @@ Retrieval:
 
 Ingest:
 - Triage-Tool als eigenstaendiges `ingest_triage` oder Erweiterung `ingest_document`?
-- Source-Identitaet-Modell: Domain-only fuer MVP, Author-Level spaeter?
+- Source-Identitaet-Modell: Domain-only fuer MVP, Author-Level später?
 - Tension-Detection: Cosine-Schwellwert vs LLM-Klassifikation vs Hybrid?
 - Dialog-Ingest-State: wo lebt der State zwischen Dialog-Turns (Conversation, eigene Tabelle, Memory-v2)?
 - Wenn User Output-Modus aendert (zB von 2 nach 3): retroaktive Re-Verarbeitung oder nur fuer neue Sources?
 - Source-Folder vs Wissens-Folder: Konvention oder konfigurierbar pro User?
-- Tension-Marker in Multi-Zettel-Modus: an Zettel mit Claim haengen oder als separate Tension-Note?
+- Tension-Marker in Multi-Zettel-Modus: an Zettel mit Claim hängen oder als separate Tension-Note?
 - Wie verhalten sich Zettel-Notes zur Memory-v2-Fact-Extraktion (FEAT-03-25)?
 
 Lint:
@@ -1145,8 +1145,8 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 
 **Test-Stand:** alle BA-25-Tests gruen (96/96 in dieser Session). Build erfolgreich, Plugin deployed.
 
-**Was nach Wiring noch offen ist (deferred zu spaetere Iteration):**
-- Tatsaechliche Triage-Aktion beim Auto-Trigger: aktuell nur Notice + Log. Soll spaeter ingest_triage Tool-Call ausloesen (braucht Agent-Trigger-Mechanik).
+**Was nach Wiring noch offen ist (deferred zu spätere Iteration):**
+- Tatsaechliche Triage-Aktion beim Auto-Trigger: aktuell nur Notice + Log. Soll später ingest_triage Tool-Call ausloesen (braucht Agent-Trigger-Mechanik).
 - Backfill-Job UI mit Progress-Bar (FrontmatterBackfillJob existiert, kein Settings-Button gewired).
 - Stufe-3-Job-Wiring: Stufe3PeriodicJob existiert, setInterval-Wrapper plus PreFilter/WebSearch-Hooks fehlen (LLM-Coupling-Entscheidung offen).
 - Top-Hub-Block-Integration in ContextComposer (FEAT-03-26): Generator vorhanden, ContextComposer-Hook fehlt.
@@ -1158,7 +1158,7 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 - 28 FEATs: 22 Done, 6 Active (Wiring-Tail-Items oben)
 - 15 ADRs: alle Accepted
 - 5 PLANs (PLAN-10..14): PLAN-10/11 Done, PLAN-12/13/14 Active mit Backend done plus Wiring-Teil-done
-- ~17.000 Zeilen Source + Tests in 14 neuen Service-Klassen plus 10 wiring-Aenderungen
+- ~17.000 Zeilen Source + Tests in 14 neuen Service-Klassen plus 10 wiring-Änderungen
 - 1112 Tests gruen (1 pre-existing Failure FIX-03-18-01 erfasst)
 
 **Recommended next:** Manuelles Testen im Vault: Auto-Trigger mit "Kategorie: Quelle"-Property ausprobieren, Settings-UI durchklicken, vault_health_check ausfuehren und neue cluster_freshness/source_concentration-Output pruefen.
@@ -1170,7 +1170,7 @@ related-epics: EPIC-15, EPIC-19, EPIC-03
 triage: BA-25
 triage_kind: feature
 
-**Phase:** /testing fuer Wiring-Session-Aenderungen abgeschlossen.
+**Phase:** /testing fuer Wiring-Session-Änderungen abgeschlossen.
 
 **Tests neu:**
 - src/core/tools/vault/__tests__/IngestTriageTool.test.ts (6 Tests):
@@ -1292,7 +1292,7 @@ triage_kind: feature
 - **FEAT-19-11 MOC-Pflege-Wiring:** refreshAllMOCs()-Methode iteriert ueber Notes mit obsilo:auto-start-Marker, baut Auto-Body via buildMOCAutoBody (Halbwertszeit + Cluster-Source-Stats + Concentration-Score-Hint). Command + Settings-Button.
 - **FEAT-19-13 TensionDetector-Wiring:** Im DeepIngestPipeline-Service eingebaut. PlanGeneratorFn (LLM) liefert Take-Aways, TensionDetector klassifiziert via Hooks, Marker werden als Inline-Callouts im Sense-Making-Body angehaengt.
 - **FEAT-19-14 Concentration-Counter im Pipeline:** DeepIngestPipeline.run() inkrementiert via sourceStats?.incrementCount(cluster, sourceDomain). IngestTriageTool zeigt Concentration-Warning bereits beim Triage-Pass (war schon).
-- **FEAT-19-15 Inbox-Workflow:** runInboxTriage()-Methode iteriert vault.getMarkdownFiles() mit konfigurierter Auto-Trigger-Property, erfasst pending-Eintraege im Triage-Log. Command + Settings-Button.
+- **FEAT-19-15 Inbox-Workflow:** runInboxTriage()-Methode iteriert vault.getMarkdownFiles() mit konfigurierter Auto-Trigger-Property, erfasst pending-Einträge im Triage-Log. Command + Settings-Button.
 - **FEAT-19-20 Stufe-3 setInterval-Wrapper:** Plugin-onload registriert setInterval mit 1h-Tick. Wrapper-Body ruft rolloverIfNewWeek + run() wenn auto-trigger.enabled. ClusterMetadataStatePersistence laed Budget-State automatisch beim Konstruktor. onunload clearInterval.
 - **FEAT-19-21 Hot-Cluster-Settings-UI:** VaultTab listet alle Cluster aus clusterMetadataStore.getAll() mit per-Cluster Toggle. Aenderung schreibt direkt in cluster_metadata + KnowledgeDB-save.
 - **FEAT-19-23 Auto-Modus B = DeepIngestPipeline mode='auto':** keine separate Pipeline noetig, bestehender PipelineGenerator unterstuetzt mode-Flag. Caller entscheidet Dialog vs Auto.
@@ -1336,7 +1336,7 @@ Auth/AccessControl).
 
 **Plugin-Reload empfohlen** damit M-1 (write_vault Cap), M-2
 (LIKE-Escape), M-3 (get_context Source-Isolation), M-4 (UUID-IDs)
-live wirken. Worker-Redeploy NICHT noetig (alle Aenderungen
+live wirken. Worker-Redeploy NICHT noetig (alle Änderungen
 plugin-side).
 
 ---
@@ -1379,7 +1379,7 @@ Erste 4 Wochen Production-Use als Datengrundlage.
 - arc42 Section 5.5: KnowledgeDB Schema v5 -> v10
 - arc42 Section 5.9.1: Memory v2 Cross-Surface MCP-Block ergaenzt
 - arc42 Section 8.14: MCP-Tools-Block aktualisiert (Memory-v2 Tools, Hardening, ADRs 107/108/110)
-- arc42 Section 9: ADR-Tabelle um ADR-90..110 erweitert (21 neue Eintraege)
+- arc42 Section 9: ADR-Tabelle um ADR-90..110 erweitert (21 neue Einträge)
 
 **Backlog-Cleanup:** 8 FIXes von Open auf Done (commit 37ce55a),
 20 Stub-Detail-Files fuer Backlog-Orphans erstellt, 5 PLAN-10..14
@@ -1678,7 +1678,7 @@ IMPs erlauben technische Begriffe in Loesung und Akzeptanzkriterien (anders als 
 
 - `_devprocess/architecture/ADR-111-provider-capability-flag-und-bedrock-cachepoint.md`: neuer ADR (Status Proposed). Vier Optionen geprueft, Option C (statische Capability-Tabelle) plus direkte Provider-Implementierungen gewaehlt. Konsistent mit ADR-62-Praemisse "kein separater Adapter".
 - `_devprocess/architecture/ADR-62-kv-cache-optimized-prompt.md`: dated Note "Update 2026-05-09" angefuegt, korrigiert zwei implizite Annahmen (Bedrock automatisch, UI-Visibility hardcoded). ADR bleibt Accepted, nicht superseded.
-- `_devprocess/requirements/handoff/plan-context-imp-18-01.md`: Tech-Stack, ADR-Summary, Capability-Tabellen-Initialbestand (~17 Eintraege), Tooltip-Text, Implementierungsreihenfolge, Live-Test-Protokoll fuer H-313-3.
+- `_devprocess/requirements/handoff/plan-context-imp-18-01.md`: Tech-Stack, ADR-Summary, Capability-Tabellen-Initialbestand (~17 Einträge), Tooltip-Text, Implementierungsreihenfolge, Live-Test-Protokoll fuer H-313-3.
 - `src/ARCHITECTURE.map`: vier Wayfinder-Zeilen aktualisiert (anthropic, openai, bedrock + neuer Eintrag `cache-capability`).
 - `_devprocess/context/BACKLOG.md`: neue Row ADR-111 (Proposed/Building), Refs in IMP-18-01-01/02 um ADR-111 ergaenzt, Dashboard-Counter aktualisiert.
 - IMP-Spec-Frontmatter: `adr-refs: [ADR-62, ADR-111]` in beiden IMPs.
@@ -1735,7 +1735,7 @@ Diese Punkte loest /coding gegen den realen Codebase-Stand:
 
 - **Capability-Modul**: `src/api/capabilities.ts` (105 Zeilen, neu).
   Schema: `CacheStyle` Type Union, `CacheCapabilityEntry` Interface,
-  `CACHE_CAPABILITY_TABLE` mit 18 Eintraegen, `getCacheCapability()`
+  `CACHE_CAPABILITY_TABLE` mit 18 Einträgen, `getCacheCapability()`
   Pure Function mit eigener Wildcard-Match-Implementierung (~10 Zeilen,
   keine externe Dependency). Conservative Default `none`.
 - **Default-Switch**: `src/types/settings.ts:265`
@@ -1745,7 +1745,7 @@ Diese Punkte loest /coding gegen den realen Codebase-Stand:
   Capability-Default fuer neue Modelle, Visibility-Bedingung aus
   Capability-Tabelle statt provider-hardcoded Strings. Drei
   Modell-Aenderungs-Pfade (Input-Field, Ollama-Browser, Custom-Browser)
-  triggern jetzt `updateFieldVisibility()`, weil Capability vom Modell-ID abhaengt.
+  triggern jetzt `updateFieldVisibility()`, weil Capability vom Modell-ID abhängt.
 - **Tooltip**: neuer i18n-Key `modal.modelConfig.promptCachingTooltip` in
   `src/i18n/locales/en.ts`. Checkbox bekommt `attr.title` mit dem Cost-Hinweis-Text.
 
@@ -1805,7 +1805,7 @@ Auf den ersten Blick sah es nach einer Skill-Compliance-Schwaeche aus. Code-Read
 
 1. `handleSendMessage` snapshottet nur `pending` (Zeile 1442), nicht `fullDocTexts`.
 2. `clear()` (Zeile 1443, AttachmentHandler:268) leert beide Listen.
-3. 270 Zeilen spaeter liest `getFullDocTexts()` (Zeile 1713) das jetzt-leere Array.
+3. 270 Zeilen später liest `getFullDocTexts()` (Zeile 1713) das jetzt-leere Array.
 4. Der `if (docTexts.length > 0)`-Guard (Zeile 1714) verhindert den `setAttachmentTexts`-Call vollstaendig.
 5. `ReadDocumentTool.attachmentTexts` bleibt `[]`, jeder Attachment-Aufruf failed mit der STOP-Errormsg.
 
@@ -1886,7 +1886,7 @@ Der Fix bleibt im Sidebar-Layer (TypeScript strict, Obsidian Plugin API). Kein n
 
 ### Rejected Alternatives
 
-- **Snapshot-Pattern im Caller (Option A im ADR).** Loest den heutigen Bug, kodiert den Lifecycle aber nur in der Aufruf-Reihenfolge. Drift-anfaellig fuer zukuenftige Code-Aenderungen in `handleSendMessage`.
+- **Snapshot-Pattern im Caller (Option A im ADR).** Loest den heutigen Bug, kodiert den Lifecycle aber nur in der Aufruf-Reihenfolge. Drift-anfaellig fuer zukuenftige Code-Änderungen in `handleSendMessage`.
 - **Tool-Side-Pull (Option C im ADR).** Tool-Layer wuerde direkt aus `AttachmentHandler` lesen. Verstaerkt Sidebar-Tool-Kopplung, macht Tools ohne Sidebar-Instanz untestbar (z.B. bei MCP-Workflows). Ueberdimensioniert fuer den Bug.
 
 ### Bekannte Risiken
@@ -1989,7 +1989,7 @@ Live-Test (Sebastian, manuell). Bei Erfolg: FIX-19-28-02 als Done markieren, ggf
 
 ### Technischer Ansatz (warum so)
 
-Obsilo behaelt seinen eigenen ReAct-Loop -- kein Neubau, kein Umstieg auf ein Coding-Agent-SDK (Claude Agent SDK / pi-coding-agent). Begruendung: der Loop-Kern ist auf vergleichbarem Stand wie Claude Code / Cowork (teils robuster: Notfall-Condensing, toolErrors-Verbatim, Sanitization an allen Send-Sites); die Kostenprobleme liegen ausserhalb des Loop-Kerns (Caching-Disziplin, Compaction-Trigger, Tool-Output-Disziplin, Subagent-Kultur) und sind lokalisierte, additive Aenderungen. Ein Rip-and-Replace waere ein Mehrmonats-Projekt ohne fachlichen Mehrwert (RESEARCH-36 §7). Uebernommen werden die *Disziplinen* der Referenzen: sessionweit stabiler gecachter Praefix, Threshold-Compaction mit Recent-Keep, gebudgetete Subagent-Handoffs, eingebaute Cache-/Token-Telemetrie.
+Obsilo behaelt seinen eigenen ReAct-Loop -- kein Neubau, kein Umstieg auf ein Coding-Agent-SDK (Claude Agent SDK / pi-coding-agent). Begruendung: der Loop-Kern ist auf vergleichbarem Stand wie Claude Code / Cowork (teils robuster: Notfall-Condensing, toolErrors-Verbatim, Sanitization an allen Send-Sites); die Kostenprobleme liegen ausserhalb des Loop-Kerns (Caching-Disziplin, Compaction-Trigger, Tool-Output-Disziplin, Subagent-Kultur) und sind lokalisierte, additive Änderungen. Ein Rip-and-Replace waere ein Mehrmonats-Projekt ohne fachlichen Mehrwert (RESEARCH-36 §7). Uebernommen werden die *Disziplinen* der Referenzen: sessionweit stabiler gecachter Praefix, Threshold-Compaction mit Recent-Keep, gebudgetete Subagent-Handoffs, eingebaute Cache-/Token-Telemetrie.
 
 ### ADRs (1 neu, 3 Amendments -- bewusst keine neuen ADRs wo ein Amendment passt, Konsolidierungs-Pflicht)
 
@@ -2003,7 +2003,7 @@ Obsilo behaelt seinen eigenen ReAct-Loop -- kein Neubau, kein Umstieg auf ein Co
 - SDK-Umstieg (s.o.).
 - Harter Router fuer Subagent-Delegation ("alle Web-Calls -> Subagent") -- "Web vs. Vault" ist das falsche Kriterium; Heuristik wird brittle (ADR-113 Option 1).
 - ADR-62 Option 2 als globale Typ-Aenderung der System-Prompt-Rueckgabe (String -> Array durch alle Provider) -- der Split bleibt provider-intern.
-- Tool-Doppelung im System-Prompt aufloesen -- die Tool-Listung im System-Prompt-Text ist nur ~700 Tokens, kein Posten (RESEARCH-36 Befund F).
+- Tool-Doppelung im System-Prompt auflösen -- die Tool-Listung im System-Prompt-Text ist nur ~700 Tokens, kein Posten (RESEARCH-36 Befund F).
 - Caveman-/Output-Knappheits-Modus -- Output ist nicht das Problem (Befund G).
 - `read_file`/`read_document` externalisieren -- bleibt in `SKIP_EXTERNALIZATION` (ADR-63-Revision 2026-04-29); die Turn-uebergreifende Akkumulation loest Microcompaction, nicht Externalization.
 
@@ -2045,7 +2045,7 @@ Review-Frage Sebastians: ist die Hebel-Liste A-L aus RESEARCH-36 vollstaendig in
 
 **Bewusst out-of-scope (Entscheidung Sebastian 2026-05-12):** expliziter Plan-Modus (read-only Exploration -> reviewter Plan -> Kontext-Reset -> Implementierung, a la Claude Code). Begruendung: Obsilos typischer Workload (Q&A, Notiz-Edit, leichte Recherche) triggert einen Plan-Modus selten; grosser Hebel fuer Coding-Agenten, kleiner fuer Obsilo. In EPIC-24 Out-of-Scope und in RESEARCH-36 (Hebel F, §4.4) vermerkt. Wiedervorlage falls sich das mit der Nutzung aendert.
 
-**Lazy-Loading Tool-Schemas (Hebel B, Tool-Schema-Teil) -- Reconsideration 2026-05-12 (Sebastian: unsicher, vor allem MCP):** Code-Check ergab, dass MCP-Tools beim Server-Connect als regulaere Tools registriert werden (`ToolRegistry.registerMcpTool`), d.h. ihre vollen Schemas landen bei *jedem* API-Call im `tools`-Feld -- ohne Deferral (FEATURE-1600 deckt nur Built-ins). Bei zwei bis drei verbundenen MCP-Servern (je oft 10-30 Tools mit teils verbosen Schemas) dominiert der MCP-Anteil das `tools`-Feld potenziell deutlich, ist instabil (Server connect/disconnect, Tool-Listen-Aenderungen invalidieren den `tools`-Cache) und per Cold-Call/Cache-Write teuer. -> **doch ein realer Hebel; ADR-117 (neu), FEAT-24-06 von Welle 4 auf Welle 2 hochgestuft.** Entscheidung: MCP-Tools defaultseitig deferred (per-Server-Katalog im stabilen System-Prompt statt voller Schemas; volles Schema on-demand via `find_tool`/`enable_mcp_tool`, gleicher `activateDeferredTool`-Pfad wie deferred Built-ins; Opt-out pro Server). Built-in-Default-Satz weiter slimmen ist der kleinere, separate Teil (~10-20k Tokens, FEATURE-1600 deckt die schweren schon, nach Caching-Fix grossteils gecacht). Vor /coding: eine `tools`-Feld-Token-Zeile in `logInputBreakdown`, um den realen Umfang *mit verbundenen MCP-Servern* zu messen und die finale Prio zu schaerfen. Hinweis: fuer FEATURE-1600 (Deferred Tool Loading) gibt es keinen eigenen ADR -- ADR-117 ist der erste, der das Lazy-Loading-Konzept dokumentiert (FEATURE-1600-Spec bleibt die Quelle der Built-in-Mechanik).
+**Lazy-Loading Tool-Schemas (Hebel B, Tool-Schema-Teil) -- Reconsideration 2026-05-12 (Sebastian: unsicher, vor allem MCP):** Code-Check ergab, dass MCP-Tools beim Server-Connect als regulaere Tools registriert werden (`ToolRegistry.registerMcpTool`), d.h. ihre vollen Schemas landen bei *jedem* API-Call im `tools`-Feld -- ohne Deferral (FEATURE-1600 deckt nur Built-ins). Bei zwei bis drei verbundenen MCP-Servern (je oft 10-30 Tools mit teils verbosen Schemas) dominiert der MCP-Anteil das `tools`-Feld potenziell deutlich, ist instabil (Server connect/disconnect, Tool-Listen-Änderungen invalidieren den `tools`-Cache) und per Cold-Call/Cache-Write teuer. -> **doch ein realer Hebel; ADR-117 (neu), FEAT-24-06 von Welle 4 auf Welle 2 hochgestuft.** Entscheidung: MCP-Tools defaultseitig deferred (per-Server-Katalog im stabilen System-Prompt statt voller Schemas; volles Schema on-demand via `find_tool`/`enable_mcp_tool`, gleicher `activateDeferredTool`-Pfad wie deferred Built-ins; Opt-out pro Server). Built-in-Default-Satz weiter slimmen ist der kleinere, separate Teil (~10-20k Tokens, FEATURE-1600 deckt die schweren schon, nach Caching-Fix grossteils gecacht). Vor /coding: eine `tools`-Feld-Token-Zeile in `logInputBreakdown`, um den realen Umfang *mit verbundenen MCP-Servern* zu messen und die finale Prio zu schaerfen. Hinweis: fuer FEATURE-1600 (Deferred Tool Loading) gibt es keinen eigenen ADR -- ADR-117 ist der erste, der das Lazy-Loading-Konzept dokumentiert (FEATURE-1600-Spec bleibt die Quelle der Built-in-Mechanik).
 
 Damit ist die Hebel-Liste A-L vollstaendig in Architektur abgebildet, ausser dem bewusst Out-of-Scope-Teil (F Plan-Modus, J Output-Knappheit, K Retrieval-Tuning, Hooks, Multi-Agent-Coordinator).
 
@@ -2083,7 +2083,7 @@ Bericht: `_devprocess/analysis/AUDIT-018-epic-24-welle-1-2026-05-12.md` (Per-Ite
 - **SCA:** keine neuen Runtime-Dependencies durch Welle 1. 1 vorbestehender Moderate (`mermaid` Gantt-/classDef-Advisories, transitiv, nach AUDIT-017 publiziert) -> als `DEBT-SCA-2026-05-12` (Typ Security, Source SEC, P2) in der Graph-Health-Sektion erfasst, Fix via `npm audit fix` im Dependency-Housekeeping-Pass. NICHT durch EPIC-24 verursacht.
 - **Positiv:** Re-Read-Cap faellt sicher aus (kuerzt im Zweifel mehr, nie weniger); `microcompactToolResults` kuerzt nur, exponiert nichts neu, Pairing bleibt invariant; `capOversizedToolOutput` ist eine reine getestete Bodenplatte; AttachmentHandler-Gesamtbudget verhindert Kontextfenster-Sprengung durch Riesen-Mentions, mit sichtbarem Hinweis im gekappten Text; bestehende Path-Traversal-Saeuberung des Externalizers (`safeName`-Regex) intakt. Kein neuer `fetch`/`require`/`console.log`, keine neuen Secrets, keine Race-Conditions.
 - **Release-Empfehlung (Welle-1-Code): Green.** Vor Public-Release noch noetig: manueller Provider-Messlauf zur Abnahme der `[AWAITING RE]`-SC (Cache-Hit-Rate, Token-Reduktion) -- Funktions-, keine Sicherheitsfrage.
-- **Architektonische Folgepunkte:** keine -- additive Aenderungen im bestehenden Loop, kein Vertrauensgrenzen-Redesign.
+- **Architektonische Folgepunkte:** keine -- additive Änderungen im bestehenden Loop, kein Vertrauensgrenzen-Redesign.
 
 ---
 
@@ -2128,7 +2128,7 @@ Coverage-Tooling im Projekt nicht installiert (`@vitest/coverage-v8` fehlt, kein
 
 ### Naechster Schritt
 
-`/security-audit` fuer FEAT-24-09 / ADR-116. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand`. Live-Messlauf-Abnahme von SC-1/3/4 (gemeinsam mit den `[AWAITING RE]`-SC aus FEAT-24-01..03) bleibt offen bis zur naechsten Vault-Session.
+`/security-audit` fuer FEAT-24-09 / ADR-116. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand`. Live-Messlauf-Abnahme von SC-1/3/4 (gemeinsam mit den `[AWAITING RE]`-SC aus FEAT-24-01..03) bleibt offen bis zur nächsten Vault-Session.
 
 ---
 
@@ -2170,8 +2170,8 @@ Keine. Aenderung ist additiv, reduziert eine bestehende Vertrauensgrenze (entfer
 ### Naechster Schritt
 
 - Merge nach `dev`: `bash scripts/merge-to-dev.sh feature/feat-24-09-active-skills-on-demand` (User-Trigger; Memory-Konvention: nicht autonom mergen ohne Bestaetigung).
-- Live-Messlauf-Abnahme von SC-1/3/4 in einer naechsten Vault-Session (Funktions-, keine Sicherheitsfrage).
-- Optional spaeter: IMP-24-09-01 als eigenes V-Model-Item (kleiner Pass).
+- Live-Messlauf-Abnahme von SC-1/3/4 in einer nächsten Vault-Session (Funktions-, keine Sicherheitsfrage).
+- Optional später: IMP-24-09-01 als eigenes V-Model-Item (kleiner Pass).
 - Danach das naechste EPIC-24-Item starten: FEAT-24-06 / ADR-117 (Lazy-Loading Tool-Schemas, MCP defaultseitig deferred).
 
 ---
@@ -2238,7 +2238,7 @@ Root-cause-Notiz: `_devprocess/analysis/ADR-117-review.md`.
   Rendering.
 - `src/core/tools/__tests__/deferredToolLoading.test.ts` (erweitert, +4):
   `read_mcp_tool` NOT deferred + `group === 'mcp'`; `inspect_self` und
-  `update_settings` deferred mit `TOOL_METADATA`-Eintraegen.
+  `update_settings` deferred mit `TOOL_METADATA`-Einträgen.
 
 `npx tsc -noEmit -skipLibCheck` clean. `npm run lint` 0 errors. `npm run build`
 gruen (tsc + esbuild production + Deploy zur Vault).
@@ -2248,7 +2248,7 @@ gruen (tsc + esbuild production + Deploy zur Vault).
 - **Built-in deferred-Pass kleiner als geplant.** PLAN-21 nannte
   `inspect_self`, `update_settings`, `manage_mcp_server` als Kandidaten;
   `manage_mcp_server` war schon deferred -> kein Aktionspunkt. Real wirksam:
-  zwei zusaetzliche deferred-Eintraege.
+  zwei zusaetzliche deferred-Einträge.
 - **Zwei `TOOL_METADATA`-Luecken geschlossen.** `inspect_self` und
   `update_settings` waren in `types.ts`/`ToolRegistry` registriert aber
   ohne `TOOL_METADATA`-Eintrag. Im Plan nicht antizipiert; gefunden und
@@ -2365,7 +2365,7 @@ Aus dem /coding-Handoff uebernommen + ergaenzt:
 
 `/security-audit` fuer FEAT-24-06 / ADR-118. Danach Merge nach `dev` via
 `bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`.
-Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur naechsten Vault-Session.
+Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur nächsten Vault-Session.
 
 ---
 
@@ -2450,7 +2450,7 @@ Deferred als **IMP-24-06-01** (P3, Source SEC, Ready). Detail-File:
 
 Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-06-lazy-loading-tool-schemas`
 (User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-Abnahme
-von SC-6 in einer naechsten Vault-Session.
+von SC-6 in einer nächsten Vault-Session.
 
 ---
 
@@ -2651,7 +2651,7 @@ Aus dem /coding-Handoff uebernommen + verifiziert via Tests:
 
 ### Naechster Schritt
 
-`/security-audit` fuer FEAT-24-04. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`. Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur naechsten Vault-Session.
+`/security-audit` fuer FEAT-24-04. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`. Live-Messlauf-Abnahme von SC-6 bleibt offen bis zur nächsten Vault-Session.
 
 ---
 
@@ -2670,7 +2670,7 @@ Branch: `feature/feat-24-04-subagent-delegation`. Audit-Report:
 **Overall risk: Low. Release recommendation: Green.**
 
 - **0 Critical, 0 High, 0 Medium.**
-- **3 Info-Notes** (Pre-Emptive only, keine BACKLOG-Eintraege noetig):
+- **3 Info-Notes** (Pre-Emptive only, keine BACKLOG-Einträge noetig):
   F-1 user-eingebbare Profile waeren ein Injection-Vektor (heute Code-
   konstant, kein Risiko), F-2 Token-Budget-Schaetzung chars/4 ist grob
   aber als Defense-in-Depth-Bodenplatte ausreichend, F-3 mode-Override
@@ -2731,7 +2731,7 @@ real genutzt wird.
 
 Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-04-subagent-delegation`
 (User-Trigger; keine autonome shared-state-Aktion). Live-Messlauf-
-Abnahme von SC-6 in einer naechsten Vault-Session.
+Abnahme von SC-6 in einer nächsten Vault-Session.
 
 ---
 
@@ -2899,7 +2899,7 @@ Aus dem /coding-Handoff uebernommen + verifiziert via Tests:
 
 ### Naechster Schritt
 
-`/security-audit` fuer FEAT-24-07 / ADR-115. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`. **Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.** Live-Messlauf-Abnahme von SC-8 bleibt offen bis zur naechsten Vault-Session.
+`/security-audit` fuer FEAT-24-07 / ADR-115. Danach Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`. **Mit FEAT-24-07-Merge ist EPIC-24 (alle 5 ausgewaehlten Items) inhaltlich abgeschlossen.** Live-Messlauf-Abnahme von SC-8 bleibt offen bis zur nächsten Vault-Session.
 
 ---
 
@@ -2918,7 +2918,7 @@ Branch: `feature/feat-24-07-helper-model-routing`. Audit-Report:
 **Overall risk: Low. Release recommendation: Green. Letztes EPIC-24-Item.**
 
 - **0 Critical, 0 High, 0 Medium.**
-- **3 Info-Notes** (alle accepted, keine BACKLOG-Eintraege):
+- **3 Info-Notes** (alle accepted, keine BACKLOG-Einträge):
   F-1 Per-Call-Helper-Build by design (kein Cache; Provider-Konstruktoren billig),
   F-2 Warn-Log bei kaputtem Setting nicht-fatal aber laestig (Mitigation: once-Wrapper waere Folge-IMP),
   F-3 settings-corruption defense-in-depth bereits eingebaut (3 Korruptions-Szenarien fail-closed).
@@ -2946,12 +2946,12 @@ Branch: `feature/feat-24-07-helper-model-routing`. Audit-Report:
 
 ### Architektonische Folgepunkte
 
-Keine kritischen. F-1 (Cache spaeter falls Provider-Konstruktor teuer wird) und F-2 (once-Warn-Wrapper falls Log-Spam stoert) sind potenzielle Folge-IMPs, kein heutiger Bedarf.
+Keine kritischen. F-1 (Cache später falls Provider-Konstruktor teuer wird) und F-2 (once-Warn-Wrapper falls Log-Spam stoert) sind potenzielle Folge-IMPs, kein heutiger Bedarf.
 
 ### Naechster Schritt
 
 Merge nach `dev` via `bash scripts/merge-to-dev.sh feature/feat-24-07-helper-model-routing`
-(User-Trigger). Live-Messlauf-Abnahme von SC-8 in einer naechsten Vault-Session. **Mit dem Merge ist EPIC-24 (Welle 1 + 2 + 3, alle 5 ausgewaehlten Items inkl. FEAT-24-05) inhaltlich abgeschlossen** -- offen bleiben nur die `[AWAITING RE]`-Live-Messlaeufe der 5 FEATs und die Folge-IMPs IMP-24-06-01 (TOOL_METADATA-Drift) und IMP-24-09-01 (Dead Code SkillsManager.getRelevantSkills).
+(User-Trigger). Live-Messlauf-Abnahme von SC-8 in einer nächsten Vault-Session. **Mit dem Merge ist EPIC-24 (Welle 1 + 2 + 3, alle 5 ausgewaehlten Items inkl. FEAT-24-05) inhaltlich abgeschlossen** -- offen bleiben nur die `[AWAITING RE]`-Live-Messlaeufe der 5 FEATs und die Folge-IMPs IMP-24-06-01 (TOOL_METADATA-Drift) und IMP-24-09-01 (Dead Code SkillsManager.getRelevantSkills).
 
 ---
 
@@ -3614,7 +3614,7 @@ Voller Liste im Handoff-Dokument.
 
 ### Forbidden-terms check
 
-Spec-Dateien wurden auf Tech-Begriffe in Success Criteria geprueft. Folgende Tech-Begriffe sind ausschliesslich in den Technical-NFR-Sections und Architecture-considerations vorhanden, nicht in Success Criteria: TypeScript, esbuild, CDN, ESM, MCP, JSON, electron, iCloud, JavaScript, npm, GitHub. SC-Eintraege bleiben tech-agnostisch und User-Outcome-fokussiert.
+Spec-Dateien wurden auf Tech-Begriffe in Success Criteria geprueft. Folgende Tech-Begriffe sind ausschliesslich in den Technical-NFR-Sections und Architecture-considerations vorhanden, nicht in Success Criteria: TypeScript, esbuild, CDN, ESM, MCP, JSON, electron, iCloud, JavaScript, npm, GitHub. SC-Einträge bleiben tech-agnostisch und User-Outcome-fokussiert.
 
 ### Naechster Schritt
 
@@ -3628,7 +3628,7 @@ EPIC-29 Architecture-Phase abgeschlossen. 7 ADRs adressieren die 21 ASRs aus der
 
 ### Tech-Stack-Begruendung
 
-EPIC-29 fuegt keine externen Dependencies hinzu. Alle Aenderungen sind Refactors oder Erweiterungen des bestehenden Skill-, Plugin-Adapter- und Sandbox-Subsystems. Frontier-Modell-Eskalation fuer Skill-Authoring und Translation laeuft ueber den bestehenden TaskRouter aus EPIC-26 mit einer neuen Skill-Trigger-Regel. MCP-Aufrufe aus Skills nutzen die bestehende MCP-Approval-Kette ohne Aufweichung.
+EPIC-29 fügt keine externen Dependencies hinzu. Alle Änderungen sind Refactors oder Erweiterungen des bestehenden Skill-, Plugin-Adapter- und Sandbox-Subsystems. Frontier-Modell-Eskalation fuer Skill-Authoring und Translation laeuft ueber den bestehenden TaskRouter aus EPIC-26 mit einer neuen Skill-Trigger-Regel. MCP-Aufrufe aus Skills nutzen die bestehende MCP-Approval-Kette ohne Aufweichung.
 
 ### Verworfene Alternativen
 
@@ -3657,7 +3657,7 @@ Die acht offenen Architektur-Fragen aus dem plan-context (Backup-Pfad-Lokation, 
 
 plan-context-epic29.md ist konsistent mit allen 7 ADRs. Performance- und Security-Targets im plan-context spiegeln die NFRs aus FEAT-29-01 bis FEAT-29-11. Open Items im plan-context sind die Architektur-Fragen die im /coding-Pivot beantwortet werden, nicht Specs-Luecken.
 
-### Empfehlung fuer naechsten Schritt
+### Empfehlung fuer nächsten Schritt
 
 `/coding` starten, Welle 1 zuerst. PLAN-Item pro Welle, jede Welle mit eigenem Build-Deploy-Cycle. Welle 1 (FEAT-29-01 plus FEAT-29-02) ist Foundation und muss vor allem anderen ausgeliefert sein. Welle 2 (FEAT-29-03 plus FEAT-29-04) kann direkt danach. Welle 3 und Welle 4 brauchen die Foundation.
 
@@ -3712,7 +3712,7 @@ Smoke-Tests gegen die 5 Risiko-Szenarien aus dem /coding-Handoff. Eine Welle-1-R
 ### Artefakt-Bericht
 
 - `src/core/utils/migrateFolderRename.ts` (CODE FIX): pre-Welle-1-Default als harte Konstante `.obsilo-vault` plus eigene Legacy-Liste `['obsilo-vault', '.obsidian-agent']`. Vorher las die Funktion `DEFAULT_AGENT_FOLDER` aus `agentFolder.ts`, das jetzt auf `.vault-operator` zeigt. Damit waere ohne `_layoutMigrationOptIn` auf onload automatisch ein pre-Welle-1-Folder auf `.vault-operator` umbenannt worden, obwohl die Welle-1-Migration strikt opt-in ist. Inkonsistenz-Folge: Folder auf neuem Namen, Settings auf altem Namen, Status-Flag `_layoutMigrationStatus = undefined`.
-- `src/core/storage/__tests__/GlobalFileService.test.ts`: `obsilo-shared` -> `vault-operator-shared` Drift (pre-Welle-1, vom Plugin-Rename-Commit `bccfad6c`). "should use home directory when no vaultBasePath" auf Set-of-acceptable-Names gehaertet, weil das Verhalten dort vom realen Home-Dir abhaengt.
+- `src/core/storage/__tests__/GlobalFileService.test.ts`: `obsilo-shared` -> `vault-operator-shared` Drift (pre-Welle-1, vom Plugin-Rename-Commit `bccfad6c`). "should use home directory when no vaultBasePath" auf Set-of-acceptable-Names gehaertet, weil das Verhalten dort vom realen Home-Dir abhängt.
 - `src/mcp/tools/__tests__/searchHistory.test.ts`: `obsidian://obsilo-chat` -> `obsidian://vault-operator-chat` URI-scheme-Drift.
 - `src/core/utils/__tests__/restoreLayoutFromBackup.test.ts`: zwei neue Tests fuer den eben gelandeten `isDirEmptyIgnoringConsolidated`-Helper:
   - "blocks .vault-operator restore when destination has user files beyond data/+cache/" -- Destination mit `data/`, `cache/` UND `assets/` aus User-Bestand. Restore muss blockieren, pre-existing `assets/pre-existing.js` bleibt erhalten.
@@ -3765,7 +3765,7 @@ Empfehlung: `/security-audit` fuer FEAT-29-01 starten. Anschliessend Welle 2 (FE
 
 ### Scope
 
-Security-Audit auf die Welle-1-Aenderungen (Commits 9e215af6 + f0e1d2e3). 5 Audit-Foki aus dem /testing-Handoff systematisch geprueft, plus OWASP A01-A10 Quickcheck, plus SCA (KEINE neuen Deps -> SCA nicht erforderlich).
+Security-Audit auf die Welle-1-Änderungen (Commits 9e215af6 + f0e1d2e3). 5 Audit-Foki aus dem /testing-Handoff systematisch geprueft, plus OWASP A01-A10 Quickcheck, plus SCA (KEINE neuen Deps -> SCA nicht erforderlich).
 
 ### Findings vor Fix-Loop
 
@@ -3787,9 +3787,9 @@ Security-Audit auf die Welle-1-Aenderungen (Commits 9e215af6 + f0e1d2e3). 5 Audi
 Initial: Medium-Risk / Yellow.
 Nach Fix-Loop: **Low-Risk / Green.** Welle 1 ist release-ready.
 
-### Code-Aenderungen im Fix-Loop
+### Code-Änderungen im Fix-Loop
 
-1. **M-1 + I-1 Bundle:** Backup-Pfad zeigt jetzt auf `{homedir}/.vault-operator-migration-backups/{vault-md5-hash-12}/`. MD5-Hash der vaultBasePath trennt Vaults auf derselben Maschine. Code-Aenderungen in `src/main.ts:736-757` (Migration-Trigger), `src/ui/settings/VaultTab.ts:847-862` (Restore-Trigger), `src/core/utils/migrateAgentLayout.ts:124-130` (Doc-Kommentar). Test-Helper in `restoreLayoutFromBackup.test.ts:33-37` an neue Pfad-Struktur angepasst.
+1. **M-1 + I-1 Bundle:** Backup-Pfad zeigt jetzt auf `{homedir}/.vault-operator-migration-backups/{vault-md5-hash-12}/`. MD5-Hash der vaultBasePath trennt Vaults auf derselben Maschine. Code-Änderungen in `src/main.ts:736-757` (Migration-Trigger), `src/ui/settings/VaultTab.ts:847-862` (Restore-Trigger), `src/core/utils/migrateAgentLayout.ts:124-130` (Doc-Kommentar). Test-Helper in `restoreLayoutFromBackup.test.ts:33-37` an neue Pfad-Struktur angepasst.
 2. **L-1:** Neuer `pruneOldBackups`-Helper in `migrateAgentLayout.ts`. Lauft am Ende von `phaseBackup` automatisch. Loescht alle Snapshots ausser den `BACKUP_RETENTION = 3` neuesten (inkl. dem just-written-Snapshot). Neuer Test "prunes older snapshots, keeping only the most recent BACKUP_RETENTION (3)" gruen.
 3. **L-2:** `copyRecursive` chmodet jeden kopierten File auf `0o600` (best-effort, try-catch fuer Windows).
 4. **L-3:** `listBackupFolders` filtert jetzt zusaetzlich per `pathModule.resolve(...).startsWith(resolvedRoot + sep)`. Malicious-Symlink-Hebel geschlossen.
@@ -3927,7 +3927,7 @@ Keine. Sowohl der Code-Pfad als auch die Test-Helper sind stabil.
 
 ### Scope
 
-Security-Audit auf die Welle-2-Aenderungen (Commits 53fdfa85 coding + da4ce434 testing). 4 Audit-Foki aus dem /testing-Handoff systematisch geprueft (Path-Traversal in pluginId, destructive Cleanup-Ops, Plugin-controlled Markdown-Strings, Pfad-Containment in Vault-Sub-Folder-Writes) plus OWASP-Quickcheck und SCA (KEINE neuen Deps -> SCA nicht erforderlich).
+Security-Audit auf die Welle-2-Änderungen (Commits 53fdfa85 coding + da4ce434 testing). 4 Audit-Foki aus dem /testing-Handoff systematisch geprueft (Path-Traversal in pluginId, destructive Cleanup-Ops, Plugin-controlled Markdown-Strings, Pfad-Containment in Vault-Sub-Folder-Writes) plus OWASP-Quickcheck und SCA (KEINE neuen Deps -> SCA nicht erforderlich).
 
 ### Findings vor Fix-Loop
 
@@ -3942,7 +3942,7 @@ Security-Audit auf die Welle-2-Aenderungen (Commits 53fdfa85 coding + da4ce434 t
 Initial: Low-Risk / Yellow.
 Nach Fix-Loop: **Low-Risk / Green.** Welle 2 ist release-ready.
 
-### Code-Aenderungen im Fix-Loop
+### Code-Änderungen im Fix-Loop
 
 1. **M-1 (Markdown-Tabellen-Escape):** Drei neue Module-level-Helper in `VaultDNAScanner.ts`:
    - `escapeMarkdownTableCell`: collapsed Newlines, escaped Pipes (`\|`) und Backslashes
@@ -4030,7 +4030,7 @@ Tests sind verhaltensorientiert und decken die SC ab, sind aber post-hoc geschri
 ### Bekannte Risiken / Test-Empfehlungen fuer /testing
 
 - **`triggerImmediateSync` Debounce-Race:** 200ms-Debounce-Timer wird bei jedem layout-change neu gestartet. Bei rapid-fire layout-changes (z.B. waehrend Editor-Resize) wird das immer wieder gestartet -- der Sync feuert dann erst wenn keine layout-changes mehr passieren. Akzeptabel.
-- **`workspace.on("layout-change")` triggert oft:** Layout-Aenderungen passieren auch bei View-Switch oder Pane-Resize, nicht nur bei Plugin-Aktivierung. `triggerImmediateSync` ist O(n) auf enabled-plugins-Set, das ist billig (n~100). Aber bei extrem schnellem View-Switching koennte das einen Mini-Spike geben. Live-Test bei real Use.
+- **`workspace.on("layout-change")` triggert oft:** Layout-Änderungen passieren auch bei View-Switch oder Pane-Resize, nicht nur bei Plugin-Aktivierung. `triggerImmediateSync` ist O(n) auf enabled-plugins-Set, das ist billig (n~100). Aber bei extrem schnellem View-Switching koennte das einen Mini-Spike geben. Live-Test bei real Use.
 - **NoticeCapture `tailMs`-Window:** Bei sehr langsamen Plugins die Notices erst nach 500ms+ raisen, gehen Notices verloren. Tradeoff vs. UX-Latenz. 250ms ist Default-Wert, kann pro Tool-Call ueberschrieben werden.
 - **NoticeCapture Sensitive-Heuristik:** matched substring `token|secret|key|password|api[-_ ]?key` case-insensitive. False-positive bei harmless Notices die "key" enthalten (z.B. "Pressed key Escape"). Eingrenzung der Regex pending.
 - **probe_plugin Reflection-Fallback:** Wenn ein Plugin keine `api`-Property hat, scannt Reflection den ganzen Plugin-Instance. Bei grossen Plugins (>100 Methods) ist das O(n) -- akzeptabel, da Iteration billig ist.
@@ -4090,13 +4090,13 @@ Smoke-Tests gegen die 6 Risiko-Szenarien aus dem /coding-Handoff. Neue Test-Date
 1. **Debounce-Race** (200ms layout-change-Timer): Test in main.ts schwer ohne Workspace-Mock. Verhalten ist correctness-uncritical (Worst case: extra Sync-Call). **Defer.** Pruefen im Live-Test (rapid view-switches).
 2. **layout-change-Frequenz**: Identisch zu #1, Live-Test-Pflicht. **Defer.**
 3. **NoticeCapture-Tail-Window**: 1 expliziter Test "out-of-tail-window-Notice wird NICHT erfasst" + 1 expliziter Test "in-tail-window-Notice wird erfasst". Tradeoff explizit gepinned.
-4. **Sensitive-Heuristik False-Positive**: 1 Test pinned das gegebenwaertige Verhalten -- "Pressed key Escape" wird derzeit redacted (akzeptabler False-Positive). Wenn die Regex spaeter tighter wird (z.B. `\bkey:` oder `\bAPI[- ]key\b`), zeigt der Test das.
+4. **Sensitive-Heuristik False-Positive**: 1 Test pinned das gegebenwaertige Verhalten -- "Pressed key Escape" wird derzeit redacted (akzeptabler False-Positive). Wenn die Regex später tighter wird (z.B. `\bkey:` oder `\bAPI[- ]key\b`), zeigt der Test das.
 5. **probe_plugin large-plugin Performance**: 1 Test mit 200 Properties + Base-Methods + private + non-function, verifiziert dass O(n) bleibt (< 50ms Bound). Base-Method-Strip funktioniert auch bei grossem Plugin.
 6. **ExecuteCommandTool Format-Change**: 5 Tests pinnen das BREAKING-CHANGE-JSON-Format (executed/command_id/command_name/notices/severity). Wenn ein Downstream-Consumer auf das alte "Executed command: ..." String-Format parsen wuerde, brechen diese Tests beim Format-Drift.
 
 ### Brittle-Test-Warnung
 
-`NoticeCapture-out-of-tail-window` Test nutzt `await new Promise(setTimeout, 300)` am Ende um zu garantieren, dass das verspaetete setTimeout-Callback nicht in den naechsten Test leakt. Bei langsamen CI-Systemen koennte das mit Timing-Issues kollidieren. Beobachten -- falls flaky, von 300ms auf 500ms erhoehen.
+`NoticeCapture-out-of-tail-window` Test nutzt `await new Promise(setTimeout, 300)` am Ende um zu garantieren, dass das verspaetete setTimeout-Callback nicht in den nächsten Test leakt. Bei langsamen CI-Systemen koennte das mit Timing-Issues kollidieren. Beobachten -- falls flaky, von 300ms auf 500ms erhoehen.
 
 ### Open Items fuer /security-audit
 
@@ -4129,7 +4129,7 @@ Security-Audit auf Welle 3 (Commits 27834308 coding + d046f9a3 testing). 4 Audit
 Initial: Low-Medium-Risk / Yellow.
 Nach Fix-Loop: **Low-Risk / Green.** Welle 3 ist release-ready.
 
-### Code-Aenderungen im Fix-Loop
+### Code-Änderungen im Fix-Loop
 
 1. **M-1 NoticeCapture Race-Protection:**
    - Module-level `activePatch`-Singleton mit Symbol-Token
@@ -4172,9 +4172,9 @@ Build green, deploy auf iCloud-Vault durchgelaufen.
 
 Nicht-blocking, aber wert zu notieren:
 
-- **NoticeCapture als Singleton:** Das Fail-Soft-Pattern fuer Nested-Caller koennte spaeter zu einem geteilten Notice-Bus erweitert werden, der allen Aufrufern parallel Notices liefert. Aktuell ist das nicht noetig (sequential tool-execution), aber bei eingefuehrter Parallelitaet (z.B. Multi-Agent-Subtasks) wuerde der Singleton zu eng.
+- **NoticeCapture als Singleton:** Das Fail-Soft-Pattern fuer Nested-Caller koennte später zu einem geteilten Notice-Bus erweitert werden, der allen Aufrufern parallel Notices liefert. Aktuell ist das nicht noetig (sequential tool-execution), aber bei eingefuehrter Parallelitaet (z.B. Multi-Agent-Subtasks) wuerde der Singleton zu eng.
 
-- **probe_plugin Reflection-Surface:** Wir reflektieren reine Properties; Methoden ohne `function`-Type filtern wir aus. Plugin-instanzen koennten aber Methoden ueber Symbol-Keys oder Prototype-Chain expose'n. Aktuell uebersehen wir die. Vorschlag: spaeter Reflection.ownKeys + Prototype-Walk + Symbol-Filter.
+- **probe_plugin Reflection-Surface:** Wir reflektieren reine Properties; Methoden ohne `function`-Type filtern wir aus. Plugin-instanzen koennten aber Methoden ueber Symbol-Keys oder Prototype-Chain expose'n. Aktuell uebersehen wir die. Vorschlag: später Reflection.ownKeys + Prototype-Walk + Symbol-Filter.
 
 ### Naechster Schritt
 
@@ -4188,7 +4188,7 @@ Welle 3 ist released-ready. Empfehlung: **Welle 4 (FEAT-29-05 Skill-Creator-Buil
 
 ### Status
 
-EPIC-29 Welle 1+2+3 sind komplett abgeschlossen und green: 13 Audit-Findings ueber drei /security-audit-Saetze alle resolved. Test-Stand 1838/1859 (21 verbleibende pre-existing pre-Welle-1). Branch `feat/epic-29-skills-consolidation` traegt alle Aenderungen.
+EPIC-29 Welle 1+2+3 sind komplett abgeschlossen und green: 13 Audit-Findings ueber drei /security-audit-Saetze alle resolved. Test-Stand 1838/1859 (21 verbleibende pre-existing pre-Welle-1). Branch `feat/epic-29-skills-consolidation` traegt alle Änderungen.
 
 ### Welle 4 -- Vorgehen fuer die naechste Session
 
@@ -4215,7 +4215,7 @@ FEAT-29-05 (Skill-Creator-Builtin) wurde in einer langen Session gestartet, dann
 
 ### Optionaler Zwischen-Schritt vor Welle 4
 
-Sebastian kann vor dem naechsten /coding optional einen **Live-Test in seinem Vault** machen: Plugin reloaden, Welle 1+2+3 verifizieren (probe_plugin auf Dataview, Notice-Capture bei Plugin-Command, layout-change-Hook beim Plugin-Enable). Wenn dort Issues auftauchen, gehen sie in den Backlog vor Welle 4-Beginn.
+Sebastian kann vor dem nächsten /coding optional einen **Live-Test in seinem Vault** machen: Plugin reloaden, Welle 1+2+3 verifizieren (probe_plugin auf Dataview, Notice-Capture bei Plugin-Command, layout-change-Hook beim Plugin-Enable). Wenn dort Issues auftauchen, gehen sie in den Backlog vor Welle 4-Beginn.
 
 ### Optionaler Zwischen-Schritt: BRAT-Release
 
@@ -4310,8 +4310,8 @@ Tasks C+D+E sind reine Refactor- und Configuration-Tasks ohne neuen Behaviour-Co
 ### Bekannte Risiken / Test-Empfehlungen fuer /testing
 
 - **Bestand-custom_*-Tools im Vault:** Sebastian hatte 1 Skill (`enbw-slides`) mit scripts/-Folder. Plus potenziell Bestand-`.skill.md` mit code_modules-Frontmatter (vor FEAT-29-06). Test-Empfehlung: Live-Reload auf Sebastian's Vault, sehen welche `custom_*`-Tools noch in der Registry sind, verifizieren dass sie weiterlaufen. Migration auf scripts/ erfolgt manuell oder via skill-creator (FEAT-29-05).
-- **EsbuildWasm-Manager fallback:** RunSkillScriptTool nutzt `esbuild.transform(source)` (single-file, no deps). Fuer Skripte mit `import xlsx from "xlsx"` muesste `esbuild.build()` mit Deps-Liste aufgerufen werden -- aktuell unsupported, lassen wir fuer einen FIX-Item spaeter.
-- **Cache-Invalidation on file-edit:** Source-Hash basiert auf dem Inhalt zum read-Zeitpunkt. Wenn der User mid-execution editiert, lebt der Cache mit dem alten Content bis zum naechsten read. Akzeptabel.
+- **EsbuildWasm-Manager fallback:** RunSkillScriptTool nutzt `esbuild.transform(source)` (single-file, no deps). Fuer Skripte mit `import xlsx from "xlsx"` muesste `esbuild.build()` mit Deps-Liste aufgerufen werden -- aktuell unsupported, lassen wir fuer einen FIX-Item später.
+- **Cache-Invalidation on file-edit:** Source-Hash basiert auf dem Inhalt zum read-Zeitpunkt. Wenn der User mid-execution editiert, lebt der Cache mit dem alten Content bis zum nächsten read. Akzeptabel.
 - **Plugin-Skill scripts/-Folder nicht supported:** RunSkillScriptTool nutzt `getSelfAuthoredSkillsDir`, nicht `getPluginSkillsDir`. Plugin-Skills haben keine scripts/-Folder (per FEAT-29-02 Spec). Bewusst so.
 
 ### Naechster Schritt
@@ -4362,7 +4362,7 @@ Coverage-Gap-Closure nach dem TDD-strict /coding-Pass. Welle-4-erste-Welle hat 2
 
 - **RunSkillScriptTool path-traversal-Guard**: SAFE_NAME_PATTERN ist Whitelist-Regex `^[A-Za-z0-9][A-Za-z0-9._-]*$`. Pruefen ob das ausreichend ist (z.B. Punkt-Punkt-Sequenzen `a..b` matched aber sind harmlos im Filesystem -- Defense-in-Depth sollte explicit `..`-Segments rejecten).
 - **Sandbox-Execute Trust Boundary**: RunSkillScriptTool gibt Script-Code an Sandbox-Executor weiter. Sandbox ist iframe/child_process-isoliert per ADR-021, aber pruefen ob args-JSON ueber die Bridge sicher serialisiert wird (kein prototype pollution via __proto__ keys).
-- **Bundle-Cache In-Memory**: Cache lebt im Tool-Instance, geht beim Plugin-Reload verloren. Persistenz pending fuer eine spaetere Iteration. Sicherheits-Implikation: keine, weil Cache nichts persistiert.
+- **Bundle-Cache In-Memory**: Cache lebt im Tool-Instance, geht beim Plugin-Reload verloren. Persistenz pending fuer eine spätere Iteration. Sicherheits-Implikation: keine, weil Cache nichts persistiert.
 - **ManageSkillTool back-compat-Loose-Input**: stray `code_modules`-Input wird ignored, nicht rejected. Vermeidet false errors fuer legacy callers, aber heisst auch dass ein boeser Caller arbitrary input ohne Warnung mitschickt. Aktuell akzeptabel, dokumentieren.
 
 ### Naechster Schritt
@@ -4388,7 +4388,7 @@ Security-Audit auf FEAT-29-06 nach Live-End-to-End-verifiziertem /testing. 5 Aud
 
 Initial Low-Risk / Green. Nach Fix-Loop weiter Low-Risk / **Green**, 3 Findings resolved.
 
-### Code-Aenderungen im Fix-Loop
+### Code-Änderungen im Fix-Loop
 
 1. **L-1:** Neuer `src/core/utils/safePathName.ts` mit `isSafePathSegment` + `assertSafePathSegment`. TDD-strict: 12 RED-First-Tests geschrieben, dann Helper implementiert. RunSkillScriptTool und agentFolder.assertSafePluginId delegieren beide. Drift-Risiko zwischen den zwei Guards eliminiert.
 
@@ -4471,7 +4471,7 @@ Coverage-Tooling ist im Projekt nicht installiert (`@vitest/coverage-v8` fehlt).
 
 ## 2026-05-29 -- /security-audit AUDIT-032 (v2.12.5 SCA + FIX-04-03-07 delta)
 
-**Scope:** targeted audit, ausgeloest durch Dependabot Alert #53 (CVE-2026-44705, `tmp < 0.2.6`, CWE-22 Path Traversal, CVSS v4 7.7) plus Delta-Review der gerade released-en FIX-04-03-07 (ThinkingBlock, `reasoning_content` Passback fuer DeepSeek deepseek-reasoner, defensiver `stripThinkingBlocks` fuer Anthropic/Bedrock, UI-Replay).
+**Scope:** targeted audit, ausgelöst durch Dependabot Alert #53 (CVE-2026-44705, `tmp < 0.2.6`, CWE-22 Path Traversal, CVSS v4 7.7) plus Delta-Review der gerade released-en FIX-04-03-07 (ThinkingBlock, `reasoning_content` Passback fuer DeepSeek deepseek-reasoner, defensiver `stripThinkingBlocks` fuer Anthropic/Bedrock, UI-Replay).
 
 **Verdict:** Green nach Fix. Vor Fix: Yellow.
 
@@ -4515,7 +4515,7 @@ Report: `_devprocess/analysis/AUDIT-032-v2.12.5-2026-05-29.md`.
 
 ### Cleanup-Pass Review
 
-Alle 16 Cleanup-Aenderungen pro Kategorie geprueft:
+Alle 16 Cleanup-Änderungen pro Kategorie geprueft:
 
 - **Removed type assertions (5 Stellen):** alle waren no-ops (Compiler hatte den Typ bereits inferiert oder ein vorgeschalteter defensiver Guard sichert die Annahme ab). `BackupTab.ts` non-null-assert: 5 Zeilen vor der Read-Site steht `if (!settings.backup) settings.backup = {...}`.
 - **Added narrowing casts (5 Stellen):** alle wiederholen Typen, die die Boundary bereits zusagt (`Map<string, string>` Iterator-Value, `bind()`-Result auf `AdapterLike['write']`, Constructor-Type mit `& { prototype: object }`). Kein widening, kein Boundary-Bypass.
@@ -4533,7 +4533,7 @@ Einziger geaenderter String in `en.ts:1255`: "Model ID field" wird zu "field". R
 ### Open Concerns
 
 - **Trust-boundary Pattern in BackupExportService.readManifest** ist unveraendert pre-existing. Die Manifest-Schema-Validierung steht in `unpackZip` (Zeile 224, ungeaendert) -- nur dort wird `manifest.schemaVersion !== 1` enforced. `readManifest` ist UI-Inspection-Helper (Public-API fuer "ZIP-Vorschau"). Wenn die UI in Zukunft handelt bevor `unpackZip` lief, muss der schema-version-Check dorthin gezogen werden. Aktuell kein Problem, weil UI nur die Manifest-Felder anzeigt.
-- **24 outdated NPM packages,** keine mit offenen Advisories. Routine-Maintenance, kein Audit-Finding. SDK-Updates (`@anthropic-ai/sdk`, `@aws-sdk/*`, `@typescript-eslint/*`) sammeln sich; im naechsten Maintenance-Window batchen.
+- **24 outdated NPM packages,** keine mit offenen Advisories. Routine-Maintenance, kein Audit-Finding. SDK-Updates (`@anthropic-ai/sdk`, `@aws-sdk/*`, `@typescript-eslint/*`) sammeln sich; im nächsten Maintenance-Window batchen.
 
 ### Release Recommendation
 
@@ -4543,7 +4543,7 @@ Naechster periodischer Full-Audit wird etwa 2026-06-19 faellig (ein Monat nach A
 
 ### Naechster Schritt
 
-`chore/review-bot-score-pass` ueber `scripts/merge-to-dev.sh` nach dev mergen, dann den naechsten dev-zu-main-Schwung anstossen. Audit-Branch `feature/audit-2026-05-30` kann nach Review geloescht werden (Report ist der einzige Deliverable und liegt unter `_devprocess/analysis/`).
+`chore/review-bot-score-pass` ueber `scripts/merge-to-dev.sh` nach dev mergen, dann den nächsten dev-zu-main-Schwung anstossen. Audit-Branch `feature/audit-2026-05-30` kann nach Review geloescht werden (Report ist der einzige Deliverable und liegt unter `_devprocess/analysis/`).
 
 Report: `_devprocess/analysis/AUDIT-033-v2.12.6-2026-05-30.md`.
 
@@ -4951,7 +4951,7 @@ plan-context-imp-20-06-01.md ist konsistent mit ADR-135, ADR-95 (amended), ADR-1
 1. Prompt-Injection-Analyse fuer LlmVerifierProvider.buildPrompt (Source-Snippets)
 2. Note-Path-Sanitization im ResolveConflictModal.openInChat-Prompt
 3. dismissed_freshness-Race-Conditions wenn parallele Modal-Aktionen den gleichen Pfad treffen
-4. note_freshness_history retention-Sweep DoS-Risiko bei pathologisch vielen Eintraegen pro Pfad
+4. note_freshness_history retention-Sweep DoS-Risiko bei pathologisch vielen Einträgen pro Pfad
 5. ProviderConfig.zdrCapable als User-Affirmation-Pattern: Klarheit + Persistenz + Rollback bei type-Wechsel
 
 ---
@@ -5019,7 +5019,7 @@ plan-context-imp-20-06-01.md ist konsistent mit ADR-135, ADR-95 (amended), ADR-1
 
 **Doku-Sync:** PLAN-40, IMP-20-06-01, ADR-135, ADR-106-Amendments, plan-context, AUDIT-Report alle auf das neue Vokabular gezogen. BACKLOG-Rows PLAN-40 / ADR-135 / IMP-20-06-01 auf "Knowledge-review-Tab" und English-Verdicts angepasst.
 
-**Risiko fuer existierende Installs:** Self-Build-User, die vor dem Migration-Bump eine DB mit deutschen Verdict-Werten geschrieben haben, kriegen die Werte beim naechsten Plugin-Load automatisch uebersetzt. KEINE manuelle Aktion noetig. Test deckt drei Faelle ab: deutsche Verdicts werden gemappt, englische bleiben unveraendert, NULL bleibt NULL, doppelte Anwendung ist no-op.
+**Risiko fuer existierende Installs:** Self-Build-User, die vor dem Migration-Bump eine DB mit deutschen Verdict-Werten geschrieben haben, kriegen die Werte beim nächsten Plugin-Load automatisch uebersetzt. KEINE manuelle Aktion noetig. Test deckt drei Faelle ab: deutsche Verdicts werden gemappt, englische bleiben unveraendert, NULL bleibt NULL, doppelte Anwendung ist no-op.
 
 ### Naechster Schritt
 
@@ -5096,7 +5096,7 @@ feature: FEAT-03-27
 ### Critical ASRs (muessen je ein ADR bekommen)
 
 - ASR-03-27-01 Schema-Migration ohne User-Re-Index: erzwingt Praeferenz Spalten-Diskriminator vor Tabellen-Namespace (Tabellen-Namespace = Daten-Verschiebung = User-Re-Index unausweichlich).
-- ASR-03-27-02 Tool-API-Kompatibilitaet: URI-Schemas `session://`, `episode://`, `vault://`, `fact://` bleiben unveraendert, selbst wenn interne Spalten-Namen sich aendern.
+- ASR-03-27-02 Tool-API-Kompatibilitaet: URI-Schemas `session://`, `episode://`, `vault://`, `fact://` bleiben unveraendert, selbst wenn interne Spalten-Namen sich ändern.
 
 ### Moderate ASRs
 
@@ -5134,3 +5134,51 @@ Success Criteria SC-01 bis SC-06 wurden ueber den ESLint-aequivalenten Grep gege
 3. Folge-ADR Tool-API-Mapping (`RecallHit.uri` bleibt `<scheme>://<id>`, interne `domain`-Spalte mappt auf das Scheme).
 4. Folge-ADR Reader/Writer-Coverage-Mechanik (vermutlich Helper + ESLint-Regel, weil das die einfachste additive Variante ist, ohne Views einfuehren zu muessen).
 5. Update ADR-77 (Memory v2 Storage Schema) als Amendment oder Supersedence, je nach Diskriminator-Variante.
+
+---
+
+## architecture-to-coding 2026-06-22
+
+triage: FEAT-03-27
+triage_kind: feature
+epic: EPIC-03
+feature: FEAT-03-27
+
+### Tech stack justification
+
+- **Engine:** sql.js WASM bleibt, kein Engine-Wechsel.
+- **Schema-Evolution:** additive Spalten-Diskriminator `vectors.domain TEXT NOT NULL DEFAULT 'note'` plus Index `idx_vectors_domain_path`. Schema-Version v12 -> v13.
+- **Migration:** Pfad-Prefix-Inferenz idempotent in-place, in einer SQLite-Transaktion, mit erzwungenem Pre-Migration-Daily-Snapshot (FEATURE-0314).
+- **Domain-Helper:** `KnowledgeVectorStore` (Vorschlag, /coding kann in `KnowledgeDB.ts` integrieren) mit typisierten Methoden pro Domain plus Cross-Layer-API.
+- **Drift-Schutz:** lokale ESLint-Regel `no-direct-vectors-table-access` mit Bot-konformer `-- reason`-Disable-Konvention.
+- **Tool-API:** URI-Schemas (`vault://`, `session://`, `episode://`, `fact:`, `mention://`, `thread://`, `entity://`) bleiben unveraendert auf der Tool-Oberflaeche.
+
+### Rejected alternatives
+
+- **Tabellen-Namespace** (`session_vectors`, `episode_vectors`, ...): verschiebt Daten zwischen Tabellen, erzwingt Vector-ID-Aenderung, damit Vault-Re-Index. Verstoß gegen ASR-03-27-01.
+- **Reine Helper-Klasse ohne Lint-Regel:** wiederholt den heutigen Drift-Mechanismus, weil Disziplin als einziger Schutz erfahrungsgemäß nicht haelt.
+- **View-basierte Trennung** (`note_vectors`-View, ...): SQLite-Views in sql.js sind read-only, Writer-Pfade bleiben ungeschuetzt, asymmetrische Garantie.
+
+### Known risks
+
+- **sql.js Migration-Performance** auf sehr grossen Vaults (50.000+ Vektoren) koennte die 30s-Grenze sprengen. Mitigation: UPDATE in Batches von 1000 Zeilen mit OperationLogger-Progress-Notice; bei Vaults >30s laeuft Migration im Hintergrund mit Notice.
+- **Pfad-Prefix-Inferenz-Verwechselung:** User-Note `session_intro.md` koennte theoretisch als Session erkannt werden. Mitigation: UPDATE-Predicate prueft auf `session:` mit Doppelpunkt explizit, nicht LIKE `session%`.
+- **ESLint-Regel-Lapsus:** pauschales `eslint-disable` koennte die Regel unbemerkt deaktivieren. Mitigation: Unit-Test asserts auf Regel-Konfiguration, Code-Review pflichtig fuer Lint-Config-Änderungen.
+- **Cross-Layer-Reranker:** der heutige Reranker sieht alle Vektoren; eine versehentliche Layer-Einschraenkung beim Refactor wuerde Mixed-Layer-Recall brechen. Mitigation: expliziter Test mit Mixed-Layer-Input, Reranker geht weiterhin ueber `findVectors` ohne `domain`-Filter.
+
+### Open items (deferred to /coding)
+
+1. Helper-Klassen-Lokation: separate Datei `KnowledgeVectorStore.ts` oder Integration in `KnowledgeDB.ts`? Codebase-State entscheidet.
+2. Heuristik der ESLint-Regel: matcht raw SQL-Strings auf `vectors` in FROM/JOIN-Position. False-Positive-Toleranz und Disable-Pattern in der Test-Korpus-Definition.
+3. Stigmergy-Episode-Writer-Pfad: vermutlich `src/core/stigmergy/`, aber genauer Aufruf muss in /coding lokalisiert werden.
+4. FactStore-Stand: wenn FEAT-03-15 noch nicht implementiert ist, faellt `'fact'`-Writer aus dem PR raus und kommt mit FEAT-03-15 nach. ADR-136 erlaubt `'fact'` als zukuenftigen Wert im Enum, ohne dass Writer bereits existieren muss.
+5. Reranker-Aufrufstelle: muss explizit auf Cross-Layer-Methode umgestellt werden mit Test, der Mixed-Layer-Input pinnt.
+
+### Consistency check
+
+plan-context-feat-03-27.md matched die ADRs:
+- Schema-Diff entspricht ADR-136 Decision-Block (Spalten-Diskriminator, Migration in drei Schritten, Index).
+- Helper-Klassen-API entspricht ADR-137 Decision-Block (Domain-typisierte Methoden plus Cross-Layer-API plus Mapping-Helper).
+- Tool-API-Mapping in plan-context (Tabelle in Section 4) entspricht ADR-136 Tool-API-Mapping-Klausel.
+- Reader/Writer-Sites Inventory (plan-context Section 8) entspricht FEAT-03-27 Code Pointer.
+- 0 Em-Dashes, 0 AI-Vokabular, deutsche Umlaute durchgaengig korrekt.
