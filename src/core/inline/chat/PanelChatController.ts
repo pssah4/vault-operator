@@ -77,6 +77,16 @@ export class PanelChatController {
     private turnCounter = 0;
     private running = false;
     private modeServiceReady: Promise<void> | null = null;
+    /**
+     * Session-scoped taskId for checkpoints created during this panel
+     * lifetime. Generated upfront so the very first inline-edit can
+     * stamp its checkpoint before the conversation row exists. When the
+     * conversation row is later created (first turn / recordQuickAction)
+     * the id is rewritten to `inline-<conversationId>` so a re-opened
+     * conversation in the sidebar history rehydrates exactly the
+     * checkpoints created during that session.
+     */
+    private sessionTaskId: string;
 
     constructor(options: PanelChatControllerOptions) {
         this.plugin = options.plugin;
@@ -86,6 +96,18 @@ export class PanelChatController {
         // instance is safe and the sidebar's instance stays unchanged.
         this.modeService = new ModeService(options.plugin);
         this.getAttachments = options.getAttachments;
+        this.sessionTaskId = `inline-${Date.now().toString(36)}-${Math.floor(Math.random() * 0xffffff).toString(16)}`;
+    }
+
+    /**
+     * Stable task id for every checkpoint snapshotted during this
+     * panel session. Used by InlineChatOrchestrator when calling
+     * checkpointService.snapshot, and stamped onto the persisted
+     * assistant UiMessage so the sidebar's history-rehydrate path can
+     * surface the same checkpoints when the conversation is reopened.
+     */
+    getInlineTaskId(): string {
+        return this.sessionTaskId;
     }
 
     get isRunning(): boolean { return this.running; }
@@ -183,6 +205,7 @@ export class PanelChatController {
                     const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
                     const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
                     this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
+                    this.sessionTaskId = `inline-${this.activeConversationId}`;
                     console.debug(`[PanelChatController] conversation created: ${this.activeConversationId} (mode=${mode.slug}, model=${modelDisplay})`);
                 } catch (e) {
                     console.error('[PanelChatController] conversationStore.create FAILED:', e);
@@ -244,7 +267,12 @@ export class PanelChatController {
                     : Array.isArray(tail.content)
                         ? tail.content.map(c => (c as { type?: string; text?: string }).type === 'text' ? (c as { text?: string }).text ?? '' : '').join('')
                         : '';
-                this.uiMessages.push({ role: 'assistant', text: tailText, ts: new Date().toISOString() });
+                this.uiMessages.push({
+                    role: 'assistant',
+                    text: tailText,
+                    ts: new Date().toISOString(),
+                    taskId: this.sessionTaskId,
+                });
             }
             await this.persistConversation(convStore);
             // Fire a workspace event so an open Sidebar / HistoryPanel
@@ -312,6 +340,7 @@ export class PanelChatController {
                 const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
                 const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
                 this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
+                this.sessionTaskId = `inline-${this.activeConversationId}`;
                 console.debug(`[PanelChatController] quick-action conversation created: ${this.activeConversationId}`);
             } catch (e) {
                 console.error('[PanelChatController] recordQuickAction create FAILED:', e);
@@ -329,7 +358,7 @@ export class PanelChatController {
             : `[${args.actionLabel}] ${args.userText}`;
         const ts = new Date().toISOString();
         this.uiMessages.push({ role: 'user', text: userBody, ts });
-        this.uiMessages.push({ role: 'assistant', text: args.assistantText, ts });
+        this.uiMessages.push({ role: 'assistant', text: args.assistantText, ts, taskId: this.sessionTaskId });
         // Mirror into MessageParam[] so the LLM history is consistent
         // when the user follows up via the sidebar. Simple text-only
         // blocks -- no tool_use round-trips for quick-actions.

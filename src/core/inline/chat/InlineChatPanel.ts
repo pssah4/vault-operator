@@ -51,10 +51,23 @@ export interface InlineCheckpointMarker {
     label: string;
     /** Short detail line (e.g. "Notes/Idee.md, 12:34"). */
     detail?: string;
-    /** Click handler for the "Diff anzeigen" button. */
+    /** "Show diff" button (file-diff icon). */
     onShowDiff?: () => void;
-    /** Click handler for the "Zurück" / restore button. */
+    /** "Undo this" button (undo-2 icon). Restores just this checkpoint. */
     onRestore?: () => void;
+    /**
+     * "Undo from here" button (rotate-ccw icon). Restores this
+     * checkpoint AND every later checkpoint in the same task -- mirrors
+     * AgentSidebarView.restoreCheckpointsForward.
+     */
+    onRestoreFromHere?: () => void;
+    /**
+     * "More" overflow menu (more-vertical icon). The host owns the
+     * menu surface (Obsidian `Menu` in production, a no-op in unit
+     * tests) and decides which items to render. The panel only opens
+     * the anchor and forwards the click.
+     */
+    onMoreMenu?: (anchor: HTMLElement) => void;
 }
 
 export interface InlinePanelHandle {
@@ -592,61 +605,66 @@ export class InlineChatPanel {
     private appendCheckpointMarker(marker: InlineCheckpointMarker): string {
         if (this.bodyEl === null) return '';
         const doc = this.containerEl.ownerDocument;
-        const bubble = doc.createElement('div');
-        bubble.classList.add('agent-inline-panel__bubble');
-        bubble.classList.add('agent-inline-panel__bubble--checkpoint');
 
-        const head = doc.createElement('div');
-        head.classList.add('agent-inline-panel__checkpoint-head');
+        // Sidebar-parity DOM: the same `.checkpoint-marker`/`.checkpoint-*`
+        // CSS hierarchy AgentSidebarView.renderCheckpointMarker uses, so
+        // the inline panel inherits the divider-line + ghost-icon-button
+        // look without a parallel stylesheet.
+        const wrap = doc.createElement('div');
+        wrap.classList.add('checkpoint-marker');
+        wrap.classList.add('agent-inline-panel__bubble');
+        wrap.classList.add('agent-inline-panel__bubble--checkpoint');
+
         const iconEl = doc.createElement('span');
-        iconEl.classList.add('agent-inline-panel__checkpoint-icon');
-        this.setIcon(iconEl, 'history');
-        head.appendChild(iconEl);
-        const labelEl = doc.createElement('span');
-        labelEl.classList.add('agent-inline-panel__checkpoint-label');
-        labelEl.textContent = marker.label;
-        head.appendChild(labelEl);
-        bubble.appendChild(head);
+        iconEl.classList.add('checkpoint-icon');
+        this.setIcon(iconEl, 'git-commit-vertical');
+        wrap.appendChild(iconEl);
 
-        if (marker.detail !== undefined && marker.detail.length > 0) {
-            const detail = doc.createElement('div');
-            detail.classList.add('agent-inline-panel__checkpoint-detail');
-            detail.textContent = marker.detail;
-            bubble.appendChild(detail);
-        }
+        const labelEl = doc.createElement('span');
+        labelEl.classList.add('checkpoint-label');
+        const labelText = marker.detail !== undefined && marker.detail.length > 0
+            ? `${marker.label} -- ${marker.detail}`
+            : marker.label;
+        labelEl.textContent = labelText;
+        wrap.appendChild(labelEl);
 
         const actions = doc.createElement('div');
-        actions.classList.add('agent-inline-panel__checkpoint-actions');
-        if (marker.onShowDiff !== undefined) {
-            const diffBtn = doc.createElement('button');
-            diffBtn.classList.add('agent-inline-panel__checkpoint-btn');
-            diffBtn.classList.add('agent-inline-panel__checkpoint-btn--diff');
-            diffBtn.setAttribute('type', 'button');
-            diffBtn.textContent = 'Diff anzeigen';
-            diffBtn.addEventListener('click', (ev) => {
+        actions.classList.add('checkpoint-actions');
+
+        const makeBtn = (icon: string, tooltip: string, handler: () => void): HTMLButtonElement => {
+            const btn = doc.createElement('button');
+            btn.classList.add('checkpoint-action-btn');
+            btn.setAttribute('type', 'button');
+            btn.setAttribute('aria-label', tooltip);
+            this.setIcon(btn, icon);
+            btn.addEventListener('click', (ev) => {
                 ev.preventDefault();
-                try { marker.onShowDiff?.(); } catch (e) { console.warn('[inline-checkpoint] onShowDiff threw:', e); }
+                try { handler(); } catch (e) { console.warn('[inline-checkpoint] action threw:', e); }
             });
-            actions.appendChild(diffBtn);
+            return btn;
+        };
+
+        if (marker.onShowDiff !== undefined) {
+            actions.appendChild(makeBtn('file-diff', 'Diff anzeigen', () => marker.onShowDiff?.()));
         }
         if (marker.onRestore !== undefined) {
-            const restoreBtn = doc.createElement('button');
-            restoreBtn.classList.add('agent-inline-panel__checkpoint-btn');
-            restoreBtn.classList.add('agent-inline-panel__checkpoint-btn--restore');
-            restoreBtn.setAttribute('type', 'button');
-            restoreBtn.textContent = 'Zurück';
-            restoreBtn.addEventListener('click', (ev) => {
-                ev.preventDefault();
-                try { marker.onRestore?.(); } catch (e) { console.warn('[inline-checkpoint] onRestore threw:', e); }
-            });
-            actions.appendChild(restoreBtn);
+            actions.appendChild(makeBtn('undo-2', 'Diese Änderung zurücknehmen', () => marker.onRestore?.()));
         }
-        bubble.appendChild(actions);
+        if (marker.onRestoreFromHere !== undefined) {
+            actions.appendChild(makeBtn('rotate-ccw', 'Ab hier zurücknehmen', () => marker.onRestoreFromHere?.()));
+        }
+        if (marker.onMoreMenu !== undefined) {
+            const moreBtn = makeBtn('more-vertical', 'Weitere Optionen', () => {
+                marker.onMoreMenu?.(moreBtn);
+            });
+            actions.appendChild(moreBtn);
+        }
+        wrap.appendChild(actions);
 
-        this.bodyEl.appendChild(bubble);
+        this.bodyEl.appendChild(wrap);
         this.bubbleCounter += 1;
         const id = `c${this.bubbleCounter}`;
-        this.bubbleNodes.set(id, bubble);
+        this.bubbleNodes.set(id, wrap);
         this.scrollToBottom();
         return id;
     }

@@ -34,6 +34,7 @@ import {
 import { PanelChatController } from './PanelChatController';
 import { applyInlineEdit, inlineTaskId } from '../InlineEditApplier';
 import { showEditReviewModal, showCheckpointReviewModal } from '../../../ui/edit-review/EditReviewModal';
+import { Menu } from 'obsidian';
 import type { EditReviewEntry, EditReviewDecision } from '../../../ui/edit-review/EditReviewPanel';
 
 export interface EditorChatProbe {
@@ -222,40 +223,14 @@ export class InlineChatOrchestrator {
                 }
             }
         }
-        void this.hydrateInlineCheckpoints(panel.getHandle(), ctx);
-    }
-
-    /**
-     * On panel re-open for the same note, surface the recent inline
-     * checkpoints as marker bubbles so the user can jump back. Reads
-     * from the shadow-repo via checkpointService.loadCheckpointsForTask
-     * with the stable inlineTaskId(notePath). Best-effort, defensive --
-     * any failure stays silent so the panel still opens cleanly.
-     */
-    private async hydrateInlineCheckpoints(
-        handle: InlinePanelHandle,
-        ctx: InlineTriggerContext,
-    ): Promise<void> {
-        try {
-            const svc = this.plugin.checkpointService;
-            if (svc === null || svc === undefined) return;
-            const tid = inlineTaskId(ctx.notePath);
-            const list = await svc.loadCheckpointsForTask(tid);
-            if (list.length === 0) return;
-            // Last three, oldest-first so the most recent ends up at the
-            // bottom right before the composer.
-            const recent = list.slice(-3);
-            for (const cp of recent) {
-                const time = new Date(cp.timestamp).toLocaleTimeString();
-                handle.appendCheckpointMarker({
-                    label: `${cp.toolName ?? 'Inline-Edit'} • ${time}`,
-                    detail: cp.filesChanged.join(', '),
-                    onRestore: () => { void this.restoreCheckpoint(cp); },
-                });
-            }
-        } catch (e) {
-            console.debug('[inline-checkpoint] hydrate failed:', e);
-        }
+        // EPIC-33 (2026-06-23): no checkpoint-hydration here. Opening a
+        // new inline panel starts a fresh session; old checkpoints from
+        // an earlier session must NOT bleed into the new panel.
+        // Checkpoints from the SAME session still appear live via
+        // appendCheckpointMarker once an inline-edit completes.
+        // Re-opened conversations from the sidebar history surface
+        // their inline checkpoints via the sidebar's rehydrate path
+        // (UiMessage.taskId -> rehydrateCheckpointMarkers).
     }
 
     closePanel(): void {
@@ -420,7 +395,12 @@ export class InlineChatOrchestrator {
             },
             proposedText,
             actionLabel: `Inline-AI: ${actionLabel}`,
-            taskId: inlineTaskId(ctx.notePath),
+            // Use the per-panel-session taskId so checkpoints created
+            // during this session group under the same Conversation
+            // (which is what UiMessage.taskId references for history
+            // rehydration). Fall back to the legacy note-hash if the
+            // controller is gone (defensive -- should not happen).
+            taskId: this.activeController?.getInlineTaskId() ?? inlineTaskId(ctx.notePath),
             toolName: `inline:${actionLabel.toLowerCase()}`,
             openReview: async (entry: EditReviewEntry): Promise<EditReviewDecision | null> => {
                 const r = await showEditReviewModal({
@@ -459,6 +439,28 @@ export class InlineChatOrchestrator {
                     if (result.checkpoint === undefined) return;
                     void this.restoreCheckpoint(result.checkpoint);
                 },
+                onRestoreFromHere: () => {
+                    if (result.checkpoint === undefined) return;
+                    void this.restoreCheckpointsForward(result.checkpoint);
+                },
+                onMoreMenu: (anchor) => {
+                    const menu = new Menu();
+                    menu.addItem((item) => {
+                        item.setTitle('Chat ab hier löschen');
+                        item.setIcon('trash-2');
+                        item.onClick(() => {
+                            if (result.checkpoint === undefined) return;
+                            void this.restoreCheckpoint(result.checkpoint);
+                            // The inline panel is the ephemeral chat
+                            // surface; "delete chat from here" maps to
+                            // "restore + close panel" so the next open
+                            // starts fresh (matches Task 1 contract).
+                            if (this.activePanel !== null) this.activePanel.close();
+                        });
+                    });
+                    const rect = anchor.getBoundingClientRect();
+                    menu.showAtPosition({ x: rect.left, y: rect.bottom });
+                },
             });
         } else if (result.status === 'discarded') {
             handle.setStatus(result.error ?? 'Verworfen.');
@@ -491,6 +493,47 @@ export class InlineChatOrchestrator {
             await svc.restore(checkpoint);
         } catch (e) {
             console.warn('[inline-checkpoint] restore failed:', e);
+        }
+    }
+
+    /**
+     * "Undo all changes from here": restore the given checkpoint AND
+     * every checkpoint that came after it in the same task. Mirrors
+     * AgentSidebarView.restoreCheckpointsForward so the inline panel
+     * offers the same option as the sidebar. Takes a pre-restore
+     * snapshot of the affected files so the multi-step rollback is
+     * itself undoable via the next checkpoint marker.
+     */
+    private async restoreCheckpointsForward(
+        startCp: import('../../checkpoints/GitCheckpointService').CheckpointInfo,
+    ): Promise<void> {
+        const svc = this.plugin.checkpointService;
+        if (svc === null || svc === undefined) return;
+        try {
+            const all = await svc.loadCheckpointsForTask(startCp.taskId);
+            const startIdx = all.findIndex((c) => c.commitOid === startCp.commitOid);
+            if (startIdx < 0) {
+                await this.restoreCheckpoint(startCp);
+                return;
+            }
+            const tail = all.slice(startIdx);
+            const affected = new Set<string>();
+            for (const cp of tail) {
+                for (const f of cp.filesChanged) affected.add(f);
+                for (const f of cp.newFiles ?? []) affected.add(f);
+            }
+            try {
+                await svc.snapshot(`restore-${Date.now()}`, [...affected], 'undo_from_here');
+            } catch (e) {
+                console.debug('[inline-checkpoint] pre-restore snapshot failed (non-fatal):', e);
+            }
+            for (const cp of tail.slice().reverse()) {
+                try { await svc.restore(cp); } catch (e) {
+                    console.warn('[inline-checkpoint] restoreCheckpointsForward step failed:', e);
+                }
+            }
+        } catch (e) {
+            console.warn('[inline-checkpoint] restoreCheckpointsForward failed:', e);
         }
     }
 

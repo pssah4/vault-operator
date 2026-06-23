@@ -8161,51 +8161,15 @@
     background: var(--background-modifier-hover);
 }
 
-/* Checkpoint-Marker-Bubble im InlineChatPanel */
+/* Checkpoint marker in the inline panel inherits the sidebar
+ * `.checkpoint-marker` rules (divider lines + ghost icon buttons). The
+ * legacy `.agent-inline-panel__checkpoint-*` styles were removed when
+ * the inline marker adopted the sidebar DOM (Task 2 of the EPIC-33
+ * checkpoint-parity wave, 2026-06-23). The remaining
+ * `.agent-inline-panel__bubble--checkpoint` modifier is only kept so
+ * existing callers can still target inline-specific spacing without
+ * touching the sidebar variant. */
 .agent-inline-panel__bubble--checkpoint {
-    background: var(--background-secondary);
-    border: 1px dashed var(--background-modifier-border);
     align-self: stretch;
     max-width: 100%;
-    padding: 6px 10px;
-    color: var(--text-muted);
-}
-.agent-inline-panel__checkpoint-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 600;
-    color: var(--text-normal);
-    font-size: var(--font-ui-small);
-}
-.agent-inline-panel__checkpoint-icon {
-    display: inline-flex;
-    width: 14px;
-    height: 14px;
-}
-.agent-inline-panel__checkpoint-icon svg {
-    width: 14px;
-    height: 14px;
-}
-.agent-inline-panel__checkpoint-detail {
-    font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-.agent-inline-panel__checkpoint-actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 6px;
-}
-.agent-inline-panel__checkpoint-btn {
-    background: transparent;
-    border: 1px solid var(--background-modifier-border);
-    color: var(--text-normal);
-    border-radius: 4px;
-    padding: 3px 10px;
-    font-size: var(--font-ui-smaller);
-    cursor: pointer;
-}
-.agent-inline-panel__checkpoint-btn:hover {
-    background: var(--background-modifier-hover);
 }
