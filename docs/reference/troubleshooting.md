@@ -133,6 +133,25 @@ Symptom: A 400 error with `context_length_exceeded`, `prompt is too long`, or th
 | Very large @-mention attached to the chat | Plaintext, Markdown, and XML attachments are capped at 80,000 characters with a `read_file path=...` hint. Older builds injected the full text. Update the plugin, or split the source into smaller notes. |
 | Long tool output filling the context | Enable **Context externalization** in Settings > Vault Operator > Advanced > Loop. Large tool outputs are written to a temp file and the conversation keeps a compact reference (`read_file path=...`) instead of the full payload. |
 
+## Inline AI chat
+
+Symptom: The inline chat introduced in v3.0 does not open, returns no vault context, stops accepting input, or writes the result back to the wrong place. See [guides/inline-chat.md](../guides/inline-chat.md) for the canonical walkthrough.
+
+| Cause | Solution |
+|-------|----------|
+| Cmd+Shift+I (or Ctrl+Shift+I) does nothing | Open Settings > Vault Operator and confirm `inlineActions.enabled` is on. The chord is registered on the Obsidian app scope, and the same surface is bound to the command **Open inline AI chat**. Re-bind the command in Settings > Hotkeys if another plugin owns the chord. See [PanelChatController.ts](../../src/core/inline/chat/PanelChatController.ts) and [main.ts:2219](../../src/main.ts#L2219). |
+| Floating menu does not appear on selection | The selection-watcher is no longer wired by default. Use the hotkey, or right-click the selection and pick **Inline AI chat**. The `inlineActions.floatingMenuEnabled` toggle stays available for callers that opt back in. See [PluginWiring.ts:893](../../src/core/inline/PluginWiring.ts#L893). |
+| Lookup returns no vault sources | Build the semantic index first (Settings > Vault Operator > Providers > Embeddings > Semantic index). Confirm `inlineActions.vaultRagInLookup` is on. If the floor is too strict, lower `inlineActions.vaultRagConfidenceThreshold` (defaults to 0.7, clamped to 0..1). See [inlineSettings.ts](../../src/core/inline/inlineSettings.ts) and [PluginWiring.ts:586](../../src/core/inline/PluginWiring.ts#L586). |
+| Lookup web fallback never runs | Web fallback only runs when vault hits are not classified as strong AND the web provider is configured. Set Settings > Vault Operator > Customize > Web tools > Provider to `brave` or `tavily` and enter the matching API key. See [InlineWebLookup.ts:66](../../src/core/inline/lookup/InlineWebLookup.ts#L66). |
+| Notice: `Inline chat reached 20-turn cap` | The panel caps each session at 20 user/assistant turns. Open the sidebar and continue the same conversation there. See [PanelChatController.ts:139](../../src/core/inline/chat/PanelChatController.ts#L139). |
+| Rewrite landed in the wrong note or did not show up | Rewrite needs an editable target. Reading mode is read-only and the action is skipped. Keep the source note open in Source or Live-Preview mode while the rewrite runs. The write-back walks all open markdown leaves for the captured selection range; if none is found, the file on disk is patched and the open buffer refreshed. See [RewriteAction.ts:65](../../src/core/inline/actions/RewriteAction.ts#L65) and [PluginWiring.ts:663](../../src/core/inline/PluginWiring.ts#L663). |
+| Steering message looks ignored | Steering text typed during a running turn is queued and drained at the next iteration boundary. A long-running tool call finishes first, then the queued message is appended as a user-role turn. See [PanelChatController.ts:150](../../src/core/inline/chat/PanelChatController.ts#L150) and [PanelChatController.ts:469](../../src/core/inline/chat/PanelChatController.ts#L469). |
+| Checkpoint markers missing after reopening from history | Each panel session uses a stable task id stamped on every checkpoint and on the persisted assistant message, so reopening the conversation rehydrates the markers. Conversations created before v3.0 predate this stamp and will not show inline markers on reopen. See [PanelChatController.ts:47](../../src/core/inline/chat/PanelChatController.ts#L47). |
+
+:::tip Related
+[guides/inline-chat.md](../guides/inline-chat.md), [guides/safety-control.md](../guides/safety-control.md), [reference/settings.md](settings.md).
+:::
+
 ## Memory not extracting
 
 Symptom: The agent does not remember things from previous conversations.

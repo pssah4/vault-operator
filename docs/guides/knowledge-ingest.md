@@ -35,7 +35,7 @@ Use `/ingest` when you want the source captured in the vault for later, without 
 
 For research papers, long reports, domain-specific DOCX/PPTX, anything that wants a real reading session. Five to fifteen minutes of dialog with the model.
 
-Since v2.12.0 the skill follows a strict five-step sequence. The agent will not improvise. You stay in control of every meaningful decision.
+The /ingest-deep skill follows a strict five-step sequence. The agent will not improvise. You stay in control of every meaningful decision.
 
 | Step | What the agent does | What you do |
 |------|--------------------|-------------|
@@ -88,7 +88,7 @@ When the deep-ingest dialog identifies a new entity that deserves its own note, 
 
 ## Chat attachments and auto-save
 
-Since v2.12.0, chat attachments behave the way you would expect.
+Chat attachments behave the way you would expect.
 
 When you drag a PDF (or DOCX, XLSX) into the chat, Vault Operator writes the binary to your Obsidian attachment folder (`attachmentFolderPath` from `.obsidian/app.json`, default `Attachments/`). The agent then references the file by its vault path, so follow-up turns can rename it, parse it, or ingest it without you re-uploading.
 
