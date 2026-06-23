@@ -108,10 +108,21 @@ class ConfirmModalImpl extends Modal {
                 .onClick(() => this.decide(false)))
             .addButton((btn) => {
                 btn.setButtonText(opts.confirmLabel ?? 'Confirm').setCta();
-                // setDestructive (Obsidian 1.13.0+) replaces setWarning;
-                // combined with setCta() it produces a destructive primary
-                // action. manifest.minAppVersion is gated to >= 1.13.0.
-                if (opts.destructive) btn.setDestructive();
+                if (opts.destructive) {
+                    // setDestructive is the 1.13+ API; setWarning is the legacy
+                    // method still present (deprecated) on the same class. We
+                    // pick whichever the running Obsidian exposes so the modal
+                    // stays correct from minAppVersion 1.8.7 up.
+                    const styled = btn as unknown as {
+                        setDestructive?: () => unknown;
+                        setWarning?: () => unknown;
+                    };
+                    if (typeof styled.setDestructive === 'function') {
+                        styled.setDestructive();
+                    } else if (typeof styled.setWarning === 'function') {
+                        styled.setWarning();
+                    }
+                }
                 btn.onClick(() => this.decide(true));
             });
     }
