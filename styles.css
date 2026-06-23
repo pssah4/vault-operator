@@ -7702,6 +7702,55 @@
     color: var(--text-normal);
 }
 
+/* Drag handle: slim strip at the top of the panel. Pointer drag
+ * moves the whole window. Centered grip dots hint at the affordance
+ * but stay subtle so the panel does not look like a system window. */
+.agent-inline-panel__drag-handle {
+    flex: 0 0 auto;
+    height: 14px;
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    user-select: none;
+    -webkit-user-select: none;
+    opacity: 0.55;
+    transition: opacity 0.12s ease;
+}
+.agent-inline-panel__drag-handle::before {
+    content: '⋯⋯';
+    font-size: 14px;
+    letter-spacing: 2px;
+    line-height: 1;
+}
+.agent-inline-panel__drag-handle:hover {
+    opacity: 0.95;
+}
+
+/* Resize handle: corner triangle in the bottom-right. Sits absolutely
+ * inside the panel root so the body keeps its full flex extent. */
+.agent-inline-panel__resize-handle {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    background:
+        linear-gradient(135deg,
+            transparent 0%, transparent 50%,
+            var(--text-faint) 50%, var(--text-faint) 60%,
+            transparent 60%, transparent 70%,
+            var(--text-faint) 70%, var(--text-faint) 80%,
+            transparent 80%);
+    opacity: 0.6;
+    z-index: 2;
+}
+.agent-inline-panel__resize-handle:hover {
+    opacity: 1;
+}
+
 /* Message body (flex column, scrollable). */
 .agent-inline-panel__body {
     flex: 1;

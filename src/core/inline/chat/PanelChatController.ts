@@ -93,15 +93,16 @@ export class PanelChatController {
     private running = false;
     private modeServiceReady: Promise<void> | null = null;
     /**
-     * Session-scoped taskId for checkpoints created during this panel
-     * lifetime. Generated upfront so the very first inline-edit can
-     * stamp its checkpoint before the conversation row exists. When the
-     * conversation row is later created (first turn / recordQuickAction)
-     * the id is rewritten to `inline-<conversationId>` so a re-opened
-     * conversation in the sidebar history rehydrates exactly the
-     * checkpoints created during that session.
+     * Session-scoped taskId for every checkpoint created during this
+     * panel lifetime. Generated ONCE upfront and never rewritten --
+     * any later re-key would orphan all checkpoints stamped before
+     * the switch. The same id is used by:
+     *   - openReviewAndApply (quick-action Rewrite/Translate checkpoints)
+     *   - runner.execute taskId (free-chat agent checkpoints)
+     *   - persisted UiMessage.taskId (so sidebar history rehydrate
+     *     re-renders the markers when the conversation is reopened)
      */
-    private sessionTaskId: string;
+    private readonly sessionTaskId: string;
 
     constructor(options: PanelChatControllerOptions) {
         this.plugin = options.plugin;
@@ -221,7 +222,6 @@ export class PanelChatController {
                     const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
                     const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
                     this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
-                    this.sessionTaskId = `inline-${this.activeConversationId}`;
                     console.debug(`[PanelChatController] conversation created: ${this.activeConversationId} (mode=${mode.slug}, model=${modelDisplay})`);
                 } catch (e) {
                     console.error('[PanelChatController] conversationStore.create FAILED:', e);
@@ -258,7 +258,11 @@ export class PanelChatController {
 
             await runner.execute({
                 userMessage,
-                taskId: `inline-panel-${Date.now()}-${this.turnCounter}`,
+                // Stable session taskId so every checkpoint snapshotted
+                // during this panel session shares one bucket -- the
+                // same id is stamped onto the persisted UiMessage so
+                // sidebar history rehydrate can rebuild the markers.
+                taskId: this.sessionTaskId,
                 initialMode: mode,
                 history: this.history,
                 abortSignal: this.abortController.signal,
@@ -356,7 +360,6 @@ export class PanelChatController {
                 const model = this.plugin.settings.activeModels.find(m => getModelKey(m) === modelKey);
                 const modelDisplay = model?.displayName ?? model?.name ?? modelKey ?? 'inline-chat';
                 this.activeConversationId = await convStore.create(mode.slug, modelDisplay);
-                this.sessionTaskId = `inline-${this.activeConversationId}`;
                 console.debug(`[PanelChatController] quick-action conversation created: ${this.activeConversationId}`);
             } catch (e) {
                 console.error('[PanelChatController] recordQuickAction create FAILED:', e);

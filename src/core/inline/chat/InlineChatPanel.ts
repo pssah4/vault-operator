@@ -165,6 +165,9 @@ export interface InlineChatPanelOptions {
 }
 
 const DEFAULT_WIDTH = 520;
+const DEFAULT_HEIGHT = 520;
+const MIN_WIDTH = 320;
+const MIN_HEIGHT = 240;
 const PREVIEW_VISIBLE_LINES = 3;
 
 export class InlineChatPanel {
@@ -201,6 +204,15 @@ export class InlineChatPanel {
     private readonly renderMarkdownHook?: RenderMarkdownHook;
 
     private boundKeyDown: ((ev: KeyboardEvent) => void) | null = null;
+    /**
+     * Cleanup handles for drag + resize listeners. The panel
+     * registers document-scoped pointermove/pointerup pairs only
+     * while a gesture is active, then unbinds them on pointerup.
+     * Stored here so close()/dispose() can also unbind a gesture
+     * that's still in-flight (panel closed mid-drag).
+     */
+    private dragCleanup: (() => void) | null = null;
+    private resizeCleanup: (() => void) | null = null;
 
     constructor(options: InlineChatPanelOptions) {
         this.containerEl = options.containerEl;
@@ -233,8 +245,18 @@ export class InlineChatPanel {
         root.setAttribute('role', 'dialog');
         root.setAttribute('aria-label', 'Inline AI chat');
         // Bot-compliance: static rules (position/z-index) live in styles.css
-        // under `.agent-inline-panel`. Per-instance width via setCssProps.
-        root.setCssStyles({ width: `${DEFAULT_WIDTH}px` });
+        // under `.agent-inline-panel`. Per-instance width + height via
+        // setCssStyles. The fixed height makes the body's flex:1 scroll
+        // container have a defined extent so vertical resize works.
+        root.setCssStyles({ width: `${DEFAULT_WIDTH}px`, height: `${DEFAULT_HEIGHT}px` });
+
+        // Drag handle: a slim strip at the top of the panel. Pointer
+        // drag on this region moves the whole panel. Stays visible as
+        // a tiny grip indicator (CSS only).
+        const dragHandle = doc.createElement('div');
+        dragHandle.classList.add('agent-inline-panel__drag-handle');
+        dragHandle.setAttribute('aria-hidden', 'true');
+        root.appendChild(dragHandle);
 
         // Selection preview (collapsible, 3 lines visible by default).
         this.buildSelectionPreview(root, doc);
@@ -383,12 +405,25 @@ export class InlineChatPanel {
         wrapper.appendChild(toolbar);
         root.appendChild(composerContainer);
 
+        // Resize handle: small grip in the bottom-right corner.
+        // Pointer drag adjusts width + height. Owned by the root so
+        // it floats above the body even when the body scrolls.
+        const resizeHandle = doc.createElement('div');
+        resizeHandle.classList.add('agent-inline-panel__resize-handle');
+        resizeHandle.setAttribute('aria-hidden', 'true');
+        root.appendChild(resizeHandle);
+
         this.containerEl.appendChild(root);
         this.rootEl = root;
 
         // Position + clamp to viewport.
         const clamped = this.clampToViewport(this.position, root);
         root.setCssStyles({ left: `${clamped.x}px`, top: `${clamped.y}px` });
+
+        // Wire drag + resize gestures (no-ops in unit-test stubs that
+        // don't supply pointer events on the document).
+        this.attachDragHandle(dragHandle, root);
+        this.attachResizeHandle(resizeHandle, root);
 
         // Esc closes; outside-click does NOT close.
         this.boundKeyDown = (ev: KeyboardEvent) => {
@@ -426,6 +461,14 @@ export class InlineChatPanel {
         if (this.boundKeyDown !== null) {
             this.containerEl.ownerDocument.removeEventListener('keydown', this.boundKeyDown);
             this.boundKeyDown = null;
+        }
+        if (this.dragCleanup !== null) {
+            try { this.dragCleanup(); } catch { /* swallow */ }
+            this.dragCleanup = null;
+        }
+        if (this.resizeCleanup !== null) {
+            try { this.resizeCleanup(); } catch { /* swallow */ }
+            this.resizeCleanup = null;
         }
         if (wasOpen && this.onClose !== undefined) {
             try { this.onClose(); } catch { /* swallow */ }
@@ -745,6 +788,80 @@ export class InlineChatPanel {
             x: Math.max(8, Math.min(pos.x, maxX)),
             y: Math.max(8, Math.min(pos.y, maxY)),
         };
+    }
+
+    /**
+     * Wire pointer drag on the slim header grip so the user can move
+     * the panel anywhere on screen. Listeners are scoped to the
+     * document so the gesture survives the cursor leaving the grip
+     * element, and unbound on pointerup or panel close.
+     */
+    private attachDragHandle(handle: HTMLElement, root: HTMLElement): void {
+        const doc = this.containerEl.ownerDocument;
+        if (typeof handle.addEventListener !== 'function') return;
+        handle.addEventListener('pointerdown', (ev: PointerEvent) => {
+            if (ev.button !== 0) return;
+            ev.preventDefault();
+            const startX = ev.clientX;
+            const startY = ev.clientY;
+            const rect = root.getBoundingClientRect();
+            const originX = rect.left;
+            const originY = rect.top;
+            const onMove = (mv: PointerEvent): void => {
+                const nextX = originX + (mv.clientX - startX);
+                const nextY = originY + (mv.clientY - startY);
+                const clamped = this.clampToViewport({ x: nextX, y: nextY }, root);
+                root.setCssStyles({ left: `${clamped.x}px`, top: `${clamped.y}px` });
+            };
+            const onUp = (): void => {
+                doc.removeEventListener('pointermove', onMove);
+                doc.removeEventListener('pointerup', onUp);
+                doc.removeEventListener('pointercancel', onUp);
+                this.dragCleanup = null;
+            };
+            doc.addEventListener('pointermove', onMove);
+            doc.addEventListener('pointerup', onUp);
+            doc.addEventListener('pointercancel', onUp);
+            this.dragCleanup = onUp;
+        });
+    }
+
+    /**
+     * Wire pointer drag on the bottom-right corner so the user can
+     * scale the panel. Width + height clamp to MIN_WIDTH/MIN_HEIGHT
+     * and the viewport bounds; the chat body keeps its inner scroll.
+     */
+    private attachResizeHandle(handle: HTMLElement, root: HTMLElement): void {
+        const doc = this.containerEl.ownerDocument;
+        if (typeof handle.addEventListener !== 'function') return;
+        handle.addEventListener('pointerdown', (ev: PointerEvent) => {
+            if (ev.button !== 0) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            const startX = ev.clientX;
+            const startY = ev.clientY;
+            const rect = root.getBoundingClientRect();
+            const startW = rect.width;
+            const startH = rect.height;
+            const win = doc.defaultView;
+            const maxW = win !== null ? Math.max(MIN_WIDTH, win.innerWidth - rect.left - 8) : 4096;
+            const maxH = win !== null ? Math.max(MIN_HEIGHT, win.innerHeight - rect.top - 8) : 4096;
+            const onMove = (mv: PointerEvent): void => {
+                const nextW = Math.min(maxW, Math.max(MIN_WIDTH, startW + (mv.clientX - startX)));
+                const nextH = Math.min(maxH, Math.max(MIN_HEIGHT, startH + (mv.clientY - startY)));
+                root.setCssStyles({ width: `${nextW}px`, height: `${nextH}px` });
+            };
+            const onUp = (): void => {
+                doc.removeEventListener('pointermove', onMove);
+                doc.removeEventListener('pointerup', onUp);
+                doc.removeEventListener('pointercancel', onUp);
+                this.resizeCleanup = null;
+            };
+            doc.addEventListener('pointermove', onMove);
+            doc.addEventListener('pointerup', onUp);
+            doc.addEventListener('pointercancel', onUp);
+            this.resizeCleanup = onUp;
+        });
     }
 }
 
