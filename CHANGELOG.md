@@ -7,6 +7,32 @@ All notable changes to Vault Operator are documented here. Format follows
 ---
 
 
+## [3.0.3] -- 2026-06-23
+
+### Reachability fix -- restore install on Obsidian 1.8.7+
+
+The 2.13.2 Plugin Reviewer Bot pass pinned `minAppVersion` to `1.13.0`,
+which caused the in-app community plugin browser to silently fall back
+to `2.13.1` for every user on Obsidian below 1.13. This release lowers
+the floor back to `1.8.7` so the current build installs everywhere the
+code actually supports.
+
+- `manifest.minAppVersion` `1.13.0` -> `1.8.7`. The true API floor of
+  the current codebase is `Notice.messageEl` (1.8.7); everything else
+  in use sits at or below that line (`Workspace.revealLeaf` 1.7.2,
+  `FileManager.trashFile` 1.6.6, `Vault.getAllFolders` 1.6.6,
+  `Vault.getFileByPath` 1.5.7, `AbstractInputSuggest` 1.4.10,
+  `processFrontMatter` 1.4.4, `setCssStyles` 1.4.0).
+- `PromptModal.ts` confirm-button styling now prefers the 1.13 API
+  `setDestructive()` when present and falls back to the legacy
+  `setWarning()` on older Obsidian builds. Same visual result on both,
+  no user-facing change.
+
+No feature change. No data migration.
+
+---
+
+
 ## [3.0.2] -- 2026-06-23
 
 ### Obsidian Community Plugin Review Bot pass
