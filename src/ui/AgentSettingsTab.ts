@@ -17,6 +17,7 @@ import { PromptsTab }     from './settings/PromptsTab';
 import { McpTab }         from './settings/McpTab';
 import { VaultTab }       from './settings/VaultTab';
 import { InterfaceTab }   from './settings/InterfaceTab';
+import { InlineActionsTab } from './settings/InlineActionsTab';
 import { LogTab }         from './settings/LogTab';
 import { DebugTab }       from './settings/DebugTab';
 import { BackupTab }      from './settings/BackupTab';
@@ -302,6 +303,7 @@ export class AgentSettingsTab extends PluginSettingTab {
                 { id: 'debug',     label: t('settings.tab.debug')     },
                 { id: 'backup',    label: t('settings.tab.backup')    },
                 { id: 'optional-assets', label: t('settings.tab.optionalAssets') },
+                { id: 'inline-actions', label: 'Inline AI' },
             ],
             this.activeAdvancedSubTab,
             (id) => { this.activeAdvancedSubTab = id; this.redraw(); },
@@ -316,6 +318,7 @@ export class AgentSettingsTab extends PluginSettingTab {
         if (this.activeAdvancedSubTab === 'debug')     new DebugTab(this.plugin, this.app, rerender).build(content);
         if (this.activeAdvancedSubTab === 'backup')    new BackupTab(this.plugin, this.app, rerender).build(content);
         if (this.activeAdvancedSubTab === 'optional-assets') new OptionalAssetsTab(this.plugin, this.app, rerender).build(content);
+        if (this.activeAdvancedSubTab === 'inline-actions') new InlineActionsTab(this.plugin, this.app, rerender).build(content);
     }
 }
 

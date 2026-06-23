@@ -207,6 +207,32 @@ export interface AgentTaskRunConfig {
      * pass `undefined` and AgentTask falls back to an inline match.
      */
     recipeMatches?: import('./mastery/RecipeMatchingService').RecipeMatchResult[];
+
+    // -- EPIC-33 / ADR-138 PR-1.3 Override-Felder ----------------------
+    /**
+     * EPIC-33 ADR-138 PR-1.3: per-turn model override. When set the
+     * Runner/AgentTask uses this model id instead of the main-chat
+     * default. Used by FEAT-33-10 Per-Action-Pin and by the Sidebar
+     * model-switcher to push the override through the same config
+     * layer all callers share.
+     *
+     * Currently informational on the config path; the actual override
+     * is still resolved via buildApiHandlerForModel(model) BEFORE the
+     * AgentTask is constructed. This field exists so future callers
+     * (Inline-Actions, headless CLI) can declare intent in one place.
+     */
+    modelOverride?: string;
+    /**
+     * EPIC-33 ADR-138 PR-1.3: per-turn thinking-mode override (extended
+     * thinking on/off, budget tokens). Informational on the config
+     * path -- providers honour this via the API-Handler config.
+     */
+    thinkingOverride?: { enabled: boolean; budgetTokens?: number };
+    /**
+     * EPIC-33 ADR-138 PR-1.3: per-turn reasoning-effort override
+     * (low/medium/high/auto). Informational on the config path.
+     */
+    effortOverride?: 'low' | 'medium' | 'high' | 'auto';
 }
 
 export class AgentTask {

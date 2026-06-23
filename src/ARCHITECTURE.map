@@ -168,6 +168,20 @@ generated-assets          | src/_generated/                                     
 # PLUGIN ENTRY
 plugin-entry              | src/main.ts                                           | -                | wiring: register service and tool in onload()
 
+# INLINE EDITOR AI (EPIC-33, planned in /coding)
+# Concept rows below mark planned entry-points. Files exist after /coding implements them.
+# JSDoc header per file is the source of truth for current paths. See ADRs ADR-138..144 for design.
+inline-trigger-resolver   | src/core/inline/trigger/InlineTriggerResolver.ts      | ADR-138         | new action: register in InlineActionRegistry, add Floating-Menu entry plus Hotkey via Settings
+inline-floating-menu      | src/core/inline/trigger/InlineFloatingMenu.ts         | ADR-138         | new action entry: register in InlineActionRegistry, set output_mode hint
+inline-diff-renderer      | src/core/inline/diff/InlineDiffRenderer.ts            | ADR-139         | new diff-output mode: extend StateField effects, see Decoration.mark+widget pattern
+inline-diff-state         | src/core/inline/diff/InlineDiffStateField.ts          | ADR-139         | extend hunk map shape: keep RangeSet.map(tr.changes) invariant
+inline-lookup-rag         | src/core/inline/lookup/VaultRagPipeline.ts            | ADR-142         | new RAG variant: extend confidence filter or augmenter, reuse VectorStore.findNoteVectors
+inline-chat-block         | src/core/inline/chat/InlineChatBlockRenderer.ts       | ADR-143         | new fence version: bump tag vault-operator-chat-vN, add migration in InlineChatBlockParser
+inline-settings-snapshot  | src/core/inline/settings/InlineActionSettingsSnapshot.ts | ADR-140      | new snapshot field: add to settings cache invalidation, propagate through Per-Action-Pin
+inline-skill-filter       | src/core/inline/skills/InlineSkillFilter.ts           | ADR-141         | new capability field: extend inlineActionCapability schema in skill-manifest
+inline-telemetry          | src/core/inline/telemetry/InlineActionTelemetry.ts    | ADR-144         | new event type: add to OperationLogger event-type enum, sanitize before persist
+agent-task-runner         | src/core/agent/AgentTaskRunner.ts                     | ADR-138         | new caller site: provide ToolCallbacks, AgentTaskRunConfig, call runner instead of new AgentTask
+
 # =====================================================================
 # SECTION 2: ADR CATALOG
 # =====================================================================
@@ -326,3 +340,17 @@ ADR-95  | freshness-frontmatter-allowlist | src/core/health/FreshnessFrontmatter
 ADR-135 | zdr-capability         | src/core/health/ZdrCapabilityResolver.ts -- liest ProviderConfig.zdrCapable, Frontier-Eskalation nur unter ZDR+enabled+flagship-tier (IMP-20-06-01 W4-T2)
 ADR-135 | freshness-settings-ui  | src/ui/settings/VaultTab.ts -- Settings-Tab Sub-Section fuer alle freshness-Sub-Flags + Exclude-Paths (IMP-20-06-01 W4-T3); ProviderDetailModal traegt ZDR-Confirmation pro Provider
 ADR-135 | verdict-vocab-migration| src/core/knowledge/KnowledgeDB.ts (migrateVerdictVocabularyV11ToV12) -- schema v11->v12 rewrites German verdict literals (deckt-sich/ergaenzt/widerspricht) to English canon (matches/extends/contradicts) in note_freshness + note_freshness_history (2026-06-19)
+
+# EPIC-33 Inline-Editor-AI-Actions (Architektur 2026-06-22)
+ADR-138 | sidebar-independence    | Tier-1-Refactor: ToolCallbacks-Interface + AgentTaskRunner-Abstraktion + Mode/Thinking/Effort-Override-Parameter; Tier-2 spaeter (Settings-Source-Dekoppelung, ContextTracker-Extract). Pattern-Vorbild PlanPresentationTool.
+ADR-139 | inline-diff-renderer    | CodeMirror-6 Custom mark+widget Pattern mit StateField+StateEffect. jsdiff (transitive Dep), 80ms-Debounce, Per-Hunk Cmd+Opt+Y/N. Latenz-Budget ~120ms.
+ADR-140 | inline-settings-snapshot| Hybrid: Modell+Provider gecached mit plugin.saveSettings-Invalidation, Skills/Prompts pro Trigger frisch. Per-Action-Pin (FEAT-33-10) ueberschreibt Modell-Anteil.
+ADR-141 | inline-skill-capability | Schema-Erweiterung Skill-Manifest: inlineActionCapability { eligible, output_mode, input_format, max_selection_chars }. Default null = nicht im Inline-Menu.
+ADR-142 | vault-rag-lookup-pipeline | Synchrone Pipeline: Embedding -> VectorStore.findNoteVectors(domain:'note') -> Confidence-Threshold 0.7 -> LLM-Augmentation -> Quellen-Tooltip. Fallback LLM-only.
+ADR-143 | conversation-block-storage | Markdown-Code-Fence vault-operator-chat-v1 mit JSON-Body. 20-Turn-Cap + Auto-Collapse. Indexierung via Phase D markdownIndexer.
+ADR-144 | inline-action-telemetry | OperationLogger-Erweiterung um 4 Event-Typen (inline_action_triggered/accepted/rejected/pinned). Privacy-Sanitization: kein Selection-Inhalt persistiert.
+
+# EPIC-33 polish wave (added 2026-06-22, alle Module live verkabelt)
+inline-selection-watcher  | src/core/inline/SelectionWatcher.ts                    | ADR-138 ADR-141 | new trigger: extend mouseup/keyup hooks oder Floating-Menu-Open-Logic
+inline-codemirror-diff    | src/core/inline/diff/CodeMirrorDiffAdapter.ts          | ADR-139         | new diff-visualisation: extend StateField/Effect + Decoration.mark/widget
+inline-actions-tab        | src/ui/settings/InlineActionsTab.ts                    | ADR-138 ADR-140 | new inline-action: add row im knownActions-Array + Setting

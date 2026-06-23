@@ -378,7 +378,7 @@ export class VaultHealthService {
                ${userExcludeClauses}`,
             userExcludeParams,
         );
-        /* eslint-enable no-restricted-syntax */
+        /* eslint-enable no-restricted-syntax -- end of legacy ADR-136 vectors direct-access block */
         if (result.length === 0 || result[0].values.length === 0) return;
 
         const paths = result[0].values.map(row => row[0] as string);
@@ -614,7 +614,7 @@ export class VaultHealthService {
                )
              LIMIT 200`,
         );
-        /* eslint-enable no-restricted-syntax */
+        /* eslint-enable no-restricted-syntax -- end of legacy ADR-136 vectors direct-access block */
         if (result.length === 0 || result[0].values.length === 0) return;
 
         const pairs = result[0].values.map(row => ({
@@ -1712,7 +1712,7 @@ export class VaultHealthService {
                     `SELECT path, MAX(mtime) FROM vectors WHERE path IN (${placeholders}) GROUP BY path`,
                     paths,
                 );
-                /* eslint-enable no-restricted-syntax */
+                /* eslint-enable no-restricted-syntax -- end of legacy ADR-136 vectors direct-access block */
                 if (mtimeRaw.length === 0 || mtimeRaw[0].values.length === 0) continue;
 
                 let totalAgeDays = 0;

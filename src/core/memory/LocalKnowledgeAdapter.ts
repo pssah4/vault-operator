@@ -76,7 +76,7 @@ export class LocalKnowledgeAdapter implements KnowledgeGraphAdapter {
             'SELECT MAX(mtime) FROM vectors WHERE path = ?',
             [notePath],
         );
-        /* eslint-enable no-restricted-syntax */
+        /* eslint-enable no-restricted-syntax -- end of legacy ADR-136 vectors direct-access block */
         const tags = tagsResult.length > 0
             ? tagsResult[0].values.map(r => r[0] as string)
             : [];

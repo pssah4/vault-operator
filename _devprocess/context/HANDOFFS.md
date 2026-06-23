@@ -5,6 +5,350 @@ was uebergeben wurde und was der naechste Schritt ist.
 
 ---
 
+## coding-to-testing 2026-06-22
+
+triage: EPIC-33
+triage_kind: epic
+epic: EPIC-33
+feature: alle 11 FEATs (FEAT-33-01..11)
+
+**Phase:** Coding komplett. Ready for Testing.
+
+**Artefakte erzeugt (Code):**
+
+- `src/core/agent/AgentTaskRunner.ts` (Pre-Welle PR-1.1, ADR-138 Tier 1) + Tests
+- `src/core/inline/InlineTriggerContext.ts` (Types + Type-Guard)
+- `src/core/inline/InlineTriggerResolver.ts` (Selection-Event -> TriggerContext)
+- `src/core/inline/InlineActionRegistry.ts` (pluggable Action-Layer)
+- `src/core/inline/InlineFloatingMenu.ts` (DOM-Overlay-Render)
+- `src/core/inline/InlineActionService.ts` (Orchestrator)
+- `src/core/inline/InlineLLMCaller.ts` (Single-Turn-Provider-Probe)
+- `src/core/inline/inlineSettings.ts` (Defaults + Resolver)
+- `src/core/inline/PluginWiring.ts` (Obsidian-Adapter-Wiring)
+- `src/core/inline/actions/`: SendToMainChatAction, LookupAction, RewriteAction, TranslateAction, SummarizeAction, FindActionItemsAction
+- `src/core/inline/chat/`: InlineChatBlock + InlineChatAction
+- `src/core/inline/diff/InlineDiffEngine.ts` (jsdiff + Hunk-State-Machine)
+- `src/core/inline/lookup/VaultRagPipeline.ts` (DefaultVaultRagPipeline)
+- `src/core/inline/skills/`: inlineActionCapability + InlineSkillFilter + InlineSkillAction
+- `src/core/inline/settings/PerActionPin.ts`
+- `src/main.ts`: neues Feld `inlineActions`, wireInlineActions im onload, addCommand 'open-inline-ai-menu', dispose im onunload
+- `src/types/settings.ts`: `inlineActions?: InlineActionsSettings` (additiv, keine Migration)
+
+**Tests-Status:**
+- 150 neue Inline-Tests in 15 Test-Files
+- Full suite: 3353 passing + 1 expected fail (von vor EPIC-33), tsc clean
+- TDD-first ueber alle Module
+
+**Build + Deploy:**
+- esbuild production: clean
+- main.js 4.9 MB (von 4.8 MB vor EPIC-33)
+- Live-Deployment im Test-Vault erfolgt
+
+**Verfuegbare Inline-Actions (per Cmd+P "Open inline AI menu" oder via custom Hotkey-Binding):**
+
+| Action | FEAT | Eligible | LLM-Tier |
+|---|---|---|---|
+| Send to chat | FEAT-33-04 | alle Modi | n/a (oeffnet Sidebar) |
+| Lookup | FEAT-33-02 | alle Modi mit Selection | Haiku (LLM-only baseline) |
+| Rewrite | FEAT-33-03 | source/live-preview | Default-Tier |
+| Translate to English | FEAT-33-06 | alle Modi | Haiku |
+| Translate to German | FEAT-33-06 | alle Modi | Haiku |
+| Summarize (short) | FEAT-33-07 | alle Modi | Haiku |
+| Summarize (medium) | FEAT-33-07 | alle Modi | Haiku |
+| Find action items | FEAT-33-11 | alle Modi mit Selection | Haiku |
+| Chat about this | FEAT-33-05 | source/live-preview | Default-Tier |
+
+**Deferred Follow-ups (fuer separate Sessions, nicht Test-Blocker):**
+
+- PR-1.2 Sidebar-Migration (1-2 Wochen Refactor, Sidebar laeuft unmodifiziert)
+- CodeMirror-6 Diff-Decoration-Adapter fuer FEAT-33-03 Rewrite (aktuell streamt Text ohne Inline-Diff, Engine pure-logic ready)
+- SemanticIndexProbe live-wiring fuer FEAT-33-09 Vault-RAG (LookupAction faellt aktuell auf LLM-only zurueck; Pipeline-Modul probe-ready)
+- SkillCapabilityProbe live-wiring fuer FEAT-33-08 (Filter + Action ready, kein Skill-Wiring im Default-Set)
+- InlineActionsTab Settings-Modal-Sub-Section (Default-Settings reichen fuer Funktion)
+- CSS-Theme fuer `.agent-inline-menu` (Vanilla-DOM ohne Styling)
+- FEAT-33-10 Per-Action-Pin Settings-UI (PerActionPin-Reader ready, UI fehlt)
+
+**Test-Phase-Empfehlungen:**
+
+- Unit-Test-Coverage ist bereits hoch (150 Tests). /testing kann Gaps schliessen:
+  - Integration-Test fuer wireInlineActions (mock plugin object)
+  - Live-Smoke in Sebastian's Vault (Cmd+P "Open inline AI menu" -> Action triggern, Output sehen)
+  - Sidebar-Independence-Verifikation: alle Actions ausser Send-to-Main mit geschlossener Sidebar (H-06)
+  - Bot-Compliance-Check (review-bot oder manueller Scan)
+  - Edge-Cases: empty selection, very large selection, multi-line selection, ASCII vs Unicode
+- Coverage-Gap-Felder: PluginWiring.ts (Obsidian-API-Adapter sind nicht unit-getestet, brauchen Plugin-Mock oder Live-Test)
+
+**Hypothesen-Status (H-01..H-07):**
+
+- H-01 (Floating-Menu stoert nicht): UNGEPRUEFT, braucht Beta-Telemetrie
+- H-02 (CodeMirror-Diff Tech-Feasible): teilweise -- Engine pure-logic ready, Adapter fehlt
+- H-03 (Settings-Reuse + Pin): PerActionPin ready, Telemetrie deferred
+- H-04 (4..11 Actions decken Bedarf): UNGEPRUEFT, braucht Beta-Issue-Tracking
+- H-05 (CodeMirror/Obsidian-API trifft alle Output-Modi): Live-Verifikation steht aus
+- H-06 (Sidebar-Independence): durch AgentTaskRunner + Adapter-Probe-Pattern strukturell erfuellt, braucht Live-Verifikation
+- H-07 (Vault-RAG schlaegt LLM-only): UNGEPRUEFT, braucht erst Vault-RAG-Wiring + A/B-Test
+
+**Naechster Schritt:** `/testing` Welle. Empfohlener Fokus: (1) Live-Smoke-Test im Plugin um die Plugin-Wiring-Pfade zu verifizieren (LLM-Roundtrip, Sidebar-Open-Demand, Conversation-Block-Persistierung), (2) Sidebar-Independence-Check pro Action mit explizit geschlossener Sidebar, (3) Edge-Cases (empty/giant selection, Unicode, Mode-Wechsel). Dann `/security-audit` mit Fokus auf: kein Selection-Inhalt in Telemetrie, Prompt-Injection-Hardening identisch zum Chat-Pfad, Path-Traversal-Schutz bei InlineChat-NoteWriter.
+
+---
+
+## architecture-to-coding 2026-06-22
+
+triage: EPIC-33
+triage_kind: epic
+epic: EPIC-33
+feature: 11 FEATs (FEAT-33-01..11)
+
+**Phase:** Architecture komplett. Ready for Coding.
+
+**Artefakte erzeugt:**
+
+- 7 ADRs ADR-138..144 in `_devprocess/architecture/` (986 Zeilen, Multi-Agent-Workflow parallel)
+- arc42 Section 5.10 (Bausteinsicht Inline-Editor-AI-Layer) + Section 9 (ADR-Tabelle um 7 Rows erweitert)
+- [plan-context-epic-33.md](../requirements/handoff/plan-context-epic-33.md) (232 Zeilen, Tech-Stack + Architecture-Style + ADR-Summary + Module-Layout + Welle-Plan + Test-Plan + Performance/Security + Open Items + Consistency-Check)
+- src/ARCHITECTURE.map: 10 neue Concept-Rows (inline-trigger-resolver, inline-floating-menu, inline-diff-renderer, inline-diff-state, inline-lookup-rag, inline-chat-block, inline-settings-snapshot, inline-skill-filter, inline-telemetry, agent-task-runner) + 7 ADR-Catalog-Rows fuer ADR-138..144
+- BACKLOG-Erweiterung: 7 ADR-Rows in EPIC-33-Sektion (Status Proposed, Phase Building), Dashboard ADR 124 -> 131, Total 484 -> 491
+
+**Spike-Ergebnisse die in die ADRs eingeflossen sind:**
+
+Spike A (Sidebar-Independence-Codebase-Inventory, Explore-Agent):
+- 60% AI-Pfade bereits entkoppelt: API-Provider, AgentTask Callback-Abstrakt, Settings global in main.ts, interne LLM-Calls in PlanPresentationTool (Pattern-Vorbild), SemanticSearchTool HyDE, MemoryService SingleCallProcessor
+- 40% gekoppelt: AgentTask-Konstruktion in AgentSidebarView.ts:1959, Callback-DOM-Manipulation Lines 1963-2250, Mode/Thinking/Effort-Override als Sidebar-Instanz-Variablen
+- Tier-1-Refactor-Aufwand: Medium (1-2 Wochen)
+
+Spike B (CodeMirror-6 Inline-Diff, WebSearch/WebFetch + Code-Analyse):
+- Custom mark+widget-Pattern mit StateField+StateEffect ist SOTA
+- jsdiff bereits transitiv in node_modules
+- 80ms-Debounce auf Token-Strom liefert <100ms Latenz-Budget
+- InlineAI-Plugin (FBarrca/obsidian-inlineAI) als Obsidian-Best-Practice-Vorbild
+- @codemirror/* als external in esbuild Pflicht (Doppelkopie sonst)
+- Latenz-Budget knapp 100ms, Optimierungen Viewport-only Decorations und Partial-Diffing falls noetig
+
+**Critical-ADRs (3):**
+
+- **ADR-138 Sidebar-Independence-Architektur:** Stufenweiser Refactor. Welle 1 Tier 1 (ToolCallbacks-Extract in src/ui/rendering/SidebarMessageRenderer.ts + AgentTaskRunner-Abstraktion in src/core/agent/AgentTaskRunner.ts + Mode/Thinking/Effort-Override-Parameter in AgentTaskRunConfig). Tier 2 (Settings-Source-Dekoppelung + ContextTracker-Extract) nach Welle 1 Beta-Verifikation. Sidebar-Funktionalitaet bleibt waehrend Refactor unveraendert.
+- **ADR-139 CodeMirror-6 Inline-Diff-Renderer:** Custom mark+widget mit StateField+StateEffect. Module unter src/core/inline/diff/. Per-Hunk Cmd+Opt+Y/N (Continue-Pattern). Risiko Latenz-Budget durch Viewport-only Decorations mitigated.
+- **ADR-143 Conversation-Block-Storage-Strategie:** Markdown-Code-Fence mit Language-Tag vault-operator-chat-v1 und JSON-Body. Markdown-konform (lesbar ohne Plugin), Git-versioniert, Cross-Plugin-Compatible. 20-Turn-Cap + Auto-Collapse mitigated Note-Aufblaehung. Indexierung via Phase D markdownIndexer.
+
+**Moderate-ADRs (4):**
+
+- **ADR-140 Settings-Snapshot-Lifecycle:** Hybrid Cache+Frisch. Modell+Provider gecached mit plugin.saveSettings-Invalidation, Skills/Prompts pro Trigger frisch. Per-Action-Pin (FEAT-33-10) ueberschreibt Modell-Anteil.
+- **ADR-141 Skill-Capability-Filter inline-action-eligible:** Capability-Object im Skill-Manifest mit eligible/output_mode/input_format/max_selection_chars. Default null = nicht im Inline-Menu (kein Forced-Migration).
+- **ADR-142 Vault-RAG-Pipeline fuer Lookup:** Synchrone Pipeline mit Confidence-Threshold (default 0.7), Fallback LLM-only. Wiederverwendet SemanticIndex/VectorStore mit ADR-136/137-Schema (domain='note'). A/B-Test-Hook fuer H-07.
+- **ADR-144 Telemetrie-Hook fuer Inline-Actions:** OperationLogger-Extension um 4 Event-Typen. Privacy-Sanitization automatisch (kein Selection-Inhalt persistiert).
+
+**Tech-Stack-Justification (Kurzform fuer plan-context):**
+
+Keine neuen Tech-Schichten. Vault Operator hat alle Bausteine bereits: API-Provider entkoppelt, AgentTask abstrakt, Skills-System, TaskRouter, SemanticIndex (10.783 Vektoren via vectors.domain), OperationLogger, Memory v2, HistoryDB. EPIC-33 ist Surface-Wiring auf existierender Backend-Tiefe plus Sidebar-Independence-Refactor (ADR-138). CodeMirror-6 (von Obsidian bereitgestellt) plus Custom mark+widget Pattern fuer Inline-Diff. jsdiff transitiv vorhanden, kein neuer NPM-Dep noetig.
+
+**Rejected alternatives (damit /coding sie nicht reopened):**
+
+- **Direct-Replace + Undo** fuer Rewrite (FEAT-33-03): verworfen nach Marktrecherche, 6/8 Tools machen Inline-Diff
+- **@codemirror/merge Library** fuer Diff-Renderer: verworfen wegen Streaming-UX-Limitierung
+- **Direkt-Refactor** in einem Schritt (ADR-138 Option 1): verworfen wegen Regressionsrisiko
+- **Adapter-Pattern ohne Refactor** (ADR-138 Option 3): verworfen wegen Code-Smell und Tier-2-Blockade
+- **Boolean-Flag** statt Capability-Object fuer Skill-Inline-Eligibility (ADR-141 Option 1): verworfen wegen Output-Mode-Variation-Bedarf
+- **Eigener InlineActionTelemetry-Layer** (ADR-144 Option 2): verworfen wegen Code-Duplikation gegen OperationLogger
+- **Ephemer im Memory** fuer Conversation-Block (ADR-143 Option 1): verworfen wegen Markt-Innovation ohne Persistenz
+- **Sidecar-Datei `.inline-chats.md`** fuer Conversation-Block (ADR-143 Option 4): verworfen wegen Sidecar-Proliferation
+
+**Known risks fuer /coding-Monitoring:**
+
+- **Tier-1-Refactor (ADR-138)** groesser als geschaetzt: Mitigation Pre-Welle als eigene Phase, Snapshot-Tests fuer Sidebar-Callbacks vor Refactor
+- **CodeMirror-Diff-Latenz** >100ms in der Praxis: Mitigation Viewport-only Decorations, optionale Modal-Preview-Fallback in Settings
+- **Vault-RAG-Confidence-Threshold** falsch kalibriert: Mitigation Default 0.7, User-rebindbar, Telemetrie sammelt empirische Verteilung
+- **Conversation-Block-Aufblaehung**: Mitigation 20-Turn-Cap + Auto-Collapse + optionale "move to history"-Action in Welle 3
+- **esbuild external-Config** fuer @codemirror/* MUSS verifiziert sein vor FEAT-33-03-Start (Open Item in plan-context Section 10)
+
+**Open items fuer /coding (Codebase-Reconciliation Phase 2a):**
+
+- AgentTaskRunConfig kann ohne Bruch erweitert werden? Existing-callers durchcheck
+- SkillsService SkillManifest-Schema-Position fuer Capability-Feld
+- OperationLogger Event-Typ-Enum Schema-Migration falls strict
+- esbuild.config.mjs external-Verifikation (@codemirror/state, @codemirror/view, @codemirror/language, obsidian)
+
+**Wellen-Plan fuer /coding (siehe plan-context-epic-33.md Section 7):**
+
+- **Pre-Welle:** Tier-1-Refactor (ADR-138)
+- **Welle 1 (P0):** FEAT-33-01 Trigger-Layer -> FEAT-33-04 Send-to-Main-Chat -> FEAT-33-02 Lookup -> FEAT-33-09 Vault-RAG -> FEAT-33-08 Skills-im-Menu -> FEAT-33-03 Rewrite (komplexeste)
+- **Welle 2 (P1):** FEAT-33-06 Translate -> FEAT-33-07 Summarize -> FEAT-33-05 Inline-Chat
+- **Welle 3 (P2):** FEAT-33-10 Per-Action-Pin -> FEAT-33-11 Find-Action-Items (optional via Skill)
+
+**Consistency check:**
+
+plan-context.md ist konsistent mit allen 7 ADRs. Forbidden-Terms-Check: alle Tech-Terme nur in Technical NFRs und Implementation Notes, ADR-Abstraktion gewahrt (Context/Decision/Consequences ohne file:line).
+
+**Naechster Schritt:** `/coding` startet mit Phase 2a Codebase-Reconciliation, dann Pre-Welle Tier-1-Refactor (ADR-138), dann Welle 1.1 FEAT-33-01 Trigger-Layer als Substrat aller anderen Actions. TDD-Default ist aktiv.
+
+---
+
+## requirements-engineering-to-architecture 2026-06-22
+
+triage: EPIC-33
+triage_kind: epic
+epic: EPIC-33
+feature: 11 FEATs (FEAT-33-01..11)
+
+**Phase:** Requirements Engineering komplett. Ready for Architecture.
+
+**Artefakte erzeugt:**
+
+- EPIC-Spec ausgebaut von Skeleton zur vollen Spec: [EPIC-33-inline-editor-ai-actions.md](../requirements/epics/EPIC-33-inline-editor-ai-actions.md) (248 Zeilen)
+- 11 FEAT-Specs in `_devprocess/requirements/features/`: FEAT-33-01..11 (2176 Markdown-Zeilen gesamt, Multi-Agent-Workflow parallel)
+- Architect-Handoff: [architect-handoff-epic-33.md](../requirements/handoff/architect-handoff-epic-33.md) (160 Zeilen)
+- BA in 9 Edit-Passes aktualisiert (Sections 2.1, 2.3, 2.4, 4.2, 4.3, 6.3, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 9, 10.2, 10.3, 11.5, Appendix C)
+- Marktrecherche persistiert: [RESEARCH-EPIC-33-inline-ai-competitors-2026-06-22.md](../analysis/RESEARCH-EPIC-33-inline-ai-competitors-2026-06-22.md) (Multi-Agent 8 Tools, 17 Agenten, adversarial verifiziert)
+- BACKLOG-Sektion EPIC-33 ausgebaut mit 11 FEAT-Rows, Status: Ready, Phase: Building (P0/P1) bzw. Candidates (P2). EPIC-Header auf Phase: RE, Status: Active. Dashboard Feature-Count 225 -> 236, Total 473 -> 484
+
+**Scope-Erweiterung nach Marktrecherche:**
+
+Initial BA hatte 4 FEATs (Lookup, Rewrite, Inline-Chat, Send-to-Main). Marktrecherche zeigte:
+
+- Direct-Replace+Undo war Markt-MINDERHEIT (2/8 Tools). Cursor selbst macht Inline-Diff mit Accept/Reject, nicht direct-replace. Sebastian's initiale Referenz war faktisch falsch -> Rewrite-Output revidiert auf Inline-Diff + Per-Hunk Accept/Reject (FEAT-33-03), SOTA-Pattern
+- 4 Actions zu wenig: Notion AI hat 17 Operationen, 6/8 Tools haben Translate als First-Class, 6/8 haben Summarize. Translate (FEAT-33-06) + Summarize (FEAT-33-07) als P1 in Scope gezogen
+- Skills-System als Inline-Action-Quelle (FEAT-33-08): Notion hat seit Maerz 2026 Custom Skills, Obsidian Copilot hat Custom Commands. Vault Operator hat tieferes Skills-System (User + Plugin + Mastery + Capabilities), das ist Architektur-Hebel. Als P0-Differenzierungs-Anker aufgenommen
+- Vault-Knowledge-Integration im Lookup (FEAT-33-09): kein Wettbewerber kombiniert AI-Lookup mit Vault-RAG. Vault Operator-Native-Differenzierung. Als P0 herausgeloest mit eigenen Akzeptanzkriterien
+- Per-Action-Model-Pin (FEAT-33-10) und Find-Action-Items (FEAT-33-11) als P2
+
+**User-Anforderung Sidebar-Independence:**
+
+Mid-RE-Pass kam neue User-Anforderung: alle Inline-Actions muessen mit geschlossener Chat-Sidebar funktionieren. Aufgenommen als:
+
+- ASR-EPIC-33-01 (Critical): Sidebar-Independence
+- H-06 in BA Section 7.3 (Critical Hypothesis Tech-Feasibility + Problem-Solution Fit)
+- Cross-FEAT-Constraint: jedes FEAT belegt in seiner DoD explizit dass es mit geschlossener Sidebar funktioniert. Send-to-Main-Chat (FEAT-33-04) ist die einzige Ausnahme und oeffnet die Sidebar als Teil seiner Funktion
+- NFR in Section 10.2: 100% Sidebar-Independence-Coverage als Tech-Akzeptanzkriterium
+
+**NFR-Summary fuer Architektur:**
+
+- Performance: Trigger-Resolver-Overhead <5ms, Time-to-First-Token <=3s, Inline-Diff-Render-Latenz <100ms
+- Availability: 100% Sidebar-Independence-Coverage
+- Security: Selection-Inhalt wird wie Chat-Input behandelt (Prompt-Injection-Hardening, keine zusaetzliche PII-Exposure)
+- Scalability: Selection-Cap analog `CONTEXT_DOCUMENT_CHAR_LIMIT` (80k chars); Skills-im-Menu TOP-N-Cap (Default 10)
+- Compatibility: Source/Live-Preview tragen alle Actions; Reading-Mode traegt Lookup/Send/Translate
+- Bot-Compliance: Obsidian Community Plugin Review-Bot Rules
+- Cost-Tracking: Inline-Action-Aufrufe an existierendes Cost-Tracking (EPIC-09) gehaengt; Tier pro Action (Haiku fuer Lookup/Translate/Summarize, Default fuer Rewrite/Chat)
+
+**6 Critical/Moderate ASRs (siehe architect-handoff-epic-33.md Section 2):**
+
+- ASR-EPIC-33-01 Critical: Sidebar-Independence
+- ASR-EPIC-33-02 Critical: CodeMirror-6 Inline-Diff-Renderer mit Per-Hunk Accept/Reject
+- ASR-EPIC-33-03 Critical: Conversation-Block-Speicherung (4 Optionen zur Wahl)
+- ASR-EPIC-33-04 Moderate: Vault-Knowledge-RAG-Pipeline fuer Lookup
+- ASR-EPIC-33-05 Moderate: Skill-Capability-Filter "inline-action-eligible"
+- ASR-EPIC-33-06 Moderate: Settings-Snapshot-Lifecycle
+
+**7 Critical Hypotheses fuer Beta-Validierung (BA Section 7.3):**
+
+- H-01 Floating-Menu stoert nicht (Problem-Solution Fit)
+- H-02 CodeMirror-6 Inline-Diff Tech-Feasible (Tech Feasibility, Spike erforderlich)
+- H-03 Settings-Reuse-Default mit optional Pin (Problem-Solution Fit)
+- H-04 11 Actions decken Hauptbedarf (Market) mit TOP-5-Watchlist (Continue-Writing, Fix-Grammar-as-Preset, Make-Shorter/Longer-Buttons, Change-Tone, Reading-Level)
+- H-05 CodeMirror/Obsidian-API tragen alle Output-Modi (Tech Feasibility)
+- H-06 Sidebar-Independence (Tech Feasibility + Problem-Solution Fit)
+- H-07 Vault-RAG schlaegt LLM-only-Lookup (Problem-Solution Fit, A/B-Test in Beta)
+
+**8 Recommended ADRs (siehe architect-handoff-epic-33.md Section 8):**
+
+ADR-EPIC-33-A Sidebar-Independence-Architektur, ADR-EPIC-33-B CodeMirror-6 Inline-Diff-Renderer, ADR-EPIC-33-C Settings-Snapshot-Lifecycle, ADR-EPIC-33-D Skill-Capability-Filter, ADR-EPIC-33-E Vault-RAG-Pipeline, ADR-EPIC-33-F Conversation-Block-Storage, ADR-EPIC-33-G Telemetrie-Hook, ADR-EPIC-33-H Mobile-Pattern. Architektur kann eigene ADR-IDs vergeben oder begruenden warum manche zusammengelegt werden
+
+**2 Spike-Empfehlungen (siehe architect-handoff-epic-33.md Section 9):**
+
+- Spike A (1-2 Tage): Sidebar-Independence-Inventory. View-Abhaengigkeiten von AgentTask kartieren. Output: Refactor-Aufwand-Schaetzung
+- Spike B (1-2 Tage): CodeMirror-6 Inline-Diff-Prototyp mit InlineAI als Vorbild. Output: Latenz-Messung plus Editor-State-Korruptions-Test
+
+**Open Architecture Questions (siehe architect-handoff-epic-33.md Section 5):** 9 explizite Fragen, alle non-blocking (parallele ADR-Arbeit moeglich)
+
+**Constraints:**
+
+- TypeScript strict, Obsidian Plugin API, CodeMirror 6, esbuild
+- Existierende Provider-Infrastruktur (src/api/*.ts), kein neuer Tech-Stack
+- Mobile-Koordination mit EPIC-27 FEAT-27-01 (Platform-Capabilities-Filter)
+- BRAT-Beta-Channel auf vault-operator-dev fuer Welle-1-Validierung vor Public-Release
+
+**Forbidden-Terms-Check:** Alle 11 FEAT-Specs haben tech-agnostische Success Criteria, Tech-Terme nur in Technical NFRs. Keine OAuth/REST/PostgreSQL/ms in SC-Tabellen. Verifiziert.
+
+**Wellen-Strategie:**
+
+- Welle 1 (P0, 6 FEATs): Trigger-Layer, Lookup, Rewrite mit Inline-Diff, Send-to-Main-Chat, Skills-im-Floating-Menu, Vault-Knowledge-Lookup. Volle MVP-Surface mit beiden Differenzierungs-Ankern
+- Welle 2 (P1, 3 FEATs): Inline-Chat-Innovation, Translate, Summarize. Tool-Parity-Completion plus Memory-/History-Integration
+- Welle 3 (P2, 2 FEATs): Per-Action-Model-Pin, Find-Action-Items. Nach Beta-Lernen
+
+**Naechster Schritt:** `/architecture` startet mit Spike A + B parallel, schreibt die 6-8 empfohlenen ADRs, aktualisiert arc42 Sections 5 (Bausteinsicht) und 9 (Entscheidungen), erstellt plan-context-epic-33.md mit Wellen-Schnitt + Spike-Output + Implementation-Reihenfolge + Test-Plan.
+
+---
+
+## business-analysis-to-requirements-engineering 2026-06-22
+
+triage: EPIC-33
+triage_kind: epic
+epic: EPIC-33
+feature: n/a (EPIC-Level, FEAT-Aufspaltung in RE)
+
+**Phase:** Business Analysis (MVP-Scope) abgeschlossen. Ready for RE.
+
+**Artefakte erzeugt:**
+
+- BA: [BA-EPIC-33-inline-editor-ai-actions.md](../analysis/BA-EPIC-33-inline-editor-ai-actions.md) (Item-BA fuer EPIC-33)
+- BACKLOG-Sektion fuer EPIC-33 reserviert mit Status: BA-in-progress, Phase: BA
+- Branch: `feature/inline-editor-ai-actions` (von `dev` abgezweigt 2026-06-22)
+
+**Scope:** MVP. GA-Feature, eine homogene Persona P1 (Vault Operator-User / Power-User-Wissensarbeiter).
+
+**HMW:**
+> How might we Vault Operator-User den Wechsel vom Schreibmodus in den Chat-Modus eliminieren lassen, sodass markierter Text in einer Note der Trigger fuer die naechstpassende AI-Aktion wird, despite der bestehenden Trennung zwischen Editor-Surface und Chat-Sidebar samt deren getrennten Konfigurationen?
+
+**Value Proposition:**
+Markierter Text wird zur direkten Eingangstuer fuer vier kuratierte AI-Aktionen (Lookup, Rewrite, Inline-Chat, Send-to-Main-Chat). Jede Aktion uebernimmt die im Main-Chat aktiven Settings (Modell, Skills, Prompts, Provider). Editor wird zur zweiten gleichwertigen AI-Surface neben dem Sidebar.
+
+**Trigger-UX (entschieden):**
+- Default: Floating-Menu auf Selection
+- Settings-Toggle: Hotkey-Alternative (user-konfigurierbar) fuer User die Floating als stoerend empfinden oder Cursor/Cmd+K-Pattern gewohnt sind
+- Command-Palette-Konsistenz folgt natuerlich aus Obsidian-Plugin-Convention
+
+**Rewrite-Output (entschieden):**
+- Direct-Replace + Undo-Stack (Cursor-Pattern)
+- Bewusst kein Diff-Preview als Default (Risiko-Tradeoff: H-02 testet Akzeptanz)
+- Optional Checkpoint-Snapshot vor Rewrite als Mitigation (Architektur-Entscheidung)
+
+**Critical Hypotheses fuer RE und Architektur:**
+
+- H-01 (Problem-Solution Fit): Floating-Menu auf Selection stoert das normale Markieren-zum-Kopieren nicht. **Test:** 14d Beta. **Success:** <15% Hotkey-Opt-Out, keine Format-Toolbar-Kollisions-Bugs.
+- H-02 (Problem-Solution Fit): Direct-Replace + Undo ist die akzeptable UX fuer Rewrite. **Test:** 14d Beta mit Telemetry. **Success:** Undo-Rate nach Rewrite <30%.
+- H-03 (Problem-Solution Fit): Settings-Reuse aus Main-Chat ist die richtige Granularitaet. **Test:** 30d Beta + Issue-Tracking. **Success:** <2 Issues mit "ich will andere Settings fuer Inline".
+- H-04 (Market): Die 4 gewaehlten Actions decken den Hauptbedarf. **Test:** 30d Beta + Issue-Backlog. **Success:** <3 Issues mit "fehlt Action X".
+- H-05 (Tech Feasibility): CodeMirror-Selection-API + Obsidian-Editor-API tragen alle 4 Output-Modi ohne Editor-State-Korruption. **Test:** Spike in Architektur-Phase. **Success:** alle 4 Actions in Source-Mode + Live-Preview, Lookup/Send zusaetzlich in Reading-Mode.
+
+**Assumptions (zu verifizieren in Architektur):**
+
+- CodeMirror-6-Selection-Events sind in der Obsidian-Plugin-API stabil zugaenglich
+- Modell/Skills-Snapshot zum Action-Zeitpunkt ist akzeptabel (vs Live-Bind)
+- Inline-Chat-Conversation-Block kann als Sub-Conversation in der existierenden History-Pipeline gespeichert werden (oder ephemer bleiben - Architektur-Entscheidung)
+
+**Geplante Feature-Aufspaltung (vorgeschlagen fuer RE):**
+
+- FEAT-33-01 (P0): Trigger-Layer (Floating-Menu + Hotkey + Command-Palette + Settings-Surface)
+- FEAT-33-02 (P0): Lookup-Action (Tooltip oder Side-Panel)
+- FEAT-33-03 (P0): Rewrite-Action (Direct-Replace + Undo + optional Checkpoint)
+- FEAT-33-04 (P0): Send-to-Main-Chat-Action (Sidebar oeffnen mit Selection als Vor-Kontext)
+- FEAT-33-05 (P1): Inline-Chat-Action (Conversation-Block, anspruchsvollster Output-Modus, deshalb getrennt)
+
+**Open Questions fuer RE/Architektur:**
+
+- Inline-Chat-Conversation-Block: ephemer im Editor oder persistiert in Note-Frontmatter / separater Sub-Conversation in History-Pipeline?
+- Settings-Snapshot Lifecycle: pro Action-Trigger oder Cache bis Settings-Aenderung?
+- Reading-Mode-Behandlung: nur Lookup/Send aktiv oder auch Rewrite (Editor-Switch im Hintergrund)?
+- Mobile-Tap-and-hold-Menu vs System-Selection-Menu: Konflikt-Strategie?
+- Telemetry-Infrastruktur fuer H-01/H-02/H-04 (Undo-Rate, Action-Mix, Hotkey-Opt-Out) - existiert ein Hook oder muss er gebaut werden?
+
+**Project-BA-Status (Hinweis fuer RE):**
+
+Keine kanonische `BA-{PROJECT}.md` im Repo. Legacy-Per-Epic-BAs (BA-01..BA-10) sind nicht aequivalent. EPIC-33-BA setzt `project-ba-ref: null` und definiert Persona P1 lokal. Mittelfristige Empfehlung: `/reverse-engineering` fuer Projekt-BA-Rekonstruktion (separates Initiative, nicht blockierend fuer EPIC-33).
+
+**Naechster Schritt:** `/requirements-engineering` zur EPIC-33-Spec + FEAT-33-01..05.
+
+---
+
 ## 2026-04-23 -- EPIC-023 Mobile Support: Business Analysis -> Requirements Engineering
 
 **Phase:** Business Analysis (MVP-Scope) abgeschlossen. Ready for RE.

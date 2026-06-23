@@ -1200,6 +1200,71 @@ export interface ObsidianAgentSettings {
      * data.json stays type-stable across the upgrade window.
      */
     legacy_active_models_backup?: CustomModel[];
+
+    /**
+     * EPIC-33 / FEAT-33-01: Inline-Editor-AI-Actions settings.
+     * All fields are optional with sensible defaults so existing
+     * data.json stays compatible. Defaults are applied via
+     * resolveInlineActionsSettings() in src/core/inline/inlineSettings.ts.
+     */
+    inlineActions?: InlineActionsSettings;
+}
+
+/**
+ * EPIC-33: Inline-Editor-AI-Actions settings. Each Inline-Action
+ * trigger UX (Floating-Menu, Hotkey, Command-Palette) and per-action
+ * model-pin live here. The struct is intentionally flat so the
+ * settings UI in InlineActionsTab can render every option without
+ * deep nesting.
+ */
+export interface InlineActionsSettings {
+    /** Master kill-switch. Default true. */
+    enabled?: boolean;
+    /** Show the Floating-Menu automatically on selection. Default true. */
+    floatingMenuEnabled?: boolean;
+    /**
+     * FEAT-33-09: Use Vault-Knowledge-RAG in Lookup. Default true.
+     * A/B-test toggle for Critical Hypothesis H-07.
+     */
+    vaultRagInLookup?: boolean;
+    /**
+     * FEAT-33-09: Confidence threshold for Vault-RAG hits (0.0..1.0).
+     * Hits below the threshold fall back to LLM-only lookup. Default 0.7.
+     */
+    vaultRagConfidenceThreshold?: number;
+    /**
+     * FEAT-33-09: Show Vault source links in the Lookup tooltip.
+     * Default true. User-opt-out for sensitive vault forks.
+     */
+    showVaultSourcesInTooltip?: boolean;
+    /**
+     * FEAT-33-10: Per-Action-Model-Pin overrides. Key is the
+     * InlineAction id (e.g. 'lookup'), value is a model id from
+     * activeModels[] or null for "use main-chat default".
+     */
+    actionPins?: Record<string, string | null>;
+    /**
+     * Cap on how many Skills appear in the floating menu's
+     * skill-actions group. Default 10. Set to 0 to hide skills entirely.
+     */
+    skillsTopN?: number;
+    /**
+     * FEAT-33-08: per-skill inline capability. Key is the skill name
+     * (matches SelfAuthoredSkill.name). Value carries the same shape
+     * as InlineActionCapability. Skills without an entry are silently
+     * excluded from the Floating-Menu.
+     *
+     * This mapping lives in settings (NOT in skill frontmatter) so
+     * (a) the existing skill schema is untouched, and (b) the user
+     * explicitly opts a skill in as an inline action via the Settings
+     * UI rather than the skill author dictating it.
+     */
+    skillCapabilities?: Record<string, {
+        eligible: boolean;
+        output_mode: 'preview-block' | 'inline-diff' | 'side-panel' | 'tooltip';
+        input_format: 'markdown' | 'plain';
+        max_selection_chars?: number;
+    }>;
 }
 
 // ---------------------------------------------------------------------------

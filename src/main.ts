@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
-import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, addIcon } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, addIcon, Platform } from 'obsidian';
+import { formatHotkeyHint } from './core/inline/HotkeyHint';
 import { preWarmProviderConnection } from './api/warmup';
 import { scheduleRecurring } from './util/scheduleRecurring';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
@@ -143,6 +144,12 @@ export default class ObsidianAgentPlugin extends Plugin {
     declare settings: ObsidianAgentSettings;
     toolRegistry: ToolRegistry;
     apiHandler: ApiHandler | null = null;
+    /**
+     * EPIC-33: Inline-Editor-AI-Actions service. Instantiated by
+     * wireInlineActions() once the apiHandler and tool registry are
+     * ready. Disposed in onunload.
+     */
+    inlineActions: import('./core/inline/PluginWiring').InlineWiringResult | null = null;
     /**
      * EPIC-26 / FEAT-26-04: when a one-shot migration ran during onload
      * its summary lives here until the sidebar consumes it for the
@@ -2198,6 +2205,58 @@ export default class ObsidianAgentPlugin extends Plugin {
             callback: () => this.activateView()
         });
 
+        // EPIC-33: Inline-Editor-AI-Actions wiring. Builds the action
+        // registry + floating-menu over the live editor and the active
+        // provider. No default hotkey -- user binds in Settings.
+        try {
+            const wiring = await import('./core/inline/PluginWiring');
+            this.inlineActions = wiring.wireInlineActions(this);
+        } catch (e) {
+            console.warn('[main] inline-actions wiring failed (non-fatal):', e);
+            this.inlineActions = null;
+        }
+
+        this.addCommand({
+            id: 'open-inline-ai-menu',
+            name: 'Open inline AI chat',
+            callback: () => {
+                this.inlineActions?.orchestrator.triggerPanel();
+            },
+        });
+        // EPIC-33: keep the inline-AI surface discoverable with a
+        // default chord without setting `hotkeys` on `addCommand`
+        // (Obsidian community guidelines discourage that). Register
+        // Mod+Shift+I on the app scope instead so 'Mod' resolves to
+        // Cmd on macOS / Ctrl on Win+Linux automatically. Users can
+        // still rebind the COMMAND via Settings -> Hotkeys -- both
+        // chords then trigger the same panel. The handler is owned
+        // by the plugin, so onunload removes it.
+        const inlineHotkeyHandler = this.app.scope.register(['Mod', 'Shift'], 'i', (ev: KeyboardEvent) => {
+            if (this.inlineActions === null || this.inlineActions === undefined) return false;
+            ev.preventDefault();
+            this.inlineActions.orchestrator.triggerPanel();
+            return false;
+        });
+        this.register(() => this.app.scope.unregister(inlineHotkeyHandler));
+
+        // EPIC-33: Rechtsklick-Menue zeigt die Inline-Chat-Option mit
+        // OS-spezifischem Hotkey-Hint (Mac symbols vs. Ctrl+Shift+I).
+        // Icon: 'slash' = Vault Operator brand icon (consistent with
+        // ribbon + commands).
+        this.registerEvent(
+            this.app.workspace.on('editor-menu', (menu, editor) => {
+                const selection = editor.getSelection();
+                if (selection.length === 0) return;
+                const hint = formatHotkeyHint(Platform);
+                menu.addItem(item => item
+                    .setTitle(`Inline AI chat  (${hint})`)
+                    .setIcon('square-slash')
+                    .onClick(() => {
+                        this.inlineActions?.orchestrator.triggerPanel();
+                    }));
+            }),
+        );
+
         // FEATURE-0319 Phase 5: Save active conversation to memory.
         // No default hotkey -- user assigns via Settings -> Hotkeys.
         this.addCommand({
@@ -2410,6 +2469,14 @@ export default class ObsidianAgentPlugin extends Plugin {
      */
     onunload(): void {
         console.debug('Unloading Vault Operator plugin');
+        // EPIC-33: dispose inline-actions before async cleanup so the
+        // floating-menu listeners detach immediately.
+        try {
+            this.inlineActions?.dispose();
+        } catch (e) {
+            console.debug('[main] inline-actions dispose error (non-fatal):', e);
+        }
+        this.inlineActions = null;
         // Fire-and-forget async cleanup (Plugin API expects synchronous return)
         void (async () => {
             // Flush any pending chat-links before shutdown

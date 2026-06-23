@@ -5570,17 +5570,12 @@
 
 /* ── DiffReviewModal ─────────────────────────────────────────────────── */
 .diff-review-modal {
-    width: 70%;
-    height: 70%;
+    width: 70vw;
+    height: 70vh;
     max-width: none;
     max-height: none;
     display: flex;
     flex-direction: column;
-    position: fixed;
-    top: 15%;
-    left: 15%;
-    margin: 0;
-    transform: none;
 }
 .diff-review-modal .modal-content { flex: 1; overflow-y: auto; min-height: 0; }
 
@@ -7501,4 +7496,748 @@
     justify-content: flex-end;
     gap: 8px;
     margin-top: 20px;
+}
+
+/* ── Inline-Editor-AI-Actions (EPIC-33) ───────────────────────────── */
+.agent-inline-menu {
+    position: absolute;
+    z-index: 1000;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    font-size: var(--font-ui-small);
+    user-select: none;
+}
+.agent-inline-menu__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    color: inherit;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+.agent-inline-menu__item:hover,
+.agent-inline-menu__item:focus {
+    background: var(--background-modifier-hover);
+    outline: none;
+}
+.agent-inline-menu__item:active {
+    background: var(--background-modifier-active-hover);
+}
+.agent-inline-action-preview {
+    background: var(--background-primary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 8px 0;
+    font-size: var(--font-ui-small);
+}
+.agent-inline-action-preview__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+.agent-inline-action-preview__body {
+    white-space: pre-wrap;
+}
+.agent-inline-action-preview__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+.agent-inline-diff-add {
+    background: rgba(40, 167, 69, 0.18);
+    border-bottom: 1px solid rgba(40, 167, 69, 0.6);
+}
+.agent-inline-diff-remove {
+    background: rgba(220, 53, 69, 0.18);
+    text-decoration: line-through;
+    border-bottom: 1px solid rgba(220, 53, 69, 0.6);
+}
+.agent-inline-diff-hunk-actions {
+    display: inline-flex;
+    gap: 4px;
+    margin-left: 4px;
+}
+.agent-inline-diff-hunk-actions button {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
+}
+
+/* ── Inline Chat Panel (EPIC-33 UX-refresh) ───────────────────────── */
+.agent-inline-panel {
+    position: absolute;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+    font-size: var(--font-ui-small);
+    overflow: hidden;
+}
+.agent-inline-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+/* Selection preview at the top of the panel. */
+.agent-inline-panel__anchor {
+    position: relative;
+    padding: 8px 28px 8px 12px;
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+.agent-inline-panel__anchor-label {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+.agent-inline-panel__anchor-text {
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 4.4em;
+    overflow: hidden;
+}
+.agent-inline-panel__anchor-text--expanded {
+    max-height: 320px;
+    overflow-y: auto;
+}
+/* Anchor-toggle: same frameless treatment as the close button.
+   Obsidian default `button` background is forced to transparent via
+   !important so no theme can re-introduce the tile on hover. */
+.agent-inline-panel__anchor-toggle,
+.agent-inline-panel__anchor-toggle:hover,
+.agent-inline-panel__anchor-toggle:focus,
+.agent-inline-panel__anchor-toggle:active,
+.agent-inline-panel__anchor-toggle:focus-visible {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+.agent-inline-panel__anchor-toggle {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.agent-inline-panel__anchor-toggle:hover {
+    color: var(--text-normal);
+}
+.agent-inline-panel__anchor-toggle-icon {
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+    line-height: 1;
+}
+.agent-inline-panel__anchor-toggle-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Close button (absolute top-right corner). */
+/* Close button: frameless icon button, mirrors the other icon
+   buttons in the panel. NO background ever (Obsidian's default
+   `button { background: var(--interactive-normal) }` would otherwise
+   render a tile on hover). `!important` is the cleanest way to
+   ensure no theme accidentally re-introduces the tile. */
+.agent-inline-panel__close,
+.agent-inline-panel__close:hover,
+.agent-inline-panel__close:focus,
+.agent-inline-panel__close:active,
+.agent-inline-panel__close:focus-visible {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+.agent-inline-panel__close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 6px;
+    z-index: 1;
+}
+.agent-inline-panel__close:hover {
+    color: var(--text-normal);
+}
+
+/* Drag handle: slim strip at the top of the panel. Pointer drag
+ * moves the whole window. Centered grip dots hint at the affordance
+ * but stay subtle so the panel does not look like a system window. */
+.agent-inline-panel__drag-handle {
+    flex: 0 0 auto;
+    height: 14px;
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    user-select: none;
+    -webkit-user-select: none;
+    opacity: 0.55;
+    transition: opacity 0.12s ease;
+}
+.agent-inline-panel__drag-handle::before {
+    content: '⋯⋯';
+    font-size: 14px;
+    letter-spacing: 2px;
+    line-height: 1;
+}
+.agent-inline-panel__drag-handle:hover {
+    opacity: 0.95;
+}
+
+/* Resize handle: corner triangle in the bottom-right. Sits absolutely
+ * inside the panel root so the body keeps its full flex extent. */
+.agent-inline-panel__resize-handle {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    background:
+        linear-gradient(135deg,
+            transparent 0%, transparent 50%,
+            var(--text-faint) 50%, var(--text-faint) 60%,
+            transparent 60%, transparent 70%,
+            var(--text-faint) 70%, var(--text-faint) 80%,
+            transparent 80%);
+    opacity: 0.6;
+    z-index: 2;
+}
+.agent-inline-panel__resize-handle:hover {
+    opacity: 1;
+}
+
+/* Message body (flex column, scrollable). */
+.agent-inline-panel__body {
+    flex: 1;
+    min-height: 100px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.agent-inline-panel__body:empty {
+    min-height: 40px;
+}
+/* Message bubbles -- mirror the sidebar's .message-content pattern:
+   assistant text has NO background and NO border, user bubble carries
+   a subtle accent-tint with asymmetric radius. Identical numbers as
+   styles.css lines 350-484 (sidebar). */
+.agent-inline-panel__bubble {
+    padding: 7px 10px;
+    border-radius: 8px;
+    line-height: 1.45;
+    font-size: 13px;
+    white-space: normal;
+    word-wrap: break-word;
+    max-width: 100%;
+    border: none;
+    background: transparent;
+    user-select: text;
+    cursor: text;
+}
+.agent-inline-panel__bubble--user {
+    background: color-mix(in srgb, var(--interactive-accent) 20%, var(--background-primary));
+    color: var(--text-normal);
+    align-self: flex-end;
+    max-width: 85%;
+    border-radius: 12px 12px 4px 12px;
+    padding: 6px 11px;
+    border: none;
+}
+.agent-inline-panel__bubble--assistant {
+    background: transparent;
+    border: none;
+    align-self: stretch;
+    max-width: 100%;
+    padding: 4px 2px;
+}
+.agent-inline-panel__bubble--system {
+    background: transparent;
+    align-self: center;
+    font-size: var(--font-ui-smaller);
+    font-style: italic;
+    color: var(--text-muted);
+    border: none;
+}
+/* Rendered Markdown inside the assistant bubble: same paragraph
+   spacing + heading treatment as the sidebar .message-content. */
+.agent-inline-panel__bubble--assistant p {
+    margin: 0 0 8px 0;
+}
+.agent-inline-panel__bubble--assistant p:last-child { margin-bottom: 0; }
+.agent-inline-panel__bubble--assistant ul,
+.agent-inline-panel__bubble--assistant ol {
+    margin-left: 0;
+    padding-left: 16px;
+    margin-bottom: 8px;
+}
+.agent-inline-panel__bubble--assistant li { margin-bottom: 4px; }
+.agent-inline-panel__bubble--assistant h1,
+.agent-inline-panel__bubble--assistant h2,
+.agent-inline-panel__bubble--assistant h3,
+.agent-inline-panel__bubble--assistant h4 {
+    margin-top: 14px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+.agent-inline-panel__bubble--assistant h1:first-child,
+.agent-inline-panel__bubble--assistant h2:first-child,
+.agent-inline-panel__bubble--assistant h3:first-child {
+    margin-top: 0;
+}
+.agent-inline-panel__bubble--assistant code {
+    background: var(--background-secondary);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.92em;
+}
+.agent-inline-panel__bubble--assistant pre {
+    background: var(--background-secondary);
+    padding: 8px 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 8px 0;
+}
+.agent-inline-panel__bubble--assistant pre code {
+    background: transparent;
+    padding: 0;
+}
+
+/* Status pill. */
+.agent-inline-panel__status {
+    padding: 4px 12px;
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+}
+.agent-inline-panel__status--error {
+    color: var(--text-error);
+    background: var(--background-modifier-error-hover);
+}
+
+/* Composer wrapper inside the panel: cap padding so the sidebar
+   styles do not push the panel beyond its width budget. */
+.agent-inline-panel__composer {
+    border-top: 1px solid var(--background-modifier-border);
+    padding: 6px 8px;
+}
+/* Lookup-Button is the inline-specific quick-action sitting next to "+". */
+.agent-inline-panel .lookup-button {
+    /* Inherits .toolbar-button base styling from the sidebar; no extra
+       rules needed beyond hover hint that matches the sidebar buttons. */
+}
+.agent-inline-panel .lookup-button:hover {
+    color: var(--interactive-accent);
+}
+/* Constrain the composer textarea so it fits the panel width. */
+.agent-inline-panel .chat-textarea {
+    min-height: 60px;
+    max-height: 140px;
+}
+
+/* ── EditReviewModal (EPIC-33 Diff-UX-refresh, 2026-06-22) ───────── */
+/* this.modalEl.addClass('agent-edit-review-modal') puts the class on
+   the .modal element itself, NOT a parent -- so the correct selector
+   is .modal.agent-edit-review-modal. Obsidian's default rules set
+   width/max-width directly on .modal at higher specificity, so we use
+   !important to make the override stick. */
+.modal.agent-edit-review-modal {
+    width: 95vw !important;
+    min-width: 1200px !important;
+    max-width: 95vw !important;
+    /* Also enlarge the height so the side-by-side has vertical room. */
+    height: 88vh !important;
+    max-height: 88vh !important;
+}
+.modal.agent-edit-review-modal .modal-content {
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+.agent-edit-review {
+    display: flex;
+    flex-direction: column;
+    height: 70vh;
+    min-height: 420px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+}
+.agent-edit-review__header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+}
+.agent-edit-review__title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.agent-edit-review__title {
+    font-size: var(--font-ui-large);
+    font-weight: 600;
+}
+.agent-edit-review__subtitle {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+}
+
+.agent-edit-review__empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: var(--font-ui-medium);
+}
+
+.agent-edit-review__main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+/* ── Left: file list ─────────────────────────────────────────────── */
+.agent-edit-review__filelist {
+    width: 240px;
+    border-right: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 8px 0;
+}
+.agent-edit-review__filelist-heading {
+    padding: 4px 12px 8px 12px;
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.agent-edit-review__file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    border-radius: 0;
+}
+.agent-edit-review__file:hover {
+    background: var(--background-modifier-hover);
+}
+.agent-edit-review__file.is-selected {
+    background: var(--background-modifier-active-hover);
+    color: var(--text-on-accent);
+    background-color: var(--interactive-accent);
+}
+.agent-edit-review__file.is-selected .agent-edit-review__file-status,
+.agent-edit-review__file.is-selected .agent-edit-review__file-label {
+    color: var(--text-on-accent);
+}
+.agent-edit-review__file.is-skipped {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+.agent-edit-review__file-status {
+    width: 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.agent-edit-review__file-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Right: diff view ────────────────────────────────────────────── */
+.agent-edit-review__diff {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.agent-edit-review__diff-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background: var(--background-primary-alt);
+}
+.agent-edit-review__diff-path {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.agent-edit-review__skip-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-size: var(--font-ui-smaller);
+}
+.agent-edit-review__skip-btn:hover {
+    color: var(--text-normal);
+    border-color: var(--background-modifier-border-hover);
+}
+.agent-edit-review__skip-btn.is-active {
+    background: var(--background-modifier-error-hover);
+    color: var(--text-error);
+    border-color: var(--text-error);
+}
+
+.agent-edit-review__columns {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+    gap: 1px;
+    background: var(--background-modifier-border);
+}
+.agent-edit-review__column {
+    display: flex;
+    flex-direction: column;
+    background: var(--background-primary);
+    min-width: 0;
+    min-height: 0;
+}
+.agent-edit-review__column-label {
+    padding: 6px 12px;
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+.agent-edit-review__column-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-small);
+    line-height: 1.5;
+}
+.agent-edit-review__line {
+    display: grid;
+    grid-template-columns: 44px 16px 1fr;
+    align-items: baseline;
+    white-space: pre-wrap;
+    padding: 0;
+    border-radius: 0;
+    min-height: 1.4em;
+    gap: 4px;
+}
+.agent-edit-review__lineno {
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    padding-right: 8px;
+    user-select: none;
+    border-right: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    font-size: var(--font-ui-smaller);
+}
+.agent-edit-review__line-status {
+    color: var(--text-muted);
+    font-weight: 700;
+    text-align: center;
+    user-select: none;
+    font-family: var(--font-monospace);
+}
+.agent-edit-review__line-text {
+    padding-right: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.agent-edit-review__column--before .agent-edit-review__line.is-removed .agent-edit-review__line-status {
+    color: var(--text-error);
+}
+.agent-edit-review__column--after .agent-edit-review__line.is-added .agent-edit-review__line-status {
+    color: var(--color-green);
+}
+/* Padding rows fill vertical space so Zeile N left lines up with Zeile N
+   right. They are non-editable and rendered as a faint dashed-out gap. */
+.agent-edit-review__line--padding {
+    background: repeating-linear-gradient(
+        45deg,
+        var(--background-secondary),
+        var(--background-secondary) 6px,
+        transparent 6px,
+        transparent 12px
+    );
+    color: transparent;
+    user-select: none;
+    pointer-events: none;
+}
+/* Left-side removed lines: subtle red tint across the row. */
+.agent-edit-review__column--before .agent-edit-review__line.is-removed {
+    background: rgba(220, 53, 69, 0.13);
+}
+.agent-edit-review__column--before .agent-edit-review__line.is-removed .agent-edit-review__lineno {
+    background: rgba(220, 53, 69, 0.22);
+    color: var(--text-error);
+}
+/* Right-side added lines: subtle green tint across the row. */
+.agent-edit-review__column--after .agent-edit-review__line.is-added {
+    background: rgba(40, 167, 69, 0.14);
+}
+.agent-edit-review__column--after .agent-edit-review__line.is-added .agent-edit-review__lineno {
+    background: rgba(40, 167, 69, 0.22);
+    color: var(--color-green);
+}
+/* Fallback (un-typed) yellow tint for ambiguous changes. */
+.agent-edit-review__line.is-changed:not(.is-removed):not(.is-added) {
+    background: rgba(255, 200, 0, 0.16);
+}
+
+.agent-edit-review__editor {
+    flex: 1;
+    margin: 0;
+    border: none;
+    padding: 12px 14px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-small);
+    line-height: 1.5;
+    outline: none;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    min-height: 0;
+}
+.agent-edit-review__editor:focus {
+    box-shadow: inset 0 0 0 2px var(--interactive-accent);
+}
+/* Stats badge in the after-column label (right side). */
+.agent-edit-review__stats {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.agent-edit-review__stats.is-changed {
+    color: var(--text-accent);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+.agent-edit-review__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+}
+.agent-edit-review__discard-btn,
+.agent-edit-review__apply-btn,
+.agent-edit-review__restore-btn {
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: var(--font-ui-small);
+}
+.agent-edit-review__discard-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+}
+.agent-edit-review__discard-btn:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+
+/* Checkpoint marker in the inline panel inherits the sidebar
+ * `.checkpoint-marker` rules (divider lines + ghost icon buttons). The
+ * legacy `.agent-inline-panel__checkpoint-*` styles were removed when
+ * the inline marker adopted the sidebar DOM (EPIC-33 checkpoint-
+ * parity wave, 2026-06-23). The remaining
+ * `.agent-inline-panel__bubble--checkpoint` modifier raises the
+ * default opacity from the sidebar's 0.5 (decorative) to a fully
+ * visible state -- in the inline panel the marker IS the main
+ * post-edit affordance, not a separator between tool steps. */
+.agent-inline-panel__bubble--checkpoint {
+    align-self: stretch;
+    max-width: 100%;
+    padding: 4px 6px;
+}
+.agent-inline-panel__bubble--checkpoint.checkpoint-marker {
+    opacity: 1;
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+}
+.agent-inline-panel__bubble--checkpoint .checkpoint-label {
+    font-size: var(--font-ui-small);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.agent-inline-panel__bubble--checkpoint .checkpoint-action-btn {
+    opacity: 0.8;
+}
+.agent-inline-panel__bubble--checkpoint .checkpoint-action-btn:hover {
+    opacity: 1;
 }

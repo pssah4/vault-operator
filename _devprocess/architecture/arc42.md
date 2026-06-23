@@ -516,6 +516,78 @@ Pflicht-Schema des `consult_flagship`-Tools: `problem` (max 1500 chars), `releva
 
 ---
 
+### 5.10 Ebene 2: Inline-Editor-AI-Layer (EPIC-33)
+
+Inline-Editor-AI-Actions sind eine neue Interaktions-Surface fuer markierten Text in Notes. Der Layer existiert parallel zur Chat-Sidebar und teilt sich mit ihr die AI-Backend-Infrastruktur. Er lebt unter `src/core/inline/` und wird in drei Wellen ausgerollt (siehe `_devprocess/requirements/handoff/plan-context-epic-33.md`).
+
+**Kern-Prinzip Sidebar-Independence:** Alle Inline-Actions ausser Send-to-Main-Chat funktionieren ohne offene Chat-Sidebar. Modell-Provider, Settings-Snapshot, TaskRouter, Skills-System und Streaming-Rendering laufen sidebar-unabhaengig. Send-to-Main-Chat oeffnet die Sidebar bei Bedarf automatisch. ADR-138 begruendet den stufenweisen Refactor (Tier 1 in Welle 1, Tier 2 spaeter).
+
+**Bausteine:**
+
+```
+src/core/inline/
+  trigger/                 # FEAT-33-01 Trigger-Layer
+    InlineTriggerResolver    Selection-Event -> triggerContext
+    InlineFloatingMenu       Floating-Menu Default-UX
+    InlineHotkeyHandler      Hotkey-Bindings (Cmd+K, Cmd+L)
+    InlineTriggerContext     { selectionText, editorMode, cursorPos, notePath, settingsSnapshot }
+  diff/                    # FEAT-33-03 Rewrite Inline-Diff
+    InlineDiffStateField     StateField { decorations, hunks }
+    InlineDiffEffects        updateDiffEffect, acceptHunkEffect, rejectHunkEffect
+    InlineDiffRenderer       Decoration.mark + Decoration.widget
+    InlineDiffStreamHandler  80ms-Debounce + jsdiff
+    InlineDiffKeymap         Cmd+Return / Cmd+Backspace / Cmd+Opt+Y/N
+  lookup/                  # FEAT-33-02 + FEAT-33-09 Vault-RAG
+    VaultRagPipeline         Embedding -> findNoteVectors -> Threshold -> Augmentation
+    RagConfidenceFilter      Threshold-Filter (Default 0.7)
+    RagPromptAugmenter       Source-Snippet-Injection
+    LookupPreviewBlock       Preview-Block mit Insert-below
+  chat/                    # FEAT-33-05 Inline-Chat
+    InlineChatBlockRenderer  vault-operator-chat-v1 Fence-Render
+    InlineChatBlockParser    Fence-JSON-Parser
+    InlineChatStorage        Read/Write in Note
+  settings/                # ADR-140 Settings-Snapshot
+    InlineActionSettingsCache    Modell+Provider Cache mit Invalidation
+    InlineActionSettingsSnapshot Builder mit Pin-Override
+  skills/                  # FEAT-33-08 Skills-im-Menu
+    InlineSkillFilter        Liest Skill-Manifest inlineActionCapability
+  actions/                 # Action-Implementierungen
+    LookupAction, RewriteAction, InlineChatAction, SendToMainChatAction,
+    TranslateAction, SummarizeAction, FindActionItemsAction
+
+src/core/agent/
+  AgentTaskRunner          NEU (ADR-138): Abstraktion ueber AgentTask + Callbacks + Config
+
+src/ui/rendering/
+  SidebarMessageRenderer   NEU (ADR-138): DOM-Adapter aus AgentSidebarView extrahiert
+
+src/ui/inline/
+  InlineActionsTab         Settings-Surface in Settings-Modal
+```
+
+**Wiederverwendete bestehende Module:**
+
+- `src/api/*.ts` (Multi-Provider, bereits sidebar-unabhaengig)
+- `src/core/AgentTask.ts` (AgentTaskRunConfig erweitert um modelOverride/thinkingOverride/effortOverride)
+- `src/services/SemanticIndexService.ts` und `src/services/VectorStore.ts` mit `findNoteVectors({domain:'note'})` (ADR-136/137) fuer FEAT-33-09 Vault-RAG
+- `src/services/SkillsService.ts` (Skill-Manifest erweitert um inlineActionCapability, ADR-141)
+- `src/services/TaskRouter.ts` fuer Cost-aware Tier-Routing pro Action
+- `src/services/OperationLogger.ts` erweitert um Inline-Action-Event-Typen (ADR-144)
+- Memory v2 + History-Pipeline fuer FEAT-33-05 Conversation-Block-Indexing
+
+ADRs: [ADR-138](ADR-138-sidebar-independence-architecture.md) (Sidebar-Independence), [ADR-139](ADR-139-codemirror-6-inline-diff-renderer.md) (Inline-Diff-Renderer), [ADR-140](ADR-140-settings-snapshot-lifecycle.md) (Settings-Snapshot), [ADR-141](ADR-141-skill-capability-inline-action-eligible.md) (Skill-Capability), [ADR-142](ADR-142-vault-rag-pipeline-lookup.md) (Vault-RAG), [ADR-143](ADR-143-conversation-block-storage-strategy.md) (Conversation-Block-Storage), [ADR-144](ADR-144-telemetry-hook-inline-actions.md) (Telemetrie-Hook). Feature-Specs: FEAT-33-01..11.
+
+Konstanten und Defaults (siehe ADRs fuer Begruendung):
+
+- Floating-Menu Default an, Hotkey-Fallback via Settings
+- Hotkey-Empfehlung: Cmd+K Inline-Edit, Cmd+L Send-to-Chat
+- Inline-Diff-Render-Latenz: <100ms zwischen Token und Render (Spike B Latenz-Budget 80-150ms)
+- Conversation-Block Begrenzung: max 20 Turns pro Block, danach Auto-Collapse
+- Vault-RAG-Confidence-Threshold: 0.7 cosine-similarity (Default, User-rebindbar)
+- Skills im Inline-Menu: TOP-N-Cap default 10
+
+---
+
 ## 6. Laufzeitsicht
 
 ### 6.1 Normaler Agent-Zyklus
@@ -1052,6 +1124,13 @@ Siehe einzelne ADRs in `_devprocess/architecture/`:
 | [ADR-135](ADR-135-verdict-confidence-routing-and-zdr-gating.md) | Verdict-Confidence-Routing und ZDR-Pflicht für Note-Verifier (IMP-20-06-01) |
 | [ADR-136](ADR-136-knowledgedb-domain-discriminator-and-migration.md) | KnowledgeDB Domain-Diskriminator und Migration v12 zu v13 (FEAT-03-27, Memory v2 Phase 7) |
 | [ADR-137](ADR-137-knowledgedb-domain-access-pattern.md) | KnowledgeDB Domain-Access-Pattern: Helper plus Lint-Regel (FEAT-03-27) |
+| [ADR-138](ADR-138-sidebar-independence-architecture.md) | Sidebar-Independence-Architektur fuer Inline-AI-Actions (EPIC-33) |
+| [ADR-139](ADR-139-codemirror-6-inline-diff-renderer.md) | CodeMirror-6 Inline-Diff-Renderer mit Per-Hunk Accept/Reject (EPIC-33, FEAT-33-03) |
+| [ADR-140](ADR-140-settings-snapshot-lifecycle.md) | Settings-Snapshot-Lifecycle fuer Inline-Actions (EPIC-33, FEAT-33-01, FEAT-33-10) |
+| [ADR-141](ADR-141-skill-capability-inline-action-eligible.md) | Skill-Capability-Filter inline-action-eligible (EPIC-33, FEAT-33-08) |
+| [ADR-142](ADR-142-vault-rag-pipeline-lookup.md) | Vault-RAG-Pipeline fuer Lookup-Action (EPIC-33, FEAT-33-09) |
+| [ADR-143](ADR-143-conversation-block-storage-strategy.md) | Conversation-Block-Storage-Strategie fuer Inline-Chat (EPIC-33, FEAT-33-05) |
+| [ADR-144](ADR-144-telemetry-hook-inline-actions.md) | Telemetrie-Hook fuer Inline-Actions (EPIC-33) |
 
 ---
 
