@@ -7,6 +7,92 @@ All notable changes to Vault Operator are documented here. Format follows
 ---
 
 
+## [3.0.0] -- 2026-06-23
+
+### Inline-Editor AI surface (EPIC-33)
+
+A new way to work with the agent: every selection in the editor is now a
+direct entry point for the same agent loop the sidebar drives. The chat
+moves into the note. Eleven curated actions plus a free-form chat panel
+share one settings layer with the sidebar; nothing about the existing
+sidebar workflow changes.
+
+The inline surface is purely additive. There are no breaking changes for
+existing users -- the sidebar, providers, vault tools, semantic index,
+memory, MCP servers, skills, and history work exactly as before. The
+major version reflects the change in interaction paradigm, not a SemVer
+break.
+
+### Added
+
+- **Selection-triggered floating menu.** Highlighting text in the editor
+  opens a compact menu over the selection with eleven actions: Lookup
+  with vault-knowledge integration, Rewrite with inline diff and
+  per-hunk Accept/Reject, Send-to-Main-Chat, Translate, Summarize,
+  Find-Action-Items, Inline-Chat, Skills-from-the-floating-menu,
+  optional Per-Action-Model-Pin. Default chord Mod+Shift+I, registered
+  via the app scope so the user can also bind the underlying command
+  through Settings -> Hotkeys.
+- **Inline chat panel.** A full agent chat surface anchored to the
+  selection. Drag the top grip to move the panel; drag the bottom-right
+  corner to resize it. The panel runs the same `AgentTask` loop the
+  sidebar uses -- skills, rules, memory, MCP servers, mode routing,
+  steering messages, attachments, all of it.
+- **Live checkpoint markers in the panel.** Every write tool the agent
+  runs during an inline chat (`write_file`, `edit_file`, `append_to_file`)
+  surfaces as a sidebar-parity checkpoint marker with four actions: show
+  diff, undo this, undo from here, more menu. The Rewrite quick-action
+  surfaces an explicit pre-apply review via the new `EditReviewModal`.
+- **Inline conversations land in the main history.** The panel writes
+  its turns to the same `ConversationStore` the sidebar uses, with a
+  stable session task id so re-opening an inline conversation from the
+  history surfaces the same checkpoint markers as a native sidebar
+  conversation.
+- **Vault-knowledge integration for Lookup.** Semantic search over the
+  vault (10,783-vector default index) augments Lookup answers when at
+  least one chunk clears the confidence threshold (`0.7` default, weak
+  tier floor `0.6`). The augmentation is wrapped in `<vault_context>`
+  tags inside the system prompt so a malicious note cannot escape the
+  untrusted block.
+- **Optional web fallback for Lookup.** When the vault has no strong
+  coverage and a search provider (Brave or Tavily) is configured, one
+  capped web search runs with a five-second timeout. Snippets are
+  defanged before they reach the prompt and rendered as a deterministic
+  appendix after the answer.
+- **Skills appear in the floating menu.** Skills with the new
+  `inline-action-eligible` capability flag show up next to the built-in
+  actions. Output mode (`preview-block` / `inline-diff` / `side-panel`
+  / `tooltip`) and `max_selection_chars` come from the skill manifest.
+
+### Security
+
+- Full per-item security audit
+  ([AUDIT-EPIC-33-2026-06-23](_devprocess/analysis/AUDIT-EPIC-33-2026-06-23.md)).
+  Three High and five Medium findings resolved before release: prompt
+  injection hardening across all five actions (XML tagging of selection
+  / vault / web contexts, defang of in-band closing tags), 5-second
+  timeout plus title/url/snippet clamps on `InlineWebLookup`, allow-list
+  guard for `PerActionPin`, hash-collision guard on `EmbeddingCache`,
+  wikilink + Markdown-link sanitisation in `LookupAppendix`, enforced
+  20-turn cap per inline conversation, capability re-check inside
+  `InlineSkillAction`. Twelve regression tests pin the fixes in
+  `src/core/inline/__tests__/audit-hardening.test.ts`.
+- Vault-RAG weak-tier floor raised from `0.5` to `0.6` so the prompt
+  augmentation never quotes a chunk that barely cleared random-baseline
+  similarity.
+- Embedding cache is cleared on plugin unload so per-session text never
+  outlives the session in RAM.
+
+### Deferred to backlog
+
+- `FIX-33-AUDIT-03` Vault-folder filter for sensitive folders in the
+  RAG pipeline.
+- `FIX-33-AUDIT-04` `OperationLogger` live wiring for the inline action
+  telemetry events (ADR-144).
+
+---
+
+
 ## [2.8.1] -- 2026-05-14
 
 ### Security (AUDIT-024 fix-loop)
