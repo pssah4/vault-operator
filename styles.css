@@ -7634,16 +7634,21 @@
 /* Anchor-toggle: same frameless treatment as the close button.
    Obsidian default `button` background is forced to transparent via
    !important so no theme can re-introduce the tile on hover. */
-.agent-inline-panel__anchor-toggle,
-.agent-inline-panel__anchor-toggle:hover,
-.agent-inline-panel__anchor-toggle:focus,
-.agent-inline-panel__anchor-toggle:active,
-.agent-inline-panel__anchor-toggle:focus-visible {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+/* Pattern M (class repetition) instead of !important: doubling the
+ * class bumps specificity from (0,1,0) to (0,2,0) which beats both
+ * `button { background: var(--interactive-normal) }` and most theme
+ * `.popover button` overrides without the bot's avoid-!important
+ * warning. Verified visually in the 3.0.x release. */
+.agent-inline-panel__anchor-toggle.agent-inline-panel__anchor-toggle,
+.agent-inline-panel__anchor-toggle.agent-inline-panel__anchor-toggle:hover,
+.agent-inline-panel__anchor-toggle.agent-inline-panel__anchor-toggle:focus,
+.agent-inline-panel__anchor-toggle.agent-inline-panel__anchor-toggle:active,
+.agent-inline-panel__anchor-toggle.agent-inline-panel__anchor-toggle:focus-visible {
+    background: transparent;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
 }
 .agent-inline-panel__anchor-toggle {
     position: absolute;
@@ -7676,16 +7681,19 @@
    `button { background: var(--interactive-normal) }` would otherwise
    render a tile on hover). `!important` is the cleanest way to
    ensure no theme accidentally re-introduces the tile. */
-.agent-inline-panel__close,
-.agent-inline-panel__close:hover,
-.agent-inline-panel__close:focus,
-.agent-inline-panel__close:active,
-.agent-inline-panel__close:focus-visible {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+/* Pattern M (class repetition): same approach as the anchor toggle
+ * block above -- doubling the class bumps specificity to (0,2,0) so
+ * the no-tile rule wins without `!important`. */
+.agent-inline-panel__close.agent-inline-panel__close,
+.agent-inline-panel__close.agent-inline-panel__close:hover,
+.agent-inline-panel__close.agent-inline-panel__close:focus,
+.agent-inline-panel__close.agent-inline-panel__close:active,
+.agent-inline-panel__close.agent-inline-panel__close:focus-visible {
+    background: transparent;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
 }
 .agent-inline-panel__close {
     position: absolute;
@@ -7884,18 +7892,18 @@
 }
 
 /* ── EditReviewModal (EPIC-33 Diff-UX-refresh, 2026-06-22) ───────── */
-/* this.modalEl.addClass('agent-edit-review-modal') puts the class on
-   the .modal element itself, NOT a parent -- so the correct selector
-   is .modal.agent-edit-review-modal. Obsidian's default rules set
-   width/max-width directly on .modal at higher specificity, so we use
-   !important to make the override stick. */
-.modal.agent-edit-review-modal {
-    width: 95vw !important;
-    min-width: 1200px !important;
-    max-width: 95vw !important;
+/* `.agent-edit-review-modal` lands on the `.modal` element itself, so
+ * the correct selector is `.modal.agent-edit-review-modal`. Pattern M
+ * (extra class repetition) lifts the specificity from (0,2,0) to
+ * (0,4,0), comfortably above Obsidian's own `.modal` width/max-width
+ * rules without needing `!important`. */
+.modal.agent-edit-review-modal.agent-edit-review-modal.agent-edit-review-modal {
+    width: 95vw;
+    min-width: 1200px;
+    max-width: 95vw;
     /* Also enlarge the height so the side-by-side has vertical room. */
-    height: 88vh !important;
-    max-height: 88vh !important;
+    height: 88vh;
+    max-height: 88vh;
 }
 .modal.agent-edit-review-modal .modal-content {
     padding: 0;

@@ -17,8 +17,8 @@
 import { TFile, TFolder } from 'obsidian';
 import type ObsidianAgentPlugin from '../../../main';
 // REF-10: ToolRegistry + ISandboxExecutor imports dropped along with
-// loadAll(); the migration path no longer needs them.
-import { DynamicToolFactory } from './DynamicToolFactory';
+// loadAll(); the migration path no longer needs them. DynamicToolFactory
+// import dropped 2026-06-23 -- never referenced after REF-10.
 import type { DynamicToolRecord } from './types';
 import type { SelfAuthoredSkillLoader } from '../../skills/SelfAuthoredSkillLoader';
 

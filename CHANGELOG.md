@@ -7,6 +7,46 @@ All notable changes to Vault Operator are documented here. Format follows
 ---
 
 
+## [3.0.2] -- 2026-06-23
+
+### Obsidian Community Plugin Review Bot pass
+
+Clears the Tier-3 popout-window-compat warnings the bot raised against
+the EPIC-33 inline modules, removes five dead imports the bot's
+linter flagged, declares the codemirror + dompurify packages the bot
+expects to see in `package.json`, and converts the three `!important`
+blocks the EPIC-33 styles added.
+
+- `setTimeout` / `clearTimeout` -> `window.setTimeout` / `window.clearTimeout`
+  in `SelectionWatcher.ts` and `InlineWebLookup.ts` for popout-window
+  compatibility. The Node-shadowed timer type is replaced with plain
+  `number` so the DOM `window.setTimeout` return type matches.
+- `document.createElement` -> `activeDocument.createElement` in
+  `CodeMirrorDiffAdapter.ts` so the inline diff hunk-actions widget
+  renders into the popped-out window's document when the editor lives
+  in a separate window.
+- `@codemirror/state`, `@codemirror/view`, `dompurify` added to
+  `devDependencies` so the bot's "should be listed in dependencies"
+  warning clears. The packages still come from Obsidian at runtime
+  (esbuild externalises them) -- the dev declaration is a metadata
+  fix only.
+- Removed five unused imports / type aliases the bot's lint flagged:
+  `AgentTask` in `AgentSidebarView.ts`, `DynamicToolFactory` in
+  `DynamicToolLoader.ts`, `ObsidianAgentPlugin` in `ExtractZipTool.ts`,
+  `_edgesPass1` destructure in `LookupAction.ts`, `_UnusedTr` /
+  `Transaction` type-only import in `CodeMirrorDiffAdapter.ts`.
+- CSS Pattern M (class repetition) replaces `!important` across the
+  fifteen lines the bot flagged: the inline panel anchor-toggle and
+  close-button frameless rules, and the edit-review modal
+  width/height/min-width/max-width rules. The repeated class lifts
+  specificity to (0,2,0) or (0,4,0) where needed, so the rules still
+  win against Obsidian's default modal sizing.
+
+No user-visible behaviour change.
+
+---
+
+
 ## [3.0.1] -- 2026-06-23
 
 ### Security

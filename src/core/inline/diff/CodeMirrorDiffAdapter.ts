@@ -20,7 +20,6 @@ import {
     StateEffect,
     EditorSelection,
     type Extension,
-    type Transaction,
 } from '@codemirror/state';
 import {
     Decoration,
@@ -89,9 +88,9 @@ const inlineDiffField = StateField.define<DiffSession | null>({
 class AcceptRejectWidget extends WidgetType {
     constructor(private hunkId: string, private view: () => EditorView | null) { super(); }
     toDOM(): HTMLElement {
-        const wrap = document.createElement('span');
+        const wrap = activeDocument.createElement('span');
         wrap.classList.add('agent-inline-diff-hunk-actions');
-        const accept = document.createElement('button');
+        const accept = activeDocument.createElement('button');
         accept.textContent = '✓';
         accept.title = 'Accept hunk (Cmd+Opt+Y)';
         accept.setAttribute('type', 'button');
@@ -100,7 +99,7 @@ class AcceptRejectWidget extends WidgetType {
             const v = this.view();
             if (v !== null) acceptHunkById(v, this.hunkId);
         });
-        const reject = document.createElement('button');
+        const reject = activeDocument.createElement('button');
         reject.textContent = '✗';
         reject.title = 'Reject hunk (Cmd+Opt+N)';
         reject.setAttribute('type', 'button');
@@ -311,8 +310,3 @@ export { buildDiffState } from './InlineDiffEngine';
  */
 export const _internalInlineDiffField: StateField<DiffSession | null> = inlineDiffField;
 
-/**
- * Suppress 'unused' on _t signature; ensures Transaction import keeps
- * its compiler symbol if/when this file grows.
- */
-type _UnusedTr = Transaction;

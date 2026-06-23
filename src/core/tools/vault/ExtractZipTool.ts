@@ -12,7 +12,6 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
-import type ObsidianAgentPlugin from '../../../main';
 import { extractZip, ExtractZipError } from '../../utils/extractZip';
 
 interface ExtractZipInput {

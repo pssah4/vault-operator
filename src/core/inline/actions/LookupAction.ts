@@ -121,7 +121,10 @@ export class LookupAction implements InlineAction {
 
         // Stage 1: parallel vault search + edge collect (seed = active note only).
         const seedActive = ctx.notePath !== '' ? [ctx.notePath] : [];
-        const [vaultResult, _edgesPass1] = await Promise.all([
+        // First-pass edge collection runs in parallel with the vault
+        // search for warm-up only; we re-aggregate after vault hits in
+        // Stage 3, so the first pass's result is intentionally dropped.
+        const [vaultResult] = await Promise.all([
             this.runVault(ctx, settings),
             this.runEdges(seedActive, ctx.notePath, []),
         ]);

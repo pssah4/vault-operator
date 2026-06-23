@@ -42,7 +42,11 @@ export class SelectionWatcher {
 
     private mouseHandler: ((ev: MouseEvent) => void) | null = null;
     private keyHandler: ((ev: KeyboardEvent) => void) | null = null;
-    private timer: ReturnType<typeof setTimeout> | null = null;
+    // Plain `number` matches the DOM `window.setTimeout` return type
+    // (the renderer-process variant). `@types/node` would otherwise
+    // shadow the DOM lib's `setTimeout` with `Timeout`, which is not
+    // what `window.setTimeout` returns.
+    private timer: number | null = null;
     private active = false;
 
     constructor(options: SelectionWatcherOptions) {
@@ -74,7 +78,7 @@ export class SelectionWatcher {
         this.mouseHandler = null;
         this.keyHandler = null;
         if (this.timer !== null) {
-            clearTimeout(this.timer);
+            window.clearTimeout(this.timer);
             this.timer = null;
         }
     }
@@ -86,8 +90,8 @@ export class SelectionWatcher {
 
     private schedule(): void {
         if (this.isEnabled() !== true) return;
-        if (this.timer !== null) clearTimeout(this.timer);
-        this.timer = setTimeout(() => {
+        if (this.timer !== null) window.clearTimeout(this.timer);
+        this.timer = window.setTimeout(() => {
             this.timer = null;
             if (this.hasViableSelection() === false) return;
             this.onSettled();
