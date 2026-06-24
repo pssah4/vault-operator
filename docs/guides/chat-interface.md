@@ -7,6 +7,15 @@ description: Attachments, @-mentions, tool picker, chat history, and keyboard sh
 
 The Vault Operator sidebar is where you talk to the agent, attach files, browse past conversations, and watch the agent work as it goes.
 
+:::info Two chat surfaces (v3.0.0)
+Vault Operator ships two peer entry-points for the same agent:
+
+- **Sidebar chat** (this page): the full panel on the left, with history, attachments, the activity block, and the workflow picker.
+- **Inline AI chat** ([guides/inline-chat.md](/guides/inline-chat)): a floating panel over the current editor selection, opened with `Mod+Shift+I` (`Cmd+Shift+I` on macOS, `Ctrl+Shift+I` on Windows and Linux) or via the editor right-click menu entry **Inline AI chat**.
+
+Conversations from the inline panel show up in the same history list as sidebar chats. The list refreshes live via the `vault-operator:conversation-list-changed` event, so a new inline conversation appears without reopening the sidebar.
+:::
+
 **You will need:** Vault Operator installed, one model configured (see [Choosing a model](/guides/choosing-a-model)).
 
 **Use this guide when:** you want to learn the input surface (attachments, @-mentions, slash commands, the activity block, history) before settling into a daily routine.
@@ -100,6 +109,16 @@ After the agent finishes a task that changed files, an undo bar appears at the b
 
 The undo bar stays visible until you start a new message or dismiss it.
 
+## Post-task review (v3.0.0)
+
+When the agent finishes a multi-file task, Vault Operator can open a unified review modal titled **Änderungen prüfen**. The header source label reads **Aufgabe &lt;taskId&gt;**, and each file appears as a side-by-side before/after entry. You can apply, skip, or discard per file. Applied edits get written back via the vault API, and a system message of the form `User edited N file(s): ...` is appended to the conversation so the agent knows what you changed.
+
+The same EditReviewModal surface is shared with the inline panel. The previous section-accordion DiffReviewModal has been retired so both entry-points use one consistent review experience.
+
+## Inspecting a checkpoint (v3.0.0)
+
+Click a checkpoint marker in the conversation to open it as a read-only side-by-side diff. The modal is titled **Checkpoint anzeigen** and exposes a **Restore** button that rolls the affected files back to the snapshot. This view uses the same modal component as the post-task review (`showCheckpointReviewModal` in [src/ui/edit-review/EditReviewModal.ts](src/ui/edit-review/EditReviewModal.ts)), so inline and sidebar share one checkpoint UI.
+
 ## Chat history
 
 Vault Operator saves every conversation automatically. To access your history:
@@ -108,7 +127,7 @@ Vault Operator saves every conversation automatically. To access your history:
 2. Browse past conversations, each showing a title, date, and preview
 3. Click a conversation to restore it and continue where you left off
 
-The history sidebar groups conversations by source tab: Vault Operator, Claude Desktop, ChatGPT, Perplexity, plus an "All" view. Each conversation carries the `source_interface` tag of where it came from, so you can see what came in via which surface without mixing it all together. Living documents (multiple turns within 30 minutes from the same source) appear as one entry with a turn count rather than separate conversations.
+The history sidebar groups conversations by source tab: Vault Operator, Claude.ai, Claude Code, ChatGPT, Perplexity, Unknown, plus an "All" view. Each conversation carries the `source_interface` tag of where it came from, so you can see what came in via which surface without mixing it all together. Living documents (multiple turns within 30 minutes from the same source) appear as one entry with a turn count rather than separate conversations.
 
 Conversations are titled automatically based on their content. You can also jump to linked conversations directly from your notes. See [Memory & Personalization](/guides/memory-personalization) for chat linking.
 
@@ -129,6 +148,7 @@ At the top of the message area, a small indicator shows how much of the model's 
 | `@` | Open file mention picker |
 | `/` | Open workflow/prompt picker |
 | `Escape` | Close picker or cancel current input |
+| `Mod+Shift+I` (`Cmd+Shift+I` / `Ctrl+Shift+I`) | Open inline AI chat over the selection |
 
 ## Tips
 

@@ -3283,6 +3283,71 @@ export class AgentSidebarView extends ItemView {
         }
     }
 
+    /**
+     * FEAT-33-12: live probe for the InlineToSidebarTransferService.
+     * Returns true while a request is in flight (stream + tool loop).
+     * Used by the inline-chat "Send to sidebar" button to decide
+     * between save-and-foreground (idle) and the busy fallback modal.
+     */
+    public get isBusy(): boolean {
+        return this.currentAbortController !== null;
+    }
+
+    /**
+     * FEAT-33-12: take over a conversation that was started in the inline
+     * chat. Mirrors the read-side of loadConversation() but takes the
+     * state directly instead of pulling it from disk -- the inline panel
+     * has the live MessageParam[] + UiMessage[] already in memory.
+     *
+     * Contract:
+     *   - The caller (InlineToSidebarTransferService) is responsible for
+     *     gating on isBusy. importConversation does NOT abort an in-flight
+     *     turn; calling it mid-stream is undefined.
+     *   - The outgoing sidebar conversation (if any) is saved + finalized
+     *     just like a History click would do.
+     *   - After import the composer is focused so the user can keep typing.
+     */
+    public async importConversation(state: {
+        conversationId: string | null;
+        history: MessageParam[];
+        uiMessages: UiMessage[];
+    }): Promise<void> {
+        // Save current conversation before switching (same as loadConversation).
+        this.saveCurrentConversation();
+        if (this.activeConversationId) {
+            const msgs = [...this.uiMessages];
+            void this.finalizeConversation(this.activeConversationId, msgs);
+        }
+
+        // Reset state to the transferred conversation.
+        this.conversationHistory = [...state.history];
+        this.uiMessages = [...state.uiMessages];
+        this.activeConversationId = state.conversationId;
+        this.userDismissedContext = false;
+        this.attachments.clear();
+        void this.attachments.consumeFullDocTexts();
+
+        // Re-render chat exactly like loadConversation.
+        const assistantPairs: { msg: UiMessage; el: HTMLElement }[] = [];
+        if (this.chatContainer) {
+            this.chatContainer.empty();
+            for (const msg of state.uiMessages) {
+                if (msg.role === 'user') {
+                    this.addUserMessage(msg.text);
+                } else {
+                    const el = this.renderMarkdownMessage(msg.text, 'assistant', msg.toolStepsHtml, msg.reasoningText);
+                    if (el) assistantPairs.push({ msg, el });
+                }
+            }
+        }
+        this.historyPanel?.setActiveId(state.conversationId);
+        this.updateContextBadge();
+        void this.rehydrateCheckpointMarkers(assistantPairs);
+
+        if (state.conversationId !== null) this.pushNav(state.conversationId);
+        try { this.textarea?.focus(); } catch { /* noop in test stubs */ }
+    }
+
     /** Delete a conversation from history. */
     private async deleteConversation(id: string): Promise<void> {
         const store = this.plugin.conversationStore;

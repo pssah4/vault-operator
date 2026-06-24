@@ -403,6 +403,10 @@ export class AgentTask {
             activeMode.slug,
             this.api,
         );
+        // AUDIT-034 H-3: bind the subagent allowlist (if any) so the
+        // pipeline rejects hallucinated dispatches outside the profile.
+        // Top-level tasks pass undefined and keep the legacy behaviour.
+        pipeline.setSubagentAllowedTools(subagentAllowedTools);
 
         // FIX-H/I (ADR-090 follow-up): set of files read during this task.
         // Declared early so FastPath (which runs before the main loop) can
@@ -954,7 +958,21 @@ export class AgentTask {
                     },
                     // K-1: Forward parent approval callback so subtask write ops are not
                     // auto-rejected by the fail-closed fallback in ToolExecutionPipeline.
-                    onApprovalRequired: this.taskCallbacks.onApprovalRequired,
+                    // AUDIT-034 M-37: wrap the forwarded callback so a parent that
+                    // throws / returns undefined cannot crash the subtask runner;
+                    // we fail-closed (rejected) instead of letting the exception
+                    // bubble through the pipeline.
+                    onApprovalRequired: this.taskCallbacks.onApprovalRequired === undefined
+                        ? undefined
+                        : async (toolName, input) => {
+                            try {
+                                const result = await this.taskCallbacks.onApprovalRequired!(toolName, input);
+                                return result ?? { decision: 'rejected' };
+                            } catch (e) {
+                                console.warn('[AgentTask] subtask approval callback threw, failing closed:', e);
+                                return { decision: 'rejected' };
+                            }
+                        },
                 },
                 this.modeService,
                 this.consecutiveMistakeLimit,

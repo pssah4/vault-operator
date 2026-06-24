@@ -52,16 +52,26 @@ The approval card shows the tool name and a truncated preview. Expand the card t
 
 Once the agent runs the tool, the chat shows a result row with a `+N / -M` diff badge for files that were edited. Click the row to inspect the full diff.
 
-### The diff review modal
+### The edit review panel
 
-After a task finishes, you can review all changes at once:
+Since v3.0.0, the same review panel handles every change that touches a note. It appears for sidebar tasks after the agent finishes, and for inline-chat actions like Rewrite or Translate (see [Inline chat](inline-chat.md)).
 
-1. The undo bar appears below the last message.
-2. Click "Review changes" to open the diff review modal.
-3. For each file, you see every change grouped by section (headings, paragraphs, code blocks).
-4. Decide per section: Keep, Undo, or Edit (modify the change manually).
+The panel layout:
 
-This gives you per-section control. Keep most of a task's work while reverting one specific paragraph.
+- Side-by-side aligned diff. The left column shows the original content. The right column shows the proposed content.
+- Line numbers and `+` / `−` gutters on both sides, so you can see exactly which lines were added or removed.
+- The right column is editable (`contenteditable` with plaintext-only input). Click in and type to adjust the proposal before applying.
+- A live `+N / −N` counter above the right column updates as you edit.
+- When the change spans more than one file, a file list on the left lets you switch between them. Each file has a "Diese Datei skippen" toggle to skip writing that file.
+- The footer offers two actions: "Verwerfen" discards everything. "Anwenden" writes the right-column content to disk.
+
+For sidebar tasks, the panel opens automatically once the agent finishes a turn that wrote files. The modal title reads "Änderungen prüfen". For inline-chat actions, the panel opens automatically once the model finishes streaming.
+
+### Checkpoint view
+
+The same panel runs in checkpoint mode when you open a past snapshot. In this mode the right column is read-only and shows the snapshot content. The footer replaces "Anwenden" with "Wiederherstellen", which restores the snapshot to the vault.
+
+Inline-chat edits also create checkpoints under a stable per-note task id, so every inline Rewrite or Translate is undoable from the inline checkpoint marker in the chat (Diff, Undo this, Undo from here, More menu). See [Inline chat](inline-chat.md) for the marker controls.
 
 ## Checkpoints and undo
 
@@ -69,10 +79,11 @@ Vault Operator creates a checkpoint before the first modification to any file in
 
 ### The undo bar
 
-After every task that modified files, an undo bar appears:
+After every task that modified files, an undo bar appears with one button:
 
 - **"Undo all changes":** restore every file to its pre-task state in one click
-- **"Review changes":** open the diff review modal for per-file decisions
+
+In parallel, the edit review panel (see above) opens automatically so you can inspect, edit, and apply per file.
 
 :::tip Undo is always available
 Even if you auto-approve everything, the checkpoint system records the state before changes. You can always undo after the fact.

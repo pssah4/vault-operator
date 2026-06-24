@@ -7,6 +7,106 @@ All notable changes to Vault Operator are documented here. Format follows
 ---
 
 
+## [3.1.0] -- 2026-06-24
+
+### Inline chat polish + selection pill + security hardening
+
+EPIC-33 follow-on: the inline chat panel grew several rounds of polish on
+top of the v3.0 base, plus a full-codebase security audit (AUDIT-034) that
+landed High-severity path-guard, allowlist, prompt-injection and credential-
+redaction fixes alongside the new affordance.
+
+### Added
+
+- **Selection-affordance pill.** A small `wand-sparkles` icon in the
+  accent colour appears at the top-right corner of the visually rightmost
+  word of a finished selection. Click opens the inline chat without
+  blocking native copy / format actions. Opt-in via Settings ->
+  Inline editor AI actions -> "Show inline AI action icon on selection".
+- **`Ctrl + i` opens the inline chat.** Registered on every platform
+  (Control, not Cmd on Mac, per user spec).
+- **Send-to-sidebar button** next to the composer Send button. Hands the
+  live conversation off to the sidebar chat without the previous
+  Memory-save / Memory-resume detour. Disabled while the agent is
+  running so an in-flight stream cannot leak a partial conversation.
+- **Inline chat display setting** ("Block widget in editor" default vs.
+  "Floating popover" opt-in). Block widget is a real CM6 decoration that
+  pushes following text down; popover keeps the legacy overlay surface
+  and stays available in reading view.
+- **Persistent selection highlight** while the inline chat is open so the
+  user always sees which selection the chat is operating on (CM6
+  decoration; survives focus changes).
+- **Sidebar auto-open toggle** in Settings -> Interface so users who
+  mostly work inline can keep the sidebar closed on startup; the
+  ribbon, command palette and send-to-sidebar still open it on demand.
+- **Sidebar `importConversation()`** entry point; sidebar busy-state
+  exposed as `isBusy` for the transfer-service handshake.
+
+### Fixed
+
+- **AUDIT-034 H-1 / H-2 / M-1..M-3:** shared `assertSafeVaultPath` guard
+  rejects path traversal across `writeBinaryToVault`, `MoveFileTool`,
+  `DeleteFileTool`, `AppendToFileTool`, `CreateFolderTool` (NUL bytes,
+  Unix / Windows / UNC absolute paths, segment-level `..` and `.`).
+- **AUDIT-034 H-3:** runtime allowlist gate in `ToolExecutionPipeline`
+  rejects model-driven calls to tools outside the subtask's
+  `allowedTools`, in addition to the existing mode gate.
+- **AUDIT-034 H-4:** MCP `use_mcp_tool` no longer treats an empty
+  `activeMcpServers[]` as "allow all"; an empty list now denies.
+- **AUDIT-034 H-6:** `ResolveConflictModal` no longer logs the full
+  chat prompt (note path / verdict / URLs) to the renderer console;
+  only the prompt length stays.
+- **AUDIT-034 H-7:** vault-search results wrap matched lines in the
+  `<vault-search>` untrusted-content boundary so the system-prompt
+  SECURITY BOUNDARY clause covers them, not just `read_file` content.
+- **AUDIT-034 H-8:** system-prompt memory section scrubs
+  credential-shaped substrings (sk_, AKIA/ASIA, JWTs, named
+  `api_key`/`token`/`secret`/`bearer`) before injecting persisted
+  memory facts.
+- **AUDIT-034 H-9:** `InspectSelfTool.SENSITIVE_KEY_REGEX` extended to
+  catch `bearer`, `authorization`, `oauth`, `jwt`, `aws_*`, `azure_*`,
+  `refresh_token`, `client_secret`, `gateway_header`, ...
+- **AUDIT-034 M-4 / M-5:** `SandboxBridge` blocks reads (not just
+  writes) from `configDir`, and rejects Windows drive-letter and UNC
+  absolute paths.
+- **AUDIT-034 M-22:** package-name validation regex tightened to npm
+  shape rules + explicit `..` reject.
+- **AUDIT-034 M-25 / M-26:** `testToolExecution` truncates dumps to
+  200 chars; the active-model debug log no longer prints the model id.
+- **AUDIT-034 M-29:** `obsidianFetch` SSRF guard normalises IPv6
+  brackets once and uses only the cleaned hostname for the blocklist.
+- **AUDIT-034 M-37:** subtask approval callback wrapped against
+  parent-side throws; fails closed (rejected) instead of crashing.
+- **AUDIT-034 M-40:** `InlineActionPill.closest()` walk constrained to
+  markdown view / cm-editor roots so a stray selection in a settings
+  modal cannot return a bogus line right edge.
+- Inline-chat autocomplete dropdown (`@` mention picker) **portaled to
+  the workspace root** so it escapes the CM6 block-widget clip and now
+  shows the full 7-row sidebar-style list with scrollbar.
+- Inline action pill **no longer steals focus** (`tabindex=-1`) and
+  **hides on editor scroll** (capture-phase listener on the workspace
+  container).
+- Send-to-sidebar transfer **re-validates** `inlineRunning` AFTER the
+  async `activateView()`; a steering message that started a new turn
+  in the gap window cannot leak a stale snapshot.
+
+### Removed
+
+- `Ctrl + s` send-to-sidebar shortcut withdrawn after the textarea
+  fallback proved unreliable; the composer button remains as the
+  canonical trigger.
+- `FEAT-33-10` per-action model pin (UI, type field `actionPins`,
+  resolver entries, `PerActionPin` class, audit-test M-01) was never
+  wired into the orchestrator. Spec marked WITHDRAWN.
+
+### Deferred to backlog (AUDIT-034)
+
+29 Medium-severity findings (CDN SRI, sandbox cache re-verify, plain
+MCP schema validation, conversation-history-at-rest encryption, ...)
+plus 26 Low/Info items are tracked as `SEC-034-*` rows under
+Standalone Items in `_devprocess/context/BACKLOG.md`.
+
+
 ## [3.0.3] -- 2026-06-23
 
 ### Reachability fix -- restore install on Obsidian 1.8.7+

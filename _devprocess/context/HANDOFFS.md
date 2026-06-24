@@ -66,7 +66,7 @@ feature: alle 11 FEATs (FEAT-33-01..11)
 - SkillCapabilityProbe live-wiring fuer FEAT-33-08 (Filter + Action ready, kein Skill-Wiring im Default-Set)
 - InlineActionsTab Settings-Modal-Sub-Section (Default-Settings reichen fuer Funktion)
 - CSS-Theme fuer `.agent-inline-menu` (Vanilla-DOM ohne Styling)
-- FEAT-33-10 Per-Action-Pin Settings-UI (PerActionPin-Reader ready, UI fehlt)
+- FEAT-33-10 Per-Action-Pin -- WITHDRAWN 2026-06-24 (Settings-UI, Type-Feld, Resolver, PerActionPin-Klasse, Audit-Test M-01 entfernt; persistierte Pins waren nie wirksam)
 
 **Test-Phase-Empfehlungen:**
 

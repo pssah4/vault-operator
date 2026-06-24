@@ -132,6 +132,15 @@ export interface InlineChatPanelOptions {
     containerEl: HTMLElement;
     ctx: InlineTriggerContext;
     position: { x: number; y: number };
+    /**
+     * FEAT-33-12: how the panel attaches to the editor surface.
+     * - 'popover' (default): absolute-positioned floating panel; the
+     *   panel manages its own size via setCssStyles + drag/resize gestures.
+     * - 'inline-block': the panel renders inside a CodeMirror block widget
+     *   container; size is governed by the CM6 layout, drag/resize are
+     *   disabled, and absolute positioning is dropped via CSS modifier.
+     */
+    displayMode?: 'popover' | 'inline-block';
     onDispatch: (args: InlinePanelDispatchArgs, handle: InlinePanelHandle) => void;
     /** Called by the "..." menu to surface secondary actions. */
     onShowMoreMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
@@ -144,6 +153,13 @@ export interface InlineChatPanelOptions {
     initialModelTooltip?: string;
     /** Called when the Stop button is clicked (during a running turn). */
     onStop?: () => void;
+    /**
+     * FEAT-33-12: handle the "Send to sidebar chat" composer button click.
+     * The orchestrator decides whether to surface a notice (busy reason)
+     * or call the InlineToSidebarTransferService. This panel only renders
+     * the button + tooltip and forwards the click.
+     */
+    onSendToSidebar?: () => void;
     /**
      * Factory that builds an AutocompleteHandler-like object on
      * panel-open. Called once with the textarea + input-area refs.
@@ -174,6 +190,7 @@ export class InlineChatPanel {
     private readonly containerEl: HTMLElement;
     private readonly ctx: InlineTriggerContext;
     private readonly position: { x: number; y: number };
+    private readonly displayMode: 'popover' | 'inline-block';
     private readonly onDispatch: (args: InlinePanelDispatchArgs, handle: InlinePanelHandle) => void;
     private readonly onShowMoreMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
     private readonly onShowPlusMenu?: (anchor: HTMLElement, ctx: InlineTriggerContext, handle: InlinePanelHandle) => void;
@@ -181,6 +198,8 @@ export class InlineChatPanel {
     private readonly initialModelLabel: string;
     private readonly initialModelTooltip: string;
     private readonly onStop?: () => void;
+    private readonly onSendToSidebar?: () => void;
+    private sendToSidebarButtonEl: HTMLElement | null = null;
     private readonly autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => AutocompleteLike;
     private modelButtonEl: HTMLElement | null = null;
     private sendButtonEl: HTMLElement | null = null;
@@ -218,6 +237,7 @@ export class InlineChatPanel {
         this.containerEl = options.containerEl;
         this.ctx = options.ctx;
         this.position = options.position;
+        this.displayMode = options.displayMode ?? 'popover';
         this.onDispatch = options.onDispatch;
         this.onShowMoreMenu = options.onShowMoreMenu;
         this.onShowPlusMenu = options.onShowPlusMenu;
@@ -225,6 +245,7 @@ export class InlineChatPanel {
         this.initialModelLabel = options.initialModelLabel ?? 'Auto';
         this.initialModelTooltip = options.initialModelTooltip ?? 'Model (inherited from main chat)';
         this.onStop = options.onStop;
+        this.onSendToSidebar = options.onSendToSidebar;
         this.autocompleteFactory = options.autocompleteFactory;
         this.onClose = options.onClose;
         this.setIcon = options.setIcon ?? ((el, name) => { el.textContent = iconFallback(name); });
@@ -244,22 +265,41 @@ export class InlineChatPanel {
         root.classList.add('agent-inline-panel');
         root.setAttribute('role', 'dialog');
         root.setAttribute('aria-label', 'Inline AI chat');
-        // Bot-compliance: static rules (position/z-index) live in styles.css
-        // under `.agent-inline-panel`. Per-instance width + height via
-        // setCssStyles. The fixed height makes the body's flex:1 scroll
-        // container have a defined extent so vertical resize works.
-        root.setCssStyles({ width: `${DEFAULT_WIDTH}px`, height: `${DEFAULT_HEIGHT}px` });
+        // FEAT-33-12: inline-block mounts as part of the CM6 layout, so
+        // skip the absolute size + drag handle. The CSS modifier
+        // `.agent-inline-panel--inline-block` resets position/width and
+        // hides the drag handle so the panel flows with the editor.
+        if (this.displayMode === 'inline-block') {
+            root.classList.add('agent-inline-panel--inline-block');
+        } else {
+            // Bot-compliance: static rules (position/z-index) live in styles.css
+            // under `.agent-inline-panel`. Per-instance width + height via
+            // setCssStyles. The fixed height makes the body's flex:1 scroll
+            // container have a defined extent so vertical resize works.
+            root.setCssStyles({ width: `${DEFAULT_WIDTH}px`, height: `${DEFAULT_HEIGHT}px` });
+        }
 
         // Drag handle: a slim strip at the top of the panel. Pointer
         // drag on this region moves the whole panel. Stays visible as
-        // a tiny grip indicator (CSS only).
-        const dragHandle = doc.createElement('div');
-        dragHandle.classList.add('agent-inline-panel__drag-handle');
-        dragHandle.setAttribute('aria-hidden', 'true');
-        root.appendChild(dragHandle);
+        // a tiny grip indicator (CSS only). null in inline-block mode -
+        // the panel is part of the CM6 layout and must not float around.
+        let dragHandle: HTMLElement | null = null;
+        if (this.displayMode === 'popover') {
+            dragHandle = doc.createElement('div');
+            dragHandle.classList.add('agent-inline-panel__drag-handle');
+            dragHandle.setAttribute('aria-hidden', 'true');
+            root.appendChild(dragHandle);
+        }
 
         // Selection preview (collapsible, 3 lines visible by default).
-        this.buildSelectionPreview(root, doc);
+        // FEAT-33-12 (user feedback 2026-06-24): in inline-block mode the
+        // real editor selection stays visible DIRECTLY above the block
+        // widget, so a preview duplicate inside the panel just wastes
+        // vertical space. Skip it. Popover mode still renders it because
+        // the overlay covers the selection.
+        if (this.displayMode === 'popover') {
+            this.buildSelectionPreview(root, doc);
+        }
 
         // Header close button (× in top-right corner).
         const closeBtn = doc.createElement('button');
@@ -321,7 +361,16 @@ export class InlineChatPanel {
         // Build the autocomplete handler now that the textarea + wrapper exist.
         if (this.autocompleteFactory !== undefined) {
             try {
-                this.autocomplete = this.autocompleteFactory(textarea, wrapper);
+                // User feedback 2026-06-24: autocomplete dropdown was
+                // clipped + non-scrollable in the inline panel. Cause:
+                // the inner `.chat-input-wrapper` has `overflow: hidden`
+                // (intentional, to clip the bordered composer). The
+                // sidebar avoids this by mounting the dropdown into the
+                // OUTER `.chat-input-container` (which has no overflow
+                // clip and lets the dropdown rise above the composer).
+                // Match that wiring here so the dropdown opens upward
+                // and scrolls just like in the sidebar.
+                this.autocomplete = this.autocompleteFactory(textarea, composerContainer);
             } catch (e) {
                 console.debug('[InlineChatPanel] autocompleteFactory failed:', e);
             }
@@ -393,6 +442,21 @@ export class InlineChatPanel {
         right.appendChild(stopBtn);
         this.stopButtonEl = stopBtn;
 
+        // FEAT-33-12: Send-to-Sidebar button -- direct right neighbour of
+        // Send. Tooltip "Continue this chat in the sidebar". The
+        // orchestrator decides at click-time whether to surface a busy
+        // notice or call the InlineToSidebarTransferService.
+        if (this.onSendToSidebar !== undefined) {
+            const toSidebarBtn = this.makeIconButton(doc, 'arrow-right-to-line', 'Continue this chat in the sidebar');
+            toSidebarBtn.classList.add('send-to-sidebar-button');
+            toSidebarBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                if (this.onSendToSidebar !== undefined) this.onSendToSidebar();
+            });
+            right.appendChild(toSidebarBtn);
+            this.sendToSidebarButtonEl = toSidebarBtn;
+        }
+
         // Send button (right side).
         const sendBtn = this.makeIconButton(doc, 'send-horizontal', 'Send');
         sendBtn.classList.add('send-button');
@@ -408,22 +472,28 @@ export class InlineChatPanel {
         // Resize handle: small grip in the bottom-right corner.
         // Pointer drag adjusts width + height. Owned by the root so
         // it floats above the body even when the body scrolls.
-        const resizeHandle = doc.createElement('div');
-        resizeHandle.classList.add('agent-inline-panel__resize-handle');
-        resizeHandle.setAttribute('aria-hidden', 'true');
-        root.appendChild(resizeHandle);
+        // Resize handle: same treatment as drag -- null in inline-block.
+        let resizeHandle: HTMLElement | null = null;
+        if (this.displayMode === 'popover') {
+            resizeHandle = doc.createElement('div');
+            resizeHandle.classList.add('agent-inline-panel__resize-handle');
+            resizeHandle.setAttribute('aria-hidden', 'true');
+            root.appendChild(resizeHandle);
+        }
 
         this.containerEl.appendChild(root);
         this.rootEl = root;
 
-        // Position + clamp to viewport.
-        const clamped = this.clampToViewport(this.position, root);
-        root.setCssStyles({ left: `${clamped.x}px`, top: `${clamped.y}px` });
-
-        // Wire drag + resize gestures (no-ops in unit-test stubs that
-        // don't supply pointer events on the document).
-        this.attachDragHandle(dragHandle, root);
-        this.attachResizeHandle(resizeHandle, root);
+        // Position + clamp to viewport -- popover only. In inline-block
+        // mode the CM6 layout owns the size and position.
+        if (this.displayMode === 'popover') {
+            const clamped = this.clampToViewport(this.position, root);
+            root.setCssStyles({ left: `${clamped.x}px`, top: `${clamped.y}px` });
+            // Wire drag + resize gestures (no-ops in unit-test stubs that
+            // don't supply pointer events on the document).
+            if (dragHandle !== null) this.attachDragHandle(dragHandle, root);
+            if (resizeHandle !== null) this.attachResizeHandle(resizeHandle, root);
+        }
 
         // Esc closes; outside-click does NOT close.
         this.boundKeyDown = (ev: KeyboardEvent) => {

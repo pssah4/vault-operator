@@ -24,7 +24,13 @@ import { SoulView } from '../../memory/SoulView';
 const ALLOWED_AREAS = ['settings', 'tools', 'capabilities', 'code'] as const;
 type InspectArea = typeof ALLOWED_AREAS[number];
 
-const SENSITIVE_KEY_REGEX = /(api[_-]?key|token|secret|password|credential)/i;
+// AUDIT-034 H-9: extend the regex to catch the common credential field
+// names InspectSelf used to leak: bearer / authorization / OAuth /
+// PKCE / JWT / refresh / AWS / GCP / Azure variants. The previous
+// regex only matched api_key/token/secret/password/credential, so an
+// LLM-driven inspect_self call could disclose accessToken,
+// authToken, aws_access_key_id, awsSessionToken, jwt etc.
+const SENSITIVE_KEY_REGEX = /(api[_-]?key|access[_-]?key|secret[_-]?key|session[_-]?token|refresh[_-]?token|bearer|authorization|oauth|jwt|client[_-]?secret|aws[_-]?[a-z_]+|gcp[_-]?[a-z_]+|azure[_-]?[a-z_]+|gateway[_-]?header|token|secret|password|credential|passcode|pin)/i;
 const MAX_OUTPUT_CHARS = 8000;
 
 export class InspectSelfTool extends BaseTool<'inspect_self'> {

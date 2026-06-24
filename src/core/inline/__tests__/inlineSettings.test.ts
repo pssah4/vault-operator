@@ -10,7 +10,7 @@ describe('inlineSettings.resolveInlineActionsSettings', () => {
     it('returns defaults for empty object', () => {
         const out = resolveInlineActionsSettings({});
         expect(out.enabled).toBe(true);
-        expect(out.floatingMenuEnabled).toBe(true);
+        expect(out.floatingMenuEnabled).toBe(false);
         expect(out.vaultRagInLookup).toBe(true);
         expect(out.vaultRagConfidenceThreshold).toBe(0.7);
         expect(out.skillsTopN).toBe(10);
@@ -29,6 +29,26 @@ describe('inlineSettings.resolveInlineActionsSettings', () => {
         expect(out.showVaultSourcesInTooltip).toBe(false);
     });
 
+    it('honors floatingMenuEnabled=true opt-in', () => {
+        const out = resolveInlineActionsSettings({ floatingMenuEnabled: true });
+        expect(out.floatingMenuEnabled).toBe(true);
+    });
+
+    it('defaults inlineChatDisplay to cm-block-widget', () => {
+        expect(resolveInlineActionsSettings(undefined).inlineChatDisplay).toBe('cm-block-widget');
+        expect(resolveInlineActionsSettings({}).inlineChatDisplay).toBe('cm-block-widget');
+    });
+
+    it('honors inlineChatDisplay = popover-overlay opt-in', () => {
+        const out = resolveInlineActionsSettings({ inlineChatDisplay: 'popover-overlay' });
+        expect(out.inlineChatDisplay).toBe('popover-overlay');
+    });
+
+    it('falls back to default for unknown inlineChatDisplay values', () => {
+        const out = resolveInlineActionsSettings({ inlineChatDisplay: 'garbage' as never });
+        expect(out.inlineChatDisplay).toBe('cm-block-widget');
+    });
+
     it('clamps confidence threshold to [0, 1]', () => {
         expect(resolveInlineActionsSettings({ vaultRagConfidenceThreshold: -0.5 }).vaultRagConfidenceThreshold).toBe(0);
         expect(resolveInlineActionsSettings({ vaultRagConfidenceThreshold: 1.5 }).vaultRagConfidenceThreshold).toBe(1);
@@ -39,22 +59,6 @@ describe('inlineSettings.resolveInlineActionsSettings', () => {
         expect(resolveInlineActionsSettings({ skillsTopN: -3 }).skillsTopN).toBe(0);
         expect(resolveInlineActionsSettings({ skillsTopN: 7.9 }).skillsTopN).toBe(7);
         expect(resolveInlineActionsSettings({ skillsTopN: 0 }).skillsTopN).toBe(0);
-    });
-
-    it('passes actionPins through (clone, not reference)', () => {
-        const pins = { lookup: 'haiku-model', rewrite: null };
-        const out = resolveInlineActionsSettings({ actionPins: pins });
-        expect(out.actionPins).toEqual(pins);
-        expect(out.actionPins).not.toBe(pins);
-    });
-
-    it('default actionPins is fresh empty object per call', () => {
-        const a = resolveInlineActionsSettings(undefined);
-        const b = resolveInlineActionsSettings(undefined);
-        expect(a.actionPins).toEqual({});
-        expect(b.actionPins).toEqual({});
-        a.actionPins['x'] = 'y';
-        expect(b.actionPins['x']).toBeUndefined();
     });
 
     it('ignores invalid numeric inputs', () => {

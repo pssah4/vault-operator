@@ -10,6 +10,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
 import { refreshOpenMarkdownViewsFor } from '../../utils/refreshMarkdownView';
+import { assertSafeVaultPath } from './vaultPathGuard';
 
 interface AppendToFileInput {
     path: string;
@@ -63,6 +64,8 @@ export class AppendToFileTool extends BaseTool<'append_to_file'> {
         try {
             if (!path) throw new Error('path parameter is required');
             if (!content) throw new Error('content parameter is required');
+            // AUDIT-034 M-2: deny escape attempts before touching the vault.
+            assertSafeVaultPath(path, { paramName: 'path' });
 
             const existing = this.app.vault.getAbstractFileByPath(path);
 

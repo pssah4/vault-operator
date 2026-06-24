@@ -86,6 +86,10 @@ Vault Operator supports 12 providers. You can configure several and switch betwe
 - *"Create a new note with a summary of my last 3 daily notes"*
 - *"Find all notes tagged with #project and create a canvas showing their connections"*
 
+:::tip Inline AI chat (v3.0.0)
+Select text in any note and press **Cmd+Shift+I** (**Ctrl+Shift+I** on Windows and Linux) to open the inline AI chat panel directly over the selection. See [Inline chat](/guides/inline-chat) for details.
+:::
+
 ## What happens behind the scenes
 
 When you send a message, Vault Operator reads it and decides which tools to use. It then calls those tools (read files, search, write) while you see each call in the activity block. Before any write operation it asks for your approval, unless you've enabled auto-approve for that category. Then it returns a response.

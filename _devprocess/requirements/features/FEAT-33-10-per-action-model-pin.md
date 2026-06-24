@@ -5,12 +5,16 @@ epic: EPIC-33
 subtype: user-facing
 priority: P2
 effort: S
+withdrawn: 2026-06-24
+withdrawn-reason: Idee verworfen. UI war wirkungslos verdrahtet (PerActionPin-Klasse nie instantiiert), und User entscheidet pro Action lieber ueber den Main-Chat-Model-Picker. Pin-Layer ist Overkill fuer die tatsaechliche Nutzung.
 asr-refs: [ASR-EPIC-33-06]
 adr-refs: []
 depends-on: [FEAT-33-01]
 created: 2026-06-22
 ba-ref: ../../analysis/BA-EPIC-33-inline-editor-ai-actions.md
 ---
+
+> **WITHDRAWN am 2026-06-24.** Feature wurde nie produktiv verdrahtet. UI, Type-Felder (`actionPins`), Resolver-Code und die `PerActionPin`-Klasse wurden entfernt. Audit-Test `AUDIT-EPIC-33 hardening: PerActionPin (M-01)` ebenfalls zurueckgezogen. Falls jemand das Konzept spaeter wiederbeleben moechte, ist diese Spec der Ausgangspunkt.
 
 # FEAT-33-10: Optional Per-Action-Model-Pin (Power-User-Override)
 

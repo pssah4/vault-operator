@@ -25,6 +25,7 @@ const guidesSidebar = [
     text: 'Everyday use',
     items: [
       { text: 'Chat interface', link: '/guides/chat-interface' },
+      { text: 'Inline AI chat', link: '/guides/inline-chat' },
       { text: 'Choosing a model', link: '/guides/choosing-a-model' },
       { text: 'Vault operations', link: '/guides/vault-operations' },
       { text: 'Knowledge discovery', link: '/guides/knowledge-discovery' },

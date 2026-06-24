@@ -1179,6 +1179,19 @@
     opacity: 0.7;
 }
 
+/* FEAT-33-12: Send-to-Sidebar button -- sits directly left of the Send
+ * button in the inline composer. Borderless, matches the toolbar idiom of
+ * the left-side cluster. The arrow-right-to-line icon makes the affordance
+ * read as "ship this thread off to the sidebar". */
+.toolbar-button.send-to-sidebar-button {
+    background: none;
+    color: var(--text-muted);
+    padding: 3px 6px;
+}
+.toolbar-button.send-to-sidebar-button:hover {
+    color: var(--interactive-accent);
+}
+
 /* Stop Button -- replaces the send button while a task is running, so it
  * inherits the same bordered shape for positional continuity. Same
  * specificity bump pattern as .send-button. */
@@ -7591,7 +7604,114 @@
     border-radius: 8px;
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
     font-size: var(--font-ui-small);
-    overflow: hidden;
+    /* overflow: visible so the @-mention / slash-command autocomplete
+       dropdown can rise above the composer (the dropdown lives inside
+       .chat-input-container and uses position:absolute + bottom:100%).
+       The chat-bubble scroll area has its own overflow-y:auto, so the
+       panel's content still scrolls properly. */
+    overflow: visible;
+}
+/* FEAT-33-12: inline-block variant -- panel renders inside a CM6 block
+   widget so it flows with the editor instead of overlaying it. Position is
+   handled by the CM6 layout, the panel itself is static and full-width. */
+.agent-inline-panel--inline-block {
+    position: static;
+    z-index: auto;
+    width: 100%;
+    max-height: 60vh;
+    margin: 4px 0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+.agent-inline-panel--inline-block .agent-inline-panel__drag-handle,
+.agent-inline-panel--inline-block .agent-inline-panel__resize-handle {
+    display: none;
+}
+/* Wrapper the CM6 block-widget hands to CodeMirror. Acts as a flex
+   container so the panel can expand vertically without breaking the
+   editor's line layout. overflow:visible so the autocomplete dropdown
+   can escape the widget bounds (same reason as .agent-inline-panel). */
+.agent-inline-chat-block {
+    display: block;
+    width: 100%;
+    margin: 4px 0;
+    overflow: visible;
+}
+
+/* FEAT-33-12 (user feedback 2026-06-24): selection-affordance pill.
+   Appears next to a settled selection and -- on click -- opens the
+   inline chat. position:fixed so it floats independently of the
+   editor scroll layer; left/top are set per-instance via setCssStyles
+   based on the live selection rect. Keep this LIGHT: the pill must
+   not feel like a modal or popover. */
+/* FEAT-33-12 selection-affordance pill -- intentionally chromeless.
+   Bare lucide icon in the accent colour, sitting above the top-right
+   corner of the marked text. The class is doubled in the selector
+   ('.agent-inline-action-pill.agent-inline-action-pill') to win over
+   theme-level button rules that would otherwise paint a background or
+   border. `appearance: none` neutralises the native button chrome.
+   svg uses stroke: currentColor so the lucide stroke inherits the
+   pill's color (which is what makes the accent colour visible idle). */
+.agent-inline-action-pill.agent-inline-action-pill {
+    position: fixed;
+    z-index: 1100;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    color: var(--interactive-accent);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+    cursor: pointer;
+    opacity: 1;
+    transition: color 80ms ease-out, transform 80ms ease-out;
+}
+.agent-inline-action-pill.agent-inline-action-pill:hover,
+.agent-inline-action-pill.agent-inline-action-pill:focus,
+.agent-inline-action-pill.agent-inline-action-pill:focus-visible,
+.agent-inline-action-pill.agent-inline-action-pill:active {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    outline: none;
+}
+.agent-inline-action-pill.agent-inline-action-pill:hover {
+    color: var(--interactive-accent-hover, var(--interactive-accent));
+    transform: scale(1.15);
+}
+.agent-inline-action-pill.agent-inline-action-pill:active {
+    transform: scale(1);
+}
+.agent-inline-action-pill svg {
+    width: 18px;
+    height: 18px;
+    color: inherit;
+    stroke: currentColor;
+    fill: none;
+}
+
+/* FEAT-33-12 (user feedback 2026-06-24): persistent highlight of the
+   selection that triggered the inline chat. The native DOM selection
+   disappears as soon as the user clicks into the chat composer, so we
+   paint the same range as a CodeMirror mark decoration. The decoration
+   survives focus changes and is cleaned up when the inline chat closes.
+   Background colour is intentionally distinct from native selection so
+   the user can tell "this is what the chat is working on" vs an active
+   text selection. */
+.agent-inline-selection-highlight {
+    background-color: var(--text-selection);
+    border-bottom: 2px solid var(--interactive-accent);
 }
 .agent-inline-panel__header {
     display: flex;
