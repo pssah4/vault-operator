@@ -988,6 +988,18 @@ export interface ObsidianAgentSettings {
     // Onboarding
     onboarding: OnboardingSettings;
 
+    /**
+     * FEAT-33-12 follow-up (2026-06-24): open the sidebar chat
+     * automatically when the plugin loads / Obsidian starts. With the
+     * inline chat the sidebar is no longer needed for every session,
+     * so users can disable the auto-open to keep their workspace
+     * clean. Default true to preserve the historical behaviour.
+     * When false, the sidebar still opens on demand via the ribbon
+     * icon, the command palette, "Send to sidebar chat" from the
+     * inline panel, or any deep-link.
+     */
+    autoOpenSidebarOnStart?: boolean;
+
     // Optional assets (Phase 2)
     optionalAssets?: OptionalAssetsSettings;
 
@@ -1220,7 +1232,7 @@ export interface ObsidianAgentSettings {
 export interface InlineActionsSettings {
     /** Master kill-switch. Default true. */
     enabled?: boolean;
-    /** Show the Floating-Menu automatically on selection. Default true. */
+    /** Show the inline AI selection-affordance pill on selection. Default false. Key kept for backwards-compat with pre-FEAT-33-12 data.json files. */
     floatingMenuEnabled?: boolean;
     /**
      * FEAT-33-09: Use Vault-Knowledge-RAG in Lookup. Default true.
@@ -1237,12 +1249,6 @@ export interface InlineActionsSettings {
      * Default true. User-opt-out for sensitive vault forks.
      */
     showVaultSourcesInTooltip?: boolean;
-    /**
-     * FEAT-33-10: Per-Action-Model-Pin overrides. Key is the
-     * InlineAction id (e.g. 'lookup'), value is a model id from
-     * activeModels[] or null for "use main-chat default".
-     */
-    actionPins?: Record<string, string | null>;
     /**
      * Cap on how many Skills appear in the floating menu's
      * skill-actions group. Default 10. Set to 0 to hide skills entirely.
@@ -1265,6 +1271,16 @@ export interface InlineActionsSettings {
         input_format: 'markdown' | 'plain';
         max_selection_chars?: number;
     }>;
+    /**
+     * FEAT-33-12: how the inline chat is rendered in the editor.
+     * - 'cm-block-widget' (default): CodeMirror block widget inserted
+     *   below the selection; surrounding text pushes down. Source +
+     *   live-preview only.
+     * - 'popover-overlay': absolute-positioned floating panel that
+     *   overlays the editor content. Works in all modes including
+     *   reading view. Equivalent to the FEAT-33-05 behaviour.
+     */
+    inlineChatDisplay?: 'cm-block-widget' | 'popover-overlay';
 }
 
 // ---------------------------------------------------------------------------

@@ -50,14 +50,19 @@ import { resolveInlineActionsSettings } from './inlineSettings';
 import type { InlineLLMCaller, InlineLLMStreamArgs, InlineLLMStreamCallbacks } from './InlineLLMCaller';
 import type { InlineSettingsSnapshot } from './InlineTriggerContext';
 import { VIEW_TYPE_AGENT_SIDEBAR } from '../../ui/AgentSidebarView';
-// SelectionWatcher: per user feedback (2026-06-22) NOT used in the default
-// wiring -- auto-open-on-selection was blocking normal copy/read flows.
-// The module stays available for callers that explicitly want it.
-// import { SelectionWatcher } from './SelectionWatcher';
+// SelectionWatcher: re-enabled 2026-06-24, but gated behind the
+// `floatingMenuEnabled` setting which defaults to FALSE. The 2026-06-22
+// regression (blocking copy/read flows) only triggered when auto-open
+// was ON by default; the watcher itself stays opt-in.
+import { SelectionWatcher } from './SelectionWatcher';
 import { InlineSkillFilter, type SkillCapabilityProbe, type SkillEntry } from './skills/InlineSkillFilter';
 import { InlineSkillAction } from './skills/InlineSkillAction';
 import { inlineDiffExtension } from './diff/CodeMirrorDiffAdapter';
 import { InlineChatOrchestrator, type EditorChatProbe } from './chat/InlineChatOrchestrator';
+import { CodeMirrorBlockMount, inlineChatBlockExtension } from './chat/mount/CodeMirrorBlockMount';
+import { OverlayPopoverMount } from './chat/mount/OverlayPopoverMount';
+import { InlineToSidebarTransferService } from './chat/InlineToSidebarTransferService';
+import { InlineActionPill } from './chat/InlineActionPill';
 
 /**
  * Live editor probe. Reads MarkdownView -> editor.getSelection() and
@@ -270,6 +275,71 @@ function wireInternalLinks(plugin: ObsidianAgentPlugin, containerEl: HTMLElement
             void plugin.app.workspace.openLinkText(linkText, '', false);
         });
     });
+}
+
+/**
+ * FEAT-33-12 follow-up: portal the @-mention autocomplete dropdown out
+ * of the inline composer so it can grow to its full 7-row size without
+ * being clipped by the CM6 block widget. AutocompleteHandler creates a
+ * `.autocomplete-dropdown` child in the inputArea on first render; we
+ * observe that and re-parent it into `workspace.containerEl` with a
+ * fixed-position anchor pointing at the composer's current rect.
+ *
+ * The observer also watches for hide() removing the dropdown so it can
+ * release its listeners. Reattaches the dropdown back into the composer
+ * area if the user typed a new query (AutocompleteHandler re-uses the
+ * same element, so we only have to re-position it).
+ */
+function installAutocompletePortal(plugin: ObsidianAgentPlugin, composerContainer: HTMLElement): void {
+    const portalTarget = plugin.app.workspace.containerEl;
+    const win = composerContainer.ownerDocument.defaultView ?? window;
+    const updatePosition = (dropdown: HTMLElement): void => {
+        const rect = composerContainer.getBoundingClientRect();
+        // Bottom-anchored above the composer with a small breathing gap.
+        // Width = composer width minus its 12px horizontal padding (matches
+        // the dropdown's intrinsic left/right:0 sizing in the sidebar).
+        dropdown.setCssStyles({
+            position: 'fixed',
+            left: `${rect.left + 12}px`,
+            right: `${(win.innerWidth - rect.right) + 12}px`,
+            bottom: `${(win.innerHeight - rect.top) + 4}px`,
+            top: 'auto',
+            zIndex: '10000',
+        });
+    };
+    let disposed = false;
+    const dispose = (): void => {
+        if (disposed === true) return;
+        disposed = true;
+        observer.disconnect();
+        win.removeEventListener('resize', reflow);
+        plugin.app.workspace.containerEl.removeEventListener('scroll', reflow, true);
+        const dropdown = portalTarget.querySelector(':scope > .autocomplete-dropdown');
+        if (dropdown !== null) dropdown.remove();
+    };
+    const observer = new MutationObserver(() => {
+        // The composer was unmounted (panel closed) -- release everything.
+        if (composerContainer.isConnected !== true) { dispose(); return; }
+        const dropdown = composerContainer.querySelector('.autocomplete-dropdown') as HTMLElement | null;
+        if (dropdown !== null) {
+            if (dropdown.parentElement !== portalTarget) {
+                portalTarget.appendChild(dropdown);
+            }
+            updatePosition(dropdown);
+        }
+    });
+    observer.observe(composerContainer, { childList: true, subtree: true });
+    // Re-position on scroll / resize so the dropdown keeps tracking the
+    // composer when the editor pane reflows.
+    const reflow = (): void => {
+        if (composerContainer.isConnected !== true) { dispose(); return; }
+        const dropdown = portalTarget.querySelector(':scope > .autocomplete-dropdown') as HTMLElement | null;
+        if (dropdown !== null) updatePosition(dropdown);
+    };
+    win.addEventListener('resize', reflow);
+    plugin.app.workspace.containerEl.addEventListener('scroll', reflow, true);
+    // Final safety net on plugin teardown.
+    plugin.register(dispose);
 }
 
 /**
@@ -652,14 +722,35 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
         console.debug('[inline-actions] inline-diff-extension registration failed (non-fatal):', e);
     }
 
+    // FEAT-33-12: register CodeMirror block-widget extension so the inline
+    // chat can mount as a real CM6 block decoration. The extension only
+    // becomes active when CodeMirrorBlockMount.mount() dispatches its
+    // open-effect; idle extensions cost nothing.
+    try {
+        plugin.registerEditorExtension(inlineChatBlockExtension());
+    } catch (e) {
+        console.debug('[inline-actions] inline-chat-block-extension registration failed (non-fatal):', e);
+    }
+
+    // Mount-adapter singletons. Adapter selection happens per trigger via
+    // chooseMountAdapter, so the user's settings choice takes effect
+    // without a plugin reload.
+    const blockMount = new CodeMirrorBlockMount();
+    const popoverMount = new OverlayPopoverMount();
+
+    // FEAT-33-12: live hand-off of inline conversations into the Sidebar.
+    // The service is shared across all panels because it is pure-routing
+    // (no per-panel state). Each transfer() call snapshots whatever
+    // controller is currently active.
+    const transferService = new InlineToSidebarTransferService({ plugin });
+
     // EPIC-33 UX-refresh: trigger opens the InlineChatPanel directly.
     // The legacy InlineActionService.triggerMenu remains available via
     // wiring.service but is no longer the default surface -- panel
     // chat replaces the floating-menu + Notice-toast flow.
     const chatProbe: EditorChatProbe = {
         probe: () => editorProbe.probe(),
-        getPanelContainer: () => editorProbe.getMenuContainer(),
-        getPanelPosition: () => editorProbe.getMenuPosition(),
+        getActiveMarkdownView: () => plugin.app.workspace.getActiveViewOfType(MarkdownView),
         writeBackToSelection: async ({ notePath, from, to, content }) => {
             // EPIC-33 Diff-UX-refresh (2026-06-23): the apply path used to
             // call getActiveViewOfType(MarkdownView) which returns null
@@ -703,6 +794,29 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
         registry,
         resolver,
         isEnabled: () => resolveInlineActionsSettings(plugin.settings.inlineActions).enabled,
+        chooseMountAdapter: (view) => {
+            // AUDIT-FEAT-33-12 #2 fix: in reading view CodeMirror is not
+            // active, so the block widget cannot mount. Auto-fall back
+            // to popover instead of throwing a notice. Source +
+            // live-preview honour the user choice as before.
+            //
+            // Defensive exception fallback (final-verify sweep): if
+            // getMode() or settings access throws (e.g. unusual view
+            // shape, plugin onload race), bias toward popoverMount --
+            // it works in every mode and avoids stranding the user
+            // with a generic "unavailable" notice when block-widget
+            // canMount would fail downstream.
+            try {
+                const mode = view.getMode();
+                if (mode === 'preview') return popoverMount;
+                const choice = resolveInlineActionsSettings(plugin.settings.inlineActions).inlineChatDisplay;
+                return choice === 'popover-overlay' ? popoverMount : blockMount;
+            } catch (e) {
+                console.debug('[inline-actions] chooseMountAdapter fell back to popover after exception:', e);
+                return popoverMount;
+            }
+        },
+        transferService,
         setIcon: (el, name) => setIcon(el, name),
         buildSurface: (panelRoot, chipBar) => buildPanelSurface(plugin, panelRoot, chipBar),
         setActiveSurface: (s) => setActivePanelSurface(s as never),
@@ -875,8 +989,17 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
         // EPIC-33: per-panel AutocompleteHandler. addVaultFile resolves
         // the active panel surface so '@'-mention picks land in the
         // panel's attachment chip bar (real attachments, not stubs).
+        //
+        // Portal fix (user feedback 2026-06-24): the inline block widget
+        // lives inside CM6's editor layout, which clips the dropdown to
+        // ~1-2 rows. Sidebar shows the full 7-row dropdown because no
+        // ancestor clips. We replicate the sidebar behaviour by moving
+        // the dropdown DOM node OUT of the composer into the workspace
+        // root the moment AutocompleteHandler creates it, and positioning
+        // it `fixed` anchored to the composer's bounding rect. Pure DOM
+        // operation -- AutocompleteHandler is unchanged.
         autocompleteFactory: (textarea, inputArea) => {
-            return new AutocompleteHandler(
+            const handler = new AutocompleteHandler(
                 plugin,
                 plugin.app,
                 () => textarea,
@@ -887,19 +1010,39 @@ export function wireInlineActions(plugin: ObsidianAgentPlugin): InlineWiringResu
                     }
                 },
             );
+            installAutocompletePortal(plugin, inputArea);
+            return handler;
         },
     });
 
-    // Auto-Open-on-Selection per User-Feedback abgeschafft: nimmt die
-    // Moeglichkeit fuer normale Markier-Aktionen weg (Kopieren, Lesen).
-    // Trigger laeuft ab jetzt ausschliesslich ueber Hotkey (Cmd+Shift+I,
-    // default in main.ts addCommand) oder Rechtsklick-Editor-Menu.
+    // Selection-affordance pill: opt-in via inlineActions.floatingMenuEnabled
+    // (default OFF). On settled selection a small slash-square icon
+    // appears next to the selection; click opens the inline chat via
+    // orchestrator.triggerPanel(). The pill does NOT steal focus, the
+    // selection stays alive, so Cmd+C / Cmd+B / the live-preview format
+    // toolbar all keep working in parallel. User feedback 2026-06-24:
+    // the previous auto-open behaviour hijacked native selection actions.
+    const selectionPill = new InlineActionPill({
+        target: plugin.app.workspace.containerEl,
+        onClick: () => orchestrator.triggerPanel(),
+    });
+    const selectionWatcher = new SelectionWatcher({
+        target: plugin.app.workspace.containerEl,
+        onSettled: () => selectionPill.show(),
+        isEnabled: () => {
+            const s = resolveInlineActionsSettings(plugin.settings.inlineActions);
+            return s.enabled === true && s.floatingMenuEnabled === true;
+        },
+    });
+    selectionWatcher.start();
     skillFilter; // suppress unused warning (kept available for Settings UI consumers)
 
     return {
         service,
         orchestrator,
         dispose: () => {
+            selectionWatcher.dispose();
+            selectionPill.dispose();
             orchestrator.dispose();
             service.dispose();
             // AUDIT-EPIC-33 L-05: drop cached embeddings from RAM on

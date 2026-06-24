@@ -2186,7 +2186,13 @@ export default class ObsidianAgentPlugin extends Plugin {
                         console.debug('[Plugin] Failed to rebuild stale sidebar leaf:', e);
                     }
                 }
-                if (stale.length === 0) {
+                // FEAT-33-12 follow-up: respect the auto-open setting.
+                // When false, the sidebar stays closed until the user
+                // opens it via the ribbon / command palette / inline
+                // "Send to sidebar chat". Default = true preserves the
+                // historical behaviour.
+                const autoOpen = this.settings.autoOpenSidebarOnStart ?? true;
+                if (stale.length === 0 && autoOpen === true) {
                     await this.activateView();
                 }
                 // Memory v2 upgrade prompt -- BUG-031 follow-up. Fires only
@@ -2223,21 +2229,26 @@ export default class ObsidianAgentPlugin extends Plugin {
                 this.inlineActions?.orchestrator.triggerPanel();
             },
         });
-        // EPIC-33: keep the inline-AI surface discoverable with a
-        // default chord without setting `hotkeys` on `addCommand`
-        // (Obsidian community guidelines discourage that). Register
-        // Mod+Shift+I on the app scope instead so 'Mod' resolves to
-        // Cmd on macOS / Ctrl on Win+Linux automatically. Users can
-        // still rebind the COMMAND via Settings -> Hotkeys -- both
-        // chords then trigger the same panel. The handler is owned
-        // by the plugin, so onunload removes it.
-        const inlineHotkeyHandler = this.app.scope.register(['Mod', 'Shift'], 'i', (ev: KeyboardEvent) => {
+        // EPIC-33: default chord for the inline-AI surface. Per user
+        // spec 2026-06-24:
+        //   Ctrl + i (control, lowercase) -> open inline AI chat
+        // We use 'Ctrl' (not 'Mod') because the user explicitly named
+        // the control key, not the platform-native command key. Users
+        // can rebind the COMMAND via Settings -> Hotkeys.
+        //
+        // The previously registered Ctrl+s send-to-sidebar chord was
+        // dropped 2026-06-24 (user feedback: did not work reliably --
+        // textarea focus shadowed app.scope, and the textarea-level
+        // fallback collided with system save shortcuts on some setups).
+        // The Send-to-sidebar BUTTON in the composer remains as the
+        // canonical trigger.
+        const inlineOpenHandler = this.app.scope.register(['Ctrl'], 'i', (ev: KeyboardEvent) => {
             if (this.inlineActions === null || this.inlineActions === undefined) return false;
             ev.preventDefault();
             this.inlineActions.orchestrator.triggerPanel();
             return false;
         });
-        this.register(() => this.app.scope.unregister(inlineHotkeyHandler));
+        this.register(() => this.app.scope.unregister(inlineOpenHandler));
 
         // EPIC-33: Rechtsklick-Menue zeigt die Inline-Chat-Option mit
         // OS-spezifischem Hotkey-Hint (Mac symbols vs. Ctrl+Shift+I).
@@ -3171,7 +3182,11 @@ export default class ObsidianAgentPlugin extends Plugin {
         // Require API key for cloud providers
         if ((model.provider === 'anthropic' || model.provider === 'openai' || model.provider === 'openrouter' || model.provider === 'azure') && !model.apiKey) {
             if (this.settings.debugMode) {
-                console.debug('[Plugin] API key not set for active model:', getModelKey(model));
+                // AUDIT-034 M-26: do not log the model-id key. It contains
+                // the model name + provider tier the user has configured,
+                // which is sensitive for users on custom endpoints. The
+                // provider alone is enough for debugging.
+                console.debug('[Plugin] API key not set for active model (provider:', model.provider, ')');
             }
             this.apiHandler = null;
             return;
@@ -4088,12 +4103,15 @@ export default class ObsidianAgentPlugin extends Plugin {
             'agent'
         );
 
-        // Create callbacks to collect results
+        // Create callbacks to collect results. AUDIT-034 M-25: truncate
+        // debug dumps to 200 chars so a write_file result with vault
+        // content does not flood the renderer console with sensitive data.
         const results: string[] = [];
         const callbacks: ToolCallbacks = {
             pushToolResult: (content: string) => {
                 results.push(content);
-                console.debug('Tool result:', content);
+                const preview = content.length > 200 ? content.slice(0, 200) + '...[truncated]' : content;
+                console.debug('Tool result:', preview);
             },
             handleError: (toolName: string, error: unknown) => {
                 console.error(`Error in ${toolName}:`, error);

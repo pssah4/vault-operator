@@ -3,9 +3,7 @@
  *
  * Renders toggles + sliders for the inlineActions settings block.
  * The tab is registered as a sub-tab in AgentSettingsTab's advanced
- * area. Per-Action-Pin UI (FEAT-33-10) is included as a simple
- * model-id input per registered action; richer dropdowns can come
- * in a polish wave.
+ * area.
  *
  * Bot-Compliance: uses Obsidian Setting API + createDiv/createEl;
  * no innerHTML or direct style mutation.
@@ -49,8 +47,8 @@ export class InlineActionsTab {
             );
 
         new Setting(containerEl)
-            .setName('Auto-open floating menu on selection')
-            .setDesc('When on, the menu pops up automatically after you finish selecting text. When off, only the hotkey or command-palette opens it.')
+            .setName('Show inline AI action icon on selection')
+            .setDesc('Off by default. When on, a small icon appears next to a finished text selection. Click it to open the inline chat. The selection stays alive so copy and the format toolbar keep working in parallel. When off, only the hotkey or command-palette opens the chat.')
             .addToggle(t => t
                 .setValue(resolved.floatingMenuEnabled)
                 .onChange(async (v) => { settings.floatingMenuEnabled = v; await this.save(); }),
@@ -83,6 +81,19 @@ export class InlineActionsTab {
             );
 
         new Setting(containerEl)
+            .setName('Inline chat display')
+            .setDesc('How the inline chat panel mounts in the editor. Block widget is recommended for source and live-preview. Switch to the floating popover if you frequently work in reading view or prefer a floating panel.')
+            .addDropdown(d => d
+                .addOption('cm-block-widget', 'Block widget in editor (recommended)')
+                .addOption('popover-overlay', 'Floating popover')
+                .setValue(resolved.inlineChatDisplay)
+                .onChange(async (v) => {
+                    settings.inlineChatDisplay = v === 'popover-overlay' ? 'popover-overlay' : 'cm-block-widget';
+                    await this.save();
+                }),
+            );
+
+        new Setting(containerEl)
             .setName('Skills in floating menu (top N)')
             .setDesc('Maximum number of inline-eligible skills to list. Set to 0 to hide all skills.')
             .addText(t => t
@@ -96,41 +107,6 @@ export class InlineActionsTab {
                     }
                 }),
             );
-
-        // FEAT-33-10: Per-Action-Pin section.
-        containerEl.createEl('h4', { text: 'Per-action model pin' });
-        const pinIntro = containerEl.createDiv({ cls: 'setting-item-description' });
-        pinIntro.setText('Pin a specific model per action; overrides the main-chat default for inline actions. Leave empty to use the main-chat default. Model ids come from your configured providers.');
-
-        const knownActions: Array<{ id: string; label: string }> = [
-            { id: 'lookup', label: 'Lookup' },
-            { id: 'rewrite', label: 'Rewrite' },
-            { id: 'send-to-main-chat', label: 'Send to chat' },
-            { id: 'translate:english', label: 'Translate to English' },
-            { id: 'translate:german', label: 'Translate to German' },
-            { id: 'summarize:short', label: 'Summarize (short)' },
-            { id: 'summarize:medium', label: 'Summarize (medium)' },
-            { id: 'find-action-items', label: 'Find action items' },
-            { id: 'inline-chat', label: 'Chat about this' },
-        ];
-
-        if (settings.actionPins === undefined) settings.actionPins = {};
-        for (const action of knownActions) {
-            const pin = settings.actionPins[action.id] ?? null;
-            new Setting(containerEl)
-                .setName(action.label)
-                .setDesc(`Pinned model id for "${action.id}". Empty = use main-chat default.`)
-                .addText(t => t
-                    .setPlaceholder('(main-chat default)')
-                    .setValue(pin ?? '')
-                    .onChange(async (raw) => {
-                        const v = raw.trim();
-                        if (settings.actionPins === undefined) settings.actionPins = {};
-                        settings.actionPins[action.id] = v === '' ? null : v;
-                        await this.save();
-                    }),
-                );
-        }
 
         // Footer: rerender control + reload hint.
         const footer = containerEl.createDiv({ cls: 'setting-item-description' });

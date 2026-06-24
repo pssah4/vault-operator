@@ -70,9 +70,13 @@ export class UseMcpToolTool extends BaseTool<'use_mcp_tool'> {
             return;
         }
 
-        // Check MCP server whitelist (activeMcpServers in settings)
+        // Check MCP server whitelist (activeMcpServers in settings).
+        // AUDIT-034 H-4: previous gate was `length > 0 && !includes(...)`
+        // which DENIED only when the list was non-empty AND missing the
+        // server -- an empty list silently allowed every MCP server. Now
+        // an empty list means "no MCP servers enabled" and rejects.
         const activeMcpServers: string[] = this.plugin.settings.activeMcpServers ?? [];
-        if (activeMcpServers.length > 0 && !activeMcpServers.includes(server_name)) {
+        if (activeMcpServers.includes(server_name) === false) {
             callbacks.pushToolResult(
                 this.formatError(new Error(
                     `MCP server "${server_name}" is not enabled. ` +

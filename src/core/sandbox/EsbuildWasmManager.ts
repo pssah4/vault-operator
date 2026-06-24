@@ -500,8 +500,13 @@ export class EsbuildWasmManager {
             new Notice(`Sandbox: Downloading "${name}" from CDN`, 5000);
         }
 
-        // AUDIT-007 M-4: Validate package name to prevent URL injection
-        if (!/^[@a-zA-Z0-9][\w./_-]*$/.test(name)) {
+        // AUDIT-007 M-4 + AUDIT-034 M-22: validate package name to npm's
+        // shape rules. Tightened to reject leading dots (no `./relative`
+        // smuggling), repeated dots (no `name..evil` traversal in the URL
+        // path), and any path-segment indicator (`/.../`). Scoped names
+        // are still accepted via the `@scope/name` form.
+        const NPM_NAME = /^(?:@[a-z0-9][a-z0-9_-]{0,213}\/)?[a-z0-9][a-z0-9._-]{0,213}$/i;
+        if (NPM_NAME.test(name) === false || name.includes('..')) {
             throw new Error(`Invalid package name: ${name}`);
         }
 

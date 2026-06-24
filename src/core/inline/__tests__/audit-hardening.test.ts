@@ -9,7 +9,7 @@
  *   H-01  Vault/Web context wrapped in <vault_context>/<web_context>
  *         tags with explicit "untrusted" hint.
  *   H-03  InlineWebLookup enforces a per-call timeout.
- *   M-01  PerActionPin rejects model ids that are not in the allow-list.
+ *   M-01  (retired -- PerActionPin / FEAT-33-10 has been withdrawn).
  *   M-02  EmbeddingCache returns undefined on hash-collision when the
  *         stored source text mismatches.
  *   M-03  LookupAppendix strips wikilink-breaking characters and
@@ -27,7 +27,6 @@ import { SummarizeAction } from '../actions/SummarizeAction';
 import { FindActionItemsAction } from '../actions/FindActionItemsAction';
 import { InlineWebLookup } from '../lookup/InlineWebLookup';
 import { EmbeddingCache } from '../lookup/EmbeddingCache';
-import { PerActionPin } from '../settings/PerActionPin';
 import { renderLookupAppendix } from '../lookup/LookupAppendix';
 import { VAULT_WEAK_THRESHOLD_FLOOR } from '../lookup/VaultRagPipeline';
 import { InlineSkillAction } from '../skills/InlineSkillAction';
@@ -137,26 +136,6 @@ describe('AUDIT-EPIC-33 hardening: InlineWebLookup (H-03)', () => {
         });
         const [hit] = await lookup.search('term');
         expect(hit.snippet.length).toBeLessThanOrEqual(500);
-    });
-});
-
-describe('AUDIT-EPIC-33 hardening: PerActionPin (M-01)', () => {
-    it('drops a pinned model id that is not in the allow-list', () => {
-        const warn = vi.fn();
-        const pin = new PerActionPin({
-            getPins: () => ({ rewrite: 'ghost/model' }),
-            isValidModelId: (id) => id === 'real/model',
-            warn,
-        });
-        expect(pin.getModelOverride('rewrite')).toBeNull();
-        expect(warn).toHaveBeenCalledOnce();
-    });
-    it('returns the pinned id when it is in the allow-list', () => {
-        const pin = new PerActionPin({
-            getPins: () => ({ rewrite: 'real/model' }),
-            isValidModelId: (id) => id === 'real/model',
-        });
-        expect(pin.getModelOverride('rewrite')).toBe('real/model');
     });
 });
 

@@ -109,8 +109,17 @@ export class SearchFilesTool extends BaseTool<'search_files'> {
                 return;
             }
 
-            const header = `Found ${totalMatches} match(es) for "${pattern}" in "${rawPath || '/'}":${totalMatches >= MAX_RESULTS ? ` (showing first ${MAX_RESULTS})` : ''}\n\n`;
-            callbacks.pushToolResult(header + results.join('\n\n'));
+            const header = `Found ${totalMatches} match(es) for "${pattern}" in "${rawPath || '/'}":${totalMatches >= MAX_RESULTS ? ` (showing first ${MAX_RESULTS})` : ''}`;
+            // AUDIT-034 H-7: search hits include raw vault content (the
+            // matched lines) which can carry prompt-injection payloads.
+            // Wrap the body in the untrusted-content boundary so the
+            // system-prompt SECURITY BOUNDARY clause covers it.
+            const body = this.formatUntrustedContent(
+                'vault-search',
+                results.join('\n\n'),
+                { pattern, base: rawPath || '/' },
+            );
+            callbacks.pushToolResult(`${header}\n\n${body}`);
             callbacks.log(`Search "${pattern}" found ${totalMatches} matches across ${results.length} files`);
         } catch (error) {
             callbacks.pushToolResult(this.formatError(error));
