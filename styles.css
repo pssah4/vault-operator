@@ -362,15 +362,27 @@
    The view container already declares `user-select: text` (line 24);
    the chat-specific selectors only need to keep that on through the
    message subtree. Specificity is high enough to win over Obsidian's
-   default `.sidebar-view * { user-select: none }` without !important. */
+   default `.sidebar-view * { user-select: none }` without !important.
+
+   User feedback 2026-06-24: inline chat bubbles need the same rule.
+   When the panel mounts as a CM6 block widget the surrounding
+   `.cm-content` propagates the editor's `user-select: text` to the
+   widget, but Obsidian themes occasionally reset it on nested
+   markdown-rendered children. Re-declaring it on the inline-panel
+   bubble + descendants restores copy-from-response. */
 .obsidian-agent-sidebar .message,
 .obsidian-agent-sidebar .message-content,
 .obsidian-agent-sidebar .user-message .message-content,
 .obsidian-agent-sidebar .user-message .message-content *,
 .obsidian-agent-sidebar .assistant-message .message-content,
-.obsidian-agent-sidebar .assistant-message .message-content * {
+.obsidian-agent-sidebar .assistant-message .message-content *,
+.agent-inline-panel__body,
+.agent-inline-panel__body *,
+.agent-inline-panel__bubble,
+.agent-inline-panel__bubble * {
     user-select: text;
     -webkit-user-select: text;
+    cursor: auto;
 }
 
 .message-content h1 {
@@ -7600,7 +7612,11 @@
     flex-direction: column;
     background: var(--background-primary);
     color: var(--text-normal);
-    border: 1px solid var(--background-modifier-border);
+    /* User feedback 2026-06-24 (round 3): bumped to the faint-text token
+       and 2 px so the frame reads as a distinct enclosure against busy
+       note backgrounds in both light and dark mode. Earlier
+       `--background-modifier-border-hover` was still too subtle. */
+    border: 2px solid var(--text-faint);
     border-radius: 8px;
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
     font-size: var(--font-ui-small);
@@ -7613,14 +7629,33 @@
 }
 /* FEAT-33-12: inline-block variant -- panel renders inside a CM6 block
    widget so it flows with the editor instead of overlaying it. Position is
-   handled by the CM6 layout, the panel itself is static and full-width. */
+   handled by the CM6 layout, the panel is full-width. `position: relative`
+   (not static) so the absolute close button anchors to the panel itself
+   (user feedback 2026-06-24 round 3: previously the X drifted into the
+   composer area because it fell through to a far-away positioned
+   ancestor when the panel was static). */
 .agent-inline-panel--inline-block {
-    position: static;
+    position: relative;
     z-index: auto;
     width: 100%;
     max-height: 60vh;
-    margin: 4px 0;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    /* User feedback 2026-06-24 round 3: a full text line of breathing room
+       above + below so the panel visually detaches from prose. Earlier
+       0.75 em felt cramped. */
+    margin: 1.5em 0;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);
+}
+/* The composer is the bottom-most child and carries its own background
+   from the sidebar styles. With the panel's `overflow: visible` (needed
+   so the autocomplete dropdown can escape the composer rect), the
+   composer's square background was painting over the panel's rounded
+   bottom corners. Round the composer's bottom corners to the same
+   radius minus the border width so the visible curve stays continuous
+   with the frame. (user feedback 2026-06-24 round 3) */
+.agent-inline-panel .agent-inline-panel__composer {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    overflow: hidden;
 }
 .agent-inline-panel--inline-block .agent-inline-panel__drag-handle,
 .agent-inline-panel--inline-block .agent-inline-panel__resize-handle {
@@ -7633,7 +7668,10 @@
 .agent-inline-chat-block {
     display: block;
     width: 100%;
-    margin: 4px 0;
+    /* Matching breathing room on the CM6 block wrapper so the half-line
+       margin is honored even if the inner panel's margin collapses with
+       the wrapper. */
+    margin: 0.75em 0;
     overflow: visible;
 }
 
