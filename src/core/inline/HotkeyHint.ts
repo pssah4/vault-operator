@@ -28,6 +28,24 @@ export function formatHotkeyHint(platform: PlatformLike): string {
     return 'Ctrl+i';
 }
 
+/**
+ * User feedback 2026-06-24 (revision): "Ctrl held, then i + i" sends the
+ * selection straight to the sidebar chat without opening the inline
+ * panel first. The display reads as a SINGLE chord with a doubled
+ * letter (⌃ii / Ctrl+ii) rather than two separate Ctrl+i presses, to
+ * match the modifier-held key sequence the user actually performs.
+ *
+ *   macOS  ->  ⌃ii
+ *   Win    ->  Ctrl+ii
+ *   Linux  ->  Ctrl+ii
+ */
+export function formatSendSelectionToSidebarHotkeyHint(platform: PlatformLike): string {
+    if (platform.isMacOS === true) {
+        return '⌃ii';
+    }
+    return 'Ctrl+ii';
+}
+
 /** Convenience wrapper that reads from Obsidian's Platform singleton. */
 export function formatInlineAiHotkeyHint(): string {
     // Lazy require so unit tests can run without Obsidian. Wrap into a

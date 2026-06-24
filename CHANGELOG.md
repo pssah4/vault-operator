@@ -7,6 +7,83 @@ All notable changes to Vault Operator are documented here. Format follows
 ---
 
 
+## [3.1.1] -- 2026-06-24
+
+### Inline chat polish round 3 + selection-pill scope-fix
+
+Follow-up to v3.1.0 driven by user feedback on the inline chat surface
+and the editor-selection pill. No new features; the existing flows are
+sharper and more reliable.
+
+### Added
+
+- **Editor-menu: "Send selection to sidebar chat"** -- second item in
+  the editor right-click menu (next to "Inline AI chat") that hands the
+  current editor selection to the sidebar composer as a
+  `<context>...</context>` block. Sidebar opens on demand if it was
+  collapsed.
+- **`Ctrl+ii` hotkey** (Ctrl held, `i` pressed twice within 280 ms)
+  routes the editor selection directly to the sidebar chat without
+  opening the inline panel first. Single `Ctrl+i` still opens the
+  inline chat (220 ms defer window enables the double-press detection
+  without visible delay at typing speed).
+- `AgentSidebarView.prepopulateComposerWithContext({text, notePath})`
+  public entry point used by both the editor-menu and the `Ctrl+ii`
+  hotkey. Idempotent: re-invoking with the same args does not double-
+  insert the context block.
+
+### Fixed
+
+- **Inline chat frame visibility.** Border bumped to `2 px solid
+  var(--text-faint)` so the panel reads as a distinct enclosure
+  against busy note backgrounds in both light and dark mode (earlier
+  `--background-modifier-border-hover` was still too subtle). Block-
+  widget variant also gets a stronger drop shadow.
+- **Inline chat bottom corners now round.** The composer's square
+  background was painting over the panel's rounded bottom corners
+  because the panel needs `overflow: visible` (so the autocomplete
+  dropdown can escape). Rounded the composer's bottom corners
+  explicitly so the frame curve is continuous.
+- **Inline chat close button (X) now sits in the top-right corner.**
+  Previously `position: static` on the inline-block variant let the
+  absolutely-positioned close button fall through to a far-away
+  ancestor; the variant now uses `position: relative`.
+- **Inline chat margin to surrounding note text.** Bumped from 0.75 em
+  to 1.5 em above + below so the panel visually detaches from prose.
+- **Composer text input is responsive again** and selection in
+  response bubbles no longer collapses on mousedown. Earlier "let
+  mouse events through CM6" tweak handed mousedown to CodeMirror,
+  which moved its own cursor into the editor line behind the widget
+  and stole focus from the composer. `WidgetType.ignoreEvent`
+  reverted to unconditionally true; the copy-from-bubble fix is
+  carried by the CSS `user-select: text` rule on
+  `.agent-inline-panel__bubble *`.
+- **Copy across multiple response paragraphs works.** Cause: `copy`
+  and `cut` events bubbled to the surrounding CM6 EditorView and the
+  CodeMirror clipboard handler serialised its own (often empty)
+  selection instead of the DOM selection inside the widget. Fix:
+  `stopPropagation` on `copy` / `cut` at the panel root in
+  `InlineChatPanel.open()` -- the browser default (copy DOM selection
+  to clipboard) is preserved, only the CM6 layer is decoupled.
+- **Selection-affordance pill no longer appears in the sidebar chat
+  bubbles.** New `isRangeInsideMarkdownView()` guard in
+  `InlineActionPill.show()` suppresses the pill unless the selection's
+  end container has an ancestor matching `.markdown-source-view`,
+  `.markdown-reading-view`, `.markdown-preview-view`, or `.cm-editor`.
+  Chat-in-chat made no sense; the pill is now exclusive to editor
+  text.
+
+### Internal
+
+- `manifest.minAppVersion` aligned with main (`1.8.7`); the feature
+  branch had drifted back to `1.13.0` and would have re-broken the
+  v3.0.3 reachability fix on merge.
+- `versions.json` brought current: added `3.0.3 -> 1.8.7`,
+  `3.1.0 -> 1.8.7`, and the new `3.1.1 -> 1.8.7`.
+- 7 new tests (HotkeyHint Ctrl+ii display + InlineActionPill
+  outside-markdown-view guard); full suite stays green at 3517/3517.
+
+
 ## [3.1.0] -- 2026-06-24
 
 ### Inline chat polish + selection pill + security hardening

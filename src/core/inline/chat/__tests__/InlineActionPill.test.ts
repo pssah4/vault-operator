@@ -123,7 +123,14 @@ function makeEl(tag: string, doc: FakeDocument): FakeElement {
     return el;
 }
 
-function makeSelection(opts: { collapsed?: boolean; rect?: { right: number; top: number; width: number; height: number } } = {}): FakeSelection {
+function makeSelection(opts: {
+    collapsed?: boolean;
+    rect?: { right: number; top: number; width: number; height: number };
+    /** When true (default) the range pretends to live inside a markdown source view so
+     *  the new isRangeInsideMarkdownView guard accepts it. Pass false to simulate a
+     *  selection in the sidebar / settings modal / popout (pill must NOT mount). */
+    insideMarkdownView?: boolean;
+} = {}): FakeSelection {
     const rect = opts.rect ?? { right: 200, top: 50, width: 60, height: 18 };
     const r = {
         left: rect.right - rect.width,
@@ -133,12 +140,24 @@ function makeSelection(opts: { collapsed?: boolean; rect?: { right: number; top:
         width: rect.width,
         height: rect.height,
     };
+    const insideMarkdown = opts.insideMarkdownView !== false;
     return {
         rangeCount: 1,
         getRangeAt: () => ({
             collapsed: opts.collapsed === true,
             getBoundingClientRect: () => r,
             getClientRects: () => [r],
+            endContainer: {
+                nodeType: 3,
+                parentElement: {
+                    closest: (s: string) => {
+                        if (insideMarkdown && (s.includes('.markdown-source-view') || s.includes('.cm-editor'))) {
+                            return { getBoundingClientRect: () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }) };
+                        }
+                        return null;
+                    },
+                },
+            },
         }),
     };
 }
@@ -203,12 +222,21 @@ describe('InlineActionPill', () => {
             { left: 100, top: 70, right: 600, bottom: 88, width: 500, height: 18 },
             { left: 100, top: 90, right: 220, bottom: 108, width: 120, height: 18 },
         ];
+        const markdownEndContainer = {
+            nodeType: 3,
+            parentElement: {
+                closest: (s: string) => (s.includes('.markdown-source-view') || s.includes('.cm-editor'))
+                    ? { getBoundingClientRect: () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }) }
+                    : null,
+            },
+        };
         const sel: FakeSelection = {
             rangeCount: 1,
             getRangeAt: () => ({
                 collapsed: false,
                 getBoundingClientRect: () => ({ left: 100, top: 50, right: 600, bottom: 108, width: 500, height: 58 }),
                 getClientRects: () => rects,
+                endContainer: markdownEndContainer,
             }),
         };
         doc = makeDoc({ selection: sel });
@@ -226,12 +254,21 @@ describe('InlineActionPill', () => {
             { left: 100, top: 100, right: 220, bottom: 118, width: 120, height: 18 },
             { left: 100, top: 120, right: 400, bottom: 138, width: 300, height: 18 }, // rightmost
         ];
+        const markdownEndContainer = {
+            nodeType: 3,
+            parentElement: {
+                closest: (s: string) => (s.includes('.markdown-source-view') || s.includes('.cm-editor'))
+                    ? { getBoundingClientRect: () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }) }
+                    : null,
+            },
+        };
         const sel: FakeSelection = {
             rangeCount: 1,
             getRangeAt: () => ({
                 collapsed: false,
                 getBoundingClientRect: () => ({ left: 100, top: 100, right: 400, bottom: 138, width: 300, height: 38 }),
                 getClientRects: () => rects,
+                endContainer: markdownEndContainer,
             }),
         };
         doc = makeDoc({ selection: sel });
@@ -289,6 +326,9 @@ describe('InlineActionPill', () => {
         // The pill should still clear the rightmost visible mark.
         const selectionRect = { left: 100, top: 200, right: 900, bottom: 218, width: 800, height: 18 };
         const lineRect = { left: 100, top: 200, right: 720, bottom: 218, width: 620, height: 18 };
+        // Use nodeType:3 (text node) so the production code falls through
+        // to .parentElement.closest — matches what the other multi-rect
+        // tests stub and avoids needing the Element to expose closest itself.
         const sel: FakeSelection = {
             rangeCount: 1,
             getRangeAt: () => ({
@@ -296,7 +336,7 @@ describe('InlineActionPill', () => {
                 getBoundingClientRect: () => selectionRect,
                 getClientRects: () => [selectionRect],
                 endContainer: {
-                    nodeType: 1,
+                    nodeType: 3,
                     parentElement: {
                         closest: (s: string) => {
                             if (s.includes('.markdown-source-view') || s.includes('.cm-editor')) {
@@ -437,6 +477,19 @@ describe('InlineActionPill', () => {
         pill.show();
         const btn = target.childNodes[0];
         expect(btn.textContent.length).toBeGreaterThan(0);
+    });
+
+    it('does NOT mount when the selection lives outside any markdown view (e.g. sidebar chat bubble)', () => {
+        // User feedback 2026-06-24: marking text inside the sidebar chat
+        // surfaced the wand-sparkles pill, which made no sense (chat-in-chat).
+        // The new isRangeInsideMarkdownView guard suppresses the pill when
+        // the range's end container has no markdown-view ancestor.
+        doc = makeDoc({ selection: makeSelection({ insideMarkdownView: false }) });
+        target = makeEl('div', doc);
+        const pill = new InlineActionPill({ target: target as unknown as HTMLElement, onClick: vi.fn() });
+        pill.show();
+        expect(pill.isVisible).toBe(false);
+        expect(target.childNodes.length).toBe(0);
     });
 
     it('dispose is an alias for hide', () => {

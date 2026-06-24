@@ -3348,6 +3348,34 @@ export class AgentSidebarView extends ItemView {
         try { this.textarea?.focus(); } catch { /* noop in test stubs */ }
     }
 
+    /**
+     * User feedback 2026-06-24: editor-menu + Ctrl+i+i hotkey hand the
+     * current editor selection to the sidebar chat instead of opening
+     * the inline panel. We prepend a <context>...</context> block (same
+     * shape the inline panel uses on its first turn) so the LLM sees a
+     * consistent boundary, then place the cursor below the block so the
+     * user can type their question immediately.
+     *
+     * Idempotent: re-invoking with the same (text, notePath) does not
+     * double-insert the block, it just refocuses the composer.
+     */
+    public prepopulateComposerWithContext(args: { text: string; notePath: string }): void {
+        const trimmed = args.text.trim();
+        if (trimmed.length === 0) return;
+        if (this.textarea === null) return;
+        const block = `<context>Selected text (from note: ${args.notePath}): ${trimmed}</context>\n\n`;
+        const existing = this.textarea.value;
+        if (!existing.startsWith(block)) {
+            this.textarea.value = block + existing;
+            this.autoResizeTextarea();
+            this.refreshRunStateButtons();
+        }
+        const caret = this.textarea.value.length;
+        this.textarea.selectionStart = caret;
+        this.textarea.selectionEnd = caret;
+        try { this.textarea.focus(); } catch { /* noop in test stubs */ }
+    }
+
     /** Delete a conversation from history. */
     private async deleteConversation(id: string): Promise<void> {
         const store = this.plugin.conversationStore;

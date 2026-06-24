@@ -99,6 +99,12 @@ export class InlineActionPill {
         if (sel === null || sel.rangeCount === 0) return;
         const range = sel.getRangeAt(0);
         if (range.collapsed === true) return;
+        // User feedback 2026-06-24: pill must not appear when the user
+        // selects text in the sidebar chat (or any other non-editor
+        // surface like settings modals). Hard-gate on a markdown-view
+        // ancestor; without this the pill mounted for sidebar chat
+        // bubbles too, where clicking it makes no sense.
+        if (isRangeInsideMarkdownView(range) === false) return;
         const anchor = pickAnchor(range);
         if (anchor === null) return;
 
@@ -256,6 +262,29 @@ interface Anchor {
  *
  * Falls back to getBoundingClientRect when getClientRects is unavailable.
  */
+/**
+ * True iff the Range's start sits inside a markdown editor or reading
+ * view. Used by show() to suppress the pill in non-editor surfaces
+ * (sidebar chat, settings modals, popout windows without a markdown
+ * leaf). Mirrors the trustedRoot selector list from
+ * lineRightAtEndOfRange() so both guards stay in lock-step.
+ */
+function isRangeInsideMarkdownView(range: Range): boolean {
+    try {
+        // Use endContainer (mirrors lineRightAtEndOfRange so both guards
+        // share the same anchor; if the END of the selection sits in a
+        // markdown view, the pill is valid).
+        const node = range.endContainer;
+        const el: Element | null = node.nodeType === 1
+            ? node as Element
+            : node.parentElement;
+        if (el === null) return false;
+        return el.closest('.markdown-source-view, .markdown-reading-view, .markdown-preview-view, .cm-editor') !== null;
+    } catch {
+        return false;
+    }
+}
+
 function pickAnchor(range: Range): Anchor | null {
     try {
         const rects = range.getClientRects?.();

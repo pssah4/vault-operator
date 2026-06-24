@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
-import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, addIcon, Platform } from 'obsidian';
-import { formatHotkeyHint } from './core/inline/HotkeyHint';
+import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, addIcon, Platform, MarkdownView } from 'obsidian';
+import { formatHotkeyHint, formatSendSelectionToSidebarHotkeyHint } from './core/inline/HotkeyHint';
 import { preWarmProviderConnection } from './api/warmup';
 import { scheduleRecurring } from './util/scheduleRecurring';
 import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider } from './types/settings';
@@ -2242,28 +2242,75 @@ export default class ObsidianAgentPlugin extends Plugin {
         // fallback collided with system save shortcuts on some setups).
         // The Send-to-sidebar BUTTON in the composer remains as the
         // canonical trigger.
+        // Ctrl+i opens the inline chat. Ctrl held + i pressed TWICE in
+        // quick succession (≤ 280 ms between presses) instead opens the
+        // sidebar chat with the editor selection pre-populated -- without
+        // flashing the inline panel first (user feedback 2026-06-24
+        // revision). To make that possible we DEFER the inline-open on
+        // the first press by 220 ms; if a second press arrives in that
+        // window we cancel the pending inline-open and run the sidebar
+        // path instead. The 220 ms wait is invisible at typing speed
+        // and shorter than any deliberate single-press cadence.
+        const DOUBLE_TAP_MS = 280;
+        const INLINE_DEFER_MS = 220;
+        let pendingInlineTimer: number | null = null;
+        let lastCtrlIAt = 0;
         const inlineOpenHandler = this.app.scope.register(['Ctrl'], 'i', (ev: KeyboardEvent) => {
-            if (this.inlineActions === null || this.inlineActions === undefined) return false;
             ev.preventDefault();
-            this.inlineActions.orchestrator.triggerPanel();
+            const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+                ? performance.now()
+                : Date.now();
+            const isDouble = (now - lastCtrlIAt) < DOUBLE_TAP_MS;
+            if (isDouble) {
+                // Cancel the deferred inline-open from the first press.
+                if (pendingInlineTimer !== null) {
+                    window.clearTimeout(pendingInlineTimer);
+                    pendingInlineTimer = null;
+                }
+                lastCtrlIAt = 0; // reset so a third press starts a fresh window
+                this.sendCurrentEditorSelectionToSidebar();
+                return false;
+            }
+            // First press: arm a deferred inline-open. Stash timestamp
+            // so a follow-up press within DOUBLE_TAP_MS routes to the
+            // sidebar branch above.
+            lastCtrlIAt = now;
+            if (pendingInlineTimer !== null) window.clearTimeout(pendingInlineTimer);
+            pendingInlineTimer = window.setTimeout(() => {
+                pendingInlineTimer = null;
+                if (this.inlineActions === null || this.inlineActions === undefined) return;
+                this.inlineActions.orchestrator.triggerPanel();
+            }, INLINE_DEFER_MS);
             return false;
         });
         this.register(() => this.app.scope.unregister(inlineOpenHandler));
+        this.register(() => {
+            if (pendingInlineTimer !== null) {
+                window.clearTimeout(pendingInlineTimer);
+                pendingInlineTimer = null;
+            }
+        });
 
-        // EPIC-33: Rechtsklick-Menue zeigt die Inline-Chat-Option mit
-        // OS-spezifischem Hotkey-Hint (Mac symbols vs. Ctrl+Shift+I).
-        // Icon: 'slash' = Vault Operator brand icon (consistent with
-        // ribbon + commands).
+        // EPIC-33 + user feedback 2026-06-24: editor-menu now offers
+        // BOTH paths: open the inline chat OR send the selection to the
+        // sidebar chat. Each item shows its OS-specific hotkey hint.
         this.registerEvent(
             this.app.workspace.on('editor-menu', (menu, editor) => {
                 const selection = editor.getSelection();
                 if (selection.length === 0) return;
-                const hint = formatHotkeyHint(Platform);
+                const inlineHint = formatHotkeyHint(Platform);
+                const sidebarHint = formatSendSelectionToSidebarHotkeyHint(Platform);
                 menu.addItem(item => item
-                    .setTitle(`Inline AI chat  (${hint})`)
+                    .setTitle(`Inline AI chat  (${inlineHint})`)
                     .setIcon('square-slash')
                     .onClick(() => {
                         this.inlineActions?.orchestrator.triggerPanel();
+                    }));
+                menu.addItem(item => item
+                    .setTitle(`Send selection to sidebar chat  (${sidebarHint})`)
+                    .setIcon('panel-right')
+                    .onClick(() => {
+                        this.sendCurrentEditorSelectionToSidebar();
                     }));
             }),
         );
@@ -3264,6 +3311,45 @@ export default class ObsidianAgentPlugin extends Plugin {
                 rightSplit.setSize(targetWidth);
             }
         }
+    }
+
+    /**
+     * User feedback 2026-06-24: bridge from the active editor selection
+     * into the sidebar composer. Used by both the editor-menu item
+     * "Send selection to sidebar chat" and the Ctrl+i+i hotkey.
+     *
+     * Behaviour:
+     *   - No active markdown view OR empty selection -> Notice + noop.
+     *   - Otherwise opens the sidebar (may have been collapsed) and
+     *     prepends a `<context>...</context>` block to the composer so
+     *     the LLM sees the same selection boundary the inline panel
+     *     uses on its first turn.
+     */
+    sendCurrentEditorSelectionToSidebar(): void {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (view === null || view === undefined) {
+            new Notice('No active note.');
+            return;
+        }
+        const text = view.editor.getSelection();
+        if (text.trim().length === 0) {
+            new Notice('Select text first.');
+            return;
+        }
+        const notePath = view.file?.path ?? '(untitled)';
+        void (async () => {
+            try {
+                await this.activateView();
+                const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR)[0];
+                if (!leaf) return;
+                const sidebar = leaf.view;
+                if (sidebar instanceof AgentSidebarView) {
+                    sidebar.prepopulateComposerWithContext({ text, notePath });
+                }
+            } catch (e) {
+                console.warn('[Sidebar] send-selection-to-sidebar failed:', e);
+            }
+        })();
     }
 
     /**

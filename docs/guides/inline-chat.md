@@ -86,7 +86,7 @@ The composer mirrors the sidebar:
 - Autocomplete for `/skills`, `#prompts`, `§workflows`, and `@vault file` references.
 - An attachment chip bar above the textarea for pending image and text attachments.
 - A per-turn model picker on the toolbar (defaults to "Auto", with thinking and effort overrides for providers that support them).
-- A status pill that shows "Thinking", "Calling <tool>", "Done", or errors.
+- A status pill that shows "Thinking", "Calling `<tool>`", "Done", or errors.
 - Send and Stop buttons. Stop aborts the in-flight turn.
 
 ## Edit review modal

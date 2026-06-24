@@ -271,7 +271,21 @@ export class InlineChatPanel {
         // hides the drag handle so the panel flows with the editor.
         if (this.displayMode === 'inline-block') {
             root.classList.add('agent-inline-panel--inline-block');
-        } else {
+        }
+
+        // User feedback 2026-06-24 (round 3): copying multiple paragraphs
+        // out of a response bubble failed. Cause: when the panel mounts
+        // as a CM6 block widget, copy/cut events bubble up to the
+        // surrounding EditorView and CodeMirror's own clipboard handler
+        // wins -- it serialises the EDITOR'S selection (often empty)
+        // instead of the DOM selection inside the widget. Stop propagation
+        // at the panel root so the browser's default copy (which DOES
+        // see the DOM selection) is what reaches the clipboard. We do
+        // NOT preventDefault -- the browser copy must still run.
+        root.addEventListener('copy', (ev) => { ev.stopPropagation(); });
+        root.addEventListener('cut', (ev) => { ev.stopPropagation(); });
+
+        if (this.displayMode !== 'inline-block') {
             // Bot-compliance: static rules (position/z-index) live in styles.css
             // under `.agent-inline-panel`. Per-instance width + height via
             // setCssStyles. The fixed height makes the body's flex:1 scroll

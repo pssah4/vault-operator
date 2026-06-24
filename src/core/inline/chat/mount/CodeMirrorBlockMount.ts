@@ -104,7 +104,18 @@ class InlineChatBlockWidget extends WidgetType {
     eq(other: InlineChatBlockWidget): boolean {
         return other.container === this.container;
     }
-    /** ignoreEvent so keypresses in the panel do NOT bubble to the editor. */
+    /**
+     * Return true so CM6 leaves every event on the widget DOM alone --
+     * the browser then drives focus, text selection, and copy without
+     * interference. An earlier revision (2026-06-24) tried "return
+     * false for mouse / touch / pointer events" to fix copy-from-bubble,
+     * but that handed mousedown to CodeMirror: CM moved its own cursor
+     * into the editor line behind the widget and stole focus from the
+     * composer textarea -- typing became impossible and bubble
+     * selection collapsed. The real fix for the copy bug was the
+     * `user-select: text` CSS on the inline panel and bubble classes;
+     * this method keeps the widget event-opaque.
+     */
     ignoreEvent(): boolean { return true; }
     /** Tell CM6 not to estimate height; the panel decides its own size. */
     get estimatedHeight(): number { return -1; }
