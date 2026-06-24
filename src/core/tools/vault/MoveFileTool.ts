@@ -2,6 +2,7 @@ import { TFolder } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { assertSafeVaultPath } from './vaultPathGuard';
 
 export class MoveFileTool extends BaseTool<'move_file'> {
     readonly name = 'move_file' as const;
@@ -48,6 +49,16 @@ export class MoveFileTool extends BaseTool<'move_file'> {
         }
         if (source === destination) {
             callbacks.pushToolResult(this.formatError(new Error('source and destination are the same path')));
+            return;
+        }
+        // AUDIT-034 H-2: validate both paths through the shared guard so
+        // an LLM cannot escape the vault via `source: '../../etc/passwd'`
+        // or `destination: 'C:\\Windows\\System32\\evil.md'`.
+        try {
+            assertSafeVaultPath(source, { paramName: 'source' });
+            assertSafeVaultPath(destination, { paramName: 'destination' });
+        } catch (e) {
+            callbacks.pushToolResult(this.formatError(e));
             return;
         }
 

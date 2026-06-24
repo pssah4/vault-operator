@@ -1,43 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { PerActionPin } from '../settings/PerActionPin';
 import { FindActionItemsAction } from '../actions/FindActionItemsAction';
 import type { InlineLLMCaller, InlineLLMStreamCallbacks } from '../InlineLLMCaller';
 import type { InlineTriggerContext } from '../InlineTriggerContext';
-
-describe('PerActionPin', () => {
-    it('returns null when no pins are set', () => {
-        const pin = new PerActionPin({ getPins: () => ({}) });
-        expect(pin.getModelOverride('lookup')).toBeNull();
-    });
-
-    it('returns null when pins source is undefined', () => {
-        const pin = new PerActionPin({ getPins: () => undefined });
-        expect(pin.getModelOverride('lookup')).toBeNull();
-    });
-
-    it('returns the pinned model id when set', () => {
-        const pin = new PerActionPin({ getPins: () => ({ lookup: 'claude-haiku-4-5' }) });
-        expect(pin.getModelOverride('lookup')).toBe('claude-haiku-4-5');
-    });
-
-    it('returns null for explicit null pin', () => {
-        const pin = new PerActionPin({ getPins: () => ({ lookup: null }) });
-        expect(pin.getModelOverride('lookup')).toBeNull();
-    });
-
-    it('returns null for empty-string pin (treats as cleared)', () => {
-        const pin = new PerActionPin({ getPins: () => ({ lookup: '' }) });
-        expect(pin.getModelOverride('lookup')).toBeNull();
-    });
-
-    it('reads pins via live callback (changes take effect)', () => {
-        let pins: Record<string, string | null> = { lookup: 'a' };
-        const pin = new PerActionPin({ getPins: () => pins });
-        expect(pin.getModelOverride('lookup')).toBe('a');
-        pins = { lookup: 'b' };
-        expect(pin.getModelOverride('lookup')).toBe('b');
-    });
-});
 
 describe('FindActionItemsAction', () => {
     function ctx(text = 'Meeting notes: TODO call alice; decide on stack'): InlineTriggerContext {

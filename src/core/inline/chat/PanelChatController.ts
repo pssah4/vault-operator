@@ -131,6 +131,32 @@ export class PanelChatController {
     get isModeReady(): boolean { return this.modeServiceReady !== null; }
 
     /**
+     * FEAT-33-12: snapshot the running conversation for hand-off to the
+     * Sidebar. Returns the same shapes the Sidebar already uses
+     * (conversationHistory + uiMessages + activeConversationId) so the
+     * importConversation path can reuse its load/render flow without
+     * any translation layer.
+     *
+     * Callers MUST guard via isRunning before calling: importing a
+     * conversation while the agent loop is mid-stream would leave two
+     * live writers on the same UI message list.
+     */
+    getTransferState(): {
+        conversationId: string | null;
+        history: MessageParam[];
+        uiMessages: UiMessage[];
+        sessionTaskId: string;
+    } {
+        return {
+            conversationId: this.activeConversationId,
+            // Defensive copies so the sidebar can mutate freely after takeover.
+            history: this.history.map((m) => ({ ...m })),
+            uiMessages: this.uiMessages.map((m) => ({ ...m })),
+            sessionTaskId: this.sessionTaskId,
+        };
+    }
+
+    /**
      * Returns true when the conversation has reached the per-block
      * turn cap. The orchestrator queries this before dispatching a new
      * quick-action or sendTurn so the user sees a single explanatory

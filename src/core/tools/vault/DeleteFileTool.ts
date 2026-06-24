@@ -2,6 +2,7 @@ import { TFolder } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
 import type ObsidianAgentPlugin from '../../../main';
+import { assertSafeVaultPath } from './vaultPathGuard';
 
 export class DeleteFileTool extends BaseTool<'delete_file'> {
     readonly name = 'delete_file' as const;
@@ -35,6 +36,13 @@ export class DeleteFileTool extends BaseTool<'delete_file'> {
 
         if (!path) {
             callbacks.pushToolResult(this.formatError(new Error('path parameter is required')));
+            return;
+        }
+        // AUDIT-034 M-1: deny escape attempts before touching the vault.
+        try {
+            assertSafeVaultPath(path, { paramName: 'path' });
+        } catch (e) {
+            callbacks.pushToolResult(this.formatError(e));
             return;
         }
 

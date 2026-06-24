@@ -17,7 +17,11 @@ If you want read-only behaviour, you have two options:
 - Open **Settings > Vault Operator > Agents > Agents** and create a Custom Agent that excludes the `edit`, `vault`, `web`, `agent`, `mcp`, and `skill` tool groups. The custom agent can then only use the `read` group.
 
 :::tip Use approvals if you want safety
-The mode-switcher button was removed from the chat header in v2.11. If you want to explore without any risk of changes, keep the approval prompts on so every write needs an explicit click.
+The chat header has no mode switcher; agents are picked from the agent selector instead. If you want to explore without any risk of changes, keep the approval prompts on so every write needs an explicit click.
+:::
+
+:::tip Prefer to stay in the note?
+Press `Cmd+Shift+I` (`Ctrl+Shift+I` on Windows and Linux), or right-click the selection and choose **Inline AI chat**, to open the inline panel. It runs the same agent loop. See [guides/inline-chat](/guides/inline-chat) for details.
 :::
 
 ## Context: what the agent knows
@@ -66,6 +70,7 @@ Enabling auto-approve for writes means the agent acts without asking. The checkp
 | `Shift+Enter` | New line |
 | `/` | Open workflow/prompt picker |
 | `@` | Open file mention picker |
+| `Mod+Shift+I` | Open inline AI chat |
 
 ## Tips for better results
 

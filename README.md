@@ -40,6 +40,7 @@ Free. Open source. Local-first. Works with cloud models, with your existing Chat
 
 A chatbot reads your prompt and answers. Vault Operator runs a loop: it picks an action, executes it against your vault, feeds the result back to the model, and continues until the task is done.
 
+- **Inline AI chat.** Select text in any note and press Cmd+Shift+I (Ctrl+Shift+I on Windows and Linux), or right-click and choose "Inline AI chat", to open a floating chat panel anchored over the selection. The panel runs the same agent loop as the sidebar (skills, MCP, memory) and ships quick actions for Lookup (vault search with optional web fallback), Rewrite, Translate, Summarize, and Find action items. Available since v3.0.0. [Chat interface guide](https://pssah4.github.io/vault-operator/guides/chat-interface).
 - **Capture sources with block-level provenance.** Drop a PDF into the chat, get a source note where every key claim links back to the exact paragraph in the original.
 - **Three-layer memory across sessions.** Short-term session summaries, durable facts that survive resets, and a soul profile of how you write and how you want the agent to behave.
 - **Find notes by meaning, not by filename.** Local vector index, full-text keyword search, graph expansion through wikilinks, and a local cross-encoder reranker, combined with weighted RRF.

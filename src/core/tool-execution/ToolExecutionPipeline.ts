@@ -320,6 +320,16 @@ export class ToolExecutionPipeline {
      */
     private modeService?: ModeService;
 
+    /**
+     * AUDIT-034 H-3: when this pipeline serves a SUBTASK with a
+     * profile-restricted tool surface, the parent passes the same
+     * allowlist here. The runtime gate then rejects model dispatches of
+     * any tool outside the allowlist, regardless of whether the registry
+     * or active mode happens to include it. undefined / [] keeps the
+     * legacy behaviour (no extra restriction).
+     */
+    private subagentAllowedTools?: Set<string>;
+
 
     /** Tools eligible for result caching (read-only, deterministic within a task). */
     private static readonly CACHEABLE = new Set([
@@ -376,6 +386,20 @@ export class ToolExecutionPipeline {
         this.modeService = modeService;
     }
 
+    /**
+     * AUDIT-034 H-3: bind the subagent's tool allowlist so the pipeline
+     * can reject hallucinated calls to tools outside the profile. The
+     * parent task calls this for every subtask pipeline it constructs.
+     * Pass undefined for the top-level pipeline (no extra restriction).
+     */
+    setSubagentAllowedTools(allowed: readonly string[] | undefined): void {
+        if (allowed === undefined || allowed.length === 0) {
+            this.subagentAllowedTools = undefined;
+            return;
+        }
+        this.subagentAllowedTools = new Set(allowed);
+    }
+
     /** ADR-063: Clean up temp files after task completion. */
     async cleanupExternalized(): Promise<void> {
         await this.resultExternalizer?.cleanup();
@@ -412,6 +436,22 @@ export class ToolExecutionPipeline {
                 return this.errorResult(toolCall.id, msg);
             }
 
+            // 1a. AUDIT-034 H-3: enforce subagent allowlist BEFORE the mode
+            // gate. A subskill's allowlist always wins over the broader mode
+            // surface -- if the parent restricted the subskill to read-only,
+            // a hallucinated write_file call must be rejected even when the
+            // active mode normally allows it. Same dispatch-source bypass
+            // logic as the mode gate.
+            const dispatchSourceForGate: DispatchSource = opts?.source ?? 'model';
+            const enforceModeGate = dispatchSourceForGate !== 'fastpath' && dispatchSourceForGate !== 'planner';
+            if (enforceModeGate && this.subagentAllowedTools !== undefined) {
+                if (this.subagentAllowedTools.has(toolCall.name) === false) {
+                    const msg = `Tool "${toolCall.name}" is not in this subtask's allowlist.`;
+                    console.warn(`[Pipeline] Subagent-gate denied: ${toolCall.name} (source=${dispatchSourceForGate})`);
+                    await this.logOperation(toolCall, false, Date.now() - startTime, msg, undefined);
+                    return this.errorResult(toolCall.id, msg);
+                }
+            }
             // 1b. AUDIT-034 M-9: enforce active-mode toolGroups at the
             // execution layer. Schema-only filtering (ModeService.getToolDefinitions)
             // does not stop a hallucinated or replayed tool name, and FastPath
@@ -421,8 +461,6 @@ export class ToolExecutionPipeline {
             // user-authored recipes / internal classifiers, not model picks.
             // 'model' (and undefined for legacy callers) and any other source
             // are enforced.
-            const dispatchSourceForGate: DispatchSource = opts?.source ?? 'model';
-            const enforceModeGate = dispatchSourceForGate !== 'fastpath' && dispatchSourceForGate !== 'planner';
             if (enforceModeGate && this.modeService) {
                 const activeMode = this.modeService.getMode(this.mode) ?? this.modeService.getActiveMode();
                 if (!this.modeService.modeHasTool(activeMode, toolCall.name)) {

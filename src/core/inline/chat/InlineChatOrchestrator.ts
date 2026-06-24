@@ -34,13 +34,15 @@ import {
 import { PanelChatController } from './PanelChatController';
 import { applyInlineEdit, inlineTaskId } from '../InlineEditApplier';
 import { showEditReviewModal, showCheckpointReviewModal } from '../../../ui/edit-review/EditReviewModal';
-import { Menu } from 'obsidian';
+import { Menu, Notice, MarkdownView } from 'obsidian';
 import type { EditReviewEntry, EditReviewDecision } from '../../../ui/edit-review/EditReviewPanel';
+import type { InlineChatMountAdapter, MountHandle } from './mount/InlineChatMountAdapter';
+import type { InlineToSidebarTransferService } from './InlineToSidebarTransferService';
 
 export interface EditorChatProbe {
     probe(): SelectionTriggerInput | null;
-    getPanelContainer(): HTMLElement | null;
-    getPanelPosition(): { x: number; y: number };
+    /** Active markdown view used by the mount adapters for CM6 + canMount checks. */
+    getActiveMarkdownView(): MarkdownView | null;
     /**
      * Write back arbitrary content into the original editor selection
      * range. Implemented by the live wiring via MarkdownView.editor.
@@ -75,6 +77,21 @@ export interface InlineChatOrchestratorOptions {
     getInitialModelLabel?: () => { label: string; tooltip: string };
     /** Factory for the textarea autocomplete handler (mirrors sidebar). */
     autocompleteFactory?: (textarea: HTMLTextAreaElement, inputArea: HTMLElement) => import('./InlineChatPanel').AutocompleteLike;
+    /**
+     * FEAT-33-12: choose a mount adapter per trigger so the user's
+     * `inlineChatDisplay` setting (cm-block-widget vs popover-overlay)
+     * takes effect without a plugin reload. Receives the active
+     * MarkdownView so the wiring can apply a reading-view fallback
+     * (block widget cannot mount in reading view -- the wiring swaps
+     * to popover instead of letting the orchestrator hit a notice).
+     */
+    chooseMountAdapter: (view: MarkdownView) => InlineChatMountAdapter;
+    /**
+     * FEAT-33-12: handles the "Send to sidebar chat" composer button.
+     * Optional so unit tests can construct the orchestrator without
+     * wiring the full sidebar bridge.
+     */
+    transferService?: InlineToSidebarTransferService;
 }
 
 /** Quick-actions map onto registered InlineAction ids. */
@@ -127,6 +144,9 @@ export class InlineChatOrchestrator {
 
     private activePanel: InlineChatPanel | null = null;
     private activeController: PanelChatController | null = null;
+    private activeMountHandle: MountHandle | null = null;
+    private readonly chooseMountAdapter: (view: MarkdownView) => InlineChatMountAdapter;
+    private readonly transferService?: InlineToSidebarTransferService;
 
     constructor(options: InlineChatOrchestratorOptions) {
         this.plugin = options.plugin;
@@ -143,17 +163,97 @@ export class InlineChatOrchestrator {
         this.autocompleteFactory = options.autocompleteFactory;
         this.buildSurface = options.buildSurface;
         this.setActiveSurface = options.setActiveSurface;
+        this.chooseMountAdapter = options.chooseMountAdapter;
+        this.transferService = options.transferService;
+    }
+
+    /**
+     * Public hotkey entry point: trigger the Send-to-Sidebar action for
+     * the active inline panel. No-op when no panel is open (the keystroke
+     * then falls through to whatever the editor does with it).
+     */
+    triggerSendToSidebar(): void {
+        if (this.activePanel === null || this.activeController === null) return;
+        this.handleSendToSidebar();
+    }
+
+    /**
+     * FEAT-33-12: handle the inline composer's "Send to sidebar chat"
+     * click. The TransferService re-evaluates `controller.isRunning` and
+     * re-pulls the snapshot AFTER the async activateView resolves, so a
+     * steering message that started a new turn in the click->resume gap
+     * cannot leak a stale conversation to the sidebar. Closes the inline
+     * panel after a successful transfer.
+     *
+     * Closure-lifetime guard (AUDIT-FEAT-33-12 sweep finding): the
+     * snapshotProvider closure verifies that liveController is STILL
+     * the orchestrator's activeController. If the panel was closed
+     * during the async activateView (which disposes activeController
+     * and nulls it), the closure now reports the conversation as
+     * "running" so transfer aborts with inline-busy instead of
+     * touching a disposed controller's drained state.
+     */
+    private handleSendToSidebar(): void {
+        const svc = this.transferService;
+        const controller = this.activeController;
+        if (svc === undefined || controller === null) return;
+        const liveController = controller;
+        const isStillActive = (): boolean => this.activeController === liveController;
+        void svc.transfer({
+            inlineRunning: liveController.isRunning,
+            snapshotProvider: () => {
+                if (isStillActive() !== true) {
+                    // The panel was closed (or replaced) during the
+                    // async gap. Treat as "running" so the service
+                    // aborts and we do not import a stale snapshot.
+                    return {
+                        state: liveController.getTransferState(),
+                        isRunning: true,
+                    };
+                }
+                return {
+                    state: liveController.getTransferState(),
+                    isRunning: liveController.isRunning,
+                };
+            },
+        }).then((outcome) => {
+            if (outcome.ok === true) this.closePanel();
+        }).catch((e) => {
+            console.warn('[InlineChatOrchestrator] transfer failed:', e);
+        });
     }
 
     triggerPanel(): void {
         if (this.isEnabled() !== true) return;
         const input = this.editorProbe.probe();
         if (input === null) return;
-        const container = this.editorProbe.getPanelContainer();
-        if (container === null) return;
+        const view = this.editorProbe.getActiveMarkdownView();
+        if (view === null) return;
+
+        // FEAT-33-12: per-trigger adapter selection so the user's
+        // `inlineChatDisplay` setting takes effect without a reload.
+        // The wiring applies the reading-view fallback (block widget
+        // cannot mount without CodeMirror; swap to popover) so this
+        // call already returns the correct adapter for `view`.
+        const adapter = this.chooseMountAdapter(view);
+        const check = adapter.canMount(view);
+        if (check.ok !== true) {
+            this.notifyMountUnavailable(check.reason, adapter.id);
+            return;
+        }
 
         const ctx = this.resolver.resolveFromSelection(input);
         this.closePanel();
+
+        let mountHandle: MountHandle;
+        try {
+            mountHandle = adapter.mount(view);
+        } catch (e) {
+            console.warn('[InlineChatOrchestrator] mount() failed:', e);
+            new Notice('Inline chat could not open. See console for details.');
+            return;
+        }
+        this.activeMountHandle = mountHandle;
 
         // Fresh controller per panel -- in-memory history scoped to
         // the panel lifetime. Closing the panel disposes the controller.
@@ -176,9 +276,10 @@ export class InlineChatOrchestrator {
 
         const initialModel = this.getInitialModelLabel?.() ?? { label: 'Auto', tooltip: 'Model' };
         const panel = new InlineChatPanel({
-            containerEl: container,
+            containerEl: mountHandle.containerEl,
             ctx,
-            position: this.editorProbe.getPanelPosition(),
+            position: mountHandle.position,
+            displayMode: mountHandle.displayMode,
             initialModelLabel: initialModel.label,
             initialModelTooltip: initialModel.tooltip,
             onDispatch: (args, handle) => { void this.handleDispatch(args, handle); },
@@ -196,6 +297,9 @@ export class InlineChatOrchestrator {
                     this.activeController.abort();
                 }
             },
+            onSendToSidebar: this.transferService !== undefined
+                ? () => this.handleSendToSidebar()
+                : undefined,
             onClose: () => {
                 if (this.activeController !== null) {
                     this.activeController.dispose();
@@ -206,6 +310,15 @@ export class InlineChatOrchestrator {
                 }
                 this.activeSurface = null;
                 this.activePanel = null;
+                // Tear down adapter-owned artefacts (e.g. CM block widget
+                // decoration) AFTER the panel cleared its own DOM so the
+                // wrapper still exists for the panel's removeChild.
+                if (this.activeMountHandle !== null) {
+                    try { this.activeMountHandle.destroy(); } catch (e) {
+                        console.debug('[InlineChatOrchestrator] mount destroy failed:', e);
+                    }
+                    this.activeMountHandle = null;
+                }
             },
             setIcon: this.setIconHook,
             renderMarkdown: this.renderMarkdownHook,
@@ -247,9 +360,35 @@ export class InlineChatOrchestrator {
             this.activeController.dispose();
             this.activeController = null;
         }
+        if (this.activeMountHandle !== null) {
+            try { this.activeMountHandle.destroy(); } catch (e) {
+                console.debug('[InlineChatOrchestrator] mount destroy failed:', e);
+            }
+            this.activeMountHandle = null;
+        }
     }
 
     dispose(): void { this.closePanel(); }
+
+    /**
+     * Surface a tailored Notice when the chosen adapter can't mount.
+     * Reading view + block-widget is the common case and warrants a
+     * specific message that points the user to the settings.
+     */
+    private notifyMountUnavailable(
+        reason: 'reading-view' | 'no-cm' | 'no-view',
+        adapterId: 'cm-block-widget' | 'popover-overlay',
+    ): void {
+        if (reason === 'reading-view' && adapterId === 'cm-block-widget') {
+            new Notice('Switch to editor view, or change inline chat display to popover in settings.');
+            return;
+        }
+        if (reason === 'no-view') {
+            new Notice('Open a note to use the inline chat.');
+            return;
+        }
+        new Notice('Inline chat is unavailable in this view.');
+    }
 
     private async handleDispatch(args: InlinePanelDispatchArgs, handle: InlinePanelHandle): Promise<void> {
         // Free-chat: drive the panel-scoped chat controller (true multi-turn).

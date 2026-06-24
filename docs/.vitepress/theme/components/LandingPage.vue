@@ -2,7 +2,7 @@
 import { withBase } from 'vitepress'
 
 /* Keep in sync with manifest.json on every release. */
-const PLUGIN_VERSION = '3.0.3'
+const PLUGIN_VERSION = '3.1.0'
 </script>
 
 <template>
@@ -26,6 +26,7 @@ const PLUGIN_VERSION = '3.0.3'
     <p class="lp-sub">
       Block-level provenance from sense-making notes back to source paragraphs.
       Hybrid semantic search, persistent memory, MCP server, multi-agent workflows.
+      Plus an inline AI chat panel that runs the full agent loop over your current selection.
       Local-first. Open source. Free to use.
     </p>
 

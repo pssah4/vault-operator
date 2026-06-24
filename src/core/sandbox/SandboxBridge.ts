@@ -335,8 +335,20 @@ export class SandboxBridge {
         // paths that the inline check enforced. The empty string is the
         // canonical vault-root identifier (normaliseVaultPath maps '/' to
         // ''), so it must keep passing for vaultList('/').
-        if (typeof path === 'string' && (path.startsWith('/') || path.startsWith('\\'))) {
-            throw new Error(`Invalid path: ${path}`);
+        //
+        // AUDIT-034 M-5: also reject Windows-style absolute paths so a
+        // cross-platform script cannot escape the vault by passing
+        // `C:\\users\\evil.md` or `\\\\server\\share` on Windows.
+        if (typeof path === 'string') {
+            if (path.startsWith('/') === true || path.startsWith('\\') === true) {
+                throw new Error(`Invalid path: ${path}`);
+            }
+            if (/^[A-Za-z]:[/\\]/.test(path) === true) {
+                throw new Error(`Invalid path (drive-letter prefix rejected): ${path}`);
+            }
+            if (path.startsWith('\\\\') === true) {
+                throw new Error(`Invalid path (UNC prefix rejected): ${path}`);
+            }
         }
         let safe: string;
         if (path === '') {
@@ -349,12 +361,15 @@ export class SandboxBridge {
             safe = checked;
         }
 
-        // Shai Hulud Mitigation: Block ALL writes to configDir (Audit L-2: Allowlist)
-        if (isWrite) {
-            const configDir = this.plugin.app.vault.configDir;
-            if (safe.startsWith(`${configDir}/`) || safe === configDir) {
-                throw new Error(`Sandbox write blocked: ${configDir}/ is protected`);
-            }
+        // Shai Hulud Mitigation: Block reads AND writes to configDir.
+        // AUDIT-034 M-4: previously this gate ran only when isWrite=true,
+        // which let the sandbox bridge READ data.json (containing
+        // safeStorage-encrypted credentials) and exfiltrate it via
+        // requestUrl(). Symmetric read+write block makes configDir an
+        // absolute deny-zone for sandboxed skill code.
+        const configDir = this.plugin.app.vault.configDir;
+        if (safe.startsWith(`${configDir}/`) || safe === configDir) {
+            throw new Error(`Sandbox ${isWrite ? 'write' : 'read'} blocked: ${configDir}/ is protected`);
         }
     }
 

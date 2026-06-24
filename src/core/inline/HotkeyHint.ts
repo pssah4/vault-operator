@@ -1,24 +1,17 @@
 /**
  * HotkeyHint -- OS-specific hotkey display for the inline-AI editor-menu (EPIC-33).
  *
- * The actual hotkey binding is the cross-platform 'Mod+Shift+I'
- * (Mod = Cmd on macOS, Ctrl on Windows/Linux). The DISPLAY uses the
- * conventional symbols per OS so users see what they actually press:
+ * Actual hotkey binding (per user spec 2026-06-24):
+ *   open inline chat -> Ctrl + i (lowercase)
  *
- *  - macOS:        ⌘⇧I       (Apple modifier glyphs)
- *  - Windows:      Win+Shift+I (or Ctrl+Shift+I if rebound)
- *  - Linux:        Ctrl+Shift+I
+ * Uses the literal Control key on every platform (not the
+ * platform-native command key) so the chord reads identically across
+ * macOS, Windows, and Linux.
  *
- * Notes:
- *  - On macOS the conventional rendering is glyphs without separators
- *    (⌘⇧I), matching system menus.
- *  - On Windows + Linux the conventional rendering is "Mod+Mod+Key"
- *    with plus separators.
- *  - The Windows user asked for Win+Shift+I. The hint reflects that
- *    preference; the actual binding stays 'Mod+Shift+I' because the
- *    Super/Win key cannot be reliably captured by Electron-based
- *    Obsidian on all Windows setups -- 'Mod' = Ctrl on Win so the
- *    binding works; the user can rebind via Settings -> Hotkeys.
+ * Display convention:
+ *   macOS  ->  ⌃i      (Apple control glyph, no separator)
+ *   Win    ->  Ctrl+i
+ *   Linux  ->  Ctrl+i
  */
 
 export interface PlatformLike {
@@ -27,15 +20,12 @@ export interface PlatformLike {
     isLinux: boolean;
 }
 
-/** Render the hotkey hint string for the given platform. */
+/** Render the OPEN inline chat hotkey hint for the given platform. */
 export function formatHotkeyHint(platform: PlatformLike): string {
     if (platform.isMacOS === true) {
-        return '⌘⇧I'; // ⌘⇧I
+        return '⌃i'; // ⌃ + lowercase i
     }
-    if (platform.isWin === true) {
-        return 'Ctrl+Shift+I';
-    }
-    return 'Ctrl+Shift+I'; // Linux + other.
+    return 'Ctrl+i';
 }
 
 /** Convenience wrapper that reads from Obsidian's Platform singleton. */

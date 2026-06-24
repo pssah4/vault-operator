@@ -6,6 +6,7 @@
  */
 
 import { TFile, type Vault } from 'obsidian';
+import { assertSafeVaultPath } from './vaultPathGuard';
 
 export interface WriteBinaryResult {
     created: boolean;
@@ -27,19 +28,10 @@ export async function writeBinaryToVault(
     content: ArrayBuffer,
     expectedExtension: string,
 ): Promise<WriteBinaryResult> {
-    // Path validation
-    if (!path || path.trim().length === 0) {
-        throw new Error('output_path is required');
-    }
-    if (path.startsWith('/')) {
-        throw new Error('output_path must be a vault-relative path, not an absolute path');
-    }
-    if (path.includes('..')) {
-        throw new Error('output_path must not contain ".." path traversal');
-    }
-    if (!path.toLowerCase().endsWith(expectedExtension.toLowerCase())) {
-        throw new Error(`output_path must end with ${expectedExtension}`);
-    }
+    // AUDIT-034 H-1: replace fragile includes('..') with the shared
+    // segment-walking guard from vaultPathGuard.ts so this and every
+    // other write tool reject the same set of escape patterns.
+    assertSafeVaultPath(path, { paramName: 'output_path', expectedExtension });
 
     // Ensure parent folder exists
     const dir = path.includes('/') ? path.split('/').slice(0, -1).join('/') : null;

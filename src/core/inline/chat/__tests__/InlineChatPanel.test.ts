@@ -291,6 +291,7 @@ describe('InlineChatPanel (Sidebar-Composer-Layout)', () => {
         expect(panel.isOpen).toBe(false);
     });
 
+
     it('close button removes the panel', () => {
         const panel = newPanel();
         panel.open();

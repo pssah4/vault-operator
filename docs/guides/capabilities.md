@@ -9,6 +9,16 @@ Most AI tools sit outside your knowledge base and wait for you to copy and paste
 
 This page is the short tour. Each section links out to the guide that goes deep.
 
+## Inline AI chat in the editor
+
+*Available since v3.0.0.*
+
+You can run a chat directly on the note you are reading. Select text, press Cmd+Shift+I (Ctrl+Shift+I on Windows and Linux) or right-click and pick "Inline AI chat", and a floating panel opens over the editor. From there you ask a question about the selection, look something up, rewrite, translate, summarize, or extract action items without leaving the note.
+
+When the panel proposes a change to the file, the Änderungen prüfen modal opens first. You review each edit, apply only the ones you want, and the agent writes a checkpoint marker into the chat so you can undo the change later through the same checkpoint system used elsewhere in Vault Operator.
+
+[Inline chat guide](/guides/inline-chat) | [Chat interface](/guides/chat-interface) | [Safety and control](/guides/safety-control)
+
 ## Capture sources with block-level provenance
 
 Drop a PDF, web clip, or Office file into the chat. Vault Operator runs a fast triage against your vault's ontology and, if you choose to ingest, walks you through a short dialog before it writes anything.

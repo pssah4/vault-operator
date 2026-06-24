@@ -122,7 +122,13 @@ export class ResolveConflictModal extends Modal {
         new Notice('Review prompt prepared; opening chat');
         this.opts.onChange();
         this.close();
-        console.debug('[ResolveConflictModal] chat prompt:', prompt);
+        // AUDIT-034 H-6: do NOT log the full prompt. It contains the
+        // note path, verdict reasoning, and any URLs the agent extracted
+        // from the file. The previous diagnostic line dumped all of
+        // that to the renderer console, which is visible to any other
+        // plugin running in the same Electron context. Keep a minimal
+        // size-only marker for live debugging.
+        console.debug('[ResolveConflictModal] chat prompt prepared', { length: prompt.length });
     }
 
     private async editNote(): Promise<void> {

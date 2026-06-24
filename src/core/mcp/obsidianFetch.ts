@@ -88,11 +88,14 @@ export function obsidianFetch(url: string | URL, init?: RequestInit): Promise<Re
             reject(new Error(`MCP fetch rejected: unsupported protocol "${parsedUrl.protocol}"`));
             return;
         }
+        // AUDIT-034 M-29: single normalised hostname form. parsedUrl.hostname
+        // already strips IPv6 brackets per WHATWG, but be defensive (some
+        // Node URL implementations leave them in for ::1/loopback). Strip
+        // here too and use ONLY the cleaned value for the blocklist check
+        // so an IPv6 literal like "[::ffff:127.0.0.1]" cannot slip through
+        // the redundant double-check that used the un-normalised hostname.
         const hostname = parsedUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-        if (
-            BLOCKED_MCP_HOSTNAMES.has(hostname)
-            || BLOCKED_MCP_HOSTNAMES.has(parsedUrl.hostname.toLowerCase())
-        ) {
+        if (BLOCKED_MCP_HOSTNAMES.has(hostname)) {
             reject(new Error(`MCP fetch rejected: blocked host "${parsedUrl.host}"`));
             return;
         }
