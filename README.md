@@ -3,7 +3,7 @@
 **Agentic AI operating layer for your vault.**
 
 <p align="center">
-  <img src="docs/public/vault-operator-demo.gif" alt="Vault Operator builds a Base and a Canvas from a vault query, inside Obsidian" width="820">
+  <img src="docs/public/vault-operator-demo.gif" alt="Vault Operator inside Obsidian: an inline action rewrites a paragraph with a web source, then the sidebar agent turns the topic into a labeled Canvas and a Base of related notes, meetings and people" width="820">
 </p>
 
 You describe a task, it plans, searches, reads, writes, and reports back. Every action is visible. Every write needs your approval. Every change is undoable in one click.
