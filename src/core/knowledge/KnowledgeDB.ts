@@ -18,6 +18,7 @@
  */
 
 import type { Vault } from 'obsidian';
+import { gunzipSync } from 'node:zlib';
 import * as path from 'path';
 import * as fs from '../security/safeFs';
 import { WriterLock, WriterLockHeldError } from '../persistence/WriterLock';
@@ -265,6 +266,7 @@ export class KnowledgeDB {
     private dirty = false;
     private saveTimer: number | null = null;
     private saving = false;
+    private lastSaveFinishedAt: number | null = null;
     /** In-flight doSaveOnce(), so concurrent save() calls coalesce instead of silently dropping. */
     private savePromise: Promise<boolean> | null = null;
     /** ADR-079 Cloud-Sync-Abwehr: only set in obsidian-sync setup. */
@@ -368,15 +370,17 @@ export class KnowledgeDB {
     }
 
     /**
-     * Decode the inlined sql.js WASM binary. Phase 1: WASM ships inside
-     * main.js as base64, no disk read and no CDN fetch. Obsidian's
+     * Decode the inlined, gzip-compressed sql.js WASM binary. WASM ships
+     * inside main.js as base64, no disk read and no CDN fetch. The desktop
+     * runtime's built-in zlib restores the original dependency bytes once
+     * through getSqlModule's shared initialization promise. Obsidian's
      * Developer Policy does not allow downloading code at runtime, and
      * extracting bundled WASM into pluginDir is the "self-update"
      * pattern the review bot rejects.
      */
     private async loadWasmBinary(): Promise<ArrayBuffer> {
         const mod = await import('../../_generated/bundled-wasm') as { SQL_WASM_BASE64: string };
-        const bytes = Uint8Array.from(atob(mod.SQL_WASM_BASE64), c => c.charCodeAt(0));
+        const bytes = gunzipSync(Buffer.from(mod.SQL_WASM_BASE64, 'base64'));
         return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     }
 
@@ -410,18 +414,39 @@ export class KnowledgeDB {
      * final index checkpoint on reload.)
      */
     async save(): Promise<void> {
-        while (this.db && this.dirty) {
+        while (this.db && (this.dirty || this.savePromise)) {
             if (this.savePromise) {
                 await this.savePromise;
                 continue; // re-check: writes during the flight need another pass
             }
-            const attempt = this.doSaveOnce();
-            this.savePromise = attempt;
-            const ok = await attempt.finally(() => {
-                if (this.savePromise === attempt) this.savePromise = null;
-            });
+            const ok = await this.startSave();
             if (!ok) return; // write failed; dirty stays set, next markDirty retries
         }
+    }
+
+    private startSave(): Promise<boolean> {
+        const attempt = this.doSaveOnce();
+        const tracked = attempt.finally(() => {
+            if (this.savePromise === tracked) this.savePromise = null;
+        });
+        this.savePromise = tracked;
+        return tracked;
+    }
+
+    /** Background work takes one snapshot; explicit save() remains a durability barrier. */
+    private async saveScheduled(): Promise<void> {
+        if (!this.db || !this.dirty || this.savePromise) return;
+        if (this.savesSuspended > 0) {
+            this.saveDeferredWhileSuspended = true;
+            return;
+        }
+        // An explicit save may have completed after this timer was armed.
+        if (this.lastSaveFinishedAt !== null && Date.now() - this.lastSaveFinishedAt < 30_000) {
+            this.scheduleSave();
+            return;
+        }
+        const ok = await this.startSave();
+        if (ok && this.dirty) this.scheduleSave();
     }
 
     private async doSaveOnce(): Promise<boolean> {
@@ -440,6 +465,7 @@ export class KnowledgeDB {
             return false;
         } finally {
             this.saving = false;
+            this.lastSaveFinishedAt = Date.now();
         }
     }
 
@@ -922,10 +948,17 @@ export class KnowledgeDB {
             this.saveDeferredWhileSuspended = true;
             return;
         }
+        // A running save schedules its remaining dirty state after completion.
+        // Starting timers during the write can immediately export the next full
+        // image and saturate a slow disk indefinitely (public issue #91).
+        if (this.savePromise || !this.db) return;
+        const cooldown = this.lastSaveFinishedAt === null
+            ? 0
+            : 30_000 - (Date.now() - this.lastSaveFinishedAt);
         this.saveTimer = window.setTimeout(() => {
             this.saveTimer = null;
-            void this.save();
-        }, 2000); // 2s debounce
+            void this.saveScheduled();
+        }, Math.max(2000, cooldown));
     }
 }
 

@@ -24,7 +24,7 @@
  */
 
 import { replaceOrInsertAutoBlock, removeAutoBlock, findAutoBlock } from '../ingest/MOCMaintainer';
-import { buildIncomingLinksBody, type IncomingSource } from './incomingLinksBlock';
+import { buildIncomingLinksBody, selectIncomingSources, type IncomingSource, type IncomingLinksDisplayOptions } from './incomingLinksBlock';
 
 /** Eigene Block-id, laeuft konfliktfrei neben 'moc-header'. */
 export const INCOMING_BLOCK_ID = 'incoming-links';
@@ -59,6 +59,7 @@ export function computeIncomingBlockUpdate(
     // (buildBacklinksBaseBlock). undefined = Nicht-Hub-Typ -> kein .base (ein
     // etwaiger alter .base-Block wird dann entfernt).
     baseBlock?: string,
+    displayOptions?: IncomingLinksDisplayOptions,
 ): string | null {
     // 1. Legacy-Abschnitt immer bereinigen (unabhaengig vom Block-Status).
     let deLegacied = stripLegacyBaseSection(content);
@@ -86,7 +87,7 @@ export function computeIncomingBlockUpdate(
     // Block wird nur ab Threshold neu angelegt (der Aufrufer setzt threshold=1
     // fuer type:person, damit jede Person ab dem ersten Backlink eine History
     // bekommt).
-    const selfFiltered = sources.filter((s) => s.sourcePath !== selfPath);
+    const selfFiltered = selectIncomingSources(sources, { selfPath });
     const shouldHaveBlock = existing !== null || selfFiltered.length >= threshold;
 
     let next: string;
@@ -97,7 +98,7 @@ export function computeIncomingBlockUpdate(
     } else {
         // Block anlegen ODER vorhandenen aktualisieren. Body aus ALLEN Quellen
         // (kein Threshold-Gate mehr auf den Inhalt), Selbstlink ausgeschlossen.
-        const body = buildIncomingLinksBody(selfFiltered);
+        const body = buildIncomingLinksBody(selfFiltered, displayOptions);
 
         // FEAT-19-04-01 W2: Block ans ENDE der Note.
         //

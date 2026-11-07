@@ -76,6 +76,7 @@ function recommendedMaxTokens(modelId: string): number {
 }
 
 export class ModelConfigModal extends Modal {
+    private copilotEnterpriseDomainDraft: string | undefined;
     private model: CustomModel;
     private isNew: boolean;
     private onSave: (model: CustomModel) => void;
@@ -84,6 +85,8 @@ export class ModelConfigModal extends Modal {
     private formName: string;
     private formDisplayName: string;
     private formProvider: ProviderType;
+    private formGeminiOAuthProviderId: string;
+    private geminiOAuthAccountRow: HTMLElement | null = null;
     private formApiKey: string;
     private formBaseUrl: string;
     private formApiVersion: string;
@@ -148,7 +151,7 @@ export class ModelConfigModal extends Modal {
     private thinkingBudgetSliderEl: HTMLInputElement | null = null;
     private thinkingBudgetValueEl: HTMLElement | null = null;
 
-    constructor(app: App, model: CustomModel | null, onSave: (m: CustomModel) => void, forEmbedding = false) {
+    constructor(app: App, model: CustomModel | null, onSave: (m: CustomModel) => void, forEmbedding = false, private readonly geminiOAuthAccounts: Array<{ id: string; label: string }> = []) {
         super(app);
         this.forEmbedding = forEmbedding;
         this.isNew = model === null;
@@ -165,6 +168,7 @@ export class ModelConfigModal extends Modal {
         this.formName = this.model.name;
         this.formDisplayName = this.model.displayName ?? '';
         this.formProvider = this.model.provider;
+        this.formGeminiOAuthProviderId = this.model.geminiOAuthProviderId ?? geminiOAuthAccounts[0]?.id ?? "";
         this.formApiKey = this.model.apiKey ?? '';
         this.formBaseUrl = this.model.baseUrl ?? getDefaultBaseUrlForProvider(this.model.provider) ?? '';
         this.formApiVersion = this.model.apiVersion ?? '2024-10-21';
@@ -233,7 +237,7 @@ export class ModelConfigModal extends Modal {
         // ── Provider ─────────────────────────────────────────────────────
         const provRow = row(t('modal.modelConfig.provider'));
         const provSel = provRow.createEl('select', { cls: 'mcm-select' });
-        (this.forEmbedding ? EMBEDDING_PROVIDERS : ['anthropic', 'openai', 'gemini', 'bedrock', 'github-copilot', 'chatgpt-oauth', 'kilo-gateway', 'ollama', 'lmstudio', 'openrouter', 'azure', 'custom'] as ProviderType[]).forEach((p) => {
+        (this.forEmbedding ? EMBEDDING_PROVIDERS : ['anthropic', 'openai', 'gemini', ...(this.geminiOAuthAccounts.length || this.formProvider === 'gemini-oauth' ? ['gemini-oauth'] as ProviderType[] : []), 'bedrock', 'github-copilot', 'chatgpt-oauth', 'kilo-gateway', 'ollama', 'lmstudio', 'openrouter', 'azure', 'custom'] as ProviderType[]).forEach((p) => {
             const opt = provSel.createEl('option', { value: p, text: PROVIDER_LABELS[p] });
             if (p === this.formProvider) opt.selected = true;
         });
@@ -249,6 +253,14 @@ export class ModelConfigModal extends Modal {
             }
             this.updateFieldVisibility();
         });
+
+        this.geminiOAuthAccountRow = form.createDiv('mcm-row');
+        this.geminiOAuthAccountRow.createDiv({ cls: 'mcm-label', text: t('settings.providers.geminiOAuth.account') });
+        const accountSelect = this.geminiOAuthAccountRow.createEl('select', { cls: 'mcm-select' });
+        if (!this.geminiOAuthAccounts.length) accountSelect.createEl('option', { value: '', text: t('settings.providers.geminiOAuth.configureFirst') });
+        for (const account of this.geminiOAuthAccounts) accountSelect.createEl('option', { value: account.id, text: account.label });
+        accountSelect.value = this.formGeminiOAuthProviderId;
+        accountSelect.addEventListener('change', () => { this.formGeminiOAuthProviderId = accountSelect.value; });
 
         // ── Quick Pick (suggestions per provider) ─────────────────────────
         this.suggestRow = form.createDiv('mcm-row mcm-suggest-row');
@@ -300,8 +312,8 @@ export class ModelConfigModal extends Modal {
                     endpoint: this.formAwsEndpoint,
                 } : undefined;
                 const models = this.forEmbedding
-                    ? await fetchEmbeddingModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, this.formApiVersion || undefined)
-                    : await fetchProviderModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, undefined, bedrockCreds);
+                    ? await fetchEmbeddingModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, this.formApiVersion || undefined, this.formGeminiOAuthProviderId)
+                    : await fetchProviderModels(this.formProvider, this.formApiKey, this.formBaseUrl || undefined, undefined, bedrockCreds, this.formGeminiOAuthProviderId);
                 this.suggestSelEl.options.length = 0;
                 this.suggestSelEl.createEl('option', { value: '', text: t('modal.modelConfig.modelsFetched', { count: models.length }), attr: { disabled: '', selected: '' } });
                 // For OpenRouter and Copilot chat models, group by vendor
@@ -671,13 +683,15 @@ export class ModelConfigModal extends Modal {
         const isKilo = p === 'kilo-gateway';
         const isBedrock = p === 'bedrock';
         const isChatGpt = p === 'chatgpt-oauth';
-        this.apiKeyRow.classList.toggle('agent-u-hidden', p === 'ollama' || p === 'lmstudio' || isCopilot || isKilo || isBedrock || isChatGpt);
+        const isGeminiOAuth = p === 'gemini-oauth';
+        this.geminiOAuthAccountRow?.classList.toggle('agent-u-hidden', !isGeminiOAuth);
+        this.apiKeyRow.classList.toggle('agent-u-hidden', p === 'ollama' || p === 'lmstudio' || isCopilot || isKilo || isBedrock || isChatGpt || isGeminiOAuth);
         if (this.copilotAuthRow) this.copilotAuthRow.classList.toggle('agent-u-hidden', !isCopilot);
         if (this.kiloAuthRow) this.kiloAuthRow.classList.toggle('agent-u-hidden', !isKilo);
         if (this.bedrockAuthRow) this.bedrockAuthRow.classList.toggle('agent-u-hidden', !isBedrock);
         if (this.chatgptOAuthRow) this.chatgptOAuthRow.classList.toggle('agent-u-hidden', !isChatGpt);
         if (isBedrock) this.updateBedrockAuthVisibility();
-        this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'gemini' || p === 'openrouter' || isCopilot || isKilo || isBedrock || isChatGpt);
+        this.baseUrlRow.classList.toggle('agent-u-hidden', p === 'openai' || p === 'gemini' || p === 'openrouter' || isCopilot || isKilo || isBedrock || isChatGpt || isGeminiOAuth);
         // FEAT-26-07: Anthropic-gateway toggle + headers only visible for anthropic.
         const isAnthropic = p === 'anthropic';
         if (this.anthropicGatewayRow) this.anthropicGatewayRow.classList.toggle('agent-u-hidden', !isAnthropic);
@@ -713,8 +727,8 @@ export class ModelConfigModal extends Modal {
         const hasStaticSuggestions = suggestions.length > 0;
         // Fetch is available for embedding providers with live APIs (not azure — no list endpoint)
         const hasFetchFetch = this.forEmbedding
-            ? (p === 'openai' || p === 'openrouter' || p === 'ollama' || p === 'lmstudio' || p === 'custom' || isCopilot)
-            : (p === 'anthropic' || p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'lmstudio' || p === 'bedrock' || isCopilot || isKilo);
+            ? (p === 'openai' || p === 'openrouter' || p === 'ollama' || p === 'lmstudio' || p === 'custom' || isCopilot || isGeminiOAuth)
+            : (p === 'anthropic' || p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'lmstudio' || p === 'bedrock' || isCopilot || isKilo || isGeminiOAuth);
         if (this.suggestRow) {
             this.suggestRow.classList.toggle('agent-u-hidden', !hasStaticSuggestions && !hasFetchFetch);
             if (this.suggestSelEl) {
@@ -909,6 +923,8 @@ export class ModelConfigModal extends Modal {
             steps.createEl('li', { text: t('guide.openai.step4') });
             guide.createDiv({ cls: 'mcm-guide-tip', text: t('guide.openai.tip') });
 
+        } else if (provider === 'gemini-oauth') {
+            guide.createDiv({ text: t('settings.providers.geminiOAuth.configureFirst') });
         } else if (provider === 'gemini') {
             guide.createEl('strong', { text: t('guide.gemini.heading') });
             const steps = guide.createEl('ol', { cls: 'mcm-guide-steps' });
@@ -1093,11 +1109,12 @@ export class ModelConfigModal extends Modal {
         const m: CustomModel = {
             name: this.formName || this.model.name,
             provider: this.formProvider,
-            apiKey: isBedrock ? undefined : (this.formApiKey || undefined),
+            geminiOAuthProviderId: this.formProvider === 'gemini-oauth' ? this.formGeminiOAuthProviderId : undefined,
+            apiKey: isBedrock || this.formProvider === 'gemini-oauth' ? undefined : (this.formApiKey || undefined),
             // Bedrock reuses baseUrl for the optional endpoint URL.
             baseUrl: isBedrock
                 ? (this.formAwsEndpoint || undefined)
-                : (this.formBaseUrl || undefined),
+                : (this.formProvider === 'gemini-oauth' ? undefined : this.formBaseUrl || undefined),
             apiVersion: this.formApiVersion || undefined,
             enabled: true,
             // Bedrock-specific fields -- without these, testModelConnection's
@@ -1154,6 +1171,12 @@ export class ModelConfigModal extends Modal {
         label.createSpan({ text: t('copilot.auth') });
         label.createSpan({ text: t('copilot.authDesc'), cls: 'mcm-desc' });
 
+        const hostLabel = container.createEl('label', { cls: 'mcm-label', text: t('settings.providers.copilotEnterpriseDomain') });
+        hostLabel.createSpan({ cls: 'mcm-desc', text: t('settings.providers.copilotEnterpriseDomainDesc') });
+        const hostInput = hostLabel.createEl('input', { cls: 'mcm-input mcm-copilot-host', attr: { type: 'text' } });
+        hostInput.value = this.copilotEnterpriseDomainDraft ?? GitHubCopilotAuthService.getInstance().getEnterpriseDomain();
+        hostInput.addEventListener('input', () => { this.copilotEnterpriseDomainDraft = hostInput.value; });
+
         const controls = container.createDiv('mcm-copilot-controls');
 
         // Status badge
@@ -1183,6 +1206,8 @@ export class ModelConfigModal extends Modal {
         if (!this.copilotAuthRow) return;
         const authService = GitHubCopilotAuthService.getInstance();
         const isAuth = authService.isAuthenticated();
+        const hostInput = this.copilotAuthRow.querySelector<HTMLInputElement>('.mcm-copilot-host');
+        if (hostInput) hostInput.disabled = isAuth;
 
         const statusEl = this.copilotAuthRow.querySelector<HTMLElement>('.mcm-copilot-status');
         if (statusEl) {
@@ -1204,6 +1229,7 @@ export class ModelConfigModal extends Modal {
         btn.setText(t('copilot.polling'));
 
         try {
+            await authService.setEnterpriseDomain(this.copilotEnterpriseDomainDraft ?? GitHubCopilotAuthService.getInstance().getEnterpriseDomain());
             const flow = await authService.startDeviceFlow();
 
             // Show device code in a Notice
@@ -1644,6 +1670,7 @@ export class ModelConfigModal extends Modal {
      * empty field is acceptable: the sender falls back to its own default).
      */
     private baseUrlRejection(): string | null {
+        if (this.formProvider === 'gemini-oauth') return this.formGeminiOAuthProviderId ? null : t('settings.providers.geminiOAuth.configureFirst');
         const isBedrock = this.formProvider === 'bedrock';
         const candidate = isBedrock ? this.formAwsEndpoint : this.formBaseUrl;
         if (!candidate.trim()) return null;
@@ -1670,12 +1697,13 @@ export class ModelConfigModal extends Modal {
             ...this.model,
             name,
             provider: this.formProvider,
+            geminiOAuthProviderId: this.formProvider === 'gemini-oauth' ? this.formGeminiOAuthProviderId : undefined,
             displayName: this.formDisplayName || undefined,
-            apiKey: isBedrock ? undefined : (this.formApiKey || undefined),
+            apiKey: isBedrock || this.formProvider === 'gemini-oauth' ? undefined : (this.formApiKey || undefined),
             // Bedrock re-uses baseUrl for the optional custom endpoint URL.
             baseUrl: isBedrock
                 ? (this.formAwsEndpoint || undefined)
-                : (this.formBaseUrl || undefined),
+                : (this.formProvider === 'gemini-oauth' ? undefined : this.formBaseUrl || undefined),
             apiVersion: this.formApiVersion || undefined,
             // Auto -> undefined: resolveOutputBudget sizes it per model at request time.
             maxTokens: this.formAutoMaxTokens ? undefined : this.formMaxTokens,

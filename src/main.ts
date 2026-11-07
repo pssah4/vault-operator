@@ -3,12 +3,15 @@ import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder, addIcon, Platform, Markd
 import { formatHotkeyHint, formatSendSelectionToSidebarHotkeyHint } from './core/inline/HotkeyHint';
 import { preWarmProviderConnection } from './api/warmup';
 import { scheduleRecurring } from './util/scheduleRecurring';
-import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider, OKF_DEFAULTS, INCOMING_LINKS_DEFAULT_THRESHOLD } from './types/settings';
+import { refreshIncomingLinksBlocks } from './core/knowledge/incomingLinksRefresh';
+import { ObsidianAgentSettings, DEFAULT_SETTINGS, BUILTIN_MCP_SERVERS, getModelKey, modelToLLMProvider, OKF_DEFAULTS } from './types/settings';
 import type { CustomModel, ModelTier, ProviderConfig } from './types/settings';
 import { resolveActiveModel, resolveActiveProvider, resolveAdvisorModel, resolveTierModel } from './core/routing/tierResolution';
 import { migrateActiveModelsToProviders, type MigrationSummary } from './core/settings/migrations/activeModelsToProviders';
 import {
     encryptProviderCredentialsInPlace,
+    encryptGeminiOAuthCredentialsInPlace,
+    GeminiOAuthCredentialEncryptionError,
     decryptProviderCredentialsInPlace,
 } from './core/security/providerCredentialCrypto';
 import { ModelDiscoveryService, type RawDiscoveredModel } from './core/routing/ModelDiscoveryService';
@@ -124,6 +127,7 @@ import { OptionalAssetManager } from './core/assets/OptionalAssetManager';
 import type { SupportedLocale } from './i18n';
 import { SafeStorageService } from './core/security/SafeStorageService';
 import { GitHubCopilotAuthService } from './core/security/GitHubCopilotAuthService';
+import { GeminiOAuthService } from './core/auth/GeminiOAuthService';
 import { ChatGptOAuthService } from './core/auth/ChatGptOAuthService';
 import { KiloAuthService } from './core/security/KiloAuthService';
 import { setGlobalModeStoreFs } from './core/modes/GlobalModeStore';
@@ -1110,6 +1114,7 @@ export default class ObsidianAgentPlugin extends Plugin {
                     provider.baseUrl,
                     provider.apiVersion,
                     bedrockCreds,
+                    provider.type === 'gemini-oauth' ? provider.id : undefined,
                 );
                 // FIX-26-99-04: forward pricing + capability fields. The
                 // OpenRouter branch of fetchProviderModels fills these in
@@ -3270,6 +3275,7 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Plugin cleanup
      */
     onunload(): void {
+        GeminiOAuthService.dispose();
         console.debug('Unloading Vault Operator plugin');
         // FIX-24-08-03: abort a running background agent task -- it holds
         // its own AbortController and would otherwise keep calling the API
@@ -3488,6 +3494,10 @@ export default class ObsidianAgentPlugin extends Plugin {
 
         // Decrypt API keys if they were stored encrypted (ADR-019)
         this.decryptSettings(this.settings);
+        GeminiOAuthService.configure(
+            () => this.settings.providerConfigs ?? [],
+            () => this.saveSettings(),
+        );
 
         // Initialize GitHub Copilot auth service with persisted tokens (ADR-037)
         const copilotAuth = GitHubCopilotAuthService.getInstance();
@@ -4009,10 +4019,12 @@ export default class ObsidianAgentPlugin extends Plugin {
     /**
      * Return a deep copy of settings with all API keys encrypted (ADR-019).
      * The original settings object is NOT modified (in-memory stays plaintext).
-     * When safeStorage is unavailable, returns unencrypted copy with `_encrypted = false`.
+     * When safeStorage is unavailable, preserves the legacy plaintext fallback.
+     * Gemini OAuth credentials always require successful encryption.
      */
     private encryptSettingsForSave(settings: ObsidianAgentSettings): ObsidianAgentSettings {
         const copy = JSON.parse(JSON.stringify(settings)) as ObsidianAgentSettings;
+        encryptGeminiOAuthCredentialsInPlace(copy, this.safeStorage);
         if (!this.safeStorage.isAvailable()) {
             copy._encrypted = false;
             return copy;
@@ -4111,7 +4123,14 @@ export default class ObsidianAgentPlugin extends Plugin {
      * Save plugin settings to disk and reinitialize API handler
      */
     async saveSettings() {
-        await this.saveData(this.encryptSettingsForSave(this.settings));
+        let encrypted: ObsidianAgentSettings;
+        try {
+            encrypted = this.encryptSettingsForSave(this.settings);
+        } catch (error) {
+            if (error instanceof GeminiOAuthCredentialEncryptionError) new Notice(error.message);
+            throw error;
+        }
+        await this.saveData(encrypted);
         // Dual-write: persist global keys to ~/.obsidian-agent/settings.json.
         // FIX-44-36: the global file wins on load, so a failed write silently
         // reverts permission changes on restart. Surface it instead of hiding it.
@@ -4823,93 +4842,21 @@ export default class ObsidianAgentPlugin extends Plugin {
 
     /**
      * FEAT-19-04-01: baut/aktualisiert den selbstbildenden Rueckverweis-Block
-     * in allen Hub-Notizen. Laeuft NACH einem Health-Check-Lauf (USER-Wahl:
-     * gebuendelt zu einem bekannten Zeitpunkt statt live per Edit-Event).
+     * in allen Hub-Notizen oder einem expliziten Pfad-Scope. Läuft als Startjob und über den Befehl "Update
+     * links". Kein Dateiöffnungs- oder Dateischreib-Trigger.
      *
      * Reines Script, KEIN LLM: getHubTargets (eine SQL-Query) + getSourcesFor
      * pro Hub + String-Bau + djb2-Hash-Vergleich. Geschrieben wird nur, wenn
      * sich der Blocktext wirklich aendert (replaceOrInsertAutoBlock kurzt
-     * no-change ab) und die Notiz nicht vom Nutzer im Block editiert wurde.
+     * no-change ab). Der maschineneigene Block darf aktualisiert werden,
+     * auch wenn ein Tabellenformatter seine Formatierung verändert hat.
      */
-    async regenerateIncomingLinksBlocks(): Promise<{ status: 'disabled' | 'unavailable' | 'busy' | 'ok'; written: number; hubs: number }> {
-        const cfg = this.settings.vaultIngest?.incomingLinksBlock;
-        if (!cfg?.enabled) return { status: 'disabled', written: 0, hubs: 0 };
-        if (!this.graphStore || !this.knowledgeDB?.isOpen()) return { status: 'unavailable', written: 0, hubs: 0 };
-        // Nicht mitten in einen Health-Repair schreiben (geteilter Mutex).
-        if (this.vaultHealthRepairInProgress) return { status: 'busy', written: 0, hubs: 0 };
-
-        const settingsThreshold = cfg.threshold ?? INCOMING_LINKS_DEFAULT_THRESHOLD;
-        const { computeIncomingBlockUpdate, INCOMING_BLOCK_ID } = await import('./core/knowledge/incomingLinksMaintainer');
-        const { frontmatterCellText } = await import('./core/knowledge/incomingLinksBlock');
-        const { buildBacklinksBaseBlock } = await import('./core/knowledge/backlinksBaseBlock');
-        const { effectiveHubThreshold, isHubType } = await import('./core/knowledge/hubTypeThreshold');
-        const { findAutoBlock } = await import('./core/ingest/MOCMaintainer');
-        const summaryProp = this.settings.summaryProperty ?? OKF_DEFAULTS.summaryProperty;
-        const typeProp = this.settings.categoryProperty ?? OKF_DEFAULTS.categoryProperty;
-        // FEAT-19-04-01 W6: der lesbare .base-Block ist fuer alle Hub-Typen
-        // identisch (er filtert live via file.hasLink(this.file)) -- einmal bauen.
-        const baseBlock = buildBacklinksBaseBlock(summaryProp, typeProp);
-
-        const typeOf = (file: TFile): string | undefined =>
-            frontmatterCellText(this.app.metadataCache.getFileCache(file)?.frontmatter?.[typeProp]);
-
-        // FIX-19-09-01 (USER 2026-07-21): die Zielmenge ist die UNION aus
-        //  (a) allen Notes mit MINDESTENS EINEM echten Backlink -- getHubTargets(1)
-        //      deckt Threshold-Hubs, strukturelle Hub-Typen (Threshold 1) UND
-        //      unter-Settings-Threshold-gefallene Notes ab, und
-        //  (b) allen Notes mit bereits vorhandenem Block (Ground Truth aus dem
-        //      Dateisystem, resilient gegen Extraktions-Lag).
-        // Es gibt KEINE Sonderaufnahme fuer type:person mehr: Hub-Typen haben
-        // Threshold 1 (Block ab dem ersten Backlink, kein leerer Block), also
-        // deckt getHubTargets(1) sie bereits ab. computeIncomingBlockUpdate
-        // entscheidet pro Note anhand des effektiven Thresholds, ob ANGELEGT
-        // wird; ein vorhandener Block wird IMMER aktualisiert und nie entfernt.
-        const targetPaths = new Set<string>(
-            this.graphStore.getHubTargets(1, { excludeLinkTypes: ['backlink-block'] }),
-        );
-        for (const file of this.app.vault.getMarkdownFiles()) {
-            // (b) Notes mit vorhandenem Block -- Ground Truth aus dem File.
-            try {
-                const content = await this.app.vault.read(file);
-                if (!content.includes('incoming-links')) continue; // schneller Vorfilter
-                if (findAutoBlock(content, INCOMING_BLOCK_ID)) targetPaths.add(file.path);
-            } catch { /* unlesbare Datei ueberspringen */ }
-        }
-
-        let written = 0;
-        for (const hubPath of targetPaths) {
-            const file = this.app.vault.getAbstractFileByPath(hubPath);
-            if (!(file instanceof TFile)) continue;
-            // FEAT-19-04-01 W6: die technische Tabelle zeigt nur noch den
-            // Note-Link -- keine Anreicherung (description/type/timestamp) mehr
-            // noetig. Die lesbare .base liest diese Properties live.
-            const sources = this.graphStore.getSourcesFor(hubPath, { excludeLinkTypes: ['backlink-block'] });
-            // FIX-19-09-01 (USER 2026-07-21): strukturelle Hub-Typen
-            // (person/topic/concept/project/organisation + DE-Synonyme) bekommen
-            // Threshold 1 -- einen Block ab dem ersten Backlink. Alle anderen
-            // Notes erst ab dem konfigurierbaren Settings-Threshold. Die Regel
-            // ist hartkodiert (nicht ueber Settings aenderbar).
-            const noteType = typeOf(file);
-            const effectiveThreshold = effectiveHubThreshold(noteType, settingsThreshold);
-            // FEAT-19-04-01 W6: die lesbare .base gibt es NUR fuer Hub-Typen UND
-            // nur wenn die Note tatsaechlich Backlinks hat (sonst kein Base ohne
-            // Callout). Nicht-Hub-Typen -> undefined -> ein evtl. alter .base-
-            // Block wird entfernt.
-            const hubBacklinks = sources.filter((s) => s.sourcePath !== hubPath).length;
-            const useBase = isHubType(noteType) && hubBacklinks >= 1 ? baseBlock : undefined;
-            try {
-                const content = await this.app.vault.read(file);
-                const updated = computeIncomingBlockUpdate(content, sources, effectiveThreshold, hubPath, useBase);
-                if (updated !== null && updated !== content) {
-                    await this.app.vault.modify(file, updated);
-                    written++;
-                }
-            } catch (e) {
-                console.debug('[IncomingLinks] regen failed for', hubPath, e);
-            }
-        }
-        if (written > 0) console.debug(`[IncomingLinks] updated ${written} hub note(s)`);
-        return { status: 'ok', written, hubs: targetPaths.size };
+    async regenerateIncomingLinksBlocks(
+        paths?: readonly string[],
+        beforeWrite?: (paths: readonly string[]) => Promise<void>,
+        signal?: AbortSignal,
+    ): Promise<import('./core/knowledge/incomingLinksRefresh').IncomingRefreshResult> {
+        return refreshIncomingLinksBlocks(this, paths, beforeWrite, signal);
     }
 
     /** Hilfs-Renderer fuer MOC-Auto-Body (Hub-Status + Cluster-Statistik). */

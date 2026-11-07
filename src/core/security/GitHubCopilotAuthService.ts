@@ -19,6 +19,7 @@
 import { requestUrl } from 'obsidian';
 import type { ObsidianAgentSettings } from '../../types/settings';
 import { safeOAuthErrorDetail } from './safeOAuthError';
+import { validateProviderUrl } from '../../api/providers/providerUrlGuard';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -26,11 +27,8 @@ import { safeOAuthErrorDetail } from './safeOAuthError';
 
 const DEFAULT_CLIENT_ID = 'Iv1.b507a08c87ecfe98';
 
-const DEVICE_CODE_URL = 'https://github.com/login/device/code';
-const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
-const COPILOT_TOKEN_URL = 'https://api.github.com/copilot_internal/v2/token';
 const COPILOT_API_BASE = 'https://api.githubcopilot.com';
-const MODELS_URL = `${COPILOT_API_BASE}/models`;
+
 
 /**
  * FIX-45-03-01: the two chat routes Copilot serves. Path strings, matching the
@@ -164,6 +162,8 @@ export class GitHubCopilotAuthService {
     private copilotToken = '';
     private copilotTokenExpiresAt = 0; // epoch seconds
     private customClientId = '';
+    private enterpriseDomain = '';
+    private apiBase = '';
     /**
      * FIX-45-03-01: modelId -> what the last /models response said about it.
      * Feeds the provider's route decision and its context window. Persisted so
@@ -212,6 +212,8 @@ export class GitHubCopilotAuthService {
         this.copilotToken = settings.githubCopilotToken ?? '';
         this.copilotTokenExpiresAt = settings.githubCopilotTokenExpiresAt ?? 0;
         this.customClientId = settings.githubCopilotCustomClientId ?? '';
+        this.enterpriseDomain = settings.githubCopilotEnterpriseDomain ?? '';
+        this.apiBase = settings.githubCopilotApiBase ?? '';
         // Settings written before FIX-45-03-01 have no table; an empty one just
         // means every model starts as "route and limits unknown". The next
         // model-list refresh fills it in, so nothing has to be migrated.
@@ -226,6 +228,8 @@ export class GitHubCopilotAuthService {
         settings.githubCopilotToken = this.copilotToken;
         settings.githubCopilotTokenExpiresAt = this.copilotTokenExpiresAt;
         settings.githubCopilotCustomClientId = this.customClientId;
+        settings.githubCopilotEnterpriseDomain = this.enterpriseDomain;
+        settings.githubCopilotApiBase = this.apiBase;
         settings.githubCopilotModelMeta = Object.fromEntries(this.modelMeta);
     }
 
@@ -246,6 +250,63 @@ export class GitHubCopilotAuthService {
         this.customClientId = clientId;
     }
 
+    /** GitHub Cloud hosts only. GHES does not host the Copilot token service. */
+    private normalizeEnterpriseDomain(value: string): string {
+        const raw = value.trim();
+        if (!raw) return '';
+        const url = new URL(raw.includes('://') ? raw : `https://${raw}`);
+        if (url.protocol !== 'https:' || url.username || url.password || url.port
+            || url.search || url.hash || url.pathname !== '/'
+            || (url.hostname !== 'github.com' && !(/^[a-z0-9-]+\.ghe\.com$/i.test(url.hostname) && !url.hostname.startsWith('-') && !url.hostname.split('.')[0].endsWith('-')))) {
+            throw new Error('Use github.com or your Enterprise Cloud tenant (your-company.ghe.com). Self-hosted GitHub servers are not Copilot authentication hosts.');
+        }
+        return url.hostname === 'github.com' ? '' : url.hostname;
+    }
+
+    async setEnterpriseDomain(value: string): Promise<void> {
+        const domain = this.normalizeEnterpriseDomain(value);
+        if (domain === this.normalizeEnterpriseDomain(this.enterpriseDomain)) return;
+        this.enterpriseDomain = domain;
+        // Tokens and model catalogues belong to the old account. Invalidate
+        // in-flight token writes before the next device flow starts.
+        this.generation++;
+        this.accessToken = '';
+        this.invalidateCopilotToken();
+        this.apiBase = '';
+        this.modelMeta.clear();
+        this.refreshPromise = null;
+        await this.persistTokens();
+    }
+
+    getEnterpriseDomain(): string {
+        return this.enterpriseDomain;
+    }
+
+    private authHost(): string {
+        return this.normalizeEnterpriseDomain(this.enterpriseDomain) || 'github.com';
+    }
+
+    private githubApiBase(): string {
+        const host = this.authHost();
+        return host === 'github.com' ? 'https://api.github.com' : `https://api.${host}`;
+    }
+
+    /** Resolve only after getCopilotToken(), since refresh can change the route. */
+    getApiBaseUrl(): string {
+        const proxy = /(?:^|;)proxy-ep=([^;]+)/.exec(this.copilotToken)?.[1];
+        const host = this.authHost();
+        const fallback = host === 'github.com' ? COPILOT_API_BASE : `https://copilot-api.${host}`;
+        const candidate = this.apiBase || (proxy ? `https://${proxy.replace(/^proxy\./, 'api.')}` : fallback);
+        const url = validateProviderUrl('github-copilot', candidate)!;
+        const trusted = url.hostname.endsWith('.githubcopilot.com')
+            || url.hostname === 'copilot-proxy.githubusercontent.com'
+            || (host !== 'github.com' && url.hostname.endsWith(`.${host}`));
+        if (!trusted || url.username || url.password || url.port || url.search || url.hash) {
+            throw new Error('Copilot returned an unsupported API endpoint');
+        }
+        return url.href.replace(/\/+$/, '');
+    }
+
     // ---------------------------------------------------------------------------
     // OAuth Device Code Flow (FEATURE-1201)
     // ---------------------------------------------------------------------------
@@ -255,11 +316,12 @@ export class GitHubCopilotAuthService {
      * Returns the user code and verification URI for the user to authorize.
      */
     async startDeviceFlow(): Promise<DeviceFlowResult> {
+        const gen = this.generation;
         const clientId = this.customClientId || DEFAULT_CLIENT_ID;
         const body = `client_id=${encodeURIComponent(clientId)}&scope=read%3Auser`;
 
         const res = await requestUrl({
-            url: DEVICE_CODE_URL,
+            url: `https://${this.authHost()}/login/device/code`,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -268,6 +330,7 @@ export class GitHubCopilotAuthService {
             body,
         });
 
+        if (gen !== this.generation) throw new Error('Copilot account changed during authorization');
         const data = res.json as Record<string, unknown>;
 
         if (!data.device_code || !data.user_code) {
@@ -277,7 +340,7 @@ export class GitHubCopilotAuthService {
         return {
             deviceCode: data.device_code as string,
             userCode: data.user_code as string,
-            verificationUri: (data.verification_uri as string) ?? 'https://github.com/login/device',
+            verificationUri: (data.verification_uri as string) ?? `https://${this.authHost()}/login/device`,
             interval: (data.interval as number) ?? 5,
             expiresIn: (data.expires_in as number) ?? 900,
         };
@@ -293,6 +356,7 @@ export class GitHubCopilotAuthService {
         signal?: AbortSignal,
     ): Promise<string> {
         const clientId = this.customClientId || DEFAULT_CLIENT_ID;
+        const gen = this.generation;
         const grantType = 'urn:ietf:params:oauth:grant-type:device_code';
         const body = `client_id=${encodeURIComponent(clientId)}&device_code=${encodeURIComponent(deviceCode)}&grant_type=${encodeURIComponent(grantType)}`;
 
@@ -300,18 +364,18 @@ export class GitHubCopilotAuthService {
         const maxAttempts = 120; // ~10 min safety net (AUDIT-008 L-1)
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            if (signal?.aborted) {
+            if (signal?.aborted || gen !== this.generation) {
                 throw new Error('Authorization cancelled');
             }
 
             await this.sleep(pollIntervalMs);
 
-            if (signal?.aborted) {
+            if (signal?.aborted || gen !== this.generation) {
                 throw new Error('Authorization cancelled');
             }
 
             const res = await requestUrl({
-                url: ACCESS_TOKEN_URL,
+                url: `https://${this.authHost()}/login/oauth/access_token`,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -320,6 +384,7 @@ export class GitHubCopilotAuthService {
                 body,
             });
 
+            if (gen !== this.generation) throw new Error('Copilot account changed during authorization');
             const data = res.json as Record<string, unknown>;
 
             if (data.access_token) {
@@ -401,7 +466,7 @@ export class GitHubCopilotAuthService {
 
             try {
                 const res = await requestUrl({
-                    url: COPILOT_TOKEN_URL,
+                    url: `${this.githubApiBase()}/copilot_internal/v2/token`,
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${this.accessToken}`,
@@ -423,6 +488,8 @@ export class GitHubCopilotAuthService {
                 if (this.generation !== gen) return;
 
                 this.copilotToken = data.token;
+                this.apiBase = data.endpoints?.api ?? '';
+                this.getApiBaseUrl(); // validate before persisting or sending the token
                 this.copilotTokenExpiresAt = data.expires_at;
                 await this.persistTokens();
                 return;
@@ -451,10 +518,12 @@ export class GitHubCopilotAuthService {
      * Requires a valid Copilot token (will auto-refresh if needed).
      */
     async listModels(): Promise<CopilotModel[]> {
+        const gen = this.generation;
         const token = await this.getCopilotToken();
+        if (gen !== this.generation) throw new Error('Copilot account changed during model discovery');
 
         const res = await requestUrl({
-            url: MODELS_URL,
+            url: `${this.getApiBaseUrl()}/models`,
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -463,6 +532,7 @@ export class GitHubCopilotAuthService {
             },
         });
 
+        if (gen !== this.generation) throw new Error('Copilot account changed during model discovery');
         const data = res.json as { data?: CopilotModel[] };
         // Copy before sorting: Array.sort mutates, and the caller's payload is
         // not ours to reorder.
@@ -570,7 +640,7 @@ export class GitHubCopilotAuthService {
         if (this.accessToken) {
             try {
                 const res = await requestUrl({
-                    url: `https://api.github.com/applications/${encodeURIComponent(clientId)}/grant`,
+                    url: `${this.githubApiBase()}/applications/${encodeURIComponent(clientId)}/grant`,
                     method: 'DELETE',
                     headers: {
                         'Accept': 'application/vnd.github+json',
@@ -596,6 +666,7 @@ export class GitHubCopilotAuthService {
         // FIX-45-03-01: the model table is account-scoped -- a different account
         // may be served a different lineup, so it must not survive a logout.
         this.modelMeta.clear();
+        this.apiBase = '';
         this.generation++;
         await this.persistTokens();
     }
@@ -629,7 +700,12 @@ export class GitHubCopilotAuthService {
             input: RequestInfo | URL,
             init?: RequestInit,
         ): Promise<Response> => {
+            const gen = this.generation;
             const token = await this.getCopilotToken();
+            if (gen !== this.generation) throw new Error('Copilot account changed during request');
+            const source = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+            if (source.origin !== COPILOT_API_BASE) throw new Error('Unexpected Copilot SDK request origin');
+            const destination = `${this.getApiBaseUrl()}${source.pathname}${source.search}`;
 
             const headers = new Headers(init?.headers);
             headers.set('Authorization', `Bearer ${token}`);
@@ -641,7 +717,7 @@ export class GitHubCopilotAuthService {
                 }
             }
 
-            return baseFetch(input, { ...init, headers });
+            return baseFetch(destination, { ...init, headers });
         };
     }
 

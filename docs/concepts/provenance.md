@@ -47,7 +47,13 @@ There are two compression patterns that quietly erode a vault:
 
 2. **Confidence inflation.** Without a quick check-back, claims feel more certain over time than they were in the source. A "preliminary finding" reads as a fact six months later.
 
-With every claim wrapped in a `↗` link, you can always re-verify in two clicks. The original survives every layer of derivation.
+A `↗` link lets you return to the current source block and compare the claim with it. The link does not preserve an earlier version of that block.
+
+## Quote fidelity and source edits
+
+A block reference records where a claim came from. Vault Operator does not snapshot the quoted wording or automatically compare it with the source after edits. A link can still resolve even when the source text has changed, and a generated paraphrase can differ from the original wording from the start. Re-read the linked block before presenting a passage as a direct quote.
+
+For explicit quote snapshots and deterministic drift checks, see the independent [Cite Engine plugin](https://github.com/Flyingmiata-droid/cite-engine). Its own citation workflow records quoted text and its integrity check flags changed text or unresolved sources. Existing Vault Operator links do not automatically become Cite Engine citations. Follow that plugin's documentation to create and check its citations; Vault Operator does not install or invoke it automatically.
 
 ## Anchor matching
 

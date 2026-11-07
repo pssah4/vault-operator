@@ -7,7 +7,7 @@ description: How Vault Operator finds relevant information in your vault through
 
 A vault can hold thousands of notes. The agent's context window fits maybe a dozen. The knowledge layer bridges that gap. Given a query, it finds the most relevant notes without calling any external API.
 
-Everything runs locally, including the vector math, the graph traversal, and the reranking model. Your data never leaves the device.
+Vector math, graph traversal and the default reranking model run locally. Embedding providers and an explicitly configured remote Ollama reranker receive the inputs needed for their requests.
 
 ## The problem
 
@@ -49,6 +49,13 @@ This stage is what separates the knowledge layer from a standard search engine. 
 Stage 4 is reranking. All candidates from the first three stages are re-scored by a local cross-encoder model (`Xenova/ms-marco-MiniLM-L-6-v2` via transformers.js WASM). Unlike the embedding model, which encodes query and document separately, the cross-encoder processes the pair together and produces a more accurate relevance score. The `RerankerService` (`src/core/knowledge/RerankerService.ts`) loads the model from the local cache once it has been installed.
 
 The cross-encoder ships as an optional asset. Install it from Settings > Vault Operator > Providers > Embeddings > Local reranking > Install. The download is 12 MB and runs entirely on CPU via WASM. It needs a second, smaller asset (`Reranker library`, ~0.6 MB) from Advanced > Optional assets; the reranker stays disabled until both are present. If the model is not installed, retrieval silently falls back to the first three stages (vector search, graph expansion, and implicit connections), so search still works without it.
+
+Keep **Local reranking** enabled, then optionally enable **Ollama reranker** under Providers > Embeddings > Local reranking. Enter your Ollama server URL and a Qwen3 reranker model, for example `awenleven/Qwen3-Reranker-4B:Q4_K_M`. Install the model in Ollama yourself; Vault Operator does not download it. **Test reranker** checks two synthetic passages without sending vault content. A local Ollama server keeps the query and excerpts on your device; a remote server receives them.
+
+This adapter uses the documented [Ollama Generate API](https://docs.ollama.com/api/generate), not a native `/api/rerank` route. It sends the [official Qwen reranking prompt](https://huggingface.co/Qwen/Qwen3-Reranker-4B) and computes relevance only from genuine `yes` and `no` log probabilities. These fields exist in the checked [Ollama v0.13.4 API contract](https://github.com/ollama/ollama/blob/v0.13.4/api/types.go); the capability test detects whether your installed server/model actually returns them. Missing probabilities never become invented scores.
+
+Each round handles at most 30 candidates, limits the query to 1,024 UTF-8 bytes and each excerpt to 4,096 bytes, and has a 30-second deadline. One unsuccessful candidate discards the entire Ollama round and uses the built-in local reranker. If its optional assets are unavailable, search keeps the original fused order. After an Ollama failure, requests pause for 60 seconds before retrying; a successful capability test also permits another attempt. The existing local default and disabling reranking keep their previous behavior. Internal search and MCP search share this path.
+
 
 ## Indexing
 

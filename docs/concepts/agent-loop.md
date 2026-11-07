@@ -45,7 +45,7 @@ When the model responds with only text and no tool calls, or when it calls `atte
 
 | Parameter | Default | What it does |
 |-----------|---------|-------------|
-| `api` | required | AI provider handler (any of the 12 supported providers, e.g. Anthropic, OpenAI, Bedrock, GitHub Copilot) |
+| `api` | required | AI provider handler (any supported provider, e.g. Anthropic, OpenAI, Bedrock, GitHub Copilot) |
 | `toolRegistry` | required | Central tool registry |
 | `taskCallbacks` | required | UI callbacks for text, tool events, completion |
 | `modeService` | optional | Agent switching and web-tools toggle |

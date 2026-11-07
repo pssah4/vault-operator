@@ -22,9 +22,45 @@ import type {
  * Tests pass a fake that just wraps values with a known prefix.
  */
 export interface SettingsCrypter {
+    isAvailable?(): boolean;
     isEncrypted(value: string): boolean;
     encrypt(value: string): string;
     decrypt(value: string): string;
+}
+
+export class GeminiOAuthCredentialEncryptionError extends Error {
+    constructor() {
+        super('Gemini OAuth credentials could not be encrypted. Unlock your OS keychain and retry. Settings were not saved.');
+        this.name = 'GeminiOAuthCredentialEncryptionError';
+    }
+}
+
+const GEMINI_OAUTH_CRED_KEYS = ['geminiOAuthClientSecret', 'geminiOAuthRefreshToken'] as const;
+
+/**
+ * Gemini OAuth is desktop/keychain-only. Run before either persistence path's
+ * legacy unavailable-keychain return; never accept SafeStorage's plaintext
+ * fallback for these fields, even if availability still reports true.
+ */
+export function encryptGeminiOAuthCredentialsInPlace(
+    settings: Pick<ObsidianAgentSettings, 'providerConfigs'>,
+    crypter: SettingsCrypter,
+): void {
+    for (const provider of settings.providerConfigs ?? []) {
+        for (const key of GEMINI_OAUTH_CRED_KEYS) {
+            const value = provider[key];
+            if (!value || crypter.isEncrypted(value)) continue;
+            try {
+                if (crypter.isAvailable?.() === false) throw new GeminiOAuthCredentialEncryptionError();
+                const encrypted = crypter.encrypt(value);
+                if (encrypted === value || !crypter.isEncrypted(encrypted)) throw new GeminiOAuthCredentialEncryptionError();
+                provider[key] = encrypted;
+            } catch {
+                // Do not expose a platform exception that might contain input.
+                throw new GeminiOAuthCredentialEncryptionError();
+            }
+        }
+    }
 }
 
 /** Credential fields on a ProviderConfig that must be encrypted at rest.
@@ -37,6 +73,7 @@ const PROVIDER_CRED_KEYS: ReadonlyArray<keyof ProviderConfig> = [
     'awsSessionToken',
     'gatewayHeaderValue',
     'oauthToken',
+    ...GEMINI_OAUTH_CRED_KEYS,
 ];
 
 /** Credential fields on a legacy CustomModel inside the backup array.
@@ -58,6 +95,7 @@ export function encryptProviderCredentialsInPlace(
     settings: ObsidianAgentSettings,
     crypter: SettingsCrypter,
 ): void {
+    encryptGeminiOAuthCredentialsInPlace(settings, crypter);
     for (const provider of settings.providerConfigs ?? []) {
         for (const key of PROVIDER_CRED_KEYS) {
             const val = (provider as unknown as Record<string, unknown>)[key];

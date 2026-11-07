@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import process from "process";
 import { execSync } from "node:child_process";
 import { builtinModules as builtins } from "node:module";
+import { gzipSync } from "node:zlib";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { join, dirname, relative } from "path";
@@ -79,7 +80,7 @@ module.exports = function immediate(task) { queueMicrotask(task); };
  *   - bundled-workers.ts        worker source as strings
  *   - bundled-skills.ts         skill markdown as nested Record
  *   - bundled-templates.ts      PPTX (base64) + note templates (text)
- *   - bundled-wasm.ts           sql.js + ONNX WASM as base64
+ *   - bundled-wasm.ts           gzip-compressed sql.js WASM as base64
  *
  * Runs alongside generateEmbeddedAssets during migration. Both stay in
  * sync until all readers have been switched off the AssetProvisioner.
@@ -254,13 +255,13 @@ function generateInlineAssets() {
     ];
     // The review bot scans the built main.js for substrings that look like
     // Bitcoin/Base58 wallet addresses: \b[13][A-HJ-NP-Za-km-z1-9]{25,34}\b.
-    // Random base64 runs in the 880 KB sql.js WASM blob match that pattern
+    // Random base64 runs in the sql.js WASM payload match that pattern
     // by chance (base64 and base58 share most of their alphabet), and the
     // bot flags it as "Bitcoin wallet address(es) found in plugin bundle".
     // To prevent that, we emit binary blobs as an array of short chunks
     // joined at runtime. A 24-char chunk size keeps every run below the
     // bot's 26-char minimum match length, while the .join("") at runtime
-    // reproduces the original base64 string with no decoder change needed.
+    // reproduces the base64 envelope before the loader decompresses it.
     const BTC_SAFE_CHUNK = 24;
     function chunkString(s, n) {
         const out = [];
@@ -273,7 +274,7 @@ function generateInlineAssets() {
             throw new Error(`[inline-assets] FATAL: Required asset not found: ${src}. Run npm install.`);
         }
         if (kind === "binary") {
-            const b64 = readFileSync(abs).toString("base64");
+            const b64 = gzipSync(readFileSync(abs), { level: 9 }).toString("base64");
             const chunks = chunkString(b64, BTC_SAFE_CHUNK);
             wasmLines.push(`export const ${constName} = ${JSON.stringify(chunks)}.join("");`);
         } else {
@@ -560,6 +561,9 @@ const mainBuildOptions = {
     // them as line:column references and we ship the source bundle as
     // an optional asset (plugin-source.json) for symbolicated debugging.
     minify: prod,
+    // Obsidian loads UTF-8 JavaScript. Keeping non-ASCII text in that encoding
+    // avoids expanding every translated character to a six-byte escape.
+    charset: "utf8",
     outfile: "main.js",
     plugins: [
         pollyfillShimPlugin(),
@@ -738,6 +742,9 @@ const mcpWorkerContext = await esbuild.context({
     logLevel: "info",
     sourcemap: prod ? false : "inline",
     treeShaking: true,
+    // This emitted source is embedded verbatim in main.js as a string.
+    minify: prod,
+    charset: "utf8",
 });
 
 if (prod) {

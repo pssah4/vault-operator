@@ -61,10 +61,11 @@ function escapeHtml(s: string): string {
  */
 export async function startPkceLoopbackServer(
     expectedState: string,
-    options: { ports?: number[]; timeoutMs?: number } = {},
+    options: { ports?: number[]; timeoutMs?: number; callbackPath?: string } = {},
 ): Promise<LoopbackHandle> {
     const ports = options.ports ?? [1455, 1456, 1457, 1458, 1459, 1460];
     const timeoutMs = options.timeoutMs ?? 5 * 60 * 1000;
+    const callbackPath = options.callbackPath ?? '/auth/callback';
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- Node.js http module is the only available transport for the local OAuth callback. Server binds exclusively to 127.0.0.1, accepts a single callback within a 5-minute window, and is destroyed afterwards.
     const http = require('http') as typeof import('http');
@@ -87,7 +88,8 @@ export async function startPkceLoopbackServer(
                     resolve(s);
                 });
             });
-            chosenPort = candidate;
+            const address = server.address();
+            chosenPort = address && typeof address !== 'string' ? address.port : 0;
             break;
         } catch (err) {
             const e = err as NodeJS.ErrnoException;
@@ -127,7 +129,7 @@ export async function startPkceLoopbackServer(
             return;
         }
         const url = req.url ?? '';
-        if (!url.startsWith('/auth/callback')) {
+        if (url.split('?')[0] !== callbackPath) {
             res.statusCode = 404;
             res.end();
             return;
@@ -137,6 +139,16 @@ export async function startPkceLoopbackServer(
         const params = queryStart >= 0
             ? new URLSearchParams(url.slice(queryStart + 1))
             : new URLSearchParams();
+
+        if (params.get('state') !== expectedState) {
+            settled = true;
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.end(ERROR_HTML('State mismatch. Please retry.'));
+            rejectCallback(new Error('OAuth state mismatch'));
+            cleanup();
+            return;
+        }
 
         const errParam = params.get('error');
         if (errParam) {

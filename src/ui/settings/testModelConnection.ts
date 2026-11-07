@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { requestUrl } from 'obsidian';
+import { embedGeminiOAuth, fetchGeminiOAuthModels } from '../../api/providers/gemini-oauth';
 import type { CustomModel, ProviderType } from '../../types/settings';
 import { buildApiHandler } from '../../api/index';
 import { modelToLLMProvider } from '../../types/settings';
@@ -186,12 +187,14 @@ async function testModelConnection(model: CustomModel): Promise<TestResult> {
         }
     }
     try {
-        const lp = modelToLLMProvider({ ...model, maxTokens: 16 });
+        const lp = modelToLLMProvider({ ...model, maxTokens: model.provider === 'gemini-oauth' ? 2048 : 16,
+            ...(model.provider === 'gemini-oauth' ? { thinkingEnabled: true, thinkingBudgetTokens: 128, reasoningEffort: 'low' as const } : {}),
+        });
         const handler = buildApiHandler(lp);
         const abort = new AbortController();
         // Ollama needs to swap models into memory. allow up to 30 s; Copilot/Kilo/Bedrock may need extra time
         const timeoutMs = model.provider === 'ollama' ? 30000
-            : (model.provider === 'github-copilot' || model.provider === 'kilo-gateway' || model.provider === 'bedrock') ? 15000
+            : (model.provider === 'github-copilot' || model.provider === 'kilo-gateway' || model.provider === 'bedrock' || model.provider === 'gemini-oauth') ? 15000
             : 8000;
         const timer = window.setTimeout(() => abort.abort(), timeoutMs);
         try {
@@ -370,6 +373,10 @@ async function testGeminiConnection(model: CustomModel): Promise<TestResult> {
  */
 async function testEmbeddingConnection(model: CustomModel): Promise<TestResult> {
     try {
+        if (model.provider === 'gemini-oauth') {
+            await embedGeminiOAuth(['Connection test'], model);
+            return { ok: true, message: t('notice.testConnection.success') };
+        }
         // Azure uses requestUrl (non-standard auth), all others use OpenAI SDK.
         // Side finding (2026-08-14): these were returned WITHOUT await, so the
         // rejection escaped the catch below and surfaced as an unhandled
@@ -420,7 +427,7 @@ async function testEmbeddingViaSdk(model: CustomModel): Promise<TestResult> {
 
     const response = await client.embeddings.create({
         model: model.name,
-        input: 'test',
+        input: ['test'],
     });
 
     const dims = response.data?.[0]?.embedding?.length;
@@ -474,6 +481,7 @@ async function fetchProviderModelLineup(
     baseUrl?: string,
     apiVersion?: string,
     bedrockCreds?: BedrockFetchCredentials,
+    geminiOAuthProviderId?: string,
 ): Promise<FetchedModelLineup> {
     if (provider === 'chatgpt-oauth') {
         const { fetchChatGptOAuthModelLineup } = await import('../../api/providers/chatgpt-oauth');
@@ -481,7 +489,7 @@ async function fetchProviderModelLineup(
         return { models: lineup.models, source: lineup.source };
     }
     return {
-        models: await fetchProviderModels(provider, apiKey, baseUrl, apiVersion, bedrockCreds),
+        models: await fetchProviderModels(provider, apiKey, baseUrl, apiVersion, bedrockCreds, geminiOAuthProviderId),
         source: 'live',
     };
 }
@@ -496,7 +504,9 @@ async function fetchProviderModels(
     baseUrl?: string,
     apiVersion?: string,
     bedrockCreds?: BedrockFetchCredentials,
+    geminiOAuthProviderId?: string,
 ): Promise<FetchedModelEntry[]> {
+    if (provider === 'gemini-oauth') return fetchGeminiOAuthModels(geminiOAuthProviderId);
     if (provider === 'bedrock') {
         return fetchBedrockModels(bedrockCreds ?? {}, baseUrl);
     }
@@ -836,7 +846,9 @@ async function fetchEmbeddingModels(
     apiKey: string,
     baseUrl?: string,
     apiVersion?: string,
+    geminiOAuthProviderId?: string,
 ): Promise<{ id: string; label: string }[]> {
+    if (provider === 'gemini-oauth') return fetchGeminiOAuthModels(geminiOAuthProviderId, true);
     const req = async (url: string, headers: Record<string, string> = {}) => {
         const timeout = new Promise<never>((_, reject) =>
             window.setTimeout(() => reject(new Error('Model fetch timed out after 10s')), 10_000),

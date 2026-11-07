@@ -11,6 +11,7 @@ import { OpenAiProvider } from './providers/openai';
 import { GitHubCopilotProvider } from './providers/github-copilot';
 import { KiloGatewayProvider } from './providers/kilo-gateway';
 import { BedrockProvider } from './providers/bedrock';
+import { GeminiOAuthProvider } from './providers/gemini-oauth';
 import { ChatGptOAuthProvider } from './providers/chatgpt-oauth';
 import type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam } from './types';
 import type { ToolDefinition } from '../core/tools/types';
@@ -21,7 +22,7 @@ import { logAuthErrorDiagnostics } from './authDiagnostics';
 
 export type { ApiHandler, ApiStream, ApiStreamChunk, MessageParam, ContentBlock, ModelInfo } from './types';
 
-/** Local inference has no provider-side rate limits — never wrapped. */
+/** Local inference skips cloud rate limiting, but still needs outage protection. */
 const UNLIMITED_PROVIDER_TYPES = new Set(['ollama', 'lmstudio']);
 
 /**
@@ -229,6 +230,8 @@ export function buildApiHandler(config: LLMProvider) {
                 return new KiloGatewayProvider(config);
             case 'bedrock':
                 return new BedrockProvider(config);
+            case 'gemini-oauth':
+                return new GeminiOAuthProvider(config);
             case 'chatgpt-oauth':
                 return new ChatGptOAuthProvider(config);
             case 'openai':
@@ -252,12 +255,12 @@ export function buildApiHandler(config: LLMProvider) {
     // FIX-24-05-08: attribution goes on FIRST -- closest to the producer, so
     // every decorator further out re-yields an already-stamped chunk -- and
     // BEFORE the local-provider early return. ollama and lmstudio skip the
-    // resilience decorators, and they are exactly the providers whose usage
+    // rate-limit decorator, and they are exactly the providers whose usage
     // must not be priced as somebody's cloud model, so a decorator applied
     // after the return would leave the broken case broken.
     // providerType resolves through the prototype chain (Object.create).
     const attributed = withUsageAttribution(handler);
-    if (UNLIMITED_PROVIDER_TYPES.has(providerType)) return attributed;
+    if (UNLIMITED_PROVIDER_TYPES.has(providerType)) return withCircuitBreaker(attributed, providerType);
     // Composition order: breaker OUTERMOST so an open circuit fails fast
     // without first waiting on (and consuming) a rate-limit token; the
     // limiter then paces only requests that are actually going out. Both

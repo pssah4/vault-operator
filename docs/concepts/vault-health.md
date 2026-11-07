@@ -53,6 +53,30 @@ Findings land in the Vault Health Repair modal, grouped by severity. Each findin
 
 A colored badge in the sidebar reflects the worst-severity finding. The badge is the primary entry point to the modal.
 
+## Incoming-links blocks
+
+When **Maintain incoming-links block** is enabled, Vault Operator rebuilds these blocks as a queued startup job and when you run **Vault Operator: Update links (rebuild incoming-links tables)** from the command palette. Opening or writing a note does not itself trigger this rebuild. Startup work can wait while an agent task is active.
+
+The command also refreshes notes that already contain a block, even if they no longer meet the threshold for creating one. It writes only when the generated content changes. You do not need to edit each old block or rewrite its host note. The graph database must be available; the command reports when maintenance is disabled, unavailable, or blocked by an active health repair.
+
+Each row represents one distinct source file in the indexed graph. Deleted source files and self-links are excluded. Different files with the same basename remain separate and use full-path links with a short display name. The indexed graph includes frontmatter relations, so its count can differ from Obsidian's resolved body backlinks.
+
+By default, blocks retain every source, including archive folders. Under **Settings > Vault**, **Maximum sources in incoming-links blocks** accepts a positive row limit such as 25; 0 keeps all rows. A limited block puts index/MOC notes first, then reference and knowledge notes, other notes, and finally dated or session notes. Classes come from the configured category property (`index`/`moc`, `reference`/`concept`/`topic`/`person`/`organisation`/`project`, and `session`/`daily`/`journal`/`meeting`/`release`, including existing German knowledge-type aliases). Date-shaped names only serve as a fallback.
+
+**Archive folders excluded from incoming-links blocks** accepts one vault-relative folder per line, for example `Archive` or `Projects/Old`. Subfolders are included; `Archive2` is separate. The footer reports displayed, omitted and archive-excluded source counts. These options only affect generated blocks; the live `.base` query remains complete.
+
+Block Wikilinks provide reverse edges in Obsidian's graph. Enabling a row limit or archive filter removes the hidden rows' generated reverse edges, without changing the source notes. Existing settings stay unlimited and unfiltered. Run the update command after changing these settings.
+
+The command covers the vault. For selected notes, the agent can call `vault_health_check` with:
+
+```json
+{"action":"refresh_incoming_links","paths":["Projects/Example.md","People/Alex.md"]}
+```
+
+This action uses the current graph and shows the exact writable note list for approval. It requires incoming-links maintenance to be enabled and a working checkpoint service; an incomplete checkpoint stops the refresh. Supply at most 500 paths per call. Missing or empty paths never expand to the whole vault. Ignored and protected notes stay untouched. The result reports updated blocks and failed writes.
+
+An agent can also call the global command through `execute_command` with `command_id: "vault-operator:ba25-update-hubs"` after you enroll it under **Settings > Agents > Auto-approve > Obsidian commands**. Command execution starts the rebuild; wait for its completion notice before treating it as finished.
+
 ## Tunables
 
 In **Settings > Vault**:

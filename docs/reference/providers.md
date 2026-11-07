@@ -1,6 +1,6 @@
 ---
 title: Providers and models
-description: Setup reference for the 12 supported AI providers. Anthropic, OpenAI, Google Gemini, ChatGPT-OAuth, GitHub Copilot, Kilo Gateway, Amazon Bedrock, Azure, OpenRouter, Ollama, LM Studio, and Custom.
+description: Setup reference for supported AI providers and authentication methods. Anthropic, OpenAI, Google Gemini, ChatGPT-OAuth, GitHub Copilot, Kilo Gateway, Amazon Bedrock, Azure, OpenRouter, Ollama, LM Studio, and Custom.
 ---
 
 # Providers and models
@@ -34,7 +34,8 @@ You can override the auto-classification per tier slot. If the active provider h
 |---|---|---|---|
 | Anthropic | API key | explicit (`cache_control` blocks) | Best tool-use reliability. No native embeddings. |
 | OpenAI | API key | openai-implicit (gpt-4o, gpt-4.1, o1, o3, o4) | Native embeddings via `text-embedding-3-small`. |
-| Google Gemini | API key | none (TTL context caching is deferred) | Free tier available. No native embeddings. |
+| Google Gemini | API key | none (TTL context caching is deferred) | Existing OpenAI-compatible Gemini connection. |
+| Google Gemini (OAuth) | Your Google Cloud Desktop OAuth client | no explicit cache controls | Native streaming, tools, images and embeddings. Uses project quota, not Gemini app subscriptions. [Setup](/concepts/provider-auth#google-gemini-authentication). |
 | OpenRouter | API key | none | Searchable model marketplace. Pricing-based tier classifier. |
 | Azure OpenAI | API key plus endpoint | openai-implicit on OpenAI-family deployments | Enterprise tenant. Native embeddings via deployed model. |
 | Amazon Bedrock | IAM access key (optional session token) | bedrock-cachepoint on Claude family | EU residency via `eu.` cross-region inference profiles. No embeddings in phase 1. |
@@ -317,6 +318,7 @@ The Models tab is hidden from the provider sub-tab navigation; provider setup an
 | Anthropic | API key | explicit | pay-per-use | cloud | no | best quality |
 | OpenAI | API key | openai-implicit | pay-per-use | cloud | yes | structured output, embeddings |
 | Google Gemini | API key | none | free tier plus pay | cloud | no | free starting point |
+| Google Gemini (OAuth) | Your Cloud Desktop client | none | API project quota | cloud (your Google project) | yes | separate Google API accounts |
 | OpenRouter | API key | none | pay-per-use | cloud | no | model variety |
 | Azure OpenAI | API key plus endpoint | openai-implicit | enterprise | enterprise tenant | yes | compliance |
 | Amazon Bedrock | IAM access key | bedrock-cachepoint | pay-per-use via AWS | cloud (your AWS account) | no | EU data residency via `eu-central-1` |

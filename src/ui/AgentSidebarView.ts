@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/restrict-template-expressions, @typescript-eslint/unbound-method -- File-level disable: interacts with external SDK / JSON / Obsidian internals where untyped 'any' values are unavoidable. Inputs are validated at boundaries via type guards or schema checks where security-relevant. */
 import { ItemView, WorkspaceLeaf, setIcon, Menu, MarkdownRenderer, MarkdownView, Notice, TFile, TFolder } from 'obsidian';
+import { buildActiveFileContext } from '../core/context/activeFileContext';
+import { resolveEmbeds } from '../core/context/resolveEmbeds';
+import { makeEmbedDeps } from '../core/context/obsidianEmbedDeps';
 import { isDeniedPath, keepVisible } from '../core/tools/vault/denyZoneFilter';
 import type ObsidianAgentPlugin from '../main';
 import { AgentTaskRunner } from '../core/agent/AgentTaskRunner';
@@ -570,6 +573,7 @@ export class AgentSidebarView extends ItemView {
                     }
                     this.pendingResume = snapshot;
                     await store.clear(snapshot.taskId);
+                    this.plugin.inflightResumeClaims.release(snapshot.taskId);
                     // FEAT-55-01: resumed -> the snapshot is consumed, drop the tag.
                     void this.plugin.refreshInterruptedConversations();
                     if (this.textarea) {
@@ -2654,6 +2658,17 @@ export class AgentSidebarView extends ItemView {
         const mySession = this.activeSession;
         const myContainer = mySession.chatContainer;
 
+        // Bind the note and unsaved editor text at Send, before attachment
+        // parsing or conversation creation can yield to a workspace switch.
+        const contextCandidate = (this.plugin.settings.autoAddActiveFileContext && !this.userDismissedContext)
+            ? this.app.workspace.getActiveFile()
+            : null;
+        const activeFile = contextCandidate && !isDeniedPath(this.plugin, contextCandidate.path)
+            ? contextCandidate : null;
+        const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView) ?? this.lastMarkdownView;
+        const editorText = activeFile && markdownView?.file?.path === activeFile.path
+            ? markdownView.editor.getValue() : undefined;
+
         // FIX-19-31-03: a dropped PDF can still be parsing at Send. The
         // existing send lock is already held, so a second click cannot race.
         await this.attachments.whenReady();
@@ -2696,26 +2711,25 @@ export class AgentSidebarView extends ItemView {
             this.saveCurrentConversation(mySession);
         }
 
-        // Snapshot attachments, clear the chip bar, render user bubble with previews
         const attachments = [...this.attachments.pending];
         this.attachments.clear();
-        if (!isHidden) {
-            const activeFileForBubble = (this.plugin.settings.autoAddActiveFileContext && !this.userDismissedContext)
-                ? this.app.workspace.getActiveFile()
-                : null;
-            this.addUserMessage(text, attachments, activeFileForBubble, myContainer);
-        }
+        if (!isHidden) this.addUserMessage(text, attachments, activeFile, myContainer);
         this.textarea.value = '';
         this.autoResizeTextarea();
 
-        // Feature 4: Inject active file context into the message sent to LLM
-        // Only if setting is on and user hasn't dismissed the context for this turn
-        const activeFile = (this.plugin.settings.autoAddActiveFileContext && !this.userDismissedContext)
-            ? this.app.workspace.getActiveFile()
-            : null;
+        const activeFileContext = await buildActiveFileContext({
+            enabled: true,
+            file: activeFile,
+            isDenied: (path) => isDeniedPath(this.plugin, path),
+            read: (file) => editorText !== undefined
+                ? Promise.resolve(editorText) : this.app.vault.cachedRead(file),
+            // IMP-03-03-01 (#94): opt-in expansion of ![[embeds]] in the open note.
+            transform: this.plugin.settings.resolveEmbedsInAttachments
+                ? (content, file) => resolveEmbeds(content, file.path, makeEmbedDeps(this.plugin))
+                : undefined,
+        });
         const vaultCtx = this.buildVaultContext();
-        const textWithContext = text
-            + (activeFile ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>` : '')
+        const textWithContext = text + activeFileContext
             + (vaultCtx ? `\n\n${vaultCtx}` : '');
 
         // FEAT-02-13: ein Praefix fuer Skills, Prompts und Workflows.
@@ -2737,9 +2751,7 @@ export class AgentSidebarView extends ItemView {
             const spaceIdx = text.indexOf(' ');
             const slug = spaceIdx === -1 ? text.slice(1) : text.slice(1, spaceIdx);
             const rest = spaceIdx === -1 ? '' : text.slice(spaceIdx + 1).trim();
-            const activeFileTail = activeFile
-                ? `\n\n<context>\nActive file in editor: ${activeFile.path}\n</context>`
-                : '';
+            const activeFileTail = activeFileContext;
 
             const sources = await this.autocomplete.collectSlashSources();
             const entry = resolveSlashEntry(sources, slug);
@@ -3289,7 +3301,7 @@ export class AgentSidebarView extends ItemView {
         // FEAT-55-03 (ADR-171): collision-free run id. `task-${Date.now()}`
         // collided when two chats started a run in the same millisecond, and
         // this id keys the inflight store, checkpoint list, and newfiles marker.
-        const taskId = generateShortId('task');
+        const taskId = mySession.pendingResume?.taskId ?? generateShortId('task');
         let taskWriteCount = 0;
         let hasRenderedCheckpoints = false;
         // FIX-44-44: true once any write landed WITHOUT an individual diff
@@ -4223,6 +4235,7 @@ export class AgentSidebarView extends ItemView {
                     );
                     if (errTeardown.wasLiveRun) {
                         mySession.currentAbortController = null;
+                        mySession.currentStopFeedback = null;
                         this.setRunningState(false);
                     }
                     // Issue 3 Wave B: only the drain owner (live run or the
@@ -4231,6 +4244,20 @@ export class AgentSidebarView extends ItemView {
                     // the lock the new run's lifecycle owns.
                     if (errTeardown.drainOwner) {
                         this.endTaskDraining(mySession); // GUARD-L1
+                        mySession.uiMessages.push({
+                            role: 'assistant',
+                            text: accumulatedText || error.message,
+                            ts: new Date().toISOString(),
+                            toolStepsHtml: stepsBlockEl?.outerHTML,
+                            taskId,
+                            reasoningText: accumulatedThinking || undefined,
+                            usageFooter: captureUsageFooter(),
+                            checkpoints: turnCheckpoints.length > 0
+                                ? turnCheckpoints.map(toPersistedCheckpointMarker)
+                                : undefined,
+                        });
+                        this.saveCurrentConversation(mySession);
+                        void this.maybeOfferInflightResume(mySession.activeConversationId ?? undefined, myContainer);
                     }
                 },
                 onTaskTelemetry: (data) => {
@@ -5818,6 +5845,15 @@ export class AgentSidebarView extends ItemView {
                         settings.autoAddActiveFileContext = v;
                         await this.plugin.saveSettings();
                         this.updateContextBadge();
+                    })(); },
+                },
+                {
+                    icon: 'link-2',
+                    label: t('ui.menu.resolveEmbeds'),
+                    isOn: () => settings.resolveEmbedsInAttachments,
+                    onToggle: (v) => { void (async () => {
+                        settings.resolveEmbedsInAttachments = v;
+                        await this.plugin.saveSettings();
                     })(); },
                 },
                 {

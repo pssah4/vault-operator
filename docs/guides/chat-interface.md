@@ -113,6 +113,22 @@ Three ways to attach a file:
 Each attachment can be up to 50 MB. Very large files may use a significant portion of the model's context window, leaving less room for conversation.
 :::
 
+### Notes with embeds {#notes-with-embeds}
+
+A note can embed other notes with `![[Note]]`, `![[Note#Heading]]` or `![[Note#^block]]`. By default Vault Operator sends the Markdown of an attached note as it is, so an embed reaches the model as a link and not as text. The agent can still open the linked note with `read_file`, one call per embed.
+
+Turn on **Expand embedded notes in attachments** in `Settings > Vault Operator > Advanced > Interface`, or flip **Expand note embeds** in the chat options menu. For attached Markdown notes and for the open note, the text of each embed is then added right below the embed line as a read-only copy.
+
+- The `![[...]]` line stays in place, so editing and spellchecking keep working on the real Markdown.
+- Headings and block references are resolved by Obsidian itself, the same way its own embeds are.
+- Embeds inside embeds are expanded up to two levels. A loop (A embeds B embeds A) stops at the repeat.
+- A message gets at most 20 embeds, 4,000 characters per embed and 24,000 characters in total. Everything beyond stays a link.
+- Images, PDFs, canvases, missing targets, embeds inside code and notes on your ignore list stay as they are.
+
+:::warning The embedded text goes to your model provider
+The expanded text is sent like the attached note itself. The setting is off by default.
+:::
+
 ## @-Mentions
 
 Type **@** in the input field to search your vault by file name. A dropdown appears as you type, showing matching notes. Select a file to attach it as context. This is the fastest way to point the agent at a specific note without leaving the chat.

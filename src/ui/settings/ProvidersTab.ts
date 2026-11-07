@@ -262,6 +262,7 @@ export class ProvidersTab {
     }
 
     private providerHasCredentials(provider: ProviderConfig): boolean {
+        if (provider.type === 'gemini-oauth') return !!provider.geminiOAuthRefreshToken;
         if (LOCAL_PROVIDER_TYPES.includes(provider.type)) {
             // Local endpoints don't need a key; a BaseURL counts.
             return !!provider.baseUrl;

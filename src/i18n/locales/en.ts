@@ -1,6 +1,15 @@
 import type { Translations } from '../types';
 
 export const en = {
+    "settings.providers.geminiOAuth.description": "Uses your own cloud project and desktop client. API usage follows that project's quota and billing. An app subscription does not grant API quota.",
+    "settings.providers.geminiOAuth.setup": "Setup guide",
+    "settings.providers.geminiOAuth.clientId": "Desktop client ID",
+    "settings.providers.geminiOAuth.clientSecret": "Client secret (optional)",
+    "settings.providers.geminiOAuth.projectId": "Quota project ID",
+    "settings.providers.geminiOAuth.saveFirst": "Save the provider settings before signing in.",
+    "settings.providers.geminiOAuth.unsupported": "Requires desktop Obsidian and an available system keychain.",
+    "settings.providers.geminiOAuth.account": "Signed-in provider",
+    "settings.providers.geminiOAuth.configureFirst": "First configure this provider and sign in from the providers settings.",
     // =========================================================================
     // Settings -- Tab Groups
     // =========================================================================
@@ -209,9 +218,18 @@ export const en = {
     'settings.embeddings.implicitNone': 'No implicit connections computed yet (build index first)',
     // Local reranking (FEATURE-1504)
     'settings.embeddings.headingReranking': 'Local reranking',
-    'settings.embeddings.sectionRerankingInfo': 'A second pass that re-orders the top search results using a small local model. Embeddings are fast but coarse; the reranker fixes obvious ranking errors when the first hit "looks similar" but is not actually what you asked for. Runs entirely offline.',
+    'settings.embeddings.sectionRerankingInfo': 'A second pass that refines the search result order. The built-in model runs offline; an optional server backend can be selected below.',
     'settings.embeddings.localReranking': 'Local reranking',
-    'settings.embeddings.localRerankingDesc': 'Re-score search results with a local cross-encoder model. Runs entirely on-device, desktop only.',
+    'settings.embeddings.localRerankingDesc': 'Re-score search results. The default model runs on-device; an optional server backend can be selected below. Desktop only.',
+    "settings.embeddings.ollamaReranker": "Ollama reranker",
+    "settings.embeddings.ollamaRerankerDesc": "Optional. Sends the query and bounded note excerpts to your chosen server. Only a local server keeps these on-device. On failure, uses the built-in local reranker, or the original search order if it is unavailable.",
+    "settings.embeddings.ollamaRerankerUrl": "Ollama server URL",
+    "settings.embeddings.ollamaRerankerModel": "Qwen3 reranker model",
+    "settings.embeddings.ollamaRerankerTest": "Test reranker",
+    "settings.embeddings.ollamaRerankerTestDesc": "Checks real yes/no token probabilities using two synthetic passages. No vault content is sent. Requires server logprob support.",
+    "settings.embeddings.ollamaRerankerTesting": "Testing reranker…",
+    "settings.embeddings.ollamaRerankerTestOk": "Reranking supported: genuine yes/no scores and passage ordering verified.",
+    "settings.embeddings.ollamaRerankerTestFailed": "Reranker test failed: {{error}}",
     'settings.embeddings.rerankCandidates': 'Rerank candidates',
     'settings.embeddings.rerankCandidatesDesc': 'How many candidates to rerank (more = better quality but slower).',
 
@@ -805,6 +823,8 @@ export const en = {
     'settings.interface.memoryNotAvailable': 'Memory service not available. Enable memory to use the setup dialog.',
     'settings.interface.autoAddActiveNote': 'Auto-add active note as context',
     'settings.interface.autoAddActiveNoteDesc': 'Automatically attach the note you have open in the editor to every message you send. The agent can see and reference its content.',
+    'settings.interface.resolveEmbeds': 'Expand embedded notes in attachments',
+    'settings.interface.resolveEmbedsDesc': 'When you attach a note or add the open note as context, the text of its ![[note]] embeds is added right below each embed (up to 2 levels, as read-only copies). Off by default. The embedded text goes to your model provider like the attached note itself. Notes on your ignore list stay unresolved.',
     'settings.interface.sendWithEnter': 'Send with enter',
     'settings.interface.sendWithEnterDesc': 'Press Enter to send a message (Shift+Enter for a line break). When off, use Ctrl+Enter (or Cmd+Enter on Mac) to send.',
     'settings.interface.persistChatModel': 'Remember selected model',
@@ -1258,6 +1278,7 @@ export const en = {
     'ui.menu.forceReindex': 'Force reindex vault',
     'ui.menu.cancelIndexing': 'Cancel indexing',
     'ui.menu.addOpenNote': 'Add open note in context',
+    'ui.menu.resolveEmbeds': 'Expand note embeds',
     'ui.menu.autoAcceptEdits': 'Auto-accept edits',
 
     // =========================================================================
@@ -1889,6 +1910,8 @@ export const en = {
     'settings.providers.oauthSignInFailed': 'Sign-in failed: {{msg}}',
     'settings.providers.oauthSignOutFailed': 'Sign-out failed: {{msg}}',
     'settings.providers.chatgptUnsupported': 'ChatGPT sign-in needs desktop Obsidian with an OS keychain.',
+    'settings.providers.copilotEnterpriseDomain': 'GitHub enterprise cloud host',
+    'settings.providers.copilotEnterpriseDomainDesc': 'Leave empty for the default GitHub host. For enterprise cloud, enter your-company.ghe.com. Sign out before changing it. Self-hosted GitHub servers do not host copilot authentication.',
     'settings.providers.copilotClientId': 'Custom GitHub client ID',
     'settings.providers.copilotClientIdDesc': 'Optional. Override the default client with your own GitHub app.',
     'settings.providers.copilotClientIdPlaceholder': 'Iv1.b507a08c87ecfe98 (default)',
@@ -3036,6 +3059,7 @@ export const en = {
     'settings.vault.topHubDisabledHint': '(disabled until privacy notice is accepted)',
     'block.incomingLinks.none': 'Nothing links here yet.',
     'block.incomingLinks.heading': '{{total}} Notes link here',
+    'block.incomingLinks.overflow': 'Showing {{shown}} of {{total}} sources. {{omitted}} omitted by the row limit; {{excluded}} excluded by archive folders.',
     'block.incomingLinks.colNote': 'Note',
     'block.incomingLinks.colDescription': 'Description',
     'block.incomingLinks.colType': 'Type',
@@ -3046,6 +3070,10 @@ export const en = {
     'settings.vault.incomingLinksEnableDesc': 'When on, hub notes get a "Referenced by" block that rebuilds itself as links come and go.',
     'settings.vault.incomingLinksThreshold': 'Hub threshold (incoming links)',
     'settings.vault.incomingLinksThresholdDesc': 'How many incoming links a note needs before it counts as a hub and gets the block. Lower means more notes get it.',
+    'settings.vault.incomingLinksMaxRows': 'Maximum sources in incoming-links blocks',
+    'settings.vault.incomingLinksMaxRowsDesc': '0 keeps all sources. A limit prioritizes index/MOC and reference notes; dated and session notes come last. Hidden rows no longer add reverse links to the graph. Apply changes with {{command}}.',
+    'settings.vault.incomingLinksArchiveFolders': 'Archive folders excluded from incoming-links blocks',
+    'settings.vault.incomingLinksArchiveFoldersDesc': 'One vault-relative folder per line, including its subfolders. Empty keeps all sources. Hidden rows no longer add reverse links to the graph. Apply changes with {{command}}.',
     'settings.vault.topHubEnable': 'Enable top-hub block',
     'settings.vault.topHubEnableDesc': 'Default off. Requires the privacy notice to be accepted first.',
     'settings.vault.topHubPrivacyAck': 'Privacy notice read and accepted',

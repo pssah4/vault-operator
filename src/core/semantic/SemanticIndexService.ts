@@ -16,6 +16,7 @@
  */
 
 import { requestUrl } from 'obsidian';
+import { embedGeminiOAuth } from '../../api/providers/gemini-oauth';
 import type { Vault } from 'obsidian';
 import { waitWhileBusy, BACKGROUND_STARVATION_MS, BACKGROUND_POLL_MS } from './agentBusyGate';
 import { upsertFreshnessClass } from './freshnessClassUpsert';
@@ -258,6 +259,7 @@ export class SemanticIndexService {
     private contextualApiHandler: ApiHandler | null = null;
     /** BUG-016: once the configured context model fails permanently (auth / credit / quota), stop trying for the rest of the session. */
     private contextualApiDisabledReason: string | null = null;
+    private contextualConsecutiveFailures = 0;
 
     // Auto-update queue: process one file at a time so concurrent vault events
     // don't spawn dozens of simultaneous embedding calls (which freezes Obsidian).
@@ -305,6 +307,8 @@ export class SemanticIndexService {
     /** Set the API handler for contextual prefix generation (FEATURE-1501). */
     setContextualApiHandler(handler: ApiHandler | null): void {
         this.contextualApiHandler = handler;
+        this.contextualApiDisabledReason = null;
+        this.contextualConsecutiveFailures = 0;
         if (handler) console.debug('[SemanticIndex] Contextual Retrieval model configured');
     }
 
@@ -1314,6 +1318,9 @@ export class SemanticIndexService {
 
         this.enrichmentRunning = true;
         this.enrichmentCancelled = false;
+        // A new run is an explicit retry boundary after provider repair/cooldown.
+        this.contextualApiDisabledReason = null;
+        this.contextualConsecutiveFailures = 0;
         this.enrichmentAbortController = new AbortController();
 
         // Compute totals for progress
@@ -1354,14 +1361,20 @@ export class SemanticIndexService {
                 // fired at once; the enrich semaphore caps the real API concurrency.
                 const results = await Promise.allSettled(chunks.map((chunk) =>
                     this.enrichChunkWithContext([chunk.text], filePath, fullContent, localVotes)
-                        .then((enrichedTexts) => ({ chunkId: chunk.id, enrichedText: enrichedTexts[0] })),
+                        .then((enrichedTexts) => {
+                            // A failed/empty prefix is still pending, not successfully enriched.
+                            if (enrichedTexts[0] === chunk.text) throw new Error('No context prefix generated');
+                            return { chunkId: chunk.id, enrichedText: enrichedTexts[0] };
+                        }),
                 ));
                 for (let j = 0; j < results.length; j++) {
                     const r = results[j];
                     if (r.status === 'fulfilled') {
                         pendingEmbeds.push(r.value);
                     } else {
-                        console.warn(`[SemanticIndex] Enrichment failed for chunk ${chunks[j].id}:`, r.reason);
+                        if (!this.enrichmentCancelled) {
+                            console.warn(`[SemanticIndex] Enrichment failed for chunk ${chunks[j].id}:`, r.reason);
+                        }
                         this.enrichmentProcessed++;
                     }
                 }
@@ -1378,7 +1391,8 @@ export class SemanticIndexService {
                         }
                     } catch (e) {
                         // Leave the file's chunks unenriched; they retry on the next run.
-                        console.warn(`[SemanticIndex] Batch embed failed for ${filePath}:`, e);
+                        console.warn(`[SemanticIndex] Batch embed failed for ${filePath}; enrichment paused:`, e);
+                        this.cancelEnrichment();
                         this.enrichmentProcessed += pendingEmbeds.length;
                     }
                 }
@@ -1392,6 +1406,7 @@ export class SemanticIndexService {
                 // agent task is running so it does not compete for the provider.
                 await this.awaitAgentIdle(() => this.enrichmentCancelled);
                 if (this.enrichmentCancelled) break;
+                const pendingBefore = this.vectorStore.getUnenrichedCount();
                 // Group chunks by path so we read each file only once
                 const byPath = new Map<string, typeof batch>();
                 for (const chunk of batch) {
@@ -1411,6 +1426,12 @@ export class SemanticIndexService {
                 // coalesced save (markDirty), not a blocking per-batch export.
                 this.knowledgeDB.markDirty();
 
+                // A deleted/unreadable note or empty provider response must not
+                // keep the same pending batch in a tight retry loop.
+                if (this.enrichmentCancelled || this.vectorStore.getUnenrichedCount() >= pendingBefore) {
+                    console.debug('[SemanticIndex] Enrichment paused; pending chunks remain for the next run');
+                    break;
+                }
                 // Fetch next batch
                 batch = this.vectorStore.getUnenrichedChunks(BATCH_SIZE);
             }
@@ -1581,6 +1602,7 @@ export class SemanticIndexService {
                 if (this.enrichmentCancelled || this.cancelled) {
                     throw new Error('Context prefix skipped: enrichment cancelled');
                 }
+                if (this.contextualApiDisabledReason) return '';
                 // AUDIT 2026-07-07 SEM-2: per-call controller so timeout, build
                 // abort, and enrichment cancel actually TERMINATE the stream.
                 // Previously the race settled and released the slot while the
@@ -1622,7 +1644,23 @@ export class SemanticIndexService {
                             this.enrichmentCancelled || this.cancelled ? 'Build cancelled' : 'Context prefix timed out',
                         )), { once: true });
                     });
-                    return await Promise.race([resultPromise, abortPromise]);
+                    const result = await Promise.race([resultPromise, abortPromise]);
+                    this.contextualConsecutiveFailures = 0;
+                    return result;
+                } catch (error) {
+                    // Count before releasing the semaphore, so queued work sees
+                    // the stop immediately. Already-started calls remain bounded.
+                    if (!this.enrichmentCancelled && !this.cancelled) {
+                        this.contextualConsecutiveFailures++;
+                        const status = (error as { status?: number })?.status;
+                        const permanent = status !== undefined && status >= 400 && status < 500 && status !== 429;
+                        if (permanent || this.contextualConsecutiveFailures >= 3) {
+                            this.contextualApiDisabledReason = 'Provider requests failed; retry after fixing the provider';
+                            console.warn('[SemanticIndex] Contextual retrieval paused after provider failures. Pending chunks will retry on the next index run.');
+                            if (this.enrichmentRunning) this.cancelEnrichment();
+                        }
+                    }
+                    throw error;
                 } finally {
                     window.clearTimeout(timer);
                     callAbort.abort(); // terminate a still-running stream
@@ -1649,7 +1687,7 @@ export class SemanticIndexService {
                     `[SemanticIndex] Contextual retrieval paused for this session (context model returned a permanent error: ${this.contextualApiDisabledReason}). ` +
                         `Fix the configured context model in Settings > Embeddings, then reload Obsidian to resume.`,
                 );
-            } else {
+            } else if (!this.contextualApiDisabledReason) {
                 console.warn('[SemanticIndex] Context prefix generation failed:', e);
             }
             return null;
@@ -1789,6 +1827,7 @@ export class SemanticIndexService {
     }
 
     private async embedBatchViaApi(texts: string[], model: CustomModel): Promise<Float32Array[]> {
+        if (model.provider === 'gemini-oauth') return embedGeminiOAuth(texts, model, this.abortController?.signal);
         // Azure uses requestUrl (deployment-based URL with api-key header)
         if (model.provider === 'azure') {
             return this.embedBatchViaRequestUrl(texts, model);

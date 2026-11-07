@@ -488,6 +488,11 @@ const OPENAI_EFFORT_LEVELS: EffortLevel[] = ['minimal', 'low', 'medium', 'high']
  * `eu.anthropic.claude-*-v1` map to the same answer as the direct id.
  */
 export function getModelEffortLevels(modelId: string, providerType: string): EffortLevel[] {
+    // FEAT-04-14: native Gemini OAuth uses ThinkingLevel, never reasoning_effort.
+    if (providerType === 'gemini-oauth' && /^gemini-3(?:[.-])/.test(modelId)) {
+        if (/flash/.test(modelId)) return ['minimal', 'low', 'medium', 'high'];
+        return /^gemini-3\.1-/.test(modelId) ? ['low', 'medium', 'high'] : ['low', 'high'];
+    }
     const provider = providerType.toLowerCase();
     const normalized = normalizeModelId(modelId).toLowerCase();
 

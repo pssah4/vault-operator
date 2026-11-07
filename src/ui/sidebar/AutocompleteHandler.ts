@@ -2,6 +2,7 @@ import type { App, TFile, TFolder } from 'obsidian';
 import { TFile as TFileCtor, TFolder as TFolderCtor } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
+import { resolvePromptContent } from '../../core/context/SupportPrompts';
 import {
     buildSlashEntries,
     filterSlashEntries,
@@ -320,6 +321,21 @@ export class AutocompleteHandler {
 
         const sources = await this.collectSlashSources();
         const entries = filterSlashEntries(buildSlashEntries(sources), query);
+        const insertPrompt = (slug: string) => () => {
+            const ta = this.getTextarea();
+            const prompt = sources.prompts.find((p) => p.slug === slug);
+            if (!ta || !prompt) return;
+            const rest = value.includes(' ') ? value.slice(value.indexOf(' ') + 1).trim() : '';
+            const resolved = resolvePromptContent(prompt.content, {
+                userInput: rest,
+                activeFile: this.app.workspace.getActiveFile()?.path,
+            });
+            const hasInputPlaceholder = /\{\{userInput\}\}|\$\{userInput\}/.test(prompt.content);
+            ta.value = rest && !hasInputPlaceholder ? `${resolved}\n\n${rest}` : resolved;
+            this.hide();
+            ta.focus();
+            ta.setSelectionRange(ta.value.length, ta.value.length);
+        };
 
         return entries.map((e) => ({
             label: e.label,
@@ -330,7 +346,8 @@ export class AutocompleteHandler {
                 ? t('ui.sidebar.autocompleteShadowed', { slug: e.slug })
                 : `/${e.slug}`,
             tag: AutocompleteHandler.kindTag(e.kind),
-            onSelect: e.shadowed ? () => { /* nicht ausloesbar */ } : makeSwap(e.slug),
+            onSelect: e.shadowed ? () => { /* nicht ausloesbar */ }
+                : e.kind === 'prompt' ? insertPrompt(e.slug) : makeSwap(e.slug),
         }));
     }
 

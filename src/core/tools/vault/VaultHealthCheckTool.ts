@@ -10,6 +10,7 @@
  * FEATURE-1901: Vault Health Check
  */
 
+import { incomingRefreshFile } from '../../knowledge/incomingLinksRefresh';
 import { TFile } from 'obsidian';
 import { BaseTool } from '../BaseTool';
 import type { ToolDefinition, ToolExecutionContext } from '../types';
@@ -59,6 +60,14 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
     // eslint-disable-next-line @typescript-eslint/require-await -- interface contract is async; the plan itself is synchronous reads
     async previewBatch(input: Record<string, unknown>): Promise<BatchEditPreview | null> {
         const action = (input.action as string) || 'check';
+        if (action === 'refresh_incoming_links') {
+            const paths = this.incomingRefreshPaths(input);
+            return paths.length === 0 ? null : {
+                entries: paths.map(path => ({ path, before: '', after: '' })),
+                summary: t('ui.approval.scope.vaultHealth', { action, count: String(paths.length) }),
+                scopeOnly: true,
+            };
+        }
         if (action !== 'fix_backlinks' && action !== 'cleanup' && action !== 'fix_categories') {
             return null;
         }
@@ -86,6 +95,14 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
             console.warn('[VaultHealthCheck] previewBatch failed (card fallback):', err);
             return null;
         }
+    }
+
+    /** A missing/invalid list never means a full-vault refresh. */
+    private incomingRefreshPaths(input: Record<string, unknown>): string[] {
+        if (!Array.isArray(input.paths)) return [];
+        const paths = [...new Set(input.paths.filter((path): path is string => typeof path === 'string'))];
+        if (paths.length > 500) return [];
+        return paths.filter(path => incomingRefreshFile(this.plugin, path) !== null);
     }
 
     /**
@@ -138,8 +155,14 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
                 properties: {
                     action: {
                         type: 'string',
-                        enum: ['check', 'fix_backlinks', 'cleanup', 'fix_categories', 'cleanup_edges', 'refresh', 'record_freshness'],
-                        description: 'Action to perform. "check" (default): run health checks. "fix_backlinks": fix missing backlinks. "cleanup": remove invalid backlinks. "fix_categories": move values from wrong property to correct (e.g. Thema in Konzepte → Themen). "refresh": re-extract graph + ontology before checking. "record_freshness": persist content-level freshness verdicts (e.g. from the daily-briefing skill) into the knowledge review.',
+                        enum: ['check', 'fix_backlinks', 'cleanup', 'fix_categories', 'cleanup_edges', 'refresh', 'record_freshness', 'refresh_incoming_links'],
+                        description: 'Action to perform. "check" (default): run health checks. "fix_backlinks": fix missing backlinks. "cleanup": remove invalid backlinks. "fix_categories": move values from wrong property to correct (e.g. Thema in Konzepte → Themen). "refresh": re-extract graph + ontology before checking. "refresh_incoming_links": regenerate incoming-links blocks only for the explicit paths (scope approval and checkpoint required). "record_freshness": persist content-level freshness verdicts (e.g. from the daily-briefing skill) into the knowledge review.',
+                    },
+                    paths: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        maxItems: 500,
+                        description: 'refresh_incoming_links only: required explicit vault-relative Markdown paths. Empty means no files; maximum 500 per call.',
                     },
                     verdicts: {
                         type: 'array',
@@ -164,6 +187,33 @@ export class VaultHealthCheckTool extends BaseTool<'vault_health_check'> {
 
     async execute(input: Record<string, unknown>, context: ToolExecutionContext): Promise<void> {
         const { callbacks } = context;
+
+        if (input.action === 'refresh_incoming_links') {
+            try {
+                const approved = context.approvedBatchPaths;
+                if (!approved) throw new Error('Refresh aborted: no approved path list.');
+                const paths = this.incomingRefreshPaths(input).filter(path => approved.has(path));
+                if (paths.length === 0) {
+                    callbacks.pushToolResult('No approved writable notes to refresh. Supply explicit paths (at most 500).');
+                    return;
+                }
+                const checkpoint = this.plugin.checkpointService;
+                if (!checkpoint) throw new Error('Refresh aborted: checkpoint service is unavailable. Enable checkpoints first.');
+                const result = await this.plugin.regenerateIncomingLinksBlocks(paths, async planned => {
+                    if (context.abortSignal?.aborted) throw new Error('Refresh cancelled.');
+                    // The renderer holds its refresh mutex throughout this callback.
+                    const saved = await checkpoint.snapshot(context.taskId, [...planned], 'vault_health_check:refresh_incoming_links');
+                    if (saved.commitOid === 'empty' || saved.skipped?.length || planned.some(path => !saved.filesChanged.includes(path))) {
+                        throw new Error('Refresh aborted: checkpoint does not cover every approved note.');
+                    }
+                    if (context.abortSignal?.aborted) throw new Error('Refresh cancelled.');
+                }, context.abortSignal);
+                callbacks.pushToolResult(`Incoming-links refresh: ${result.status}; ${result.written} note(s) updated, ${result.failed} failed, ${result.hubs} selected.`);
+            } catch (error) {
+                callbacks.pushToolResult(this.formatError(error));
+            }
+            return;
+        }
 
         const healthService = this.plugin.vaultHealthService;
         if (!healthService) {

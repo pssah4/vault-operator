@@ -88,6 +88,16 @@ export class InterfaceTab {
             );
 
         new Setting(containerEl)
+            .setName(t('settings.interface.resolveEmbeds'))
+            .setDesc(t('settings.interface.resolveEmbedsDesc'))
+            .addToggle((tog) =>
+                tog.setValue(this.plugin.settings.resolveEmbedsInAttachments).onChange(async (v) => {
+                    this.plugin.settings.resolveEmbedsInAttachments = v;
+                    await this.plugin.saveSettings();
+                }),
+            );
+
+        new Setting(containerEl)
             .setName(t('settings.interface.sendWithEnter'))
             .setDesc(t('settings.interface.sendWithEnterDesc'))
             .addToggle((tog) =>

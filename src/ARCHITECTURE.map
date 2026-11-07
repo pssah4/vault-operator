@@ -43,7 +43,8 @@ power-steering            | src/core/AgentTask.ts                               
 checkpoint                | src/core/checkpoints/GitCheckpointService.ts          | ADR-02          | new checkpoint trigger: extend Pipeline step 4 hooks
 
 # MEMORY V2 STACK (src/core/memory/, src/core/knowledge/)
-knowledge-db              | src/core/knowledge/KnowledgeDB.ts                     | ADR-79, ADR-136 | new table: add migration in ensureSchema(), add typed methods. vectors.domain Diskriminator (ADR-136), Layer-Access via Helper (ADR-137)
+ollama-qwen-reranking      | src/core/knowledge/OllamaReranker.ts                   | ADR-52          | preserve genuine yes/no scoring, bounded data and whole-round fallback in RerankerService
+knowledge-db              | src/core/knowledge/KnowledgeDB.ts                     | ADR-79, ADR-136 | new table: add migration in ensureSchema(), add typed methods. vectors.domain Diskriminator (ADR-136), Layer-Access via Helper (ADR-137); lazy SQL init restores bundled gzip-WASM with built-in node:zlib
 knowledge-vector-store    | src/core/knowledge/VectorStore.ts                     | ADR-137         | new domain: add to KNOWLEDGE_DOMAINS in knowledgeDomains.ts, add typed find/insert methods on VectorStore, ESLint guards direct vectors-table access
 memory-db                 | src/core/knowledge/MemoryDB.ts                        | ADR-77          | new collection: add migration plus typed methods
 fact-store                | src/core/memory/FactStore.ts                          | ADR-77, ADR-80 | new fact source: implement Persistence pattern
@@ -60,6 +61,8 @@ vector-store              | src/core/knowledge/VectorStore.ts                   
 memory-tools              | src/core/tools/memory/                                | ADR-77, ADR-84  | new memory tool: register in ToolRegistry; tools: MarkForMemory, RecallMemory, SearchHistory, UpdateSoul
 
 # SEMANTIC INDEX
+incoming-links-refresh     | src/core/knowledge/incomingLinksRefresh.ts            | ADR-96, ADR-165  | explicit scope skips discovery; refresh mutex covers checkpoint and atomic writes, repeat path guards
+incoming-links-block       | src/core/knowledge/incomingLinksBlock.ts              | ADR-96          | source identity via selectIncomingSources; maintainer uses same selection, main checks existing files before regeneration
 semantic-index            | src/core/semantic/SemanticIndexService.ts             | ADR-79          | new index target: extend index lifecycle hooks
 embedding-service         | src/core/memory/EmbeddingService.ts                   | ADR-77          | new provider: implement EmbeddingProvider interface
 
@@ -86,7 +89,7 @@ kv-cache-prompt           | src/core/systemPrompt.ts                            
 
 # AUTH
 chatgpt-oauth-auth        | src/core/auth/ChatGptOAuthService.ts                  | ADR-88, ADR-89 | extend PKCE or token-refresh flow
-copilot-auth              | src/core/security/GitHubCopilotAuthService.ts         | ADR-37          | extend session-refresh or device-flow
+copilot-auth              | src/core/security/GitHubCopilotAuthService.ts         | ADR-37          | extend Cloud host/device flow or validated token API discovery; keep account state scoped across host changes
 kilo-auth                 | src/core/security/KiloAuthService.ts                  | ADR-19          | extend auth flow or storage encryption
 safe-storage              | src/core/security/SafeStorageService.ts               | ADR-19          | new encrypted-key path: extend WRITABLE_KEYS
 
@@ -198,7 +201,7 @@ vault-create-office       | src/core/tools/vault/CreatePptxTool.ts              
 semantic-search-tool      | src/core/tools/vault/SemanticSearchTool.ts            | ADR-15          | semantic + BM25 hybrid; extend retriever pipeline in SemanticIndexService
 
 # GENERATED ASSETS (build-time; do not hand-edit)
-generated-assets          | src/_generated/                                       | -                | written by build (esbuild plugin): bundled-skills, bundled-templates, bundled-wasm, bundled-workers, asset-bundle-hashes, source-hash. Source-of-truth lives in scripts/build-* generators.
+generated-assets          | src/_generated/                                       | -                | written by build (esbuild plugin): bundled-skills, bundled-templates, bundled-wasm, bundled-workers, asset-bundle-hashes, source-hash. Source-of-truth: esbuild.config.mjs for inline assets (SQL WASM: gzip → chunked base64), scripts/build-* for optional bundles.
 
 # PLUGIN ENTRY
 plugin-entry              | src/main.ts                                           | -                | wiring: register service and tool in onload()
@@ -437,3 +440,13 @@ ADR-167 | vault-health          | Deterministische Findings, Options-Chokepoint 
 ADR-168 | mcp                   | Nativer stdio-Support fuer ausgehende MCP-Connectors (device-lokal, ask-Gate, keine OS-Sandbox)
 ADR-173 | context               | ADR-173-token-counting-strategy
 ADR-174 | governance            | Skill-Skript-Approval -- Wirkungs-Gate statt byte-genauem Ausführungs-Gate
+
+active-file-context | src/core/context/activeFileContext.ts | FEAT-03-03 | sidebar sends bounded editor content; check deny rules before and after reads, keep truncation explicit
+embed-resolution | src/core/context/resolveEmbeds.ts | FEAT-03-03 | opt-in: expand ![[embeds]] of attached and active notes into read-only copies; ignore list, cycle, depth, count and size limits; Obsidian access in obsidianEmbedDeps.ts
+
+# Gemini API Desktop OAuth (FEAT-04-14, public #81)
+gemini-oauth-auth | src/core/auth/GeminiOAuthService.ts | ADR-89, FEAT-04-14 | per-provider Desktop client, secure refresh lifecycle, fixed Google endpoints; configure in main load and dispose on unload
+gemini-native-wire | src/api/adapters/geminiNative.ts | ADR-150, FEAT-04-14 | native Parts, scoped signatures, bounded SSE, finish-gated tool calls and token budgets
+gemini-oauth-provider | src/api/providers/gemini-oauth.ts | ADR-64, FEAT-04-14 | native inference/discovery/embeddings; preserve separate API-key provider
+gemini-oauth-settings | src/ui/settings/geminiOAuthSettings.ts | ADR-122, FEAT-04-14 | invalidate tokens/catalog on client changes, select signed-in embedding accounts
+codeql-report-validation | scripts/check-codeql-sarif.mjs | FIX-28-03-02, PLAN-66 | fail closed on incomplete/failed CodeQL reports before private CI archives complete findings; independent security review remains required

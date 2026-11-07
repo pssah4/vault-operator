@@ -165,8 +165,8 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
     },
     vault_health_check: {
         group: 'vault', label: 'Health Check', icon: 'shield-check',
-        signature: 'vault_health_check(checks?)',
-        description: 'Run structural health checks: orphaned notes, missing backlinks, broken links, weak clusters, inconsistent tags. Returns findings with fix suggestions.',
+        signature: 'vault_health_check(action?, paths?, verdicts?)',
+        description: 'Run structural health checks and suggest fixes. Use action refresh_incoming_links with explicit paths to rebuild incoming-links blocks for selected notes after scope approval and checkpoint.',
         whenToUse: 'To proactively maintain vault quality. Run periodically or when user asks about vault health.',
         commonMistakes: 'Running after every small change — best used on demand or at session start.',
     },
@@ -265,7 +265,7 @@ export const TOOL_METADATA: Record<string, ToolMeta> = {
         signature: 'compute_plaud_delta(plaud_files)',
         description: 'Given the Plaud list_files result, return which recordings are not yet imported. Dedup by the plaud id in each note\'s resource frontmatter, scanned vault-wide over the complete metadata index (no search cap, moved notes included). Deterministic, no LLM.',
         example: 'compute_plaud_delta([{id:"c61779...", name:"Meeting X", start_at:"2026-07-23T09:00:00", duration:7925000}, ...])',
-        whenToUse: 'The delta step of the plaud-import skill. duration arrives in MILLISECONDS. Use this instead of search_files: search_files is capped at 500 files / 50 hits and misses already-imported notes, which caused duplicates.',
+        whenToUse: 'The delta step of the plaud-import skill. duration arrives in MILLISECONDS. Use this instead of search_files: search_files has a time budget and a 50-hit limit, so its partial results cannot establish a complete import inventory.',
         commonMistakes: 'Passing only a folder subset of recordings — pass the full list_files array so the set difference is complete.',
     },
     build_meeting_note_from_sink: {
@@ -592,7 +592,7 @@ If ANY check fails, call create_xlsx again with corrections.`,
     evaluate_expression: {
         group: 'agent', label: 'Sandbox Code', icon: 'code-2',
         signature: 'evaluate_expression(expression, context?, dependencies?)',
-        description: 'Execute TypeScript in an isolated sandbox. Provides ctx.vault (read, readBinary, write, writeBinary, list) and ctx.requestUrl. For: batch operations across many files (5+), computations, data transforms, HTTP API calls, npm packages. NOT for: single-file edits (use read_file + edit_file/write_file instead) or binary file generation (DOCX, PPTX, XLSX, PDF).',
+        description: 'Execute TypeScript in an isolated sandbox. Supply an expression, or statement-style code with an explicit return (for example, const n = 2; return n * 3). Provides ctx.vault (read, readBinary, write, writeBinary, list) and ctx.requestUrl. For: batch operations across many files (5+), computations, data transforms, HTTP API calls, npm packages. NOT for: single-file edits (use read_file + edit_file/write_file instead) or binary file generation (DOCX, PPTX, XLSX, PDF).',
         example: 'evaluate_expression("const files = await ctx.vault.list(\'Projects/\'); let count = 0; for (const f of files) { const c = await ctx.vault.read(f); count += (c.match(/- \\\\[ \\\\]/g) || []).length; } return `${count} open tasks`")',
         whenToUse: 'ONLY when built-in tools cannot do the job: batch processing across 5+ files, computations, complex data transforms, HTTP requests, npm packages. NEVER for single-file operations — use read_file + edit_file/write_file instead.',
         commonMistakes: 'Using sandbox for single-file edits instead of read_file + edit_file/write_file. Using sandbox for PPTX/DOCX/XLSX — use create_pptx/create_docx/create_xlsx instead. Writing Python. Using require()/fetch()/Blob/Buffer (not available).',

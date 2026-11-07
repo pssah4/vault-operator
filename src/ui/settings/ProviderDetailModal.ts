@@ -30,6 +30,9 @@ import {
 } from '../../types/settings';
 import { purgeProviderLegacyState } from '../../core/security/providerLegacyPurge';
 import { GitHubCopilotAuthService } from '../../core/security/GitHubCopilotAuthService';
+import { GeminiOAuthService, type GeminiAuthFlow } from '../../core/auth/GeminiOAuthService';
+import { SafeStorageService } from '../../core/security/SafeStorageService';
+import { applyGeminiOAuthDraft, geminiOAuthDraftChanged, type GeminiOAuthDraft } from './geminiOAuthSettings';
 import { ChatGptOAuthService } from '../../core/auth/ChatGptOAuthService';
 import {
     CHATGPT_OAUTH_DEFAULT_TEST_MODEL,
@@ -52,7 +55,7 @@ const TIER_ORDER: ModelTier[] = ['fast', 'mid', 'flagship'];
 const CLOUD_PROVIDER_TYPES: ProviderType[] = [
     'anthropic', 'openai', 'gemini', 'openrouter', 'azure', 'bedrock',
 ];
-const OAUTH_PROVIDER_TYPES: ProviderType[] = ['github-copilot', 'chatgpt-oauth'];
+const OAUTH_PROVIDER_TYPES: ProviderType[] = ['github-copilot', 'chatgpt-oauth', 'gemini-oauth'];
 const LOCAL_PROVIDER_TYPES: ProviderType[] = ['ollama', 'lmstudio', 'custom'];
 const ALL_PROVIDER_TYPES: ProviderType[] = [
     ...CLOUD_PROVIDER_TYPES,
@@ -62,6 +65,10 @@ const ALL_PROVIDER_TYPES: ProviderType[] = [
 ];
 
 export class ProviderDetailModal extends Modal {
+    private geminiModalClosed = false;
+    private geminiDraft: GeminiOAuthDraft;
+    private geminiAuthFlow: GeminiAuthFlow | undefined;
+    private copilotEnterpriseDomainDraft: string | undefined;
     private isNew: boolean;
     private originalId: string | null;
 
@@ -127,6 +134,7 @@ export class ProviderDetailModal extends Modal {
         this.originalId = provider?.id ?? null;
         const seed = provider ?? this.defaultDraftProvider();
         this.formType = seed.type;
+        this.geminiDraft = { clientId: seed.geminiOAuthClientId ?? '', clientSecret: seed.geminiOAuthClientSecret ?? '', projectId: seed.geminiOAuthProjectId ?? '' };
         this.formDisplayName = seed.displayName ?? '';
         this.formEnabled = seed.enabled;
         this.formApiKey = seed.apiKey ?? '';
@@ -169,10 +177,14 @@ export class ProviderDetailModal extends Modal {
     }
 
     onOpen(): void {
+        this.geminiModalClosed = false;
         this.render();
     }
 
     onClose(): void {
+        this.geminiModalClosed = true;
+        this.geminiAuthFlow?.abort();
+        this.geminiAuthFlow = undefined;
         this.contentEl.empty();
     }
 
@@ -475,6 +487,10 @@ export class ProviderDetailModal extends Modal {
     // ── Save / Remove / Test ──────────────────────────────────────────
 
     private async handleSave(): Promise<void> {
+        if (this.formType === 'gemini-oauth' && this.geminiDraft.clientSecret && !new SafeStorageService().isAvailable()) {
+            new Notice(t('settings.providers.geminiOAuth.unsupported'));
+            return;
+        }
         const trimmedDisplayName = this.formDisplayName.trim() || getProviderBrandLabel(this.formType);
         const list = [...(this.plugin.settings.providerConfigs ?? [])];
         const credsChanged = this.isNew || this.hasUnsavedAuthChanges();
@@ -507,7 +523,7 @@ export class ProviderDetailModal extends Modal {
                 tierMapping: {},
                 tierOverrides: {},
             };
-            list.push(provider);
+            list.push(this.formType === 'gemini-oauth' ? applyGeminiOAuthDraft(provider, this.geminiDraft) : provider);
             this.plugin.settings.providerConfigs = list;
             if (this.plugin.settings.activeProviderId === null) {
                 this.plugin.settings.activeProviderId = id;
@@ -557,6 +573,21 @@ export class ProviderDetailModal extends Modal {
             // config by a field that changes nothing.
             promptCachingEnabled: this.formPromptCachingEnabled ? undefined : false,
         };
+        if (this.formType === 'gemini-oauth') {
+            if (geminiOAuthDraftChanged(list[idx], this.geminiDraft)) GeminiOAuthService.forProvider(this.originalId ?? undefined).cancel();
+            list[idx] = applyGeminiOAuthDraft(list[idx], this.geminiDraft);
+            this.discoveredModels = list[idx].discoveredModels;
+            this.lastRefreshAt = list[idx].lastRefreshAt;
+            this.tierMapping = { ...list[idx].tierMapping };
+            this.tierOverrides = { ...list[idx].tierOverrides };
+        } else if (list[idx].geminiOAuthRefreshToken || list[idx].geminiOAuthClientId) {
+            GeminiOAuthService.forProvider(this.originalId ?? undefined).cancel();
+            delete list[idx].geminiOAuthRefreshToken;
+            delete list[idx].geminiOAuthSessionId;
+            delete list[idx].geminiOAuthClientId;
+            delete list[idx].geminiOAuthClientSecret;
+            delete list[idx].geminiOAuthProjectId;
+        }
         this.plugin.settings.providerConfigs = list;
         await this.plugin.saveSettings();
         this.onAfterChange();
@@ -612,6 +643,7 @@ export class ProviderDetailModal extends Modal {
         const model: CustomModel = {
             name: modelId,
             provider: this.formType,
+            geminiOAuthProviderId: this.formType === 'gemini-oauth' ? this.originalId ?? undefined : undefined,
             displayName: this.formDisplayName || getProviderBrandLabel(this.formType),
             apiKey: this.formApiKey.trim() || undefined,
             baseUrl: this.formBaseUrl.trim() || undefined,
@@ -681,6 +713,7 @@ export class ProviderDetailModal extends Modal {
         // FIX-55-03: was the hardcoded 'gpt-5', an id the backend retired
         // (400s as "not supported"); the shared constant tracks the lineup.
         if (this.formType === 'chatgpt-oauth') return CHATGPT_OAUTH_DEFAULT_TEST_MODEL;
+        if (this.formType === 'gemini-oauth') return this.discoveredModels[0]?.id ?? '';
         // Provider-default placeholder for fresh drafts -- enough to ping the
         // /v1/models endpoint via testModelConnection which calls fetchProviderModels.
         return 'test-probe';
@@ -698,6 +731,7 @@ export class ProviderDetailModal extends Modal {
         if (!ok) return;
         const list = this.plugin.settings.providerConfigs ?? [];
         const removedType = this.formType;
+        if (removedType === 'gemini-oauth') GeminiOAuthService.forProvider(this.originalId ?? undefined).cancel();
         this.plugin.settings.providerConfigs = list.filter((p) => p.id !== this.originalId);
         if (this.plugin.settings.activeProviderId === this.originalId) {
             this.plugin.settings.activeProviderId = null;
@@ -817,6 +851,7 @@ export class ProviderDetailModal extends Modal {
     }
 
     private renderOAuthAuth(parent: HTMLElement): void {
+        if (this.formType === 'gemini-oauth') { this.renderGeminiOAuth(parent); return; }
         const isAuthed = (this.formType === 'github-copilot' && !!this.plugin.settings.githubCopilotAccessToken)
             || (this.formType === 'chatgpt-oauth' && !!this.plugin.settings.chatgptOAuthAccessToken);
         this.compactRow(parent, {
@@ -838,13 +873,26 @@ export class ProviderDetailModal extends Modal {
         });
         if (this.formType === 'github-copilot') {
             this.compactRow(parent, {
+                label: t('settings.providers.copilotEnterpriseDomain'),
+                desc: t('settings.providers.copilotEnterpriseDomainDesc'),
+                build: ctrl => {
+                    const input = this.compactInput(ctrl, {
+                        value: this.copilotEnterpriseDomainDraft ?? this.plugin.settings.githubCopilotEnterpriseDomain ?? '',
+                        onInput: value => { this.copilotEnterpriseDomainDraft = value; },
+                    });
+                    input.disabled = isAuthed;
+                },
+            });
+            this.compactRow(parent, {
                 label: t('settings.providers.copilotClientId'),
                 desc: t('settings.providers.copilotClientIdDesc'),
                 build: (ctrl) => this.compactInput(ctrl, {
                     value: this.plugin.settings.githubCopilotCustomClientId ?? '',
                     placeholder: t('settings.providers.copilotClientIdPlaceholder'),
                     onInput: (v) => { void (async () => {
-                        this.plugin.settings.githubCopilotCustomClientId = v.trim();
+                        const authService = GitHubCopilotAuthService.getInstance();
+                        authService.setCustomClientId(v.trim());
+                        authService.saveToSettings(this.plugin.settings);
                         await this.plugin.saveSettings();
                     })(); },
                 }),
@@ -853,11 +901,46 @@ export class ProviderDetailModal extends Modal {
         this.renderTestConnectionRow(parent);
     }
 
+    private renderGeminiOAuth(parent: HTMLElement): void {
+        parent.createDiv({ cls: 'mcm-hint', text: t('settings.providers.geminiOAuth.description') });
+        parent.createEl('a', { text: t('settings.providers.geminiOAuth.setup'), href: 'https://ai.google.dev/gemini-api/docs/oauth', attr: { target: '_blank', rel: 'noopener noreferrer' } });
+        for (const field of ['clientId', 'clientSecret', 'projectId'] as const) {
+            this.compactRow(parent, {
+                label: t(`settings.providers.geminiOAuth.${field}`),
+                build: ctrl => this.compactInput(ctrl, { type: field === 'clientSecret' ? 'password' : 'text', value: this.geminiDraft[field], onInput: value => { this.geminiDraft[field] = value; } }),
+            });
+        }
+        const signedIn = !!this.originalId && GeminiOAuthService.forProvider(this.originalId).isAuthenticated();
+        this.compactRow(parent, {
+            label: t('settings.providers.oauthStatus'),
+            desc: this.isNew ? t('settings.providers.geminiOAuth.saveFirst') : t(signedIn ? 'settings.providers.oauthAuthed' : 'settings.providers.oauthNotAuthed'),
+            build: ctrl => this.compactButton(ctrl, { text: t(signedIn ? 'settings.providers.oauthSignOut' : 'settings.providers.oauthSignIn'), onClick: btn => { void (signedIn ? this.handleOAuthSignOut() : this.handleOAuthSignIn(btn)); } }),
+        });
+        this.renderTestConnectionRow(parent);
+    }
+
+    private async runGeminiSignIn(btn: HTMLButtonElement): Promise<void> {
+        if (!this.originalId || this.hasUnsavedAuthChanges()) { new Notice(t('settings.providers.geminiOAuth.saveFirst')); return; }
+        const auth = GeminiOAuthService.forProvider(this.originalId);
+        const flow = await auth.startAuthFlow();
+        if (this.geminiModalClosed) { flow.abort(); return; }
+        this.geminiAuthFlow = flow;
+        try {
+            await this.openOAuthBrowser(flow.authorizeUrl, true);
+            btn.setText(t('settings.providers.oauthPolling'));
+            await flow.completion;
+            new Notice(t('settings.providers.oauthSignedIn'));
+            await this.maybeAutoRefresh(this.originalId, this.formDisplayName, true);
+        } finally { flow.abort(); if (this.geminiAuthFlow === flow) this.geminiAuthFlow = undefined; }
+    }
+
     private async handleOAuthSignIn(btn: HTMLButtonElement): Promise<void> {
         btn.disabled = true;
         const originalLabel = btn.getText();
         try {
-            if (this.formType === 'github-copilot') {
+            if (this.formType === 'gemini-oauth') {
+                await this.runGeminiSignIn(btn);
+            } else if (this.formType === 'github-copilot') {
                 await this.runCopilotSignIn(btn);
             } else if (this.formType === 'chatgpt-oauth') {
                 await this.runChatGptSignIn(btn);
@@ -876,6 +959,9 @@ export class ProviderDetailModal extends Modal {
 
     private async runCopilotSignIn(btn: HTMLButtonElement): Promise<void> {
         const authService = GitHubCopilotAuthService.getInstance();
+        await authService.setEnterpriseDomain(this.copilotEnterpriseDomainDraft ?? this.plugin.settings.githubCopilotEnterpriseDomain ?? '');
+        authService.saveToSettings(this.plugin.settings);
+        await this.plugin.saveSettings();
         btn.setText(t('settings.providers.oauthRequestingCode'));
         const flow = await authService.startDeviceFlow();
         new Notice(
@@ -899,24 +985,32 @@ export class ProviderDetailModal extends Modal {
         }
         btn.setText(t('settings.providers.oauthRequestingCode'));
         const flow = await auth.startAuthFlow();
+        await this.openOAuthBrowser(flow.authorizeUrl);
+        btn.setText(t('settings.providers.oauthPolling'));
+        await flow.completion;
+        new Notice(t('settings.providers.oauthSignedIn'));
+    }
+
+    private async openOAuthBrowser(url: string, requireSystem = false): Promise<void> {
         // Force the OS default browser. Obsidian's built-in webview breaks
         // federated logins (Microsoft SSO, Google Workspace); shell.openExternal
         // hands the URL to the OS so it opens in the user's default browser.
         // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron shell is only loadable via dynamic require in the renderer
         const electron = require('electron') as { shell?: { openExternal: (url: string) => Promise<void> } };
         if (electron.shell?.openExternal) {
-            await electron.shell.openExternal(flow.authorizeUrl);
+            await electron.shell.openExternal(url);
+        } else if (requireSystem) {
+            throw new Error(t('settings.providers.geminiOAuth.unsupported'));
         } else {
-            window.open(flow.authorizeUrl);
+            window.open(url);
         }
-        btn.setText(t('settings.providers.oauthPolling'));
-        await flow.completion;
-        new Notice(t('settings.providers.oauthSignedIn'));
     }
 
     private async handleOAuthSignOut(): Promise<void> {
         try {
-            if (this.formType === 'github-copilot') {
+            if (this.formType === 'gemini-oauth') {
+                await GeminiOAuthService.forProvider(this.originalId ?? undefined).logout();
+            } else if (this.formType === 'github-copilot') {
                 await GitHubCopilotAuthService.getInstance().logout();
             } else if (this.formType === 'chatgpt-oauth') {
                 await ChatGptOAuthService.getInstance().logout();
@@ -1092,6 +1186,7 @@ export class ProviderDetailModal extends Modal {
     private hasUnsavedAuthChanges(): boolean {
         const persisted = (this.plugin.settings.providerConfigs ?? []).find((p) => p.id === this.originalId);
         if (!persisted) return false;
+        if (this.formType === 'gemini-oauth') return persisted.type !== this.formType || geminiOAuthDraftChanged(persisted, this.geminiDraft);
         return (persisted.apiKey ?? '') !== this.formApiKey.trim()
             || (persisted.baseUrl ?? '') !== this.formBaseUrl.trim()
             || (persisted.apiVersion ?? '') !== this.formApiVersion.trim()
@@ -1104,6 +1199,7 @@ export class ProviderDetailModal extends Modal {
     }
 
     private hasAnyCredentials(): boolean {
+        if (this.formType === 'gemini-oauth') return !!this.originalId && GeminiOAuthService.forProvider(this.originalId).isAuthenticated();
         if (LOCAL_PROVIDER_TYPES.includes(this.formType)) {
             return !!this.formBaseUrl.trim();
         }

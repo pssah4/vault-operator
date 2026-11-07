@@ -155,20 +155,22 @@ Requirements: Obsidian 1.8.7 or newer, desktop only, Node.js 18+ for building.
 
 ## Network usage and local capabilities
 
-Vault Operator is local-first. No telemetry, no analytics, no accounts.
+Vault Operator is local-first. No telemetry, no analytics, and no Vault Operator account.
 
 The plugin makes network requests in four situations, all under your control:
 
-- **LLM API calls** to the provider you configured (Anthropic, OpenAI, Google, AWS Bedrock, OpenRouter, Azure, GitHub Copilot OAuth, ChatGPT OAuth, Kilo Gateway, Ollama, LM Studio, or any OpenAI-compatible endpoint).
+- **Model APIs and sign-in** for the provider you configured (Anthropic, OpenAI, Google, AWS Bedrock, OpenRouter, Azure, GitHub Copilot OAuth, ChatGPT OAuth, Kilo Gateway, Ollama, LM Studio, or any OpenAI-compatible endpoint).
 - **Web search** (optional, disabled by default) when you use the `web_search` tool, going to Brave or Tavily.
 - **MCP servers** you connected explicitly, plus the optional remote-MCP relay if you want cross-surface workflows with ChatGPT or Claude Desktop.
 - **The skill registry**, when you open it in Settings and press Load catalogue or Install. It reads `catalog.json` and the skill package from `raw.githubusercontent.com`. Nothing is fetched on startup, no account is involved, and the request carries no information about you or your vault. Downloads are verified against the checksum in the catalogue before anything is written.
+
+Gemini OAuth opens Google sign-in at `accounts.google.com`, exchanges tokens at `oauth2.googleapis.com`, and sends model requests to `generativelanguage.googleapis.com`. It uses your own Cloud Desktop client and project. Optional Ollama reranking sends the current query and bounded candidate passages to the server you explicitly configure; the existing local reranker remains the default.
 
 Skills installed from the registry are not privileged. They install as `Registry`, and the agent still asks for approval before one of them changes anything, exactly as it does for a skill you wrote. Only the skills that ship inside the plugin are trusted.
 
 The plugin also uses a few Node.js capabilities that go beyond the standard Obsidian API: filesystem access for the local knowledge database and the office document pipeline, shadow git for checkpoints, sandbox process spawning for `evaluate_expression`, and optional LibreOffice spawning for presentation rendering. Two paths write outside the vault: device-local state under `~/.obsidian-agent/` and the checkpoint shadow repository next to the vault folder. Everything else stays under the vault path or the plugin data directory. Commands are fixed binaries with structured arguments; the agent does not construct shell commands from chat text.
 
-API keys are encrypted via Electron's `safeStorage` (OS keychain on macOS, Credential Manager on Windows, libsecret on Linux). Where `safeStorage` is not available, keys fall back to plain plugin settings.
+API keys are encrypted via Electron's `safeStorage` (OS keychain on macOS, Credential Manager on Windows, libsecret on Linux). Where `safeStorage` is not available, API keys fall back to plain plugin settings. Gemini OAuth requires secure storage and refuses sign-in when the OS keychain is unavailable.
 
 ---
 

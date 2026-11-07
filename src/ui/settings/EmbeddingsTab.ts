@@ -1,3 +1,4 @@
+import { geminiOAuthChoices } from './geminiOAuthSettings';
 import { App, Modal, Notice, Setting, setIcon, ButtonComponent } from 'obsidian';
 import type ObsidianAgentPlugin from '../../main';
 import { FolderInputSuggest } from './FolderInputSuggest';
@@ -10,6 +11,8 @@ import type { SemanticIndexService } from '../../core/semantic/SemanticIndexServ
 import { scheduleRecurring } from '../../util/scheduleRecurring';
 import { renderSkipHintIfSkipped } from './skipHints';
 import { t } from '../../i18n';
+import { RerankerService } from '../../core/knowledge/RerankerService';
+import { OLLAMA_RERANKER_DEFAULT_MODEL, OLLAMA_RERANKER_DEFAULT_URL } from '../../core/knowledge/OllamaReranker';
 
 export class EmbeddingsTab {
     constructor(private plugin: ObsidianAgentPlugin, private app: App, private rerender: () => void) {}
@@ -69,7 +72,7 @@ export class EmbeddingsTab {
                 }
                 await this.plugin.saveSettings();
                 this.rerender();
-            })(); }, true /* forEmbedding */).open();
+            })(); }, true /* forEmbedding */, geminiOAuthChoices(this.plugin.settings.providerConfigs ?? [])).open();
         });
 
         // ── Semantic Index ────────────────────────────────────────────────────
@@ -763,6 +766,10 @@ export class EmbeddingsTab {
                 toggle.setValue(this.plugin.settings.enableReranking ?? true).onChange(async (v) => {
                     this.plugin.settings.enableReranking = v;
                     await this.plugin.saveSettings();
+                    if (!v) {
+                        this.plugin.rerankerService?.unload();
+                        this.plugin.rerankerService = null;
+                    }
                     if (v && !this.plugin.rerankerService) {
                         const { RerankerService } = await import('../../core/knowledge/RerankerService');
                         this.plugin.rerankerService = new RerankerService(this.plugin);
@@ -770,6 +777,8 @@ export class EmbeddingsTab {
                     }
                 }),
             );
+
+        this.buildOllamaRerankerSettings(containerEl);
 
         // Reranker model asset (Phase 2: optional download instead of inline)
         void this.renderRerankerAssetBlock(containerEl);
@@ -786,6 +795,67 @@ export class EmbeddingsTab {
                     }),
             );
 
+    }
+
+    private resetReranker(localAssetRemoved = false): void {
+        this.plugin.rerankerService?.unload();
+        const available = this.plugin.settings.enableReranking && (!localAssetRemoved || this.plugin.settings.rerankerBackend === 'ollama');
+        this.plugin.rerankerService = available ? new RerankerService(this.plugin) : null;
+        if (this.plugin.rerankerService) void this.plugin.rerankerService.loadModel();
+    }
+
+    private buildOllamaRerankerSettings(containerEl: HTMLElement): void {
+        const enabled = this.plugin.settings.rerankerBackend === 'ollama';
+        new Setting(containerEl)
+            .setName(t('settings.embeddings.ollamaReranker'))
+            .setDesc(t('settings.embeddings.ollamaRerankerDesc'))
+            .addToggle(toggle => toggle.setValue(enabled).onChange(async value => {
+                this.plugin.settings.rerankerBackend = value ? 'ollama' : 'local';
+                await this.plugin.saveSettings();
+                this.resetReranker();
+                this.rerender();
+            }));
+        if (!enabled) return;
+
+        new Setting(containerEl).setName(t('settings.embeddings.ollamaRerankerUrl'))
+            .addText(text => text.setPlaceholder(OLLAMA_RERANKER_DEFAULT_URL)
+                .setValue(this.plugin.settings.ollamaRerankerUrl || OLLAMA_RERANKER_DEFAULT_URL)
+                .onChange(async value => {
+                    this.plugin.settings.ollamaRerankerUrl = value.trim();
+                    await this.plugin.saveSettings();
+                    this.resetReranker();
+                }));
+        new Setting(containerEl).setName(t('settings.embeddings.ollamaRerankerModel'))
+            .addText(text => text.setPlaceholder(OLLAMA_RERANKER_DEFAULT_MODEL)
+                .setValue(this.plugin.settings.ollamaRerankerModel || OLLAMA_RERANKER_DEFAULT_MODEL)
+                .onChange(async value => {
+                    this.plugin.settings.ollamaRerankerModel = value.trim();
+                    await this.plugin.saveSettings();
+                    this.resetReranker();
+                }));
+        const probe = new Setting(containerEl).setName(t('settings.embeddings.ollamaRerankerTest'))
+            .setDesc(t('settings.embeddings.ollamaRerankerTestDesc'));
+        const status = probe.descEl.createDiv();
+        let testing = false;
+        probe.addButton(button => button.setButtonText(t('settings.embeddings.ollamaRerankerTest')).onClick(async () => {
+            if (testing) return;
+            testing = true;
+            button.setDisabled(true);
+            status.setText(t('settings.embeddings.ollamaRerankerTesting'));
+            try {
+                // The service owns cancellation on settings changes and plugin unload.
+                this.plugin.rerankerService ??= new RerankerService(this.plugin);
+                await this.plugin.rerankerService.testOllamaConnection();
+                status.setText(t('settings.embeddings.ollamaRerankerTestOk'));
+            } catch (error) {
+                status.setText(t('settings.embeddings.ollamaRerankerTestFailed', {
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                }));
+            } finally {
+                testing = false;
+                button.setDisabled(false);
+            }
+        }));
     }
 
     /**
@@ -848,9 +918,7 @@ export class EmbeddingsTab {
                         await manager.install(spec);
                         new Notice(t('notice.assets.installed', { label: spec.label }));
                         if (this.plugin.rerankerService) {
-                            const { RerankerService } = await import('../../core/knowledge/RerankerService');
-                            this.plugin.rerankerService = new RerankerService(this.plugin);
-                            void this.plugin.rerankerService.loadModel();
+                            this.resetReranker();
                         }
                     } catch (e) {
                         const msg = e instanceof Error ? e.message : String(e);
@@ -875,7 +943,7 @@ export class EmbeddingsTab {
                     try {
                         await manager.remove(spec);
                         new Notice(t('notice.assets.rerankerRemoved'));
-                        this.plugin.rerankerService = null;
+                        this.resetReranker(true);
                     } catch (e) {
                         const msg = e instanceof Error ? e.message : String(e);
                         new Notice(t('notice.assets.removeFailed', { error: msg }));
@@ -894,9 +962,7 @@ export class EmbeddingsTab {
                     const { pickAndInstallAsset } = await import('./installFromFile');
                     pickAndInstallAsset(manager, spec, async () => {
                         if (this.plugin.rerankerService) {
-                            const { RerankerService } = await import('../../core/knowledge/RerankerService');
-                            this.plugin.rerankerService = new RerankerService(this.plugin);
-                            void this.plugin.rerankerService.loadModel();
+                            this.resetReranker();
                         }
                         await renderStatus();
                     });
@@ -965,7 +1031,7 @@ export class EmbeddingsTab {
                 }
                 await this.plugin.saveSettings();
                 this.rerender();
-            })(); }, true /* forEmbedding */).open();
+            })(); }, true /* forEmbedding */, geminiOAuthChoices(this.plugin.settings.providerConfigs ?? [])).open();
         });
 
         const delBtn = actionsEl.createEl('button', { cls: 'mc-action-btn mc-action-del', attr: { title: t('settings.embeddings.removeModel') } });

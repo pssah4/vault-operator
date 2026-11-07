@@ -4,7 +4,6 @@ import type ObsidianAgentPlugin from '../../../main';
 import { safeRegexChecked } from '../../utils/regexSafetyProbe';
 
 const MAX_RESULTS = 50;
-const MAX_FILES_TO_SCAN = 500;
 /**
  * Absolute wall-clock budget for the synchronous scan (AUDIT 2026-07-14 Codex
  * M-6, defense-in-depth). safeRegex already rejects the known catastrophic
@@ -83,7 +82,7 @@ export class SearchFilesTool extends BaseTool<'search_files'> {
         try {
             // K-2 / S-02 + FIX-01-04-03: ReDoS-safe regex. safeRegexChecked
             // additionally MEASURES the pattern in a terminable worker (dynamic
-            // guard) before it runs synchronously over up to 500 files here, so
+            // guard) before it runs over the candidate files here, so
             // a catastrophic pattern the static blocklist misses is literalized
             // instead of freezing the renderer main thread.
             const regex = await safeRegexChecked(pattern, 'i');
@@ -97,16 +96,12 @@ export class SearchFilesTool extends BaseTool<'search_files'> {
             const ignoreService = this.plugin.ignoreService;
 
             // Get candidate files
-            let files = this.app.vault.getFiles().filter((f) => {
+            const files = this.app.vault.getFiles().filter((f) => {
                 if (ignoreService.isIgnored(f.path)) return false;
                 if (dirPath && !f.path.startsWith(dirPath + '/') && f.path !== dirPath) return false;
                 if (filePattern && !f.name.endsWith(filePattern)) return false;
                 return true;
             });
-
-            if (files.length > MAX_FILES_TO_SCAN) {
-                files = files.slice(0, MAX_FILES_TO_SCAN);
-            }
 
             const results: string[] = [];
             let totalMatches = 0;

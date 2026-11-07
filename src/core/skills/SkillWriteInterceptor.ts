@@ -17,9 +17,11 @@
  * adapter under the hood).
  */
 
+import type { DataAdapter } from 'obsidian';
+
 interface AdapterLike {
-    write: (path: string, content: string) => Promise<void>;
-    writeBinary?: (path: string, content: ArrayBuffer) => Promise<void>;
+    write: DataAdapter['write'];
+    writeBinary?: DataAdapter['writeBinary'];
     /**
      * FIX-31-01-02: used to tell an install from an edit. Optional, because
      * the contract predates it; without it the interceptor keeps its former
@@ -35,6 +37,9 @@ interface SnapshotServiceLike {
 export class SkillWriteInterceptor {
     private originalWrite: AdapterLike['write'] | null = null;
     private originalWriteBinary: AdapterLike['writeBinary'] | null = null;
+    private wrappedWrite: AdapterLike['write'] | null = null;
+    private wrappedWriteBinary: AdapterLike['writeBinary'] | null = null;
+    private deactivate: (() => void) | null = null;
     private lastSnapshotAt = new Map<string, number>();
     private installed = false;
 
@@ -51,27 +56,28 @@ export class SkillWriteInterceptor {
      */
     install(): void {
         if (this.installed) return;
-        // Wrap instead of .bind(): without strictBindCallApply bind()
-        // returns 'any' locally, while stricter checkers flag the
-        // compensating type assertion as unnecessary. The .call()
-        // wrapper stays typed under both configurations.
         const adapter = this.adapter;
         const rawWrite = adapter.write;
-        this.originalWrite = async (path, content) => { await rawWrite.call(adapter, path, content); };
-        if (typeof adapter.writeBinary === 'function') {
-            const rawWriteBinary = adapter.writeBinary;
-            this.originalWriteBinary = async (path, content) => { await rawWriteBinary.call(adapter, path, content); };
-        }
-
-        this.adapter.write = async (path: string, content: string): Promise<void> => {
-            await this.maybeSnapshot(path);
-            return this.originalWrite!(path, content);
+        const rawWriteBinary = adapter.writeBinary;
+        this.originalWrite = rawWrite;
+        this.originalWriteBinary = rawWriteBinary;
+        // Each installation owns its lifecycle. A later plugin may retain our
+        // wrapper even after unload, so it must become a transparent pass-through.
+        let active = true;
+        this.deactivate = () => { active = false; };
+        this.wrappedWrite = (...args) => {
+            // Ordinary notes must keep the adapter's arguments, receiver,
+            // invocation order and original promise (issue #80).
+            if (!active || !this.extractSkillName(args[0])) return rawWrite.apply(adapter, args) as Promise<void>;
+            return this.maybeSnapshot(args[0]).then(() => rawWrite.apply(adapter, args) as Promise<void>);
         };
-        if (this.originalWriteBinary) {
-            this.adapter.writeBinary = async (path: string, content: ArrayBuffer): Promise<void> => {
-                await this.maybeSnapshot(path);
-                return this.originalWriteBinary!(path, content);
+        adapter.write = this.wrappedWrite;
+        if (rawWriteBinary) {
+            this.wrappedWriteBinary = (...args) => {
+                if (!active || !this.extractSkillName(args[0])) return rawWriteBinary.apply(adapter, args) as Promise<void>;
+                return this.maybeSnapshot(args[0]).then(() => rawWriteBinary.apply(adapter, args) as Promise<void>);
             };
+            adapter.writeBinary = this.wrappedWriteBinary;
         }
         this.installed = true;
     }
@@ -82,14 +88,18 @@ export class SkillWriteInterceptor {
      */
     uninstall(): void {
         if (!this.installed) return;
-        if (this.originalWrite) {
+        this.deactivate?.();
+        if (this.originalWrite && this.adapter.write === this.wrappedWrite) {
             this.adapter.write = this.originalWrite;
-            this.originalWrite = null;
         }
-        if (this.originalWriteBinary) {
+        if (this.originalWriteBinary && this.adapter.writeBinary === this.wrappedWriteBinary) {
             this.adapter.writeBinary = this.originalWriteBinary;
-            this.originalWriteBinary = null;
         }
+        this.originalWrite = null;
+        this.originalWriteBinary = null;
+        this.wrappedWrite = null;
+        this.wrappedWriteBinary = null;
+        this.deactivate = null;
         this.lastSnapshotAt.clear();
         this.installed = false;
     }

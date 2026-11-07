@@ -1,11 +1,11 @@
 ---
 title: Provider Auth
-description: How Vault Operator connects to 12 AI providers through a single interface, with encrypted credential storage and provider-only setup.
+description: How Vault Operator connects to AI providers through a single interface, with encrypted credential storage and provider-only setup.
 ---
 
 # Provider auth
 
-Vault Operator supports 12 providers: Anthropic, OpenAI, Google Gemini, AWS Bedrock, OpenRouter, Azure, GitHub Copilot, ChatGPT (OAuth), Kilo Gateway, Ollama, LM Studio, and custom OpenAI-compatible endpoints. Each provider authenticates differently, but the agent talks to a single `ApiHandler` interface.
+Vault Operator supports these providers: Anthropic, OpenAI, Google Gemini (API key or OAuth), AWS Bedrock, OpenRouter, Azure, GitHub Copilot, ChatGPT (OAuth), Kilo Gateway, Ollama, LM Studio, and custom OpenAI-compatible endpoints. Each provider authenticates differently, but the agent talks to a single `ApiHandler` interface.
 
 Since v2.11 the setup is provider-only: you configure a provider once, click **Refresh**, and the plugin discovers the available models and classifies them into three tiers (Budget / Main / Frontier) via `ModelTierClassifier`. The settings shape is `providerConfigs[]` (one row per provider with the discovered models attached), not the older `activeModels[]` (one row per model). See [Advisor pattern](./advisor-pattern) for how the tiers feed into the chat loop.
 
@@ -20,18 +20,53 @@ flowchart LR
     P --> GH[GitHubCopilotProvider]
     P --> KG[KiloGatewayProvider]
     P --> CX[ChatGptOAuthProvider]
+    P --> GO[GeminiOAuthProvider]
     P --> OP[OpenAiProvider]
 ```
 
-The `buildApiHandler` factory (`src/api/index.ts`) takes a provider configuration and returns the right implementation. Anthropic, AWS Bedrock, GitHub Copilot, Kilo Gateway, and ChatGPT-OAuth each have dedicated classes because their auth flows or wire formats are non-standard. Everything else (OpenAI, Google Gemini, Azure, OpenRouter, Ollama, LM Studio, custom endpoints) goes through `OpenAiProvider`, since they all speak the OpenAI API format.
+The `buildApiHandler` factory (`src/api/index.ts`) takes a provider configuration and returns the right implementation. Anthropic, AWS Bedrock, GitHub Copilot, Kilo Gateway, ChatGPT-OAuth, and Gemini OAuth each have dedicated classes for their authentication or native wire formats. OpenAI, Google Gemini with an API key, Azure, OpenRouter, Ollama, LM Studio, and custom endpoints go through `OpenAiProvider`, since they speak the OpenAI API format.
 
 The factory uses an exhaustive switch. Add a new provider type to the union and TypeScript forces you to handle it.
 
 ## Standard auth
 
-Most providers use API key authentication. You paste your key in settings, and every request includes it as a Bearer token. The OpenAI-compatible providers (Ollama, LM Studio, OpenRouter, Azure, custom) all work this way, with minor variations in base URL and header format.
+Most providers accept an API key stored in settings. Each adapter sends it using the authentication headers required by that provider. Base URLs and header formats vary between providers.
 
-Ollama and LM Studio are local providers that run on your machine and don't need an API key. The `OpenAiProvider` makes the key optional when the base URL points to localhost. All HTTP requests go through Obsidian's `requestUrl` API rather than native `fetch`, which keeps the plugin compliant with Obsidian's review requirements.
+Ollama and LM Studio are local providers that run on your machine and don't need an API key. The `OpenAiProvider` makes the key optional when the base URL points to localhost. Provider adapters use Obsidian's `requestUrl` for suitable non-streaming calls and the existing Node HTTP transport for streaming and cancellable requests.
+
+## Google Gemini authentication
+
+**Google Gemini** keeps the existing API-key setup. **Google Gemini (OAuth)**
+adds a separate connection using your own Google Cloud project and Desktop
+OAuth client. API quota and billing belong to that project; this connection
+does not provide Gemini app or CLI subscription quota.
+
+1. Follow Google's [OAuth setup](https://ai.google.dev/gemini-api/docs/oauth):
+   enable the Generative Language API, configure consent and create a
+   **Desktop app** client. A testing project must include your Google account
+   among its test users.
+2. Add **Google Gemini (OAuth)** under Providers. Enter the desktop client ID,
+   its client secret if supplied, and the Google Cloud project ID for quota.
+   Save the provider, then click **Sign in**.
+3. Complete consent in your system browser. Obsidian receives the result over
+   a temporary loopback callback and refreshes the model list. Choose your
+   tiers and use **Test connection**.
+4. For embeddings, add a model in Embeddings, choose **Google Gemini (OAuth)**,
+   select the signed-in provider, fetch its embedding models and test one.
+
+Desktop Obsidian and an available system keychain are required. The client
+secret and refresh token use the existing encrypted provider storage; the
+access token remains in memory. Closing the setup modal cancels an unfinished
+login. Changing the client or quota project clears the old authorization and
+model catalog. Signing out removes the local refresh token; Google account
+permissions can also be revoked from your Google account.
+
+OAuth inference uses the native Gemini REST API for streaming, tool calls,
+images and embeddings. It preserves model- and account-scoped thought
+signatures across tool rounds. Existing API-key connections retain their
+OpenAI-compatible transport. Neither path imports Gemini CLI credentials.
+See the [Google desktop OAuth protocol](https://developers.google.com/identity/protocols/oauth2/native-app)
+for client and consent requirements.
 
 ## GitHub Copilot: three-stage token chain
 
@@ -45,7 +80,9 @@ Third, the Copilot token. The access token is exchanged for a Copilot-specific t
 
 A custom fetch wrapper (`getCopilotFetch()`) is injected into the OpenAI SDK for streaming chat completions because the SDK's built-in fetch doesn't handle Copilot's token format. The wrapper also handles token expiry: if a request fails with a 401, it triggers a refresh and retries.
 
-You can provide a custom GitHub OAuth client ID in settings for enterprise GitHub instances. The default client ID targets github.com.
+For **GitHub Enterprise Cloud**, set **GitHub Enterprise Cloud host** to your tenant, for example `your-company.ghe.com`, before signing in. Both the provider dialog and model onboarding offer this field. Leave it empty for github.com. Sign out before changing hosts; credentials and discovered model metadata belong to one account at a time. A custom OAuth client ID can be supplied separately.
+
+Vault Operator uses the API address returned with the Copilot token for both model discovery and inference. It persists that address across restarts and checks it before attaching a token. Existing github.com accounts continue to work. Self-hosted GitHub Enterprise Server is not a Copilot authentication host; sign in through the github.com or GHE.com account that holds your Copilot subscription. See [GitHub's Enterprise Server guidance](https://docs.github.com/en/enterprise-server@3.22/copilot/copilot-on-ghes/about-copilot-on-ghes).
 
 ## ChatGPT (OAuth): PKCE loopback flow
 

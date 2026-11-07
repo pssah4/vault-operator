@@ -2446,23 +2446,24 @@ export class AgentTask {
                 errorMessage: err.message,
             });
 
-            // Network errors (e.g. "Failed to fetch") get a friendlier message
-            const isNetworkError = err instanceof TypeError
-                && /failed to fetch|network|econnrefused/i.test(err.message);
-            if (isNetworkError) {
-                console.warn('[AgentTask] Network error:', err.message);
-                this.taskCallbacks.onError(new Error(
-                    'Connection to the API failed. Check your network and API key, then try again.',
-                ));
-            } else {
-                console.error('[AgentTask] Task failed:', err);
-                loopState.phase = 'failed';
-            this.taskCallbacks.onError(err);
-            }
-            // Thrown error (parse failure, circuit-breaker trip from
-            // consecutive tool errors, API/network failure after retries)
-            // is negative evidence for the episode grading.
+            // Persist before onError: the UI offers recovery immediately, including
+            // failures before the first successful provider turn. Network failures
+            // must take the same failed-state path as every other provider error.
+            loopState.phase = 'failed';
             loopState.turnOutcome = 'abandon';
+            if (this.inflightStore) {
+                await this.inflightStore.saveSnapshot({
+                    taskId,
+                    conversationId: conversationId ?? '',
+                    mode: activeMode.slug,
+                    savedAt: Date.now(),
+                    state: cloneLoopState(loopState),
+                    history: JSON.parse(JSON.stringify(history)) as typeof history,
+                });
+                await this.inflightStore.flushNow();
+            }
+            console.error('[AgentTask] Task failed:', err);
+            this.taskCallbacks.onError(err);
             return;  // Error — exit the emergency retry loop
         }
         } // while (true) — emergency condensing retry loop

@@ -8,6 +8,10 @@ requiredTools: [evaluate_expression]
 
 # Sandbox Environment Reference
 
+## Returning a result
+
+`evaluate_expression` accepts an expression such as `2 + 2`, or statement-style code with an explicit `return`, such as `const total = 2 + 2; return total`. A declaration alone (`const total = 2 + 2`) is not an expression. A successful branch that never returns a value produces an `undefined` result with a hint to add `return`.
+
 ## Available APIs
 
 ### ctx.vault

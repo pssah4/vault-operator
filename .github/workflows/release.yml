@@ -136,7 +136,7 @@ jobs:
             - `plugin-source.json` -- self-development source bundle (~5 MB)
             - `office-bundle.js` -- exceljs + docx + pptxgenjs (~1.7 MB)
             - `pdfjs-bundle.js` -- pdfjs-dist + worker (~1.6 MB)
-            - `locale-<code>.json` -- UI language packs (de, zh, zh-tw, ja, ko, es, fr, ru; ~0.2 MB each)
+            - `locale-<code>.json` -- UI language packs (de, zh, zh-tw, ja, ko, es, fr, ru, it; ~0.2 MB each)
 
             They are NOT part of the plugin's main release tag so the
             Obsidian plugin installer never sees them. SHA-256 hashes are

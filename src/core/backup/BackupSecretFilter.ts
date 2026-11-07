@@ -57,6 +57,10 @@ const KNOWN_SECRET_KEYS: ReadonlySet<string> = new Set([
     // the chatgpt* fields carry the ChatGPT-OAuth tuple (ADR-088/089).
     'gatewayHeaderValue',
     'oauthToken',
+    // FEAT-04-14: both live settings and encrypted on-disk backups carry
+    // these per-provider credentials. Neither belongs in a secret-free export.
+    'geminiOAuthClientSecret',
+    'geminiOAuthRefreshToken',
     'chatgptOAuthAccessToken',
     'chatgptOAuthRefreshToken',
     'chatgptOAuthIdToken',

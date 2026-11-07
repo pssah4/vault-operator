@@ -136,6 +136,7 @@ export function providerConfigToCustomModel(
     return {
         name: modelId,
         provider: provider.type,
+        ...(provider.type === 'gemini-oauth' ? { geminiOAuthProviderId: provider.id } : {}),
         displayName: discovered?.displayName ?? modelId,
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl,

@@ -151,7 +151,7 @@ export async function handleSearchVault(
         // against the chunk that actually matched, not the opener lede used
         // for display.
         const reranker = plugin.rerankerService;
-        if (reranker?.isLoaded && plugin.settings.enableReranking && results.length > 1) {
+        if (reranker && (reranker.isAvailable ?? reranker.isLoaded) && plugin.settings.enableReranking && results.length > 1) {
             try {
                 const toRerank = results.slice(0, plugin.settings.rerankCandidates ?? 20);
                 const reranked = await reranker.rerank(

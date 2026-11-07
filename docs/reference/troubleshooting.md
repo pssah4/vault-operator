@@ -54,7 +54,7 @@ Symptom: The agent keeps calling tools repeatedly without making progress, or hi
 | Consecutive error limit too high | Lower it in Settings > Vault Operator > Agents > Loop > Consecutive error limit (default: 3). |
 | Max iterations too high | Set a reasonable cap in Settings > Vault Operator > Agents > Loop > Max iterations (default: 25). |
 | Approval pending | The agent paused on an approval and is waiting for you. Approve or deny in the chat to let it continue. |
-| Context overflow | Enable **context condensing** in Settings > Vault Operator > Agents > Loop. Lower the condensing threshold if you see 400-errors. |
+| Context overflow | Enable **Auto-summarise long chats** in Settings > Vault Operator > Agents > Loop. Lower **Trigger threshold** if you see 400-errors. |
 
 :::info Emergency stop
 Click the **Stop** button in the chat toolbar at any time to halt the agent. You can undo any changes already made via the checkpoint system.
@@ -128,10 +128,14 @@ Symptom: A 400 error with `context_length_exceeded`, `prompt is too long`, or th
 
 | Cause | Solution |
 |-------|----------|
-| Conversation too long for the model's context window | Enable **Context condensing** in Settings > Vault Operator > Agents > Loop. The plugin keeps a stable cache-aligned prefix and condenses older turns. |
-| Threshold set too high | Lower **Condensing threshold** to 0.6 or 0.7. The plugin also runs an emergency condensing pass on any 400 context-overflow error. |
+| Conversation too long for the model's context window | Enable **Auto-summarise long chats** in Settings > Vault Operator > Agents > Loop. The plugin keeps a stable cache-aligned prefix and condenses older turns. |
+| Threshold set too high | Lower **Trigger threshold** to 60 or 70 percent. The plugin also runs an emergency condensing pass on any 400 context-overflow error. |
 | Very large @-mention attached to the chat | Plaintext, Markdown, and XML attachments are capped at 80,000 characters with a `read_file path=...` hint. Older builds injected the full text. Update the plugin, or split the source into smaller notes. |
 | Long tool output filling the context | Enable **Context externalization** in Settings > Vault Operator > Agents > Loop. Large tool outputs are written to a temp file and the conversation keeps a compact reference (`read_file path=...`) instead of the full payload. |
+
+The controls are in **Settings > Vault Operator > Agents > Loop > Auto-summarise**. Older documentation called them “Context condensing” and “Condensing threshold”; their current labels are **Auto-summarise long chats** and **Trigger threshold**. The threshold appears when auto-summarising is enabled and accepts percentages from 50 to 95.
+
+A bare `400` with no response body does not establish that the context window overflowed. If it also happens in a new, short chat, check the provider and model connection and copy the error details from the developer console. Model access, an unsupported request parameter, or a gateway can also produce a 400.
 
 ## Inline AI chat
 

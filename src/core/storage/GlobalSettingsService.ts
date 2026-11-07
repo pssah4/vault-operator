@@ -18,6 +18,7 @@ import type { ObsidianAgentSettings } from '../../types/settings';
 import type { SafeStorageService } from '../security/SafeStorageService';
 import {
     encryptProviderCredentialsInPlace,
+    encryptGeminiOAuthCredentialsInPlace,
     decryptProviderCredentialsInPlace,
 } from '../security/providerCredentialCrypto';
 import {
@@ -301,6 +302,7 @@ export class GlobalSettingsService {
         const copy = (typeof structuredClone === 'function'
             ? structuredClone(settings)
             : JSON.parse(JSON.stringify(settings))) as Record<string, unknown>;
+        encryptGeminiOAuthCredentialsInPlace(copy as unknown as ObsidianAgentSettings, this.safeStorage);
         if (!this.safeStorage.isAvailable()) {
             copy._encrypted = false;
             return copy;

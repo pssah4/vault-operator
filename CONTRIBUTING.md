@@ -1,6 +1,6 @@
 # Contributing to Vault Operator
 
-Thanks for taking the time to help improve Vault Operator. The fastest way to contribute today is to file high-quality issues on GitHub. Pull requests are welcome but not required, and most fixes start from a good bug report.
+Thanks for taking the time to help improve Vault Operator. The fastest way to contribute today is to file high-quality issues on GitHub. Development happens in a private repository, and this public repository receives published snapshots. Please open an issue with your proposed change, a fork branch, or a patch; the maintainer can apply it to the development tree. Public pull requests are not the contribution path.
 
 All issues live in the public repository:
 
@@ -92,8 +92,14 @@ Do not file security issues as public GitHub issues. See [SECURITY.md](SECURITY.
 
 ## Code contributions
 
-Pull requests are welcome. Before sending a PR, please open an issue first so we can agree on scope and approach. Vault Operator follows the Obsidian Community Plugin review rules strictly, so PRs that introduce `console.log`, `fetch`, `innerHTML`, `any`, or other forbidden patterns will not be merged. See [REVIEWER_NOTES.md](REVIEWER_NOTES.md) for the full list.
+Open an issue first so we can agree on scope and approach. For code or translations, link your public fork or branch, or attach a patch to that issue. Development and integration happen in the private development repository; the maintainer transfers accepted contributions into the public release. Contributions must follow the Obsidian Community Plugin review rules, including the restrictions on `console.log`, `fetch`, `innerHTML` and `any`. See [REVIEWER_NOTES.md](REVIEWER_NOTES.md) for the full list.
 
 ## Thank you
 
 Every well-prepared bug report saves hours of debugging. Thanks for helping make Vault Operator better.
+
+## Translation contributions
+
+The Italian language pack was contributed by [ivseb](https://github.com/ivseb) in [issue #78](https://github.com/pssah4/vault-operator/issues/78), from [commit b53c50e](https://github.com/ivseb/vault-operator/commit/b53c50e34bfdeaab5e0ee8341a3d809810b42ab5). We preserved its glossary and added translations for keys introduced since that contribution. Like this repository, the contribution is licensed under Apache-2.0.
+
+On a fresh development checkout, run `npm run build` before `npm run typecheck`: the build creates the ignored `src/_generated/` modules required by the type checker.

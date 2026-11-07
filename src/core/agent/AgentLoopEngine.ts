@@ -364,7 +364,7 @@ export class AgentLoopEngine {
             if (ports.consecutiveMistakeLimit > 0 && state.consecutiveMistakes >= ports.consecutiveMistakeLimit) {
                 throw new Error(
                     `Agent stopped after ${state.consecutiveMistakes} consecutive errors. ` +
-                    `Check the tool results above or raise the limit in Settings → Advanced.`,
+                    `Check the tool results above or adjust Error limit in Settings → Agents → Loop.`,
                 );
             }
 

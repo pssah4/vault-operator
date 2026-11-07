@@ -11,7 +11,7 @@
  */
 
 /** ort-wasm-simd-threaded.wasm from onnxruntime-web (pinned). */
-export const RERANKER_WASM_SHA256 = 'f4f290847a4df02d0b93cdbf39b4b0e71acefbe80573e7e6b9342a7abd7b290a';
+export const RERANKER_WASM_SHA256 = '06ba057753da3847e4c24f02d91ab133455b0817c69a44993a9a53a2146df9e3';
 
 // SELF_DEV_SOURCE_SHA256 lives in src/_generated/source-hash.ts,
 // regenerated on every build by generateSourceBundle().

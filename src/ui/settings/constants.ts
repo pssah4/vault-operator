@@ -13,6 +13,7 @@ const BRAND_LABELS: Record<string, string> = {
     anthropic:        'Anthropic',
     openai:           'OpenAI',
     gemini:           'Google Gemini',
+    'gemini-oauth':   'Google Gemini (OAuth)',
     ollama:           'Ollama',
     lmstudio:         'LM Studio',
     openrouter:       'OpenRouter',
@@ -36,6 +37,7 @@ const PROVIDER_COLORS: Record<string, string> = {
     azure: '#0078d4',
     custom: '#78909c',
     gemini: '#4285f4',
+    'gemini-oauth': '#4285f4',
     'github-copilot': '#6e40c9',
     'kilo-gateway':   '#ff6200',
     bedrock:          '#ff9900',
@@ -142,7 +144,7 @@ const MODEL_SUGGESTIONS: Record<string, { group: string; id: string; label: stri
 // Providers that support embedding APIs (Anthropic has none)
 // Note: github-copilot excluded — Copilot API does not support /embeddings endpoint (FEATURE-1204 open question)
 // Note: kilo-gateway excluded — embedding contract not yet verified (ADR-043, FEATURE-1306)
-const EMBEDDING_PROVIDERS: ProviderType[] = ['openai', 'openrouter', 'azure', 'ollama', 'lmstudio', 'custom'];
+const EMBEDDING_PROVIDERS: ProviderType[] = ['gemini-oauth', 'openai', 'openrouter', 'azure', 'ollama', 'lmstudio', 'custom'];
 
 // Embedding model suggestions per provider (exact API IDs)
 const EMBEDDING_SUGGESTIONS: Record<string, { group: string; id: string; label: string }[]> = {

@@ -54,7 +54,7 @@ export class ImplicitConnectionService {
 
     /**
      * Compute all implicit connections between vault notes.
-     * Background-safe: yields to UI thread every 1000 pairs.
+     * Background-safe: yields after an 8 ms slice or at most 1000 pairs.
      *
      * @param threshold - Minimum cosine similarity to store (default 0.7)
      */
@@ -98,6 +98,7 @@ export class ImplicitConnectionService {
             // M-2: Timeout to prevent UI freezing on large vaults
             const MAX_COMPUTATION_MS = 60_000; // 60s max
             const computeStart = Date.now();
+            let sliceStart = computeStart;
 
             for (let i = 0; i < n && !this.cancelled; i++) {
                 const vecA = noteVecs.get(paths[i])!;
@@ -117,19 +118,24 @@ export class ImplicitConnectionService {
                         }
                     }
 
-                    // Yield every 1000 pairs + check timeout + DB still open
-                    if (computed % 1000 === 0) {
+                    // A thousand 4096-dimensional pairs can block the renderer
+                    // much longer than small vectors. Check time in small groups,
+                    // retaining the pair cap for cheap comparisons (#84).
+                    if (computed % 32 === 0 || computed % 1000 === 0) {
+                        const nowMs = Date.now();
+                        if (nowMs - sliceStart < 8 && computed % 1000 !== 0) continue;
                         if (!this.knowledgeDB.isOpen()) {
                             console.debug('[ImplicitConnections] DB closed during computation, aborting');
                             this.cancelled = true;
                             break;
                         }
-                        if (Date.now() - computeStart > MAX_COMPUTATION_MS) {
+                        if (nowMs - computeStart > MAX_COMPUTATION_MS) {
                             console.warn(`[ImplicitConnections] Timeout after ${computed} pairs (${MAX_COMPUTATION_MS}ms)`);
                             this.cancelled = true;
                             break;
                         }
                         await new Promise<void>(r => window.setTimeout(r, 0));
+                        sliceStart = Date.now();
                     }
                 }
             }

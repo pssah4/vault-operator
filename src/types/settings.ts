@@ -15,9 +15,11 @@ import {
 // Adapted from Obsidian Copilot's CustomModel pattern
 // ---------------------------------------------------------------------------
 
-export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway' | 'bedrock' | 'chatgpt-oauth';
+export type ProviderType = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter' | 'azure' | 'custom' | 'github-copilot' | 'kilo-gateway' | 'bedrock' | 'chatgpt-oauth' | 'gemini-oauth';
 
 export interface CustomModel {
+    /** FEAT-04-14: OAuth credentials stay on this provider instance. */
+    geminiOAuthProviderId?: string;
     /** Model identifier used in API calls (e.g. "claude-sonnet-4-5-20250929") */
     name: string;
     /** LLM provider */
@@ -100,6 +102,7 @@ const PROVIDER_BRAND_LABELS: Record<ProviderType, string> = {
     anthropic:        'Anthropic',
     openai:           'OpenAI',
     gemini:           'Google Gemini',
+    'gemini-oauth':   'Google Gemini (OAuth)',
     ollama:           'Ollama',
     lmstudio:         'LM Studio',
     openrouter:       'OpenRouter',
@@ -299,6 +302,9 @@ export const BUILT_IN_MODELS: CustomModel[] = [
 // ---------------------------------------------------------------------------
 
 export interface LLMProvider {
+    geminiOAuthProviderId?: string;
+    /** Non-secret sign-in generation, scopes opaque Gemini continuation. */
+    geminiOAuthSessionId?: string;
     type: ProviderType;
     apiKey?: string;
     /** For openrouter: pre-set to https://openrouter.ai/api/v1; for ollama: http://localhost:11434 */
@@ -344,6 +350,7 @@ export interface LLMProvider {
 export function modelToLLMProvider(model: CustomModel): LLMProvider {
     return {
         type: model.provider,
+        geminiOAuthProviderId: model.geminiOAuthProviderId,
         model: model.name,
         apiKey: model.apiKey,
         baseUrl: model.baseUrl,
@@ -849,6 +856,12 @@ export interface ProviderConfig {
     gatewayHeaderValue?: string;
     /** FEAT-26-07: enterprise gateway opt-in for non-AWS providers. */
     useGateway?: boolean;
+    /** FEAT-04-14: user-owned Google Desktop OAuth client; secrets encrypted at rest. */
+    geminiOAuthClientId?: string;
+    geminiOAuthClientSecret?: string;
+    geminiOAuthProjectId?: string;
+    geminiOAuthRefreshToken?: string;
+    geminiOAuthSessionId?: string;
     /** Auth: OAuth bearer token (chatgpt-oauth, github-copilot). */
     oauthToken?: string;
 
@@ -1113,6 +1126,10 @@ export interface ObsidianAgentSettings {
     enableReranking: boolean;
     /** Number of candidates to rerank (more = better quality but slower). */
     rerankCandidates: number;
+    /** Optional explicit Ollama-Qwen reranking; absent retains the local WASM backend. */
+    rerankerBackend?: 'local' | 'ollama';
+    ollamaRerankerUrl?: string;
+    ollamaRerankerModel?: string;
 
     // MCP Server (EPIC-014)
     /**
@@ -1200,6 +1217,11 @@ export interface ObsidianAgentSettings {
 
     // UI
     autoAddActiveFileContext: boolean;
+    /**
+     * IMP-03-03-01 (#94): expand `![[embeds]]` of attached and active notes into
+     * read-only copies the model can read. Off = the literal Markdown, as before.
+     */
+    resolveEmbedsInAttachments: boolean;
     /** Press Enter to send (Shift+Enter for newline). When false, Ctrl/Cmd+Enter sends. */
     sendWithEnter: boolean;
     /**
@@ -1376,6 +1398,10 @@ export interface ObsidianAgentSettings {
     githubCopilotTokenExpiresAt: number;
     /** Custom OAuth Client ID — escape hatch if the default stops working */
     githubCopilotCustomClientId: string;
+    /** Optional Enterprise Cloud tenant; empty uses github.com. */
+    githubCopilotEnterpriseDomain?: string;
+    /** Validated API base returned by token discovery; persisted across restarts. */
+    githubCopilotApiBase?: string;
     /**
      * FIX-45-03-01: modelId -> what the last Copilot model list reported, e.g.
      * { 'gpt-5.6-sol': { endpoints: ['/responses'], contextWindow: 1000000 } }.
@@ -1672,6 +1698,10 @@ export interface VaultIngestSettings {
          * hartkodiert Threshold 1 (siehe hubTypeThreshold.ts, FIX-19-09-01).
          */
         threshold: number;
+        /** Zero or absent keeps every generated reverse link. */
+        maxRows?: number;
+        /** Explicit vault-relative folder prefixes excluded from this block only. */
+        archiveFolders?: string[];
     };
     /**
      * FEAT-19-19: Stufe-2 Activity-Trigger.
@@ -2265,6 +2295,7 @@ export const DEFAULT_SETTINGS: ObsidianAgentSettings = {
     chatHistoryFolder: '',
 
     autoAddActiveFileContext: true,
+    resolveEmbedsInAttachments: false, // IMP-03-03-01 (#94): opt-in, the model gets the literal Markdown by default
     sendWithEnter: true,
     lastChatModelByProvider: {},
     persistChatModel: true,

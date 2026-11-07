@@ -5,6 +5,8 @@ import type ObsidianAgentPlugin from '../../main';
 import { t } from '../../i18n';
 import { parseDocument } from '../../core/document-parsers/parseDocument';
 import { defangBoundaryTags } from '../../core/tools/BaseTool';
+import { resolveEmbeds } from '../../core/context/resolveEmbeds';
+import { makeEmbedDeps } from '../../core/context/obsidianEmbedDeps';
 import {
     BINARY_DOCUMENT_EXTENSIONS,
     MAX_FILE_SIZE,
@@ -304,7 +306,12 @@ export class AttachmentHandler {
                 // Text file — read as text. Large source files (a long note, an XML
                 // dump) would otherwise be injected in full and dominate the context
                 // window; cap it and point the model at read_file for the rest.
-                const content = await this.vault.read(file);
+                const raw = await this.vault.read(file);
+                // IMP-03-03-01 (Issue #94): opt-in, default off. A resolver failure
+                // must never stop the note from being attached.
+                const content = ext === 'md' && this.plugin.settings?.resolveEmbedsInAttachments
+                    ? await resolveEmbeds(raw, file.path, makeEmbedDeps(this.plugin)).catch(() => raw)
+                    : raw;
                 const contextText = this.truncateTextFileForContext(content, file.path);
                 this.pending.push({
                     name: file.path,

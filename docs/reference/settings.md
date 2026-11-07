@@ -193,8 +193,8 @@ Control how the agent loop runs.
 | Consecutive error limit | How many consecutive tool errors before the agent stops | 3 | `settings.advancedApi.consecutiveMistakeLimit` |
 | Rate limit | Minimum milliseconds between API calls | 0 | `settings.advancedApi.rateLimitMs` |
 | Max iterations | Maximum tool calls per conversation turn | 25 | `settings.advancedApi.maxIterations` |
-| Context condensing | Summarize older messages when context gets long | On | `settings.advancedApi.condensingEnabled` |
-| Condensing threshold | Percentage of context window before condensing triggers | 80 | `settings.advancedApi.condensingThreshold` |
+| Auto-summarise long chats | Summarize older messages when context gets long | On | `settings.advancedApi.condensingEnabled` |
+| Trigger threshold | Percentage of context window before condensing triggers | 80 | `settings.advancedApi.condensingThreshold` |
 | Microcompaction | Compact older tool results in place when their token cost exceeds a threshold | On | `settings.advancedApi.microcompactionEnabled` |
 | Rolling-summary threshold | Percentage of the condensing threshold at which a rolling summary is folded in | 50 | `settings.advancedApi.rollingSummaryThreshold` |
 | Power steering | Re-inject key instructions every N assistant turns (0 disables) | 0 | `settings.advancedApi.powerSteeringFrequency` |
@@ -259,6 +259,8 @@ Persistent instruction sets matched by keywords. Like mini-manuals the agent fol
 | Add skill | Create a new skill | n/a | `SkillsTab.ts` |
 
 ### Prompts
+
+Selecting a custom prompt from the `/` menu inserts its resolved text into the composer so you can edit it before sending. Skills and workflows keep their command names. You can also type `/prompt-name` directly; its template is then resolved when you send the message.
 
 `Settings > Vault Operator > Customize > Prompts`
 
@@ -354,6 +356,7 @@ Appearance, input behaviour, and first-run setup. Inline editor AI actions live 
 | Setting | What it does | Default | Source |
 |---------|--------------|---------|--------|
 | Auto-add active file | Include the currently open note as context | On | `settings.autoAddActiveFileContext` |
+| Expand embedded notes | Add the text of `![[note]]` embeds right below each embed in attached notes and in the open note (up to 2 levels, read-only copies). The text goes to your model provider like the note itself | Off | `settings.resolveEmbedsInAttachments` |
 | Send with enter | Enter sends the message. Off means Ctrl/Cmd+Enter sends | On | `settings.sendWithEnter` |
 | Include current time | Add the exact time of day to the system prompt. The calendar date is always included; the exact time changes every call and defeats prompt caching | Off | `settings.includeCurrentTimeInContext` |
 | Chat linking | Link chat sessions to notes for traceability (frontmatter stamping plus semantic titling) | On | `settings.chatLinking.enabled` |
@@ -453,3 +456,7 @@ Set the agent's response language. The setting follows Obsidian's language by de
 `Settings > Vault Operator > Help`
 
 The Help group is not a content tab. It opens the public documentation in a new window. Use the in-app `Restart setup` button under Interface to re-run the first-run wizard.
+
+### Optional Ollama reranking
+
+Under Providers > Embeddings > Local reranking, **Ollama reranker** enables a separate server URL and reranker model. It is off by default. The server receives your query and bounded note excerpts; choose a local server to keep them on-device. Use **Test reranker** to verify genuine yes/no log probabilities with synthetic passages. Failures fall back to the built-in local reranker or the original search order. See [Knowledge layer](../concepts/knowledge-layer.md) for limits and the native Generate API contract.

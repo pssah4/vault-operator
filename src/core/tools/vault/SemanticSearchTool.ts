@@ -251,6 +251,7 @@ export class SemanticSearchTool extends BaseTool<'semantic_search'> {
                     const reranked = await reranker.rerank(
                         query,
                         toRerank.map(r => ({ path: r.path, text: matchedExcerptFor(r.path) || r.excerpt, score: r.score })),
+                        undefined, context.abortSignal,
                     );
                     // Keep the original fusion score in `score`; the
                     // cross-encoder output rides along as `rerankScore`.

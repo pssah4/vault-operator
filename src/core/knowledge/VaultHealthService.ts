@@ -1128,12 +1128,16 @@ export class VaultHealthService {
 
     private checkInconsistentTags(db: SqlJsDatabase): void {
         const result = db.exec(
-            `SELECT t1.tag, t2.tag, COUNT(DISTINCT t1.path) + COUNT(DISTINCT t2.path) as total_uses
-             FROM hc_tags t1, hc_tags t2
-             WHERE t1.tag < t2.tag
-               AND LOWER(t1.tag) = LOWER(t2.tag)
-             GROUP BY t1.tag, t2.tag
-             HAVING total_uses > 1
+            // Materialize one row per spelling before joining. SQLite can then
+            // index the normalized column instead of evaluating LOWER over a
+            // Cartesian product of every note-tag occurrence (#84).
+            `WITH tag_counts AS MATERIALIZED (
+                 SELECT tag, LOWER(tag) AS normalized, COUNT(DISTINCT path) AS uses
+                 FROM hc_tags GROUP BY tag
+             )
+             SELECT t1.tag, t2.tag, t1.uses + t2.uses AS total_uses
+             FROM tag_counts t1 JOIN tag_counts t2 ON t1.normalized = t2.normalized
+             WHERE t1.tag < t2.tag AND t1.uses + t2.uses > 1
              ORDER BY t1.tag, t2.tag
              LIMIT 20`,
         );

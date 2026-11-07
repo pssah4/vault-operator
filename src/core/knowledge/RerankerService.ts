@@ -10,6 +10,8 @@
  * FEATURE-1504: Local Reranking
  */
 
+import { OllamaReranker, OLLAMA_RERANKER_DEFAULT_MODEL, OLLAMA_RERANKER_DEFAULT_URL } from './OllamaReranker';
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -85,9 +87,30 @@ export class RerankerService {
     private readonly now: () => number;
     private readonly plugin: import('../../main').default;
 
-    constructor(plugin: import('../../main').default, now: () => number = () => Date.now()) {
+    private ollama: OllamaReranker | null = null;
+    private ollamaRetryAt = 0;
+
+    constructor(plugin: import('../../main').default, now: () => number = () => Date.now(), private readonly request?: typeof window.fetch) {
         this.plugin = plugin;
         this.now = now;
+    }
+
+    private get usesOllama(): boolean { return this.plugin.settings?.rerankerBackend === 'ollama'; }
+
+    /** An explicitly configured Ollama backend can be used without local ONNX assets. */
+    get isAvailable(): boolean { return this._loaded || this.usesOllama; }
+
+    private getOllama(): OllamaReranker {
+        return this.ollama ??= new OllamaReranker({
+            baseUrl: this.plugin.settings.ollamaRerankerUrl || OLLAMA_RERANKER_DEFAULT_URL,
+            model: this.plugin.settings.ollamaRerankerModel || OLLAMA_RERANKER_DEFAULT_MODEL,
+        }, this.request);
+    }
+
+    /** Explicit Settings probe; no local fallback can turn an unsupported server green. */
+    async testOllamaConnection(): Promise<void> {
+        await this.getOllama().testConnection();
+        this.ollamaRetryAt = 0;
     }
 
     /** Whether the model is loaded and ready for inference. */
@@ -124,6 +147,13 @@ export class RerankerService {
      * the reranker permanently.
      */
     async loadModel(): Promise<void> {
+        // Ollama loads its configured model on the first scored request. Do not
+        // load optional ONNX assets until they are actually needed as fallback.
+        if (this.usesOllama) return;
+        await this.loadLocalModel();
+    }
+
+    private async loadLocalModel(): Promise<void> {
         if (this._loaded || this._loading || this.isInBackoff) return;
         this._loading = true;
 
@@ -251,6 +281,9 @@ export class RerankerService {
 
     /** Unload the model to free memory. */
     unload(): void {
+        this.ollama?.dispose();
+        this.ollama = null;
+        this.ollamaRetryAt = 0;
         this.model = null;
         this.tokenizer = null;
         this._loaded = false;
@@ -269,10 +302,24 @@ export class RerankerService {
      * @returns Candidates sorted by rerankScore (descending); the original
      *          fusion score stays untouched in the score field
      */
-    async rerank(query: string, candidates: RerankCandidate[], topK?: number): Promise<RerankResult[]> {
+    async rerank(query: string, candidates: RerankCandidate[], topK?: number, signal?: AbortSignal): Promise<RerankResult[]> {
         if (candidates.length === 0) return [];
 
         const passThrough = (): RerankResult[] => candidates.map(c => ({ ...c, rerankScore: c.score }));
+
+        if (signal?.aborted) return passThrough();
+        if (this.usesOllama && this.now() >= this.ollamaRetryAt) {
+            try {
+                const results = await this.getOllama().rerank(query, candidates, signal);
+                this.ollamaRetryAt = 0;
+                return topK ? results.slice(0, topK) : results;
+            } catch (error) {
+                if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) return passThrough();
+                this.ollamaRetryAt = this.now() + BACKOFF_WINDOWS_MS[0];
+                // Do not log response bodies or query/document contents.
+                console.warn('[Reranker] Ollama unavailable; using local fallback.');
+            }
+        }
 
         // Inside a failure backoff window the reranker is unavailable,
         // even when a model instance is still loaded (a broken WASM state
@@ -281,7 +328,7 @@ export class RerankerService {
 
         if (!this._loaded) {
             // Lazy load on first rerank call
-            await this.loadModel();
+            await this.loadLocalModel();
             if (!this._loaded) return passThrough();
         }
 
@@ -299,6 +346,7 @@ export class RerankerService {
             // RERANK_BATCH_SIZE pairs per forward pass instead of one pass
             // per candidate. Chunking bounds peak WASM memory.
             for (let i = 0; i < texts.length; i += RERANK_BATCH_SIZE) {
+                if (signal?.aborted) return passThrough();
                 const batch = texts.slice(i, i + RERANK_BATCH_SIZE);
                 const queries = new Array<string>(batch.length).fill(query);
                 const inputs = await this.tokenizer(queries, { text_pair: batch, padding: true, truncation: true });

@@ -91,6 +91,17 @@ export function createNodeFetch(): typeof window.fetch {
                 }
             }
 
+            // #92: complete SDK JSON bodies have a known byte length. Without it
+            // Node uses chunked transfer, which some local gateways cannot decode.
+            // Preserve an explicit framing choice; response streaming is unaffected.
+            const hasFraming = Object.keys(headers).some(key =>
+                /^(content-length|transfer-encoding)$/i.test(key));
+            if (!hasFraming && typeof init?.body === 'string') {
+                headers['Content-Length'] = String(Buffer.byteLength(init.body, 'utf8'));
+            } else if (!hasFraming && init?.body instanceof Uint8Array) {
+                headers['Content-Length'] = String(init.body.byteLength);
+            }
+
             const defaultPort = isHttps ? 443 : 80;
             const req = httpModule.request({
                 hostname: parsed.hostname,

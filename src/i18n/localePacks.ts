@@ -25,6 +25,7 @@ export const LOCALE_LABELS: Record<Exclude<SupportedLocale, 'en'>, string> = {
     es: 'Español (Spanish)',
     fr: 'Français (French)',
     ru: 'Русский (Russian)',
+    it: 'Italiano (Italian)',
 };
 
 /** The pack-code used in filenames/hashes (lowercase locale). */

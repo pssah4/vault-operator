@@ -1371,6 +1371,7 @@ export class ToolExecutionPipeline {
         'fix_backlinks',
         'cleanup',
         'fix_categories',
+        'refresh_incoming_links',
     ]);
 
     /** Whether a run/session scope grant must NOT cover this specific call. */
@@ -1590,6 +1591,14 @@ export class ToolExecutionPipeline {
         }
 
         const policy = EFFECT_POLICY[effect];
+
+        // This new bulk action needs the exact previewed list even when a
+        // broader vault-change grant or setting exists. Headless consent
+        // cannot supply that path-bound interactive approval.
+        if (toolCall.name === 'vault_health_check' && toolCall.input.action === 'refresh_incoming_links') {
+            if (!extensions?.onApprovalRequired) return { decision: 'rejected', reason: 'Incoming-links refresh requires an explicit approved path list.' };
+            return await this.askOrDeny(toolCall, tool, extensions, effect);
+        }
 
         // config + self-modify: never auto-approvable, whatever the settings
         // say. This is the lock against self-escalation (AUDIT-006 H-3) and the

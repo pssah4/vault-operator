@@ -70,7 +70,7 @@ If you want no data leaving your machine, run a model locally:
 For local providers the Base URL field pre-fills with the default port. Click **Refresh** next to the Models field and you are done.
 
 :::info Multiple providers
-Vault Operator supports 12 providers. You can configure several and switch between them through the **Active provider** radio, or pin a specific model in the chat header for a single task.
+Vault Operator supports local and cloud providers, including a separate Gemini API OAuth connection. You can configure several and switch between them through the **Active provider** radio, or pin a specific model in the chat header for a single task.
 :::
 
 ## Your first chat

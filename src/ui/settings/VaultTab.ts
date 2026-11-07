@@ -14,6 +14,7 @@ import { resolveCoreTemplatesFolder } from '../../core/utils/templatesFolder';
 import { TemplateMaterializer } from '../../core/templates/TemplateMaterializer';
 import { makeTemplateTranslator } from '../../core/templates/translateTemplate';
 import { BUNDLED_NOTE_TEMPLATES } from '../../_generated/bundled-templates';
+import { buildIncomingLinksDisplaySettings } from './incomingLinksDisplaySettings';
 
 
 export class VaultTab {
@@ -987,6 +988,11 @@ export class VaultTab {
                 this.plugin.settings.vaultIngest = cfg;
                 await this.plugin.saveSettings();
             },
+        });
+
+        buildIncomingLinksDisplaySettings(containerEl, cfg.incomingLinksBlock, async () => {
+            this.plugin.settings.vaultIngest = cfg;
+            await this.plugin.saveSettings();
         });
 
         // FEAT-30-07: Hot-Cluster-Block lebt jetzt im Freshness-Unterblock
